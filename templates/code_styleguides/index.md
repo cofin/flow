@@ -97,6 +97,7 @@ These guides are designed for:
 - **Skill discovery** - Finding relevant patterns for a technology
 
 Each guide includes:
+
 - Core rules and patterns
 - Code examples
 - Best practices

@@ -5,6 +5,7 @@ Idiomatic Go with simplicity and clarity.
 ## Core Rules
 
 ### Formatting
+
 - **Always use `gofmt`** - This is non-negotiable
 - Use tabs for indentation (gofmt handles this)
 - No strict line length limit - let gofmt wrap

@@ -45,6 +45,7 @@ When you run `/flow:setup`, Flow helps you define the core components of your pr
 - **Directory configuration**: Choose where to store specification files (default: `.agent/specs/`).
 
 **Generated Artifacts:**
+
 - `.agent/specs/product.md`
 - `.agent/specs/product-guidelines.md`
 - `.agent/specs/tech-stack.md`
@@ -64,6 +65,7 @@ When you're ready to take on a new feature or bug fix, run `/flow:prd`. This ini
 - **Plan**: An actionable to-do list containing phases, tasks, and sub-tasks.
 
 **Generated Artifacts:**
+
 - `.agent/specs/active/<prd_id>/spec.md`
 - `.agent/specs/active/<prd_id>/plan.md`
 - `.agent/specs/active/<prd_id>/metadata.json`
@@ -79,6 +81,7 @@ When you're ready to take on a new feature or bug fix, run `/flow:prd`. This ini
 Once you approve the plan, run `/flow:implement`. Your coding agent then works through the `plan.md` file, checking off tasks as it completes them.
 
 **Updated Artifacts:**
+
 - `.agent/specs/prds.md` (Status updates)
 - `.agent/specs/active/<prd_id>/plan.md` (Status updates)
 - Project context files (Synchronized on completion)
@@ -88,18 +91,22 @@ Once you approve the plan, run `/flow:implement`. Your coding agent then works t
 ```
 
 Flow will:
-1.  Select the next pending task.
-2.  Follow the defined workflow (e.g., TDD: Write Test -> Fail -> Implement -> Pass).
-3.  Update the status in the plan as it progresses.
-4.  **Verify Progress**: Guide you through a manual verification step at the end of each phase to ensure everything works as expected.
+
+1. Select the next pending task.
+2. Follow the defined workflow (e.g., TDD: Write Test -> Fail -> Implement -> Pass).
+3. Update the status in the plan as it progresses.
+4. **Verify Progress**: Guide you through a manual verification step at the end of each phase to ensure everything works as expected.
 
 During implementation, you can also:
 
 - **Check status**: Get a high-level overview of your project's progress.
+
   ```bash
   /flow:status
   ```
+
 - **Revert work**: Undo a feature or a specific task if needed.
+
   ```bash
   /flow:revert
   ```
