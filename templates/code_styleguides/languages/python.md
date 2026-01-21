@@ -223,3 +223,106 @@ except ValueError as e:
     logger.error("Validation failed", exc_info=e)
     raise
 ```
+
+## Scripting Best Practices
+
+For Python scripts (CLI tools, automation, etc.), apply these additional patterns.
+
+### Environment Management
+
+```bash
+# Use uv for virtual environments and dependencies
+uv pip install -e .
+uv run python your_script.py
+uvx pytest  # Run tools via uvx
+```
+
+### Script Structure
+
+```python
+#!/usr/bin/env python3
+"""Brief description of what the script does.
+
+Usage:
+    python script.py [options] <arguments>
+"""
+import argparse
+import sys
+
+def main() -> int:
+    """Main entry point."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("input", help="Input file path")
+    parser.add_argument("-v", "--verbose", action="store_true")
+    args = parser.parse_args()
+
+    try:
+        # Main logic here
+        return 0
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+if __name__ == "__main__":
+    sys.exit(main())
+```
+
+### Code Formatting
+
+```bash
+# Use ruff for formatting and linting
+ruff format .
+ruff check . --fix
+```
+
+### Testing with pytest
+
+```python
+# tests/test_example.py
+import pytest
+
+def test_function_success():
+    """Test the happy path."""
+    result = my_function(valid_input)
+    assert result == expected_output
+
+def test_function_error():
+    """Test error handling."""
+    with pytest.raises(ValueError, match="Invalid input"):
+        my_function(invalid_input)
+
+@pytest.fixture
+def sample_data():
+    """Fixture providing test data."""
+    return {"key": "value"}
+```
+
+### Script Anti-Patterns
+
+```python
+# Bad: Global mutable state
+config = {}  # Modified by multiple functions
+
+# Good: Pass configuration explicitly
+def process(data: dict, config: Config) -> Result:
+    ...
+
+# Bad: Hardcoded configuration
+DATABASE_URL = "postgres://localhost/db"
+
+# Good: Environment variables or config files
+DATABASE_URL = os.environ.get("DATABASE_URL", "postgres://localhost/db")
+
+# Bad: Swallowing errors silently
+try:
+    risky_operation()
+except Exception:
+    pass  # Silent failure
+
+# Good: Log and handle appropriately
+try:
+    risky_operation()
+except SpecificError as e:
+    logger.error("Operation failed: %s", e)
+    raise
+```

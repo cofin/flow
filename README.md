@@ -50,7 +50,7 @@ When you run `/flow:setup`, Flow helps you define the core components of your pr
 - `.agent/specs/product-guidelines.md`
 - `.agent/specs/tech-stack.md`
 - `.agent/specs/workflow.md`
-- `.agent/specs/code-styleguides/`
+- `.agent/code-styleguides/`
 - `.agent/specs/prds.md`
 
 ```bash
@@ -66,9 +66,11 @@ When you're ready to take on a new feature or bug fix, run `/flow:prd`. This ini
 
 **Generated Artifacts:**
 
-- `.agent/specs/active/<prd_id>/spec.md`
-- `.agent/specs/active/<prd_id>/plan.md`
-- `.agent/specs/active/<prd_id>/metadata.json`
+- `.agent/specs/<prd_id>/spec.md` (e.g., `.agent/specs/dark-mode/spec.md`)
+- `.agent/specs/<prd_id>/plan.md`
+- `.agent/specs/<prd_id>/metadata.json`
+
+**Note:** PRD IDs use simple slugs (e.g., `dark-mode`, `user-auth`). When archived, they are renamed with timestamps (e.g., `prd_20260121_dark-mode`).
 
 ```bash
 /flow:prd
@@ -83,7 +85,7 @@ Once you approve the plan, run `/flow:implement`. Your coding agent then works t
 **Updated Artifacts:**
 
 - `.agent/specs/prds.md` (Status updates)
-- `.agent/specs/active/<prd_id>/plan.md` (Status updates)
+- `.agent/specs/<prd_id>/plan.md` (Status updates)
 - Project context files (Synchronized on completion)
 
 ```bash
@@ -116,37 +118,42 @@ During implementation, you can also:
 | Command | Description | Artifacts |
 | :--- | :--- | :--- |
 | `/flow:setup` | Scaffolds the project and sets up the Flow environment. Run this once per project. | `.agent/specs/product.md`<br>`.agent/specs/product-guidelines.md`<br>`.agent/specs/tech-stack.md`<br>`.agent/specs/workflow.md`<br>`.agent/specs/prds.md` |
-| `/flow:prd` | Starts a new feature or bug PRD. Generates `spec.md` and `plan.md`. | `.agent/specs/active/<id>/spec.md`<br>`.agent/specs/active/<id>/plan.md`<br>`.agent/specs/prds.md` |
-| `/flow:implement` | Executes the tasks defined in the current PRD's plan. | `.agent/specs/prds.md`<br>`.agent/specs/active/<id>/plan.md` |
+| `/flow:prd` | Starts a new feature or bug PRD. Generates `spec.md` and `plan.md`. | `.agent/specs/<id>/spec.md`<br>`.agent/specs/<id>/plan.md`<br>`.agent/specs/prds.md` |
+| `/flow:implement` | Executes the tasks defined in the current PRD's plan. | `.agent/specs/prds.md`<br>`.agent/specs/<id>/plan.md` |
 | `/flow:status` | Displays the current progress of the PRD registry and active PRDs. | Reads `.agent/specs/prds.md` |
 | `/flow:revert` | Reverts a PRD, phase, or task by analyzing git history. | Reverts git history |
 
 ## Directory Structure
 
-By default, Flow creates the following structure in `.agent/specs/`:
+By default, Flow creates the following structure:
 
 ```
 .agent/
-└── specs/
-    ├── index.md              # Project context index
-    ├── product.md            # Product definition
-    ├── product-guidelines.md # Brand and style guidelines
-    ├── tech-stack.md         # Technology choices
-    ├── workflow.md           # Development workflow
-    ├── prds.md               # PRD registry
-    ├── setup-state.json      # Setup state and configuration
-    ├── code-styleguides/     # Code style guides
-    ├── active/               # Active PRDs
-    │   └── <prd_id>/
-    │       ├── index.md
-    │       ├── spec.md
-    │       ├── plan.md
-    │       └── metadata.json
-    ├── archive/              # Archived PRDs
-    └── template/             # Template files
+├── specs/                    # Specification files
+│   ├── index.md              # Project context index
+│   ├── product.md            # Product definition
+│   ├── product-guidelines.md # Brand and style guidelines
+│   ├── tech-stack.md         # Technology choices
+│   ├── workflow.md           # Development workflow
+│   ├── prds.md               # PRD registry
+│   ├── setup-state.json      # Setup state and configuration
+│   └── <prd_slug>/           # PRD folders (e.g., user-auth/)
+│       ├── index.md
+│       ├── spec.md
+│       ├── plan.md
+│       ├── metadata.json
+│       └── knowledge.md
+├── archive/                  # Archived PRDs (timestamped)
+│   └── prd_YYYYMMDD_<slug>/
+├── template/                 # Template files
+└── code-styleguides/         # Code style guides
 ```
 
-You can customize this location during `/flow:setup`.
+**PRD Naming Convention:**
+- Active PRDs use simple slugs: `user-auth`, `dark-mode`
+- Archived PRDs include timestamps: `prd_20260121_user-auth`
+
+You can customize the specs location during `/flow:setup`.
 
 ## Migration from Conductor
 

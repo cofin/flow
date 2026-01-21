@@ -99,7 +99,7 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
                     -   Database Drivers
                 3.  **Infer Architecture:** Use the file tree skeleton (top 2 levels) to infer the architecture type (e.g., Monorepo, Microservices, MVC).
                 4.  **Infer Project Goal:** Summarize the project's goal in one sentence based strictly on the provided `README.md` header or `package.json` description.
-        -   **Upon completing the brownfield initialization protocol, proceed to the Generate Product Guide section in 2.1.**
+        -   **Upon completing the brownfield initialization protocol, proceed to 2.0.5 Legacy Guide Migration.**
     -   **If Greenfield:**
         -   Announce that a new project will be initialized.
         -   Proceed to the next step in this file.
@@ -127,6 +127,81 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
         -   Write the user's response into `<root_directory>/product.md` under a header named `# Initial Concept`.
 
 6.  **Continue:** Immediately proceed to the next section.
+
+### 2.0.5 Legacy Guide Migration (Brownfield Only)
+**PROTOCOL: Check for existing guides and offer to migrate.**
+
+1.  **Check for Legacy Guides:**
+    -   Scan for existing guides in these locations:
+        -   `specs/guides/`
+        -   `docs/guides/`
+    -   If neither directory exists or contains `.md` files, skip to 2.0.6.
+
+2.  **Offer Migration:**
+    > "I found existing guides in [location]. Would you like me to:
+    > A) Read, analyze, and synthesize them into the new Flow structure
+    > B) Copy them as-is to `.agent/code-styleguides/custom/`
+    > C) Skip guide migration"
+
+3.  **If Option A (Synthesize):**
+    -   Read each guide file
+    -   Extract key patterns, conventions, and rules
+    -   Integrate relevant content into the appropriate Flow documents:
+        -   Code conventions -> tech-stack.md
+        -   Style rules -> product-guidelines.md
+        -   Process rules -> workflow.md
+    -   Create summary in `.agent/code-styleguides/legacy-synthesis.md`
+    -   Offer to remove the original guide directory after successful synthesis
+
+4.  **If Option B (Copy):**
+    -   Execute `mkdir -p .agent/code-styleguides/custom`
+    -   Copy all `.md` files to `.agent/code-styleguides/custom/`
+    -   Announce: "Legacy guides copied to `.agent/code-styleguides/custom/`"
+    -   Offer to remove the original guide directory after successful copy
+
+5.  **Continue:** Proceed to 2.0.6.
+
+### 2.0.6 Knowledge Capture Analysis (Brownfield Only)
+**PROTOCOL: Analyze existing PRD knowledge for synthesis.**
+
+1.  **Check for Existing Knowledge:**
+    -   Scan for existing PRD-like structures in these locations:
+        -   `specs/active/` or `.agent/specs/active/`
+        -   `specs/archive/` or `.agent/specs/archive/`
+    -   If no PRD folders found, skip to 2.1.
+
+2.  **Cross-Reference with Source Code:**
+    -   For each discovered PRD:
+        -   Read the spec.md and plan.md if present
+        -   Check if referenced files still exist in source code
+        -   Identify implemented vs. abandoned work
+
+3.  **Offer Synthesis:**
+    > "I found [N] existing PRD records. Based on code analysis:
+    > - [X] appear fully implemented
+    > - [Y] appear partially implemented
+    > - [Z] appear abandoned
+    >
+    > Would you like me to:
+    > A) Synthesize remaining actionable items into new PRD flows
+    > B) Archive all and start fresh
+    > C) Review each PRD individually"
+
+4.  **If Option A (Synthesize):**
+    -   Extract incomplete tasks from partial PRDs
+    -   Generate a migration PRD with slug: `legacy-migration`
+    -   Add tasks to complete remaining work
+    -   Archive the original PRD folders to `.agent/archive/`
+
+5.  **If Option B (Archive All):**
+    -   Move all existing PRDs to `.agent/archive/` with timestamp prefix
+    -   Announce: "All legacy PRDs archived. Starting fresh."
+
+6.  **If Option C (Review Each):**
+    -   Present each PRD one by one
+    -   For each, ask: "Keep (migrate to new structure), Archive, or Delete?"
+
+7.  **Continue:** Proceed to 2.1.
 
 ### 2.1 Generate Product Guide (Interactive)
 1.  **Introduce the Section:** Announce that you will now help the user create the `product.md`.
@@ -288,7 +363,7 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
 ### 2.4 Select Guides (Interactive)
 1.  **Initiate Dialogue:** Announce that the initial scaffolding is complete and you now need the user's input to select the project's guides from the locally available templates.
 2.  **Select Code Style Guides:**
-    -   List the available style guides by running `ls ~/.gemini/extensions/flow/templates/code-styleguides/`.
+    -   List the available style guides by running `ls ~/.gemini/extensions/flow/templates/code_styleguides/`.
     -   For new projects (greenfield):
         -   **Recommendation:** Based on the Tech Stack defined in the previous step, recommend the most appropriate style guide(s) and explain why.
         -   Ask the user how they would like to proceed:
@@ -303,7 +378,7 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
             - Ask the user for a simple confirmation to proceed with options like:
                     A) Yes, I want to proceed with the suggested code style guides.
                     B) No, I want to add more code style guides.
-    -   **Action:** Construct and execute a command to create the directory and copy all selected files. For example: `mkdir -p <root_directory>/code-styleguides && cp ~/.gemini/extensions/flow/templates/code-styleguides/python.md ~/.gemini/extensions/flow/templates/code-styleguides/javascript.md <root_directory>/code-styleguides/`
+    -   **Action:** Construct and execute a command to create the directory and copy all selected files. For example: `mkdir -p .agent/code-styleguides && cp ~/.gemini/extensions/flow/templates/code_styleguides/python.md ~/.gemini/extensions/flow/templates/code_styleguides/javascript.md .agent/code-styleguides/`
     -   **Commit State:** Upon successful completion of the copy command, you MUST immediately write to `<root_directory>/setup-state.json` with the exact content:
         `{"last_successful_step": "2.4_code_styleguides", "root_directory": "<root_directory>"}`
 
@@ -345,18 +420,17 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
 
         ## Workflow
         - [Workflow](./workflow.md)
-        - [Code Style Guides](./code-styleguides/)
+        - [Code Style Guides](../code-styleguides/)
 
         ## Management
         - [PRD Registry](./prds.md)
-        - [Active PRDs](./active/)
-        - [Archived PRDs](./archive/)
+        - [Archived PRDs](../archive/)
         ```
     -   **Announce:** "Created `<root_directory>/index.md` to serve as the project context index."
 
 2.  **Create Additional Directories:**
-    -   Execute `mkdir -p <root_directory>/active <root_directory>/archive <root_directory>/template`.
-    -   **Announce:** "Created directories for active PRDs, archived PRDs, and templates."
+    -   Execute `mkdir -p .agent/archive .agent/template .agent/code-styleguides`.
+    -   **Announce:** "Created directories for archived PRDs, templates, and code styleguides."
 
 3.  **Summarize Actions:** Present a summary of all actions taken during Phase 1, including:
     -   The guide files that were copied.
@@ -424,7 +498,7 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
     ---
 
     ## [ ] PRD: <PRD Description>
-    *Link: [./active/<prd_id>/](./active/<prd_id>/)*
+    *Link: [./<prd_id>/](./<prd_id>/)*
     ```
 3.  **Generate PRD Artifacts:**
     a. **Define PRD:** The approved title is the PRD description.
@@ -437,8 +511,13 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
                 - Sub-task: `    - [ ] ...`
             - **CRITICAL: Inject Phase Completion Tasks.** You MUST read the `<root_directory>/workflow.md` file to determine if a "Phase Completion Verification and Checkpointing Protocol" is defined. If this protocol exists, then for each **Phase** that you generate in `plan.md`, you MUST append a final meta-task to that phase. The format for this meta-task is: `- [ ] Task: Flow - User Manual Verification '<Phase Name>' (Protocol in workflow.md)`. You MUST replace `<Phase Name>` with the actual name of the phase.
     c. **Create PRD Artifacts:**
-        i. **Generate and Store PRD ID:** Create a unique PRD ID from the PRD description using format `prd_YYYYMMDD_shortname` and store it. You MUST use this exact same ID for all subsequent steps for this PRD.
-        ii. **Create Single Directory:** Resolve the **PRD Directory** via the **Universal File Resolution Protocol** and create a single new directory: `<root_directory>/active/<prd_id>/`.
+        i. **Generate and Store PRD ID:** Create a unique PRD ID from the PRD description using a simple slug format:
+            - Convert to lowercase
+            - Replace spaces with hyphens
+            - Remove special characters
+            - Example: "Add User Authentication" -> `user-auth`
+            You MUST use this exact same ID for all subsequent steps for this PRD.
+        ii. **Create Single Directory:** Resolve the **PRD Directory** via the **Universal File Resolution Protocol** and create a single new directory: `<root_directory>/<prd_id>/`.
         iii. **Create `metadata.json`:** In the new directory, create a `metadata.json` file with the correct structure and content, using the stored PRD ID. An example is:
             - ```json
             {
@@ -468,6 +547,28 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
 
 ### 3.4 Final Announcement
 1.  **Announce Completion:** After the PRD has been created, announce that the project setup and initial PRD generation are complete.
-2.  **Save Flow Files:** Add and commit all files with the commit message `flow(setup): Add Flow setup files`.
-3.  **Next Steps:** Inform the user that they can now begin work by running `/flow:implement`.
+
+2.  **Configure Gemini Ignore (IMPORTANT):**
+    -   Create `.geminiignore` file with the following content to ensure Gemini can access Flow files:
+        ```
+        # Allow Gemini to access Flow specification files
+        !.agent/
+        ```
+    -   Check if `.gitignore` exists and add `.geminiignore` to it (if not already present).
+    -   This ensures Flow files are accessible to Gemini while respecting the user's git preferences.
+
+3.  **Save Flow Files (Respect Gitignore):**
+    -   **CRITICAL:** NEVER use `git add -f` to force-add gitignored files.
+    -   Check if `.agent/` is listed in `.gitignore`.
+    -   **If `.agent/` IS gitignored:**
+        -   Announce: "Flow setup complete. Note: `.agent/` is gitignored, so Flow files will not be committed. This is often intentional for keeping specs local."
+        -   Do NOT attempt to commit Flow specification files.
+    -   **If `.agent/` is NOT gitignored:**
+        -   Ask the user: "Would you like to commit the Flow setup files?"
+            -   A) Yes, commit them
+            -   B) No, I'll handle commits myself
+        -   If user chooses A: Add and commit with message `flow(setup): Add Flow setup files`.
+        -   If user chooses B: Skip committing and proceed.
+
+4.  **Next Steps:** Inform the user that they can now begin work by running `/flow:implement`.
 """

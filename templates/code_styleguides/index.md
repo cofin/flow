@@ -15,6 +15,13 @@ code_styleguides/
 │   ├── go.md               # Idiomatic Go
 │   ├── bash.md             # Bash/shell scripting (Google style)
 │   └── powershell.md       # PowerShell scripting
+├── databases/              # Database scripting guides
+│   ├── postgres_psql.md    # PostgreSQL psql automation
+│   ├── mysql_mariadb.md    # MySQL/MariaDB scripting
+│   ├── oracle_sqlplus.md   # Oracle SQL*Plus scripting
+│   └── mongodb.md          # MongoDB mongosh scripting
+├── cloud/                  # Cloud platform automation
+│   └── gcp_scripting.md    # GCP BigQuery & Cloud Storage
 └── frameworks/             # Framework-specific guides
     ├── react.md            # React 18+ with hooks
     ├── vue.md              # Vue 3 Composition API
@@ -76,6 +83,21 @@ code_styleguides/
 | [Tailwind](frameworks/tailwind.md) | Utility classes, Shadcn/ui components |
 | [Testing](frameworks/testing.md) | pytest, Vitest, mocking |
 | [pytest-databases](frameworks/pytest-databases.md) | Docker containers, test isolation, fixtures |
+
+### Database Scripting
+
+| Guide | Key Features |
+|-------|--------------|
+| [PostgreSQL](databases/postgres_psql.md) | psql, transactional DDL, \copy, pg_dump |
+| [MySQL/MariaDB](databases/mysql_mariadb.md) | mysql CLI, safe modes, mysqldump |
+| [Oracle SQL*Plus](databases/oracle_sqlplus.md) | SQL*Plus scripting, bind variables, wallets |
+| [MongoDB](databases/mongodb.md) | mongosh, aggregation pipelines, upserts |
+
+### Cloud Automation
+
+| Guide | Key Features |
+|-------|--------------|
+| [GCP Scripting](cloud/gcp_scripting.md) | BigQuery bq CLI, gcloud storage, parameterized queries |
 
 ## Core Principles
 

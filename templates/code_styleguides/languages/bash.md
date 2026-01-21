@@ -430,3 +430,73 @@ eval "${user_input}"  # Security vulnerability
 cmd=("ls" "-la" "${dir}")
 "${cmd[@]}"
 ```
+
+## Cross-Platform Compatibility
+
+For scripts that must run on diverse systems (Linux, Solaris, HP-UX, AIX, Windows via WSL/Cygwin), apply these additional patterns.
+
+### Locale Setup
+
+```bash
+# Ensure consistent string processing across systems
+export LC_ALL=C
+export LANG=C
+```
+
+### OS Detection Pattern
+
+```bash
+OS_NAME=$(uname -s)
+case "${OS_NAME}" in
+  Linux*)     PLATFORM="Linux" ;;
+  Darwin*)    PLATFORM="Mac" ;;
+  SunOS*)     PLATFORM="Solaris" ;;
+  CYGWIN*)    PLATFORM="Cygwin" ;;
+  MINGW*)     PLATFORM="MinGW" ;;
+  AIX*)       PLATFORM="AIX" ;;
+  HP-UX*)     PLATFORM="HPUX" ;;
+  *)          PLATFORM="UNKNOWN:${OS_NAME}" ;;
+esac
+```
+
+### Command Resolution for Legacy Unix
+
+Critical for Solaris/AIX compatibility where standard tools may be non-POSIX.
+
+```bash
+# Default to standard path
+GREP="grep"
+AWK="awk"
+SED="sed"
+
+if [[ "${PLATFORM}" == "Solaris" ]]; then
+  # Solaris: Use xpg4 versions for POSIX compliance
+  [[ -x /usr/xpg4/bin/grep ]] && GREP="/usr/xpg4/bin/grep"
+  [[ -x /usr/xpg4/bin/awk ]] && AWK="/usr/xpg4/bin/awk"
+  [[ -x /usr/xpg4/bin/sed ]] && SED="/usr/xpg4/bin/sed"
+fi
+
+# Validate critical tools exist
+for cmd in "${GREP}" "${AWK}" "${SED}"; do
+  command -v "${cmd}" &> /dev/null || {
+    echo "Error: Required command '${cmd}' not found." >&2
+    exit 1
+  }
+done
+```
+
+### Windows Path Handling (WSL & Cygwin)
+
+```bash
+normalize_path() {
+  local path="$1"
+  if [[ "${PLATFORM}" == "Cygwin" ]]; then
+    cygpath -w "${path}"
+  elif grep -q "Microsoft" /proc/version 2>/dev/null; then
+    # WSL detection
+    wslpath -w "${path}"
+  else
+    echo "${path}"
+  fi
+}
+```
