@@ -1,6 +1,6 @@
 # Flow Context
 
-If a user mentions a "plan" or asks about the plan, and they have used the Flow extension in the current session, they are likely referring to the `.agent/specs/prds.md` file or one of the PRD plans (`.agent/specs/active/<prd_id>/plan.md`).
+If a user mentions a "plan" or asks about the plan, and they have used the Flow extension in the current session, they are likely referring to the `.agent/specs/prds.md` file or one of the PRD plans (`.agent/specs/<prd_id>/plan.md`).
 
 ## Configuration
 
@@ -45,12 +45,21 @@ To find a file (e.g., "**Product Definition**") within a specific context (Proje
 - **Workflow**: `.agent/specs/workflow.md`
 - **Product Guidelines**: `.agent/specs/product-guidelines.md`
 - **PRD Registry**: `.agent/specs/prds.md`
-- **PRD Directory**: `.agent/specs/active/`
-- **Archive Directory**: `.agent/specs/archive/`
-- **Template Directory**: `.agent/specs/template/`
+- **PRD Directory**: `.agent/specs/`
+- **Archive Directory**: `.agent/archive/`
+- **Template Directory**: `.agent/template/`
+- **Code Styleguides Directory**: `.agent/code-styleguides/`
 
 **Standard Default Paths (PRD):**
 
-- **Specification**: `.agent/specs/active/<prd_id>/spec.md`
-- **Implementation Plan**: `.agent/specs/active/<prd_id>/plan.md`
-- **Metadata**: `.agent/specs/active/<prd_id>/metadata.json`
+- **Specification**: `.agent/specs/<prd_id>/spec.md`
+- **Implementation Plan**: `.agent/specs/<prd_id>/plan.md`
+- **Metadata**: `.agent/specs/<prd_id>/metadata.json`
+
+## PRD ID Naming Convention
+
+- **Active PRDs:** Simple slug format (e.g., `user-auth`, `dark-mode-toggle`)
+  - Derived from description: lowercase, hyphens for spaces, no special characters
+  - Example: "Add User Authentication" -> `user-auth`
+- **Archived PRDs:** Timestamped format `prd_YYYYMMDD_<slug>` (e.g., `prd_20260121_user-auth`)
+  - Timestamp added when archiving, preserves history

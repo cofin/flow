@@ -228,8 +228,12 @@ The `spec.md` MUST include these sections:
 
 ### 3.5 Create PRD Artifacts and Update PRD Registry
 
-1.  **Check for existing PRD name:** Before generating a new PRD ID, resolve the **PRD Directory** using the **Universal File Resolution Protocol**. List all existing PRD directories in that resolved path. Extract the short names from these PRD IDs (e.g., ``shortname_YYYYMMDD`` -> `shortname`). If the proposed short name for the new PRD (derived from the initial description) matches an existing short name, halt the PRD creation. Explain that a PRD with that name already exists and suggest choosing a different name or resuming the existing PRD.
-2.  **Generate PRD ID:** Create a unique PRD ID (e.g., ``prd_YYYYMMDD_shortname``).
+1.  **Check for existing PRD name:** Before generating a new PRD ID, resolve the **PRD Directory** using the **Universal File Resolution Protocol**. List all existing PRD directories in that resolved path. If the proposed slug for the new PRD (derived from the initial description) matches an existing directory name, halt the PRD creation. Explain that a PRD with that name already exists and suggest choosing a different name or resuming the existing PRD.
+2.  **Generate PRD ID:** Create a unique PRD ID using a simple slug format:
+    -   Convert the description to lowercase
+    -   Replace spaces with hyphens
+    -   Remove special characters
+    -   Example: "Add User Authentication" -> `user-auth`
 3.  **Create Directory:** Create a new directory for the PRD: `<PRD Directory>/<prd_id>/`.
 4.  **Create `metadata.json`:** Create a metadata file at `<PRD Directory>/<prd_id>/metadata.json` with content like:
     ```json
@@ -308,4 +312,34 @@ If critical information cannot be gathered:
 2. Add items to "Open Questions" section
 3. Set PRD status to `needs_review` instead of `new`
 4. Announce: "PRD created with open questions that need resolution before implementation."
+
+---
+
+## 5.0 POST-PRD WORKFLOW GATE
+**PROTOCOL: Enforce explicit user instruction before implementation.**
+
+1.  **Completion Announcement:**
+    After PRD creation is complete, you MUST announce:
+    > "PRD creation complete. The specification and plan have been saved to `<prd_path>/`.
+    >
+    > **IMPORTANT:** I will NOT automatically start implementation.
+    > When you're ready, explicitly run `/flow:implement` or tell me to begin implementation.
+    >
+    > You may also:
+    > - Review and edit the spec.md and plan.md files directly
+    > - Request changes to the PRD (I will update with the same rigor as initial creation)
+    > - Run `/flow:research` if more investigation is needed"
+
+2.  **CRITICAL - Never Auto-Implement:**
+    -   You MUST wait for explicit user instruction before running `/flow:implement`.
+    -   Do NOT proceed to implementation automatically.
+    -   If user asks you to "do it" or "go ahead" after PRD creation, clarify: "Would you like me to run `/flow:implement` to start implementation?"
+
+3.  **Handle Change Requests:**
+    If the user requests changes after the PRD is written:
+    -   Read the existing `spec.md` and `plan.md`
+    -   Apply the SAME interactive questioning process used during initial creation
+    -   Focus questions on the sections being changed
+    -   Present updated draft for approval before writing
+    -   Announce completion and remind about `/flow:implement`
 """

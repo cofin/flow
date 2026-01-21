@@ -52,7 +52,7 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
             *   **Example when in-progress items are found:**
                 > "I found multiple in-progress items. Please choose which one to revert:
                 >
-                > PRD: prd_20251208_user_profile
+                > PRD: user-profile
                 >   1) [Phase] Implement Backend API
                 >   2) [Task] Update user model
                 >
@@ -60,11 +60,11 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
             *   **Example when showing recently completed items:**
                 > "No items are in progress. Please choose a recently completed item to revert:
                 >
-                > PRD: prd_20251208_user_profile
+                > PRD: user-profile
                 >   1) [Phase] Foundational Setup
                 >   2) [Task] Initialize React application
                 >
-                > PRD: prd_20251208_auth_ui
+                > PRD: auth-ui
                 >   3) [Task] Create login form
                 >
                 > 4) A different PRD, Task, or Phase."

@@ -109,7 +109,7 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
 7.  **Finalize PRD:**
     -   After all tasks in the PRD's local **Implementation Plan** are completed, you MUST update the PRD's status in the **PRD Registry**.
     -   This requires finding the specific heading for the PRD (e.g., `## [~] PRD: <Description>`) and replacing it with the completed status (e.g., `## [x] PRD: <Description>`).
-    -   **Commit Changes:** Stage the **PRD Registry** file and commit with the message `chore(flow): Mark PRD '<prd_description>' as complete`.
+    -   **Commit Changes (Respect Gitignore):** Check if `.agent/` is gitignored. If not, stage the **PRD Registry** file and commit with the message `chore(flow): Mark PRD '<prd_description>' as complete`. If gitignored, skip the commit.
     -   Announce that the PRD is fully complete and the PRD registry has been updated.
 
 ---
@@ -162,9 +162,10 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
 
 6.  **Final Report:** Announce the completion of the synchronization process and provide a summary of the actions taken.
     - **Construct the Message:** Based on the records of which files were changed, construct a summary message.
-    - **Commit Changes:**
-        - If any files were changed (**Product Definition**, **Tech Stack**, or **Product Guidelines**), you MUST stage them and commit them.
-        - **Commit Message:** `docs(flow): Synchronize docs for PRD '<prd_description>'`
+    - **Commit Changes (Respect Gitignore):**
+        - If any files were changed (**Product Definition**, **Tech Stack**, or **Product Guidelines**):
+            - Check if `.agent/` is gitignored. If so, skip committing.
+            - If not gitignored, stage them and commit with message: `docs(flow): Synchronize docs for PRD '<prd_description>'`
     - **Example (if Product Definition was changed, but others were not):**
         > "Documentation synchronization is complete.
         > - **Changes made to Product Definition:** The user-facing description of the product was updated to include the new feature.
@@ -207,7 +208,7 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
 
 5.  **Update Pattern Library (if approved):**
     -   If user approves, update the relevant code style guide files
-    -   Commit with message: `docs(flow): Extract patterns from PRD '<prd_description>'`
+    -   **Commit (Respect Gitignore):** Check if `.agent/` is gitignored. If not, commit with message: `docs(flow): Extract patterns from PRD '<prd_description>'`. If gitignored, skip the commit.
 
 6.  **Update PRD Metadata:**
     -   Set `patterns_extracted: true` in the PRD's `metadata.json`
@@ -234,10 +235,16 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
 3.  **Handle User Response:**
     *   **If user chooses "A" (Archive):**
         i.   **Create Archive Directory:** Resolve the **Archive Directory** via the **Universal File Resolution Protocol**. If it does not exist, create it.
-        ii.  **Archive PRD Folder:** Move the PRD's folder from its current location (resolved via the **PRD Directory**) to `<Archive Directory>/<prd_id>`.
-        iii. **Remove from PRD Registry:** Read the content of the **PRD Registry** file, remove the entire section for the completed PRD (the part that starts with `---` and contains the PRD description), and write the modified content back to the file.
-        iv.  **Commit Changes:** Stage the **PRD Registry** file and the archive directory. Commit with the message `chore(flow): Archive PRD '<prd_description>'`.
-        v.   **Announce Success:** Announce: "PRD '<prd_description>' has been successfully archived."
+        ii.  **Generate Archive Name:** Create a timestamped archive name using format `prd_YYYYMMDD_<original_slug>` where:
+            -   `YYYYMMDD` is today's date
+            -   `<original_slug>` is the current PRD ID (e.g., `user-auth`)
+            -   Example: `user-auth` becomes `prd_20260121_user-auth`
+        iii. **Archive PRD Folder:** Move the PRD's folder from its current location (resolved via the **PRD Directory**) to `<Archive Directory>/<archive_name>`.
+        iv.  **Remove from PRD Registry:** Read the content of the **PRD Registry** file, remove the entire section for the completed PRD (the part that starts with `---` and contains the PRD description), and write the modified content back to the file.
+        v.   **Commit Changes (Respect Gitignore):**
+            -   Check if `.agent/` is gitignored. If so, skip committing and just announce success.
+            -   If not gitignored, stage the **PRD Registry** file and the archive directory. Commit with the message `chore(flow): Archive PRD '<prd_description>'`.
+        vi.  **Announce Success:** Announce: "PRD '<prd_description>' has been archived as `<archive_name>`."
     *   **If user chooses "B" (Delete):**
         i. **CRITICAL WARNING:** Before proceeding, you MUST ask for a final confirmation due to the irreversible nature of the action.
             > "WARNING: This will permanently delete the PRD folder and all its contents. This action cannot be undone. Are you sure you want to proceed? (yes/no)"
@@ -245,7 +252,9 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
             - **If 'yes'**:
                 a. **Delete PRD Folder:** Resolve the **PRD Directory** and permanently delete the PRD's folder from `<PRD Directory>/<prd_id>`.
                 b. **Remove from PRD Registry:** Read the content of the **PRD Registry** file, remove the entire section for the completed PRD, and write the modified content back to the file.
-                c. **Commit Changes:** Stage the **PRD Registry** file and the deletion of the PRD directory. Commit with the message `chore(flow): Delete PRD '<prd_description>'`.
+                c. **Commit Changes (Respect Gitignore):**
+                    -   Check if `.agent/` is gitignored. If so, skip committing and just announce success.
+                    -   If not gitignored, stage the **PRD Registry** file and the deletion of the PRD directory. Commit with the message `chore(flow): Delete PRD '<prd_description>'`.
                 d. **Announce Success:** Announce: "PRD '<prd_description>' has been permanently deleted."
             - **If 'no' (or anything else)**:
                 a. **Announce Cancellation:** Announce: "Deletion cancelled. The PRD has not been changed."

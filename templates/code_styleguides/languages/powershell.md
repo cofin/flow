@@ -468,3 +468,61 @@ if ($value -eq $null)
 # Good: $null on left side (avoids array comparison issues)
 if ($null -eq $value)
 ```
+
+## Platform Detection
+
+For scripts that need platform-specific behavior across Windows, Linux, and macOS.
+
+### Detecting the Operating System
+
+```powershell
+if ($PSVersionTable.OS -like "Windows*") {
+    # Windows-specific actions
+    Write-Host "Running on Windows."
+} elseif ($PSVersionTable.OS -like "Linux*") {
+    # Linux-specific actions
+    Write-Host "Running on Linux."
+} elseif ($PSVersionTable.OS -like "Darwin*") {
+    # macOS-specific actions
+    Write-Host "Running on macOS."
+}
+
+# Alternative using .NET
+switch ([System.Environment]::OSVersion.Platform) {
+    "Win32NT" { $platform = "Windows" }
+    "Unix"    { $platform = "Unix-like" }  # Linux or macOS
+}
+```
+
+### Trap Statement for Unhandled Errors
+
+```powershell
+# Define trap at the beginning of the script
+trap {
+    $errorMessage = $_.Exception.Message
+    Write-Log -Message "Unhandled Error: $errorMessage" -Level "ERROR"
+    # Clean up resources if necessary
+    exit 1
+}
+
+# This will catch terminating errors not handled by try-catch
+Get-ChildItem -Path "C:\NonExistentFolder" -ErrorAction Stop
+```
+
+### Logging Function Pattern
+
+```powershell
+$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
+$logFile = Join-Path -Path $scriptDir -ChildPath "ScriptLog.log"
+
+function Write-Log {
+    param(
+        [string]$Message,
+        [string]$Level = "INFO"
+    )
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $logEntry = "$timestamp [$Level] $Message"
+    Write-Host $logEntry
+    Add-Content -Path $logFile -Value $logEntry -Encoding UTF8
+}
+```
