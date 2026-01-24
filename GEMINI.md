@@ -1,65 +1,282 @@
 # Flow Context
 
-If a user mentions a "plan" or asks about the plan, and they have used the Flow extension in the current session, they are likely referring to the `.agent/specs/prds.md` file or one of the PRD plans (`.agent/specs/<prd_id>/plan.md`).
+This file provides guidance to Gemini CLI when working with code in this repository.
+
+## Overview
+
+**Flow** is a unified toolkit for **Context-Driven Development** combining:
+- **Flow Framework**: Spec-first planning, human-readable context, TDD workflow
+- **Beads Integration**: Dependency-aware task graph, cross-session memory, agent-optimized output
+
+Beads is a **required dependency**. Flow will offer to install it and initializes in **stealth mode** by default.
 
 ## Configuration
 
-The root directory for Flow artifacts defaults to `.agent/specs/`. This can be customized during `/flow:setup`.
+The root directory for Flow artifacts defaults to `.agent/`. This can be customized during `/flow:setup`.
 
 To find the configured root directory:
-
-1. Search for `setup-state.json` in these locations (in order):
-   - `.agent/specs/setup-state.json`
-   - `conductor/setup_state.json` (legacy)
+1. Check for `.agent/setup-state.json`
 2. Read the `root_directory` value from the found file
-3. If no file found, use `.agent/specs/` as default
+3. If no file found, use `.agent/` as default
 
 ## Universal File Resolution Protocol
 
 **PROTOCOL: How to locate files.**
-To find a file (e.g., "**Product Definition**") within a specific context (Project Root or a specific PRD):
+
+To find a file (e.g., "**Product Definition**") within a specific context:
 
 1. **Identify Index:** Determine the relevant index file:
-    - **Project Context:** `.agent/specs/index.md`
-    - **PRD Context:**
-        a. Resolve and read the **PRD Registry** (via Project Context).
-        b. Find the entry for the specific `<prd_id>`.
-        c. Follow the link provided in the registry to locate the PRD's folder. The index file is `<prd_folder>/index.md`.
-        d. **Fallback:** If the PRD is not yet registered (e.g., during creation) or the link is broken:
-            1. Resolve the **PRD Directory** (via Project Context).
-            2. The index file is `<PRD Directory>/<prd_id>/index.md`.
+    - **Project Context:** `.agent/index.md`
+    - **Track Context:**
+        a. Resolve and read the **Track Registry** (via Project Context)
+        b. Find the entry for the specific `<track_id>`
+        c. Follow the link to locate the track's folder. Index file is `<track_folder>/index.md`
+        d. **Fallback:** If not yet registered, use `<Track Directory>/<track_id>/index.md`
 
-2. **Check Index:** Read the index file and look for a link with a matching or semantically similar label.
+2. **Check Index:** Read the index file and look for a link with a matching label.
 
-3. **Resolve Path:** If a link is found, resolve its path **relative to the directory containing the `index.md` file**.
-    - *Example:* If `.agent/specs/index.md` links to `./workflow.md`, the full path is `.agent/specs/workflow.md`.
+3. **Resolve Path:** Resolve path **relative to the directory containing the `index.md` file**.
 
-4. **Fallback:** If the index file is missing or the link is absent, use the **Default Path** keys below.
+4. **Fallback:** If index missing, use **Default Path** keys below.
 
-5. **Verify:** You MUST verify the resolved file actually exists on the disk.
+5. **Verify:** Confirm the resolved file exists on disk.
 
 **Standard Default Paths (Project):**
 
-- **Product Definition**: `.agent/specs/product.md`
-- **Tech Stack**: `.agent/specs/tech-stack.md`
-- **Workflow**: `.agent/specs/workflow.md`
-- **Product Guidelines**: `.agent/specs/product-guidelines.md`
-- **PRD Registry**: `.agent/specs/prds.md`
-- **PRD Directory**: `.agent/specs/`
-- **Archive Directory**: `.agent/archive/`
-- **Template Directory**: `.agent/template/`
-- **Code Styleguides Directory**: `.agent/code-styleguides/`
+| Key | Default Path |
+|-----|--------------|
+| **Product Definition** | `.agent/product.md` |
+| **Tech Stack** | `.agent/tech-stack.md` |
+| **Workflow** | `.agent/workflow.md` |
+| **Product Guidelines** | `.agent/product-guidelines.md` |
+| **Track Registry** | `.agent/tracks.md` |
+| **Track Directory** | `.agent/specs/` |
+| **Archive Directory** | `.agent/archive/` |
+| **Template Directory** | `.agent/templates/` |
+| **Code Styleguides Directory** | `.agent/code-styleguides/` |
+| **Patterns** | `.agent/patterns.md` |
+| **Beads Config** | `.agent/beads.json` |
+| **Research Directory** | `.agent/research/` |
+| **Wisps Directory** | `.agent/wisps/` |
 
-**Standard Default Paths (PRD):**
+**Standard Default Paths (Track):**
 
-- **Specification**: `.agent/specs/<prd_id>/spec.md`
-- **Implementation Plan**: `.agent/specs/<prd_id>/plan.md`
-- **Metadata**: `.agent/specs/<prd_id>/metadata.json`
+| Key | Default Path |
+|-----|--------------|
+| **Specification** | `.agent/specs/<track_id>/spec.md` |
+| **Implementation Plan** | `.agent/specs/<track_id>/plan.md` |
+| **Metadata** | `.agent/specs/<track_id>/metadata.json` |
+| **Learnings** | `.agent/specs/<track_id>/learnings.md` |
 
-## PRD ID Naming Convention
+## Track ID Naming Convention
 
-- **Active PRDs:** Simple slug format (e.g., `user-auth`, `dark-mode-toggle`)
-  - Derived from description: lowercase, hyphens for spaces, no special characters
-  - Example: "Add User Authentication" -> `user-auth`
-- **Archived PRDs:** Timestamped format `prd_YYYYMMDD_<slug>` (e.g., `prd_20260121_user-auth`)
-  - Timestamp added when archiving, preserves history
+**Format:** `shortname_YYYYMMDD` (e.g., `user-auth_20260124`)
+
+- **Active Tracks:** Slug + date (e.g., `dark-mode_20260124`)
+  - Derived from description: lowercase, hyphens for spaces, max 3-4 words
+  - Date suffix prevents collisions and aids chronological sorting
+- **Archived Tracks:** Keep same ID, moved to `.agent/archive/`
+
+## Task Status Markers
+
+| Marker | Status | Beads Equivalent |
+|--------|--------|------------------|
+| `[ ]` | Pending | `pending` |
+| `[~]` | In Progress | `in_progress` |
+| `[x]` | Completed | `completed` |
+| `[!]` | Blocked | `blocked` |
+| `[-]` | Skipped | `skipped` |
+
+## Commands
+
+| Command | Purpose |
+|---------|---------|
+| `/flow:setup` | Initialize project with context files, Beads, and first track |
+| `/flow:prd` | Create PRD (track) with spec and plan |
+| `/flow:research` | Conduct pre-PRD research |
+| `/flow:docs` | Five-phase documentation workflow |
+| `/flow:implement` | Execute tasks from track's plan (TDD workflow) |
+| `/flow:status` | Display progress overview with Beads status |
+| `/flow:revert` | Git-aware revert of tracks, phases, or tasks |
+| `/flow:validate` | Validate project integrity and fix issues |
+| `/flow:block` | Mark task as blocked with reason |
+| `/flow:skip` | Skip current task with justification |
+| `/flow:revise` | Update spec/plan when implementation reveals issues |
+| `/flow:archive` | Archive completed tracks + elevate patterns |
+| `/flow:export` | Generate project summary export |
+| `/flow:handoff` | Create context handoff for session transfer |
+| `/flow:refresh` | Sync context docs with current codebase state |
+| `/flow:formula` | List and manage track templates (Beads formulas) |
+| `/flow:wisp` | Create ephemeral exploration track (no audit trail) |
+| `/flow:distill` | Extract reusable template from completed track |
+
+## Beads Integration
+
+Beads provides persistent cross-session memory. It is **required** for Flow.
+
+### Installation Check
+```bash
+command -v bd &> /dev/null && echo "BEADS_OK" || echo "BEADS_MISSING"
+```
+
+If missing, Flow offers to install:
+```bash
+npm install -g beads-cli
+```
+
+### Initialization (Stealth Mode Default)
+```bash
+bd init --stealth
+```
+
+Stealth mode keeps Beads data local-only (not committed to git).
+
+### Configuration (`.agent/beads.json`)
+```json
+{
+  "enabled": true,
+  "mode": "stealth",
+  "sync": "bidirectional",
+  "epicPrefix": "flow",
+  "autoCreateTasks": true,
+  "autoSyncOnComplete": true,
+  "compactOnArchive": true,
+  "taskStatusMapping": {
+    "pending": "[ ]",
+    "in_progress": "[~]",
+    "completed": "[x]",
+    "blocked": "[!]",
+    "skipped": "[-]"
+  }
+}
+```
+
+### Key Beads Commands
+
+| Flow Action | Beads Command |
+|-------------|---------------|
+| Create track | `bd epic create "Track: {track_id}"` |
+| Create task | `bd create "{task}" -e {epic_id}` |
+| Start task | `bd update {id} --status in_progress` |
+| Complete task | `bd close {id} --note "commit: {sha}"` |
+| Block task | `bd update {id} --status blocked --note "{reason}"` |
+| Get ready tasks | `bd ready` |
+| Add notes | `bd update {id} --notes "{learning}"` |
+| Sync to git | `bd sync` |
+| Prime context | `bd prime` |
+| Show blocked | `bd blocked` |
+
+### Session Protocol
+
+At session start:
+```bash
+bd sync
+bd prime
+```
+
+At session end:
+```bash
+bd sync
+# Notes survive context compaction!
+```
+
+## Learnings System (Ralph-style)
+
+### Per-Track (`learnings.md`)
+Append-only log of discoveries:
+```markdown
+## [2026-01-24 14:30] - Phase 1 Task 2: Add auth middleware
+- **Files changed:** src/auth/middleware.ts
+- **Commit:** abc1234
+- **Learning:** Codebase uses Zod for all validation
+- **Pattern:** Import order: external → internal → types
+- **Gotcha:** Must update index.ts barrel exports
+```
+
+### Project-Level (`patterns.md`)
+Consolidated patterns from all tracks:
+```markdown
+# Code Conventions
+- Import order: external → internal → types
+- Use barrel exports in index.ts
+
+# Architecture
+- Validation with Zod schemas
+- Repository pattern for data access
+
+# Gotchas
+- Always update barrel exports
+- Run `npm run typecheck` before commit
+```
+
+### Knowledge Flywheel
+1. Implement → discover patterns
+2. Log in track `learnings.md` (sync to Beads notes)
+3. Phase completion → prompt pattern elevation
+4. Track completion → extract to `patterns.md`
+5. New tracks → pre-load `patterns.md` context
+
+## Parallel Execution
+
+Phases can annotate parallel execution:
+```markdown
+## Phase 2: Core Implementation
+<!-- execution: parallel -->
+
+- [ ] Task 3: Create auth module
+  <!-- files: src/auth/index.ts, src/auth/index.test.ts -->
+
+- [ ] Task 4: Create config module
+  <!-- files: src/config/index.ts -->
+  <!-- depends: task3 -->
+```
+
+State tracked in `parallel_state.json`. Uses Claude's Task Tool to spawn sub-agents.
+
+## Task Workflow (TDD)
+
+1. Select task from plan.md (or `bd ready`)
+2. Mark `[~]` in progress → `bd update {id} --status in_progress`
+3. **Write failing tests** (Red)
+4. **Implement to pass** (Green)
+5. **Refactor** while green
+6. Verify >80% coverage
+7. Commit: `<type>(<scope>): <description>`
+8. Update plan.md: `[~]` → `[x]` with SHA
+9. Sync: `bd close {id} --note "commit: {sha}"`
+10. Log learnings in `learnings.md`
+
+**Important:** All commits stay local. Flow never pushes automatically.
+
+## Phase Checkpoints
+
+At phase completion:
+1. Run full test suite
+2. Verify coverage requirements
+3. Create git tag: `checkpoint/{track_id}/phase-{N}`
+4. Prompt for pattern elevation
+5. Manual verification with user
+
+## Skills
+
+Skills are available in `templates/skills/` for copying to `.gemini/skills/`:
+
+| Skill | Purpose |
+|-------|---------|
+| **flow** | Auto-activates when `.agent/` exists. Workflow guidance. |
+| **beads** | Auto-activates when `.beads/` exists. Persistent memory. |
+| **50+ tech skills** | React, Rust, Litestar, SQLSpec, testing, etc. |
+
+## Installation
+
+```bash
+# Install as Gemini extension
+gemini install flow
+
+# Or copy manually
+cp -r templates/gemini/commands/* ~/.gemini/extensions/flow/commands/
+cp -r templates/skills ~/.gemini/skills/
+
+# Install Beads (required)
+npm install -g beads-cli
+```

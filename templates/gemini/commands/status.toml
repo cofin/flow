@@ -1,0 +1,142 @@
+description = "Displays project progress with Beads task status"
+prompt = """
+## SYSTEM DIRECTIVE
+You are providing a comprehensive status overview combining Flow track registry with Beads task status.
+
+---
+
+## Phase 1: Environment Check
+
+### 1.1 Verify Setup
+Using **Universal File Resolution Protocol**, verify:
+- **Track Registry** (`.agent/tracks.md`)
+- **Product Definition**
+- **Tech Stack**
+- **Workflow**
+- **Patterns** (`.agent/patterns.md`)
+
+If missing: "Flow not set up. Run `/flow:setup`." → HALT
+
+### 1.2 Check Beads
+```bash
+command -v bd &> /dev/null && echo "BEADS_OK" || echo "BEADS_MISSING"
+```
+
+---
+
+## Phase 2: Gather Status Data
+
+### 2.1 Read Track Registry
+Parse `.agent/tracks.md` to identify all tracks:
+- Status: `[ ]` pending, `[~]` in progress, `[x]` complete, `[!]` blocked, `[-]` skipped
+- Track ID and description
+- Beads epic ID
+- Risk level
+
+### 2.2 Read Each Track's Plan
+For each non-archived track:
+- Read `plan.md`
+- Count tasks by status
+- Identify current phase
+
+### 2.3 Query Beads Status
+```bash
+bd status
+```
+
+```bash
+bd ready
+```
+
+```bash
+bd blocked
+```
+
+---
+
+## Phase 3: Compile Report
+
+### 3.1 Generate Summary
+
+```
+╔══════════════════════════════════════════════════════════════╗
+║                    FLOW PROJECT STATUS                        ║
+╠══════════════════════════════════════════════════════════════╣
+║ Date: {YYYY-MM-DD HH:MM}                                     ║
+║ Project Status: {On Track | Blocked | Behind}                ║
+╚══════════════════════════════════════════════════════════════╝
+
+=== TRACKS ===
+
+{track_id} [{status_icon}]
+  Type: {feature|bug|refactor}
+  Progress: {completed}/{total} tasks ({percentage}%)
+  Current Phase: {phase_name}
+  Current Task: {task_description}
+  Beads Epic: {epic_id}
+
+{track_id} [{status_icon}]
+  ...
+
+=== BEADS SUMMARY ===
+
+Ready Tasks: {count}
+{list of ready tasks from `bd ready`}
+
+Blocked Tasks: {count}
+{list with reasons from `bd blocked`}
+
+=== AGGREGATE ===
+
+Total Tracks: {count}
+  Pending:     {count} [ ]
+  In Progress: {count} [~]
+  Completed:   {count} [x]
+  Blocked:     {count} [!]
+  Skipped:     {count} [-]
+
+Total Tasks: {count}
+  Completed: {count} ({percentage}%)
+  Remaining: {count}
+
+=== NEXT ACTIONS ===
+
+1. {Next recommended action}
+2. {Second action}
+
+=== RECENT PATTERNS ===
+
+{Last 3 patterns added to patterns.md}
+
+=== SESSION CONTEXT ===
+
+Beads Notes (from previous sessions):
+{Any notes from `bd epic notes` for active tracks}
+```
+
+---
+
+## Phase 4: Recommendations
+
+Based on status, provide actionable recommendations:
+
+**If blocked tasks exist:**
+> "Blocked tasks detected. Run `/flow:block` to manage or `/flow:skip` to bypass."
+
+**If track in progress but no recent commits:**
+> "No commits today. Consider checkpointing progress."
+
+**If patterns not elevated recently:**
+> "Learnings accumulating. Consider running `/flow:archive` to elevate patterns."
+
+**If all tracks complete:**
+> "All tracks complete! Create new track with `/flow:newtrack`."
+
+---
+
+## Critical Rules
+
+1. **BEADS FIRST** - Always show Beads status for cross-session context
+2. **ACTIONABLE** - End with concrete next steps
+3. **PATTERNS** - Surface recent learnings for context
+"""

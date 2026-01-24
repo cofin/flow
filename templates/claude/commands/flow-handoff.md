@@ -1,0 +1,135 @@
+---
+description: Create context handoff for session transfer
+argument-hint: <track_id>
+allowed-tools: Read, Write, Edit, Glob, Bash
+---
+
+# Flow Handoff
+
+Creating handoff for: **$ARGUMENTS**
+
+## Phase 1: Analyze Progress
+
+1. Read current plan.md status
+2. Calculate completion percentage
+3. Identify current phase and task
+4. Check for blockers
+
+---
+
+## Phase 2: Gather Context
+
+Collect:
+- Recent git history for track
+- Learnings from learnings.md
+- Any notes from Beads
+- Files modified in current phase
+
+---
+
+## Phase 3: Generate Handoff Document
+
+Create `.agent/specs/{track_id}/handoff_{N}.md`:
+
+```markdown
+# Handoff: {track_id}
+
+**Created:** {timestamp}
+**Handoff Number:** {N}
+**Author Session:** {if available}
+
+## Current Status
+
+**Phase:** {N} - {phase name}
+**Task:** {current task number and description}
+**Progress:** {completed}/{total} ({%})
+
+## Context Summary
+
+{Brief summary of what's been done}
+
+## Recent Commits
+
+| SHA | Message | Files |
+|-----|---------|-------|
+| abc1234 | feat(auth): Add login | 3 files |
+
+## Key Learnings
+
+{Important patterns/gotchas discovered}
+
+## Blockers
+
+{Any current blockers}
+
+## Next Steps
+
+1. {Immediate next task}
+2. {Following tasks}
+
+## Files to Review
+
+{List of key files for context}
+
+## Beads Recovery
+
+To resume in new session:
+```bash
+bd prime
+bd ready
+bd show {epic_id}
+```
+
+## Notes for Next Session
+
+{Any additional context}
+```
+
+---
+
+## Phase 4: Update State
+
+Save to `implement_state.json`:
+
+```json
+{
+  "handoff_created": "timestamp",
+  "handoff_number": N,
+  "current_phase": N,
+  "current_task": N
+}
+```
+
+---
+
+## Phase 5: Commit Handoff
+
+```bash
+git add .agent/specs/{track_id}/
+git commit -m "flow(handoff): {track_id} handoff {N}"
+```
+
+---
+
+## Final Summary
+
+```
+Handoff Created
+
+Track: {track_id}
+Handoff: handoff_{N}.md
+Progress: {completed}/{total} tasks
+
+To resume in new session:
+1. Run `bd prime` to load Beads context
+2. Read .agent/specs/{track_id}/handoff_{N}.md
+3. Run `/flow-implement {track_id}` to continue
+```
+
+---
+
+## Critical Rules
+
+1. **COMPREHENSIVE** - Include all needed context
+2. **BEADS INSTRUCTIONS** - Include recovery commands
+3. **COMMIT HANDOFF** - Preserve in git

@@ -1,0 +1,193 @@
+description = "Generate project summary export in markdown or JSON format"
+prompt = """
+## 1.0 SYSTEM DIRECTIVE
+You are generating a project summary export for the Flow spec-driven development framework. Your task is to collect all project data and generate a comprehensive export document.
+
+CRITICAL: You must validate the success of every tool call. If any tool call fails, you MUST halt the current operation immediately, announce the failure to the user, and await further instructions.
+
+---
+
+## 1.1 SETUP CHECK
+**PROTOCOL: Verify that the Flow environment is properly set up.**
+
+1.  **Verify Core Context:** Using the **Universal File Resolution Protocol**, resolve and verify the existence of:
+    -   **Product Definition**
+    -   **PRD Registry**
+
+2.  **Handle Failure:** If ANY of these are missing, Announce: "Flow is not set up. Please run `/flow:setup`." and HALT.
+
+---
+
+## 2.0 PARSE FORMAT OPTION
+**PROTOCOL: Determine output format.**
+
+1.  **Check Arguments:**
+    *   **If `{{args}}` contains `--format json`:** Use JSON format.
+    *   **Otherwise:** Use Markdown format (default).
+
+---
+
+## 3.0 GATHER DATA
+**PROTOCOL: Collect all project data.**
+
+### 3.1 Collect PRD Data
+
+1.  **Active PRDs:** Read **PRD Registry** and collect all PRDs not marked `[x]`:
+    -   PRD ID and description
+    -   Status (pending, in progress)
+    -   Task count and completion percentage
+    -   Created date (from metadata.json)
+
+2.  **Archived PRDs:** Scan **Archive Directory** for completed PRDs:
+    -   PRD ID and description
+    -   Completion date
+    -   Duration (days from creation to completion)
+    -   Task count
+
+### 3.2 Collect Patterns
+
+1.  **Read Patterns:** Resolve and read **Patterns** file (`.agent/patterns.md`).
+2.  **Count patterns** by category.
+
+### 3.3 Collect Statistics
+
+1.  **Git Statistics:** Run commands to gather:
+    -   Total commits related to Flow PRDs
+    -   Lines of code changed (estimate)
+
+2.  **Test Coverage:** If available, read coverage report.
+
+---
+
+## 4.0 GENERATE MARKDOWN EXPORT
+**PROTOCOL: Generate Markdown format export.**
+
+```markdown
+# Flow Project Export
+
+**Generated:** [ISO date]
+**Project:** [from product.md title]
+
+## Overview
+
+- Active PRDs: [count]
+- Archived PRDs: [count]
+- Total Tasks: [count]
+- Completion Rate: [percentage]
+
+## Active PRDs
+
+### [prd_id]
+
+**Status:** [In Progress / Pending]
+**Progress:** [completed]/[total] tasks ([percentage]%)
+**Created:** [date]
+
+Description: [from spec.md overview]
+
+---
+
+[Repeat for each active PRD]
+
+## Archived PRDs
+
+### [prd_id]
+
+**Completed:** [date]
+**Duration:** [days] days
+**Tasks:** [count]
+
+Patterns Extracted: [count from knowledge.md]
+
+---
+
+[Repeat for each archived PRD]
+
+## Project Patterns
+
+[Contents of patterns.md]
+
+## Statistics
+
+- Total Commits: [count]
+- Lines of Code Added: [estimate]
+- Test Coverage: [percentage or "Not available"]
+```
+
+---
+
+## 5.0 GENERATE JSON EXPORT
+**PROTOCOL: Generate JSON format export (if requested).**
+
+```json
+{
+  "generated": "ISO-8601 timestamp",
+  "project": {
+    "name": "from product.md",
+    "description": "from product.md"
+  },
+  "prds": {
+    "active": [
+      {
+        "id": "prd_id",
+        "description": "description",
+        "status": "in_progress",
+        "progress": {
+          "completed": 5,
+          "total": 10,
+          "percentage": 50
+        },
+        "created_at": "ISO date"
+      }
+    ],
+    "archived": [
+      {
+        "id": "prd_id",
+        "description": "description",
+        "completed_at": "ISO date",
+        "duration_days": 14,
+        "task_count": 8,
+        "patterns_extracted": 3
+      }
+    ]
+  },
+  "patterns": [
+    {
+      "category": "Code Conventions",
+      "items": ["pattern1", "pattern2"]
+    }
+  ],
+  "statistics": {
+    "total_commits": 42,
+    "lines_changed": 1500,
+    "test_coverage": 85
+  }
+}
+```
+
+---
+
+## 6.0 WRITE EXPORT FILE
+**PROTOCOL: Save the export document.**
+
+1.  **Generate Filename:** `.agent/export_[YYYYMMDD].[md|json]`
+2.  **Write File:** Save the generated content.
+3.  **Announce Completion:**
+    > "Export generated successfully!
+    >
+    > **File:** `.agent/export_[date].[format]`
+    >
+    > Summary:
+    > - Active PRDs: [count]
+    > - Archived PRDs: [count]
+    > - Patterns documented: [count]"
+
+---
+
+## 7.0 CRITICAL RULES
+
+1.  **COMPREHENSIVE** - Include all relevant project data
+2.  **NO SECRETS** - Exclude any sensitive data (API keys, credentials)
+3.  **ACCURATE COUNTS** - Verify task counts match actual plan.md content
+4.  **CURRENT DATA** - Use actual current state, not cached information
+"""

@@ -1,0 +1,94 @@
+description = "Skip a task with justification"
+prompt = """
+## SYSTEM DIRECTIVE
+You are skipping a task. This requires a justification and updates to both plan and Beads.
+
+**Input:** $ARGUMENTS (format: <track_id> <task_number> "<reason>")
+
+---
+
+## Phase 1: Parse Arguments
+
+Extract from $ARGUMENTS:
+- track_id
+- task_number
+- reason (in quotes)
+
+If arguments are missing, ask user for them.
+
+---
+
+## Phase 2: Verify Track
+
+1. Read `.agent/specs/{track_id}/plan.md`
+2. Find task {task_number}
+3. Verify task exists and is not completed
+
+---
+
+## Phase 3: Check Dependencies
+
+Read plan.md for dependencies:
+- Find tasks that depend on this task (`<!-- depends: N -->`)
+- Warn if dependent tasks exist
+
+---
+
+## Phase 4: Update Plan
+
+Change task status in plan.md:
+
+From: `- [ ] N. Task description`
+To: `- [-] N. Task description [-: {reason}]`
+
+---
+
+## Phase 5: Update Beads
+
+```bash
+bd update {task_id} --status skipped --notes "Skipped: {reason}"
+```
+
+---
+
+## Phase 6: Log Skip
+
+Append to `.agent/specs/{track_id}/skipped.md`:
+
+```markdown
+## [YYYY-MM-DD HH:MM] Task {N}: {description}
+
+**Reason:** {reason}
+**Impact:** {any impact on dependent tasks}
+```
+
+Create skipped.md if it doesn't exist.
+
+---
+
+## Phase 7: Report
+
+```
+Task Skipped
+
+Track: {track_id}
+Task: {N}. {description}
+Reason: {reason}
+
+{If dependencies exist:}
+WARNING: The following tasks depend on this skipped task:
+- Task {M}: {description}
+
+Plan updated: .agent/specs/{track_id}/plan.md
+Beads updated: Yes
+Logged: skipped.md
+```
+
+---
+
+## Critical Rules
+
+1. **REASON REQUIRED** - Must justify skip
+2. **WARN DEPENDENCIES** - Alert about dependent tasks
+3. **BEADS SYNC** - Update Beads status
+"""

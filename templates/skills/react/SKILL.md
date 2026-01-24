@@ -1,0 +1,244 @@
+---
+name: react
+description: Expert knowledge for React 18+ development with TypeScript. Use when building React components, managing state, or integrating with backend APIs.
+---
+
+# React Framework Skill
+
+## Quick Reference
+
+### Functional Component Pattern
+
+```tsx
+import { useState, useEffect, useCallback } from 'react';
+
+interface Props {
+  title: string;
+  items: Item[];
+  onSelect?: (item: Item) => void;
+}
+
+export function ItemList({ title, items, onSelect }: Props) {
+  const [selected, setSelected] = useState<Item | null>(null);
+
+  const handleSelect = useCallback((item: Item) => {
+    setSelected(item);
+    onSelect?.(item);
+  }, [onSelect]);
+
+  return (
+    <div>
+      <h2>{title}</h2>
+      <ul>
+        {items.map(item => (
+          <li key={item.id} onClick={() => handleSelect(item)}>
+            {item.name}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+```
+
+### Custom Hooks
+
+```tsx
+function useFetch<T>(url: string) {
+  const [data, setData] = useState<T | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    fetch(url, { signal: controller.signal })
+      .then(res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then(setData)
+      .catch(err => {
+        if (err.name !== 'AbortError') setError(err);
+      })
+      .finally(() => setLoading(false));
+
+    return () => controller.abort();
+  }, [url]);
+
+  return { data, loading, error };
+}
+```
+
+### React 19+ Server Components (When Applicable)
+
+```tsx
+// Server Component (default in app/ directory)
+async function UserProfile({ userId }: { userId: string }) {
+  const user = await fetchUser(userId);
+  return <div>{user.name}</div>;
+}
+
+// Client Component
+'use client';
+export function InteractiveButton({ onClick }: { onClick: () => void }) {
+  return <button onClick={onClick}>Click me</button>;
+}
+```
+
+### Form Handling
+
+```tsx
+import { useActionState } from 'react';
+
+function ContactForm() {
+  const [state, formAction, isPending] = useActionState(
+    async (prevState: FormState, formData: FormData) => {
+      const result = await submitForm(formData);
+      return result;
+    },
+    { message: '' }
+  );
+
+  return (
+    <form action={formAction}>
+      <input name="email" type="email" required />
+      <button type="submit" disabled={isPending}>
+        {isPending ? 'Sending...' : 'Send'}
+      </button>
+      {state.message && <p>{state.message}</p>}
+    </form>
+  );
+}
+```
+
+### Context Pattern
+
+```tsx
+import { createContext, useContext, useState, ReactNode } from 'react';
+
+interface ThemeContextType {
+  theme: 'light' | 'dark';
+  toggle: () => void;
+}
+
+const ThemeContext = createContext<ThemeContextType | null>(null);
+
+export function ThemeProvider({ children }: { children: ReactNode }) {
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const toggle = () => setTheme(t => t === 'light' ? 'dark' : 'light');
+
+  return (
+    <ThemeContext.Provider value={{ theme, toggle }}>
+      {children}
+    </ThemeContext.Provider>
+  );
+}
+
+export function useTheme() {
+  const context = useContext(ThemeContext);
+  if (!context) throw new Error('useTheme must be used within ThemeProvider');
+  return context;
+}
+```
+
+## Best Practices
+
+- Use TypeScript with strict mode
+- Prefer functional components with hooks
+- Memoize callbacks with `useCallback`, values with `useMemo`
+- Use `key` props correctly (stable, unique identifiers)
+- Handle cleanup in `useEffect` return function
+- Use Error Boundaries for error handling
+
+## Litestar-Vite Integration
+
+### Setup with VitePlugin
+
+```python
+# Python backend
+from litestar import Litestar
+from litestar_vite import ViteConfig, VitePlugin
+
+vite_config = ViteConfig(
+    mode="spa",  # or "hybrid" for Inertia
+    paths=PathConfig(resource_dir="src"),
+)
+
+app = Litestar(plugins=[VitePlugin(config=vite_config)])
+```
+
+```typescript
+// vite.config.ts
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import { litestarVitePlugin } from 'litestar-vite-plugin';
+
+export default defineConfig({
+  plugins: [
+    react(),
+    litestarVitePlugin({ input: ['src/main.tsx'] }),
+  ],
+});
+```
+
+### React with Inertia.js + Litestar
+
+```tsx
+// app.tsx
+import { createInertiaApp } from '@inertiajs/react';
+import { createRoot } from 'react-dom/client';
+import { resolvePageComponent } from 'litestar-vite-plugin/inertia-helpers';
+
+createInertiaApp({
+  resolve: (name) => resolvePageComponent(
+    name,
+    import.meta.glob('./pages/**/*.tsx'),
+  ),
+  setup({ el, App, props }) {
+    createRoot(el).render(<App {...props} />);
+  },
+});
+```
+
+### Using Generated Types
+
+```tsx
+import { route } from './generated/routes';
+import type { components } from './generated/schemas';
+
+type User = components['schemas']['User'];
+
+// Type-safe route building
+const userUrl = route('users:get', { id: 123 });
+```
+
+### CLI Commands
+
+```bash
+litestar assets install    # Install deps (NOT npm install)
+litestar assets serve      # Dev server (NOT npm run dev)
+litestar assets build      # Production build
+litestar assets generate-types  # Generate TS types
+```
+
+## Related Skills
+
+For comprehensive coverage of these commonly-used React libraries:
+
+| Library | Skill | Coverage |
+|---------|-------|----------|
+| TanStack Router/Query/Table/Form | `tanstack` | Full ecosystem |
+| Shadcn/ui components | `shadcn` | All components |
+| Tailwind CSS | `tailwind` | Styling patterns |
+
+## Context7 Lookup
+
+```python
+# React
+mcp__context7__resolve-library-id(libraryName="react")
+mcp__context7__query-docs(
+    libraryId="/facebook/react",
+    query="hooks components typescript"
+)
+```
