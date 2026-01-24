@@ -1,0 +1,179 @@
+description = "Extract reusable template from completed track"
+prompt = """
+## SYSTEM DIRECTIVE
+You are extracting a reusable template from a completed track. This template can be used to quickly create similar tracks in the future.
+
+**Input:** $ARGUMENTS (format: <track_id> <template_name>)
+
+---
+
+## Phase 1: Parse Arguments
+
+Extract:
+- track_id
+- template_name
+
+If missing, ask user for them.
+
+---
+
+## Phase 2: Validate Track
+
+1. Check track exists in `.agent/specs/` or `.agent/archive/`
+2. Verify track is complete or has sufficient structure
+3. Read:
+   - spec.md
+   - plan.md
+   - learnings.md
+
+---
+
+## Phase 3: Analyze Structure
+
+Identify what should be templated:
+- Repeatable task patterns
+- Common acceptance criteria
+- Standard phases
+- Useful learnings
+
+---
+
+## Phase 4: Interactive Abstraction
+
+For each section, ask user:
+
+> **Spec Section: Problem Statement**
+> Current: "Users cannot log in without OAuth"
+>
+> A) Template as: "{{problem_description}}"
+> B) Keep specific (for reference only)
+> C) Remove from template
+
+> **Task 1: Create user model**
+>
+> A) Template as: "Create {{model_name}} model"
+> B) Keep as-is
+> C) Remove from template
+
+---
+
+## Phase 5: Generate Template
+
+Create `.agent/templates/{template_name}.md`:
+
+```markdown
+# Template: {template_name}
+
+**Source:** {track_id}
+**Created:** {date}
+**Description:** {brief description}
+
+## When to Use
+
+{Guidance on when to use this template}
+
+## Placeholders
+
+| Placeholder | Description | Example |
+|-------------|-------------|---------|
+| {{feature_name}} | Name of the feature | user-auth |
+| {{model_name}} | Primary model name | User |
+| {{api_prefix}} | API route prefix | /api/v1 |
+
+## Spec Template
+
+```markdown
+# {{feature_name}}
+
+## Problem Statement
+
+{{problem_description}}
+
+## Acceptance Criteria
+
+- [ ] {{criteria_1}}
+- [ ] {{criteria_2}}
+- [ ] Tests pass with >80% coverage
+```
+
+## Plan Template
+
+```markdown
+# Implementation Plan: {{feature_name}}
+
+## Phase 1: Foundation
+- [ ] 1. Create {{model_name}} model
+- [ ] 2. Add database migration
+
+## Phase 2: Core
+- [ ] 3. Implement {{feature_name}} service
+- [ ] 4. Add {{api_prefix}}/{{feature_name}} endpoints
+
+## Phase 3: Testing
+- [ ] 5. Write unit tests
+- [ ] 6. Write integration tests
+
+## Phase 4: Documentation
+- [ ] 7. Update API docs
+```
+
+## Learnings from Source
+
+{Preserved learnings that apply to this pattern}
+
+- Pattern: {pattern from source}
+- Gotcha: {gotcha from source}
+
+## Anti-Patterns to Avoid
+
+{Things that didn't work in source track}
+```
+
+---
+
+## Phase 6: Register with Beads
+
+If Beads epic exists:
+```bash
+bd mol distill {epic_id} {template_name}
+```
+
+---
+
+## Phase 7: Commit Template
+
+```bash
+git add .agent/templates/{template_name}.md
+git commit -m "flow(template): Extract {template_name} from {track_id}"
+```
+
+---
+
+## Final Summary
+
+```
+Template Extracted
+
+Name: {template_name}
+Source: {track_id}
+Location: .agent/templates/{template_name}.md
+
+Placeholders: {count}
+Tasks: {count}
+Learnings Preserved: {count}
+
+To use this template:
+/flow:formula pour {template_name}
+
+Registered with Beads: {yes/no}
+```
+
+---
+
+## Critical Rules
+
+1. **INTERACTIVE** - Let user decide what to template
+2. **MEANINGFUL PLACEHOLDERS** - Use descriptive names
+3. **PRESERVE LEARNINGS** - Include gotchas and patterns
+4. **BEADS SYNC** - Register with bd mol
+"""

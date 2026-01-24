@@ -1,7 +1,7 @@
-description = "Scaffolds the project and sets up the Flow environment"
+description = "Scaffolds the project and sets up the Flow environment with Beads integration"
 prompt = """
 ## 1.0 SYSTEM DIRECTIVE
-You are an AI agent. Your primary function is to set up and manage a software project using the Flow methodology. This document is your operational protocol. Adhere to these instructions precisely and sequentially. Do not make assumptions.
+You are an AI agent. Your primary function is to set up and manage a software project using the Flow methodology with Beads task persistence. This document is your operational protocol. Adhere to these instructions precisely and sequentially. Do not make assumptions.
 
 CRITICAL: You must validate the success of every tool call. If any tool call fails, you MUST halt the current operation immediately, announce the failure to the user, and await further instructions.
 
@@ -9,15 +9,37 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
 
 ---
 
+## 0.1 BEADS INSTALLATION CHECK
+**PROTOCOL: Ensure Beads is installed before proceeding.**
+
+1. **Check for Beads CLI:**
+   ```bash
+   command -v bd &> /dev/null && echo "BEADS_OK" || echo "BEADS_MISSING"
+   ```
+
+2. **If BEADS_MISSING:**
+   > "Beads CLI is required for Flow. Would you like me to install it?
+   > A) Yes, install Beads globally (npm install -g beads-cli)
+   > B) No, I'll install it myself"
+
+   If A selected:
+   ```bash
+   npm install -g beads-cli
+   ```
+
+   If installation fails, announce error and HALT.
+
+3. **Continue:** Once Beads is available, proceed to 1.1.
+
+---
+
 ## 1.1 BEGIN `RESUME` CHECK
 **PROTOCOL: Before starting the setup, determine the project's state using the state file.**
 
-1.  **Read State File:** Check for the existence of state files in this order:
-    - `.agent/specs/setup-state.json` (current location)
-    - `conductor/setup_state.json` (legacy location)
-    - If neither exists, this is a new project setup. Proceed directly to Step 1.2.
-    - If a legacy state file exists, announce: "Detected legacy Conductor setup. Migration will be offered during setup." and proceed based on that state file's content.
-    - If the current state file exists, read its content.
+1.  **Read State File:** Check for the existence of the state file:
+    - `.agent/setup-state.json`
+    - If it does not exist, this is a new project setup. Proceed directly to Step 1.2.
+    - If the state file exists, read its content.
 
 2.  **Resume Based on State:**
     - Let the value of `last_successful_step` in the JSON file be `STEP`.
@@ -110,12 +132,12 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
 4.  **Configure Root Directory:**
     -   **Ask for Configuration:** Ask the user where they would like to store Flow specification files:
         > "Where would you like to store Flow specification files?
-        > A) `.agent/specs/` (Recommended - hidden from project root)
+        > A) `.agent/` (Recommended - hidden from project root)
         > B) `specs/` (Visible at project root)
         > C) Custom path (Type your own)
         >
         > Please respond with A, B, or C."
-    -   **Store Configuration:** Based on the user's choice, set the `root_directory` variable. Defaults to `.agent/specs/` if A is selected.
+    -   **Store Configuration:** Based on the user's choice, set the `root_directory` variable. Defaults to `.agent/` if A is selected.
 
 5.  **Inquire about Project Goal (for Greenfield):**
     -   **Ask the user the following question and wait for their response before proceeding to the next step:** "What do you want to build?"
@@ -407,7 +429,46 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
         -   **Commit State:** After the `workflow.md` file is successfully written or updated, you MUST immediately write to `<root_directory>/setup-state.json` with the exact content:
             `{"last_successful_step": "2.5_workflow", "root_directory": "<root_directory>"}`
 
-### 2.6 Finalization
+### 2.6 Beads Initialization
+**PROTOCOL: Initialize Beads in stealth mode.**
+
+1.  **Check Beads Init Status:**
+    ```bash
+    [ -d ".beads" ] && echo "BEADS_INITIALIZED" || echo "BEADS_NOT_INITIALIZED"
+    ```
+
+2.  **If NOT INITIALIZED:**
+    > "Initializing Beads for persistent task tracking.
+    > Mode: Stealth (local-only, not committed to git)"
+
+    ```bash
+    bd init --stealth
+    ```
+
+3.  **Create Beads Config:**
+    Create `.agent/beads.json`:
+    ```json
+    {
+      "enabled": true,
+      "mode": "stealth",
+      "sync": "bidirectional",
+      "epicPrefix": "flow",
+      "autoCreateTasks": true,
+      "autoSyncOnComplete": true,
+      "compactOnArchive": true,
+      "taskStatusMapping": {
+        "pending": "[ ]",
+        "in_progress": "[~]",
+        "completed": "[x]",
+        "blocked": "[!]",
+        "skipped": "[-]"
+      }
+    }
+    ```
+
+4.  **Continue:** Proceed to 2.7.
+
+### 2.7 Finalization
 1.  **Generate Index File:**
     -   Create `<root_directory>/index.md` with the following content:
         ```markdown
@@ -420,17 +481,65 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
 
         ## Workflow
         - [Workflow](./workflow.md)
-        - [Code Style Guides](../code-styleguides/)
+        - [Code Style Guides](./code-styleguides/)
+        - [Patterns](./patterns.md)
 
         ## Management
-        - [PRD Registry](./prds.md)
-        - [Archived PRDs](../archive/)
+        - [Track Registry](./tracks.md)
+        - [Track Specifications](./specs/)
+        - [Archived Tracks](./archive/)
+
+        ## Persistence
+        - [Beads Config](./beads.json)
         ```
     -   **Announce:** "Created `<root_directory>/index.md` to serve as the project context index."
 
 2.  **Create Additional Directories:**
-    -   Execute `mkdir -p .agent/archive .agent/template .agent/code-styleguides`.
-    -   **Announce:** "Created directories for archived PRDs, templates, and code styleguides."
+    -   Execute `mkdir -p .agent/archive .agent/templates .agent/code-styleguides .agent/research .agent/wisps`.
+    -   **Announce:** "Created directories for archives, templates, code styleguides, research, and wisps."
+
+3.  **Create patterns.md:**
+    -   Create `.agent/patterns.md` with initial structure:
+        ```markdown
+        # Project Patterns
+
+        > Consolidated learnings and patterns from all tracks.
+        > This file is the single source of truth for project conventions.
+
+        ## Code Conventions
+
+        - {Convention 1}
+        - {Convention 2}
+
+        ## Architecture Patterns
+
+        - {Pattern 1}
+        - {Pattern 2}
+
+        ## Gotchas & Warnings
+
+        - {Gotcha 1}
+        - {Gotcha 2}
+
+        ## Testing Patterns
+
+        - {Pattern 1}
+
+        ## Context for AI Assistants
+
+        - {Important context}
+        ```
+
+4.  **Create tracks.md:**
+    -   Create `.agent/tracks.md` with initial structure:
+        ```markdown
+        # Track Registry
+
+        This file tracks all tracks (features, bugs, refactors) for the project.
+        Each track has its own detailed spec and plan in its respective folder.
+
+        ---
+        ```
 
 3.  **Summarize Actions:** Present a summary of all actions taken during Phase 1, including:
     -   The guide files that were copied.

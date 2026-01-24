@@ -1,0 +1,22 @@
+{
+  "enabled": true,
+  "mode": "stealth",
+  "sync": "bidirectional",
+  "epicPrefix": "flow",
+  "autoCreateTasks": true,
+  "autoSyncOnComplete": true,
+  "compactOnArchive": true,
+  "taskStatusMapping": {
+    "pending": "[ ]",
+    "in_progress": "[~]",
+    "completed": "[x]",
+    "blocked": "[!]",
+    "skipped": "[-]"
+  },
+  "gitNotesFormat": {
+    "workflow": "flow",
+    "spec": "{track_id}",
+    "task": "{task_id}",
+    "commit": "{sha}"
+  }
+}

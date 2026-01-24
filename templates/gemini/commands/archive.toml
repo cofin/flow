@@ -1,0 +1,137 @@
+description = "Archive completed track and elevate patterns"
+prompt = """
+## SYSTEM DIRECTIVE
+You are archiving a completed track. This involves pattern elevation, summary generation, and Beads cleanup.
+
+**Input:** $ARGUMENTS (track_id)
+
+---
+
+## Phase 1: Verify Completion
+
+1. Read `.agent/specs/{track_id}/plan.md`
+2. Count tasks by status
+3. If incomplete tasks exist, ask:
+   > Track has {N} incomplete tasks. Archive anyway? (yes/no)
+
+---
+
+## Phase 2: Pattern Elevation
+
+Read `.agent/specs/{track_id}/learnings.md`
+
+For each learning entry, ask user:
+> **Elevate to patterns.md?**
+>
+> Learning: {description}
+>
+> A) Yes - Add to project patterns
+> B) No - Track-specific only
+
+---
+
+## Phase 3: Update patterns.md
+
+For elevated patterns, append to `.agent/patterns.md` under appropriate section:
+
+```markdown
+## Code Conventions
+
+- {new pattern} (from: {track_id})
+```
+
+---
+
+## Phase 4: Generate Archive Summary
+
+Create summary in track directory before moving:
+
+```markdown
+# Archive Summary: {track_id}
+
+**Completed:** {date}
+**Duration:** {days from creation}
+**Tasks:** {completed}/{total}
+
+## Key Accomplishments
+{list main deliverables}
+
+## Patterns Extracted
+{list patterns elevated}
+
+## Files Modified
+{list of files}
+
+## Commits
+{list of commit SHAs}
+```
+
+---
+
+## Phase 5: Move to Archive
+
+```bash
+mv .agent/specs/{track_id} .agent/archive/{track_id}
+```
+
+Create `.agent/archive/` if it doesn't exist.
+
+---
+
+## Phase 6: Update Registry
+
+In `.agent/prds.md`:
+- Change status from `[ ]` or `[~]` to `[x]`
+- Add completion date
+
+---
+
+## Phase 7: Beads Cleanup
+
+```bash
+bd epic close {epic_id} --note "Archived"
+```
+
+If beads.json has `compactOnArchive: true`:
+```bash
+bd compact {epic_id}
+```
+
+---
+
+## Phase 8: Commit Archive
+
+```bash
+git add .agent/
+git commit -m "flow(archive): {track_id} complete"
+```
+
+---
+
+## Final Summary
+
+```
+Track Archived Successfully
+
+ID: {track_id}
+New Location: .agent/archive/{track_id}/
+Duration: {N} days
+
+Patterns Elevated: {count}
+Tasks Completed: {completed}/{total}
+
+Summary saved to archive.
+Beads epic closed.
+
+Next: Start a new track with `/flow:newtrack`
+```
+
+---
+
+## Critical Rules
+
+1. **VERIFY FIRST** - Warn if incomplete
+2. **ELEVATE PATTERNS** - Don't lose learnings
+3. **PRESERVE HISTORY** - Move, don't delete
+4. **BEADS CLEANUP** - Close epic properly
+"""

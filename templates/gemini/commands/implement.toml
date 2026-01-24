@@ -1,0 +1,429 @@
+description = "Executes track tasks with TDD, Beads sync, and learnings capture"
+prompt = """
+## 1.0 SYSTEM DIRECTIVE
+You are an AI agent assistant for the Flow spec-driven development framework. Your task is to implement tracks while:
+- Following TDD methodology
+- Syncing task status with Beads
+- Capturing learnings in real-time
+- Extracting patterns for future tracks
+
+CRITICAL: You must validate the success of every tool call. If any tool call fails, you MUST halt the current operation immediately, announce the failure to the user, and await further instructions.
+
+---
+
+## 1.1 SETUP CHECK
+**PROTOCOL: Verify that the Flow environment is properly set up.**
+
+1.  **Verify Core Context:** Using the **Universal File Resolution Protocol**, resolve and verify the existence of:
+    -   **Product Definition**
+    -   **Tech Stack**
+    -   **Workflow**
+    -   **Patterns** (`.agent/patterns.md`)
+
+2.  **Verify Beads:**
+    ```bash
+    command -v bd &> /dev/null && echo "BEADS_OK" || echo "BEADS_MISSING"
+    ```
+    If BEADS_MISSING: "Beads CLI required. Run `/flow:setup` first." → HALT
+
+3.  **Sync Beads:**
+    ```bash
+    bd sync
+    bd prime
+    ```
+
+4.  **Handle Failure:** If ANY of these are missing (or their resolved paths do not exist), Announce: "Flow is not set up. Please run `/flow:setup`." and HALT.
+
+---
+
+## 2.0 TRACK SELECTION
+**PROTOCOL: Identify and select the track to be implemented.**
+
+1.  **Check for User Input:** First, check if the user provided a track ID as an argument (e.g., `/flow:implement <track_id>`).
+
+2.  **Check Beads for Ready Tasks:**
+    ```bash
+    bd ready
+    ```
+    This shows tasks ready to work on (no blockers, dependencies resolved).
+
+3.  **Locate and Parse Track Registry:**
+    -   Resolve the **Track Registry** (`.agent/tracks.md`).
+    -   Read and parse this file. Split by `---` to identify each track section. Extract:
+        - Status: `[ ]` (pending), `[~]` (in progress), `[x]` (complete), `[!]` (blocked), `[-]` (skipped)
+        - Track ID and description
+        - Beads epic ID
+    -   **CRITICAL:** If no tracks found: "Track registry empty. Create a track with `/flow:newtrack`." → HALT
+
+4.  **Select Track:**
+    -   **If track ID provided:**
+        1. Match against track IDs (case-insensitive)
+        2. If found: "Found track '{track_id}'. Proceed?" → Await confirmation
+        3. If not found: List available tracks and ask for selection
+    -   **If no track ID provided:**
+        1. Find first track with `[ ]` or `[~]` status
+        2. "Selecting next incomplete track: '{track_id}'"
+        3. If all complete: "All tracks complete!" → HALT
+
+5.  **Load Beads Context:**
+    If track has beads_epic_id:
+    ```bash
+    bd epic show {epic_id}
+    ```
+    Display any notes or context from previous sessions.
+
+---
+
+## 3.0 TRACK IMPLEMENTATION
+**PROTOCOL: Execute the selected track with TDD, Beads sync, and learnings capture.**
+
+1.  **Announce Action:** Announce which track you are beginning to implement.
+
+2.  **Update Status to 'In Progress':**
+    -   Update track registry: `[ ]` → `[~]`
+    -   Sync to Beads:
+        ```bash
+        bd update {epic_id} --status in_progress
+        ```
+
+3.  **Load Track Context:**
+    a. **Identify Track Folder:** `.agent/specs/{track_id}/`
+    b. **Read Files:**
+        -   **Specification:** `spec.md`
+        -   **Implementation Plan:** `plan.md`
+        -   **Learnings:** `learnings.md` (create from template if missing)
+        -   **Patterns:** `.agent/patterns.md` (project-level)
+        -   **Workflow:** `.agent/workflow.md`
+        -   **Research (if referenced):** Check metadata for `research_id`
+    c. **Load Beads Notes:**
+        ```bash
+        bd epic notes {epic_id}
+        ```
+        These contain context from previous sessions - READ THEM!
+    d. **Error Handling:** If critical files missing, HALT with error.
+
+4.  **Initialize Learnings (if not exists):**
+    -   Create `<track_dir>/learnings.md` with structure:
+        ```markdown
+        # Learnings: {track_id}
+
+        > Append-only log of discoveries during implementation.
+        > Format: [timestamp] - Phase/Task - Learning
+
+        ## Session Log
+
+        ## Patterns Discovered
+        [Patterns identified - candidates for patterns.md elevation]
+
+        ## Gotchas & Warnings
+        [Pitfalls to avoid in similar work]
+
+        ## Decisions Made
+        [Key decisions and their rationale]
+        ```
+
+5.  **Execute Tasks with Beads Sync:**
+    a. **Announce:** State that you will now execute the tasks from the **Implementation Plan** following TDD workflow.
+
+    b. **For Each Task:**
+
+        i. **Start Task in Beads:**
+            ```bash
+            bd update {task_id} --status in_progress
+            ```
+
+        ii. **Update plan.md:** Change `[ ]` → `[~]` for current task
+
+        iii. **Defer to Workflow:** Follow TDD methodology:
+            1. Write failing tests first
+            2. Implement minimum code to pass
+            3. Refactor while green
+            4. Verify coverage requirements
+
+        iv. **Pattern Compliance Check:**
+            - Review `patterns.md` for relevant conventions
+            - Check existing code in modified area
+            - Ensure implementation follows project patterns
+
+        v. **Capture Learning (after each significant task):**
+            Append to `learnings.md`:
+            ```markdown
+            ## [{timestamp}] - {Phase} {Task}: {description}
+            - **Files changed:** {list}
+            - **Commit:** {sha}
+            - **Learning:** {what you discovered}
+            - **Pattern:** {if applicable}
+            - **Gotcha:** {if applicable}
+            ```
+
+        vi. **Complete Task:**
+            - Update plan.md: `[~]` → `[x]`
+            - Sync to Beads:
+                ```bash
+                bd close {task_id} --note "Commit: {sha}"
+                ```
+
+        vii. **Add Beads Notes (for complex tasks):**
+            ```bash
+            bd update {task_id} --notes "Key insight: {learning}"
+            ```
+            These notes survive context compaction!
+
+6.  **Handle Phase Checkpoints:**
+    -   When encountering a "Checkpoint" task in the plan:
+        1. Verify all previous tasks in the phase are complete
+        2. Run all tests: `npm test` or equivalent
+        3. Verify coverage: Must meet workflow requirements (default >80%)
+        4. Create git tag: `git tag checkpoint/{track_id}/phase-{N}`
+        5. Update spec's "Safe Checkpoints" section
+        6. **Prompt for Pattern Elevation:**
+            > "Phase {N} complete. Any patterns worth elevating to patterns.md?
+            > Review learnings.md for candidates."
+        7. Announce: "Checkpoint created. Safe to rollback to this point."
+
+7.  **Handle Blocked Tasks:**
+    -   If a task cannot proceed:
+        1. Update plan.md: `[ ]` → `[!]`
+        2. Sync to Beads:
+            ```bash
+            bd update {task_id} --status blocked --note "{reason}"
+            ```
+        3. Log in `learnings.md` under Gotchas
+        4. Announce blocker and suggest: `/flow:block {track_id}` for formal logging
+        5. Continue to next non-dependent task if possible
+
+8.  **Finalize Track:**
+    -   After ALL tasks in plan.md are `[x]`:
+        1. Update track registry: `[~]` → `[x]`
+        2. Sync to Beads:
+            ```bash
+            bd epic close {epic_id} --note "All tasks complete"
+            ```
+        3. **Final Learnings Prompt:**
+            > "Track complete. Review learnings.md for patterns to elevate to patterns.md."
+        4. Commit: `flow(implement): Complete {track_id}`
+        5. Announce: "Track '{track_id}' complete. Run `/flow:archive` to archive."
+
+---
+
+## 4.0 SYNCHRONIZE PROJECT DOCUMENTATION
+**PROTOCOL: Update project-level documentation based on the completed PRD.**
+
+1.  **Execution Trigger:** This protocol MUST only be executed when a PRD has reached a `[x]` status in the PRD registry. DO NOT execute this protocol for any other PRD status changes.
+
+2.  **Announce Synchronization:** Announce that you are now synchronizing the project-level documentation with the completed PRD's specifications.
+
+3.  **Load PRD Specification:** Read the PRD's **Specification**.
+
+4.  **Load Project Documents:**
+    -   Resolve and read:
+        -   **Product Definition**
+        -   **Tech Stack**
+        -   **Product Guidelines**
+
+5.  **Analyze and Update:**
+    a.  **Analyze Specification:** Carefully analyze the **Specification** to identify any new features, changes in functionality, or updates to the technology stack.
+    b.  **Update Product Definition:**
+        i. **Condition for Update:** Based on your analysis, you MUST determine if the completed feature or bug fix significantly impacts the description of the product itself.
+        ii. **Propose and Confirm Changes:** If an update is needed, generate the proposed changes. Then, present them to the user for confirmation:
+            > "Based on the completed PRD, I propose the following updates to the **Product Definition**:"
+            > ```diff
+            > [Proposed changes here, ideally in a diff format]
+            > ```
+            > "Do you approve these changes? (yes/no)"
+        iii. **Action:** Only after receiving explicit user confirmation, perform the file edits to update the **Product Definition** file. Keep a record of whether this file was changed.
+    c.  **Update Tech Stack:**
+        i. **Condition for Update:** Similarly, you MUST determine if significant changes in the technology stack are detected as a result of the completed PRD.
+        ii. **Propose and Confirm Changes:** If an update is needed, generate the proposed changes. Then, present them to the user for confirmation:
+            > "Based on the completed PRD, I propose the following updates to the **Tech Stack**:"
+            > ```diff
+            > [Proposed changes here, ideally in a diff format]
+            > ```
+            > "Do you approve these changes? (yes/no)"
+        iii. **Action:** Only after receiving explicit user confirmation, perform the file edits to update the **Tech Stack** file. Keep a record of whether this file was changed.
+    d. **Update Product Guidelines (Strictly Controlled):**
+        i. **CRITICAL WARNING:** This file defines the core identity and communication style of the product. It should be modified with extreme caution and ONLY in cases of significant strategic shifts, such as a product rebrand or a fundamental change in user engagement philosophy. Routine feature updates or bug fixes should NOT trigger changes to this file.
+        ii. **Condition for Update:** You may ONLY propose an update to this file if the PRD's **Specification** explicitly describes a change that directly impacts branding, voice, tone, or other core product guidelines.
+        iii. **Propose and Confirm Changes:** If the conditions are met, you MUST generate the proposed changes and present them to the user with a clear warning:
+            > "WARNING: The completed PRD suggests a change to the core **Product Guidelines**. This is an unusual step. Please review carefully:"
+            > ```diff
+            > [Proposed changes here, ideally in a diff format]
+            > ```
+            > "Do you approve these critical changes to the **Product Guidelines**? (yes/no)"
+        iv. **Action:** Only after receiving explicit user confirmation, perform the file edits. Keep a record of whether this file was changed.
+
+6.  **Final Report:** Announce the completion of the synchronization process and provide a summary of the actions taken.
+    - **Construct the Message:** Based on the records of which files were changed, construct a summary message.
+    - **Commit Changes (Respect Gitignore):**
+        - If any files were changed (**Product Definition**, **Tech Stack**, or **Product Guidelines**):
+            - Check if `.agent/` is gitignored. If so, skip committing.
+            - If not gitignored, stage them and commit with message: `docs(flow): Synchronize docs for PRD '<prd_description>'`
+    - **Example (if Product Definition was changed, but others were not):**
+        > "Documentation synchronization is complete.
+        > - **Changes made to Product Definition:** The user-facing description of the product was updated to include the new feature.
+        > - **No changes needed for Tech Stack:** The technology stack was not affected.
+        > - **No changes needed for Product Guidelines:** Core product guidelines remain unchanged."
+    - **Example (if no files were changed):**
+        > "Documentation synchronization is complete. No updates were necessary for project documents based on the completed PRD."
+
+---
+
+## 5.0 KNOWLEDGE EXTRACTION & PATTERN ELEVATION
+**PROTOCOL: Extract and preserve institutional knowledge from the completed track.**
+
+1.  **Execution Trigger:** After `SYNCHRONIZE PROJECT DOCUMENTATION` step completes.
+
+2.  **Announce Knowledge Extraction:**
+    > "Extracting patterns and lessons learned from track '{track_id}'."
+
+3.  **Finalize Learnings Document:**
+    a. **Review Implementation:**
+        ```bash
+        git log --oneline checkpoint/{track_id}/phase-1..HEAD
+        ```
+    b. **Update `learnings.md`:** Ensure all sections complete:
+        - **Session Log:** Timeline of work
+        - **Patterns Discovered:** Candidates for elevation
+        - **Gotchas & Warnings:** Pitfalls documented
+        - **Decisions Made:** Key choices with rationale
+
+4.  **Pattern Elevation (Ralph-style Flywheel):**
+    a. **Read learnings.md** and identify patterns worth preserving
+    b. **Present Recommendations:**
+        > "Based on this track, recommend elevating to patterns.md:
+        >
+        > **Code Conventions:**
+        > - {Pattern 1}: {Description}
+        >
+        > **Architecture:**
+        > - {Pattern 2}: {Description}
+        >
+        > **Gotchas:**
+        > - {Gotcha 1}: {Description}
+        >
+        > Elevate these patterns? (yes/no)"
+
+    c. **If Approved:** Append to `.agent/patterns.md`:
+        ```markdown
+        ## [{date}] Patterns from {track_id}
+
+        ### Code Conventions
+        - {pattern}
+
+        ### Gotchas
+        - {gotcha}
+        ```
+
+5.  **Sync Patterns to Beads:**
+    ```bash
+    bd mol learn "{pattern_summary}"
+    ```
+    This makes patterns available across sessions!
+
+6.  **Update Track Metadata:**
+    Set `patterns_extracted: true` in `metadata.json`
+
+7.  **Commit:**
+    ```bash
+    git add .agent/patterns.md .agent/specs/{track_id}/learnings.md
+    git commit -m "flow(learn): Extract patterns from {track_id}"
+    ```
+
+8.  **Announce:**
+    > "Knowledge extraction complete:
+    > - learnings.md finalized
+    > - {N} patterns elevated to patterns.md
+    > - Beads synced"
+
+---
+
+## 6.0 TRACK CLEANUP
+**PROTOCOL: Offer to archive completed track.**
+
+1.  **Execution Trigger:** After `KNOWLEDGE EXTRACTION & PATTERN ELEVATION` completes.
+
+2.  **Ask for User Choice:**
+    > "Track '{track_id}' is complete. What would you like to do?
+    > A) **Archive:** Move to archive, compact Beads epic
+    > B) **Keep:** Leave in registry for reference
+    > C) **Delete:** Permanently remove (requires confirmation)
+    >
+    > Recommended: Archive to preserve learnings while cleaning up."
+
+3.  **Handle Response:**
+
+    **If A (Archive):**
+    1. Create archive directory: `mkdir -p .agent/archive`
+    2. Move track folder: `mv .agent/specs/{track_id} .agent/archive/{track_id}`
+    3. Remove from tracks.md (keep header for history)
+    4. Compact Beads:
+        ```bash
+        bd compact {epic_id}
+        ```
+        This preserves notes while archiving task details.
+    5. Commit: `flow(archive): Archive {track_id}`
+    6. Announce: "Track archived. Learnings preserved in patterns.md."
+
+    **If B (Keep):**
+    - Announce: "Track remains in registry for reference."
+
+    **If C (Delete):**
+    1. **Confirm:** "WARNING: Delete permanently removes all track files. Confirm? (yes/no)"
+    2. If confirmed:
+        ```bash
+        rm -rf .agent/specs/{track_id}
+        bd epic delete {epic_id}  # Only if confirmed
+        ```
+    3. Remove from tracks.md
+    4. Announce: "Track permanently deleted."
+
+---
+
+## 7.0 IMPLEMENTATION QUALITY GATES
+**PROTOCOL: Ensure implementation meets quality standards.**
+
+### Pre-Task Checklist
+Before starting each task:
+- [ ] Understand task requirements from spec.md
+- [ ] Check patterns.md for relevant conventions
+- [ ] Identify files to modify
+- [ ] Review existing patterns in those files
+- [ ] Sync Beads: `bd prime`
+
+### Post-Task Checklist
+After completing each task:
+- [ ] All tests pass
+- [ ] Code follows patterns.md conventions
+- [ ] No security vulnerabilities introduced
+- [ ] Learnings.md updated with discoveries
+- [ ] Task marked `[x]` in plan.md
+- [ ] Beads synced: `bd close {task_id}`
+
+### Phase Completion Checklist
+Before moving to next phase:
+- [ ] All phase tasks `[x]`
+- [ ] Coverage meets requirements (>80%)
+- [ ] Checkpoint tag created
+- [ ] Learnings reviewed for pattern candidates
+- [ ] Beads notes added for significant insights
+
+### Track Completion Checklist
+Before marking track complete:
+- [ ] All tasks `[x]` in plan.md
+- [ ] All acceptance criteria verified (spec.md)
+- [ ] Coverage meets requirements
+- [ ] Learnings.md finalized
+- [ ] Patterns elevated to patterns.md
+- [ ] Beads epic closed
+- [ ] Documentation synchronized
+
+---
+
+## Critical Rules
+
+1. **TDD ALWAYS** - Tests first, then implementation
+2. **BEADS SYNC** - Update status after every task
+3. **LEARNINGS CAPTURE** - Log discoveries in real-time
+4. **PATTERN COMPLIANCE** - Check patterns.md before coding
+5. **CHECKPOINT OFTEN** - Create recovery points at phase boundaries
+"""

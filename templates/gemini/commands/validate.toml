@@ -1,0 +1,100 @@
+description = "Validate Flow project integrity and optionally fix issues"
+prompt = """
+## SYSTEM DIRECTIVE
+You are validating a Flow project's integrity. Check all files, Beads status, and track consistency.
+
+---
+
+## Phase 1: Directory Structure Check
+
+Verify required files exist:
+
+1. **Core Files:**
+   - `.agent/product.md`
+   - `.agent/tech-stack.md`
+   - `.agent/workflow.md`
+   - `.agent/beads.json`
+   - `.agent/prds.md`
+   - `.agent/patterns.md`
+
+2. **Beads Directory:**
+   - `.beads/` must exist
+   - Run `bd --version` to verify Beads CLI
+
+---
+
+## Phase 2: Beads Health Check
+
+```bash
+bd --version
+bd prime
+```
+
+Report any Beads errors.
+
+---
+
+## Phase 3: Track Consistency
+
+For each track in `.agent/prds.md`:
+
+1. Verify directory exists: `.agent/specs/{track_id}/`
+2. Verify required files:
+   - spec.md
+   - plan.md
+   - metadata.json
+3. Check if Beads epic exists for track
+4. Verify task count matches plan
+
+---
+
+## Phase 4: Plan Integrity
+
+For each plan.md:
+- Verify task IDs are sequential
+- Verify status markers are valid: `[ ]`, `[~]`, `[x]`, `[!]`, `[-]`
+- Verify checkpoint SHAs exist in git history
+
+---
+
+## Phase 5: Report
+
+Generate validation report:
+
+```
+Flow Validation Report
+
+=== Structure ===
+[x] .agent/ directory complete
+[x] Beads initialized
+
+=== Tracks ===
+[x] {track_id}: {task_count} tasks, {complete_count} complete
+[!] {track_id}: Missing required file
+
+=== Issues Found ===
+1. {issue description}
+
+=== Recommendations ===
+- {recommendation}
+```
+
+---
+
+## Phase 6: Auto-Fix (if requested)
+
+If user requests fix:
+- Create missing files from templates
+- Sync Beads task counts
+- Add missing index files
+
+Report all fixes made.
+
+---
+
+## Critical Rules
+
+1. **NON-DESTRUCTIVE** - Only report by default
+2. **BEADS INTEGRATION** - Always check Beads health
+3. **COMPREHENSIVE** - Check all aspects
+"""

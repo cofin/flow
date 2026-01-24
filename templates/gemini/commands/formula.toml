@@ -1,0 +1,157 @@
+description = "List and manage track templates (Beads formulas)"
+prompt = """
+## SYSTEM DIRECTIVE
+You are managing Beads track templates (formulas). Handle list, pour, and distill operations.
+
+**Input:** $ARGUMENTS (action: list|pour|distill, and optional template_name or track_id)
+
+---
+
+## Phase 1: Parse Command
+
+Determine action from $ARGUMENTS:
+- `list` - Show available templates
+- `pour {template}` - Create track from template
+- `distill {track_id} {name}` - Extract template from track
+
+If no arguments, default to `list`.
+
+---
+
+## Action: LIST
+
+### Phase 2a: List Beads Molecules
+
+```bash
+bd mol list
+```
+
+### Phase 3a: List Local Templates
+
+```bash
+ls -la .agent/templates/*.md 2>/dev/null
+```
+
+### Phase 4a: Display
+
+```
+Available Templates
+
+=== Beads Molecules ===
+
+feature-crud
+  Description: Standard CRUD feature template
+  Tasks: 8
+
+bugfix-standard
+  Description: Standard bug fix template
+  Tasks: 4
+
+=== Local Templates (.agent/templates/) ===
+
+api-endpoint.md - REST API endpoint template
+frontend-component.md - React/Vue component template
+```
+
+---
+
+## Action: POUR
+
+### Phase 2b: Pour Template
+
+```bash
+bd mol pour {template_name}
+```
+
+### Phase 3b: Customize
+
+1. Ask for track description
+2. Generate track_id with date suffix
+3. Replace template placeholders
+4. Create Beads epic and tasks
+5. Register in prds.md
+
+### Phase 4b: Report
+
+```
+Track Created from Template
+
+Template: {template_name}
+Track ID: {track_id}
+Tasks: {count}
+Beads Epic: {epic_id}
+
+Next: Run `/flow:implement {track_id}` to start
+```
+
+---
+
+## Action: DISTILL
+
+### Phase 2c: Read Track
+
+1. Verify track exists: `.agent/specs/{track_id}/` or `.agent/archive/{track_id}/`
+2. Read spec.md, plan.md, learnings.md
+
+### Phase 3c: Abstract
+
+Ask user about each element:
+> Template this? "{task_description}"
+> A) Yes - Use placeholder: {{feature_name}}
+> B) No - Keep specific
+
+### Phase 4c: Generate Template
+
+Create `.agent/templates/{name}.md`:
+
+```markdown
+# Template: {name}
+
+**Source:** {track_id}
+**Created:** {date}
+
+## When to Use
+{guidance}
+
+## Placeholders
+| Placeholder | Description |
+|-------------|-------------|
+| {{feature_name}} | Name of feature |
+
+## Spec Template
+{abstracted spec}
+
+## Plan Template
+{abstracted plan with placeholders}
+
+## Learnings
+{relevant learnings from source}
+```
+
+### Phase 5c: Register with Beads
+
+```bash
+bd mol distill {epic_id} {name}
+```
+
+### Phase 6c: Report
+
+```
+Template Extracted
+
+Name: {name}
+Source: {track_id}
+Location: .agent/templates/{name}.md
+Beads: Registered
+
+To use: /flow:formula pour {name}
+```
+
+---
+
+## Critical Rules
+
+1. **BEADS INTEGRATION** - Use bd mol commands
+2. **PLACEHOLDER CLARITY** - Use descriptive placeholders
+3. **PRESERVE LEARNINGS** - Include gotchas in templates
+"""

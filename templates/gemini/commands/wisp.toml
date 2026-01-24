@@ -1,0 +1,137 @@
+description = "Create ephemeral exploration track (no audit trail)"
+prompt = """
+## SYSTEM DIRECTIVE
+You are creating a "wisp" - an ephemeral exploration track with no audit trail. Wisps are for quick experiments and proofs of concept.
+
+**Input:** $ARGUMENTS (description of exploration)
+
+---
+
+## Phase 1: Create Wisp
+
+```bash
+bd mol wisp "{description}"
+```
+
+Extract wisp_id from output.
+
+---
+
+## Phase 2: Create Wisp Directory
+
+```bash
+mkdir -p .agent/wisps/{wisp_id}
+```
+
+Create minimal files:
+
+`.agent/wisps/{wisp_id}/notes.md`:
+```markdown
+# Wisp: {description}
+
+**Created:** {timestamp}
+**Status:** Active
+
+## Purpose
+{what you're exploring}
+
+## Notes
+{scratch notes go here}
+```
+
+`.agent/wisps/{wisp_id}/findings.md`:
+```markdown
+# Findings: {description}
+
+## What Worked
+{list what worked}
+
+## What Didn't Work
+{list what failed}
+
+## Conclusions
+{key takeaways}
+```
+
+---
+
+## Phase 3: Announce Wisp
+
+```
+Wisp Created
+
+ID: {wisp_id}
+Location: .agent/wisps/{wisp_id}/
+Beads: Ephemeral (no audit trail)
+
+This is an exploration track with:
+- No TDD required
+- No commit conventions
+- No coverage requirements
+- Freedom to experiment
+
+When done, choose an ending:
+- `/flow:wisp promote {wisp_id}` - Convert to real track
+- `/flow:wisp discard {wisp_id}` - Delete everything
+- `/flow:wisp keep {wisp_id}` - Keep findings only
+```
+
+---
+
+## Resolution: PROMOTE
+
+If $ARGUMENTS contains "promote {wisp_id}":
+
+1. Read findings.md
+2. Create new track: `/flow:newtrack "{description}"`
+3. Copy findings to new track's learnings.md
+4. Delete wisp directory and Beads entry
+
+---
+
+## Resolution: DISCARD
+
+If $ARGUMENTS contains "discard {wisp_id}":
+
+1. Confirm with user:
+   > Discard wisp {wisp_id}? All code changes will be lost. (yes/no)
+
+2. If confirmed:
+   ```bash
+   rm -rf .agent/wisps/{wisp_id}
+   bd mol discard {wisp_id}
+   git checkout .  # Discard code changes
+   ```
+
+3. Report: "Wisp discarded. All changes reverted."
+
+---
+
+## Resolution: KEEP
+
+If $ARGUMENTS contains "keep {wisp_id}":
+
+1. Move findings to research:
+   ```bash
+   mkdir -p .agent/research
+   mv .agent/wisps/{wisp_id}/findings.md .agent/research/wisp_{wisp_id}_findings.md
+   ```
+
+2. Clean up:
+   ```bash
+   rm -rf .agent/wisps/{wisp_id}
+   bd mol discard {wisp_id}
+   git checkout .  # Discard code changes
+   ```
+
+3. Report: "Findings preserved in .agent/research/. Code changes discarded."
+
+---
+
+## Critical Rules
+
+1. **NO AUDIT** - Wisps don't create permanent records
+2. **LOW CEREMONY** - Minimal process
+3. **EXPLICIT ENDING** - Must choose promote, discard, or keep
+4. **WARN ABOUT CODE** - Discard reverts all code changes
+"""
