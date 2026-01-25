@@ -5,6 +5,7 @@ Modern Python development standards with async-first patterns.
 ## Core Rules
 
 ### Type Annotations
+
 ```python
 # Use PEP 604 union syntax
 def get_user(id: int) -> User | None:
@@ -20,6 +21,7 @@ mapping: dict[str, int] = {}
 ```
 
 ### Async by Default
+
 ```python
 # All I/O operations should be async
 async def fetch_data(url: str) -> dict:
@@ -35,6 +37,7 @@ async def provide_session() -> AsyncIterable[AsyncSession]:
 ```
 
 ### Docstrings
+
 ```python
 def calculate_total(items: list[Item], tax_rate: float) -> Decimal:
     """Calculate the total price including tax.
@@ -53,14 +56,14 @@ def calculate_total(items: list[Item], tax_rate: float) -> Decimal:
 
 ## Naming Conventions
 
-| Concept | Convention | Example |
-|---------|------------|---------|
-| Modules | `snake_case` | `user_service.py` |
-| Classes | `PascalCase` | `UserService` |
-| Functions | `snake_case` | `get_user_by_id` |
-| Variables | `snake_case` | `current_user` |
-| Constants | `SCREAMING_SNAKE_CASE` | `MAX_RETRIES` |
-| Private | `_leading_underscore` | `_internal_cache` |
+| Concept     | Convention             | Example                 |
+| :---------- | :--------------------- | :---------------------- |
+| Modules     | `snake_case`           | `user_service.py`       |
+| Classes     | `PascalCase`           | `UserService`           |
+| Functions   | `snake_case`           | `get_user_by_id`        |
+| Variables   | `snake_case`           | `current_user`          |
+| Constants   | `SCREAMING_SNAKE_CASE` | `MAX_RETRIES`           |
+| Private     | `_leading_underscore`  | `_internal_cache`       |
 
 ## Data Classes and Models
 
@@ -188,10 +191,21 @@ async def test_fetch_user(client: AsyncClient):
 
 ## Tooling
 
-- **Formatter**: `ruff format`
-- **Linter**: `ruff check`
-- **Type checker**: `mypy` or `pyright`
+- **Quality & Typing**: See `python-quality` skill (Ruff, Pyright).
+- **Emerging**: See `ty` skill (if installed).
 - **Test runner**: `pytest`
+
+## Build System
+
+- **Backend**: `hatchling` (see `python-build` skill)
+- **Manager**: `uv` (see `python-uv` skill)
+
+## Performance Optimizations
+
+For performance-critical paths:
+
+- **MyPyC**: Compile native classes (see `python-mypyc` skill).
+- **Cython**: Use typed memoryviews (see `python-cython` skill).
 
 ## Anti-Patterns to Avoid
 
@@ -231,10 +245,15 @@ For Python scripts (CLI tools, automation, etc.), apply these additional pattern
 ### Environment Management
 
 ```bash
-# Use uv for virtual environments and dependencies
-uv pip install -e .
+# Use uv for project management
+uv sync
 uv run python your_script.py
-uvx pytest  # Run tools via uvx
+
+# Single-file scripts with dependencies (PEP 723)
+# /// script
+# dependencies = ["requests", "rich"]
+# ///
+uv run script.py
 ```
 
 ### Script Structure

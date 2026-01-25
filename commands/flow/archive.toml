@@ -36,13 +36,14 @@ You are an AI agent assistant for the Flow spec-driven development framework. Yo
 
 1.  **Move Directory:**
     *   Create `.agent/archive/` if missing.
-    *   Move `.agent/specs/<flow_id>/` to `.agent/archive/<flow_id>/`.
+    *   Generate archive ID: `<flow_id>_YYYYMMDD` (using current date).
+    *   Move `.agent/specs/<flow_id>/` to `.agent/archive/<flow_id>_YYYYMMDD/`.
 2.  **Update Registry:**
     *   Edit **Flow Registry** (`.agent/flows.md`).
     *   Move the flow entry from "Active" to "Archived".
-    *   Update the link to point to the new archive location.
+    *   Update the link to point to the new archive location: `./archive/<flow_id>_YYYYMMDD/`.
 3.  **Update Metadata:**
-    *   Edit `.agent/archive/<flow_id>/metadata.json`.
+    *   Edit `.agent/archive/<flow_id>_YYYYMMDD/metadata.json`.
     *   Set `"status": "archived"`.
     *   Set `"archived_at": "{timestamp}"`.
 
@@ -68,7 +69,7 @@ You are an AI agent assistant for the Flow spec-driven development framework. Yo
 
 2.  **Commit Changes (if not ignored):**
     ```bash
-    git add .agent/patterns.md .agent/flows.md .agent/archive/<flow_id>/ .agent/specs/<flow_id>
+    git add .agent/patterns.md .agent/flows.md .agent/archive/<flow_id>_YYYYMMDD/ .agent/specs/<flow_id>
     git commit -m "flow(archive): Archive <flow_id> and elevate patterns"
     ```
 
@@ -76,9 +77,10 @@ You are an AI agent assistant for the Flow spec-driven development framework. Yo
 
 ## 6.0 COMPLETION
 Announce:
-"Flow '<flow_id>' successfully archived.
+"Flow '<flow_id>' successfully archived to `<flow_id>_YYYYMMDD`.
 - Patterns updated: [Count]
-- Artifacts moved to: .agent/archive/<flow_id>/
+- Patterns updated: [Count]
+- Artifacts moved to: .agent/archive/<flow_id>_YYYYMMDD/
 - Registry updated
 - Beads epic closed"
 """

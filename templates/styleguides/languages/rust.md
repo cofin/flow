@@ -5,6 +5,7 @@ Performance-critical Rust with safe abstractions and FFI support.
 ## Core Rules
 
 ### Unsafe Code
+
 ```rust
 // Document every unsafe block with a Safety section
 unsafe {
@@ -17,6 +18,7 @@ unsafe {
 ```
 
 ### Atomic Ordering
+
 ```rust
 // Always specify ordering explicitly - never default to SeqCst
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -35,6 +37,7 @@ counter.compare_exchange(                      // For lock-free algorithms
 ```
 
 ### RAII for Resources
+
 ```rust
 // Wrap OS handles in types that implement Drop
 pub struct FileMapping {
@@ -52,15 +55,15 @@ impl Drop for FileMapping {
 
 ## Naming Conventions
 
-| Concept | Convention | Example |
-|---------|------------|---------|
-| Types/Traits | `PascalCase` | `ConnectionPool` |
-| Functions | `snake_case` | `create_connection` |
-| Variables | `snake_case` | `current_buffer` |
-| Constants | `SCREAMING_SNAKE_CASE` | `MAX_BUFFER_SIZE` |
-| Modules | `snake_case` | `connection_pool` |
-| Lifetimes | Short lowercase | `'a`, `'buf` |
-| Type parameters | Short or descriptive | `T`, `K`, `V`, `Item` |
+| Concept         | Convention             | Example                 |
+| :-------------- | :--------------------- | :---------------------- |
+| Types/Traits    | `PascalCase`           | `ConnectionPool`        |
+| Functions       | `snake_case`           | `create_connection`     |
+| Variables       | `snake_case`           | `current_buffer`        |
+| Constants       | `SCREAMING_SNAKE_CASE` | `MAX_BUFFER_SIZE`       |
+| Modules         | `snake_case`           | `connection_pool`       |
+| Lifetimes       | Short lowercase        | `'a`, `'buf`            |
+| Type parameters | Short or descriptive   | `T`, `K`, `V`, `Item`   |
 
 ## Error Handling
 
@@ -139,58 +142,19 @@ use rustix::fs::{open, Mode, OFlags};
 ## FFI Guidelines
 
 ### PyO3 (Python)
-```rust
-use pyo3::prelude::*;
 
-#[pymodule]
-fn _mymodule(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add("__version__", env!("CARGO_PKG_VERSION"))?;
-    m.add_class::<MyClass>()?;
-    Ok(())
-}
+See `rust-bindings` skill for full details.
 
-#[pyclass]
-struct MyClass {
-    inner: InnerType,
-}
-
-#[pymethods]
-impl MyClass {
-    #[new]
-    fn new() -> Self { ... }
-
-    // Release GIL for CPU-bound work
-    fn compute(&self, py: Python<'_>) -> PyResult<i64> {
-        py.allow_threads(|| {
-            self.inner.heavy_computation()
-        })
-    }
-}
-```
+See `rust-bindings` skill for implementation details and boilerplate.
 
 ### napi-rs (JavaScript)
-```rust
-use napi::bindgen_prelude::*;
 
-#[napi]
-pub struct Connection {
-    inner: InnerConnection,
-}
+See `rust-bindings` skill for full details.
 
-#[napi]
-impl Connection {
-    #[napi(constructor)]
-    pub fn new() -> Result<Self> { ... }
-
-    #[napi]
-    pub async fn query(&self, sql: String) -> Result<Vec<Row>> {
-        // Async work runs off the JS thread
-        self.inner.query(&sql).await
-    }
-}
-```
+See `rust-bindings` skill for implementation details and boilerplate.
 
 ### FFI Rules
+
 - Map errors deterministically to language exceptions
 - Never panic across FFI boundaries
 - Use zero-copy buffers only with safe lifetime management
