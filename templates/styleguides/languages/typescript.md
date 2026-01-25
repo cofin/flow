@@ -5,6 +5,7 @@ Modern TypeScript with strict mode and functional patterns.
 ## Core Rules
 
 ### Strict Mode
+
 ```typescript
 // tsconfig.json
 {
@@ -18,6 +19,7 @@ Modern TypeScript with strict mode and functional patterns.
 ```
 
 ### Variable Declarations
+
 ```typescript
 // Always use const by default
 const items: Item[] = [];
@@ -30,6 +32,7 @@ count++;
 ```
 
 ### Type Definitions
+
 ```typescript
 // Use interface for object shapes
 interface User {
@@ -49,6 +52,7 @@ function findUser(id: string): User | null {
 ```
 
 ### Avoid These
+
 ```typescript
 // Never use any - prefer unknown
 function bad(data: any) { ... }
@@ -71,15 +75,15 @@ const good = user?.name ?? 'Anonymous';  // Handle null
 
 ## Naming Conventions
 
-| Concept | Convention | Example |
-|---------|------------|---------|
-| Interfaces/Types | `PascalCase` | `UserProfile` |
-| Classes | `PascalCase` | `UserService` |
-| Functions | `camelCase` | `getUserById` |
-| Variables | `camelCase` | `currentUser` |
-| Constants | `SCREAMING_SNAKE_CASE` | `MAX_RETRIES` |
-| Enums | `PascalCase` | `UserStatus` |
-| Generics | Single uppercase or `T` prefix | `T`, `TValue`, `TKey` |
+| Concept          | Convention                     | Example                 |
+| :--------------- | :----------------------------- | :---------------------- |
+| Interfaces/Types | `PascalCase`                   | `UserProfile`           |
+| Classes          | `PascalCase`                   | `UserService`           |
+| Functions        | `camelCase`                    | `getUserById`           |
+| Variables        | `camelCase`                    | `currentUser`           |
+| Constants        | `SCREAMING_SNAKE_CASE`         | `MAX_RETRIES`           |
+| Enums            | `PascalCase`                   | `UserStatus`            |
+| Generics         | Single uppercase or `T` prefix | `T`, `TValue`, `TKey`   |
 
 ## Functions
 
@@ -204,10 +208,13 @@ type UserPreview = Pick<User, 'id' | 'name'>;
 
 ## Tooling
 
-- **Formatter**: `prettier`
-- **Linter**: `eslint` with `@typescript-eslint`
+- **Formatter/Linter**: `prettier`/`eslint` OR `biome` (see `bun` skill)
 - **Build**: `vite`, `esbuild`, or `tsc`
-- **Test runner**: `vitest`
+- **Test runner**: `vitest` or `bun test` (see `bun` skill)
+
+## Performance Patterns
+
+See `performance-patterns` skill for IPC and serialization details.
 
 ## Anti-Patterns
 
