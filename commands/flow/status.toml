@@ -111,7 +111,7 @@ Total Tasks: {count}
 === SESSION CONTEXT ===
 
 Beads Notes (from previous sessions):
-{Any notes from `bd epic notes` for active tracks}
+{Any notes from `bd show` for active tracks}
 ```
 
 ---

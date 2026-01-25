@@ -155,11 +155,11 @@ Stealth mode keeps Beads data local-only (not committed to git).
 
 | Flow Action | Beads Command |
 |-------------|---------------|
-| Create track | `bd epic create "Track: {track_id}"` |
-| Create task | `bd create "{task}" -e {epic_id}` |
+| Create track | `bd create "Track: {track_id}" -t epic -p 1` |
+| Create task | `bd create "{task}" --parent {epic_id} -p 1` |
 | Start task | `bd update {id} --status in_progress` |
-| Complete task | `bd close {id} --note "commit: {sha}"` |
-| Block task | `bd update {id} --status blocked --note "{reason}"` |
+| Complete task | `bd close {id} --reason "commit: {sha}"` |
+| Block task | `bd update {id} --status blocked --notes "{reason}"` |
 | Get ready tasks | `bd ready` |
 | Add notes | `bd update {id} --notes "{learning}"` |
 | Sync to git | `bd sync` |
@@ -243,7 +243,7 @@ State tracked in `parallel_state.json`. Uses Claude's Task Tool to spawn sub-age
 6. Verify >80% coverage
 7. Commit: `<type>(<scope>): <description>`
 8. Update plan.md: `[~]` → `[x]` with SHA
-9. Sync: `bd close {id} --note "commit: {sha}"`
+9. Sync: `bd close {id} --reason "commit: {sha}"`
 10. Log learnings in `learnings.md`
 
 **Important:** All commits stay local. Flow never pushes automatically.

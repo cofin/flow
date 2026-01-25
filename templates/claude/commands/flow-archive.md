@@ -93,7 +93,7 @@ In `.agent/prds.md`:
 ## Phase 7: Beads Cleanup
 
 ```bash
-bd epic close {epic_id} --note "Archived"
+bd close {epic_id} --reason "Archived"
 ```
 
 If beads.json has `compactOnArchive: true`:

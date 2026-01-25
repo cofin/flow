@@ -81,7 +81,7 @@ Flow requires Beads for persistent cross-session memory:
 7. **Commit** with format: `<type>(<scope>): <description>`
 8. **Attach git notes** with task summary
 9. **Record SHA** in plan.md
-10. **Sync to Beads**: `bd close {id} --note "commit: {sha}"`
+10. **Sync to Beads**: `bd close {id} --reason "commit: {sha}"`
 
 ## Knowledge Flywheel
 

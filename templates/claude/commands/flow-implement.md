@@ -108,7 +108,7 @@ git notes add -m '{"workflow":"flow","track":"{track_id}","task":"{task_id}"}' H
 ### 3.9 Sync to Beads
 
 ```bash
-bd close {task_id} --note "commit: {sha}"
+bd close {task_id} --reason "commit: {sha}"
 ```
 
 ### 3.10 Record Learning (if any)

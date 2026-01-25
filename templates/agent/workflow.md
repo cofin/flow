@@ -84,7 +84,7 @@ All tasks follow a strict lifecycle:
 10. **Get and Record Task Commit SHA:**
     - **Step 10.1: Update Plan:** Read `plan.md`, find the line for the completed task, update its status from `[~]` to `[x]`, and append the first 7 characters of the *just-completed commit's* commit hash.
     - **Step 10.2: Write Plan:** Write the updated content back to `plan.md`.
-    - **Step 10.3: Sync to Beads:** `bd close <id> --note "commit: <sha>"`
+    - **Step 10.3: Sync to Beads:** `bd close <id> --reason "commit: <sha>"`
 
 11. **Commit Plan Update:**
     - **Action:** Stage the modified `plan.md` file.

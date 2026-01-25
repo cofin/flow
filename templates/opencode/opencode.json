@@ -1,0 +1,59 @@
+{
+  "$schema": "https://opencode.ai/schema/config.json",
+  "name": "flow",
+  "version": "0.3.2",
+  "description": "Flow Framework for context-driven development",
+  "agents": {
+    "flow": {
+      "name": "Flow Agent",
+      "description": "Context-driven development with Beads integration",
+      "instructions": "./agents/flow.md"
+    }
+  },
+  "commands": {
+    "flow:setup": {
+      "description": "Initialize project with Flow framework",
+      "file": "./commands/flow-setup.md"
+    },
+    "flow:prd": {
+      "description": "Create new track with spec and plan",
+      "file": "./commands/flow-prd.md"
+    },
+    "flow:implement": {
+      "description": "Execute tasks from track plan",
+      "file": "./commands/flow-implement.md"
+    },
+    "flow:status": {
+      "description": "Display progress overview",
+      "file": "./commands/flow-status.md"
+    },
+    "flow:block": {
+      "description": "Mark task as blocked",
+      "file": "./commands/flow-block.md"
+    },
+    "flow:skip": {
+      "description": "Skip task with justification",
+      "file": "./commands/flow-skip.md"
+    },
+    "flow:archive": {
+      "description": "Archive completed track",
+      "file": "./commands/flow-archive.md"
+    },
+    "flow:handoff": {
+      "description": "Create session handoff document",
+      "file": "./commands/flow-handoff.md"
+    },
+    "flow:refresh": {
+      "description": "Sync context with codebase",
+      "file": "./commands/flow-refresh.md"
+    },
+    "flow:validate": {
+      "description": "Validate project integrity",
+      "file": "./commands/flow-validate.md"
+    },
+    "flow:revert": {
+      "description": "Git-aware revert",
+      "file": "./commands/flow-revert.md"
+    }
+  }
+}

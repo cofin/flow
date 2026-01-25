@@ -68,7 +68,7 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
 5.  **Load Beads Context:**
     If track has beads_epic_id:
     ```bash
-    bd epic show {epic_id}
+    bd show {epic_id}
     ```
     Display any notes or context from previous sessions.
 
@@ -97,9 +97,9 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
         -   **Research (if referenced):** Check metadata for `research_id`
     c. **Load Beads Notes:**
         ```bash
-        bd epic notes {epic_id}
+        bd show {epic_id}
         ```
-        These contain context from previous sessions - READ THEM!
+        Notes are included in the output - READ THEM for context from previous sessions!
     d. **Error Handling:** If critical files missing, HALT with error.
 
 4.  **Initialize Learnings (if not exists):**
@@ -160,7 +160,7 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
             - Update plan.md: `[~]` → `[x]`
             - Sync to Beads:
                 ```bash
-                bd close {task_id} --note "Commit: {sha}"
+                bd close {task_id} --reason "Commit: {sha}"
                 ```
 
         vii. **Add Beads Notes (for complex tasks):**
@@ -186,7 +186,7 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
         1. Update plan.md: `[ ]` → `[!]`
         2. Sync to Beads:
             ```bash
-            bd update {task_id} --status blocked --note "{reason}"
+            bd update {task_id} --status blocked --notes "{reason}"
             ```
         3. Log in `learnings.md` under Gotchas
         4. Announce blocker and suggest: `/flow:block {track_id}` for formal logging
@@ -197,7 +197,7 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
         1. Update track registry: `[~]` → `[x]`
         2. Sync to Beads:
             ```bash
-            bd epic close {epic_id} --note "All tasks complete"
+            bd close {epic_id} --reason "All tasks complete"
             ```
         3. **Final Learnings Prompt:**
             > "Track complete. Review learnings.md for patterns to elevate to patterns.md."
@@ -372,7 +372,7 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
     2. If confirmed:
         ```bash
         rm -rf .agent/specs/{track_id}
-        bd epic delete {epic_id}  # Only if confirmed
+        bd update {epic_id} --status cancelled  # Mark as cancelled instead of deleting
         ```
     3. Remove from tracks.md
     4. Announce: "Track permanently deleted."

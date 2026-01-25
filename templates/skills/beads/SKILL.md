@@ -43,7 +43,7 @@ bd ready        # List unblocked tasks
 bd show {id}              # View task + notes
 bd update {id} --status in_progress
 bd update {id} --notes "learning: ..."
-bd close {id} --note "commit: abc1234"
+bd close {id} --reason "commit: abc1234"
 ```
 
 ### Session End
@@ -59,11 +59,11 @@ bd sync         # Push to git (if normal mode)
 | `bd prime` | AI-optimized workflow context |
 | `bd ready` | List unblocked ready tasks |
 | `bd create "Title" -p 0` | Create P0 priority task |
-| `bd create "Title" -e {epic}` | Create task under epic |
+| `bd create "Title" --parent {epic} -p 1` | Create task under epic |
 | `bd show {id}` | View task with notes |
 | `bd update {id} --status {s}` | Update status |
 | `bd update {id} --notes "..."` | Add notes (survives compaction!) |
-| `bd close {id} [--note "..."]` | Complete task |
+| `bd close {id} [--reason "..."]` | Complete task |
 | `bd close {id} --continue` | Complete and auto-advance |
 | `bd block {id} --reason "..."` | Mark blocked |
 | `bd unblock {id}` | Remove blocker |
@@ -81,11 +81,11 @@ bd mol distill {epic} {name}    # Extract template from epic
 
 ## Epic Management
 
-Each Flow track maps to a Beads epic:
+Each Flow track maps to a Beads epic (epics are tasks with `-t epic` type):
 ```bash
-bd epic create "Track: auth_20260124"
-bd epic list
-bd epic show {id}
+bd create "Track: auth_20260124" -t epic -p 1
+bd list -t epic
+bd show {id}
 ```
 
 ## Priority Levels
@@ -122,9 +122,9 @@ Commit: abc1234
 ## Flow Integration
 
 When used with Flow:
-- Track creation → `bd epic create`
+- Track creation → `bd create -t epic -p 1`
 - Task start → `bd update --status in_progress`
-- Task complete → `bd close --note "commit: {sha}"`
+- Task complete → `bd close --reason "commit: {sha}"`
 - Learnings → `bd update --notes "..."`
 - Block → `bd block --reason "..."`
 

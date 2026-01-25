@@ -147,7 +147,7 @@ Handles non-linear Git histories (rebase, squash, merge commits).
 
     **For Task Revert:**
     ```bash
-    bd update {task_id} --status pending --note "Reverted: {sha}"
+    bd update {task_id} --status pending --notes "Reverted: {sha}"
     ```
 
     **For Phase Revert:**
@@ -160,7 +160,7 @@ Handles non-linear Git histories (rebase, squash, merge commits).
 
     **For Track Revert:**
     ```bash
-    bd epic reopen {epic_id} --note "Track reverted to initial state"
+    bd update {epic_id} --status pending --notes "Track reverted to initial state"
     ```
 
 5.  **Update Track Registry:**

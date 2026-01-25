@@ -104,12 +104,12 @@ bd update {affected_task_ids} --notes "Revised: {brief reason}"
 
 For new tasks:
 ```bash
-bd create "{task}" -e {epic_id}
+bd create "{task}" --parent {epic_id} -p 1
 ```
 
 For removed tasks:
 ```bash
-bd close {task_id} --note "Removed in revision"
+bd close {task_id} --reason "Removed in revision"
 ```
 
 ---

@@ -2,7 +2,7 @@
 
 **Measure twice, code once.**
 
-Flow is a unified toolkit for **Context-Driven Development** that works with both **Claude Code** and **Gemini CLI**. It combines spec-first planning with **Beads** for persistent cross-session memory, enabling AI-assisted development with deep, persistent project awareness.
+Flow is a unified toolkit for **Context-Driven Development** that works with **Claude Code**, **Gemini CLI**, **Codex CLI**, and **OpenCode**. It combines spec-first planning with **Beads** for persistent cross-session memory, enabling AI-assisted development with deep, persistent project awareness.
 
 ## Philosophy
 
@@ -13,7 +13,7 @@ Control your code. By treating context as a managed artifact alongside your code
 ## Key Features
 
 - **Beads Integration**: Persistent task memory that survives context compaction
-- **Multi-CLI Support**: Works with Claude Code (primary) and Gemini CLI (primary)
+- **Multi-CLI Support**: Works with Claude Code, Gemini CLI, Codex CLI, and OpenCode
 - **Spec-First Development**: Create specs and plans before writing code
 - **TDD Workflow**: Red-Green-Refactor with >80% coverage requirements
 - **Knowledge Flywheel**: Capture and elevate patterns across tracks (Ralph-style)
@@ -25,39 +25,71 @@ Control your code. By treating context as a managed artifact alongside your code
 
 ### Installation
 
-#### Beads (Required)
+#### Intelligent Installer (Recommended)
+
+The install script detects your CLIs, backs up existing configs, and merges intelligently:
+
+```bash
+# Clone the repo
+git clone https://github.com/cofin/flow.git
+cd flow
+
+# Run installer
+./scripts/install.sh
+```
+
+The installer supports:
+- **Claude Code** (`~/.claude/`)
+- **Codex CLI** (`~/.codex/`)
+- **OpenCode** (`~/.config/opencode/`)
+
+#### Manual Installation
+
+##### Beads (Required)
 
 ```bash
 npm install -g beads-cli
 ```
 
-#### Claude Code
+##### Claude Code
 
 ```bash
-# Copy commands to your project or global config
 cp -r templates/claude/commands/* ~/.claude/commands/
-
-# Copy skills (optional - for auto-activation)
 cp -r templates/skills/* ~/.claude/skills/
 ```
 
-#### Gemini CLI
+##### Codex CLI
 
 ```bash
-# Install as extension
-gemini extensions install https://github.com/cofin/flow --auto-update
+cp -r templates/codex/prompts/* ~/.codex/prompts/
+cat templates/codex/AGENTS.md >> ~/.codex/AGENTS.md
+cp -r templates/skills/flow ~/.codex/skills/
+cp -r templates/skills/beads ~/.codex/skills/
+```
 
-# Or copy manually
+##### OpenCode
+
+```bash
+cp -r templates/opencode/commands/* ~/.config/opencode/commands/
+cp -r templates/opencode/agents/* ~/.config/opencode/agents/
+# Merge templates/opencode/opencode.json with existing config
+```
+
+##### Gemini CLI
+
+```bash
+gemini extensions install https://github.com/cofin/flow --auto-update
+# Or manually:
 cp -r commands/* ~/.gemini/extensions/flow/commands/
 ```
 
 ### Initialize a Project
 
 ```bash
-# In Claude Code
+# Claude Code
 /flow-setup
 
-# In Gemini CLI
+# Gemini CLI / Codex CLI / OpenCode
 /flow:setup
 ```
 
@@ -106,8 +138,8 @@ Flow follows TDD workflow:
 
 ## Commands
 
-| Purpose | Claude Code | Gemini CLI |
-|---------|-------------|------------|
+| Purpose | Claude Code | Gemini / Codex / OpenCode |
+|---------|-------------|---------------------------|
 | Initialize project | `/flow-setup` | `/flow:setup` |
 | Create PRD (track) | `/flow-prd` | `/flow:prd` |
 | Pre-PRD research | `/flow-research` | `/flow:research` |
@@ -126,6 +158,8 @@ Flow follows TDD workflow:
 | Manage templates | `/flow-formula` | `/flow:formula` |
 | Ephemeral track | `/flow-wisp` | `/flow:wisp` |
 | Extract template | `/flow-distill` | `/flow:distill` |
+
+> **Note**: Codex CLI and OpenCode use the same `/flow:command` syntax as Gemini CLI.
 
 ## Directory Structure
 
@@ -182,7 +216,7 @@ bd prime
 # During work
 bd ready              # Show unblocked tasks
 bd update <id> --status in_progress
-bd close <id> --note "commit: abc123"
+bd close <id> --reason "commit: abc123"
 
 # At session end
 bd sync

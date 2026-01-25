@@ -14,11 +14,19 @@ It works with both **Claude Code** (primary) and **Gemini CLI** (primary) with s
 ## Architecture
 
 ### Repository Structure
+
 ```
 flow/
 ├── templates/
 │   ├── claude/
 │   │   └── commands/       # Claude Code commands (18 commands)
+│   ├── codex/
+│   │   ├── prompts/        # Codex CLI prompts
+│   │   └── AGENTS.md       # Codex global instructions
+│   ├── opencode/
+│   │   ├── commands/       # OpenCode commands
+│   │   ├── agents/         # OpenCode agents
+│   │   └── opencode.json   # OpenCode config
 │   ├── skills/             # Consolidated skills library (50+ skills)
 │   │   ├── flow/           # Flow workflow skill
 │   │   ├── beads/          # Beads integration skill
@@ -33,6 +41,8 @@ flow/
 │       ├── learnings.md    # Per-track learnings template
 │       └── workflow.md     # Workflow template
 ├── commands/flow/          # Gemini commands
+├── scripts/
+│   └── install.sh          # Intelligent multi-CLI installer
 ├── ref/                    # Reference implementations
 ├── CLAUDE.md               # This file
 ├── GEMINI.md               # Gemini CLI context
@@ -73,6 +83,7 @@ flow/
 ### Generated Artifacts (in user projects)
 
 When users run Flow, it creates:
+
 ```
 project/
 ├── .agent/
@@ -107,12 +118,15 @@ project/
 ## Key Concepts
 
 ### Tracks
+
 A track is a logical unit of work (feature, bug fix, refactor). Each track has:
+
 - **Unique ID format:** `shortname_YYYYMMDD` (e.g., `user-auth_20260124`)
 - **Status markers:** `[ ]` pending, `[~]` in progress, `[x]` completed, `[!]` blocked, `[-]` skipped
 - **Own directory** with spec, plan, metadata, learnings, and state files
 
 ### Task Workflow (TDD)
+
 1. Select task from plan.md (or use `bd ready` for Beads-aware selection)
 2. Mark `[~]` in progress → sync to Beads: `bd update <id> --status in_progress`
 3. **Write failing tests** (Red)
@@ -121,13 +135,15 @@ A track is a logical unit of work (feature, bug fix, refactor). Each track has:
 6. Verify >80% coverage
 7. Commit: `<type>(<scope>): <description>`
 8. Update plan.md with commit SHA: `[x]`
-9. Sync to Beads: `bd close <id> --note "commit: <sha>"`
+9. Sync to Beads: `bd close <id> --reason "commit: <sha>"`
 10. **Log learnings** in learnings.md
 
 **Important:** All commits stay local. Flow never pushes automatically.
 
 ### Beads Integration (Required)
+
 Beads provides persistent cross-session memory:
+
 - **Stealth mode by default** (local-only, not committed)
 - Each track becomes a Beads epic
 - Tasks sync for dependency tracking: `bd ready` finds unblocked tasks
@@ -135,29 +151,35 @@ Beads provides persistent cross-session memory:
 - Graceful degradation if `bd` unavailable
 
 **Key Beads Commands:**
+
 ```bash
-bd init --stealth          # Initialize Beads (stealth mode)
-bd ready                   # Show tasks ready to work on
-bd update <id> --status in_progress  # Start task
-bd close <id> --note "..."  # Complete task
-bd blocked                 # Show blocked tasks
-bd sync                    # Sync with git
-bd prime                   # Load context for session
+bd init --stealth                     # Initialize Beads (stealth mode)
+bd create "Track: name" -t epic -p 1  # Create epic (track)
+bd create "Task" --parent <epic> -p 1 # Create task under epic
+bd ready                              # Show tasks ready to work on
+bd update <id> --status in_progress   # Start task
+bd close <id> --reason "..."          # Complete task
+bd blocked                            # Show blocked tasks
+bd sync                               # Sync with git
+bd prime                              # Load context for session
 ```
 
 ### Learnings System (Ralph-style Knowledge Flywheel)
 
 **Per-Track (`learnings.md`):**
+
 - Append-only log of discoveries during implementation
 - Format: `[timestamp] - Phase/Task - Learning`
 - Sections: Session Log, Patterns Discovered, Gotchas, Decisions Made
 
 **Project-Level (`patterns.md`):**
+
 - Consolidated patterns elevated from completed tracks
 - Categories: Code Conventions, Architecture, Gotchas, Testing, Context
 - **Read before starting work** to prime context
 
 **Knowledge Flywheel:**
+
 1. Implement → discover patterns
 2. Log in track `learnings.md` (auto-sync to Beads notes)
 3. At phase/track completion → prompt for pattern elevation
@@ -165,14 +187,18 @@ bd prime                   # Load context for session
 5. New tracks → inherit patterns from `patterns.md`
 
 ### Parallel Execution
+
 Phases can execute tasks in parallel using sub-agents:
+
 - Annotate phases: `<!-- execution: parallel -->`
 - Task file ownership: `<!-- files: src/file.ts -->`
 - Dependencies: `<!-- depends: task1 -->`
 - State tracked in `parallel_state.json`
 
 ### Phase Checkpoints
+
 At phase completion:
+
 - Run full test suite
 - Verify coverage requirements
 - Create git tag: `checkpoint/{track_id}/phase-{N}`
@@ -192,27 +218,51 @@ At phase completion:
 
 ## Installation
 
-### For Claude Code
-```bash
-# Copy commands to your project
-cp -r templates/claude/commands/* ~/.claude/commands/
+### Intelligent Installer (Recommended)
 
-# Copy skills (optional - for auto-activation)
+```bash
+./scripts/install.sh
+```
+
+The installer detects installed CLIs, backs up existing configs, and merges intelligently.
+
+### Manual Installation
+
+#### Claude Code
+
+```bash
+cp -r templates/claude/commands/* ~/.claude/commands/
 cp -r templates/skills/* ~/.claude/skills/
 ```
 
-### For Gemini CLI
+#### Codex CLI
+
 ```bash
-# Install as extension
-gemini install flow
-# Or copy manually
-cp -r commands/* ~/.gemini/extensions/flow/commands/
+cp -r templates/codex/prompts/* ~/.codex/prompts/
+cat templates/codex/AGENTS.md >> ~/.codex/AGENTS.md
+cp -r templates/skills/flow ~/.codex/skills/
+cp -r templates/skills/beads ~/.codex/skills/
 ```
 
-### Beads (Required)
+#### OpenCode
+
+```bash
+cp -r templates/opencode/commands/* ~/.config/opencode/commands/
+cp -r templates/opencode/agents/* ~/.config/opencode/agents/
+```
+
+#### Gemini CLI
+
+```bash
+gemini install flow
+# Or: cp -r commands/* ~/.gemini/extensions/flow/commands/
+```
+
+#### Beads (Required)
+
 ```bash
 npm install -g beads-cli
-bd init --stealth  # Initialize in stealth mode
+bd init --stealth
 ```
 
 ## Related Documentation

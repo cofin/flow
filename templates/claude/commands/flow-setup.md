@@ -7,7 +7,7 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion, mcp__sequen
 
 Initialize a project for context-driven development with Beads integration.
 
-## Phase 0: Resume Check
+## Phase 0: Setup State Check
 
 Check for existing setup state:
 
@@ -15,7 +15,128 @@ Check for existing setup state:
 cat .agent/setup-state.json 2>/dev/null
 ```
 
-If state exists, offer to resume from last successful step.
+**If state exists AND `last_successful_step` is "complete":**
+
+> **Existing Flow setup detected. What would you like to do?**
+>
+> - **A) Align** (recommended) - Validate and update to latest best practices
+> - **B) Re-setup** - Start fresh (preserves existing specs)
+> - **C) Exit** - Keep current setup
+
+**If A (Align) selected:** Jump to **Phase 0.1: Alignment Mode**
+
+**If B (Re-setup) selected:** Continue to Phase 1 (will skip existing files unless changed)
+
+**If C (Exit) selected:** Announce "Setup unchanged." and HALT
+
+**If state exists with incomplete step:** Offer to resume from last successful step.
+
+**If no state exists:** Continue to Phase 1.
+
+---
+
+## Phase 0.1: Alignment Mode
+
+**PROTOCOL: Validate existing setup and update to latest best practices.**
+
+### 0.1.1 Beads Validation
+
+```bash
+command -v bd &> /dev/null && echo "BEADS_OK" || echo "BEADS_MISSING"
+bd version
+```
+
+If outdated, suggest: `npm update -g beads-cli`
+
+Run `bd setup claude --check` if available to verify hooks.
+
+### 0.1.2 Legacy Specs Migration
+
+**Scan for legacy spec locations:**
+- `specs/active/`
+- `specs/archive/`
+- `.agent/specs/active/` (if different from current)
+- `.agent/specs/archive/`
+
+**For each discovered spec directory:**
+
+```
+Found [N] specs in legacy locations:
+
+Active (specs/active/):
+  - user-auth_20260110 (3/5 tasks complete)
+  - api-refactor_20260115 (complete, has learnings)
+
+Archived (specs/archive/):
+  - initial-mvp_20260101 (archived, has learnings)
+
+Options:
+A) Migrate all to .agent/specs/ (recommended)
+B) Migrate active only, skip archive
+C) Review each spec individually
+D) Skip migration
+```
+
+**Migration steps for each spec:**
+
+1. Read `metadata.json` to understand status
+2. Read `spec.md` and `plan.md`
+3. Read `learnings.md` if exists
+4. Check if referenced files still exist in codebase
+5. Copy to `.agent/specs/{track_id}/`
+6. Update `.agent/tracks.md` registry
+7. Create Beads epic if not exists: `bd create "Track: {track_id}" -t epic -p 2`
+
+### 0.1.3 Learnings Ingestion with Validation
+
+**For each spec with learnings.md:**
+
+1. Parse learnings entries
+2. Cross-reference with current codebase:
+
+```
+From user-auth_20260110/learnings.md:
+
+✓ VALID: "Use Zod for form validation"
+  → Referenced file src/lib/validators.ts exists
+
+⚠ REVIEW: "Auth uses /api/v1/login endpoint"
+  → File src/routes/api/v1/login.ts not found
+  → Keep anyway? [Y/n]
+
+✗ STALE: "Use deprecated-package for X"
+  → Package not in package.json/pyproject.toml
+  → Removing from migration
+```
+
+3. Present validated learnings for confirmation
+4. Merge confirmed patterns into `.agent/patterns.md`
+5. Archive original learnings.md with migration note
+
+### 0.1.4 Configuration Validation
+
+Check and update:
+- `.agent/beads.json` - Ensure valid configuration
+- `.agent/workflow.md` - Check for outdated bd command syntax
+- `.agent/tech-stack.md` - Verify detected languages match codebase
+
+### 0.1.5 Alignment Summary
+
+```
+Alignment Complete
+
+✓ Beads: v{version} (up to date)
+✓ Specs migrated: {N} active, {M} archived
+✓ Learnings merged: {X} patterns added to patterns.md
+✓ Configuration validated
+
+No action needed / Issues found:
+- {list any warnings}
+
+Run `/flow-status` to see current state.
+```
+
+**After alignment, HALT (don't continue to full setup).**
 
 ---
 

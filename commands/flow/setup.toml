@@ -51,9 +51,86 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
     - If `STEP` is "2.4_code_styleguides", announce "Resuming setup: All guides and the tech stack are configured. Next, we will define the project workflow." and proceed to **Section 2.5**.
     - If `STEP` is "2.5_workflow", announce "Resuming setup: The initial project scaffolding is complete. Next, we will generate the first PRD." and proceed to **Phase 2 (3.0)**.
     - If `STEP` is "3.3_initial_prd_generated":
-        - Announce: "The project has already been initialized. You can create a new PRD with `/flow:prd` or start implementing existing PRDs with `/flow:implement`."
-        - Halt the `setup` process.
+        - **Offer Alignment Mode:**
+          > "Existing Flow setup detected. What would you like to do?
+          > A) **Align** (recommended) - Validate and update to latest best practices
+          > B) **Re-setup** - Start fresh (preserves existing specs)
+          > C) **Exit** - Keep current setup"
+        - If A selected: Proceed to **Section 1.1.1 Alignment Mode**
+        - If B selected: Continue to **Section 1.2** (full re-setup)
+        - If C selected: Announce "Setup unchanged." and HALT
     - If `STEP` is unrecognized, announce an error and halt.
+
+### 1.1.1 Alignment Mode
+**PROTOCOL: Validate existing setup and update to latest best practices.**
+
+1.  **Beads Validation:**
+    ```bash
+    command -v bd &> /dev/null && echo "BEADS_OK" || echo "BEADS_MISSING"
+    bd version
+    ```
+    If outdated, suggest: `npm update -g beads-cli`
+    Run `bd setup claude --check` if available.
+
+2.  **Legacy Specs Migration:**
+    Scan for legacy spec locations:
+    - `specs/active/`
+    - `specs/archive/`
+    - `.agent/specs/active/` (if different root)
+    - `.agent/specs/archive/`
+
+    For each discovered spec directory, present:
+    > "Found [N] specs in legacy locations:
+    >
+    > Active (specs/active/):
+    >   - user-auth_20260110 (3/5 tasks complete)
+    >   - api-refactor_20260115 (complete, has learnings)
+    >
+    > Archived (specs/archive/):
+    >   - initial-mvp_20260101 (archived, has learnings)
+    >
+    > Options:
+    > A) Migrate all to .agent/specs/ (recommended)
+    > B) Migrate active only, skip archive
+    > C) Review each spec individually
+    > D) Skip migration"
+
+    **Migration steps for each spec:**
+    a. Read `metadata.json` to understand status
+    b. Read `spec.md` and `plan.md`
+    c. Read `learnings.md` if exists
+    d. Check if referenced files still exist in codebase
+    e. Copy to `.agent/specs/{track_id}/`
+    f. Update `.agent/tracks.md` registry
+    g. Create Beads epic: `bd create "Track: {track_id}" -t epic -p 2`
+
+3.  **Learnings Ingestion with Validation:**
+    For each spec with learnings.md:
+    a. Parse learnings entries
+    b. Cross-reference with current codebase:
+       - ✓ VALID: Referenced files exist
+       - ⚠ REVIEW: Referenced files not found (ask user)
+       - ✗ STALE: Package/dependency no longer exists (auto-remove)
+    c. Present validated learnings for confirmation
+    d. Merge confirmed patterns into `.agent/patterns.md`
+    e. Archive original learnings.md with migration note
+
+4.  **Configuration Validation:**
+    - Check `.agent/beads.json` for valid config
+    - Check `.agent/workflow.md` for outdated bd command syntax
+    - Verify `.agent/tech-stack.md` matches detected languages
+
+5.  **Alignment Summary:**
+    > "Alignment Complete
+    >
+    > ✓ Beads: v{version} (up to date)
+    > ✓ Specs migrated: {N} active, {M} archived
+    > ✓ Learnings merged: {X} patterns added to patterns.md
+    > ✓ Configuration validated
+    >
+    > Run `/flow:status` to see current state."
+
+    **HALT after alignment (don't continue to full setup).**
 
 ---
 
