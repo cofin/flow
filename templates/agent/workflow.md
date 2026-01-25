@@ -9,15 +9,38 @@
 5. **User Experience First:** Every decision should prioritize user experience
 6. **Non-Interactive & CI-Aware:** Prefer non-interactive commands. Use `CI=true` for watch-mode tools (tests, linters) to ensure single execution.
 
+## Beads Integration
+
+Beads provides persistent cross-session memory. Initialized in stealth mode during setup.
+
+### Session Protocol
+
+**Session Start:**
+
+```bash
+bd prime        # Load AI-optimized context
+bd ready        # List unblocked tasks (dependency-aware)
+```
+
+**Session End:**
+
+```bash
+bd sync         # Sync notes locally
+```
+
+> If `bd` is unavailable, workflow degrades gracefully to git-only tracking.
+
 ## Task Workflow
 
 All tasks follow a strict lifecycle:
 
 ### Standard Task Workflow
 
-1. **Select Task:** Choose the next available task from `plan.md` in sequential order
+1. **Select Task:** Choose the next available task from `plan.md` in sequential order, or use `bd ready` for dependency-aware selection
 
-2. **Mark In Progress:** Before beginning work, edit `plan.md` and change the task from `[ ]` to `[~]`
+2. **Mark In Progress:**
+   - Edit `plan.md`: change `[ ]` to `[~]`
+   - Sync to Beads: `bd update <id> --status in_progress`
 
 3. **Write Failing Tests (Red Phase):**
    - Create a new test file for the feature or bug fix.
@@ -61,10 +84,39 @@ All tasks follow a strict lifecycle:
 10. **Get and Record Task Commit SHA:**
     - **Step 10.1: Update Plan:** Read `plan.md`, find the line for the completed task, update its status from `[~]` to `[x]`, and append the first 7 characters of the *just-completed commit's* commit hash.
     - **Step 10.2: Write Plan:** Write the updated content back to `plan.md`.
+    - **Step 10.3: Sync to Beads:** `bd close <id> --note "commit: <sha>"`
 
 11. **Commit Plan Update:**
     - **Action:** Stage the modified `plan.md` file.
     - **Action:** Commit this change with a descriptive message (e.g., `flow(plan): Mark task 'Create user model' as complete`).
+
+12. **Log Learnings:**
+    - Append discoveries to track's `learnings.md`
+    - Sync to Beads: `bd update <id> --notes "pattern: ..."`
+    - Elevate reusable patterns to `.agent/patterns.md` at phase completion
+
+### Knowledge Flywheel (Ralph-style)
+
+1. **Capture** - After each task, append learnings to track's `learnings.md`
+2. **Elevate** - At phase/track completion, move reusable patterns to `.agent/patterns.md`
+3. **Archive** - Track is archived; patterns remain in `.agent/patterns.md`
+4. **Inherit** - New tracks read `.agent/patterns.md` to prime context
+
+**Important:** `.agent/patterns.md` is NOT archived with tracks. It remains at the top level as persistent project knowledge.
+
+**Learnings Entry Format:**
+
+```markdown
+## [YYYY-MM-DD HH:MM] - Phase N Task M: Task Description
+
+- **Implemented:** Brief description
+- **Files changed:** path/to/files
+- **Commit:** abc1234
+- **Learnings:**
+  - Patterns: Codebase uses X for Y
+  - Gotchas: Must do Z before W
+  - Context: Module A owns B
+```
 
 ### Phase Completion Verification and Checkpointing Protocol
 
