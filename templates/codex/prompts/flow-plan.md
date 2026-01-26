@@ -19,7 +19,7 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
     - Keep these patterns in mind. If the user suggests something violating a pattern, WARN them.
 
 2. **Read Parent Context (Optional):**
-    - If a `parent_prd_id` is provided (or if you find an active PRD in `.agent/prd/`), read its `prd.md`.
+    - If a `parent_prd_id` is provided (or if you find an active PRD in `.agent/specs/`), read its `prd.md`.
     - Ensure this Flow's spec aligns with the Master Roadmap.
 
 3. **Read Research:**
@@ -39,40 +39,148 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
     - If the request seems too large for one flow (e.g., "Build entire app"), STOP.
     - Recommend running `/flow:prd` (The Orchestrator) instead. (e.g., "This looks like a multi-flow Saga. Please run `/flow:prd` to plan the full roadmap first.")
 
-### 3.2 Interactive Spec Generation (`spec.md`)
+---
 
-1. **Goal Announce:** "Drafting Specification for Flow: [Name]. I have read the Global Patterns."
-2. **Questioning Phase:**
-    - Ask 3-5 clarification questions.
-    - **Constraint Check:** "Based on `patterns.md`, we should use X. Do you agree?"
+### 3.2 Code Analysis (MANDATORY)
+
+**PROTOCOL: Analyze the codebase BEFORE asking clarifying questions.**
+
+1. **Search for Relevant Code:**
+    - Use file search to find files related to the problem description
+    - Search for keywords from the user's request
+    - Identify entry points, affected modules, and dependencies
+    - Read key files to understand current implementation
+
+2. **Build Understanding:**
+    - Map the code flow related to the problem
+    - Identify existing patterns in use (DI framework, ORM, etc.)
+    - Note any dependencies or constraints
+    - Find related tests if they exist
+    - Check for similar implementations in the codebase
+
+3. **Document Findings:**
+    - Internal: Create a mental model of the affected code paths
+    - Note specific file paths and line numbers
+    - Identify gaps in understanding that require user input
+
+4. **Present Code Analysis Report:**
+
+    > "**Code Analysis Complete**
+    >
+    > **Files Examined:**
+    > - `src/path/to/file.py` - [purpose]
+    > - `src/path/to/other.py` - [purpose]
+    >
+    > **Key Findings:**
+    > - [Finding 1 with specific file:line references]
+    > - [Finding 2 with specific file:line references]
+    >
+    > **Current Understanding:**
+    > - [What you understand about the problem]
+    >
+    > **Gaps/Questions:**
+    > - [What you need clarification on]"
+
+---
+
+### 3.3 Interactive Spec Generation (`spec.md`)
+
+1. **Goal Announce:** "Drafting Specification for Flow: [Name]. I have read the Global Patterns and analyzed the codebase."
+
+2. **INFORMED Questioning Phase:**
+    - Ask 3-5 questions based on CODE ANALYSIS (not generic guesses)
+    - Each question MUST reference specific files/code found
+    - **Constraint Check:** "Based on `patterns.md` and the existing code at [path], we should use X. Do you agree?"
+
+    **Example BAD questions:**
+    - "Is this service provided by DI?"
+    - "What database are you using?"
+    - "How should errors be handled?"
+
+    **Example GOOD questions:**
+    - "I found `workspace_file_service` is injected in `src/services/workspace.py:45` using Dishka's `@inject` decorator. However, the CLI command at `src/cli/ingest.py:23` doesn't have the corresponding `@inject`. Should I add it there, or is there a different injection pattern for CLI commands?"
+    - "The existing error handling in `src/handlers/base.py:78` uses a custom `ServiceError` exception. Should this new feature follow the same pattern, or do you want a different approach?"
+    - "I see tests in `tests/unit/services/` use pytest fixtures from `conftest.py`. Should I follow this pattern or is there a specific test structure you prefer?"
+
 3. **Draft `spec.md`:**
-    - Include "Relevant Patterns" section (extracted from `patterns.md`).
-    - Include "Parent Context" section (if applicable).
-    - Standard sections: Functional Req, Non-Functional, API, DB, Risk.
+    - Include "Code Analysis Summary" section with files examined
+    - Include "Relevant Patterns" section (extracted from `patterns.md`)
+    - Include "Parent Context" section (if applicable)
+    - Standard sections: Functional Req, Non-Functional, API, DB, Risk
+
 4. **Confirm:** Ask user to approve.
 
-### 3.3 Interactive Plan Generation (`plan.md`)
+---
+
+### 3.4 Interactive Plan Generation (`plan.md`)
 
 1. **Draft `plan.md`:**
     - Break down into Phases and TDD Tasks.
     - **Recovery Checkpoints:** Add "Checkpoint" task after each Phase.
     - **Verification:** Add "Manual Verification" task at end of Phases.
+    - Reference specific files identified in code analysis
+
 2. **Confirm:** Ask user to approve.
 
-### 3.4 Artifact Creation
+---
+
+### 3.5 Artifact Creation
 
 1. **Unique ID:** `slug_YYYYMMDD` (e.g., `user-auth_20260126`).
-2. **Directory:** `.agent/specs/<flow_id>/`.
-3. **Files:** Write `spec.md`, `plan.md`, `metadata.json`, `index.md`.
-4. **Registry:** Append to `.agent/flows.md`.
 
-### 3.5 Completion
+2. **Directory:** `.agent/specs/<flow_id>/`.
+
+3. **Files:** Write `spec.md`, `plan.md`, `metadata.json`, `index.md`.
+
+4. **metadata.json:**
+
+    ```json
+    {
+      "flow_id": "<flow_id>",
+      "type": "feature",
+      "status": "planned",
+      "beads_epic_id": "<epic_id>",
+      "created_at": "ISO timestamp",
+      "updated_at": "ISO timestamp",
+      "description": "<flow_description>",
+      "files_analyzed": ["<list of key files from code analysis>"]
+    }
+    ```
+
+5. **Registry:** Append to `.agent/flows.md`.
+
+6. **Beads Integration:**
+
+    ```bash
+    bd create "Flow: <flow_id>" -t epic -p 2 \
+      --description="<flow_purpose_from_spec>" \
+      --notes="Files: <key_files_from_analysis>. Created by /flow:plan on <date>"
+    ```
+
+---
+
+### 3.6 Completion
 
 Announce:
+
 > "Flow '<flow_id>' created.
+>
+> **Code Analysis Summary:**
+> - Files examined: [count]
+> - Key files: [list]
 >
 > - Spec: `.agent/specs/<flow_id>/spec.md`
 > - Plan: `.agent/specs/<flow_id>/plan.md`
 >
-> ready to execute? Run:
+> Ready to execute? Run:
 > `/flow:implement <flow_id>`"
+
+---
+
+## Critical Rules
+
+1. **CODE ANALYSIS FIRST** - Always analyze codebase before asking questions
+2. **INFORMED QUESTIONS** - Questions must reference actual files/code found
+3. **PATTERNS COMPLIANCE** - Check patterns.md and warn on violations
+4. **SPECS DIRECTORY** - All artifacts go in `.agent/specs/`, not `.agent/prd/`
+5. **BEADS CONTEXT** - Include description and notes with bd create
