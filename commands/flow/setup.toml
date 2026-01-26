@@ -29,7 +29,22 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
 
    If installation fails, announce error and HALT.
 
-3. **Continue:** Once Beads is available, proceed to 1.1.
+3. **Check Hook Status:**
+   ```bash
+   bd setup gemini --check 2>/dev/null && echo "HOOKS_OK" || echo "HOOKS_MISSING"
+   ```
+
+4. **If HOOKS_MISSING:**
+   > "Beads hooks not installed for Gemini CLI. Install now?
+   > A) Yes (recommended) - Run `bd setup gemini`
+   > B) No - Skip (Beads sync may not work properly)"
+
+   If A selected:
+   ```bash
+   bd setup gemini
+   ```
+
+5. **Continue:** Once Beads is available and hooks checked, proceed to 1.1.
 
 ---
 
@@ -477,7 +492,7 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
 ### 2.4 Select Guides (Interactive)
 1.  **Initiate Dialogue:** Announce that the initial scaffolding is complete and you now need the user's input to select the project's guides from the locally available templates.
 2.  **Select Code Style Guides:**
-    -   List the available style guides by running `ls ~/.gemini/extensions/flow/templates/code_styleguides/`.
+    -   List the available style guides by running `ls ~/.gemini/extensions/flow/templates/styleguides/languages/`.
     -   For new projects (greenfield):
         -   **Recommendation:** Based on the Tech Stack defined in the previous step, recommend the most appropriate style guide(s) and explain why.
         -   Ask the user how they would like to proceed:
@@ -492,7 +507,7 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
             - Ask the user for a simple confirmation to proceed with options like:
                     A) Yes, I want to proceed with the suggested code style guides.
                     B) No, I want to add more code style guides.
-    -   **Action:** Construct and execute a command to create the directory and copy all selected files. For example: `mkdir -p .agent/code-styleguides && cp ~/.gemini/extensions/flow/templates/code_styleguides/python.md ~/.gemini/extensions/flow/templates/code_styleguides/javascript.md .agent/code-styleguides/`
+    -   **Action:** Construct and execute a command to create the directory and copy all selected files. For example: `mkdir -p .agent/code-styleguides && cp ~/.gemini/extensions/flow/templates/styleguides/languages/python.md ~/.gemini/extensions/flow/templates/styleguides/languages/javascript.md .agent/code-styleguides/`
     -   **Commit State:** Upon successful completion of the copy command, you MUST immediately write to `<root_directory>/setup-state.json` with the exact content:
         `{"last_successful_step": "2.4_code_styleguides", "root_directory": "<root_directory>"}`
 
@@ -690,9 +705,19 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
 
 ### 3.3 Convert the Initial PRD into Artifacts (Automated)
 1.  **State Your Goal:** Once the PRD is approved, announce that you will now create the artifacts for this initial PRD.
-2.  **Git Configuration (Optional):**
+2.  **Git Configuration (Optional - APPEND ONLY):**
     -   Ask the user: "Would you like to add `.agent/` to `.gitignore` to keep context local-only?"
-    -   If yes, ensure `.agent/` is added to `.gitignore`.
+    -   If yes:
+        -   **Check if already present:**
+            ```bash
+            [ -f ".gitignore" ] && grep -q ".agent/" .gitignore && echo "ALREADY_EXISTS" || echo "NEEDS_UPDATE"
+            ```
+        -   **If NEEDS_UPDATE, APPEND (never overwrite):**
+            ```bash
+            echo "" >> .gitignore
+            echo "# Flow specification files (local-only)" >> .gitignore
+            echo ".agent/" >> .gitignore
+            ```
 
 3.  **Initialize Flow Registry File:** Create the `<root_directory>/flows.md` file with the initial header and the first PRD:
     ```markdown
@@ -753,19 +778,38 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
 ### 3.4 Final Announcement
 1.  **Announce Completion:** After the PRD has been created, announce that the project setup and initial PRD generation are complete.
 
-2.  **Configure Gemini Ignore (IMPORTANT):**
-    -   Create `.geminiignore` file with the following content to ensure Gemini can access Flow files:
+2.  **Configure Gemini Ignore (IMPORTANT - APPEND ONLY):**
+    -   **Check if `.geminiignore` exists:**
+        ```bash
+        [ -f ".geminiignore" ] && echo "EXISTS" || echo "NEW"
         ```
-        # Allow Gemini to access Flow specification files
-        !.agent/
-        ```
-    -   Check if `.gitignore` exists and does not already contain `.geminiignore`.
-    -   **If `.gitignore` exists and needs update:**
-        -   Ask user: "Add `.geminiignore` to `.gitignore`? (Recommended)"
-            -   **A) Yes**
-            -   **B) No**
-        -   If A: Append `.geminiignore` to `.gitignore`.
-    -   **If `.gitignore` does not exist:** Do nothing regarding gitignore.
+    -   **If EXISTS:**
+        -   Read current content
+        -   Check if `!.agent/` already present
+        -   **If NOT present, APPEND (don't overwrite):**
+            ```bash
+            echo "" >> .geminiignore
+            echo "# Allow Gemini to access Flow specification files" >> .geminiignore
+            echo "!.agent/" >> .geminiignore
+            ```
+    -   **If NEW:**
+        -   Create with content:
+            ```bash
+            echo "# Allow Gemini to access Flow specification files" > .geminiignore
+            echo "!.agent/" >> .geminiignore
+            ```
+    -   **Add `.geminiignore` to `.gitignore` (APPEND only):**
+        -   Check if `.gitignore` exists and does not already contain `.geminiignore`.
+        -   **If `.gitignore` exists and needs update:**
+            -   Ask user: "Add `.geminiignore` to `.gitignore`? (Recommended)"
+                -   **A) Yes**
+                -   **B) No**
+            -   If A: **APPEND** `.geminiignore` to `.gitignore`:
+                ```bash
+                echo "" >> .gitignore
+                echo ".geminiignore" >> .gitignore
+                ```
+        -   **If `.gitignore` does not exist:** Do nothing regarding gitignore.
     -   This ensures Flow files are accessible to Gemini while respecting the user's git preferences.
 
 3.  **Save Flow Files (Respect Gitignore):**

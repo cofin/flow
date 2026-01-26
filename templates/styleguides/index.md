@@ -5,7 +5,7 @@ Comprehensive style guides for languages and frameworks. These guides are design
 ## Structure
 
 ```
-code_styleguides/
+styleguides/
 ├── general.md              # Universal principles
 ├── languages/              # Core language guides
 │   ├── python.md           # Python with async patterns
