@@ -690,7 +690,11 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
 
 ### 3.3 Convert the Initial PRD into Artifacts (Automated)
 1.  **State Your Goal:** Once the PRD is approved, announce that you will now create the artifacts for this initial PRD.
-2.  **Initialize Flow Registry File:** Create the `<root_directory>/flows.md` file with the initial header and the first PRD:
+2.  **Git Configuration (Optional):**
+    -   Ask the user: "Would you like to add `.agent/` to `.gitignore` to keep context local-only?"
+    -   If yes, ensure `.agent/` is added to `.gitignore`.
+
+3.  **Initialize Flow Registry File:** Create the `<root_directory>/flows.md` file with the initial header and the first PRD:
     ```markdown
     # Flow Registry
 

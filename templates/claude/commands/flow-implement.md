@@ -17,6 +17,30 @@ Implementing flow: **$ARGUMENTS**
 
 ---
 
+## 1.1 INITIALIZATION
+
+**PROTOCOL: Load the Flow context.**
+
+1. **Check for User Input:** First, check if the user provided a flow ID as an argument.
+    * **If provided:** Use that `flow_id` and proceed to step 3.
+    * **If NOT provided:** Proceed to step 2 to auto-discover the flow.
+
+2. **Auto-Discovery (No Argument Provided):**
+    * **Scan for Active Flows:** Read `.agent/flows.md` and look for flows marked as "Active" or "In Progress".
+    * **Heuristics:**
+        * If exact one active flow, select it.
+        * If multiple, choose most recent.
+        * If none, list pending and ask.
+
+3. **Load Flow Context:**
+    * **Read Artifacts:** `spec.md`, `plan.md`, `learnings.md` (create if missing).
+    * **Read Project Context:** Read `.agent/patterns.md` and `.agent/workflow.md`.
+    * **Read Parent Context:** If this flow is part of a PRD/Saga, read `.agent/prd/<parent_id>/prd.md`.
+
+**CRITICAL:** Before starting, check `.gitignore`. If `.agent/` is ignored, do NOT commit changes to artifacts inside it using git. Update them on disk only.
+
+---
+
 ## Phase 1: Beads Sync
 
 ```bash
@@ -127,6 +151,7 @@ If pattern discovered, append to `learnings.md`:
 ```
 
 Sync to Beads:
+
 ```bash
 bd update {task_id} --notes "{learning}"
 ```

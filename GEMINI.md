@@ -5,6 +5,7 @@ This file provides guidance to Gemini CLI when working with code in this reposit
 ## Overview
 
 **Flow** is a unified toolkit for **Context-Driven Development** combining:
+
 - **Flow Framework**: Spec-first planning, human-readable context, TDD workflow
 - **Beads Integration**: Dependency-aware task graph, cross-session memory, agent-optimized output
 
@@ -15,6 +16,7 @@ Beads is a **required dependency**. Flow will offer to install it and initialize
 The root directory for Flow artifacts defaults to `.agent/`. This can be customized during `/flow:setup`.
 
 To find the configured root directory:
+
 1. Check for `.agent/setup-state.json`
 2. Read the `root_directory` value from the found file
 3. If no file found, use `.agent/` as default
@@ -92,10 +94,11 @@ To find a file (e.g., "**Product Definition**") within a specific context:
 | Command | Purpose |
 |---------|---------|
 | `/flow:setup` | Initialize project with context files, Beads, and first flow |
-| `/flow:prd` | Create PRD (flow) with spec and plan |
+| `/flow:prd` | **Orchestrator**: Analyze goals and generate Master Roadmap (Sagas) |
+| `/flow:plan` | **Planner**: Create Spec and Plan for a single Flow (formerly `prd`) |
 | `/flow:research` | Conduct pre-PRD research |
 | `/flow:docs` | Five-phase documentation workflow |
-| `/flow:implement` | Execute tasks from flow's plan (TDD workflow) |
+| `/flow:implement` | **Executor**: Execute tasks from plan (context-aware) |
 | `/flow:status` | Display progress overview with Beads status |
 | `/flow:revert` | Git-aware revert of flows, phases, or tasks |
 | `/flow:validate` | Validate project integrity and fix issues |
@@ -115,16 +118,19 @@ To find a file (e.g., "**Product Definition**") within a specific context:
 Beads provides persistent cross-session memory. It is **required** for Flow.
 
 ### Installation Check
+
 ```bash
 command -v bd &> /dev/null && echo "BEADS_OK" || echo "BEADS_MISSING"
 ```
 
 If missing, Flow offers to install:
+
 ```bash
 npm install -g beads-cli
 ```
 
 ### Initialization (Stealth Mode Default)
+
 ```bash
 bd init --stealth
 ```
@@ -132,6 +138,7 @@ bd init --stealth
 Stealth mode keeps Beads data local-only (not committed to git).
 
 ### Configuration (`.agent/beads.json`)
+
 ```json
 {
   "enabled": true,
@@ -169,12 +176,14 @@ Stealth mode keeps Beads data local-only (not committed to git).
 ### Session Protocol
 
 At session start:
+
 ```bash
 bd sync
 bd prime
 ```
 
 At session end:
+
 ```bash
 bd sync
 # Notes survive context compaction!
@@ -183,7 +192,9 @@ bd sync
 ## Learnings System (Ralph-style)
 
 ### Per-Flow (`learnings.md`)
+
 Append-only log of discoveries:
+
 ```markdown
 ## [2026-01-24 14:30] - Phase 1 Task 2: Add auth middleware
 - **Files changed:** src/auth/middleware.ts
@@ -194,7 +205,9 @@ Append-only log of discoveries:
 ```
 
 ### Project-Level (`patterns.md`)
+
 Consolidated patterns from all flows:
+
 ```markdown
 # Code Conventions
 - Import order: external → internal → types
@@ -210,6 +223,7 @@ Consolidated patterns from all flows:
 ```
 
 ### Knowledge Flywheel
+
 1. Implement → discover patterns
 2. Log in flow `learnings.md` (sync to Beads notes)
 3. Phase completion → prompt pattern elevation
@@ -219,6 +233,7 @@ Consolidated patterns from all flows:
 ## Parallel Execution
 
 Phases can annotate parallel execution:
+
 ```markdown
 ## Phase 2: Core Implementation
 <!-- execution: parallel -->
@@ -251,6 +266,7 @@ State tracked in `parallel_state.json`. Uses Claude's Task Tool to spawn sub-age
 ## Phase Checkpoints
 
 At phase completion:
+
 1. Run full test suite
 2. Verify coverage requirements
 3. Create git tag: `checkpoint/{flow_id}/phase-{N}`

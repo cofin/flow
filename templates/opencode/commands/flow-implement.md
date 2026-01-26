@@ -3,24 +3,37 @@
 Execute tasks from a flow's plan using TDD workflow.
 
 ## Usage
+
 `/flow:implement {flow_id}` or `/flow:implement` (uses current flow)
 
-## Phase 1: Load Flow Context
+## Phase 1: Load Context
 
-1. Read `.agent/specs/{flow_id}/plan.md`
-2. Read `.agent/specs/{flow_id}/spec.md`
-3. Read `.agent/patterns.md`
-4. Load Beads context: `bd prime`
+**PROTOCOL: Load Flow, Project, and Parent Context.**
+
+1. **Read Artifacts:**
+    - `.agent/specs/{flow_id}/spec.md`
+    - `.agent/specs/{flow_id}/plan.md`
+    - `.agent/specs/{flow_id}/learnings.md`
+2. **Read Project Context:** `.agent/patterns.md`
+3. **Read Parent Context:**
+    - Check if this flow has a parent PRD/Saga.
+    - If yes, read `.agent/prd/<parent_id>/prd.md`.
+4. **Load Beads:** `bd prime`
+
+**CRITICAL:** Before starting, check `.gitignore`. If `.agent/` is ignored, do NOT commit changes to artifacts inside it using git. Update them on disk only.
 
 ## Phase 2: Select Task
 
 ### 2.1 Check for Resume State
+
 ```bash
 cat .agent/specs/{flow_id}/implement_state.json 2>/dev/null
 ```
 
 ### 2.2 Find Next Task
+
 Use Beads to find unblocked tasks:
+
 ```bash
 bd ready
 ```
@@ -28,6 +41,7 @@ bd ready
 ## Phase 3: Task Execution (TDD)
 
 ### 3.1 Mark In Progress
+
 Update plan.md: `[ ]` → `[~]`
 
 ```bash
@@ -35,19 +49,23 @@ bd update {task_id} --status in_progress
 ```
 
 ### 3.2 Red Phase - Write Failing Tests
+
 1. Create/update test file
 2. Write tests that define expected behavior
 3. Run tests to confirm they fail
 
 ### 3.3 Green Phase - Implement
+
 1. Write minimum code to pass tests
 2. Run tests until green
 
 ### 3.4 Refactor Phase
+
 1. Clean up while tests pass
 2. Apply patterns from patterns.md
 
 ### 3.5 Verify Coverage
+
 Target: 80% minimum
 
 ## Phase 4: Commit
@@ -60,17 +78,21 @@ git commit -m "<type>(<scope>): <description>"
 ## Phase 5: Update Status
 
 ### 5.1 Update Plan
+
 Mark complete with commit SHA:
+
 ```markdown
 - [x] Task 1.1: Description [abc1234]
 ```
 
 ### 5.2 Sync to Beads
+
 ```bash
 bd close {task_id} --reason "commit: {sha}"
 ```
 
 ### 5.3 Log Learnings
+
 Add discoveries to `.agent/specs/{flow_id}/learnings.md`
 
 ## Phase 6: Continue or Stop

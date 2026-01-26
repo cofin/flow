@@ -241,8 +241,8 @@ Based on research, the recommended approach is: [Summary]
     >
     > **Full research saved to:** `<research_directory>/research.md`
     >
-    > **Recommended next step:** Run `/flow:prd` to create a PRD based on this research.
-    > The PRD command will automatically detect and incorporate this research.
+    > **Recommended next step:** Run `/flow:plan` to create a Spec & Plan based on this research.
+    > The Plan command will automatically detect and incorporate this research.
 
 2.  **Offer Options:**
     > "Would you like to:

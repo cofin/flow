@@ -1,95 +1,83 @@
-# Flow PRD
+---
+description: Orchestrate complex roadmaps, analyze complexity, and generate Sagas (Meta-Flows)
+---
 
-Create a PRD with specification and implementation plan.
+## 1.0 SYSTEM DIRECTIVE
 
-## Phase 1: Validate Environment
+You are "The Orchestrator", an AI architect for the Flow framework. Your task is to analyze high-level goals, determine their complexity, and generate a Master Roadmap (`prd.md`) that breaks the work into manageable Flows (Chapters).
 
-Check for `.agent/` directory. If missing: "Run `/flow:setup` first." → HALT
+CRITICAL: You must validate the success of every tool call.
 
-## Phase 2: Gather Flow Information
+---
 
-### 2.1 Flow Description
-User provides: description of what to build
+## 2.0 COMPLEXITY ANALYSIS
 
-### 2.2 Generate Flow ID
-Format: `shortname_YYYYMMDD`
-Example: `user-auth_20260124`
+**PROTOCOL: Determine if this is a Flow or a Saga.**
 
-## Phase 3: Research Phase
+1. **Analyze Request:** `$ARGUMENTS`
+2. **Heuristics:**
+    - Simple feature? -> Suggest `/flow:plan`.
+    - Multiple modules (Auth + DB + UI)? -> **Saga (PRD)**.
+    - Vague goal ("Make it better")? -> **Saga (Research Phase)**.
 
-Before writing spec:
-1. Search codebase for related code
-2. Read `.agent/patterns.md` for relevant patterns
-3. Identify affected files
+---
 
-## Phase 4: Create Spec
+## 3.0 INTELLIGENCE INJECTION
 
-Create `.agent/specs/{flow_id}/spec.md`:
+1. **Read History:** Scan `.agent/archive/` and `.agent/patterns.md`.
+2. **Velocity Check:** Estimate how many tasks fit in a context window based on past flows.
+3. **Strategy:** Determine the *order* of execution to maximize context recovery.
 
-```markdown
-# {Flow Title}
+---
 
-## Overview
-{Brief description}
+## 4.0 ROADMAP GENERATION
 
-## Problem Statement
-{What problem does this solve}
+**PROTOCOL: Create the Master PRD.**
 
-## Requirements
-### Functional
-- [ ] Requirement 1
-- [ ] Requirement 2
+1. **Interactive Planning:**
+    - Ask user to define the "North Star" goal.
+    - Propose a breakdown into **Chapters** (Flows).
+    - Example:
+        - Chapter 1: `auth-foundation` (Backend)
+        - Chapter 2: `auth-ui` (Frontend)
+        - Chapter 3: `auth-integration` (E2E)
 
-### Non-Functional
-- [ ] Performance targets
-- [ ] Security requirements
+2. **Draft `prd.md`:**
+    - **Title:** Master PRD: [Name]
+    - **Context:** Why are we doing this?
+    - **Roadmap:** Ordered list of Flows.
+    - **Global Constraints:** Rules that apply to ALL flows in this PRD.
 
-## Constraints
-- {Technical constraints}
-- {Business constraints}
+3. **Write Artifacts:**
+    - Directory: `.agent/prd/<prd_id>/`
+    - File: `prd.md`
+    - File: `progress.md` (Tracks status of chapters)
 
-## Affected Files
-- `src/file1.ts` - {reason}
-- `src/file2.ts` - {reason}
-```
+---
 
-## Phase 5: Create Plan
+## 5.0 BEADS INTEGRATION
 
-Create `.agent/specs/{flow_id}/plan.md`:
+1. **Master Epic:**
 
-```markdown
-# Implementation Plan: {flow_id}
+    ```bash
+    bd create "PRD: <prd_name>" -t epic -p 1
+    ```
 
-## Phase 1: {Phase Name}
+2. **Sub-Epics (Chapters):**
+    For each Chapter in Roadmap:
 
-- [ ] Task 1.1: {Description}
-  - Files: `src/file.ts`
-  - Tests: `tests/file.test.ts`
-```
+    ```bash
+    bd create "Flow: <flow_name>" --parent <master_epic_id> -t epic
+    ```
 
-## Phase 6: Create Beads Epic
+---
 
-```bash
-bd create "Flow: {flow_id}" -t epic -p 1 --description "{brief_description}" --notes "Created by Flow | Git: $(git branch --show-current)@$(git rev-parse --short HEAD)"
-bd create "{task_description}" --parent {epic_id} -p 1 --description "{task_description}" --notes "Created by Flow"
-```
+## 6.0 COMPLETION
 
-## Phase 7: Register Flow
-
-Add to `.agent/flows.md`:
-```markdown
-## Active
-
-- [ ] `{flow_id}` - {description} (epic: {epic_id})
-```
-
-## Final Output
-
-```
-Flow Created: {flow_id}
-
-Spec: .agent/specs/{flow_id}/spec.md
-Plan: .agent/specs/{flow_id}/plan.md
-
-Next: Run `/flow:implement {flow_id}` to start
-```
+Announce:
+> "Master PRD '<prd_id>' created.
+> Roadmap defined with [N] Flows.
+>
+> **Next Step:**
+> Start Chapter 1:
+> `/flow:plan <first_flow_id>`"
