@@ -27,7 +27,13 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TEMPLATES_DIR="$SCRIPT_DIR/templates"
 SKILLS_DIR="$SCRIPT_DIR/skills"
-BACKUP_DIR="$HOME/.flow-backup-$(date +%Y%m%d-%H%M%S)"
+FLOW_DATA_DIR="$HOME/.flow"
+BACKUP_DIR="$FLOW_DATA_DIR/backups/$(date +%Y%m%d-%H%M%S)"
+MERGE_HISTORY="$FLOW_DATA_DIR/merge-history.json"
+
+# Flags (parsed from command line)
+USE_LLM_MERGE=false
+FORCE_OVERWRITE=false
 
 # CLI paths
 CLAUDE_DIR="$HOME/.claude"
@@ -36,12 +42,23 @@ OPENCODE_DIR="$HOME/.config/opencode"
 GEMINI_DIR="$HOME/.gemini"
 GEMINI_EXT_DIR="$GEMINI_DIR/extensions/flow"
 
-echo -e "${CYAN}"
-echo "╔══════════════════════════════════════════════════════════════╗"
-echo "║           Flow Framework - Intelligent Installer             ║"
-echo "║                       Version 0.3.3                          ║"
-echo "╚══════════════════════════════════════════════════════════════╝"
-echo -e "${NC}"
+show_banner() {
+    echo -e "${CYAN}"
+    echo "╔══════════════════════════════════════════════════════════════╗"
+    echo "║           Flow Framework - Intelligent Installer             ║"
+    echo "║                       Version 0.5.0                          ║"
+    echo "╚══════════════════════════════════════════════════════════════╝"
+    echo -e "${NC}"
+
+    # Show merge mode if enabled
+    if $USE_LLM_MERGE; then
+        echo -e "${GREEN}Mode: LLM-Assisted Merge${NC} (using Claude/Gemini for intelligent merging)"
+        echo ""
+    elif $FORCE_OVERWRITE; then
+        echo -e "${YELLOW}Mode: Force Overwrite${NC} (existing files will be replaced)"
+        echo ""
+    fi
+}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Helper Functions
@@ -126,6 +143,237 @@ install_command() {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
+# LLM-Assisted Merge Functions
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Detect available LLM CLI
+detect_llm_cli() {
+    if command -v claude &> /dev/null; then
+        echo "claude"
+    elif command -v gemini &> /dev/null; then
+        echo "gemini"
+    else
+        echo ""
+    fi
+}
+
+# Merge files using LLM
+# Returns 0 on success, 1 on failure/skip
+merge_with_llm() {
+    local source_file="$1"
+    local dest_file="$2"
+    local output_file="$3"
+    local llm_cli="$4"
+
+    local source_content
+    local dest_content
+    source_content=$(cat "$source_file")
+    dest_content=$(cat "$dest_file")
+
+    local merge_prompt="Merge these two skill files. The SOURCE is the new version from Flow.
+The DESTINATION is the user's existing version with potential customizations.
+
+Rules:
+1. Keep user customizations that don't conflict with new features
+2. Update any outdated command syntax or patterns
+3. Preserve user-added sections or examples
+4. Use the new structure/format from SOURCE where applicable
+5. Output ONLY the merged content, no explanations
+
+--- SOURCE (new version) ---
+$source_content
+
+--- DESTINATION (user's version) ---
+$dest_content
+
+Output the merged content:"
+
+    local merged
+    case "$llm_cli" in
+        claude)
+            merged=$(echo "$merge_prompt" | claude -p 2>/dev/null) || return 1
+            ;;
+        gemini)
+            merged=$(gemini -p "$merge_prompt" 2>/dev/null) || return 1
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+
+    # Validate we got content
+    if [[ -z "$merged" || ${#merged} -lt 50 ]]; then
+        return 1
+    fi
+
+    echo "$merged" > "$output_file"
+    return 0
+}
+
+# Show diff and prompt for action
+show_diff_prompt() {
+    local source_file="$1"
+    local dest_file="$2"
+    local name="$3"
+
+    echo ""
+    echo -e "${YELLOW}Differences found in: $name${NC}"
+    echo "─────────────────────────────────────────"
+
+    # Show compact diff
+    diff --color=auto -u "$dest_file" "$source_file" | head -50 || true
+
+    local line_count
+    line_count=$(diff "$dest_file" "$source_file" | wc -l)
+    if [[ $line_count -gt 50 ]]; then
+        echo "... ($((line_count - 50)) more lines)"
+    fi
+
+    echo "─────────────────────────────────────────"
+    echo ""
+    echo "Options:"
+    echo "  o) Overwrite with new version"
+    echo "  k) Keep existing version"
+    echo "  v) View full diff"
+    echo ""
+    read -p "Select [o/k/v]: " -n 1 -r
+    echo
+
+    case $REPLY in
+        o|O)
+            return 0  # Overwrite
+            ;;
+        v|V)
+            diff --color=auto -u "$dest_file" "$source_file" | less
+            show_diff_prompt "$source_file" "$dest_file" "$name"
+            return $?
+            ;;
+        *)
+            return 1  # Keep existing
+            ;;
+    esac
+}
+
+# Intelligent merge for a single file
+# Handles LLM merge, diff preview, or simple overwrite based on flags
+merge_or_install_file() {
+    local source_file="$1"
+    local dest_file="$2"
+    local name="$(basename "$source_file")"
+    local llm_cli
+
+    # If destination doesn't exist, simple copy
+    if [[ ! -f "$dest_file" ]]; then
+        cp "$source_file" "$dest_file"
+        log_success "Installed: $name"
+        return 0
+    fi
+
+    # Check if files are identical
+    if diff -q "$source_file" "$dest_file" &>/dev/null; then
+        log_info "Unchanged: $name"
+        return 0
+    fi
+
+    # Force overwrite mode
+    if $FORCE_OVERWRITE; then
+        cp "$source_file" "$dest_file"
+        log_success "Overwrote: $name"
+        return 0
+    fi
+
+    # LLM merge mode
+    if $USE_LLM_MERGE; then
+        llm_cli=$(detect_llm_cli)
+        if [[ -n "$llm_cli" ]]; then
+            log_info "Merging $name with $llm_cli..."
+            local temp_merged
+            temp_merged=$(mktemp)
+
+            if merge_with_llm "$source_file" "$dest_file" "$temp_merged" "$llm_cli"; then
+                # Show what the LLM produced
+                echo ""
+                echo -e "${CYAN}LLM Merge Preview for: $name${NC}"
+                echo "─────────────────────────────────────────"
+                diff --color=auto -u "$dest_file" "$temp_merged" | head -30 || true
+                echo "─────────────────────────────────────────"
+                echo ""
+                read -p "Accept merge? [Y/n/d(iff)]: " -n 1 -r
+                echo
+
+                case $REPLY in
+                    n|N)
+                        rm "$temp_merged"
+                        log_info "Skipped: $name (kept existing)"
+                        return 0
+                        ;;
+                    d|D)
+                        diff --color=auto -u "$dest_file" "$temp_merged" | less
+                        read -p "Accept merge after review? [Y/n]: " -n 1 -r
+                        echo
+                        if [[ $REPLY =~ ^[Nn]$ ]]; then
+                            rm "$temp_merged"
+                            log_info "Skipped: $name (kept existing)"
+                            return 0
+                        fi
+                        ;;
+                esac
+
+                cp "$temp_merged" "$dest_file"
+                rm "$temp_merged"
+                log_success "Merged: $name (with $llm_cli)"
+
+                # Record merge history
+                record_merge_history "$name" "$llm_cli"
+                return 0
+            else
+                log_warn "LLM merge failed for $name, falling back to diff"
+                rm -f "$temp_merged"
+            fi
+        else
+            log_warn "No LLM CLI available, falling back to diff"
+        fi
+    fi
+
+    # Default: show diff and prompt
+    if show_diff_prompt "$source_file" "$dest_file" "$name"; then
+        cp "$source_file" "$dest_file"
+        log_success "Updated: $name"
+    else
+        log_info "Kept existing: $name"
+    fi
+
+    return 0
+}
+
+# Record merge in history file
+record_merge_history() {
+    local file_name="$1"
+    local llm_used="$2"
+    local timestamp
+    timestamp=$(date -Iseconds)
+
+    mkdir -p "$(dirname "$MERGE_HISTORY")"
+
+    # Create or append to merge history
+    if [[ ! -f "$MERGE_HISTORY" ]]; then
+        echo '{"merges":[]}' > "$MERGE_HISTORY"
+    fi
+
+    # Append entry (simple JSON append - jq would be cleaner but may not be installed)
+    local temp_file
+    temp_file=$(mktemp)
+    if command -v jq &>/dev/null; then
+        jq --arg f "$file_name" --arg l "$llm_used" --arg t "$timestamp" \
+            '.merges += [{"file": $f, "llm": $l, "timestamp": $t}]' \
+            "$MERGE_HISTORY" > "$temp_file" && mv "$temp_file" "$MERGE_HISTORY"
+    else
+        # Fallback: just log to file
+        echo "$timestamp: Merged $file_name using $llm_used" >> "${MERGE_HISTORY%.json}.log"
+    fi
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
 # CLI Detection
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -206,30 +454,25 @@ install_claude() {
         done
     fi
 
-    # Install skills (merge with existing)
+    # Install skills (merge with existing using intelligent merge)
     local skills_src="$SKILLS_DIR"
     local skills_dst="$CLAUDE_DIR/skills"
 
     if [[ -d "$skills_src" ]]; then
         for skill_dir in "$skills_src"/*/; do
             local skill_name="$(basename "$skill_dir")"
-            local skill_dst="$skills_dst/$skill_name"
+            local skill_dst_dir="$skills_dst/$skill_name"
 
-            if [[ -d "$skill_dst" ]]; then
-                # Skill exists - check if it's ours
-                if grep -q "Flow" "$skill_dst/SKILL.md" 2>/dev/null; then
-                    # Update our skill
-                    cp -r "$skill_dir"/* "$skill_dst/"
-                    log_success "Updated skill: $skill_name"
-                else
-                    log_warn "Skipped skill $skill_name (conflict with existing)"
-                fi
-            else
-                # New skill
-                mkdir -p "$skill_dst"
-                cp -r "$skill_dir"/* "$skill_dst/"
-                log_success "Installed skill: $skill_name"
-            fi
+            mkdir -p "$skill_dst_dir"
+
+            # Process each file in the skill directory
+            for skill_file in "$skill_dir"*; do
+                [[ -f "$skill_file" ]] || continue
+                local file_name="$(basename "$skill_file")"
+                local dest_file="$skill_dst_dir/$file_name"
+
+                merge_or_install_file "$skill_file" "$dest_file"
+            done
         done
     fi
 
@@ -286,17 +529,24 @@ install_codex() {
         done
     fi
 
-    # Install skills (beads and flow only for now)
+    # Install skills (beads and flow only for now) with intelligent merge
     local skills_src="$SKILLS_DIR"
     local skills_dst="$CODEX_DIR/skills"
 
     for skill_name in "flow" "beads"; do
         local skill_dir="$skills_src/$skill_name"
         if [[ -d "$skill_dir" ]]; then
-            local skill_dst="$skills_dst/$skill_name"
-            mkdir -p "$skill_dst"
-            cp -r "$skill_dir"/* "$skill_dst/"
-            log_success "Installed skill: $skill_name"
+            local skill_dst_dir="$skills_dst/$skill_name"
+            mkdir -p "$skill_dst_dir"
+
+            # Process each file in the skill directory
+            for skill_file in "$skill_dir"/*; do
+                [[ -f "$skill_file" ]] || continue
+                local file_name="$(basename "$skill_file")"
+                local dest_file="$skill_dst_dir/$file_name"
+
+                merge_or_install_file "$skill_file" "$dest_file"
+            done
         fi
     done
 
@@ -398,25 +648,25 @@ install_gemini() {
     cp -r "$TEMPLATES_DIR"/* "$GEMINI_EXT_DIR/templates/"
     log_success "Installed: Templates"
 
-    # Install skills (all) to main Gemini skills dir
+    # Install skills (all) to main Gemini skills dir with intelligent merge
     local skills_src="$SKILLS_DIR"
     local skills_dst="$GEMINI_DIR/skills"
 
     if [[ -d "$skills_src" ]]; then
         for skill_dir in "$skills_src"/*/; do
             local skill_name="$(basename "$skill_dir")"
-            local skill_dst="$skills_dst/$skill_name"
+            local skill_dst_dir="$skills_dst/$skill_name"
 
-            if [[ -d "$skill_dst" ]]; then
-                # Skill exists - assume it's okay to overwrite for now, or just update contents
-                cp -r "$skill_dir"/* "$skill_dst/"
-                log_success "Updated skill: $skill_name"
-            else
-                # New skill
-                mkdir -p "$skill_dst"
-                cp -r "$skill_dir"/* "$skill_dst/"
-                log_success "Installed skill: $skill_name"
-            fi
+            mkdir -p "$skill_dst_dir"
+
+            # Process each file in the skill directory
+            for skill_file in "$skill_dir"*; do
+                [[ -f "$skill_file" ]] || continue
+                local file_name="$(basename "$skill_file")"
+                local dest_file="$skill_dst_dir/$file_name"
+
+                merge_or_install_file "$skill_file" "$dest_file"
+            done
         done
     fi
 
@@ -452,10 +702,54 @@ check_beads() {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Argument Parsing
+# ─────────────────────────────────────────────────────────────────────────────
+
+parse_args() {
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            --merge-with-llm|--llm)
+                USE_LLM_MERGE=true
+                shift
+                ;;
+            --force|--overwrite)
+                FORCE_OVERWRITE=true
+                shift
+                ;;
+            --help|-h)
+                echo "Usage: install.sh [OPTIONS]"
+                echo ""
+                echo "Options:"
+                echo "  --merge-with-llm  Use Claude/Gemini CLI to intelligently merge"
+                echo "                    existing skills with new versions"
+                echo "  --force           Overwrite existing files without prompting"
+                echo "  --help            Show this help message"
+                echo ""
+                echo "Without flags, shows diff preview for conflicts."
+                exit 0
+                ;;
+            *)
+                log_warn "Unknown option: $1"
+                shift
+                ;;
+        esac
+    done
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Main
 # ─────────────────────────────────────────────────────────────────────────────
 
 main() {
+    # Parse command line arguments
+    parse_args "$@"
+
+    # Show banner after parsing args (so we know the mode)
+    show_banner
+
+    # Create flow data directory
+    mkdir -p "$FLOW_DATA_DIR"
+
     # Check templates exist
     if [[ ! -d "$TEMPLATES_DIR" ]]; then
         log_error "Templates directory not found: $TEMPLATES_DIR"
@@ -543,8 +837,12 @@ main() {
 
     if [[ -d "$BACKUP_DIR" ]]; then
         echo "Backups saved to: $BACKUP_DIR"
-        echo ""
     fi
+
+    if [[ -f "$MERGE_HISTORY" ]] || [[ -f "${MERGE_HISTORY%.json}.log" ]]; then
+        echo "Merge history: $FLOW_DATA_DIR/"
+    fi
+    echo ""
 
     echo "Next steps:"
     echo ""

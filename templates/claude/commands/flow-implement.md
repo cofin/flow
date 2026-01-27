@@ -77,9 +77,17 @@ For each task in plan:
 # In plan.md
 - [~] N. Task description
 
-# In Beads
+# In Beads - if task exists:
 bd update {task_id} --status in_progress
+
+# If task not in Beads, create it first:
+bd create "{task_description}" --parent {epic_id} -p 2 \
+  --description="{what_needs_to_be_done_and_why}" \
+  --notes="Phase {N}, Task {M}. Files: {affected_files}. Created by /flow-implement"
+bd update {new_task_id} --status in_progress
 ```
+
+**CRITICAL:** Always include `--description` and `--notes` when creating tasks.
 
 ### 3.2 Write Failing Tests (Red Phase)
 

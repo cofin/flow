@@ -142,7 +142,7 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
         > A) Yes (Recommended)
         > B) No"
     -   **If A:**
-        -   Copy `~/.gemini/extensions/flow/templates/workflow.md` to `<root_directory>/workflow.md` (Overwrite).
+        -   Copy `~/.gemini/extensions/flow/templates/agent/workflow.md` to `<root_directory>/workflow.md` (Overwrite).
         -   Announce: "Updated workflow.md to latest version."
 
 5.  **Configuration Validation:**
@@ -513,7 +513,7 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
 
 ### 2.5 Select Workflow (Interactive)
 1.  **Copy Initial Workflow:**
-    -   Copy `~/.gemini/extensions/flow/templates/workflow.md` to `<root_directory>/workflow.md`.
+    -   Copy `~/.gemini/extensions/flow/templates/agent/workflow.md` to `<root_directory>/workflow.md`.
 2.  **Customize Workflow:**
     -   Ask the user: "Do you want to use the default workflow or customize it?"
         The default workflow includes:

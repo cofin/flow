@@ -102,9 +102,11 @@ If plan changed:
 bd update {affected_task_ids} --notes "Revised: {brief reason}"
 ```
 
-For new tasks:
+For new tasks (**CRITICAL: Include full context**):
 ```bash
-bd create "{task}" --parent {epic_id} -p 1 --description "{task}" --notes "Created by Flow revision"
+bd create "{task}" --parent {epic_id} -p 2 \\
+  --description="{what_changed_and_why_this_task_is_needed}" \\
+  --notes="Added during revision. Reason: {revision_reason}. Created by /flow:revise on {date}"
 ```
 
 For removed tasks:

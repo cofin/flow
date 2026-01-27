@@ -42,6 +42,14 @@ bd ready
 
 ### 3.1 Mark In Progress
 
+**If task not in Beads, create it first:**
+
+```bash
+bd create "{task_description}" --parent {epic_id} -p 2 \
+  --description="{what_needs_to_be_done_and_why}" \
+  --notes="Phase {N}, Task {M}. Files: {affected_files}. Created by /flow:implement"
+```
+
 Update plan.md: `[ ]` → `[~]`
 
 ```bash

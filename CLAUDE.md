@@ -154,15 +154,41 @@ Beads provides persistent cross-session memory:
 
 ```bash
 bd init --stealth                     # Initialize Beads (stealth mode)
-bd create "Track: name" -t epic -p 1  # Create epic (track)
-bd create "Task" --parent <epic> -p 1 # Create task under epic
+bd create "Track: name" -t epic -p 1 \
+  --description="Track purpose and goals" \
+  --notes="Created by /flow-prd on YYYY-MM-DD"
+bd create "Task" --parent <epic> -p 2 \
+  --description="What needs to be done and why" \
+  --notes="Phase N, Task M. Files: affected_files"
 bd ready                              # Show tasks ready to work on
 bd update <id> --status in_progress   # Start task
-bd close <id> --reason "..."          # Complete task
+bd close <id> --reason "commit: sha"  # Complete task with commit reference
 bd blocked                            # Show blocked tasks
 bd sync                               # Sync with git
 bd prime                              # Load context for session
 ```
+
+**CRITICAL: Always include `--description` and `--notes` with `bd create`:**
+
+- `--description`: WHY this issue exists and WHAT needs to be done
+- `--notes`: CONTEXT - files affected, dependencies, origin command, timestamp
+- Priority levels: P0=critical, P1=high, P2=medium, P3=low, P4=backlog
+
+### When to Track in Beads
+
+**Rule: If work takes >5 minutes, track it in Beads.**
+
+| Duration | Action | Example |
+|----------|--------|---------|
+| <5 min | Just do it | Fix typo, update config |
+| 5-30 min | Create task | Add validation, write test |
+| 30+ min | Create task with subtasks | Implement feature |
+
+**Why this matters:**
+
+- Notes survive context compaction - critical for multi-session work
+- `bd ready` finds unblocked work automatically
+- If resuming in 2 weeks would be hard without context, use Beads
 
 ### Learnings System (Ralph-style Knowledge Flywheel)
 

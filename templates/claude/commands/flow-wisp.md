@@ -23,13 +23,18 @@ Wisps have NO audit trail - they're meant to be discarded.
 ## Phase 1: Create Wisp
 
 ```bash
-bd mol wisp {description}
+bd create "Wisp: {description}" -t task -p 4 \
+  --description="{exploration_goal_and_what_youre_trying_to_learn}" \
+  --notes="Ephemeral exploration. No audit trail. Created by /flow-wisp on {date}"
 ```
 
 This creates:
-- Temporary Beads epic (marked ephemeral)
+
+- Temporary Beads task (priority P4 - backlog)
 - Minimal spec file
 - No git commits required
+
+**Note:** Always include `--description` and `--notes` even for ephemeral work.
 
 ---
 

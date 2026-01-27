@@ -271,7 +271,7 @@ Write response to `<root_directory>/tech-stack.md`
 > - Commit message format? (default: conventional commits)
 > - CI integration? (GitHub Actions, GitLab CI, etc.)
 
-Copy workflow template from `templates/workflow.md` and customize.
+Copy workflow template from `templates/agent/workflow.md` and customize.
 
 ---
 

@@ -162,8 +162,8 @@ Stealth mode keeps Beads data local-only (not committed to git).
 
 | Flow Action | Beads Command |
 |-------------|---------------|
-| Create flow | `bd create "Flow: {flow_id}" -t epic -p 1` |
-| Create task | `bd create "{task}" --parent {epic_id} -p 1` |
+| Create flow | `bd create "Flow: {flow_id}" -t epic -p 1 --description="{purpose}" --notes="{context}"` |
+| Create task | `bd create "{task}" --parent {epic_id} -p 2 --description="{what_and_why}" --notes="{files, phase}"` |
 | Start task | `bd update {id} --status in_progress` |
 | Complete task | `bd close {id} --reason "commit: {sha}"` |
 | Block task | `bd update {id} --status blocked --notes "{reason}"` |
@@ -172,6 +172,28 @@ Stealth mode keeps Beads data local-only (not committed to git).
 | Sync to git | `bd sync` |
 | Prime context | `bd prime` |
 | Show blocked | `bd blocked` |
+
+**CRITICAL: Always include `--description` and `--notes` with `bd create`:**
+
+- `--description`: WHY this issue exists and WHAT needs to be done
+- `--notes`: CONTEXT - files affected, dependencies, origin command, timestamp
+- Priority levels: P0=critical, P1=high, P2=medium, P3=low, P4=backlog
+
+### When to Track in Beads
+
+**Rule: If work takes >5 minutes, track it in Beads.**
+
+| Duration | Action | Example |
+|----------|--------|---------|
+| <5 min | Just do it | Fix typo, update config |
+| 5-30 min | Create task | Add validation, write test |
+| 30+ min | Create task with subtasks | Implement feature |
+
+**Why this matters:**
+
+- Notes survive context compaction - critical for multi-session work
+- `bd ready` finds unblocked work automatically
+- If resuming in 2 weeks would be hard without context, use Beads
 
 ### Session Protocol
 

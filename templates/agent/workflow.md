@@ -30,6 +30,36 @@ bd sync         # Sync notes locally
 
 > If `bd` is unavailable, workflow degrades gracefully to git-only tracking.
 
+### When to Track in Beads
+
+**Rule: If work takes >5 minutes, track it in Beads.**
+
+| Duration | Action | Example |
+|----------|--------|---------|
+| <5 min | Just do it | Fix typo, update config |
+| 5-30 min | Create task | Add validation, write test |
+| 30+ min | Create task with subtasks | Implement feature |
+
+**Why this matters:**
+
+- Notes survive context compaction - critical for multi-session work
+- `bd ready` finds unblocked work automatically
+- If resuming in 2 weeks would be hard without context, use Beads
+
+### Creating Issues with Full Context
+
+**CRITICAL: Always include `--description` and `--notes` with `bd create`:**
+
+```bash
+bd create "Task name" --parent {epic_id} -p 2 \
+  --description="WHY this issue exists and WHAT needs to be done" \
+  --notes="CONTEXT: files affected, dependencies, origin command, timestamp"
+```
+
+- `--description`: The purpose and goal of this task
+- `--notes`: Context that helps future agents understand the work
+- Priority levels: P0=critical, P1=high, P2=medium, P3=low, P4=backlog
+
 ## Task Workflow
 
 All tasks follow a strict lifecycle:

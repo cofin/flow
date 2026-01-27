@@ -62,8 +62,15 @@ CRITICAL: Check `.gitignore` before committing. If `.agent/` or specific artifac
 1.  Identify the next pending task from `plan.md` (marked `[ ]`).
 2.  **Announce:** "Starting Task [N]: [Task Description]"
 3.  **Sync Beads:**
-    *   Find the Beads issue ID for this task (if stored in metadata) or create/update it.
+    *   Find the Beads issue ID for this task (if stored in metadata).
+    *   If task not in Beads, create it with FULL CONTEXT:
+        ```bash
+        bd create "{task_description}" --parent {epic_id} -p 2 \\
+          --description="{what_needs_to_be_done_and_why}" \\
+          --notes="Phase {N}, Task {M}. Files: {affected_files}. Created by /flow:implement"
+        ```
     *   Mark as in progress: `bd update <issue_id> --status in_progress`
+    *   **CRITICAL:** Always include `--description` and `--notes` when creating tasks.
 
 ### 3.2 TDD Workflow (Red-Green-Refactor)
 1.  **Red (Write Tests):**
