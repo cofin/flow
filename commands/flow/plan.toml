@@ -139,9 +139,28 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
       --notes="Files: <key_files_from_analysis>. Created by /flow:plan on <date>"
     ```
 
+    **CRITICAL:** The `--description` must include:
+    -   WHY this flow exists (the problem being solved)
+    -   WHAT the expected outcome is
+
+    **CRITICAL:** The `--notes` must include:
+    -   Key files identified in code analysis
+    -   Origin command (`/flow:plan`)
+    -   Creation timestamp
+
+7.  **Create Tasks in Beads:**
+    For each phase/task in the plan:
+    ```bash
+    bd create "Phase {N}: {phase_name}" --parent {epic_id} -t task -p 2 \\
+      --description="WHY: {purpose}. WHAT: {deliverables}" \\
+      --notes="Phase {N}. Files: {affected_files}. Origin: /flow:plan"
+    ```
+
+    **>5 Minute Rule:** If a task takes more than 5 minutes, it MUST be tracked in Beads.
+
 ---
 
-### 3.6 Completion
+### 3.7 Completion (HARD STOP)
 Announce:
 > "Flow '<flow_id>' created.
 >

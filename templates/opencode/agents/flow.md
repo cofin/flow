@@ -1,3 +1,12 @@
+---
+description: Context-driven development with Beads integration
+mode: subagent
+tools:
+  write: true
+  edit: true
+  bash: true
+---
+
 # Flow Agent
 
 You are working in a project using the **Flow Framework** for context-driven development.

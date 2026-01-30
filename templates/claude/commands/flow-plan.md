@@ -11,6 +11,28 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
 
 ---
 
+## ⛔ CRITICAL CONSTRAINT: PLANNING ONLY - NO CODE MODIFICATION ⛔
+
+**THIS COMMAND CREATES PLANNING DOCUMENTS ONLY.**
+
+You are STRICTLY FORBIDDEN from:
+
+- Writing, editing, or modifying ANY source code files
+- Creating new code files (*.py, *.ts, *.js, *.rs, etc.)
+- Running implementation commands
+- Making ANY changes outside of `.agent/` directory
+
+You MAY ONLY:
+
+- Create/edit files in `.agent/specs/` (spec.md, plan.md, metadata.json)
+- Create/edit `.agent/flows.md` registry
+- Run `bd create` commands for Beads tracking
+- Read source code for analysis (but NEVER modify it)
+
+**Implementation happens ONLY when user explicitly runs `/flow-implement`.**
+
+---
+
 ## 2.0 INTELLIGENCE INJECTION (The Ralph Loop)
 
 **PROTOCOL: Read global and parent context to constrain the plan.**
@@ -158,30 +180,60 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
       --notes="Files: <key_files_from_analysis>. Created by /flow-plan on <date>"
     ```
 
+    **CRITICAL:** The `--description` must include:
+    - WHY this flow exists (the problem being solved)
+    - WHAT the expected outcome is
+
+    **CRITICAL:** The `--notes` must include:
+    - Key files identified in code analysis
+    - Origin command (`/flow-plan`)
+    - Creation timestamp
+
+7. **Create Tasks in Beads:**
+
+    For each phase/task in the plan:
+
+    ```bash
+    bd create "Phase {N}: {phase_name}" --parent {epic_id} -t task -p 2 \
+      --description="WHY: {purpose}. WHAT: {deliverables}" \
+      --notes="Phase {N}. Files: {affected_files}. Origin: /flow-plan"
+    ```
+
+    **>5 Minute Rule:** If a task takes more than 5 minutes, it MUST be tracked in Beads.
+    This ensures context survives compaction and future sessions can resume work.
+
 ---
 
-### 3.6 Completion
+### 3.6 Completion (HARD STOP)
 
 Announce:
 
-> "Flow '<flow_id>' created.
+> "**PLANNING COMPLETE - AWAITING IMPLEMENTATION APPROVAL**
+>
+> Flow '<flow_id>' planning documents created.
+> **NO CODE HAS BEEN MODIFIED.**
 >
 > **Code Analysis Summary:**
 > - Files examined: [count]
 > - Key files: [list]
 >
+> **Artifacts:**
 > - Spec: `.agent/specs/<flow_id>/spec.md`
 > - Plan: `.agent/specs/<flow_id>/plan.md`
 >
-> Ready to execute? Run:
-> `/flow-implement <flow_id>`"
+> **To begin implementation, explicitly run:**
+> `/flow-implement <flow_id>`
+>
+> I will NOT proceed with any code changes until you run that command."
 
 ---
 
 ## Critical Rules
 
-1. **CODE ANALYSIS FIRST** - Always analyze codebase before asking questions
-2. **INFORMED QUESTIONS** - Questions must reference actual files/code found
-3. **PATTERNS COMPLIANCE** - Check patterns.md and warn on violations
-4. **SPECS DIRECTORY** - All artifacts go in `.agent/specs/`, not `.agent/prd/`
-5. **BEADS CONTEXT** - Include description and notes with bd create
+1. **NO CODE MODIFICATION** - NEVER edit source code files. Planning documents ONLY.
+2. **CODE ANALYSIS FIRST** - Always analyze codebase before asking questions
+3. **INFORMED QUESTIONS** - Questions must reference actual files/code found
+4. **PATTERNS COMPLIANCE** - Check patterns.md and warn on violations
+5. **SPECS DIRECTORY** - All artifacts go in `.agent/specs/`, not `.agent/prd/`
+6. **BEADS CONTEXT** - Include description and notes with bd create
+7. **HARD STOP** - End with explicit instruction to run `/flow-implement`

@@ -125,25 +125,19 @@ git add {files}
 git commit -m "{type}({scope}): {description}"
 ```
 
-### 3.7 Attach Git Notes
-
-```bash
-git notes add -m '{"workflow":"flow","flow":"{flow_id}","task":"{task_id}"}' HEAD
-```
-
-### 3.8 Update Plan
+### 3.7 Update Plan
 
 ```markdown
 - [x] N. Task description abc1234
 ```
 
-### 3.9 Sync to Beads
+### 3.8 Sync to Beads
 
 ```bash
 bd close {task_id} --reason "commit: {sha}"
 ```
 
-### 3.10 Record Learning (if any)
+### 3.9 Record Learning (if any)
 
 If pattern discovered, append to `learnings.md`:
 
@@ -203,7 +197,12 @@ Manual Verification Steps:
 
 ```bash
 git commit --allow-empty -m "flow(checkpoint): Phase {N} complete"
-git notes add -m "{verification_report}" HEAD
+```
+
+Record in Beads:
+
+```bash
+bd update {epic_id} --append-notes "Phase {N} verified: tests passed, user confirmed"
 ```
 
 ### 4.6 Update Plan with Checkpoint

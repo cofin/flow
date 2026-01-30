@@ -1,59 +1,84 @@
 {
-  "$schema": "https://opencode.ai/schema/config.json",
-  "name": "flow",
-  "version": "0.3.2",
-  "description": "Flow Framework for context-driven development",
-  "agents": {
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": [".opencode/AGENTS.md"],
+  "agent": {
     "flow": {
-      "name": "Flow Agent",
       "description": "Context-driven development with Beads integration",
-      "instructions": "./agents/flow.md"
+      "mode": "subagent"
     }
   },
-  "commands": {
+  "command": {
     "flow:setup": {
       "description": "Initialize project with Flow framework",
-      "file": "./commands/flow-setup.md"
+      "agent": "flow"
     },
     "flow:prd": {
       "description": "Create new flow with spec and plan",
-      "file": "./commands/flow-prd.md"
+      "agent": "flow"
+    },
+    "flow:plan": {
+      "description": "Create spec and plan for single flow",
+      "agent": "flow"
     },
     "flow:implement": {
-      "description": "Execute tasks from track plan",
-      "file": "./commands/flow-implement.md"
+      "description": "Execute tasks from flow plan",
+      "agent": "flow"
     },
     "flow:status": {
       "description": "Display progress overview",
-      "file": "./commands/flow-status.md"
+      "agent": "flow"
     },
     "flow:block": {
       "description": "Mark task as blocked",
-      "file": "./commands/flow-block.md"
+      "agent": "flow"
     },
     "flow:skip": {
       "description": "Skip task with justification",
-      "file": "./commands/flow-skip.md"
+      "agent": "flow"
     },
     "flow:archive": {
-      "description": "Archive completed track",
-      "file": "./commands/flow-archive.md"
+      "description": "Archive completed flow",
+      "agent": "flow"
     },
     "flow:handoff": {
       "description": "Create session handoff document",
-      "file": "./commands/flow-handoff.md"
+      "agent": "flow"
     },
     "flow:refresh": {
       "description": "Sync context with codebase",
-      "file": "./commands/flow-refresh.md"
+      "agent": "flow"
     },
     "flow:validate": {
       "description": "Validate project integrity",
-      "file": "./commands/flow-validate.md"
+      "agent": "flow"
     },
     "flow:revert": {
       "description": "Git-aware revert",
-      "file": "./commands/flow-revert.md"
+      "agent": "flow"
+    },
+    "flow:research": {
+      "description": "Conduct pre-PRD research",
+      "agent": "flow"
+    },
+    "flow:revise": {
+      "description": "Update spec/plan when implementation reveals issues",
+      "agent": "flow"
+    },
+    "flow:export": {
+      "description": "Generate project summary export",
+      "agent": "flow"
+    },
+    "flow:distill": {
+      "description": "Extract reusable template from completed flow",
+      "agent": "flow"
+    },
+    "flow:formula": {
+      "description": "List and manage flow templates",
+      "agent": "flow"
+    },
+    "flow:wisp": {
+      "description": "Create ephemeral exploration flow",
+      "agent": "flow"
     }
   }
 }

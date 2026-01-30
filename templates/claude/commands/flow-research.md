@@ -51,39 +51,70 @@ Determine type:
 
 ## Phase 2: Codebase Exploration
 
-### 2.1 Architecture Discovery
+### 2.1 Structured Research Tasks
+
+**CRITICAL: Research is task-based, not sequential thoughts.**
+
+Create explicit research tasks with status tracking:
+
+```markdown
+## Research Tasks
+
+### Task 1: Map Entry Points
+**Status**: Complete
+**Sources Analyzed**: src/routes/, src/handlers/
+**Findings**: [Key discoveries]
+
+### Task 2: Analyze Existing Patterns
+**Status**: In Progress
+**Sources Analyzed**: patterns.md, src/services/
+```
+
+### 2.2 Codebase Analysis with File References
+
+**CRITICAL: Always include file:line references.**
 
 1. **Map Relevant Areas:**
    - Use Glob/Grep to identify related files
-   - Analyze directory structure
-   - Identify entry points and key abstractions
+   - For each finding, note exact file path and line number
+   - Example: `src/services/auth.py:45` - AuthService class definition
 
 2. **Pattern Recognition:**
-   - Document coding patterns in similar areas
-   - Note naming conventions, file organization
-   - Identify reusable utilities/helpers
+   - Document coding patterns with specific examples
+   - Reference where patterns are used: `src/handlers/base.py:78`
 
-3. **Dependency Analysis:**
-   - Map internal module dependencies
-   - Document external dependencies
-   - Note version constraints
+3. **Dependency Trace:**
+   - Map import chains with file references
+   - Document the data flow through components
 
-### 2.2 Codebase Summary
+### 2.3 Codebase Analysis Report
 
 ```markdown
 ## Codebase Analysis
 
-### Relevant Modules
-- [Module]: [Description]
+### Key Locations
+| File | Lines | Purpose |
+|------|-------|---------|
+| `src/services/auth.py` | 45-120 | Authentication service |
+| `src/handlers/base.py` | 78-95 | Base error handling |
+
+### Current Implementation Walkthrough
+1. Request enters at `src/routes/api.py:23`
+2. Middleware processes at `src/middleware/auth.py:15`
+3. Handler invoked at `src/handlers/user.py:42`
 
 ### Existing Patterns
-- [Pattern to follow]
+| Pattern | Location | Usage |
+|---------|----------|-------|
+| DI with Dishka | `src/di/container.py` | All services |
+| Custom exceptions | `src/errors.py:10-50` | Error handling |
 
-### Reusable Components
-- [Utility/helper]
+### Observations
+- **Strength:** [with file reference]
+- **Concern:** [with file reference]
 
-### Constraints
-- [Limitations discovered]
+### Constraints Discovered
+- [Limitation with specific code reference]
 ```
 
 ---
@@ -195,15 +226,64 @@ Determine type:
    ```
 
 3. **Write Research Document:** `.agent/research/{research_id}/research.md`
-   - Executive Summary (3-5 bullets)
-   - Codebase Analysis
-   - Library Documentation
-   - Prior Art
-   - Risk Assessment
-   - Recommended Approach
-   - Open Questions
+
+   ```markdown
+   # Research: [Topic]
+
+   **Workspace**: `.agent/research/{research_id}/`
+   **Status**: Complete
+   **Type**: [New Feature|Bug|Integration|Refactoring|Performance]
+
+   ## Executive Summary
+   - [Key finding 1]
+   - [Key finding 2]
+   - [Key finding 3]
+
+   ## Research Tasks Summary
+   | Task | Status | Key Findings |
+   |------|--------|--------------|
+   | Codebase Analysis | Complete | [summary] |
+   | Library Docs | Complete | [summary] |
+   | Prior Art | Complete | [summary] |
+
+   ## Codebase Analysis
+   [Detailed findings with file:line references]
+
+   ## Library Documentation
+   [Detailed findings with version info]
+
+   ## Prior Art
+   [Internal and external references]
+
+   ## Risk Assessment
+   [Table of risks with mitigations]
+
+   ## Recommended Approach
+   [Summary and rationale]
+
+   ## Open Questions
+   - [Question 1]
+   - [Question 2]
+
+   ## Research Outputs
+   **This research informs:**
+   - PRD: `.agent/specs/{prd_id}/prd.md` (when created)
+   - Flow: `.agent/specs/{flow_id}/` (when created)
+   ```
 
 4. **Create Metadata:** `.agent/research/{research_id}/metadata.json`
+   ```json
+   {
+     "research_id": "{research_id}",
+     "topic": "{topic}",
+     "type": "{type}",
+     "created_at": "ISO timestamp",
+     "libraries_researched": ["lib1", "lib2"],
+     "files_analyzed": ["path1", "path2"],
+     "linked_prd": null,
+     "linked_flow": null
+   }
+   ```
 
 ### 6.2 Present Summary
 
