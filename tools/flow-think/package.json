@@ -16,7 +16,9 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc && chmod +x dist/index.js",
+    "build": "./scripts/build.sh",
+    "build:bundle": "bun build src/index.ts --outfile dist/index.js --target node --format esm --minify --external @modelcontextprotocol/sdk",
+    "build:tsc": "tsc && chmod +x dist/index.js",
     "start": "bun run src/index.ts",
     "start:node": "node dist/index.js",
     "dev": "bun --watch src/index.ts",

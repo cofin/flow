@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Build script for flow-think-mcp
-# Supports both Bun and Node.js environments
+# Uses Bun's bundler for single-file output with Node.js fallback
 
 set -euo pipefail
 
@@ -13,6 +13,7 @@ cd "$PROJECT_ROOT"
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 echo "==> Building flow-think-mcp..."
@@ -23,20 +24,45 @@ echo "    Cleaning dist/"
 rm -rf dist/
 
 # Detect runtime
-RUNTIME="node"
 if command -v bun &> /dev/null; then
-    RUNTIME="bun"
-    echo "    Using Bun runtime"
-else
-    echo "    Using Node.js runtime (Bun not available)"
-fi
+    echo -e "    ${CYAN}Using Bun bundler (single-file build)${NC}"
 
-# Run TypeScript compiler
-echo "    Compiling TypeScript..."
-if [[ "$RUNTIME" == "bun" ]]; then
-    bun run tsc
+    # Create dist directory
+    mkdir -p dist
+
+    # Bundle with Bun - single file output
+    # --target=node ensures Node.js compatibility
+    # --external marks dependencies that should not be bundled
+    echo "    Bundling TypeScript to single file..."
+    bun build src/index.ts \
+        --outfile dist/index.js \
+        --target node \
+        --format esm \
+        --minify \
+        --external @modelcontextprotocol/sdk
+
+    # Also generate type declarations using tsc
+    echo "    Generating type declarations..."
+    bun run tsc --emitDeclarationOnly --declaration --outDir dist 2>/dev/null || true
+
+    # Add shebang for direct execution (if not already present)
+    if ! head -1 dist/index.js | grep -q '^#!'; then
+        echo "    Adding shebang..."
+        TEMP_FILE=$(mktemp)
+        echo '#!/usr/bin/env node' > "$TEMP_FILE"
+        cat dist/index.js >> "$TEMP_FILE"
+        mv "$TEMP_FILE" dist/index.js
+    fi
+
+    BUILD_MODE="bundled"
 else
+    echo -e "    ${YELLOW}Bun not available, falling back to tsc${NC}"
+
+    # Run TypeScript compiler
+    echo "    Compiling TypeScript..."
     npx tsc
+
+    BUILD_MODE="compiled"
 fi
 
 # Make entry point executable
@@ -55,7 +81,12 @@ if [[ -f "dist/index.js" ]]; then
 
     # Count files
     FILE_COUNT=$(find dist -name "*.js" | wc -l)
-    echo "    Files: $FILE_COUNT JavaScript files"
+
+    if [[ "$BUILD_MODE" == "bundled" ]]; then
+        echo -e "    Mode: ${CYAN}Single-file bundle${NC}"
+    else
+        echo "    Files: $FILE_COUNT JavaScript files"
+    fi
 else
     echo -e "${RED}==> Build failed: dist/index.js not found${NC}"
     exit 1
@@ -63,7 +94,5 @@ fi
 
 echo ""
 echo "Run with:"
-echo "  $RUNTIME dist/index.js"
-if [[ "$RUNTIME" == "bun" ]]; then
-    echo "  node dist/index.js    # Node.js fallback"
-fi
+echo "  bun dist/index.js"
+echo "  node dist/index.js"
