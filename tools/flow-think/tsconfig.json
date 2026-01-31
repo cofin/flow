@@ -19,7 +19,6 @@
     "noUnusedParameters": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
-    "allowImportingTsExtensions": true,
     "noEmit": false,
     "types": ["bun-types", "node"]
   },

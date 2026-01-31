@@ -4,7 +4,7 @@
  * Loads configuration from environment variables with sensible defaults.
  */
 
-import type { FlowThinkConfig, OutputFormat } from "./types.ts";
+import type { FlowThinkConfig, OutputFormat } from "./types.js";
 
 /**
  * Default configuration values.

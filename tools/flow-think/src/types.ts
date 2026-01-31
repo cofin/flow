@@ -215,8 +215,10 @@ export interface MCPTextContent {
 
 /**
  * Response from processStep().
+ * Uses index signature for MCP SDK compatibility.
  */
 export interface MCPResponse {
+  [key: string]: unknown;
   content: MCPTextContent[];
   isError?: boolean;
 }
