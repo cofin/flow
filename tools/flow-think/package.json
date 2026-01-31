@@ -1,0 +1,54 @@
+{
+  "name": "flow-think-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for structured thinking in Flow - Cascaded Reasoning with Adaptive Step Handling",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "flow-think-mcp": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc && chmod +x dist/index.js",
+    "start": "bun run src/index.ts",
+    "start:node": "node dist/index.js",
+    "dev": "bun --watch src/index.ts",
+    "test": "bun test",
+    "test:coverage": "bun test --coverage",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "flow",
+    "structured-thinking",
+    "cascaded-reasoning",
+    "beads",
+    "llm",
+    "ai"
+  ],
+  "author": "Flow Framework",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/flow-framework/flow.git",
+    "directory": "tools/flow-think"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.17.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "^22.0.0",
+    "typescript": "^5.8.0"
+  }
+}
