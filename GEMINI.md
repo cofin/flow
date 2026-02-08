@@ -65,8 +65,7 @@ To find a file (e.g., "**Product Definition**") within a specific context:
 
 | Key | Default Path |
 |-----|--------------|
-| **Specification** | `.agent/specs/<flow_id>/spec.md` |
-| **Implementation Plan** | `.agent/specs/<flow_id>/plan.md` |
+| **Specification** | `.agent/specs/<flow_id>/spec.md` (unified spec + plan) |
 | **Metadata** | `.agent/specs/<flow_id>/metadata.json` |
 | **Learnings** | `.agent/specs/<flow_id>/learnings.md` |
 
@@ -95,7 +94,8 @@ To find a file (e.g., "**Product Definition**") within a specific context:
 |---------|---------|
 | `/flow:setup` | Initialize project with context files, Beads, and first flow |
 | `/flow:prd` | **Orchestrator**: Analyze goals and generate Master Roadmap (Sagas) |
-| `/flow:plan` | **Planner**: Create Spec and Plan for a single Flow (formerly `prd`) |
+| `/flow:plan` | **Planner**: Create unified spec.md for a single Flow |
+| `/flow:sync` | Export Beads state to spec.md (source of truth sync) |
 | `/flow:research` | Conduct pre-PRD research |
 | `/flow:docs` | Five-phase documentation workflow |
 | `/flow:implement` | **Executor**: Execute tasks from plan (context-aware) |

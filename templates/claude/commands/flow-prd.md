@@ -11,7 +11,7 @@ CRITICAL: You must validate the success of every tool call.
 
 ---
 
-## ⛔ CRITICAL CONSTRAINT: PLANNING ONLY - NO CODE MODIFICATION ⛔
+## CRITICAL CONSTRAINT: PLANNING ONLY - NO CODE MODIFICATION
 
 **THIS COMMAND CREATES PLANNING DOCUMENTS ONLY.**
 
@@ -24,7 +24,7 @@ You are STRICTLY FORBIDDEN from:
 
 You MAY ONLY:
 
-- Create/edit files in `.agent/specs/` (spec.md, plan.md, metadata.json)
+- Create/edit files in `.agent/specs/` (spec.md, metadata.json)
 - Create/edit `.agent/flows.md` registry
 - Run `bd create` commands for Beads tracking
 - Read source code for analysis (but NEVER modify it)
@@ -101,10 +101,10 @@ You MAY ONLY:
 
 3. **Questioning Phase:**
     - Ask 3-5 clarifying questions about:
-      - Scope boundaries (what's in/out)
-      - Priority/sequencing preferences
-      - Technical constraints
-      - Dependencies on external systems
+        - Scope boundaries (what's in/out)
+        - Priority/sequencing preferences
+        - Technical constraints
+        - Dependencies on external systems
     - **Format:** Present as A/B/C options with "Type your own" option
 
 4. **Summarize Understanding:**
@@ -176,7 +176,7 @@ You MAY ONLY:
 
 ## 6.0 AUTO-PLAN FIRST FLOW (PLANNING DOCUMENTS ONLY)
 
-**PROTOCOL: Create spec.md and plan.md for the first chapter. NO CODE MODIFICATION.**
+**PROTOCOL: Create a unified spec.md for the first chapter. NO CODE MODIFICATION.**
 
 **REMINDER: Planning = creating `.agent/specs/` files. NOT writing code.**
 
@@ -205,9 +205,20 @@ You MAY ONLY:
     - Example BAD: "Is this service provided by DI?"
     - Example GOOD: "I found `workspace_file_service` is injected in `src/services/workspace.py:45` using Dishka's `@inject` decorator. However, the CLI command at `src/cli/ingest.py:23` doesn't have the corresponding `@inject`. Should I add it there?"
 
-    **2.4 Generate Spec and Plan (`.agent/specs/` ONLY):**
-    - Generate `spec.md` with "Code Analysis Summary" section
-    - Generate `plan.md` with TDD tasks
+    **2.4 Generate Unified Spec (`.agent/specs/` ONLY):**
+    - Generate a single `spec.md` containing BOTH requirements AND implementation plan
+    - The spec.md must follow this structure:
+      ```markdown
+      # Flow: {flow_name}
+      ## Specification
+      {Code Analysis Summary, Requirements, etc.}
+      ## Implementation Plan
+      ### Phase 1: {name}
+      - [ ] 1.1 Task description
+      - [ ] 1.2 Task description
+      ### Phase 2: {name}
+      ...
+      ```
     - Create Beads tasks under the chapter's epic
     - **ONLY write to `.agent/specs/<flow_id>/` - NO other directories**
 
@@ -217,8 +228,7 @@ You MAY ONLY:
     >
     > **Summary:**
     > - Files analyzed: [list key files]
-    > - Spec: `.agent/specs/<flow_id>/spec.md`
-    > - Plan: `.agent/specs/<flow_id>/plan.md` ([N] tasks)
+    > - Spec: `.agent/specs/<flow_id>/spec.md` ([N] tasks)
     >
     > **Next:** Create planning documents for Chapter 2 (`<second_flow_id>`)?
     > - **A) Yes** - Continue planning next chapter
@@ -266,11 +276,7 @@ For each flow, create in `.agent/specs/<flow_id>/`:
     }
     ```
 
-2. **spec.md:** Requirements specification with Code Analysis Summary
-
-3. **plan.md:** Phased implementation plan with TDD tasks
-
-4. **index.md:** Links to all flow artifacts
+2. **spec.md:** Unified specification with requirements AND implementation plan (see format in 6.0)
 
 ### 7.2 Update Registry
 
@@ -291,6 +297,7 @@ Append to `.agent/flows.md`:
 3. **FULL CONTEXT** - Always use `--description` and `--notes` with bd create
 4. **ASK FIRST** - Clarifying questions before proposing chapters
 5. **CODE ANALYSIS (READ-ONLY)** - Read actual code before asking flow-specific questions but NEVER modify it
-6. **AUTO-PLAN** - Create spec/plan files for first flow (NOT implementation)
-7. **SPECS DIRECTORY** - All artifacts go in `.agent/specs/`, not `.agent/prd/`
-8. **HARD STOP** - End with explicit instruction to run `/flow-implement`
+6. **AUTO-PLAN** - Create unified spec.md for first flow (NOT implementation)
+7. **UNIFIED SPEC** - Single `spec.md` contains both requirements and plan. No separate `plan.md`.
+8. **SPECS DIRECTORY** - All artifacts go in `.agent/specs/`, not `.agent/prd/`
+9. **HARD STOP** - End with explicit instruction to run `/flow-implement`

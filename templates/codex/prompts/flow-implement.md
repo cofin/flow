@@ -11,8 +11,7 @@ Execute tasks from a flow's plan using TDD workflow.
 **PROTOCOL: Load Flow, Project, and Parent Context.**
 
 1. **Read Artifacts:**
-    - `.agent/specs/{flow_id}/spec.md`
-    - `.agent/specs/{flow_id}/plan.md`
+    - `.agent/specs/{flow_id}/spec.md` (unified spec+plan)
     - `.agent/specs/{flow_id}/learnings.md`
 2. **Read Project Context:** `.agent/patterns.md`
 3. **Read Parent Context:**
@@ -22,7 +21,9 @@ Execute tasks from a flow's plan using TDD workflow.
 
 **CRITICAL:** Before starting, check `.gitignore`. If `.agent/` is ignored, do NOT commit changes to artifacts inside it using git. Update them on disk only.
 
-## Phase 2: Select Task
+## Phase 2: Select Task (Beads-First)
+
+**CRITICAL:** Beads is the source of truth for task status. Do NOT update spec.md markers.
 
 ### 2.1 Check for Resume State
 
@@ -32,13 +33,15 @@ cat .agent/specs/{flow_id}/implement_state.json 2>/dev/null
 
 ### 2.2 Find Next Task
 
-Use Beads to find unblocked tasks:
+**Primary: Use Beads**
 
 ```bash
 bd ready
 ```
 
-Or scan plan.md for first `[ ]` pending task.
+**Fallback: Parse spec.md**
+
+If Beads unavailable, parse `spec.md` Implementation Plan section for pending tasks.
 
 ## Phase 3: Task Execution (TDD)
 
@@ -52,11 +55,13 @@ bd create "{task_description}" --parent {epic_id} -p 2 \
   --notes="Phase {N}, Task {M}. Files: {affected_files}. Created by /flow:implement"
 ```
 
-Update plan.md: `[ ]` → `[~]`
+Then mark in progress:
 
 ```bash
 bd update {task_id} --status in_progress
 ```
+
+**CRITICAL:** Do NOT write `[~]` markers to spec.md. Beads is source of truth.
 
 ### 3.2 Red Phase - Write Failing Tests
 
@@ -96,23 +101,15 @@ git commit -m "<type>(<scope>): <description>"
 
 Format: conventional commits
 
-## Phase 5: Update Status
+## Phase 5: Sync to Beads (Source of Truth)
 
-### 5.1 Update Plan
-
-Mark complete with commit SHA:
-
-```markdown
-- [x] Task 1.1: Description [abc1234]
-```
-
-### 5.2 Sync to Beads
+**CRITICAL:** Only update Beads. Do NOT write `[x]` markers to spec.md.
 
 ```bash
 bd close {task_id} --reason "commit: {sha}"
 ```
 
-### 5.3 Log Learnings
+### 5.1 Log Learnings
 
 If any patterns discovered, add to `.agent/specs/{flow_id}/learnings.md`
 
@@ -149,6 +146,7 @@ If continuing, loop back to Phase 2.
 
 1. **TDD ALWAYS** - Write tests before implementation
 2. **SMALL COMMITS** - One task = one commit
-3. **BEADS SYNC** - Keep task status updated
+3. **BEADS IS SOURCE OF TRUTH** - Never write markers to spec.md
 4. **LOG LEARNINGS** - Capture patterns as you go
 5. **LOCAL ONLY** - Never push automatically
+6. **USE `bd ready`** - Always check Beads for next task

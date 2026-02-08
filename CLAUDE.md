@@ -21,7 +21,7 @@ flow/
 │   ├── claude/
 │   │   └── commands/       # Claude Code commands (18 commands)
 │   ├── codex/
-│   │   ├── prompts/        # Codex CLI prompts
+│   │   ├── skills/         # Codex Agent Skills (flow-*/SKILL.md)
 │   │   └── AGENTS.md       # Codex global instructions
 │   ├── opencode/
 │   │   ├── commands/       # OpenCode commands
@@ -54,7 +54,9 @@ flow/
 | Gemini CLI | Claude Code | Purpose |
 |------------|-------------|---------|
 | `/flow:setup` | `/flow-setup` | Initialize project with context files, Beads, and first track |
-| `/flow:prd` | `/flow-prd` | Create PRD (track) with spec and plan |
+| `/flow:prd` | `/flow-prd` | Create PRD (track) with unified spec |
+| `/flow:plan` | `/flow-plan` | Plan single flow with unified spec.md |
+| `/flow:sync` | `/flow-sync` | Export Beads state to spec.md |
 | `/flow:research` | `/flow-research` | Conduct pre-PRD research |
 | `/flow:docs` | `/flow-docs` | Five-phase documentation workflow |
 | `/flow:implement` | `/flow-implement` | Execute tasks from track's plan (TDD workflow) |
@@ -105,8 +107,7 @@ project/
 │   └── specs/
 │       └── <track_id>/
 │           ├── metadata.json     # Track config + Beads epic ID
-│           ├── spec.md           # Requirements specification
-│           ├── plan.md           # Phased task list
+│           ├── spec.md           # Unified spec + plan (requirements AND tasks)
 │           ├── learnings.md      # Patterns/gotchas discovered
 │           ├── implement_state.json # Resume state (if in progress)
 │           ├── blockers.md       # Block history log

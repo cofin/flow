@@ -17,27 +17,32 @@ You are working in a project using the **Flow Framework** for context-driven dev
 A flow is a logical unit of work (feature, bug fix, refactor). Each flow has:
 - **Unique ID format:** `shortname_YYYYMMDD` (e.g., `user-auth_20260124`)
 - **Status markers:** `[ ]` pending, `[~]` in progress, `[x]` completed, `[!]` blocked, `[-]` skipped
-- **Own directory** at `.agent/specs/{flow_id}/` with spec, plan, metadata, learnings
+- **Own directory** at `.agent/specs/{flow_id}/` with unified spec, metadata, learnings
 
-### Beads Integration
+### Beads Integration (Source of Truth)
 Beads provides persistent cross-session memory:
 ```bash
 bd init --stealth          # Initialize (stealth mode)
 bd ready                   # Show tasks ready to work on
+bd blocked                 # Show blocked tasks
 bd update <id> --status in_progress  # Start task
 bd close <id> --reason "..." # Complete task
 bd prime                   # Load context for session
+bd show <id> --children --json  # Export epic with tasks
+bd compact                 # Compact database
 ```
 
-### Task Workflow (TDD)
-1. Select task from plan.md (or use `bd ready`)
-2. Mark `[~]` in progress → `bd update <id> --status in_progress`
+### Task Workflow (TDD) - Beads-First
+1. **Select task** from `bd ready` (Beads is source of truth)
+2. **Mark in progress** → `bd update <id> --status in_progress`
 3. **Write failing tests** (Red)
 4. **Implement to pass** (Green)
 5. **Refactor** while green
 6. Commit with conventional format
-7. Mark `[x]` complete → `bd close <id> --reason "commit: <sha>"`
+7. **Sync to Beads** → `bd close <id> --reason "commit: <sha>"`
 8. Log learnings in learnings.md
+
+**CRITICAL:** Never write `[x]` or `[~]` markers to spec.md. Beads is the source of truth.
 
 ### Directory Structure
 ```
@@ -48,15 +53,17 @@ bd prime                   # Load context for session
 ├── patterns.md          # Consolidated learnings
 ├── flows.md            # Master flow list
 └── specs/{flow_id}/    # Flow-specific files
-    ├── spec.md          # Requirements
-    ├── plan.md          # Phased task list
+    ├── spec.md          # Unified spec + plan (requirements AND tasks)
+    ├── metadata.json    # Flow config + Beads epic ID
     └── learnings.md     # Patterns discovered
 ```
 
 ## Flow Commands
 - `/flow:setup` - Initialize project
-- `/flow:prd` - Create PRD
-- `/flow:implement` - Execute tasks from plan
+- `/flow:prd` - Create PRD (Saga)
+- `/flow:plan` - Plan single flow with unified spec.md
+- `/flow:sync` - Export Beads state to spec.md
+- `/flow:implement` - Execute tasks from Beads
 - `/flow:status` - Display progress overview
 - `/flow:block` - Mark task as blocked
 - `/flow:skip` - Skip task with justification
@@ -66,5 +73,5 @@ bd prime                   # Load context for session
 1. **Read patterns.md** before starting work
 2. **Log learnings** as you discover them
 3. **Use TDD** - tests first, then implementation
-4. **Beads sync** - Keep task status in sync
+4. **Beads is source of truth** - Never write markers to spec.md
 5. **Local commits** - Never push automatically

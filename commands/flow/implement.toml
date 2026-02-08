@@ -28,8 +28,7 @@ CRITICAL: Check `.gitignore` before committing. If `.agent/` or specific artifac
 3.  **Load Flow Context:**
     *   **Identify Flow Folder:** `<Flow Directory>/<flow_id>/` (e.g. `.agent/specs/<flow_id>/`).
     *   **Read Artifacts:** Read the following files from the flow folder:
-        *   `spec.md` (for requirements)
-        *   `plan.md` (for tasks)
+        *   `spec.md` (unified spec+plan with requirements and implementation plan)
         *   `learnings.md` (for previous lessons - create if missing)
         *   `implement_state.json` (for restoring session state - create if missing)
     *   **Read Project Context:** Read `.agent/patterns.md` and `.agent/workflow.md`.
@@ -58,9 +57,16 @@ CRITICAL: Check `.gitignore` before committing. If `.agent/` or specific artifac
 ## 3.0 EXECUTION LOOP
 **PROTOCOL: Execute the plan task by task.**
 
-### 3.1 Select Task
-1.  Identify the next pending task from `plan.md` (marked `[ ]`).
-2.  **Announce:** "Starting Task [N]: [Task Description]"
+### 3.1 Select Task (Beads-First)
+**CRITICAL:** Beads is the source of truth. Do NOT use plan.md markers.
+
+1.  **Primary - Use Beads:**
+    *   Run `bd ready` to find unblocked tasks.
+    *   If multiple ready tasks, ask user which to start.
+    *   **Announce:** "Starting Task [N]: [Task Description]"
+2.  **Fallback - Parse spec.md:**
+    *   If Beads unavailable, parse `spec.md` Implementation Plan section.
+    *   Find first pending task not yet tracked in Beads.
 3.  **Sync Beads:**
     *   Find the Beads issue ID for this task (if stored in metadata).
     *   If task not in Beads, create it with FULL CONTEXT:
@@ -86,16 +92,15 @@ CRITICAL: Check `.gitignore` before committing. If `.agent/` or specific artifac
     *   Clean up the code (formatting, linting, optimization) without changing behavior.
     *   Run tests one last time to ensure no regressions.
 
-### 3.3 Commit and Sync
+### 3.3 Commit and Sync (Beads is Source of Truth)
+**CRITICAL:** Only update Beads. Do NOT write `[x]` markers to plan.md.
+
 1.  **Git Commit:**
     *   Stage changes: `git add .`
     *   Commit with conventional message: `git commit -m "feat(flow): [Task Description]"`
-2.  **Update Plan:**
-    *   Edit `plan.md` to mark the task as `[x]`.
-    *   Add the commit hash to the task line.
-3.  **Update State:**
+2.  **Update State:**
     *   Update `implement_state.json` with the new current task index.
-4.  **Sync Beads:**
+3.  **Sync Beads (Primary):**
     *   Close the task in Beads: `bd close <issue_id> --reason "commit: <hash>"`
 
 ### 3.4 Capture Learnings

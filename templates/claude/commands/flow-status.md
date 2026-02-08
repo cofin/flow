@@ -9,26 +9,44 @@ Display progress overview for all active flows.
 
 ## Phase 1: Load Registry
 
-Read `.agent/prds.md` to get list of active flows.
+Read `.agent/flows.md` to get list of active flows.
 
 ---
 
-## Phase 2: Beads Status
+## Phase 2: Beads Status (Source of Truth)
 
 ```bash
 bd prime
-bd ready
+bd ready       # Unblocked tasks ready to work
+bd blocked     # Blocked tasks
 ```
 
 ---
 
-## Phase 3: Flow Summary
+## Phase 3: Flow Summary (Beads-First)
 
 For each active flow:
 
-1. Read `.agent/specs/{flow_id}/plan.md`
-2. Count tasks by status: `[ ]`, `[~]`, `[x]`, `[!]`, `[-]`
-3. Calculate progress percentage
+### Primary: Get Status from Beads
+
+```bash
+bd show {epic_id} --children --json
+```
+
+Parse JSON to count:
+- `pending` tasks
+- `in_progress` tasks  
+- `completed` tasks
+- `blocked` tasks
+
+Calculate progress: `completed / total * 100`
+
+### Fallback: Parse spec.md
+
+If Beads unavailable:
+1. Read `.agent/specs/{flow_id}/spec.md` (unified spec+plan)
+2. Parse Implementation Plan section
+3. Count tasks by status (from Beads export or markers)
 
 ---
 
@@ -54,6 +72,11 @@ Flow Status Dashboard
 Ready tasks (no blockers):
   - auth_20260124: Task 6 - Implement login endpoint
   - auth_20260124: Task 7 - Add session middleware
+
+=== Beads Blocked ===
+
+Blocked tasks:
+  - auth_20260124: Task 8 - Waiting for API keys [!]
 
 === Quality Gates ===
 
@@ -82,5 +105,5 @@ Based on status, suggest next action:
 ## Critical Rules
 
 1. **READ ONLY** - This command only displays information
-2. **BEADS SYNC** - Include Beads ready tasks
+2. **BEADS IS SOURCE OF TRUTH** - Pull task status from Beads, not spec.md
 3. **ACTIONABLE** - Provide next step suggestions

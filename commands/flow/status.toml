@@ -22,20 +22,21 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
 **PROTOCOL: List all active flows and their high-level progress.**
 
 1.  **Scan Active Flows:** Parse the **Flow Registry** for active/in-progress flows.
-2.  **Get Beads Status:**
+2.  **Get Beads Status (Source of Truth):**
     ```bash
     bd ready
     bd blocked
+    bd show <epic_id> --children --json
     ```
 3.  **Generate Report:**
     For each active flow:
-    *   Read `plan.md` to count total tasks vs active/completed tasks.
+    *   Get task status from Beads (`bd show <epic_id> --children --json`).
+    *   Count: pending, in_progress, completed, blocked.
     *   Calculate percentage complete.
-    *   Check for blockers in `blockers.md` (if exists).
     *   **Format:**
         *   `[Icon] <flow_id>: <Description> (<N>% Complete)`
-        *   `      Next Task: <Next pending task>`
-        *   `      Blockers: <Count or None>`
+        *   `      Next Task: <Next ready task from bd ready>`
+        *   `      Blockers: <Count from bd blocked>`
 
 ---
 
@@ -44,7 +45,7 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
 
 1.  **Load Flow Context:**
     *   **Identify Flow Folder:** `<Flow Directory>/<flow_id>/` (e.g. `.agent/specs/<flow_id>/`).
-    *   Read `spec.md`, `plan.md`, `metadata.json`, `learnings.md`, `blockers.md`.
+    *   Read `spec.md` (unified spec+plan), `metadata.json`, `learnings.md`, `blockers.md`.
 
 2.  **Get Beads Details:**
     *   Get the epic ID from `metadata.json`.

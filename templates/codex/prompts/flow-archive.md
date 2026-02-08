@@ -3,13 +3,28 @@
 Archive completed flow and elevate patterns to project level.
 
 ## Usage
+
 `/flow:archive {flow_id}`
 
-## Phase 1: Validate Flow
+## Phase 1: Sync and Validate
 
-1. Read `.agent/specs/{flow_id}/plan.md`
-2. Verify all tasks are `[x]` completed or `[-]` skipped
-3. If incomplete tasks exist, warn and confirm
+### 1.1 Sync Beads State First
+
+**CRITICAL:** Run `/flow:sync {flow_id}` FIRST to export current Beads state to spec.md before archiving.
+
+This ensures spec.md reflects the final state from Beads (source of truth).
+
+### 1.2 Validate Flow
+
+Check Beads for completion status:
+
+```bash
+bd show {epic_id}
+```
+
+Or read `.agent/specs/{flow_id}/spec.md` Implementation Plan section to verify all tasks are `[x]` completed or `[-]` skipped.
+
+If incomplete tasks exist, warn and confirm.
 
 ## Phase 2: Extract Learnings
 
@@ -42,6 +57,7 @@ Append selected patterns to `.agent/patterns.md`:
 
 ```bash
 bd close {epic_id} --reason "Flow archived"
+bd compact  # Optional: compact Beads after archiving
 ```
 
 ## Phase 4: Move to Archive
@@ -86,6 +102,7 @@ Flow Archived: {flow_id}
 Location: .agent/archive/{flow_id}/
 Patterns Elevated: {count}
 Epic Closed: {epic_id}
+Beads Compacted: Yes/No
 
 Project patterns updated. View with:
 cat .agent/patterns.md

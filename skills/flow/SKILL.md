@@ -18,7 +18,7 @@ This skill activates when:
 A flow is a logical unit of work (feature or bug fix). Each flow has:
 - **ID format**: `shortname_YYYYMMDD` (e.g., `auth_20260124`)
 - **Location**: `.agent/specs/{flow_id}/`
-- **Files**: spec.md, plan.md, metadata.json, learnings.md
+- **Files**: spec.md (unified spec+plan), metadata.json, learnings.md
 
 ### Status Markers
 - `[ ]` - Pending/New
@@ -55,6 +55,8 @@ Flow requires Beads for persistent cross-session memory:
 |-------------|------------|---------|
 | `/flow-setup` | `/flow:setup` | Initialize project with context files |
 | `/flow-prd` | `/flow:prd` | Create feature/bug flow |
+| `/flow-plan` | `/flow:plan` | Plan flow with unified spec.md |
+| `/flow-sync` | `/flow:sync` | Sync Beads state to spec.md |
 | `/flow-implement` | `/flow:implement` | Execute tasks (TDD workflow) |
 | `/flow-status` | `/flow:status` | Display progress overview |
 | `/flow-revert` | `/flow:revert` | Git-aware revert |
@@ -70,18 +72,19 @@ Flow requires Beads for persistent cross-session memory:
 | `/flow-wisp` | `/flow:wisp` | Ephemeral exploration flow |
 | `/flow-distill` | `/flow:distill` | Extract reusable template |
 
-## Task Workflow (TDD)
+## Task Workflow (TDD) - Beads-First
 
-1. **Select task** from plan.md (or `bd ready`)
-2. **Mark `[~]`** in progress
+1. **Select task** from `bd ready` (Beads is source of truth)
+2. **Mark in progress**: `bd update {id} --status in_progress`
 3. **Write failing tests** (Red phase) - CRITICAL: confirm failure first
 4. **Implement** to pass (Green phase)
 5. **Refactor** with test safety
 6. **Verify coverage** (>80% target)
 7. **Commit** with format: `<type>(<scope>): <description>`
 8. **Attach git notes** with task summary
-9. **Record SHA** in plan.md
-10. **Sync to Beads**: `bd close {id} --reason "commit: {sha}"`
+9. **Sync to Beads**: `bd close {id} --reason "commit: {sha}"`
+
+**CRITICAL:** Never write `[x]` or `[~]` markers to spec.md. Beads is the source of truth.
 
 ## Knowledge Flywheel
 
@@ -100,7 +103,7 @@ When a phase completes:
 4. Await user confirmation
 5. Create checkpoint commit
 6. Attach verification report as git note
-7. Record checkpoint SHA in plan.md
+7. Record checkpoint in Beads: `bd update {epic_id} --append-notes "Phase {N} checkpoint: {sha}"
 
 ## Proactive Behaviors
 

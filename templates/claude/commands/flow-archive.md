@@ -8,11 +8,29 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, WebSearch
 
 Archiving flow: **$ARGUMENTS**
 
-## Phase 1: Validation
+## Phase 1: Sync and Validation
 
-1. **Resolve Flow ID:** If not provided, list completed flows from `.agent/flows.md` and ask user to select.
-2. **Verify Completion:** Read `.agent/specs/{flow_id}/plan.md`.
-   - If uncompleted tasks exist: "Warning: Flow has incomplete tasks. Continue? (y/n)" → Halt if 'n'.
+### 1.1 Sync Beads State to spec.md
+
+**CRITICAL:** Run `/flow-sync {flow_id}` FIRST to export current Beads state to spec.md before archiving.
+
+This ensures spec.md reflects the final state from Beads (source of truth).
+
+### 1.2 Resolve Flow ID
+
+If not provided, list completed flows from `.agent/flows.md` and ask user to select.
+
+### 1.3 Verify Completion
+
+Check Beads for completion status:
+
+```bash
+bd show {epic_id}
+```
+
+Or read `.agent/specs/{flow_id}/spec.md` Implementation Plan section.
+
+- If uncompleted tasks exist: "Warning: Flow has incomplete tasks. Continue? (y/n)" → Halt if 'n'.
 
 ---
 
@@ -69,6 +87,12 @@ Edit `.agent/flows.md`:
 2. Close epic:
    ```bash
    bd close {epic_id} --reason "Flow archived"
+   ```
+3. Compact Beads (optional but recommended):
+   ```bash
+   bd compact
+   # Or for aggressive compaction:
+   # bd mol squash
    ```
 
 ---

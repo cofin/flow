@@ -2,7 +2,7 @@
 
 ## Guiding Principles
 
-1. **The Plan is the Source of Truth:** All work must be tracked in `plan.md`
+1. **Beads is the Source of Truth:** Task status lives in Beads (`bd ready`, `bd close`). Use `/flow:sync` to export Beads state to spec.md when needed.
 2. **The Tech Stack is Deliberate:** Changes to the tech stack must be documented in `tech-stack.md` *before* implementation
 3. **Test-Driven Development:** Write unit tests before implementing functionality
 4. **High Code Coverage:** Aim for >80% code coverage for all modules
@@ -64,13 +64,15 @@ bd create "Task name" --parent {epic_id} -p 2 \
 
 All tasks follow a strict lifecycle:
 
-### Standard Task Workflow
+### Standard Task Workflow (Beads-First)
 
-1. **Select Task:** Choose the next available task from `plan.md` in sequential order, or use `bd ready` for dependency-aware selection
+**CRITICAL:** Beads is the source of truth. Never write `[x]` or `[~]` markers to spec.md.
+
+1. **Select Task:** Use `bd ready` for dependency-aware selection, or fall back to parsing spec.md
 
 2. **Mark In Progress:**
-   - Edit `plan.md`: change `[ ]` to `[~]`
    - Sync to Beads: `bd update <id> --status in_progress`
+   - **Do NOT edit spec.md** - Beads is source of truth
 
 3. **Write Failing Tests (Red Phase):**
    - Create a new test file for the feature or bug fix.
@@ -102,17 +104,13 @@ All tasks follow a strict lifecycle:
    - Propose a clear, concise commit message e.g, `feat(ui): Create basic HTML structure for calculator`.
    - Perform the commit.
 
-9. **Record Task Completion:**
+9. **Record Task Completion (Beads-First):**
    - **Step 9.1: Get Commit Hash:** Obtain the hash of the *just-completed commit* (`git log -1 --format="%h"`).
-   - **Step 9.2: Update Plan:** Read `plan.md`, find the line for the completed task, update its status from `[~]` to `[x]`, and append the commit hash.
-   - **Step 9.3: Write Plan:** Write the updated content back to `plan.md`.
-   - **Step 9.4: Close in Beads:** `bd close <id> --reason "commit: <sha>"`
+   - **Step 9.2: Close in Beads:** `bd close <id> --reason "commit: <sha>"`
+   - **Step 9.3 (Optional):** Run `/flow:sync <flow_id>` to export Beads state to spec.md for human-readable status
+   - **Do NOT manually edit spec.md markers** - use `/flow:sync` instead
 
-10. **Commit Plan Update:**
-    - **Action:** Stage the modified `plan.md` file.
-    - **Action:** Commit this change with a descriptive message (e.g., `flow(plan): Mark task 'Create user model' as complete`).
-
-11. **Log Learnings:**
+10. **Log Learnings:**
     - Append discoveries to track's `learnings.md`
     - Sync to Beads: `bd update <id> --notes "pattern: ..."`
     - Elevate reusable patterns to `.agent/patterns.md` at phase completion
@@ -194,18 +192,13 @@ All tasks follow a strict lifecycle:
     -   Perform the commit with a clear and concise message (e.g., `flow(checkpoint): Checkpoint end of Phase X`).
 
 7.  **Record Verification in Beads:**
-    -   Update the epic with verification summary: `bd update <epic_id> --append-notes "Phase N verified: tests passed, manual verification confirmed by user"`
+    -   Update the epic with verification summary: `bd update <epic_id> --append-notes "Phase N verified: tests passed, manual verification confirmed by user, checkpoint: <sha>"`
 
-8.  **Get and Record Phase Checkpoint SHA:**
-    -   **Step 8.1: Get Commit Hash:** Obtain the hash of the *just-created checkpoint commit* (`git log -1 --format="%h"`).
-    -   **Step 8.2: Update Plan:** Read `plan.md`, find the heading for the completed phase, and append the commit hash in the format `[checkpoint: <sha>]`.
-    -   **Step 8.3: Write Plan:** Write the updated content back to `plan.md`.
+8.  **Sync to spec.md (Optional):**
+    -   Run `/flow:sync <flow_id>` to export current Beads state to spec.md for human-readable status
+    -   **Do NOT manually edit spec.md** - Beads is source of truth
 
-9. **Commit Plan Update:**
-    - **Action:** Stage the modified `plan.md` file.
-    - **Action:** Commit this change with a descriptive message following the format `flow(plan): Mark phase '<PHASE NAME>' as complete`.
-
-10.  **Announce Completion:** Inform the user that the phase is complete and the checkpoint has been created.
+9.  **Announce Completion:** Inform the user that the phase is complete and the checkpoint has been recorded in Beads.
 
 ### Quality Gates
 

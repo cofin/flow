@@ -131,6 +131,16 @@ bd create "Task title" --parent {epic_id} -p 2 \
 | `bd search "query"` | Full-text search |
 | `bd label add {id} {label}` | Add label |
 | `bd epic` | Epic management commands |
+| `bd compact` | Compact Beads database |
+| `bd mol squash` | Aggressive compaction (molecule-level) |
+
+### Export and Import
+
+| Command | Purpose |
+|---------|---------|
+| `bd show {id} --children --json` | Export epic with all tasks as JSON |
+| `bd export --parent {epic_id}` | Export all tasks under epic |
+| `bd sync` | Sync Beads state with git |
 
 ## Issue Types
 

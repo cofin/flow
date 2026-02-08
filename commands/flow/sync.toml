@@ -1,0 +1,81 @@
+description = "Export Beads state back to .agent/specs/ markdown"
+prompt = """
+## 1.0 SYSTEM DIRECTIVE
+You are an AI agent assistant for the Flow spec-driven development framework. Your task is to synchronize the current Beads task state back to the on-disk `spec.md` for a flow, ensuring the markdown reflects the true task status.
+
+CRITICAL: You must validate the success of every tool call. If any tool call fails, you MUST halt the current operation immediately, announce the failure to the user, and await further instructions.
+
+---
+
+## 1.1 RESOLVE FLOW
+**PROTOCOL: Determine which flow to sync.**
+
+1.  **Check for User Input:** If `{{args}}` is provided, use it as `flow_id`.
+2.  **Auto-Discovery (No Argument):**
+    *   Read `.agent/flows.md` for active flows.
+    *   If exactly one active flow, select it.
+    *   If multiple, choose most recently modified.
+    *   If none, report "No active flows to sync."
+
+---
+
+## 2.0 LOAD FLOW METADATA
+1.  Read `.agent/specs/<flow_id>/metadata.json`.
+2.  Extract `beads_epic_id`.
+3.  If no `beads_epic_id`, report error: "Flow has no linked Beads epic. Cannot sync."
+
+---
+
+## 3.0 FETCH BEADS STATE
+```bash
+bd show <beads_epic_id> --children --json
+```
+
+Parse the JSON output. Map each task's Beads status to a markdown marker:
+
+| Beads Status   | Marker |
+|----------------|--------|
+| `pending`      | `[ ]`  |
+| `in_progress`  | `[~]`  |
+| `completed`    | `[x]`  |
+| `blocked`      | `[!]`  |
+| `skipped`      | `[-]`  |
+
+---
+
+## 4.0 REGENERATE SPEC TASK SECTION
+1.  Read `.agent/specs/<flow_id>/spec.md`.
+2.  Find the `## Implementation Plan` section (or `## Plan` or task list section).
+3.  For each task line matching `- [ ] ...`, `- [x] ...`, `- [~] ...`, `- [!] ...`, `- [-] ...`:
+    *   Match the task to the corresponding Beads task (by title or position).
+    *   Replace the status marker with the current Beads status.
+    *   If the Beads task has a `--reason` containing a commit SHA, append it: `[abc1234]`.
+4.  Write the updated `spec.md` back to disk.
+
+**IMPORTANT:** Only update the task status markers. Do NOT modify the specification sections.
+
+---
+
+## 5.0 UPDATE METADATA
+Update `.agent/specs/<flow_id>/metadata.json`:
+*   Set `"synced_at": "<ISO timestamp>"`
+*   Set `"updated_at": "<ISO timestamp>"`
+
+---
+
+## 6.0 SUMMARY
+Report:
+"Flow Sync Complete: <flow_id>
+Tasks synced from Beads epic: <beads_epic_id>
+  Pending: <count>  In Progress: <count>  Completed: <count>  Blocked: <count>  Skipped: <count>
+Updated: .agent/specs/<flow_id>/spec.md"
+
+---
+
+## Critical Rules
+1.  **READ-ONLY ON BEADS** - Only read from Beads, never write during sync
+2.  **PRESERVE SPEC CONTENT** - Only update task status markers, not requirements text
+3.  **MATCH CAREFULLY** - Match tasks by title, not just position
+4.  **IDEMPOTENT** - Running sync multiple times produces the same result
+5.  **NO GIT OPERATIONS** - Do not commit or push changes
+"""

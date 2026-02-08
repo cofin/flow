@@ -7,6 +7,9 @@
 # - Codex CLI (~/.codex/)
 # - OpenCode (~/.config/opencode/)
 #
+# Note: Gemini CLI now uses native extension installation:
+#   gemini extensions install flow
+#
 # Features:
 # - Detects existing configurations
 # - Backs up before modifying
@@ -39,8 +42,6 @@ FORCE_OVERWRITE=false
 CLAUDE_DIR="$HOME/.claude"
 CODEX_DIR="$HOME/.codex"
 OPENCODE_DIR="$HOME/.config/opencode"
-GEMINI_DIR="$HOME/.gemini"
-GEMINI_EXT_DIR="$GEMINI_DIR/extensions/flow"
 
 show_banner() {
     echo -e "${CYAN}"
@@ -385,7 +386,6 @@ detect_clis() {
     CLAUDE_INSTALLED=false
     CODEX_INSTALLED=false
     OPENCODE_INSTALLED=false
-    GEMINI_INSTALLED=false
 
     # Claude Code
     if command -v claude &> /dev/null || [[ -d "$CLAUDE_DIR" ]]; then
@@ -413,15 +413,6 @@ detect_clis() {
         [[ -d "$OPENCODE_DIR/commands" ]] && echo "         Existing commands: $(ls -1 "$OPENCODE_DIR/commands" 2>/dev/null | wc -l)"
     else
         log_info "OpenCode not detected"
-    fi
-
-    # Gemini CLI
-    if command -v gemini &> /dev/null || [[ -d "$GEMINI_DIR" ]]; then
-        GEMINI_INSTALLED=true
-        log_success "Gemini CLI detected"
-        [[ -d "$GEMINI_EXT_DIR" ]] && echo "         Existing extension: Found"
-    else
-        log_info "Gemini CLI not detected"
     fi
 
     echo ""
@@ -495,7 +486,7 @@ install_codex() {
 
     # Backup existing
     backup_file "$CODEX_DIR/AGENTS.md"
-    backup_dir "$CODEX_DIR/prompts"
+    backup_dir "$CODEX_DIR/skills"
 
     # Install AGENTS.md (merge if exists)
     local agents_src="$TEMPLATES_DIR/codex/AGENTS.md"
@@ -519,28 +510,39 @@ install_codex() {
         log_success "Installed: AGENTS.md"
     fi
 
-    # Install prompts
-    local prompts_src="$TEMPLATES_DIR/codex/prompts"
-    local prompts_dst="$CODEX_DIR/prompts"
-
-    if [[ -d "$prompts_src" ]]; then
-        for prompt in "$prompts_src"/*.md; do
-            [[ -f "$prompt" ]] && install_command "$prompt" "$prompts_dst/$(basename "$prompt")"
-        done
-    fi
-
-    # Install skills (beads and flow only for now) with intelligent merge
-    local skills_src="$SKILLS_DIR"
+    # Install Flow skills from templates/codex/skills/ (new Agent Skills format)
+    local skills_src="$TEMPLATES_DIR/codex/skills"
     local skills_dst="$CODEX_DIR/skills"
 
-    for skill_name in "flow" "beads"; do
-        local skill_dir="$skills_src/$skill_name"
-        if [[ -d "$skill_dir" ]]; then
+    if [[ -d "$skills_src" ]]; then
+        for skill_dir in "$skills_src"/*/; do
+            [[ -d "$skill_dir" ]] || continue
+            local skill_name="$(basename "$skill_dir")"
             local skill_dst_dir="$skills_dst/$skill_name"
+
             mkdir -p "$skill_dst_dir"
 
             # Process each file in the skill directory
-            for skill_file in "$skill_dir"/*; do
+            for skill_file in "$skill_dir"*; do
+                [[ -f "$skill_file" ]] || continue
+                local file_name="$(basename "$skill_file")"
+                local dest_file="$skill_dst_dir/$file_name"
+
+                merge_or_install_file "$skill_file" "$dest_file"
+            done
+            log_success "Installed skill: $skill_name"
+        done
+    fi
+
+    # Also install core skills (flow, beads) from skills/ directory
+    local core_skills_src="$SKILLS_DIR"
+    for skill_name in "flow" "beads"; do
+        local core_skill_dir="$core_skills_src/$skill_name"
+        if [[ -d "$core_skill_dir" ]]; then
+            local skill_dst_dir="$skills_dst/$skill_name"
+            mkdir -p "$skill_dst_dir"
+
+            for skill_file in "$core_skill_dir"/*; do
                 [[ -f "$skill_file" ]] || continue
                 local file_name="$(basename "$skill_file")"
                 local dest_file="$skill_dst_dir/$file_name"
@@ -613,66 +615,7 @@ install_opencode() {
     log_success "OpenCode installation complete"
 }
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Gemini CLI Installation
-# ─────────────────────────────────────────────────────────────────────────────
 
-install_gemini() {
-    echo ""
-    echo -e "${CYAN}Installing Flow for Gemini CLI...${NC}"
-    echo ""
-
-    # Create directories
-    mkdir -p "$GEMINI_EXT_DIR/commands/flow"
-    mkdir -p "$GEMINI_EXT_DIR/templates"
-    mkdir -p "$GEMINI_DIR/skills"
-
-    # Backup existing
-    backup_dir "$GEMINI_EXT_DIR"
-    backup_dir "$GEMINI_DIR/skills"
-
-    # Install extension manifest
-    cp "$SCRIPT_DIR/gemini-extension.json" "$GEMINI_EXT_DIR/"
-    log_success "Installed: gemini-extension.json"
-    
-    # Install GEMINI.md context
-    cp "$SCRIPT_DIR/GEMINI.md" "$GEMINI_EXT_DIR/"
-    log_success "Installed: GEMINI.md"
-
-    # Install commands
-    # Copy commands directory to extension directory
-    cp -r "$SCRIPT_DIR/commands/flow" "$GEMINI_EXT_DIR/commands/"
-    log_success "Installed: Flow commands"
-
-    # Install templates
-    cp -r "$TEMPLATES_DIR"/* "$GEMINI_EXT_DIR/templates/"
-    log_success "Installed: Templates"
-
-    # Install skills (all) to main Gemini skills dir with intelligent merge
-    local skills_src="$SKILLS_DIR"
-    local skills_dst="$GEMINI_DIR/skills"
-
-    if [[ -d "$skills_src" ]]; then
-        for skill_dir in "$skills_src"/*/; do
-            local skill_name="$(basename "$skill_dir")"
-            local skill_dst_dir="$skills_dst/$skill_name"
-
-            mkdir -p "$skill_dst_dir"
-
-            # Process each file in the skill directory
-            for skill_file in "$skill_dir"*; do
-                [[ -f "$skill_file" ]] || continue
-                local file_name="$(basename "$skill_file")"
-                local dest_file="$skill_dst_dir/$file_name"
-
-                merge_or_install_file "$skill_file" "$dest_file"
-            done
-        done
-    fi
-
-    echo ""
-    log_success "Gemini CLI installation complete"
-}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Beads Installation Check
@@ -761,25 +704,23 @@ main() {
     detect_clis
 
     # If none detected, ask which to install for
-    if ! $CLAUDE_INSTALLED && ! $CODEX_INSTALLED && ! $OPENCODE_INSTALLED && ! $GEMINI_INSTALLED; then
+    if ! $CLAUDE_INSTALLED && ! $CODEX_INSTALLED && ! $OPENCODE_INSTALLED; then
         echo "No supported CLIs detected. Which would you like to install for?"
         echo ""
         echo "  1) Claude Code (~/.claude/)"
         echo "  2) Codex CLI (~/.codex/)"
         echo "  3) OpenCode (~/.config/opencode/)"
-        echo "  4) Gemini CLI (~/.gemini/)"
-        echo "  5) All of the above"
-        echo "  6) Exit"
+        echo "  4) All of the above"
+        echo "  5) Exit"
         echo ""
-        read -p "Select [1-6]: " -n 1 -r
+        read -p "Select [1-5]: " -n 1 -r
         echo
         case $REPLY in
             1) CLAUDE_INSTALLED=true ;;
             2) CODEX_INSTALLED=true ;;
             3) OPENCODE_INSTALLED=true ;;
-            4) GEMINI_INSTALLED=true ;;
-            5) CLAUDE_INSTALLED=true; CODEX_INSTALLED=true; OPENCODE_INSTALLED=true; GEMINI_INSTALLED=true ;;
-            6) exit 0 ;;
+            4) CLAUDE_INSTALLED=true; CODEX_INSTALLED=true; OPENCODE_INSTALLED=true ;;
+            5) exit 0 ;;
         esac
     else
         # Ask which detected CLIs to install for
@@ -788,7 +729,6 @@ main() {
         $CLAUDE_INSTALLED && echo "  1) Claude Code"
         $CODEX_INSTALLED && echo "  2) Codex CLI"
         $OPENCODE_INSTALLED && echo "  3) OpenCode"
-        $GEMINI_INSTALLED && echo "  4) Gemini CLI"
         echo "  a) All detected"
         echo "  q) Quit"
         echo ""
@@ -802,19 +742,16 @@ main() {
                 INSTALL_CLAUDE=false
                 INSTALL_CODEX=false
                 INSTALL_OPENCODE=false
-                INSTALL_GEMINI=false
                 for sel in $SELECTION; do
                     case $sel in
                         1) INSTALL_CLAUDE=true ;;
                         2) INSTALL_CODEX=true ;;
                         3) INSTALL_OPENCODE=true ;;
-                        4) INSTALL_GEMINI=true ;;
                     esac
                 done
                 $INSTALL_CLAUDE || CLAUDE_INSTALLED=false
                 $INSTALL_CODEX || CODEX_INSTALLED=false
                 $INSTALL_OPENCODE || OPENCODE_INSTALLED=false
-                $INSTALL_GEMINI || GEMINI_INSTALLED=false
                 ;;
         esac
     fi
@@ -823,7 +760,6 @@ main() {
     $CLAUDE_INSTALLED && install_claude
     $CODEX_INSTALLED && install_codex
     $OPENCODE_INSTALLED && install_opencode
-    $GEMINI_INSTALLED && install_gemini
 
     # Check Beads
     check_beads
@@ -848,6 +784,18 @@ main() {
     echo ""
     echo "  1. Navigate to your project:"
     echo "     cd /path/to/your/project"
+    echo ""
+    echo "  2. Initialize Flow:"
+    $CLAUDE_INSTALLED && echo "     Claude Code: /flow-setup"
+    $CODEX_INSTALLED && echo "     Codex CLI:   /flow:setup"
+    $OPENCODE_INSTALLED && echo "     OpenCode:    /flow:setup"
+    echo ""
+    echo "  3. Create your first flow:"
+    $CLAUDE_INSTALLED && echo "     Claude Code: /flow-prd \"your feature description\""
+    $CODEX_INSTALLED && echo "     Codex CLI:   /flow:prd \"your feature description\""
+    $OPENCODE_INSTALLED && echo "     OpenCode:    /flow-prd \"your feature description\""
+    echo ""
+    echo "Documentation: https://github.com/your-org/flow"
     echo ""
     echo "  2. Initialize Flow:"
     $CLAUDE_INSTALLED && echo "     Claude Code: /flow-setup"

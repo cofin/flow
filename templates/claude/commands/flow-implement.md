@@ -11,7 +11,7 @@ Implementing flow: **$ARGUMENTS**
 ## Phase 0: Load Context
 
 1. Load flow from `.agent/specs/{flow_id}/`
-2. Read `spec.md`, `plan.md`, `learnings.md`
+2. Read `spec.md` (unified spec+plan), `learnings.md`
 3. Read `.agent/patterns.md` for project patterns
 4. Read `.agent/workflow.md` for process guidelines
 
@@ -33,7 +33,7 @@ Implementing flow: **$ARGUMENTS**
         * If none, list pending and ask.
 
 3. **Load Flow Context:**
-    * **Read Artifacts:** `spec.md`, `plan.md`, `learnings.md` (create if missing).
+    * **Read Artifacts:** `spec.md` (unified spec+plan), `learnings.md` (create if missing).
     * **Read Project Context:** Read `.agent/patterns.md` and `.agent/workflow.md`.
     * **Read Parent Context:** If this flow is part of a PRD/Saga, read `.agent/prd/<parent_id>/prd.md`.
 
@@ -51,43 +51,52 @@ bd show {epic_id}          # View flow status
 
 ---
 
-## Phase 2: Resume Check
+## Phase 2: Task Selection (Beads-First)
 
-Check for `implement_state.json`:
+**CRITICAL:** Beads is the source of truth for task status. Do NOT update plan.md markers.
 
-```json
-{
-  "current_phase": 1,
-  "current_task": 3,
-  "last_commit": "abc1234"
-}
+### 2.1 Primary: Use Beads
+
+```bash
+bd ready                    # List unblocked tasks ready to work
+bd show {epic_id}          # View epic with all tasks
 ```
 
-If exists, offer to resume from last position.
+Select task from `bd ready` output. If multiple ready tasks, ask user which to start.
+
+### 2.2 Fallback: Parse spec.md
+
+If Beads unavailable or no tasks found:
+1. Parse `spec.md` Implementation Plan section
+2. Find first pending task (not yet in Beads or no status)
+3. Create task in Beads if missing
 
 ---
 
 ## Phase 3: Task Execution Loop
 
-For each task in plan:
+For each task from `bd ready` or spec.md:
 
 ### 3.1 Mark In Progress
 
+**If task not in Beads, create it first:**
+
 ```bash
-# In plan.md
-- [~] N. Task description
-
-# In Beads - if task exists:
-bd update {task_id} --status in_progress
-
-# If task not in Beads, create it first:
 bd create "{task_description}" --parent {epic_id} -p 2 \
   --description="{what_needs_to_be_done_and_why}" \
   --notes="Phase {N}, Task {M}. Files: {affected_files}. Created by /flow-implement"
 bd update {new_task_id} --status in_progress
 ```
 
-**CRITICAL:** Always include `--description` and `--notes` when creating tasks.
+**If task exists in Beads:**
+
+```bash
+bd update {task_id} --status in_progress
+```
+
+**CRITICAL:** 
+- Always include `--description` and `--notes` when creating tasks
+- Beads is the source of truth - do NOT write `[~]` markers to spec.md
 
 ### 3.2 Write Failing Tests (Red Phase)
 
@@ -125,17 +134,13 @@ git add {files}
 git commit -m "{type}({scope}): {description}"
 ```
 
-### 3.7 Update Plan
-
-```markdown
-- [x] N. Task description abc1234
-```
-
-### 3.8 Sync to Beads
+### 3.7 Sync to Beads (Source of Truth)
 
 ```bash
 bd close {task_id} --reason "commit: {sha}"
 ```
+
+**CRITICAL:** Beads is the source of truth. Do NOT update spec.md with `[x]` markers.
 
 ### 3.9 Record Learning (if any)
 
@@ -202,13 +207,7 @@ git commit --allow-empty -m "flow(checkpoint): Phase {N} complete"
 Record in Beads:
 
 ```bash
-bd update {epic_id} --append-notes "Phase {N} verified: tests passed, user confirmed"
-```
-
-### 4.6 Update Plan with Checkpoint
-
-```markdown
-## Phase N: {Name} [checkpoint: abc1234]
+bd update {epic_id} --append-notes "Phase {N} verified: tests passed, user confirmed, checkpoint: {sha}"
 ```
 
 ### 4.7 Offer Pattern Elevation
@@ -261,7 +260,8 @@ Next Task: {description}
 ## Critical Rules
 
 1. **TDD MANDATORY** - Write failing tests first
-2. **BEADS SYNC** - Update Beads after each task
+2. **BEADS IS SOURCE OF TRUTH** - Never write `[x]` or `[~]` markers to spec.md
 3. **LEARNINGS CAPTURE** - Record patterns as discovered
 4. **PHASE CHECKPOINTS** - Verify and checkpoint at phase end
 5. **NO SKIP** - Use `/flow-skip` if task must be skipped
+6. **USE `bd ready`** - Always check Beads for next task

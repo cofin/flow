@@ -6,21 +6,31 @@ Display progress overview for all active flows.
 
 Read `.agent/flows.md` to get list of active flows.
 
-## Phase 2: Beads Status
+## Phase 2: Beads Status (Source of Truth)
 
 ```bash
 bd prime
-bd ready
-bd blocked
+bd ready       # Unblocked tasks ready to work
+bd blocked     # Blocked tasks
 ```
 
-## Phase 3: Flow Summary
+## Phase 3: Flow Summary (Beads-First)
 
 For each active flow:
 
-1. Read `.agent/specs/{flow_id}/plan.md`
-2. Count tasks by status: `[ ]`, `[~]`, `[x]`, `[!]`, `[-]`
-3. Calculate progress percentage
+### Primary: Get Status from Beads
+
+```bash
+bd show {epic_id} --children --json
+```
+
+Count tasks by status: pending, in_progress, completed, blocked
+
+### Fallback: Parse spec.md
+
+If Beads unavailable:
+1. Read `.agent/specs/{flow_id}/spec.md`
+2. Parse Implementation Plan section
 
 ## Phase 4: Display Dashboard
 
@@ -43,6 +53,11 @@ Flow Status Dashboard
 Ready tasks (no blockers):
   - auth_20260124: Task 6 - Implement login endpoint
 
+=== Beads Blocked ===
+
+Blocked tasks:
+  - auth_20260124: Task 8 - Waiting for API keys [!]
+
 === Recent Activity ===
 
 - 14:30 - auth_20260124: Task 5 completed [abc1234]
@@ -55,3 +70,9 @@ Based on status, suggest next action:
 - If blocked: "Run `/flow:block` to document blockers"
 - If no in-progress: "Run `/flow:implement {flow_id}`"
 - If complete: "Run `/flow:archive {flow_id}`"
+
+## Critical Rules
+
+1. **READ ONLY** - This command only displays information
+2. **BEADS IS SOURCE OF TRUTH** - Pull task status from Beads
+3. **ACTIONABLE** - Provide next step suggestions

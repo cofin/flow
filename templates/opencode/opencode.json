@@ -20,6 +20,10 @@
       "description": "Create spec and plan for single flow",
       "agent": "flow"
     },
+    "flow:sync": {
+      "description": "Export Beads state to spec.md",
+      "agent": "flow"
+    },
     "flow:implement": {
       "description": "Execute tasks from flow plan",
       "agent": "flow"

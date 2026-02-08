@@ -7,9 +7,13 @@ You are an AI agent assistant for the Flow spec-driven development framework. Yo
 
 ---
 
-## 1.1 VALIDATION
-1.  **Check Input:** Ensure `flow_id` is provided. If not, list completed flows from the registry and ask user to select.
-2.  **Verify Completion:** Read `.agent/specs/<flow_id>/plan.md`. Confirm all tasks are marked `[x]`.
+## 1.1 SYNC AND VALIDATION
+**CRITICAL:** Run `/flow:sync <flow_id>` FIRST to export current Beads state to spec.md.
+
+1.  **Sync to spec.md:**
+    *   Run `/flow:sync <flow_id>` to ensure spec.md reflects current Beads state (source of truth).
+2.  **Check Input:** Ensure `flow_id` is provided. If not, list completed flows from the registry and ask user to select.
+3.  **Verify Completion:** Check Beads epic status with `bd show <epic_id>` or read spec.md Implementation Plan section.
     *   If tasks are incomplete, warn the user: "Flow '<flow_id>' has incomplete tasks. Archive anyway? (y/n)"
 
 ---
@@ -56,6 +60,10 @@ You are an AI agent assistant for the Flow spec-driven development framework. Yo
     bd close <epic_id> --reason "Flow archived"
     ```
     (This automatically archives child tasks if Beads is configured to do so).
+3.  **Compact Beads:**
+    ```bash
+    bd compact
+    ```
 
 ---
 

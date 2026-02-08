@@ -39,9 +39,12 @@ cd flow
 ```
 
 The installer supports:
+
 - **Claude Code** (`~/.claude/`)
 - **Codex CLI** (`~/.codex/`)
 - **OpenCode** (`~/.config/opencode/`)
+
+**Note:** Gemini CLI now uses native extension installation: `gemini extensions install flow`
 
 #### Manual Installation
 
@@ -61,7 +64,7 @@ cp -r skills/* ~/.claude/skills/
 ##### Codex CLI
 
 ```bash
-cp -r templates/codex/prompts/* ~/.codex/prompts/
+cp -r templates/codex/skills/* ~/.codex/skills/
 cat templates/codex/AGENTS.md >> ~/.codex/AGENTS.md
 cp -r skills/flow ~/.codex/skills/
 cp -r skills/beads ~/.codex/skills/
@@ -78,9 +81,8 @@ cp -r templates/opencode/agents/* ~/.config/opencode/agents/
 ##### Gemini CLI
 
 ```bash
-gemini extensions install https://github.com/cofin/flow --auto-update
-# Or manually:
-cp -r commands/* ~/.gemini/extensions/flow/commands/
+# Gemini now uses native extension installation
+gemini extensions install flow
 ```
 
 ### Initialize a Project
@@ -94,6 +96,7 @@ cp -r commands/* ~/.gemini/extensions/flow/commands/
 ```
 
 Flow will:
+
 1. Check/install Beads
 2. Initialize Beads in stealth mode
 3. Create project context files
@@ -111,10 +114,12 @@ Flow will:
 ```
 
 This creates:
-- `spec.md` - Requirements specification
-- `plan.md` - Phased implementation plan
+
+- `spec.md` - Unified specification (requirements AND implementation plan)
 - `learnings.md` - Pattern capture log
 - Beads epic with tasks for cross-session persistence
+
+**Note:** Flow uses a unified spec.md (no separate plan.md). Beads is the source of truth for task status. Use `/flow:sync` to export Beads state to spec.md when needed.
 
 ### Implement
 
@@ -126,22 +131,28 @@ This creates:
 /flow:implement auth_20260124
 ```
 
-Flow follows TDD workflow:
-1. Select task (or use `bd ready` for Beads-aware selection)
-2. Write failing tests
-3. Implement to pass
-4. Refactor
-5. Verify coverage
-6. Commit with conventional format
-7. Sync to Beads
-8. Capture learnings
+Flow follows TDD workflow (Beads-first):
+
+1. Select task from `bd ready` (Beads is source of truth)
+2. Mark in progress: `bd update <id> --status in_progress`
+3. Write failing tests
+4. Implement to pass
+5. Refactor
+6. Verify coverage
+7. Commit with conventional format
+8. Sync to Beads: `bd close <id> --reason "commit: <sha>"`
+9. Capture learnings
+
+**Note:** Never write `[x]` or `[~]` markers to spec.md. Beads is the source of truth.
 
 ## Commands
 
 | Purpose | Claude Code | Gemini / Codex / OpenCode |
 |---------|-------------|---------------------------|
 | Initialize project | `/flow-setup` | `/flow:setup` |
-| Create PRD (track) | `/flow-prd` | `/flow:prd` |
+| Create PRD (Saga) | `/flow-prd` | `/flow:prd` |
+| Plan single flow | `/flow-plan` | `/flow:plan` |
+| Sync Beads to spec | `/flow-sync` | `/flow:sync` |
 | Pre-PRD research | `/flow-research` | `/flow:research` |
 | Documentation workflow | `/flow-docs` | `/flow:docs` |
 | Implement tasks | `/flow-implement` | `/flow:implement` |
@@ -190,6 +201,7 @@ project/
 Tracks use format: `shortname_YYYYMMDD`
 
 Examples:
+
 - `user-auth_20260124`
 - `dark-mode_20260124`
 - `api-v2_20260124`
