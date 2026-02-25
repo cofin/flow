@@ -273,7 +273,7 @@ Append to `.agent/flows.md`:
 
 1. **NO CODE MODIFICATION** - NEVER edit source code files. Planning documents ONLY.
 2. **BEADS REQUIRED** - Check CLI is available
-3. **FULL CONTEXT** - Always use `--description` and `--notes` with br create
+3. **FULL CONTEXT** - Always use `--description` with `br create`, then `--notes` via `br update`
 4. **ASK FIRST** - Clarifying questions before proposing chapters
 5. **CODE ANALYSIS (READ-ONLY)** - Read actual code before asking flow-specific questions but NEVER modify it
 6. **AUTO-PLAN** - Create unified spec.md for first flow (NOT implementation)

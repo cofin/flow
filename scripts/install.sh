@@ -677,7 +677,7 @@ check_beads() {
     echo ""
 
     if command -v br &> /dev/null; then
-        local version=$(br --version 2>/dev/null || echo "unknown")
+        local version=$(br version 2>/dev/null || echo "unknown")
         log_success "Beads CLI installed: $version"
     else
         log_warn "Beads CLI not found"

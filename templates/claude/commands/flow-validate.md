@@ -23,7 +23,7 @@ Check required files exist:
 ## Phase 2: Beads Health
 
 ```bash
-br --version
+br version
 br status
 ```
 

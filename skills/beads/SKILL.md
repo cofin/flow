@@ -21,16 +21,20 @@ curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/i
 
 ## Initialization
 
-Always initialize in **stealth mode** by default:
+```bash
+br init
+```
+
+After initialization, add `.beads/` to `.gitignore` for local-only (stealth) use:
 
 ```bash
-br init --stealth
+echo ".beads/" >> .gitignore
 ```
 
 **Modes:**
 
-- `stealth` - Local-only, .beads/ gitignored (personal use)
-- `normal` - Committed to repo (team-shared)
+- **Local-only** (recommended) - Add `.beads/` to `.gitignore` (personal use)
+- **Team-shared** - Commit `.beads/` to repo
 
 ## CLI Integration
 
@@ -92,7 +96,7 @@ br update {id} --notes "CONTEXT: files affected, dependencies, origin command, t
 | `br show {id}` | View task with notes |
 | `br update {id} --status {s}` | Update status |
 | `br update {id} --notes "..."` | Add notes |
-| `br update {id} --append-notes "..."` | Append to notes |
+| `br comments add {id} "..."` | Add comment (additive context) |
 | `br close {id} [--reason "..."]` | Complete task |
 | `br close {id1} {id2} ...` | Close multiple tasks |
 | `br reopen {id}` | Reopen closed task |
@@ -121,7 +125,6 @@ br update {id} --notes "CONTEXT: files affected, dependencies, origin command, t
 
 | Command | Purpose |
 |---------|---------|
-| `br gate` | Manage async coordination gates |
 | `br lint` | Check for missing template sections |
 | `br search "query"` | Full-text search |
 | `br label add {id} {label}` | Add label |
@@ -131,8 +134,7 @@ br update {id} --notes "CONTEXT: files affected, dependencies, origin command, t
 
 | Command | Purpose |
 |---------|---------|
-| `br show {id} --children --json` | Export epic with all tasks as JSON |
-| `br export --parent {epic_id}` | Export all tasks under epic |
+| `br show {id} --format json` | Export task/epic as JSON |
 | `br sync --flush-only` | Sync Beads state with git |
 
 ## Issue Types
@@ -142,8 +144,8 @@ br update {id} --notes "CONTEXT: files affected, dependencies, origin command, t
 - `feature` - New functionality
 - `epic` - Large feature with subtasks
 - `chore` - Maintenance (dependencies, tooling)
-- `gate` - Async coordination point
-- `agent` - Agent definition
+- `docs` - Documentation
+- `question` - Question or discussion
 
 ## Priority Levels
 
@@ -192,8 +194,8 @@ Gotcha: Must update barrel exports
 Commit: abc1234
 "
 
-# Append to existing notes
-br update {id} --append-notes "Additional learning: ..."
+# Add comment (additive - doesn't replace existing notes)
+br comments add {id} "Additional learning: ..."
 ```
 
 ## Flow Integration
@@ -202,7 +204,7 @@ When used with Flow:
 
 | Action | Command |
 |--------|---------|
-| Track creation | `br create -t epic -p 1 --description="..."` then `br update {id} --notes="..."` |
+| Flow creation | `br create -t epic -p 1 --description="..."` then `br update {id} --notes="..."` |
 | Task start | `br update {id} --status in_progress` |
 | Task complete | `br close {id} --reason "commit: {sha}"` |
 | Log learnings | `br update {id} --notes "..."` |
@@ -249,7 +251,7 @@ curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/i
 **Permission denied:**
 
 ```bash
-br init --stealth  # Use stealth mode
+br init  # Reinitialize
 ```
 
 **Sync failed:**

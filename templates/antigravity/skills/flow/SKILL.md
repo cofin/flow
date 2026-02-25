@@ -105,7 +105,7 @@ When a phase completes:
 4. Await user confirmation
 5. Create checkpoint commit
 6. Attach verification report as git note
-7. Record checkpoint in Beads: `br update {epic_id} --append-notes "Phase {N} checkpoint: {sha}"`
+7. Record checkpoint in Beads: `br comments add {epic_id} "Phase {N} checkpoint: {sha}"`
 
 ## Proactive Behaviors
 

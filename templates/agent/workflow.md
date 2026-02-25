@@ -120,14 +120,22 @@ All tasks follow a strict lifecycle:
     - Sync to Beads: `br update <id> --notes "pattern: ..."`
     - Elevate reusable patterns to `.agent/patterns.md` at phase completion
 
-### Knowledge Flywheel (Ralph-style)
+### Knowledge Flywheel (Three-Tier)
 
 1. **Capture** - After each task, append learnings to track's `learnings.md`
 2. **Elevate** - At phase/track completion, move reusable patterns to `.agent/patterns.md`
-3. **Archive** - Track is archived; patterns remain in `.agent/patterns.md`
-4. **Inherit** - New flows read `.agent/patterns.md` to prime context
+3. **Extract** - At archive, persist full learnings to `knowledge/{flow_id}.md`
+4. **Inherit** - New flows read `patterns.md` + scan `knowledge/index.md`
 
-**Important:** `.agent/patterns.md` is NOT archived with tracks. It remains at the top level as persistent project knowledge.
+**Three-Tier Knowledge:**
+
+| Tier | File | Loaded | Purpose |
+|------|------|--------|---------|
+| **Patterns** | `.agent/patterns.md` | Always | Elevated actionable rules for priming |
+| **Knowledge Index** | `.agent/knowledge/index.md` | Always | Lightweight scan of all flow learnings |
+| **Knowledge Entries** | `.agent/knowledge/{flow_id}.md` | On demand | Full detailed learnings per flow |
+
+**Important:** `.agent/patterns.md` is NOT archived with tracks. It remains at the top level as persistent project knowledge. Knowledge entries in `.agent/knowledge/` also persist independently of archives.
 
 **Learnings Entry Format:**
 
@@ -197,7 +205,7 @@ All tasks follow a strict lifecycle:
     -   Perform the commit with a clear and concise message (e.g., `flow(checkpoint): Checkpoint end of Phase X`).
 
 7.  **Record Verification in Beads:**
-    -   Update the epic with verification summary: `br update <epic_id> --append-notes "Phase N verified: tests passed, manual verification confirmed by user, checkpoint: <sha>"`
+    -   Update the epic with verification summary: `br comments add <epic_id> "Phase N verified: tests passed, manual verification confirmed by user, checkpoint: <sha>"`
 
 8.  **Sync to spec.md (MANDATORY):**
     -   Run `/flow:sync <flow_id>` to export current Beads state to spec.md for human-readable status

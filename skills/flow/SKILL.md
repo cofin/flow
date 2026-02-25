@@ -47,6 +47,8 @@ Flow requires Beads for persistent cross-session memory:
 - Tech Stack: `.agent/tech-stack.md`
 - Workflow: `.agent/workflow.md`
 - Patterns: `.agent/patterns.md`
+- Knowledge Index: `.agent/knowledge/index.md`
+- Knowledge Entries: `.agent/knowledge/{flow_id}.md`
 - Beads Config: `.agent/beads.json`
 
 ## Workflow Commands
@@ -88,13 +90,13 @@ Flow requires Beads for persistent cross-session memory:
 
 **CRITICAL:** Never write `[x]`, `[~]`, `[!]`, or `[-]` markers to spec.md. Beads is the source of truth. After ANY Beads state change, agents MUST run `/flow-sync` to update spec.md.
 
-## Knowledge Flywheel
+## Knowledge Flywheel (Three-Tier)
 
-1. **Implement** - Discover patterns while coding
-2. **Log** - Record in flow's `learnings.md`
-3. **Sync** - Auto-sync to Beads notes
-4. **Elevate** - At phase/flow completion, elevate to `patterns.md`
-5. **Prime** - New flows inherit from `patterns.md`
+1. **Capture** - After each task, append learnings to flow's `learnings.md`
+2. **Sync** - Auto-sync to Beads notes
+3. **Elevate** - At phase/flow completion, move reusable patterns to `patterns.md`
+4. **Extract** - At archive, persist full learnings to `knowledge/{flow_id}.md`
+5. **Inherit** - New flows read `patterns.md` + scan `knowledge/index.md`
 
 ## Phase Completion Protocol
 
@@ -105,7 +107,7 @@ When a phase completes:
 4. Await user confirmation
 5. Create checkpoint commit
 6. Attach verification report as git note
-7. Record checkpoint in Beads: `br update {epic_id} --append-notes "Phase {N} checkpoint: {sha}"`
+7. Record checkpoint in Beads: `br comments add {epic_id} "Phase {N} checkpoint: {sha}"`
 8. Sync to markdown: run `/flow-sync` (MANDATORY)
 
 ## Proactive Behaviors
@@ -113,6 +115,7 @@ When a phase completes:
 When Flow skill is active:
 - Check for resume state at session start
 - Run `br status` and `br ready` for context
+- Scan `knowledge/index.md` for relevant past learnings when starting a new flow
 - Prompt for learnings capture after tasks
 - Suggest pattern elevation at phase completion
 - Warn if tech-stack changes without documentation

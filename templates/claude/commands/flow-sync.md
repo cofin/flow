@@ -30,7 +30,7 @@ Syncing Beads state to disk for flow: **$ARGUMENTS**
 ## Phase 3: Fetch Beads State
 
 ```bash
-br show {beads_epic_id} --children --json
+br show {beads_epic_id} --format json
 ```
 
 Parse the JSON output. Map each task's Beads status to a markdown marker:

@@ -120,7 +120,11 @@ From user-auth_20260110/learnings.md:
 4. Merge confirmed patterns into `.agent/patterns.md`
 5. Archive original learnings.md with migration note
 
-### 0.1.4 Configuration Validation
+### 0.1.4 Knowledge Base Check
+
+Check for missing `.agent/knowledge/` directory. If absent, create it and write `knowledge/index.md` from template.
+
+### 0.1.5 Configuration Validation
 
 Check and update:
 
@@ -128,7 +132,7 @@ Check and update:
 - `.agent/workflow.md` - Check for outdated bd command syntax
 - `.agent/tech-stack.md` - Verify detected languages match codebase
 
-### 0.1.5 Alignment Summary
+### 0.1.6 Alignment Summary
 
 ```
 Alignment Complete
@@ -274,7 +278,7 @@ Based on detected languages, offer relevant styleguides:
 **CRITICAL: Initialize in stealth mode by default.**
 
 ```bash
-br init --stealth
+br init
 ```
 
 Or prompt user:
@@ -295,6 +299,13 @@ Create:
 - `<root_directory>/index.md` - File resolution index
 - `<root_directory>/flows.md` - Empty flow registry
 - `<root_directory>/patterns.md` - Empty patterns template
+- `<root_directory>/knowledge/index.md` - Knowledge base index (from template)
+
+```bash
+mkdir -p <root_directory>/knowledge
+```
+
+Copy `knowledge/index.md` from the Flow templates (`templates/agent/knowledge/index.md`).
 
 ---
 
@@ -402,6 +413,7 @@ Created:
 - index.md
 - flows.md
 - patterns.md
+- knowledge/index.md
 - code-styleguides/
 
 Next Steps:

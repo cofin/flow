@@ -136,11 +136,14 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
         -   Copy `~/.gemini/extensions/flow/templates/agent/workflow.md` to `<root_directory>/workflow.md` (Overwrite).
         -   Announce: "Updated workflow.md to latest version."
 
-5.  **Configuration Validation:**
+5.  **Knowledge Base Check:**
+    -   Check for missing `.agent/knowledge/` directory. If absent, create it and write `knowledge/index.md` from template.
+
+6.  **Configuration Validation:**
     -   Check `.agent/beads.json` for valid config
     -   Verify `.agent/tech-stack.md` matches detected languages
 
-6.  **Alignment Summary:**
+7.  **Alignment Summary:**
     > "Alignment Complete
     >
     > ✓ Beads: v{version} (up to date)
@@ -540,7 +543,7 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
     > Mode: Stealth (local-only, not committed to git)"
 
     ```bash
-    br init --stealth
+    br init
     ```
 
 3.  **Create Beads Config:**
@@ -587,14 +590,18 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
         - [Flow Specifications](./specs/)
         - [Archived Flows](./archive/)
 
+        ## Knowledge
+        - [Patterns](./patterns.md)
+        - [Knowledge Base](./knowledge/)
+
         ## Persistence
         - [Beads Config](./beads.json)
         ```
     -   **Announce:** "Created `<root_directory>/index.md` to serve as the project context index."
 
 2.  **Create Additional Directories:**
-    -   Execute `mkdir -p .agent/archive .agent/templates .agent/code-styleguides .agent/research .agent/wisps`.
-    -   **Announce:** "Created directories for archives, templates, code styleguides, research, and wisps."
+    -   Execute `mkdir -p .agent/archive .agent/templates .agent/code-styleguides .agent/research .agent/wisps .agent/knowledge`.
+    -   **Announce:** "Created directories for archives, templates, code styleguides, research, wisps, and knowledge base."
 
 3.  **Create patterns.md:**
     -   Create `.agent/patterns.md` with initial structure:
@@ -628,7 +635,26 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
         - {Important context}
         ```
 
-4.  **Create flows.md:**
+4.  **Create knowledge/index.md:**
+    -   Create `.agent/knowledge/index.md` with initial structure:
+        ```markdown
+        # Knowledge Base
+
+        > Persistent learnings from all completed flows.
+        > For actionable patterns, see [patterns.md](../patterns.md).
+        > Drill into specific entries only when relevant to current work.
+
+        ## Entries
+
+        | Flow ID | Completed | Topics | Summary |
+        |---------|-----------|--------|---------|
+
+        ## Topic Index
+
+        <!-- Topics are added automatically during flow archival -->
+        ```
+
+5.  **Create flows.md:**
     -   Create `.agent/flows.md` with initial structure:
         ```markdown
         # Flow Registry

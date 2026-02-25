@@ -19,14 +19,14 @@ Verify required files exist:
 
 2. **Beads Directory:**
    - `.beads/` must exist
-   - Run `br --version` to verify Beads CLI
+   - Run `br version` to verify Beads CLI
 
 ---
 
 ## Phase 2: Beads Health Check
 
 ```bash
-br --version
+br version
 br status
 ```
 

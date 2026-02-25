@@ -49,7 +49,41 @@ Or read `.agent/specs/{flow_id}/spec.md` Implementation Plan section.
 
 ---
 
-## Phase 3: Archive Artifacts
+## Phase 3: Knowledge Extraction
+
+1. Create `.agent/knowledge/` if missing.
+2. Read `learnings.md`, `spec.md` header, and `metadata.json` from the flow.
+3. Generate `.agent/knowledge/{flow_id}.md` with:
+   ```markdown
+   # Knowledge: {flow_id}
+
+   **Flow:** {flow_id}
+   **Description:** {from metadata/spec}
+   **Completed:** {date}
+   **Archived:** {today}
+
+   ## Topics
+   {lowercase, comma-separated tags: e.g., authentication, middleware, testing}
+
+   ## Patterns Elevated
+   - {patterns selected for elevation in Phase 2}
+
+   ## All Learnings
+   {verbatim learnings.md content}
+
+   ## Key Files
+   {files mentioned in learnings entries}
+
+   ## Summary
+   {2-3 sentence auto-generated summary}
+   ```
+4. Update `.agent/knowledge/index.md`:
+   - Append row to Entries table: `| {flow_id} | {date} | {topics} | {summary} |`
+   - Add entries under Topic Index headings (create headings if new)
+
+---
+
+## Phase 4: Archive Artifacts
 
 1. Create `.agent/archive/` if missing.
 2. **Generate Summary:**
@@ -72,7 +106,7 @@ Or read `.agent/specs/{flow_id}/spec.md` Implementation Plan section.
 
 ---
 
-## Phase 4: Registry Update
+## Phase 5: Registry Update
 
 Edit `.agent/flows.md`:
 1. Find entry for `{flow_id}`.
@@ -81,7 +115,7 @@ Edit `.agent/flows.md`:
 
 ---
 
-## Phase 5: Beads Cleanup
+## Phase 6: Beads Cleanup
 
 1. Get `beads_epic_id` from metadata.
 2. Close epic:
@@ -95,7 +129,7 @@ Edit `.agent/flows.md`:
 
 ---
 
-## Phase 6: Git Commit
+## Phase 7: Git Commit
 
 1. **Check Ignore Status:**
    ```bash
@@ -103,14 +137,14 @@ Edit `.agent/flows.md`:
    ```
 2. **Commit (if not ignored):**
    ```bash
-   git add .agent/
+   git add .agent/patterns.md .agent/flows.md .agent/knowledge/ .agent/archive/{flow_id}/
    git commit -m "flow(archive): {flow_id} complete"
    ```
    *If ignored, skip commit and notify user.*
 
 ---
 
-## Phase 7: Completion
+## Phase 8: Completion
 
 > "Flow '{flow_id}' archived successfully.
 >

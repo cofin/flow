@@ -103,19 +103,22 @@ project/
 │   ├── refresh_state.json   # Context refresh tracking
 │   ├── code-styleguides/    # Language-specific style guides
 │   ├── research/            # Research documents
-│   ├── wisps/               # Ephemeral exploration tracks
+│   ├── wisps/               # Ephemeral exploration flows
 │   ├── templates/           # Project-specific templates
-│   ├── archive/             # Archived tracks
+│   ├── knowledge/              # Persistent knowledge base
+│   │   ├── index.md            # Quick reference index
+│   │   └── {flow_id}.md        # Per-flow detailed learnings
+│   ├── archive/             # Archived flows
 │   └── specs/
-│       └── <track_id>/
-│           ├── metadata.json     # Track config + Beads epic ID
+│       └── <flow_id>/
+│           ├── metadata.json     # Flow config + Beads epic ID
 │           ├── spec.md           # Unified spec + plan (requirements AND tasks)
 │           ├── learnings.md      # Patterns/gotchas discovered
 │           ├── implement_state.json # Resume state (if in progress)
 │           ├── blockers.md       # Block history log
 │           ├── skipped.md        # Skipped tasks log
 │           └── revisions.md      # Revision history log
-└── .beads/                  # Beads data (created by br init --stealth)
+└── .beads/                  # Beads data (created by br init)
 ```
 
 ## Key Concepts
@@ -151,8 +154,8 @@ A flow is a logical unit of work (feature, bug fix, refactor). Each flow has:
 
 Beads provides persistent cross-session memory:
 
-- **Stealth mode by default** (local-only, not committed)
-- Each track becomes a Beads epic
+- **Local-only by default** (`.beads/` added to `.gitignore`)
+- Each flow becomes a Beads epic
 - Tasks sync for dependency tracking: `br ready` finds unblocked tasks
 - **Notes survive context compaction** - critical for multi-session work
 - Graceful degradation if `br` unavailable
@@ -160,7 +163,7 @@ Beads provides persistent cross-session memory:
 **Key Beads Commands:**
 
 ```bash
-br init --stealth                     # Initialize Beads (stealth mode)
+br init                               # Initialize Beads
 br create "Flow: name" -t epic -p 1 \
   --description="Flow purpose and goals"
 # Then add context notes (br create does NOT support --notes):
@@ -204,9 +207,15 @@ git commit -m "sync beads"
 - `br ready` finds unblocked work automatically
 - If resuming in 2 weeks would be hard without context, use Beads
 
-### Learnings System (Ralph-style Knowledge Flywheel)
+### Learnings System (Three-Tier Knowledge)
 
-**Per-Track (`learnings.md`):**
+| Tier | File | Loaded | Purpose |
+|------|------|--------|---------|
+| **Patterns** | `.agent/patterns.md` | Always | Elevated actionable rules for priming |
+| **Knowledge Index** | `.agent/knowledge/index.md` | Always | Lightweight scan of all flow learnings |
+| **Knowledge Entries** | `.agent/knowledge/{flow_id}.md` | On demand | Full detailed learnings per flow |
+
+**Per-Flow (`learnings.md`):**
 
 - Append-only log of discoveries during implementation
 - Format: `[timestamp] - Phase/Task - Learning`
@@ -214,17 +223,22 @@ git commit -m "sync beads"
 
 **Project-Level (`patterns.md`):**
 
-- Consolidated patterns elevated from completed tracks
+- Consolidated patterns elevated from completed flows
 - Categories: Code Conventions, Architecture, Gotchas, Testing, Context
 - **Read before starting work** to prime context
 
+**Persistent Knowledge Base (`knowledge/`):**
+
+- Full verbatim learnings persisted independently of archives
+- Survives archive cleanup — detailed learnings never lost
+- Index provides lightweight topic-based lookup
+
 **Knowledge Flywheel:**
 
-1. Implement → discover patterns
-2. Log in track `learnings.md` (auto-sync to Beads notes)
-3. At phase/track completion → prompt for pattern elevation
-4. Archive track → extract remaining patterns to `patterns.md`
-5. New flows → inherit patterns from `patterns.md`
+1. **Capture** - After each task, append learnings to flow's `learnings.md`
+2. **Elevate** - At phase/flow completion, move reusable patterns to `.agent/patterns.md`
+3. **Extract** - At archive, persist full learnings to `knowledge/{flow_id}.md`
+4. **Inherit** - New flows read `patterns.md` + scan `knowledge/index.md`
 
 ### Parallel Execution
 
@@ -241,7 +255,7 @@ At phase completion:
 
 - Run full test suite
 - Verify coverage requirements
-- Create git tag: `checkpoint/{track_id}/phase-{N}`
+- Create git tag: `checkpoint/{flow_id}/phase-{N}`
 - Prompt for pattern elevation
 - Manual verification with user
 
@@ -295,7 +309,7 @@ cp -r templates/opencode/agents/* ~/.config/opencode/agents/
 #### Gemini CLI
 
 ```bash
-gemini install flow
+gemini extensions install flow
 # Or: cp -r commands/* ~/.gemini/extensions/flow/commands/
 ```
 
@@ -310,7 +324,7 @@ cp -r skills/* ~/.gemini/antigravity/skills/
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash
-br init --stealth
+br init
 ```
 
 ## Related Documentation

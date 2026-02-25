@@ -57,6 +57,8 @@ To find a file (e.g., "**Product Definition**") within a specific context:
 | **Template Directory** | `.agent/templates/` |
 | **Code Styleguides Directory** | `.agent/code-styleguides/` |
 | **Patterns** | `.agent/patterns.md` |
+| **Knowledge Base** | `.agent/knowledge/` |
+| **Knowledge Index** | `.agent/knowledge/index.md` |
 | **Beads Config** | `.agent/beads.json` |
 | **Research Directory** | `.agent/research/` |
 | **Wisps Directory** | `.agent/wisps/` |
@@ -131,13 +133,13 @@ If missing, Flow offers to install:
 curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash
 ```
 
-### Initialization (Stealth Mode Default)
+### Initialization
 
 ```bash
-br init --stealth
+br init
 ```
 
-Stealth mode keeps Beads data local-only (not committed to git).
+For local-only (stealth) use, add `.beads/` to `.gitignore` after initialization.
 
 ### Configuration (`.agent/beads.json`)
 
@@ -247,13 +249,14 @@ Consolidated patterns from all flows:
 - Run `npm run typecheck` before commit
 ```
 
-### Knowledge Flywheel
+### Knowledge Flywheel (Three-Tier)
 
-1. Implement → discover patterns
-2. Log in flow `learnings.md` (sync to Beads notes)
-3. Phase completion → prompt pattern elevation
-4. Flow completion → extract to `patterns.md`
-5. New flows → pre-load `patterns.md` context
+1. **Capture** - After each task, append learnings to flow's `learnings.md`
+2. **Elevate** - At phase/flow completion, move reusable patterns to `.agent/patterns.md`
+3. **Extract** - At archive, persist full learnings to `knowledge/{flow_id}.md`
+4. **Inherit** - New flows read `patterns.md` + scan `knowledge/index.md`
+
+Knowledge entries in `.agent/knowledge/` survive archive cleanup, ensuring detailed learnings are never lost.
 
 ## Parallel Execution
 
@@ -314,7 +317,7 @@ Skills are available in `skills/` for copying to `.gemini/skills/`:
 
 ```bash
 # Install as Gemini extension
-gemini install flow
+gemini extensions install flow
 
 # Or copy manually
 cp -r commands/* ~/.gemini/extensions/flow/commands/

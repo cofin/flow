@@ -26,11 +26,11 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
     ```bash
     br ready
     br blocked
-    br show <epic_id> --children --json
+    br show <epic_id> --format json
     ```
 3.  **Generate Report:**
     For each active flow:
-    *   Get task status from Beads (`br show <epic_id> --children --json`).
+    *   Get task status from Beads (`br show <epic_id> --format json`).
     *   Count: pending, in_progress, completed, blocked.
     *   Calculate percentage complete.
     *   **Format:**

@@ -31,7 +31,7 @@ For each active flow:
 ### Primary: Get Status from Beads
 
 ```bash
-br show {epic_id} --children --json
+br show {epic_id} --format json
 ```
 
 Parse JSON to count:

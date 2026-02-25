@@ -195,6 +195,9 @@ project/
 │   ├── beads.json           # Beads configuration
 │   ├── index.md             # File resolution index
 │   ├── code-styleguides/    # Language style guides
+│   ├── knowledge/           # Persistent knowledge base
+│   │   ├── index.md          # Quick reference index
+│   │   └── {flow_id}.md      # Per-flow detailed learnings
 │   ├── specs/
 │   │   └── <flow_id>/       # e.g., user-auth_20260124/
 │   │       ├── spec.md       # Unified spec + plan
@@ -253,7 +256,7 @@ git commit -m "sync beads"
 3. **Learn**: Add notes for important discoveries
 4. **End**: `br sync --flush-only && git add .beads/ && git commit -m "sync beads"` persists everything
 
-## Knowledge System (Ralph-style)
+## Knowledge System (Three-Tier)
 
 ### Per-Flow Learnings
 
@@ -279,13 +282,16 @@ Consolidated in `patterns.md`:
 - Always update barrel exports
 ```
 
+### Persistent Knowledge Base
+
+Full learnings persisted in `knowledge/{flow_id}.md` during archival. Survives archive cleanup — detailed learnings are never lost. The `knowledge/index.md` provides a lightweight topic-based lookup.
+
 ### Knowledge Flywheel
 
-1. Implement → discover patterns
-2. Log in `learnings.md`
-3. Phase completion → prompt for elevation
-4. Archive → extract to `patterns.md`
-5. New flows → inherit patterns
+1. **Capture** - After each task, append learnings to `learnings.md`
+2. **Elevate** - At phase/flow completion, move patterns to `patterns.md`
+3. **Extract** - At archive, persist full learnings to `knowledge/{flow_id}.md`
+4. **Inherit** - New flows read `patterns.md` + scan `knowledge/index.md`
 
 ## Skills Library
 

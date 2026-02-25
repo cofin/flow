@@ -35,7 +35,42 @@ You are an AI agent assistant for the Flow spec-driven development framework. Yo
 
 ---
 
-## 3.0 ARCHIVAL PROCESS
+## 3.0 KNOWLEDGE EXTRACTION
+**PROTOCOL: Persist full learnings independently of archive.**
+
+1.  **Create Directory:** Create `.agent/knowledge/` if missing.
+2.  **Read Sources:** Read `learnings.md`, `spec.md` header, and `metadata.json` from the flow.
+3.  **Generate Knowledge Entry:** Create `.agent/knowledge/<flow_id>.md` with:
+    ```markdown
+    # Knowledge: <flow_id>
+
+    **Flow:** <flow_id>
+    **Description:** {from metadata/spec}
+    **Completed:** {date}
+    **Archived:** {today}
+
+    ## Topics
+    {lowercase, comma-separated tags: e.g., authentication, middleware, testing}
+
+    ## Patterns Elevated
+    - {patterns selected for elevation in section 2.0}
+
+    ## All Learnings
+    {verbatim learnings.md content}
+
+    ## Key Files
+    {files mentioned in learnings entries}
+
+    ## Summary
+    {2-3 sentence auto-generated summary}
+    ```
+4.  **Update Index:** Update `.agent/knowledge/index.md`:
+    *   Append row to Entries table: `| <flow_id> | {date} | {topics} | {summary} |`
+    *   Add entries under Topic Index headings (create headings if new)
+
+---
+
+## 4.0 ARCHIVAL PROCESS
 **PROTOCOL: Move and update records.**
 
 1.  **Move Directory:**
@@ -53,7 +88,7 @@ You are an AI agent assistant for the Flow spec-driven development framework. Yo
 
 ---
 
-## 4.0 BEADS CLEANUP
+## 5.0 BEADS CLEANUP
 1.  **Find Epic:** Get Beads epic ID from metadata.
 2.  **Close Epic:**
     ```bash
@@ -63,7 +98,7 @@ You are an AI agent assistant for the Flow spec-driven development framework. Yo
 
 ---
 
-## 5.0 GIT COMMIT
+## 6.0 GIT COMMIT
 1.  **Check Ignore Status:**
     ```bash
     git check-ignore .agent/
@@ -73,13 +108,13 @@ You are an AI agent assistant for the Flow spec-driven development framework. Yo
 
 2.  **Commit Changes (if not ignored):**
     ```bash
-    git add .agent/patterns.md .agent/flows.md .agent/archive/<flow_id>_YYYYMMDD/ .agent/specs/<flow_id>
+    git add .agent/patterns.md .agent/flows.md .agent/knowledge/ .agent/archive/<flow_id>_YYYYMMDD/ .agent/specs/<flow_id>
     git commit -m "flow(archive): Archive <flow_id> and elevate patterns"
     ```
 
 ---
 
-## 6.0 COMPLETION
+## 7.0 COMPLETION
 Announce:
 "Flow '<flow_id>' successfully archived to `<flow_id>_YYYYMMDD`.
 - Patterns updated: [Count]

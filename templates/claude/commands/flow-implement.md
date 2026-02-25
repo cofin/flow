@@ -212,7 +212,7 @@ git commit --allow-empty -m "flow(checkpoint): Phase {N} complete"
 Record in Beads:
 
 ```bash
-br update {epic_id} --append-notes "Phase {N} verified: tests passed, user confirmed, checkpoint: {sha}"
+br comments add {epic_id} "Phase {N} verified: tests passed, user confirmed, checkpoint: {sha}"
 ```
 
 ### 4.6 Sync to Markdown (MANDATORY)
