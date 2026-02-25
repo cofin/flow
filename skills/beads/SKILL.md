@@ -10,13 +10,13 @@ description: "Beads CLI integration for persistent task memory across sessions. 
 This skill activates when:
 
 - `.beads/` directory exists
-- User mentions "beads", "bd", "tasks", or "session"
+- User mentions "beads", "br", "tasks", or "session"
 - Beads commands are invoked
 
 ## Installation
 
 ```bash
-npm install -g @beads/bd
+curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash
 ```
 
 ## Initialization
@@ -43,8 +43,9 @@ Beads works with any CLI agent. No hooks or setup commands required — just ens
 ### Session Start
 
 ```bash
-br prime        # Load AI-optimized context (auto-detects MCP mode)
-br ready        # List unblocked tasks
+br status                          # Workspace overview
+br ready                           # List unblocked tasks
+br list --status in_progress       # Resume active work
 ```
 
 ### During Work
@@ -66,16 +67,18 @@ git commit -m "sync beads"
 
 ## CRITICAL: Task Creation
 
-**ALWAYS include `--description` and `--notes` with `br create`:**
+**`br create` supports `--description` but NOT `--notes`.** Use `br update` to add notes after creation:
 
 ```bash
 br create "Task title" --parent {epic_id} -p 2 \
-  --description="WHY this issue exists and WHAT needs to be done" \
-  --notes="CONTEXT: files affected, dependencies, origin command, timestamp"
+  --description="WHY this issue exists and WHAT needs to be done"
+
+# Then add context notes:
+br update {id} --notes "CONTEXT: files affected, dependencies, origin command, timestamp"
 ```
 
-- `--description`: Purpose and goal of this task
-- `--notes`: Context for future agents (survives compaction!)
+- `--description`: Purpose and goal of this task (set at creation)
+- `--notes`: Context for future agents via `br update` (survives compaction!)
 
 ## Command Reference
 
@@ -99,11 +102,10 @@ br create "Task title" --parent {epic_id} -p 2 \
 
 | Command | Purpose |
 |---------|---------|
-| `br prime` | AI-optimized workflow context |
+| `br status` | Workspace overview and statistics |
 | `br ready` | List unblocked ready tasks |
 | `br list` | List all open issues |
 | `br list --status=in_progress` | Filter by status |
-| `br status` | Overview and statistics |
 | `br graph {id}` | Show dependency graph |
 | `br stale` | Show stale issues |
 
@@ -124,8 +126,6 @@ br create "Task title" --parent {epic_id} -p 2 \
 | `br search "query"` | Full-text search |
 | `br label add {id} {label}` | Add label |
 | `br epic` | Epic management commands |
-| `br compact` | Compact Beads database |
-| `br mol squash` | Aggressive compaction (molecule-level) |
 
 ### Export and Import
 
@@ -142,7 +142,6 @@ br create "Task title" --parent {epic_id} -p 2 \
 - `feature` - New functionality
 - `epic` - Large feature with subtasks
 - `chore` - Maintenance (dependencies, tooling)
-- `molecule` - Multi-agent workflow template
 - `gate` - Async coordination point
 - `agent` - Agent definition
 
@@ -156,10 +155,25 @@ br create "Task title" --parent {epic_id} -p 2 \
 
 ## Status Values
 
-- `pending` - Not started
+beads-rust supports 7 statuses:
+
+- `open` - Not started (default for new issues)
 - `in_progress` - Being worked on
 - `blocked` - Has blocker
-- `completed` - Done
+- `deferred` - Postponed for later
+- `closed` - Done (use `br close`)
+- `tombstone` - Permanently removed
+- `pinned` - Persistent/recurring
+
+**Status mapping from Flow markers:**
+
+| Flow Marker | Beads Status | Command |
+|-------------|-------------|---------|
+| `[ ]` Pending | `open` | (default) |
+| `[~]` In Progress | `in_progress` | `br update {id} --status in_progress` |
+| `[x]` Completed | `closed` | `br close {id} --reason "commit: {sha}"` |
+| `[!]` Blocked | `blocked` | `br update {id} --status blocked --notes "BLOCKED: {reason}"` |
+| `[-]` Skipped | `closed` | `br close {id} --reason "Skipped: {reason}"` |
 
 ## Notes (Compaction Survival)
 
@@ -171,7 +185,7 @@ Notes survive context compaction - use them for:
 - Context for future sessions
 
 ```bash
-# Add detailed notes
+# Add detailed notes (br update only — br create does NOT support --notes)
 br update {id} --notes "
 Pattern: Use Zod for validation
 Gotcha: Must update barrel exports
@@ -188,11 +202,27 @@ When used with Flow:
 
 | Action | Command |
 |--------|---------|
-| Track creation | `br create -t epic -p 1 --description="..." --notes="..."` |
+| Track creation | `br create -t epic -p 1 --description="..."` then `br update {id} --notes="..."` |
 | Task start | `br update {id} --status in_progress` |
 | Task complete | `br close {id} --reason "commit: {sha}"` |
 | Log learnings | `br update {id} --notes "..."` |
-| Mark blocked | `br update {id} --status blocked --notes "reason: ..."` |
+| Mark blocked | `br update {id} --status blocked --notes "BLOCKED: {reason}"` |
+| Mark skipped | `br close {id} --reason "Skipped: {reason}"` |
+
+## Mandatory Markdown Sync
+
+After ANY Beads state change, agents MUST run `/flow-sync` (or `/flow:sync`) to update spec.md. Never write markers (`[x]`, `[~]`, `[!]`, `[-]`) directly to spec.md.
+
+**State changes that trigger mandatory sync:**
+
+| Action | Beads Command | Sync Required |
+|--------|---------------|---------------|
+| Complete task | `br close {id} --reason "commit: {sha}"` | MANDATORY |
+| Block task | `br update {id} --status blocked` | MANDATORY |
+| Skip task | `br close {id} --reason "Skipped: {reason}"` | MANDATORY |
+| Revert task | `br update {id} --status open` | MANDATORY |
+| Revise plan | `br update {id} --notes "Revised: ..."` | MANDATORY |
+| Start task | `br update {id} --status in_progress` | MANDATORY |
 
 ## Configuration
 
@@ -208,24 +238,12 @@ When used with Flow:
 }
 ```
 
-## Prime Command Options
-
-```bash
-br prime          # Auto-detect mode (MCP vs CLI)
-br prime --full   # Force full CLI output
-br prime --mcp    # Force minimal MCP output
-br prime --stealth  # No git operations
-br prime --export   # Export default content for customization
-```
-
-Custom override: Place `.beads/PRIME.md` to override default output.
-
 ## Troubleshooting
 
-**bd not found:**
+**br not found:**
 
 ```bash
-npm install -g @beads/bd
+curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash
 ```
 
 **Permission denied:**

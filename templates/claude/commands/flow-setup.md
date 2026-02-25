@@ -46,7 +46,7 @@ command -v br &> /dev/null && echo "BEADS_OK" || echo "BEADS_MISSING"
 br version
 ```
 
-If outdated, suggest: `npm update -g beads-cli`
+If outdated, suggest: `curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash`
 
 **Note:** `br` is non-invasive and never executes git commands. After `br sync --flush-only`, you must manually run `git add .beads/ && git commit`.
 
@@ -81,7 +81,7 @@ D) Skip migration
 **Migration steps for each spec:**
 
 1. Read `metadata.json` to understand status
-2. Read `spec.md` and `plan.md`
+2. Read `spec.md`
 3. Read `learnings.md` if exists
 4. Check if referenced files still exist in codebase
 5. Copy to `.agent/specs/{flow_id}/`
@@ -90,8 +90,8 @@ D) Skip migration
 
     ```bash
     br create "Flow: {flow_id}" -t epic -p 2 \
-      --description="{flow_description}" \
-      --notes="Migrated from legacy location. Created by Flow during setup"
+      --description="{flow_description}"
+    br update {epic_id} --notes "Migrated from legacy location. Created by Flow during setup"
     ```
 
 ### 0.1.3 Learnings Ingestion with Validation
@@ -161,7 +161,7 @@ If `br` not found, ask user:
 
 > Beads CLI is required for Flow. Install it now?
 >
-> - **A) Yes** (recommended) - Run `npm install -g beads-cli`
+> - **A) Yes** (recommended) - Run `curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash`
 > - **B) No** - Cannot proceed without Beads
 
 If installed, verify version is current.
@@ -405,7 +405,7 @@ Created:
 - code-styleguides/
 
 Next Steps:
-1. Run `br prime` to load Beads context
+1. Run `br status` to verify Beads context
 2. Run `/flow-prd "description"` to create your first flow
 3. Run `/flow-implement {flow_id}` to start coding
 ```

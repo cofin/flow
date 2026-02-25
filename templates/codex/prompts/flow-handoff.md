@@ -62,13 +62,15 @@ Create `.agent/handoff.md`:
 
 ## Beads Context
 ```bash
-br prime
-br ready
+br status                     # Workspace overview
+br ready                      # Unblocked tasks
+br list --status in_progress  # Active work
 ```
 
 ## Commands to Resume
 ```bash
-br prime
+br status
+br list --status in_progress
 # Then run:
 /flow:implement {flow_id}
 ```
@@ -87,6 +89,6 @@ Handoff Created: .agent/handoff.md
 
 To resume in new session:
 1. Read .agent/handoff.md
-2. Run: br prime
+2. Run: br status && br list --status in_progress
 3. Run: /flow:implement {flow_id}
 ```

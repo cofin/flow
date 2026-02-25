@@ -43,7 +43,7 @@ Search codebase for patterns not yet in `patterns.md`:
 
 Check all file paths referenced in:
 - spec.md files
-- plan.md files
+- spec.md files
 - patterns.md
 
 Report any broken references:
@@ -62,7 +62,7 @@ Broken References Found:
 br sync --flush-only
 git add .beads/
 git commit -m "sync beads"
-br prime
+br status
 ```
 
 Ensure Beads is synchronized with git.

@@ -17,25 +17,16 @@ Extract:
 
 ---
 
-## Phase 2: Update Plan
-
-In `.agent/specs/{flow_id}/plan.md`:
-
-```markdown
-- [!] N. Task description [BLOCKED: {reason}]
-```
-
----
-
-## Phase 3: Update Beads
+## Phase 2: Update Beads (Source of Truth)
 
 ```bash
-br block {task_id} --reason "{reason}"
+br update {task_id} --status blocked --notes "BLOCKED: {reason}"
+br dep add {task_id} {blocking_task_id}  # if blocked by another task
 ```
 
 ---
 
-## Phase 4: Log Blocker
+## Phase 3: Log Blocker
 
 Append to `.agent/specs/{flow_id}/blockers.md`:
 
@@ -46,6 +37,14 @@ Append to `.agent/specs/{flow_id}/blockers.md`:
 **Status:** Blocked
 **Dependencies:** {if any}
 ```
+
+---
+
+## Phase 4: Sync to Markdown (MANDATORY)
+
+Run `/flow-sync {flow_id}` to export Beads state to spec.md.
+
+**Do NOT write `[!]` markers directly to spec.md.** Beads is the source of truth.
 
 ---
 
@@ -69,5 +68,6 @@ Next Steps:
 ## Critical Rules
 
 1. **REASON REQUIRED** - Must provide blocking reason
-2. **BEADS SYNC** - Update Beads status
-3. **LOG HISTORY** - Record in blockers.md
+2. **BEADS FIRST** - Update Beads before anything else
+3. **MANDATORY SYNC** - Run `/flow-sync` after Beads update (never write `[!]` directly)
+4. **LOG HISTORY** - Record in blockers.md

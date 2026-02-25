@@ -16,9 +16,10 @@ Read `.agent/flows.md` to get list of active flows.
 ## Phase 2: Beads Status (Source of Truth)
 
 ```bash
-br prime
-br ready       # Unblocked tasks ready to work
-br blocked     # Blocked tasks
+br status                          # Workspace overview
+br ready                           # Unblocked tasks ready to work
+br list --status in_progress       # Resume active work
+br blocked                         # Blocked tasks
 ```
 
 ---

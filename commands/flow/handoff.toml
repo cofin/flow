@@ -9,7 +9,7 @@ You are creating a handoff document for transferring context between sessions. T
 
 ## Phase 1: Analyze Progress
 
-1. Read `.agent/specs/{flow_id}/plan.md`
+1. Read `.agent/specs/{flow_id}/spec.md`
 2. Calculate completion percentage
 3. Identify current phase and task
 4. Check for any blockers
@@ -87,8 +87,9 @@ Create `.agent/specs/{flow_id}/handoff_{N}.md`:
 ## Beads Recovery Commands
 
 ```bash
-br prime                    # Load AI-optimized context
+br status                   # Workspace overview
 br ready                    # List unblocked tasks
+br list --status in_progress # Resume active work
 br show {epic_id}          # View flow status
 ```
 
@@ -133,7 +134,7 @@ Handoff: handoff_{N}.md
 Progress: {completed}/{total} tasks ({percentage}%)
 
 To resume in new session:
-1. Run `br prime` to load Beads context
+1. Run `br status` and `br ready` to load Beads context
 2. Read .agent/specs/{flow_id}/handoff_{N}.md
 3. Run `/flow:implement {flow_id}` to continue
 ```

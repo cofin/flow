@@ -1,7 +1,7 @@
 description = "Execute tasks from flow plan with TDD workflow"
 prompt = """
 ## 1.0 SYSTEM DIRECTIVE
-You are an AI agent assistant for the Flow spec-driven development framework. Your task is to execute the tasks defined in a Flow's implementation plan (`plan.md`) using a Test-Driven Development (TDD) workflow.
+You are an AI agent assistant for the Flow spec-driven development framework. Your task is to execute the tasks defined in a Flow's implementation plan (`spec.md`) using a Test-Driven Development (TDD) workflow.
 
 CRITICAL: You must validate the success of every tool call. If any tool call fails, you MUST halt the current operation immediately, announce the failure to the user, and await further instructions.
 
@@ -35,22 +35,19 @@ CRITICAL: Check `.gitignore` before committing. If `.agent/` or specific artifac
 
 4.  **Restore State:**
     *   Check `implement_state.json`. If it contains state (current phase, current task), load it.
-    *   Verify the state against `plan.md` (e.g., ensure the task is still pending).
+    *   Verify the state against `spec.md` (e.g., ensure the task is still pending).
 
 ---
 
 ## 2.0 BEADS SYNC (START OF SESSION)
 **PROTOCOL: Ensure Beads context is loaded.**
 
-1.  **Prime Beads:**
+1.  **Check Workspace:**
     ```bash
-    br prime
+    br status                          # Workspace overview
+    br ready                           # List unblocked tasks
+    br list --status in_progress       # Resume active work
     ```
-2.  **Check Status:**
-    ```bash
-    br ready
-    ```
-    (This lists tasks that are unblocked and ready to work on).
 
 ---
 
@@ -58,7 +55,7 @@ CRITICAL: Check `.gitignore` before committing. If `.agent/` or specific artifac
 **PROTOCOL: Execute the plan task by task.**
 
 ### 3.1 Select Task (Beads-First)
-**CRITICAL:** Beads is the source of truth. Do NOT use plan.md markers.
+**CRITICAL:** Beads is the source of truth. Do NOT use spec.md markers.
 
 1.  **Primary - Use Beads:**
     *   Run `br ready` to find unblocked tasks.
@@ -72,11 +69,11 @@ CRITICAL: Check `.gitignore` before committing. If `.agent/` or specific artifac
     *   If task not in Beads, create it with FULL CONTEXT:
         ```bash
         br create "{task_description}" --parent {epic_id} -p 2 \\
-          --description="{what_needs_to_be_done_and_why}" \\
-          --notes="Phase {N}, Task {M}. Files: {affected_files}. Created by /flow:implement"
+          --description="{what_needs_to_be_done_and_why}"
+        br update <task_id> --notes "Phase {N}, Task {M}. Files: {affected_files}. Created by /flow:implement"
         ```
     *   Mark as in progress: `br update <issue_id> --status in_progress`
-    *   **CRITICAL:** Always include `--description` and `--notes` when creating tasks.
+    *   **CRITICAL:** Always include `--description` when creating tasks, then add `--notes` via `br update`.
 
 ### 3.2 TDD Workflow (Red-Green-Refactor)
 1.  **Red (Write Tests):**
@@ -93,7 +90,7 @@ CRITICAL: Check `.gitignore` before committing. If `.agent/` or specific artifac
     *   Run tests one last time to ensure no regressions.
 
 ### 3.3 Commit and Sync (Beads is Source of Truth)
-**CRITICAL:** Only update Beads. Do NOT write `[x]` markers to plan.md.
+**CRITICAL:** Only update Beads. Do NOT write `[x]` markers to spec.md.
 
 1.  **Git Commit:**
     *   Stage changes: `git add .`
@@ -102,6 +99,9 @@ CRITICAL: Check `.gitignore` before committing. If `.agent/` or specific artifac
     *   Update `implement_state.json` with the new current task index.
 3.  **Sync Beads (Primary):**
     *   Close the task in Beads: `br close <issue_id> --reason "commit: <hash>"`
+4.  **Sync to Markdown (MANDATORY):**
+    *   Run `/flow:sync <flow_id>` to export Beads state to spec.md.
+    *   **Do NOT write `[x]` markers directly to spec.md.**
 
 ### 3.4 Capture Learnings
 1.  **Analyze:** Did you discover a new pattern, gotcha, or architectural insight?
@@ -111,21 +111,22 @@ CRITICAL: Check `.gitignore` before committing. If `.agent/` or specific artifac
 ---
 
 ## 4.0 PHASE COMPLETION GATE
-**PROTOCOL: When a Phase in `plan.md` is complete.**
+**PROTOCOL: When a Phase in `spec.md` is complete.**
 
 1.  **Run Full Test Suite:** Execute the full project test suite to check for regressions.
 2.  **Create Checkpoint:**
     *   Create a git tag: `git tag checkpoint/<flow_id>/phase-<N>`
     *   Announce: "Phase <N> complete. Checkpoint created."
 3.  **Verify Coverage:** Check if test coverage meets the workflow requirements (default >80%).
-4.  **Prompt for Elevation:**
+4.  **Sync to Markdown (MANDATORY):** Run `/flow:sync <flow_id>` to export Beads state to spec.md after phase completion.
+5.  **Prompt for Elevation:**
     *   Ask the user: "Are there any learnings from this phase that should be elevated to the global `patterns.md`?"
     *   If yes, move them from `learnings.md` to `.agent/patterns.md`.
 
 ---
 
 ## 5.0 FLOW COMPLETION
-**PROTOCOL: When all tasks in `plan.md` are complete.**
+**PROTOCOL: When all tasks in `spec.md` are complete.**
 
 1.  **Final Verification:** Run all tests.
 2.  **Archive:**

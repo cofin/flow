@@ -17,25 +17,15 @@ Extract:
 
 ---
 
-## Phase 2: Update Plan
-
-In `.agent/specs/{flow_id}/plan.md`:
-
-```markdown
-- [-] N. Task description [-: {reason}]
-```
-
----
-
-## Phase 3: Update Beads
+## Phase 2: Update Beads (Source of Truth)
 
 ```bash
-br update {task_id} --status skipped --notes "Skipped: {reason}"
+br close {task_id} --reason "Skipped: {reason}"
 ```
 
 ---
 
-## Phase 4: Log Skip
+## Phase 3: Log Skip
 
 Append to `.agent/specs/{flow_id}/skipped.md`:
 
@@ -45,6 +35,14 @@ Append to `.agent/specs/{flow_id}/skipped.md`:
 **Reason:** {reason}
 **Impact:** {any impact on other tasks}
 ```
+
+---
+
+## Phase 4: Sync to Markdown (MANDATORY)
+
+Run `/flow-sync {flow_id}` to export Beads state to spec.md.
+
+**Do NOT write `[-]` markers directly to spec.md.** Beads is the source of truth.
 
 ---
 
@@ -62,5 +60,6 @@ Consider updating dependencies or blocking Task {M}
 ## Critical Rules
 
 1. **REASON REQUIRED** - Must justify skip
-2. **BEADS SYNC** - Update Beads status
-3. **CHECK DEPS** - Warn about dependent tasks
+2. **BEADS FIRST** - Update Beads before anything else
+3. **MANDATORY SYNC** - Run `/flow-sync` after Beads update (never write `[-]` directly)
+4. **CHECK DEPS** - Warn about dependent tasks

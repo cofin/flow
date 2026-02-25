@@ -33,7 +33,6 @@ Append selected patterns to `.agent/patterns.md`
 
 ```bash
 br close {epic_id} --reason "Flow archived"
-br compact  # Optional: compact Beads after archive
 ```
 
 ## Phase 4: Move to Archive

@@ -14,12 +14,12 @@ A flow is a logical unit of work (feature, bug fix, refactor). Each flow has:
 Beads provides persistent cross-session memory:
 ```bash
 br init --stealth          # Initialize (stealth mode)
+br status                  # Workspace overview
 br ready                   # Show tasks ready to work on
+br list --status in_progress  # Resume active work
 br update <id> --status in_progress  # Start task
 br close <id> --reason "..." # Complete task
-br prime                   # Load context for session
 br show <id> --children --json  # Export epic with tasks
-br compact                 # Compact database
 ```
 
 ### Task Workflow (TDD) - Beads-First

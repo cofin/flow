@@ -27,7 +27,7 @@ Verify required files exist:
 
 ```bash
 br --version
-br prime
+br status
 ```
 
 Report any Beads errors.
@@ -41,7 +41,6 @@ For each flow in `.agent/flows.md`:
 1. Verify directory exists: `.agent/specs/{flow_id}/`
 2. Verify required files:
    - spec.md
-   - plan.md
    - metadata.json
 3. Check if Beads epic exists for flow
 4. Verify task count matches plan
@@ -50,7 +49,7 @@ For each flow in `.agent/flows.md`:
 
 ## Phase 4: Plan Integrity
 
-For each plan.md:
+For each spec.md Implementation Plan section:
 - Verify task IDs are sequential
 - Verify status markers are valid: `[ ]`, `[~]`, `[x]`, `[!]`, `[-]`
 - Verify checkpoint SHAs exist in git history

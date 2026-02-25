@@ -20,32 +20,23 @@ If arguments are missing, ask user for them.
 
 ## Phase 2: Verify Flow
 
-1. Read `.agent/specs/{flow_id}/plan.md`
+1. Read `.agent/specs/{flow_id}/spec.md`
 2. Find task {task_number}
 3. Verify task exists and is not already blocked
 
 ---
 
-## Phase 3: Update Plan
-
-Change task status in plan.md:
-
-From: `- [ ] N. Task description` or `- [~] N. Task description`
-To: `- [!] N. Task description [BLOCKED: {reason}]`
-
----
-
-## Phase 4: Update Beads
+## Phase 3: Update Beads (Source of Truth)
 
 ```bash
-br block {task_id} --reason "{reason}"
+br update {task_id} --status blocked --notes "BLOCKED: {reason}"
 ```
 
-If bd command fails, report error but continue with plan update.
+If br command fails, report error but continue with logging.
 
 ---
 
-## Phase 5: Log Blocker
+## Phase 4: Log Blocker
 
 Append to `.agent/specs/{flow_id}/blockers.md`:
 
@@ -61,6 +52,14 @@ Create blockers.md if it doesn't exist.
 
 ---
 
+## Phase 5: Sync to Markdown (MANDATORY)
+
+Run `/flow:sync {flow_id}` to export Beads state to spec.md.
+
+**Do NOT write `[!]` markers directly to spec.md.** Beads is the source of truth.
+
+---
+
 ## Phase 6: Report
 
 ```
@@ -70,7 +69,7 @@ Flow: {flow_id}
 Task: {N}. {description}
 Reason: {reason}
 
-Plan updated: .agent/specs/{flow_id}/plan.md
+Spec updated: .agent/specs/{flow_id}/spec.md
 Beads updated: {success/failure}
 Logged: blockers.md
 
@@ -85,6 +84,7 @@ Next Steps:
 ## Critical Rules
 
 1. **REASON REQUIRED** - Must have a blocking reason
-2. **BEADS SYNC** - Always attempt Beads update
-3. **LOG HISTORY** - Always log to blockers.md
+2. **BEADS FIRST** - Update Beads before anything else
+3. **MANDATORY SYNC** - Run `/flow:sync` after Beads update (never write `[!]` directly)
+4. **LOG HISTORY** - Always log to blockers.md
 """

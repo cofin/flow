@@ -11,7 +11,7 @@ Extracting template from: **$ARGUMENTS**
 ## Phase 1: Validate Flow
 
 1. Verify flow exists and is complete (archived or all tasks done)
-2. Read spec.md, plan.md, learnings.md
+2. Read spec.md, learnings.md
 
 ---
 
@@ -100,15 +100,7 @@ Create `.agent/templates/{template_name}.md`:
 
 ---
 
-## Phase 5: Register with Beads
-
-```bash
-br mol distill {epic_id} {template_name}
-```
-
----
-
-## Phase 6: Commit Template
+## Phase 5: Commit Template
 
 ```bash
 git add .agent/templates/{template_name}.md
@@ -139,4 +131,4 @@ To use this template:
 
 1. **ABSTRACT PROPERLY** - Use meaningful placeholders
 2. **PRESERVE LEARNINGS** - Include gotchas and tips
-3. **BEADS SYNC** - Register with br mol
+3. **LOCAL STORAGE** - Templates saved to .agent/templates/

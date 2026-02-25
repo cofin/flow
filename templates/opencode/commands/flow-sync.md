@@ -28,11 +28,10 @@ Map Beads status to markdown markers:
 
 | Beads Status   | Marker |
 |----------------|--------|
-| `pending`      | `[ ]`  |
+| `open`         | `[ ]`  |
 | `in_progress`  | `[~]`  |
-| `completed`    | `[x]`  |
+| `closed`       | `[x]`  |
 | `blocked`      | `[!]`  |
-| `skipped`      | `[-]`  |
 
 ## Phase 4: Update spec.md
 

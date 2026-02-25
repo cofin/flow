@@ -59,19 +59,19 @@ git commit -m "revert({scope}): Revert {description}"
 
 ---
 
-## Phase 5: Update Plan
+## Phase 5: Sync Beads (Source of Truth)
 
-Reset task statuses in `plan.md`:
-- `[x]` -> `[ ]`
-- Remove commit SHAs
+```bash
+br update {task_ids} --status open
+```
 
 ---
 
-## Phase 6: Sync Beads
+## Phase 6: Sync to Markdown (MANDATORY)
 
-```bash
-br update {task_ids} --status pending
-```
+Run `/flow-sync {flow_id}` to export Beads state to spec.md.
+
+**Do NOT write markers directly to spec.md.** Beads is the source of truth — use `/flow-sync` instead.
 
 ---
 
@@ -79,5 +79,5 @@ br update {task_ids} --status pending
 
 1. **CONFIRM FIRST** - Always show what will be reverted
 2. **NO FORCE** - Use revert, not reset
-3. **SYNC BEADS** - Update task statuses
-4. **UPDATE PLAN** - Reset task markers
+3. **BEADS FIRST** - Update Beads before syncing markdown
+4. **MANDATORY SYNC** - Run `/flow-sync` after Beads update (never write markers directly)

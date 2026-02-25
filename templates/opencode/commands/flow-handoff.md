@@ -34,7 +34,9 @@ Create `.agent/handoff.md`:
 
 ## Commands to Resume
 ```bash
-br prime
+br status                          # Workspace overview
+br ready                           # List unblocked tasks
+br list --status in_progress       # Resume active work
 /flow:implement {flow_id}
 ```
 ```

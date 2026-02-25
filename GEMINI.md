@@ -80,13 +80,13 @@ To find a file (e.g., "**Product Definition**") within a specific context:
 
 ## Task Status Markers
 
-| Marker | Status | Beads Equivalent |
-|--------|--------|------------------|
-| `[ ]` | Pending | `pending` |
-| `[~]` | In Progress | `in_progress` |
-| `[x]` | Completed | `completed` |
-| `[!]` | Blocked | `blocked` |
-| `[-]` | Skipped | `skipped` |
+| Marker | Status | Beads Status | Beads Command |
+|--------|--------|-------------|---------------|
+| `[ ]` | Pending | `open` | (default) |
+| `[~]` | In Progress | `in_progress` | `br update {id} --status in_progress` |
+| `[x]` | Completed | `closed` | `br close {id} --reason "commit: {sha}"` |
+| `[!]` | Blocked | `blocked` | `br update {id} --status blocked --notes "BLOCKED: {reason}"` |
+| `[-]` | Skipped | `closed` | `br close {id} --reason "Skipped: {reason}"` |
 
 ## Commands
 
@@ -109,7 +109,7 @@ To find a file (e.g., "**Product Definition**") within a specific context:
 | `/flow:export` | Generate project summary export |
 | `/flow:handoff` | Create context handoff for session transfer |
 | `/flow:refresh` | Sync context docs with current codebase state |
-| `/flow:formula` | List and manage flow templates (Beads formulas) |
+| `/flow:formula` | List and manage flow templates |
 | `/flow:wisp` | Create ephemeral exploration flow (no audit trail) |
 | `/flow:distill` | Extract reusable template from completed flow |
 
@@ -128,7 +128,7 @@ command -v br &> /dev/null && echo "BEADS_OK" || echo "BEADS_MISSING"
 If missing, Flow offers to install:
 
 ```bash
-npm install -g beads-cli
+curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash
 ```
 
 ### Initialization (Stealth Mode Default)
@@ -149,13 +149,11 @@ Stealth mode keeps Beads data local-only (not committed to git).
   "epicPrefix": "flow",
   "autoCreateTasks": true,
   "autoSyncOnComplete": true,
-  "compactOnArchive": false,
   "taskStatusMapping": {
-    "pending": "[ ]",
+    "open": "[ ]",
     "in_progress": "[~]",
-    "completed": "[x]",
-    "blocked": "[!]",
-    "skipped": "[-]"
+    "closed": "[x]",
+    "blocked": "[!]"
   }
 }
 ```
@@ -164,21 +162,21 @@ Stealth mode keeps Beads data local-only (not committed to git).
 
 | Flow Action | Beads Command |
 |-------------|---------------|
-| Create flow | `br create "Flow: {flow_id}" -t epic -p 1 --description="{purpose}" --notes="{context}"` |
-| Create task | `br create "{task}" --parent {epic_id} -p 2 --description="{what_and_why}" --notes="{files, phase}"` |
+| Create flow | `br create "Flow: {flow_id}" -t epic -p 1 --description="{purpose}"` |
+| Add context | `br update {id} --notes "{context}"` |
+| Create task | `br create "{task}" --parent {epic_id} -p 2 --description="{what_and_why}"` |
 | Start task | `br update {id} --status in_progress` |
 | Complete task | `br close {id} --reason "commit: {sha}"` |
-| Block task | `br update {id} --status blocked --notes "{reason}"` |
+| Block task | `br update {id} --status blocked --notes "BLOCKED: {reason}"` |
 | Get ready tasks | `br ready` |
 | Add notes | `br update {id} --notes "{learning}"` |
 | Sync to git | `br sync --flush-only` |
-| Prime context | `br prime` |
 | Show blocked | `br blocked` |
 
-**CRITICAL: Always include `--description` and `--notes` with `br create`:**
+**CRITICAL: `br create` supports `--description` but NOT `--notes`.** Use `br update` to add notes after creation:
 
-- `--description`: WHY this issue exists and WHAT needs to be done
-- `--notes`: CONTEXT - files affected, dependencies, origin command, timestamp
+- `--description`: WHY this issue exists and WHAT needs to be done (set at creation)
+- `--notes`: CONTEXT - files affected, dependencies, origin command, timestamp (set via `br update`)
 - Priority levels: P0=critical, P1=high, P2=medium, P3=low, P4=backlog
 
 ### When to Track in Beads
@@ -202,10 +200,9 @@ Stealth mode keeps Beads data local-only (not committed to git).
 At session start:
 
 ```bash
-br sync --flush-only
-git add .beads/
-git commit -m "sync beads"
-br prime
+br status                          # Workspace overview
+br ready                           # List unblocked tasks
+br list --status in_progress       # Resume active work
 ```
 
 At session end:
@@ -278,16 +275,18 @@ State tracked in `parallel_state.json`. Uses Claude's Task Tool to spawn sub-age
 
 ## Task Workflow (TDD)
 
-1. Select task from plan.md (or `br ready`)
-2. Mark `[~]` in progress → `br update {id} --status in_progress`
+1. Select task via `br ready` (Beads is source of truth; fall back to spec.md)
+2. Mark in Beads: `br update {id} --status in_progress`
 3. **Write failing tests** (Red)
 4. **Implement to pass** (Green)
 5. **Refactor** while green
 6. Verify >80% coverage
 7. Commit: `<type>(<scope>): <description>`
-8. Update plan.md: `[~]` → `[x]` with SHA
-9. Sync: `br close {id} --reason "commit: {sha}"`
-10. Log learnings in `learnings.md`
+8. Sync to Beads: `br close {id} --reason "commit: {sha}"`
+9. Log learnings in `learnings.md`
+10. **Sync to markdown:** run `/flow:sync` (MANDATORY — keeps spec.md readable)
+
+**CRITICAL:** After ANY Beads state change (close, block, skip, revert, revise), agents MUST run `/flow:sync` to update spec.md. Never write markers (`[x]`, `[~]`, `[!]`, `[-]`) directly to spec.md.
 
 **Important:** All commits stay local. Flow never pushes automatically.
 
@@ -322,5 +321,5 @@ cp -r commands/* ~/.gemini/extensions/flow/commands/
 cp -r skills ~/.gemini/skills/
 
 # Install Beads (required)
-npm install -g beads-cli
+curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash
 ```

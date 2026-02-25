@@ -24,7 +24,7 @@ Check existence of:
 ### 1.2 Flow Directories
 For each flow in `.agent/flows.md`:
 - Verify `.agent/specs/{flow_id}/` exists
-- Check for `spec.md`, `plan.md`, `metadata.json`
+- Check for `spec.md`, `metadata.json`
 
 ## Phase 2: Beads Validation
 
@@ -36,12 +36,12 @@ br status
 Verify each flow has corresponding Beads epic.
 
 ### 2.2 Task Sync
-Check plan.md status matches Beads status.
+Check spec.md status matches Beads status.
 
 ## Phase 3: Content Validation
 
 ### 3.1 Plan Tasks
-For each plan.md:
+For each spec.md:
 - All tasks have valid status markers
 - File references exist
 - No orphaned tasks
@@ -72,7 +72,7 @@ Validation Results
 
 Issues Found:
 1. patterns.md:45 - File 'src/old.ts' not found
-2. auth_20260124/plan.md - Task status mismatch with Beads
+2. auth_20260124/spec.md - Task status mismatch with Beads
 
 Auto-fix available for 2 issues. Apply? [Y/n]
 ```

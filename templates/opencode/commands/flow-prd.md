@@ -131,8 +131,8 @@ You MAY ONLY:
 
     ```bash
     br create "PRD: <prd_name>" -t epic -p 1 \
-      --description="<north_star_goal_and_full_context>" \
-      --notes="Chapters: <list_of_chapter_names>. Created by /flow-prd on <date>"
+      --description="<north_star_goal_and_full_context>"
+    br update <master_epic_id> --notes "Chapters: <list_of_chapter_names>. Created by /flow-prd on <date>"
     ```
 
     **CRITICAL:** The `--description` must include:
@@ -147,8 +147,8 @@ You MAY ONLY:
 
     ```bash
     br create "Flow: <flow_name>" --parent <master_epic_id> -t epic \
-      --description="<chapter_purpose_and_scope>" \
-      --notes="Part of PRD: <prd_name>. Chapter <N> of <total>. Dependencies: <if any>"
+      --description="<chapter_purpose_and_scope>"
+    br update <chapter_epic_id> --notes "Part of PRD: <prd_name>. Chapter <N> of <total>. Dependencies: <if any>"
     ```
 
     **CRITICAL:** The `--description` must include:
@@ -285,7 +285,7 @@ Append to `.agent/flows.md`:
 
 1. **NO CODE MODIFICATION** - NEVER edit source code files. Planning documents ONLY.
 2. **BEADS REQUIRED** - Check CLI is available
-3. **FULL CONTEXT** - Always use `--description` and `--notes` with br create
+3. **FULL CONTEXT** - Use `--description` with `br create`, then `br update --notes` for context
 4. **ASK FIRST** - Clarifying questions before proposing chapters
 5. **CODE ANALYSIS (READ-ONLY)** - Read actual code before asking flow-specific questions but NEVER modify it
 6. **AUTO-PLAN** - Create unified spec.md for first flow (NOT implementation)

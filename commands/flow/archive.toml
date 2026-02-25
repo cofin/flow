@@ -60,10 +60,6 @@ You are an AI agent assistant for the Flow spec-driven development framework. Yo
     br close <epic_id> --reason "Flow archived"
     ```
     (This automatically archives child tasks if Beads is configured to do so).
-3.  **Compact Beads:**
-    ```bash
-    br compact
-    ```
 
 ---
 

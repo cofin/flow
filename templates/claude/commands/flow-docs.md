@@ -14,7 +14,7 @@ Using the **Universal File Resolution Protocol**, verify:
 - **Product Definition** (`.agent/product.md`)
 - **Tech Stack** (`.agent/tech-stack.md`)
 - **Workflow** (`.agent/workflow.md`)
-- **PRD Registry** (`.agent/prds.md`)
+- **PRD Registry** (`.agent/flows.md`)
 
 If ANY missing: "Flow not set up. Run `/flow-setup` first." → HALT
 
@@ -132,7 +132,7 @@ Archived: [timestamp]
 - [Outcome]
 
 ## Artifacts Included
-- spec.md, plan.md, knowledge.md
+- spec.md, knowledge.md
 
 ## Key Learnings
 [From knowledge.md]

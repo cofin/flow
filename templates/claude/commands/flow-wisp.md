@@ -24,8 +24,8 @@ Wisps have NO audit trail - they're meant to be discarded.
 
 ```bash
 br create "Wisp: {description}" -t task -p 4 \
-  --description="{exploration_goal_and_what_youre_trying_to_learn}" \
-  --notes="Ephemeral exploration. No audit trail. Created by /flow-wisp on {date}"
+  --description="{exploration_goal_and_what_youre_trying_to_learn}"
+br update {wisp_id} --notes "Ephemeral exploration. No audit trail. Created by /flow-wisp on {date}"
 ```
 
 This creates:
@@ -34,7 +34,7 @@ This creates:
 - Minimal spec file
 - No git commits required
 
-**Note:** Always include `--description` and `--notes` even for ephemeral work.
+**Note:** Always include `--description` with `br create`, then add `--notes` via `br update`, even for ephemeral work.
 
 ---
 
@@ -77,7 +77,7 @@ When done, choose:
 
 ```bash
 rm -rf .agent/wisps/{wisp_id}
-br mol discard {wisp_id}
+br close {wisp_id} --reason "Wisp discarded"  # if tracked in Beads
 git checkout .  # Discard any code changes
 ```
 

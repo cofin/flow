@@ -11,7 +11,6 @@ You are revising a flow's spec or plan because implementation has revealed new i
 
 Read from `.agent/specs/{flow_id}/`:
 - spec.md
-- plan.md
 - learnings.md
 
 ---
@@ -105,8 +104,8 @@ br update {affected_task_ids} --notes "Revised: {brief reason}"
 For new tasks (**CRITICAL: Include full context**):
 ```bash
 br create "{task}" --parent {epic_id} -p 2 \\
-  --description="{what_changed_and_why_this_task_is_needed}" \\
-  --notes="Added during revision. Reason: {revision_reason}. Created by /flow:revise on {date}"
+  --description="{what_changed_and_why_this_task_is_needed}"
+br update <task_id> --notes "Added during revision. Reason: {revision_reason}. Created by /flow:revise on {date}"
 ```
 
 For removed tasks:
@@ -116,7 +115,15 @@ br close {task_id} --reason "Removed in revision"
 
 ---
 
-## Phase 7: Commit Revision
+## Phase 7: Sync to Markdown (MANDATORY)
+
+Run `/flow:sync {flow_id}` to export Beads state to spec.md.
+
+**Do NOT write markers directly to spec.md.** Beads is the source of truth — use `/flow:sync` instead.
+
+---
+
+## Phase 8: Commit Revision
 
 ```bash
 git add .agent/specs/{flow_id}/
@@ -148,7 +155,8 @@ Logged in: revisions.md
 ## Critical Rules
 
 1. **DOCUMENT EVERYTHING** - Log all revisions with reasons
-2. **BEADS SYNC** - Update all affected tasks
-3. **PRESERVE HISTORY** - Never delete, only append to revisions.md
-4. **VALIDATE** - Ensure acceptance criteria remain testable
+2. **BEADS FIRST** - Update Beads before syncing markdown
+3. **MANDATORY SYNC** - Run `/flow:sync` after Beads update (never write markers directly)
+4. **PRESERVE HISTORY** - Never delete, only append to revisions.md
+5. **VALIDATE** - Ensure acceptance criteria remain testable
 """

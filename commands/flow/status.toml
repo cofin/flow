@@ -54,7 +54,7 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
 3.  **Generate Report:**
     *   **Header:** Flow Title & ID
     *   **Progress:** Visual progress bar [====....] N%
-    *   **Current Phase:** Identify the current phase from `plan.md`.
+    *   **Current Phase:** Identify the current phase from `spec.md`.
     *   **Active Task:** The task currently marked `[~]` or the next `[ ]`.
     *   **Recent Learnings:** Last 3 entries from `learnings.md`.
     *   **Blockers:** List any open blockers.

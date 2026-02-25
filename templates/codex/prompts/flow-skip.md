@@ -18,22 +18,14 @@ Confirm with user:
 > - Out of scope
 > - Blocked with no resolution path
 
-## Phase 3: Document Skip
+## Phase 3: Update Beads (Source of Truth)
 
-### 3.1 Update Plan
-Change status: `[~]` or `[ ]` → `[-]`
-
-```markdown
-- [-] Task 1.3: Description
-  - SKIPPED: {reason}
-```
-
-### 3.2 Sync to Beads
 ```bash
 br close {task_id} --reason "SKIPPED: {reason}"
 ```
 
-### 3.3 Log to Skipped File
+## Phase 4: Log to Skipped File
+
 Append to `.agent/specs/{flow_id}/skipped.md`:
 ```markdown
 ## {date} - Task {task_id}
@@ -45,7 +37,13 @@ Append to `.agent/specs/{flow_id}/skipped.md`:
 **Decision By:** User
 ```
 
-## Phase 4: Continue
+## Phase 5: Sync to Markdown (MANDATORY)
+
+Run `/flow:sync {flow_id}` to export Beads state to spec.md.
+
+**Do NOT write `[-]` markers directly to spec.md.** Beads is the source of truth.
+
+## Phase 6: Continue
 
 ```
 Task {task_id} SKIPPED

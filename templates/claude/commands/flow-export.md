@@ -11,7 +11,7 @@ Generating project summary export.
 ## Phase 1: Gather Data
 
 Collect:
-- All flows from `.agent/prds.md`
+- All flows from `.agent/flows.md`
 - All patterns from `.agent/patterns.md`
 - Flow details from `.agent/specs/*/`
 - Archive details from `.agent/archive/*/`

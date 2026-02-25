@@ -10,7 +10,7 @@ Creating handoff for: **$ARGUMENTS**
 
 ## Phase 1: Analyze Progress
 
-1. Read current plan.md status
+1. Read current spec.md status
 2. Calculate completion percentage
 3. Identify current phase and task
 4. Check for blockers
@@ -75,8 +75,9 @@ Create `.agent/specs/{flow_id}/handoff_{N}.md`:
 
 To resume in new session:
 ```bash
-br prime
-br ready
+br status                          # Workspace overview
+br ready                           # List unblocked tasks
+br list --status in_progress       # Resume active work
 br show {epic_id}
 ```
 
@@ -121,7 +122,7 @@ Handoff: handoff_{N}.md
 Progress: {completed}/{total} tasks
 
 To resume in new session:
-1. Run `br prime` to load Beads context
+1. Run `br status` and `br ready` to load Beads context
 2. Read .agent/specs/{flow_id}/handoff_{N}.md
 3. Run `/flow-implement {flow_id}` to continue
 ```

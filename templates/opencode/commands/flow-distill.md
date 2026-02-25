@@ -57,12 +57,6 @@ Create `.agent/templates/{template_name}.md`:
 {Preserved learnings}
 ```
 
-## Phase 5: Register with Beads
-
-```bash
-br mol distill {epic_id} {template_name}
-```
-
 ## Critical Rules
 
 1. **ABSTRACT PROPERLY** - Use meaningful placeholders

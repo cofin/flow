@@ -88,11 +88,9 @@ Edit `.agent/flows.md`:
    ```bash
    br close {epic_id} --reason "Flow archived"
    ```
-3. Compact Beads (optional but recommended):
+3. Verify closure:
    ```bash
-   br compact
-   # Or for aggressive compaction:
-   # br mol squash
+   br show {epic_id}
    ```
 
 ---

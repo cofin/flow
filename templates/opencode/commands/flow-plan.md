@@ -203,8 +203,8 @@ You MAY ONLY:
 
     ```bash
     br create "Flow: <flow_id>" -t epic -p 2 \
-      --description="<flow_purpose_from_spec>" \
-      --notes="Files: <key_files_from_analysis>. Created by /flow-plan on <date>"
+      --description="<flow_purpose_from_spec>"
+    br update <epic_id> --notes "Files: <key_files_from_analysis>. Created by /flow-plan on <date>"
     ```
 
 ---
@@ -238,4 +238,4 @@ Announce:
 3. **PATTERNS COMPLIANCE** - Check patterns.md and warn on violations
 4. **UNIFIED SPEC** - Single `spec.md` contains both requirements and plan. No separate `plan.md`.
 5. **SPECS DIRECTORY** - All artifacts go in `.agent/specs/`, not `.agent/prd/`
-6. **BEADS CONTEXT** - Include description and notes with br create
+6. **BEADS CONTEXT** - Use `--description` with `br create`, then `br update --notes` for context

@@ -42,6 +42,7 @@ FORCE_OVERWRITE=false
 CLAUDE_DIR="$HOME/.claude"
 CODEX_DIR="$HOME/.codex"
 OPENCODE_DIR="$HOME/.config/opencode"
+ANTIGRAVITY_DIR="$HOME/.gemini/antigravity/skills"
 
 show_banner() {
     echo -e "${CYAN}"
@@ -386,6 +387,7 @@ detect_clis() {
     CLAUDE_INSTALLED=false
     CODEX_INSTALLED=false
     OPENCODE_INSTALLED=false
+    ANTIGRAVITY_INSTALLED=false
 
     # Claude Code
     if command -v claude &> /dev/null || [[ -d "$CLAUDE_DIR" ]]; then
@@ -413,6 +415,15 @@ detect_clis() {
         [[ -d "$OPENCODE_DIR/commands" ]] && echo "         Existing commands: $(ls -1 "$OPENCODE_DIR/commands" 2>/dev/null | wc -l)"
     else
         log_info "OpenCode not detected"
+    fi
+
+    # Google Antigravity
+    if command -v agy &> /dev/null || [[ -d "$ANTIGRAVITY_DIR" ]]; then
+        ANTIGRAVITY_INSTALLED=true
+        log_success "Google Antigravity detected"
+        [[ -d "$ANTIGRAVITY_DIR" ]] && echo "         Existing skills: $(ls -1d "$ANTIGRAVITY_DIR"/*/ 2>/dev/null | wc -l)"
+    else
+        log_info "Google Antigravity not detected"
     fi
 
     echo ""
@@ -615,7 +626,46 @@ install_opencode() {
     log_success "OpenCode installation complete"
 }
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Google Antigravity Installation
+# ─────────────────────────────────────────────────────────────────────────────
 
+install_antigravity() {
+    echo ""
+    echo -e "${CYAN}Installing Flow for Google Antigravity...${NC}"
+    echo ""
+
+    # Create skills directory
+    mkdir -p "$ANTIGRAVITY_DIR"
+
+    # Backup existing
+    backup_dir "$ANTIGRAVITY_DIR"
+
+    # Install Antigravity workflow skills
+    local skills_src="$TEMPLATES_DIR/antigravity/skills"
+
+    if [[ -d "$skills_src" ]]; then
+        for skill_dir in "$skills_src"/*/; do
+            [[ -d "$skill_dir" ]] || continue
+            local skill_name="$(basename "$skill_dir")"
+            local skill_dst_dir="$ANTIGRAVITY_DIR/$skill_name"
+
+            mkdir -p "$skill_dst_dir"
+
+            for skill_file in "$skill_dir"*; do
+                [[ -f "$skill_file" ]] || continue
+                local file_name="$(basename "$skill_file")"
+                local dest_file="$skill_dst_dir/$file_name"
+
+                merge_or_install_file "$skill_file" "$dest_file"
+            done
+            log_success "Installed skill: $skill_name"
+        done
+    fi
+
+    echo ""
+    log_success "Google Antigravity installation complete"
+}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Beads Installation Check
@@ -626,19 +676,19 @@ check_beads() {
     echo -e "${CYAN}Checking Beads CLI...${NC}"
     echo ""
 
-    if command -v bd &> /dev/null; then
-        local version=$(bd --version 2>/dev/null || echo "unknown")
+    if command -v br &> /dev/null; then
+        local version=$(br --version 2>/dev/null || echo "unknown")
         log_success "Beads CLI installed: $version"
     else
         log_warn "Beads CLI not found"
         echo ""
         echo "Flow requires Beads for cross-session memory."
-        echo "Install with: npm install -g beads-cli"
+        echo "Install with: curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash"
         echo ""
         read -p "Install Beads now? [Y/n] " -n 1 -r
         echo
         if [[ ! $REPLY =~ ^[Nn]$ ]]; then
-            npm install -g beads-cli
+            curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash
             log_success "Beads CLI installed"
         fi
     fi
@@ -704,23 +754,25 @@ main() {
     detect_clis
 
     # If none detected, ask which to install for
-    if ! $CLAUDE_INSTALLED && ! $CODEX_INSTALLED && ! $OPENCODE_INSTALLED; then
+    if ! $CLAUDE_INSTALLED && ! $CODEX_INSTALLED && ! $OPENCODE_INSTALLED && ! $ANTIGRAVITY_INSTALLED; then
         echo "No supported CLIs detected. Which would you like to install for?"
         echo ""
         echo "  1) Claude Code (~/.claude/)"
         echo "  2) Codex CLI (~/.codex/)"
         echo "  3) OpenCode (~/.config/opencode/)"
-        echo "  4) All of the above"
-        echo "  5) Exit"
+        echo "  4) Google Antigravity (~/.gemini/antigravity/skills/)"
+        echo "  5) All of the above"
+        echo "  6) Exit"
         echo ""
-        read -p "Select [1-5]: " -n 1 -r
+        read -p "Select [1-6]: " -n 1 -r
         echo
         case $REPLY in
             1) CLAUDE_INSTALLED=true ;;
             2) CODEX_INSTALLED=true ;;
             3) OPENCODE_INSTALLED=true ;;
-            4) CLAUDE_INSTALLED=true; CODEX_INSTALLED=true; OPENCODE_INSTALLED=true ;;
-            5) exit 0 ;;
+            4) ANTIGRAVITY_INSTALLED=true ;;
+            5) CLAUDE_INSTALLED=true; CODEX_INSTALLED=true; OPENCODE_INSTALLED=true; ANTIGRAVITY_INSTALLED=true ;;
+            6) exit 0 ;;
         esac
     else
         # Ask which detected CLIs to install for
@@ -729,6 +781,7 @@ main() {
         $CLAUDE_INSTALLED && echo "  1) Claude Code"
         $CODEX_INSTALLED && echo "  2) Codex CLI"
         $OPENCODE_INSTALLED && echo "  3) OpenCode"
+        $ANTIGRAVITY_INSTALLED && echo "  4) Google Antigravity"
         echo "  a) All detected"
         echo "  q) Quit"
         echo ""
@@ -742,16 +795,19 @@ main() {
                 INSTALL_CLAUDE=false
                 INSTALL_CODEX=false
                 INSTALL_OPENCODE=false
+                INSTALL_ANTIGRAVITY=false
                 for sel in $SELECTION; do
                     case $sel in
                         1) INSTALL_CLAUDE=true ;;
                         2) INSTALL_CODEX=true ;;
                         3) INSTALL_OPENCODE=true ;;
+                        4) INSTALL_ANTIGRAVITY=true ;;
                     esac
                 done
                 $INSTALL_CLAUDE || CLAUDE_INSTALLED=false
                 $INSTALL_CODEX || CODEX_INSTALLED=false
                 $INSTALL_OPENCODE || OPENCODE_INSTALLED=false
+                $INSTALL_ANTIGRAVITY || ANTIGRAVITY_INSTALLED=false
                 ;;
         esac
     fi
@@ -760,6 +816,7 @@ main() {
     $CLAUDE_INSTALLED && install_claude
     $CODEX_INSTALLED && install_codex
     $OPENCODE_INSTALLED && install_opencode
+    $ANTIGRAVITY_INSTALLED && install_antigravity
 
     # Check Beads
     check_beads
@@ -786,30 +843,18 @@ main() {
     echo "     cd /path/to/your/project"
     echo ""
     echo "  2. Initialize Flow:"
-    $CLAUDE_INSTALLED && echo "     Claude Code: /flow-setup"
-    $CODEX_INSTALLED && echo "     Codex CLI:   /flow:setup"
-    $OPENCODE_INSTALLED && echo "     OpenCode:    /flow:setup"
+    $CLAUDE_INSTALLED && echo "     Claude Code:        /flow-setup"
+    $CODEX_INSTALLED && echo "     Codex CLI:          /flow:setup"
+    $OPENCODE_INSTALLED && echo "     OpenCode:           /flow:setup"
+    $ANTIGRAVITY_INSTALLED && echo "     Google Antigravity: flow-setup (skill)"
     echo ""
     echo "  3. Create your first flow:"
-    $CLAUDE_INSTALLED && echo "     Claude Code: /flow-prd \"your feature description\""
-    $CODEX_INSTALLED && echo "     Codex CLI:   /flow:prd \"your feature description\""
-    $OPENCODE_INSTALLED && echo "     OpenCode:    /flow-prd \"your feature description\""
+    $CLAUDE_INSTALLED && echo "     Claude Code:        /flow-prd \"your feature description\""
+    $CODEX_INSTALLED && echo "     Codex CLI:          /flow:prd \"your feature description\""
+    $OPENCODE_INSTALLED && echo "     OpenCode:           /flow:prd \"your feature description\""
+    $ANTIGRAVITY_INSTALLED && echo "     Google Antigravity: flow-prd \"your feature description\""
     echo ""
-    echo "Documentation: https://github.com/your-org/flow"
-    echo ""
-    echo "  2. Initialize Flow:"
-    $CLAUDE_INSTALLED && echo "     Claude Code: /flow-setup"
-    $CODEX_INSTALLED && echo "     Codex CLI:   /flow:setup"
-    $OPENCODE_INSTALLED && echo "     OpenCode:    /flow:setup"
-    $GEMINI_INSTALLED && echo "     Gemini CLI:  /flow:setup"
-    echo ""
-    echo "  3. Create your first flow:"
-    $CLAUDE_INSTALLED && echo "     Claude Code: /flow-prd \"your feature description\""
-    $CODEX_INSTALLED && echo "     Codex CLI:   /flow:prd \"your feature description\""
-    $OPENCODE_INSTALLED && echo "     OpenCode:    /flow:prd \"your feature description\""
-    $GEMINI_INSTALLED && echo "     Gemini CLI:  /flow:prd \"your feature description\""
-    echo ""
-    echo "Documentation: https://github.com/your-org/flow"
+    echo "Documentation: https://github.com/cofin/flow"
     echo ""
 }
 

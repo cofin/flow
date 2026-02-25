@@ -20,7 +20,7 @@ If arguments are missing, ask user for them.
 
 ## Phase 2: Verify Flow
 
-1. Read `.agent/specs/{flow_id}/plan.md`
+1. Read `.agent/specs/{flow_id}/spec.md`
 2. Find task {task_number}
 3. Verify task exists and is not completed
 
@@ -28,30 +28,21 @@ If arguments are missing, ask user for them.
 
 ## Phase 3: Check Dependencies
 
-Read plan.md for dependencies:
+Read spec.md for dependencies:
 - Find tasks that depend on this task (`<!-- depends: N -->`)
 - Warn if dependent tasks exist
 
 ---
 
-## Phase 4: Update Plan
-
-Change task status in plan.md:
-
-From: `- [ ] N. Task description`
-To: `- [-] N. Task description [-: {reason}]`
-
----
-
-## Phase 5: Update Beads
+## Phase 4: Update Beads (Source of Truth)
 
 ```bash
-br update {task_id} --status skipped --notes "Skipped: {reason}"
+br close {task_id} --reason "Skipped: {reason}"
 ```
 
 ---
 
-## Phase 6: Log Skip
+## Phase 5: Log Skip
 
 Append to `.agent/specs/{flow_id}/skipped.md`:
 
@@ -63,6 +54,14 @@ Append to `.agent/specs/{flow_id}/skipped.md`:
 ```
 
 Create skipped.md if it doesn't exist.
+
+---
+
+## Phase 6: Sync to Markdown (MANDATORY)
+
+Run `/flow:sync {flow_id}` to export Beads state to spec.md.
+
+**Do NOT write `[-]` markers directly to spec.md.** Beads is the source of truth.
 
 ---
 
@@ -79,7 +78,7 @@ Reason: {reason}
 WARNING: The following tasks depend on this skipped task:
 - Task {M}: {description}
 
-Plan updated: .agent/specs/{flow_id}/plan.md
+Spec updated: .agent/specs/{flow_id}/spec.md
 Beads updated: Yes
 Logged: skipped.md
 ```
@@ -89,6 +88,7 @@ Logged: skipped.md
 ## Critical Rules
 
 1. **REASON REQUIRED** - Must justify skip
-2. **WARN DEPENDENCIES** - Alert about dependent tasks
-3. **BEADS SYNC** - Update Beads status
+2. **BEADS FIRST** - Update Beads before anything else
+3. **MANDATORY SYNC** - Run `/flow:sync` after Beads update (never write `[-]` directly)
+4. **WARN DEPENDENCIES** - Alert about dependent tasks
 """

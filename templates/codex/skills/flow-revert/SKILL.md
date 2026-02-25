@@ -43,7 +43,7 @@ Files affected:
 
 This will:
 - Reset git to {commit_sha}
-- Update plan.md status to [ ]
+- Update spec.md status to [ ]
 - Reopen Beads tasks
 
 Proceed? [y/N]
@@ -57,13 +57,16 @@ git revert --no-commit {commit_sha}..HEAD
 git commit -m "revert: {scope} - {reason}"
 ```
 
-### 3.2 Update Plan
-Reset task status: `[x]` → `[ ]`
-
-### 3.3 Reopen Beads Tasks
+### 3.2 Reopen Beads Tasks (Source of Truth)
 ```bash
-br update {task_id} --status pending
+br update {task_id} --status open
 ```
+
+### 3.3 Sync to Markdown (MANDATORY)
+
+Run `/flow:sync {flow_id}` to export Beads state to spec.md.
+
+**Do NOT write markers directly to spec.md.** Beads is the source of truth — use `/flow:sync` instead.
 
 ### 3.4 Clear State
 Update `implement_state.json` to previous checkpoint.

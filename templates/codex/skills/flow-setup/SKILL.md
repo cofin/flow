@@ -46,7 +46,7 @@ command -v br &> /dev/null && echo "BEADS_OK" || echo "BEADS_MISSING"
 br version
 ```
 
-If outdated, suggest: `npm update -g beads-cli`
+If outdated, suggest: `curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash`
 
 **Note:** `br` is non-invasive and never executes git commands. After `br sync --flush-only`, you must manually run `git add .beads/ && git commit`.
 
@@ -89,7 +89,7 @@ If `br` not found, ask user:
 
 > Beads CLI is required for Flow. Install it now?
 >
-> - **A) Yes** (recommended) - Run `npm install -g beads-cli`
+> - **A) Yes** (recommended) - Run `curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash`
 > - **B) No** - Cannot proceed without Beads
 
 If installed, verify version is current.
@@ -300,7 +300,7 @@ Created:
 - code-styleguides/
 
 Next Steps:
-1. Run `br prime` to load Beads context
+1. Run `br status` to see workspace overview
 2. Run `/flow:prd "description"` to create your first flow
 3. Run `/flow:implement {flow_id}` to start coding
 ```

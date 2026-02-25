@@ -19,12 +19,12 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
 
 2. **If BEADS_MISSING:**
    > "Beads CLI is required for Flow. Would you like me to install it?
-   > A) Yes, install Beads globally (npm install -g beads-cli)
+   > A) Yes, install Beads globally (curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash)
    > B) No, I'll install it myself"
 
    If A selected:
    ```bash
-   npm install -g beads-cli
+   curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash
    ```
 
    If installation fails, announce error and HALT.
@@ -71,7 +71,7 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
     command -v br &> /dev/null && echo "BEADS_OK" || echo "BEADS_MISSING"
     br version
     ```
-    If outdated, suggest: `npm update -g beads-cli`
+    If outdated, suggest: `curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash`
     Verify `br` is available and current.
 
 2.  **Legacy Specs Migration:**
@@ -100,12 +100,16 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
 
     **Migration steps for each spec:**
     a. Read `metadata.json` to understand status
-    b. Read `spec.md` and `plan.md`
+    b. Read `spec.md`
     c. Read `learnings.md` if exists
     d. Check if referenced files still exist in codebase
     e. Copy to `.agent/specs/{flow_id}/` (Rename directory if needed)
     f. Update `.agent/flows.md` registry
-    g. Create Beads epic: `br create "Flow: {flow_id}" -t epic -p 2 --description "{flow_description}" --notes "Created by Flow during setup"`
+    g. Create Beads epic and add notes:
+       ```bash
+       br create "Flow: {flow_id}" -t epic -p 2 --description "{flow_description}"
+       br update {epic_id} --notes "Created by Flow during setup"
+       ```
 
 3.  **Learnings Ingestion with Validation:**
     For each spec with learnings.md:
@@ -288,7 +292,7 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
 
 2.  **Cross-Reference with Source Code:**
     -   For each discovered PRD:
-        -   Read the spec.md and plan.md if present
+        -   Read the spec.md if present
         -   Check if referenced files still exist in source code
         -   Identify implemented vs. abandoned work
 
@@ -721,12 +725,12 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
     a. **Define PRD:** The approved title is the PRD description.
     b. **Generate PRD-Specific Spec & Plan:**
         i. Automatically generate a detailed `spec.md` for this PRD.
-        ii. Automatically generate a `plan.md` for this PRD.
+        ii. The `spec.md` must include an **Implementation Plan** section with phases and tasks.
             - **CRITICAL:** The structure of the tasks must adhere to the principles outlined in the workflow file at `<root_directory>/workflow.md`. For example, if the workflow specifies Test-Driven Development, each feature task must be broken down into a "Write Tests" sub-task followed by an "Implement Feature" sub-task.
             - **CRITICAL:** Include status markers `[ ]` for **EVERY** task and sub-task. The format must be:
                 - Parent Task: `- [ ] Task: ...`
                 - Sub-task: `    - [ ] ...`
-            - **CRITICAL: Inject Phase Completion Tasks.** You MUST read the `<root_directory>/workflow.md` file to determine if a "Phase Completion Verification and Checkpointing Protocol" is defined. If this protocol exists, then for each **Phase** that you generate in `plan.md`, you MUST append a final meta-task to that phase. The format for this meta-task is: `- [ ] Task: Flow - User Manual Verification '<Phase Name>' (Protocol in workflow.md)`. You MUST replace `<Phase Name>` with the actual name of the phase.
+            - **CRITICAL: Inject Phase Completion Tasks.** You MUST read the `<root_directory>/workflow.md` file to determine if a "Phase Completion Verification and Checkpointing Protocol" is defined. If this protocol exists, then for each **Phase** that you generate in the Implementation Plan section of `spec.md`, you MUST append a final meta-task to that phase. The format for this meta-task is: `- [ ] Task: Flow - User Manual Verification '<Phase Name>' (Protocol in workflow.md)`. You MUST replace `<Phase Name>` with the actual name of the phase.
     c. **Create PRD Artifacts:**
         i. **Generate and Store Flow ID:** Create a unique Flow ID from the PRD description using a simple slug format:
             - Convert to lowercase
@@ -747,13 +751,13 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
             }
             ```
         Populate fields with actual values. Use the current timestamp.
-        iv. **Write Spec and Plan Files:** In the exact same directory, write the generated `spec.md` and `plan.md` files.
+        iv. **Write Spec File:** In the exact same directory, write the generated `spec.md` file (unified spec with implementation plan).
         v.  **Write Index File:** In the exact same directory, write `index.md` with content:
             ```markdown
             # Flow <flow_id> Context
 
             - [Specification](./spec.md)
-            - [Implementation Plan](./plan.md)
+            - [Specification & Plan](./spec.md)
             - [Metadata](./metadata.json)
             ```
 

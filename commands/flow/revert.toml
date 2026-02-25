@@ -149,32 +149,32 @@ Handles non-linear Git histories (rebase, squash, merge commits).
 
     **For Task Revert:**
     ```bash
-    br update {task_id} --status pending --notes "Reverted: {sha}"
+    br update {task_id} --status open --notes "Reverted: {sha}"
     ```
 
     **For Phase Revert:**
     ```bash
     # Reopen all tasks in phase
-    br update {task_id_1} --status pending
-    br update {task_id_2} --status pending
+    br update {task_id_1} --status open
+    br update {task_id_2} --status open
     # ... for each task in phase
     ```
 
     **For Flow Revert:**
     ```bash
-    br update {epic_id} --status pending --notes "Flow reverted to initial state"
+    br update {epic_id} --status open --notes "Flow reverted to initial state"
     ```
 
-5.  **Update Flow Registry:**
-    - Update flow status from `[x]` or `[~]` back to `[ ]` if reverting entire flow
-    - Update task status in plan.md from `[x]` to `[ ]`
+5.  **Sync to Markdown (MANDATORY):**
+    - Run `/flow:sync {flow_id}` to export Beads state to spec.md
+    - **Do NOT write markers directly to spec.md** — Beads is the source of truth
 
 6.  **Sync and Prime:**
     ```bash
     br sync --flush-only
     git add .beads/
     git commit -m "sync beads"
-    br prime
+    br status
     ```
 
 7.  **Announce Completion:**
@@ -195,6 +195,7 @@ Handles non-linear Git histories (rebase, squash, merge commits).
 
 1. **CONFIRM INTENT** - Always verify user's target before analysis
 2. **FIND ALL COMMITS** - Include plan-update commits, not just code commits
-3. **BEADS SYNC** - Update task status in Beads after revert
-4. **PRESERVE LEARNINGS** - Learnings.md is NOT reverted (institutional knowledge)
+3. **BEADS FIRST** - Update task status in Beads after revert
+4. **MANDATORY SYNC** - Run `/flow:sync` after Beads update (never write markers directly)
+5. **PRESERVE LEARNINGS** - Learnings.md is NOT reverted (institutional knowledge)
 """

@@ -12,7 +12,6 @@ Revising flow: **$ARGUMENTS**
 
 Read:
 - `.agent/specs/{flow_id}/spec.md`
-- `.agent/specs/{flow_id}/plan.md`
 - `.agent/specs/{flow_id}/learnings.md`
 
 ---
@@ -80,15 +79,23 @@ br update {affected_task_ids} --notes "Revised: {reason}"
 
 # If NEW tasks were added during revision, create with FULL CONTEXT:
 br create "{new_task}" --parent {epic_id} -p 2 \
-  --description="{what_changed_and_why}" \
-  --notes="Added during revision. Reason: {reason}. Created by /flow-revise on {date}"
+  --description="{what_changed_and_why}"
+br update {new_task_id} --notes "Added during revision. Reason: {reason}. Created by /flow-revise on {date}"
 ```
 
-**CRITICAL:** Always include `--description` and `--notes` when creating tasks.
+**CRITICAL:** Always include `--description` when creating tasks, then add `--notes` via `br update`.
 
 ---
 
-## Phase 7: Commit Revision
+## Phase 7: Sync to Markdown (MANDATORY)
+
+Run `/flow-sync {flow_id}` to export Beads state to spec.md.
+
+**Do NOT write markers directly to spec.md.** Beads is the source of truth — use `/flow-sync` instead.
+
+---
+
+## Phase 8: Commit Revision
 
 ```bash
 git add .agent/specs/{flow_id}/
@@ -100,5 +107,6 @@ git commit -m "flow(revise): {flow_id} - {brief description}"
 ## Critical Rules
 
 1. **LOG EVERYTHING** - All revisions documented
-2. **BEADS SYNC** - Update affected tasks
-3. **PRESERVE HISTORY** - Never delete, only append
+2. **BEADS FIRST** - Update Beads before syncing markdown
+3. **MANDATORY SYNC** - Run `/flow-sync` after Beads update
+4. **PRESERVE HISTORY** - Never delete, only append

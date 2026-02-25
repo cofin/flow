@@ -62,7 +62,6 @@ Append selected patterns to `.agent/patterns.md`:
 
 ```bash
 br close {epic_id} --reason "Flow archived"
-br compact  # Optional: compact Beads after archiving
 ```
 
 ## Phase 4: Move to Archive
@@ -107,7 +106,6 @@ Flow Archived: {flow_id}
 Location: .agent/archive/{flow_id}/
 Patterns Elevated: {count}
 Epic Closed: {epic_id}
-Beads Compacted: Yes/No
 
 Project patterns updated. View with:
 cat .agent/patterns.md

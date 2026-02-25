@@ -53,7 +53,6 @@ Search for new patterns not yet documented:
 
 Check all file paths in:
 - spec.md files
-- plan.md files
 - patterns.md
 
 Mark broken references.
@@ -66,7 +65,7 @@ Mark broken references.
 br sync --flush-only
 git add .beads/
 git commit -m "sync beads"
-br prime
+br status
 ```
 
 Ensure Beads is current with git.

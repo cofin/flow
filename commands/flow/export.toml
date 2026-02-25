@@ -188,6 +188,6 @@ Patterns Extracted: [count from knowledge.md]
 
 1.  **COMPREHENSIVE** - Include all relevant project data
 2.  **NO SECRETS** - Exclude any sensitive data (API keys, credentials)
-3.  **ACCURATE COUNTS** - Verify task counts match actual plan.md content
+3.  **ACCURATE COUNTS** - Verify task counts match actual spec.md content
 4.  **CURRENT DATA** - Use actual current state, not cached information
 """

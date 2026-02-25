@@ -20,56 +20,48 @@ If no arguments, default to `list`.
 
 ## Action: LIST
 
-### Phase 2a: List Beads Molecules
+### Phase 2a: List Local Templates
 
 ```bash
-br mol list
+ls .agent/templates/*.md 2>/dev/null
 ```
 
-### Phase 3a: List Local Templates
+### Phase 3a: Parse Template Details
 
-```bash
-ls -la .agent/templates/*.md 2>/dev/null
-```
+For each template file found, read the file header to extract:
+- Template name (from `# Template:` line)
+- Description (from `**Description:**` line)
+- Source flow (from `**Source:**` line)
+- Placeholder count
 
 ### Phase 4a: Display
 
 ```
-Available Templates
-
-=== Beads Molecules ===
-
-feature-crud
-  Description: Standard CRUD feature template
-  Tasks: 8
-
-bugfix-standard
-  Description: Standard bug fix template
-  Tasks: 4
-
-=== Local Templates (.agent/templates/) ===
+Available Templates (.agent/templates/)
 
 api-endpoint.md - REST API endpoint template
 frontend-component.md - React/Vue component template
+feature-crud.md - Standard CRUD feature template
 ```
 
 ---
 
 ## Action: POUR
 
-### Phase 2b: Pour Template
+### Phase 2b: Read Template
 
-```bash
-br mol pour {template_name}
-```
+1. Read `.agent/templates/{template_name}.md`
+2. Parse placeholders from the `## Placeholders` table
+3. If template not found, list available templates and ask user to select
 
 ### Phase 3b: Customize
 
-1. Ask for flow description
-2. Generate flow_id with date suffix
-3. Replace template placeholders
-4. Create Beads epic and tasks
-5. Register in flows.md
+1. For each placeholder, ask user for value
+2. Ask for flow description
+3. Generate flow_id with date suffix
+4. Replace template placeholders with user values
+5. Create Beads epic and tasks
+6. Register in flows.md
 
 ### Phase 4b: Report
 
@@ -91,7 +83,7 @@ Next: Run `/flow:implement {flow_id}` to start
 ### Phase 2c: Read Flow
 
 1. Verify flow exists: `.agent/specs/{flow_id}/` or `.agent/archive/{flow_id}/`
-2. Read spec.md, plan.md, learnings.md
+2. Read spec.md, learnings.md
 
 ### Phase 3c: Abstract
 
@@ -128,13 +120,7 @@ Create `.agent/templates/{name}.md`:
 {relevant learnings from source}
 ```
 
-### Phase 5c: Register with Beads
-
-```bash
-br mol distill {epic_id} {name}
-```
-
-### Phase 6c: Report
+### Phase 5c: Report
 
 ```
 Template Extracted
@@ -142,7 +128,6 @@ Template Extracted
 Name: {name}
 Source: {flow_id}
 Location: .agent/templates/{name}.md
-Beads: Registered
 
 To use: /flow:formula pour {name}
 ```
@@ -151,7 +136,7 @@ To use: /flow:formula pour {name}
 
 ## Critical Rules
 
-1. **BEADS INTEGRATION** - Use br mol commands
+1. **FILE-BASED TEMPLATES** - Templates stored in `.agent/templates/` as markdown files
 2. **PLACEHOLDER CLARITY** - Use descriptive placeholders
 3. **PRESERVE LEARNINGS** - Include gotchas in templates
 """

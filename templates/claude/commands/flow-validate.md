@@ -14,7 +14,7 @@ Check required files exist:
 - [ ] `.agent/tech-stack.md`
 - [ ] `.agent/workflow.md`
 - [ ] `.agent/beads.json`
-- [ ] `.agent/prds.md`
+- [ ] `.agent/flows.md`
 - [ ] `.agent/patterns.md`
 - [ ] `.beads/` directory
 
@@ -24,7 +24,7 @@ Check required files exist:
 
 ```bash
 br --version
-br prime
+br status
 ```
 
 Check Beads is operational.
@@ -33,18 +33,18 @@ Check Beads is operational.
 
 ## Phase 3: Flow Consistency
 
-For each flow in `.agent/prds.md`:
+For each flow in `.agent/flows.md`:
 
 1. Verify directory exists: `.agent/specs/{flow_id}/`
-2. Verify required files: spec.md, plan.md, metadata.json
+2. Verify required files: spec.md, metadata.json
 3. Verify Beads epic exists
-4. Check task count matches plan
+4. Check task count matches spec
 
 ---
 
-## Phase 4: Plan Integrity
+## Phase 4: Spec Integrity
 
-For each plan.md:
+For each spec.md:
 - Task IDs are sequential
 - Status markers are valid: `[ ]`, `[~]`, `[x]`, `[!]`, `[-]`
 - Checkpoint SHAs exist in git history

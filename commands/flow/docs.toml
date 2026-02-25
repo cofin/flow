@@ -65,7 +65,7 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
 
     ### PRD Documentation
     - [ ] [prd_id]/spec.md - [status]
-    - [ ] [prd_id]/plan.md - [status]
+    - [ ] [prd_id]/spec.md - [status]
     - [ ] [prd_id]/knowledge.md - [status]
 
     ### Research Documentation
@@ -279,7 +279,7 @@ Archived: [timestamp]
 
 ## Artifacts Included
 - spec.md - Specification document
-- plan.md - Implementation plan
+- spec.md - Unified specification and implementation plan
 - knowledge.md - Lessons learned
 - [other files]
 

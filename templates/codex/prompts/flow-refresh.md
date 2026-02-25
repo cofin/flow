@@ -44,7 +44,7 @@ Flag stale patterns for review.
 For each active flow:
 1. Check if affected files still exist
 2. Verify test files match implementation
-3. Update plan.md if file paths changed
+3. Update spec.md if file paths changed
 
 ## Phase 4: Beads Sync
 

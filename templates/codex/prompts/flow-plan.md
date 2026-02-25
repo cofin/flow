@@ -197,8 +197,8 @@ You MAY ONLY:
 
     ```bash
     br create "Flow: <flow_id>" -t epic -p 2 \
-      --description="<flow_purpose_from_spec>" \
-      --notes="Files: <key_files_from_analysis>. Created by /flow:plan on <date>"
+      --description="<flow_purpose_from_spec>"
+    br update <epic_id> --notes "Files: <key_files_from_analysis>. Created by /flow:plan on <date>"
     ```
 
 ---

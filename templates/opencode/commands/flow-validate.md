@@ -21,7 +21,7 @@ Verify flow/epic sync.
 
 ## Phase 3: Content Validation
 
-- Verify plan.md task status markers
+- Verify spec.md task status markers
 - Check file references exist
 - Validate patterns are current
 

@@ -22,8 +22,7 @@ If missing, ask user for them.
 1. Check flow exists in `.agent/specs/` or `.agent/archive/`
 2. Verify flow is complete or has sufficient structure
 3. Read:
-   - spec.md
-   - plan.md
+   - spec.md (both Specification and Implementation Plan sections)
    - learnings.md
 
 ---
@@ -131,16 +130,7 @@ Create `.agent/templates/{template_name}.md`:
 
 ---
 
-## Phase 6: Register with Beads
-
-If Beads epic exists:
-```bash
-br mol distill {epic_id} {template_name}
-```
-
----
-
-## Phase 7: Commit Template
+## Phase 6: Commit Template
 
 ```bash
 git add .agent/templates/{template_name}.md
@@ -165,7 +155,7 @@ Learnings Preserved: {count}
 To use this template:
 /flow:formula pour {template_name}
 
-Registered with Beads: {yes/no}
+Saved to: .agent/templates/{template_name}.md
 ```
 
 ---
@@ -175,5 +165,4 @@ Registered with Beads: {yes/no}
 1. **INTERACTIVE** - Let user decide what to template
 2. **MEANINGFUL PLACEHOLDERS** - Use descriptive names
 3. **PRESERVE LEARNINGS** - Include gotchas and patterns
-4. **BEADS SYNC** - Register with br mol
 """

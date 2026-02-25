@@ -11,24 +11,14 @@ If task_id not provided, use current in-progress task from:
 1. Beads: `br ready` (look for in_progress)
 2. Plan.md: find `[~]` task
 
-## Phase 2: Document Block
+## Phase 2: Update Beads (Source of Truth)
 
-### 2.1 Update Plan
-Change status: `[~]` → `[!]`
-
-Add block note:
-```markdown
-- [!] Task 1.3: Description
-  - BLOCKED: {reason}
-  - Blocked: {date}
-```
-
-### 2.2 Sync to Beads
 ```bash
 br update {task_id} --status blocked --notes "{reason}"
 ```
 
-### 2.3 Log to Blockers File
+## Phase 3: Log to Blockers File
+
 Append to `.agent/specs/{flow_id}/blockers.md`:
 ```markdown
 ## {date} - Task {task_id}
@@ -40,7 +30,13 @@ Append to `.agent/specs/{flow_id}/blockers.md`:
 **Resolution Path:** {suggested resolution}
 ```
 
-## Phase 3: Suggest Next Actions
+## Phase 4: Sync to Markdown (MANDATORY)
+
+Run `/flow:sync {flow_id}` to export Beads state to spec.md.
+
+**Do NOT write `[!]` markers directly to spec.md.** Beads is the source of truth.
+
+## Phase 5: Suggest Next Actions
 
 ```
 Task {task_id} marked as BLOCKED

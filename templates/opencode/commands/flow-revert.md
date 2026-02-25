@@ -29,11 +29,17 @@ git revert --no-commit {commits}
 git commit -m "revert: {scope}"
 ```
 
-Update plan.md status to `[ ]`
+### 3.1 Reopen Beads Tasks (Source of Truth)
 
 ```bash
-br update {task_id} --status pending
+br update {task_id} --status open
 ```
+
+### 3.2 Sync to Markdown (MANDATORY)
+
+Run `/flow:sync {flow_id}` to export Beads state to spec.md.
+
+**Do NOT write markers directly to spec.md.** Beads is the source of truth — use `/flow:sync` instead.
 
 ## Final Output
 

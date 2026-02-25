@@ -29,11 +29,12 @@ Map Beads status to markdown markers:
 
 | Beads Status   | Marker |
 |----------------|--------|
-| `pending`      | `[ ]`  |
+| `open`         | `[ ]`  |
 | `in_progress`  | `[~]`  |
-| `completed`    | `[x]`  |
+| `closed`       | `[x]`  |
 | `blocked`      | `[!]`  |
-| `skipped`      | `[-]`  |
+
+**Note:** Skipped tasks are `closed` with reason starting with "Skipped:". Map these to `[-]`.
 
 ## Phase 4: Update spec.md
 

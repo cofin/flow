@@ -14,9 +14,10 @@ Read `.agent/flows.md` to get list of active flows.
 ## Phase 2: Beads Status (Source of Truth)
 
 ```bash
-br prime
-br ready       # Unblocked tasks ready to work
-br blocked     # Blocked tasks
+br status                     # Workspace overview
+br ready                      # Unblocked tasks ready to work
+br list --status in_progress  # Resume active work
+br blocked                    # Blocked tasks
 ```
 
 ## Phase 3: Flow Summary (Beads-First)
@@ -30,9 +31,9 @@ br show {epic_id} --children --json
 ```
 
 Parse JSON to count:
-- `pending` tasks
+- `open` tasks
 - `in_progress` tasks
-- `completed` tasks
+- `closed` tasks
 - `blocked` tasks
 
 Calculate progress: `completed / total * 100`
