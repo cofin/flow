@@ -42,19 +42,13 @@ cat .agent/setup-state.json 2>/dev/null
 ### 0.1.1 Beads Validation
 
 ```bash
-command -v bd &> /dev/null && echo "BEADS_OK" || echo "BEADS_MISSING"
-bd version
+command -v br &> /dev/null && echo "BEADS_OK" || echo "BEADS_MISSING"
+br version
 ```
 
 If outdated, suggest: `npm update -g beads-cli`
 
-Check hooks:
-
-```bash
-bd setup claude --check 2>/dev/null && echo "HOOKS_OK" || echo "HOOKS_MISSING"
-```
-
-If HOOKS_MISSING, offer to install: `bd setup claude`
+**Note:** `br` is non-invasive and never executes git commands. After `br sync --flush-only`, you must manually run `git add .beads/ && git commit`.
 
 ### 0.1.2 Legacy Specs Migration
 
@@ -95,7 +89,7 @@ D) Skip migration
 7. Create Beads epic if not exists:
 
     ```bash
-    bd create "Flow: {flow_id}" -t epic -p 2 \
+    br create "Flow: {flow_id}" -t epic -p 2 \
       --description="{flow_description}" \
       --notes="Migrated from legacy location. Created by Flow during setup"
     ```
@@ -160,28 +154,17 @@ Run `/flow-status` to see current state.
 **CRITICAL: Beads is required.**
 
 ```bash
-command -v bd &> /dev/null && echo "BEADS_OK" || echo "BEADS_MISSING"
+command -v br &> /dev/null && echo "BEADS_OK" || echo "BEADS_MISSING"
 ```
 
-If `bd` not found, ask user:
+If `br` not found, ask user:
 
 > Beads CLI is required for Flow. Install it now?
 >
 > - **A) Yes** (recommended) - Run `npm install -g beads-cli`
 > - **B) No** - Cannot proceed without Beads
 
-If installed, check hooks:
-
-```bash
-bd setup claude --check 2>/dev/null && echo "HOOKS_OK" || echo "HOOKS_MISSING"
-```
-
-If HOOKS_MISSING:
-
-> Beads hooks not installed for Claude Code. Install now?
->
-> - **A) Yes** (recommended) - Run `bd setup claude`
-> - **B) No** - Skip (Beads sync may not work properly)
+If installed, verify version is current.
 
 ---
 
@@ -291,7 +274,7 @@ Based on detected languages, offer relevant styleguides:
 **CRITICAL: Initialize in stealth mode by default.**
 
 ```bash
-bd init --stealth
+br init --stealth
 ```
 
 Or prompt user:
@@ -422,7 +405,7 @@ Created:
 - code-styleguides/
 
 Next Steps:
-1. Run `bd prime` to load Beads context
+1. Run `br prime` to load Beads context
 2. Run `/flow-prd "description"` to create your first flow
 3. Run `/flow-implement {flow_id}` to start coding
 ```
@@ -432,7 +415,7 @@ Next Steps:
 ## Critical Rules
 
 1. **BEADS REQUIRED** - Cannot proceed without Beads CLI
-2. **HOOKS CHECK** - Ensure `bd setup claude` has been run
+2. **CLI CHECK** - Ensure `br` is installed and available
 3. **ROOT DIRECTORY PROMPT** - Ask user where to store files
 4. **STEALTH DEFAULT** - Initialize Beads in stealth mode
 5. **ONE QUESTION AT A TIME** - Don't overwhelm the user

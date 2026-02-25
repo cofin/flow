@@ -49,7 +49,9 @@ For each active flow:
 ## Phase 4: Beads Sync
 
 ```bash
-bd sync
+br sync --flush-only
+git add .beads/
+git commit -m "sync beads"
 ```
 
 ## Phase 5: Report

@@ -22,7 +22,7 @@ Execute tasks from a flow's plan using TDD workflow.
 3. **Read Parent Context:**
     - Check if this flow has a parent PRD/Saga.
     - If yes, read `.agent/prd/<parent_id>/prd.md`.
-4. **Load Beads:** `bd prime`
+4. **Load Beads:** `br prime`
 
 **CRITICAL:** Before starting, check `.gitignore`. If `.agent/` is ignored, do NOT commit changes to artifacts inside it using git. Update them on disk only.
 
@@ -41,7 +41,7 @@ cat .agent/specs/{flow_id}/implement_state.json 2>/dev/null
 **Primary: Use Beads**
 
 ```bash
-bd ready
+br ready
 ```
 
 **Fallback: Parse spec.md**
@@ -55,7 +55,7 @@ If Beads unavailable, parse `spec.md` Implementation Plan section for pending ta
 **If task not in Beads, create it first:**
 
 ```bash
-bd create "{task_description}" --parent {epic_id} -p 2 \
+br create "{task_description}" --parent {epic_id} -p 2 \
   --description="{what_needs_to_be_done_and_why}" \
   --notes="Phase {N}, Task {M}. Files: {affected_files}. Created by /flow:implement"
 ```
@@ -63,7 +63,7 @@ bd create "{task_description}" --parent {epic_id} -p 2 \
 Then mark in progress:
 
 ```bash
-bd update {task_id} --status in_progress
+br update {task_id} --status in_progress
 ```
 
 **CRITICAL:** Do NOT write `[~]` markers to spec.md. Beads is source of truth.
@@ -111,7 +111,7 @@ Format: conventional commits
 **CRITICAL:** Only update Beads. Do NOT write `[x]` markers to spec.md.
 
 ```bash
-bd close {task_id} --reason "commit: {sha}"
+br close {task_id} --reason "commit: {sha}"
 ```
 
 ### 5.1 Log Learnings
@@ -154,4 +154,4 @@ If continuing, loop back to Phase 2.
 3. **BEADS IS SOURCE OF TRUTH** - Never write markers to spec.md
 4. **LOG LEARNINGS** - Capture patterns as you go
 5. **LOCAL ONLY** - Never push automatically
-6. **USE `bd ready`** - Always check Beads for next task
+6. **USE `br ready`** - Always check Beads for next task

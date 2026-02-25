@@ -27,7 +27,7 @@ You MAY ONLY:
 
 - Create/edit files in `.agent/specs/` (spec.md, metadata.json)
 - Create/edit `.agent/flows.md` registry
-- Run `bd create` commands for Beads tracking
+- Run `br create` commands for Beads tracking
 - Read source code for analysis (but NEVER modify it)
 
 **Implementation happens ONLY when user explicitly runs `/flow:implement`.**
@@ -198,7 +198,7 @@ You MAY ONLY:
 6. **Beads Integration:**
 
     ```bash
-    bd create "Flow: <flow_id>" -t epic -p 2 \
+    br create "Flow: <flow_id>" -t epic -p 2 \
       --description="<flow_purpose_from_spec>" \
       --notes="Files: <key_files_from_analysis>. Created by /flow:plan on <date>"
     ```
@@ -233,4 +233,4 @@ Announce:
 3. **PATTERNS COMPLIANCE** - Check patterns.md and warn on violations
 4. **UNIFIED SPEC** - Single `spec.md` contains both requirements and plan. No separate `plan.md`.
 5. **SPECS DIRECTORY** - All artifacts go in `.agent/specs/`, not `.agent/prd/`
-6. **BEADS CONTEXT** - Include description and notes with bd create
+6. **BEADS CONTEXT** - Include description and notes with br create

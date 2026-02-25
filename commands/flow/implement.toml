@@ -44,11 +44,11 @@ CRITICAL: Check `.gitignore` before committing. If `.agent/` or specific artifac
 
 1.  **Prime Beads:**
     ```bash
-    bd prime
+    br prime
     ```
 2.  **Check Status:**
     ```bash
-    bd ready
+    br ready
     ```
     (This lists tasks that are unblocked and ready to work on).
 
@@ -61,7 +61,7 @@ CRITICAL: Check `.gitignore` before committing. If `.agent/` or specific artifac
 **CRITICAL:** Beads is the source of truth. Do NOT use plan.md markers.
 
 1.  **Primary - Use Beads:**
-    *   Run `bd ready` to find unblocked tasks.
+    *   Run `br ready` to find unblocked tasks.
     *   If multiple ready tasks, ask user which to start.
     *   **Announce:** "Starting Task [N]: [Task Description]"
 2.  **Fallback - Parse spec.md:**
@@ -71,11 +71,11 @@ CRITICAL: Check `.gitignore` before committing. If `.agent/` or specific artifac
     *   Find the Beads issue ID for this task (if stored in metadata).
     *   If task not in Beads, create it with FULL CONTEXT:
         ```bash
-        bd create "{task_description}" --parent {epic_id} -p 2 \\
+        br create "{task_description}" --parent {epic_id} -p 2 \\
           --description="{what_needs_to_be_done_and_why}" \\
           --notes="Phase {N}, Task {M}. Files: {affected_files}. Created by /flow:implement"
         ```
-    *   Mark as in progress: `bd update <issue_id> --status in_progress`
+    *   Mark as in progress: `br update <issue_id> --status in_progress`
     *   **CRITICAL:** Always include `--description` and `--notes` when creating tasks.
 
 ### 3.2 TDD Workflow (Red-Green-Refactor)
@@ -101,12 +101,12 @@ CRITICAL: Check `.gitignore` before committing. If `.agent/` or specific artifac
 2.  **Update State:**
     *   Update `implement_state.json` with the new current task index.
 3.  **Sync Beads (Primary):**
-    *   Close the task in Beads: `bd close <issue_id> --reason "commit: <hash>"`
+    *   Close the task in Beads: `br close <issue_id> --reason "commit: <hash>"`
 
 ### 3.4 Capture Learnings
 1.  **Analyze:** Did you discover a new pattern, gotcha, or architectural insight?
 2.  **Log:** If yes, append it to `.agent/specs/<flow_id>/learnings.md`.
-3.  **Sync:** Add the learning as a note to the Beads issue: `bd update <issue_id> --notes "<learning>"`
+3.  **Sync:** Add the learning as a note to the Beads issue: `br update <issue_id> --notes "<learning>"`
 
 ---
 

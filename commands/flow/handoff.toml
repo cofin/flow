@@ -24,7 +24,7 @@ Collect:
    git log --notes --grep="flow.*{flow_id}" --oneline -10
    ```
 2. Learnings from `learnings.md`
-3. Any notes from Beads: `bd show {epic_id}`
+3. Any notes from Beads: `br show {epic_id}`
 4. Files modified in current phase
 
 ---
@@ -87,9 +87,9 @@ Create `.agent/specs/{flow_id}/handoff_{N}.md`:
 ## Beads Recovery Commands
 
 ```bash
-bd prime                    # Load AI-optimized context
-bd ready                    # List unblocked tasks
-bd show {epic_id}          # View flow status
+br prime                    # Load AI-optimized context
+br ready                    # List unblocked tasks
+br show {epic_id}          # View flow status
 ```
 
 ## Notes for Next Session
@@ -133,7 +133,7 @@ Handoff: handoff_{N}.md
 Progress: {completed}/{total} tasks ({percentage}%)
 
 To resume in new session:
-1. Run `bd prime` to load Beads context
+1. Run `br prime` to load Beads context
 2. Read .agent/specs/{flow_id}/handoff_{N}.md
 3. Run `/flow:implement {flow_id}` to continue
 ```

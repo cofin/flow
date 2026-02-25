@@ -63,8 +63,10 @@ Mark broken references.
 ## Phase 5: Beads Sync
 
 ```bash
-bd sync
-bd prime
+br sync --flush-only
+git add .beads/
+git commit -m "sync beads"
+br prime
 ```
 
 Ensure Beads is current with git.

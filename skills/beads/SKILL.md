@@ -24,7 +24,7 @@ npm install -g @beads/bd
 Always initialize in **stealth mode** by default:
 
 ```bash
-bd init --stealth
+br init --stealth
 ```
 
 **Modes:**
@@ -32,51 +32,44 @@ bd init --stealth
 - `stealth` - Local-only, .beads/ gitignored (personal use)
 - `normal` - Committed to repo (team-shared)
 
-## CLI Integration (Hooks)
+## CLI Integration
 
-Beads provides built-in hooks for each CLI:
+**Note:** `br` is non-invasive and never executes git commands. After `br sync --flush-only`, you must manually run `git add .beads/ && git commit`.
 
-```bash
-bd setup claude   # SessionStart + PreCompact hooks
-bd setup gemini   # SessionStart + PreCompress hooks
-bd setup codex    # AGENTS.md section
-bd setup cursor   # Cursor IDE rules
-bd setup aider    # Aider config
-```
-
-Check installation: `bd setup <cli> --check`
-Remove: `bd setup <cli> --remove`
+Beads works with any CLI agent. No hooks or setup commands required — just ensure `br` is on your PATH.
 
 ## Session Protocol
 
 ### Session Start
 
 ```bash
-bd prime        # Load AI-optimized context (auto-detects MCP mode)
-bd ready        # List unblocked tasks
+br prime        # Load AI-optimized context (auto-detects MCP mode)
+br ready        # List unblocked tasks
 ```
 
 ### During Work
 
 ```bash
-bd show {id}                           # View task + notes
-bd update {id} --status in_progress    # Claim task
-bd update {id} --notes "learning: ..." # Add notes (survives compaction!)
-bd close {id} --reason "commit: abc"   # Complete task
+br show {id}                           # View task + notes
+br update {id} --status in_progress    # Claim task
+br update {id} --notes "learning: ..." # Add notes (survives compaction!)
+br close {id} --reason "commit: abc"   # Complete task
 ```
 
 ### Session End
 
 ```bash
-bd sync         # Push to git (if normal mode)
+br sync --flush-only         # Push to git (if normal mode)
+git add .beads/
+git commit -m "sync beads"
 ```
 
 ## CRITICAL: Task Creation
 
-**ALWAYS include `--description` and `--notes` with `bd create`:**
+**ALWAYS include `--description` and `--notes` with `br create`:**
 
 ```bash
-bd create "Task title" --parent {epic_id} -p 2 \
+br create "Task title" --parent {epic_id} -p 2 \
   --description="WHY this issue exists and WHAT needs to be done" \
   --notes="CONTEXT: files affected, dependencies, origin command, timestamp"
 ```
@@ -90,57 +83,57 @@ bd create "Task title" --parent {epic_id} -p 2 \
 
 | Command | Purpose |
 |---------|---------|
-| `bd create "Title" -p 2` | Create task with priority |
-| `bd create "Title" --parent {epic} -t task` | Create child task |
-| `bd q "Quick title"` | Quick capture (outputs only ID) |
-| `bd show {id}` | View task with notes |
-| `bd update {id} --status {s}` | Update status |
-| `bd update {id} --notes "..."` | Add notes |
-| `bd update {id} --append-notes "..."` | Append to notes |
-| `bd close {id} [--reason "..."]` | Complete task |
-| `bd close {id1} {id2} ...` | Close multiple tasks |
-| `bd reopen {id}` | Reopen closed task |
-| `bd delete {id}` | Delete task |
+| `br create "Title" -p 2` | Create task with priority |
+| `br create "Title" --parent {epic} -t task` | Create child task |
+| `br q "Quick title"` | Quick capture (outputs only ID) |
+| `br show {id}` | View task with notes |
+| `br update {id} --status {s}` | Update status |
+| `br update {id} --notes "..."` | Add notes |
+| `br update {id} --append-notes "..."` | Append to notes |
+| `br close {id} [--reason "..."]` | Complete task |
+| `br close {id1} {id2} ...` | Close multiple tasks |
+| `br reopen {id}` | Reopen closed task |
+| `br delete {id}` | Delete task |
 
 ### Discovery & Views
 
 | Command | Purpose |
 |---------|---------|
-| `bd prime` | AI-optimized workflow context |
-| `bd ready` | List unblocked ready tasks |
-| `bd list` | List all open issues |
-| `bd list --status=in_progress` | Filter by status |
-| `bd status` | Overview and statistics |
-| `bd graph {id}` | Show dependency graph |
-| `bd stale` | Show stale issues |
+| `br prime` | AI-optimized workflow context |
+| `br ready` | List unblocked ready tasks |
+| `br list` | List all open issues |
+| `br list --status=in_progress` | Filter by status |
+| `br status` | Overview and statistics |
+| `br graph {id}` | Show dependency graph |
+| `br stale` | Show stale issues |
 
 ### Dependencies
 
 | Command | Purpose |
 |---------|---------|
-| `bd dep add {id} {depends-on}` | Add dependency |
-| `bd dep remove {id} {depends-on}` | Remove dependency |
-| `bd blocked` | Show blocked issues |
+| `br dep add {id} {depends-on}` | Add dependency |
+| `br dep remove {id} {depends-on}` | Remove dependency |
+| `br blocked` | Show blocked issues |
 
 ### Advanced
 
 | Command | Purpose |
 |---------|---------|
-| `bd gate` | Manage async coordination gates |
-| `bd lint` | Check for missing template sections |
-| `bd search "query"` | Full-text search |
-| `bd label add {id} {label}` | Add label |
-| `bd epic` | Epic management commands |
-| `bd compact` | Compact Beads database |
-| `bd mol squash` | Aggressive compaction (molecule-level) |
+| `br gate` | Manage async coordination gates |
+| `br lint` | Check for missing template sections |
+| `br search "query"` | Full-text search |
+| `br label add {id} {label}` | Add label |
+| `br epic` | Epic management commands |
+| `br compact` | Compact Beads database |
+| `br mol squash` | Aggressive compaction (molecule-level) |
 
 ### Export and Import
 
 | Command | Purpose |
 |---------|---------|
-| `bd show {id} --children --json` | Export epic with all tasks as JSON |
-| `bd export --parent {epic_id}` | Export all tasks under epic |
-| `bd sync` | Sync Beads state with git |
+| `br show {id} --children --json` | Export epic with all tasks as JSON |
+| `br export --parent {epic_id}` | Export all tasks under epic |
+| `br sync --flush-only` | Sync Beads state with git |
 
 ## Issue Types
 
@@ -179,14 +172,14 @@ Notes survive context compaction - use them for:
 
 ```bash
 # Add detailed notes
-bd update {id} --notes "
+br update {id} --notes "
 Pattern: Use Zod for validation
 Gotcha: Must update barrel exports
 Commit: abc1234
 "
 
 # Append to existing notes
-bd update {id} --append-notes "Additional learning: ..."
+br update {id} --append-notes "Additional learning: ..."
 ```
 
 ## Flow Integration
@@ -195,11 +188,11 @@ When used with Flow:
 
 | Action | Command |
 |--------|---------|
-| Track creation | `bd create -t epic -p 1 --description="..." --notes="..."` |
-| Task start | `bd update {id} --status in_progress` |
-| Task complete | `bd close {id} --reason "commit: {sha}"` |
-| Log learnings | `bd update {id} --notes "..."` |
-| Mark blocked | `bd update {id} --status blocked --notes "reason: ..."` |
+| Track creation | `br create -t epic -p 1 --description="..." --notes="..."` |
+| Task start | `br update {id} --status in_progress` |
+| Task complete | `br close {id} --reason "commit: {sha}"` |
+| Log learnings | `br update {id} --notes "..."` |
+| Mark blocked | `br update {id} --status blocked --notes "reason: ..."` |
 
 ## Configuration
 
@@ -218,11 +211,11 @@ When used with Flow:
 ## Prime Command Options
 
 ```bash
-bd prime          # Auto-detect mode (MCP vs CLI)
-bd prime --full   # Force full CLI output
-bd prime --mcp    # Force minimal MCP output
-bd prime --stealth  # No git operations
-bd prime --export   # Export default content for customization
+br prime          # Auto-detect mode (MCP vs CLI)
+br prime --full   # Force full CLI output
+br prime --mcp    # Force minimal MCP output
+br prime --stealth  # No git operations
+br prime --export   # Export default content for customization
 ```
 
 Custom override: Place `.beads/PRIME.md` to override default output.
@@ -238,20 +231,21 @@ npm install -g @beads/bd
 **Permission denied:**
 
 ```bash
-bd init --stealth  # Use stealth mode
+br init --stealth  # Use stealth mode
 ```
 
 **Sync failed:**
 
 ```bash
-bd sync --force   # Force sync
+br sync --flush-only --force   # Force sync
+git add .beads/
+git commit -m "sync beads"
 ```
 
-**Check hooks:**
+**Check CLI:**
 
 ```bash
-bd setup claude --check
-bd setup gemini --check
+command -v br &> /dev/null && echo "BEADS_OK" || echo "BEADS_MISSING"
 ```
 
 ## When to Track in Beads
@@ -267,7 +261,7 @@ bd setup gemini --check
 **Why this matters:**
 
 - Notes survive context compaction - critical for multi-session work
-- `bd ready` finds unblocked work automatically
+- `br ready` finds unblocked work automatically
 - If resuming in 2 weeks would be hard without context, use Beads
 
 ## Boundaries

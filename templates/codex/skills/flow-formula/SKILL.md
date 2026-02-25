@@ -23,7 +23,7 @@ List and manage flow templates (Beads formulas).
 
 Lists templates from:
 - Local: `.agent/templates/`
-- Beads: `bd mol list`
+- Beads: `br mol list`
 
 ### Pour Template
 
@@ -44,7 +44,7 @@ Extracts a template from an existing flow.
 ## List Action
 
 ```bash
-bd mol list
+br mol list
 ```
 
 Display available templates with usage counts.
@@ -52,7 +52,7 @@ Display available templates with usage counts.
 ## Pour Action
 
 ```bash
-bd mol pour {template_name}
+br mol pour {template_name}
 ```
 
 Then customize placeholders and create Beads tasks.
@@ -62,9 +62,9 @@ Then customize placeholders and create Beads tasks.
 1. Read flow's spec.md and plan.md
 2. Abstract into template with placeholders
 3. Save to `.agent/templates/{name}.md`
-4. Register: `bd mol distill {epic_id} {template_name}`
+4. Register: `br mol distill {epic_id} {template_name}`
 
 ## Critical Rules
 
-1. **BEADS INTEGRATION** - Use bd mol commands
+1. **BEADS INTEGRATION** - Use br mol commands
 2. **ABSTRACT PROPERLY** - Use placeholders

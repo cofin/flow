@@ -1,99 +1,263 @@
 ---
 name: rust-bindings
-description: Patterns for creating high-performance Rust extensions for Python (PyO3) and Node/Bun (NAPI).
+description: "Patterns for polyglot Rust extensions: workspace architecture, PyO3 + maturin for Python, napi-rs for Node/Bun, C ABI, cross-platform wheel distribution, and testing strategies. Use when creating Rust bindings for any target language."
 ---
 
-# Rust Bindings Skill
+# Rust Bindings (Polyglot Extensions)
 
-## Overview
+## Scope
 
-This skill covers bridging Rust with high-level languages to achieve native performance for critical paths.
+- Workspace architecture for multi-language bindings.
+- Python bindings (PyO3 + maturin).
+- Node/Bun bindings (napi-rs).
+- Optional C ABI for stable distribution.
+- Cross-platform wheel and npm package distribution.
+- Testing across language boundaries.
 
-## Core Patterns
+## Workspace Architecture
 
-### 1. Structure
+Separate pure logic from binding layers:
 
-For polyglot libraries, use a workspace structure:
-
-- `core`: Pure Rust business logic, no FFI dependencies.
-- `bindings-py`: Python bindings using `pyo3`.
-- `bindings-js`: Node/Bun bindings using `napi-rs`.
-- `bindings-c`: (Optional) C ABI if needed.
-
-### 2. Python Bindings (PyO3)
-
-Use `pyo3` and `maturin`.
-
-**Cargo.toml**:
-
-```toml
-[lib]
-name = "my_module"
-crate-type = ["cdylib"]
-
-[dependencies]
-pyo3 = { version = "0.27", features = ["extension-module"] }
+```
+project/
+├── Cargo.toml                # [workspace]
+├── crates/
+│   ├── core/                 # Pure Rust — no FFI deps
+│   │   ├── src/lib.rs
+│   │   └── Cargo.toml
+│   ├── py/                   # Python bindings
+│   │   ├── src/lib.rs
+│   │   ├── Cargo.toml        # cdylib + rlib
+│   │   └── pyproject.toml    # maturin config
+│   └── js/                   # Node/Bun bindings
+│       ├── src/lib.rs
+│       ├── Cargo.toml        # cdylib
+│       └── package.json      # napi-rs config
+├── python/                   # Python package source
+│   └── my_package/
+│       ├── __init__.py
+│       ├── _core.pyi         # Type stubs
+│       └── py.typed
+└── rust-toolchain.toml
 ```
 
-**Implementation**:
+### Key Principles
+
+- **Pure core:** All business logic in the core crate. Zero FFI dependencies.
+- **Thin bindings:** Binding crates only do type conversion and API surface shaping.
+- **Shared deps:** Use `[workspace.dependencies]` to pin versions once:
+
+```toml
+[workspace.dependencies]
+tokio = { version = "1.49", features = ["full"] }
+serde = { version = "1", features = ["derive"] }
+thiserror = "2"
+```
+
+## Python Bindings (PyO3 + Maturin)
+
+### Cargo.toml
+
+```toml
+[package]
+name = "my-package-core"
+
+[lib]
+name = "_core"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+pyo3 = { version = "0.24", features = ["extension-module"] }
+my-core = { path = "../core" }
+```
+
+### Module Init
 
 ```rust
 use pyo3::prelude::*;
 
+#[pymodule]
+fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add("__version__", env!("CARGO_PKG_VERSION"))?;
+    m.add_class::<MyClass>()?;
+    Ok(())
+}
+
 #[pyclass]
-struct MyClass { inner: InnerType }
+struct MyClass {
+    inner: my_core::Engine,
+}
 
 #[pymethods]
 impl MyClass {
     #[new]
-    fn new() -> Self { ... }
-    
-    fn compute(&self, py: Python<'_>) -> PyResult<usize> {
-        // Release GIL for CPU work
-        py.allow_threads(|| self.inner.compute())
+    fn new(config: &str) -> PyResult<Self> {
+        let inner = my_core::Engine::new(config)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+        Ok(Self { inner })
+    }
+
+    fn process(&self, py: Python<'_>, data: &[u8]) -> PyResult<Vec<u8>> {
+        let inner = self.inner.clone();
+        let data = data.to_vec();
+        py.allow_threads(move || {
+            inner.process(&data)
+                .map_err(|e| pyo3::exceptions::PyRuntimeError::new_err(e.to_string()))
+        })
     }
 }
 ```
 
-### 3. Node/Bun Bindings (NAPI-RS)
-
-Use `napi` and `napi-derive`.
-
-**Cargo.toml**:
+### Maturin Config
 
 ```toml
+# pyproject.toml
+[build-system]
+requires = ["maturin>=1.8"]
+build-backend = "maturin"
+
+[project]
+name = "my-package"
+requires-python = ">=3.10"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+module-name = "my_package._core"
+python-source = "python"
+manifest-path = "crates/py/Cargo.toml"
+```
+
+### Cross-Platform Wheels
+
+```toml
+# pyproject.toml
+[tool.cibuildwheel]
+before-all = "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y"
+environment = { PATH = "$HOME/.cargo/bin:$PATH" }
+skip = ["pp*", "*-musllinux_i686"]
+```
+
+## Node/Bun Bindings (napi-rs)
+
+### Cargo.toml
+
+```toml
+[package]
+name = "my-package-js"
+
 [lib]
 crate-type = ["cdylib"]
 
 [dependencies]
-napi = { version = "2.14", features = ["tokio_rt"] }
-napi-derive = "2.14"
+napi = { version = "2", features = ["tokio_rt", "serde-json"] }
+napi-derive = "2"
+my-core = { path = "../core" }
 ```
 
-**Implementation**:
+### Implementation
 
 ```rust
 use napi_derive::napi;
 
 #[napi]
-struct MyClass { inner: InnerType }
+pub struct MyClass {
+    inner: my_core::Engine,
+}
 
 #[napi]
 impl MyClass {
     #[napi(constructor)]
-    pub fn new() -> Self { ... }
-    
+    pub fn new(config: String) -> napi::Result<Self> {
+        let inner = my_core::Engine::new(&config)
+            .map_err(|e| napi::Error::from_reason(e.to_string()))?;
+        Ok(Self { inner })
+    }
+
     #[napi]
-    pub async fn compute(&self) -> Result<u32> {
-        // Async is handled automatically off-thread
-        Ok(self.inner.compute().await)
+    pub async fn process(&self, data: Buffer) -> napi::Result<Buffer> {
+        let result = self.inner.process(&data)
+            .map_err(|e| napi::Error::from_reason(e.to_string()))?;
+        Ok(result.into())
     }
 }
 ```
 
-## Best Practices
+### package.json (napi-rs)
 
-- **Pure Core**: Keep the logic in the core crate. Bindings should only handle type conversion.
-- **Zero-Copy**: Use `Arrow` or shared memory for large data transfer. Avoid copying large strings/buffers across the boundary.
-- **Error Mapping**: Convert Rust results to language-specific exceptions (e.g., `PyValueError`, `Error` object).
-- **Testing**: Test the core logic in Rust. Test bindings in the target language (pytest, vitest/bun test).
+```json
+{
+  "name": "my-package",
+  "napi": {
+    "name": "my-package",
+    "triples": {
+      "defaults": true,
+      "additional": ["aarch64-apple-darwin", "aarch64-unknown-linux-gnu"]
+    }
+  }
+}
+```
+
+## Error Mapping
+
+Map core errors to each language's idiom:
+
+```rust
+// Core error (shared)
+#[derive(Debug, thiserror::Error)]
+pub enum CoreError {
+    #[error("invalid config: {0}")]
+    Config(String),
+    #[error("I/O error: {0}")]
+    Io(#[from] std::io::Error),
+}
+
+// Python: map to exceptions
+impl From<CoreError> for PyErr {
+    fn from(e: CoreError) -> PyErr {
+        match e {
+            CoreError::Config(m) => PyValueError::new_err(m),
+            CoreError::Io(e) => PyIOError::new_err(e.to_string()),
+        }
+    }
+}
+
+// Node: map to Error objects
+impl From<CoreError> for napi::Error {
+    fn from(e: CoreError) -> napi::Error {
+        napi::Error::from_reason(e.to_string())
+    }
+}
+```
+
+## Zero-Copy Strategies
+
+| Language | Mechanism | When |
+|----------|-----------|------|
+| Python | `PyBuffer` / `memoryview` | Large contiguous data |
+| Python | `PyBytes::new(py, &data)` | Immutable byte data |
+| Node | `napi::Buffer` | Binary data transfer |
+| Node | `SharedArrayBuffer` | Web workers / threads |
+| C | Raw pointer + length | Stable ABI consumers |
+
+**Rule:** Avoid copying large buffers across FFI. Use views/slices when lifetime is clear; copy small data (<4KB) for simplicity.
+
+## Testing Strategy
+
+| Layer | Tool | What to Test |
+|-------|------|-------------|
+| Core (Rust) | `cargo test` | Business logic, edge cases |
+| Core (Rust) | `proptest` | Invariants, fuzz inputs |
+| Python bindings | `pytest` | API surface, error mapping |
+| Python bindings | `pytest` + threads | GIL release under concurrency |
+| Node bindings | `vitest` / `bun test` | API surface, async behavior |
+| Memory | `valgrind` / `tracemalloc` | Leak detection across FFI |
+| Unsafe | `cargo miri test` | Undefined behavior in core |
+
+## Conventions
+
+- Core crate: no `unsafe` if possible, no FFI deps.
+- Binding crates: thin wrappers, only type conversion.
+- Always provide type stubs (`.pyi`) for Python and `.d.ts` for TypeScript.
+- Test in the target language, not just Rust.
+- Document public APIs in both Rust doc comments and target language docs.
+- Use `extension-module` feature only in cdylib crates, never in the core.

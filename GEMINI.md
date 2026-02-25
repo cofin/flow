@@ -115,12 +115,14 @@ To find a file (e.g., "**Product Definition**") within a specific context:
 
 ## Beads Integration
 
+**Note:** `br` is non-invasive and never executes git commands. After `br sync --flush-only`, you must manually run `git add .beads/ && git commit`.
+
 Beads provides persistent cross-session memory. It is **required** for Flow.
 
 ### Installation Check
 
 ```bash
-command -v bd &> /dev/null && echo "BEADS_OK" || echo "BEADS_MISSING"
+command -v br &> /dev/null && echo "BEADS_OK" || echo "BEADS_MISSING"
 ```
 
 If missing, Flow offers to install:
@@ -132,7 +134,7 @@ npm install -g beads-cli
 ### Initialization (Stealth Mode Default)
 
 ```bash
-bd init --stealth
+br init --stealth
 ```
 
 Stealth mode keeps Beads data local-only (not committed to git).
@@ -162,18 +164,18 @@ Stealth mode keeps Beads data local-only (not committed to git).
 
 | Flow Action | Beads Command |
 |-------------|---------------|
-| Create flow | `bd create "Flow: {flow_id}" -t epic -p 1 --description="{purpose}" --notes="{context}"` |
-| Create task | `bd create "{task}" --parent {epic_id} -p 2 --description="{what_and_why}" --notes="{files, phase}"` |
-| Start task | `bd update {id} --status in_progress` |
-| Complete task | `bd close {id} --reason "commit: {sha}"` |
-| Block task | `bd update {id} --status blocked --notes "{reason}"` |
-| Get ready tasks | `bd ready` |
-| Add notes | `bd update {id} --notes "{learning}"` |
-| Sync to git | `bd sync` |
-| Prime context | `bd prime` |
-| Show blocked | `bd blocked` |
+| Create flow | `br create "Flow: {flow_id}" -t epic -p 1 --description="{purpose}" --notes="{context}"` |
+| Create task | `br create "{task}" --parent {epic_id} -p 2 --description="{what_and_why}" --notes="{files, phase}"` |
+| Start task | `br update {id} --status in_progress` |
+| Complete task | `br close {id} --reason "commit: {sha}"` |
+| Block task | `br update {id} --status blocked --notes "{reason}"` |
+| Get ready tasks | `br ready` |
+| Add notes | `br update {id} --notes "{learning}"` |
+| Sync to git | `br sync --flush-only` |
+| Prime context | `br prime` |
+| Show blocked | `br blocked` |
 
-**CRITICAL: Always include `--description` and `--notes` with `bd create`:**
+**CRITICAL: Always include `--description` and `--notes` with `br create`:**
 
 - `--description`: WHY this issue exists and WHAT needs to be done
 - `--notes`: CONTEXT - files affected, dependencies, origin command, timestamp
@@ -192,7 +194,7 @@ Stealth mode keeps Beads data local-only (not committed to git).
 **Why this matters:**
 
 - Notes survive context compaction - critical for multi-session work
-- `bd ready` finds unblocked work automatically
+- `br ready` finds unblocked work automatically
 - If resuming in 2 weeks would be hard without context, use Beads
 
 ### Session Protocol
@@ -200,14 +202,18 @@ Stealth mode keeps Beads data local-only (not committed to git).
 At session start:
 
 ```bash
-bd sync
-bd prime
+br sync --flush-only
+git add .beads/
+git commit -m "sync beads"
+br prime
 ```
 
 At session end:
 
 ```bash
-bd sync
+br sync --flush-only
+git add .beads/
+git commit -m "sync beads"
 # Notes survive context compaction!
 ```
 
@@ -272,15 +278,15 @@ State tracked in `parallel_state.json`. Uses Claude's Task Tool to spawn sub-age
 
 ## Task Workflow (TDD)
 
-1. Select task from plan.md (or `bd ready`)
-2. Mark `[~]` in progress → `bd update {id} --status in_progress`
+1. Select task from plan.md (or `br ready`)
+2. Mark `[~]` in progress → `br update {id} --status in_progress`
 3. **Write failing tests** (Red)
 4. **Implement to pass** (Green)
 5. **Refactor** while green
 6. Verify >80% coverage
 7. Commit: `<type>(<scope>): <description>`
 8. Update plan.md: `[~]` → `[x]` with SHA
-9. Sync: `bd close {id} --reason "commit: {sha}"`
+9. Sync: `br close {id} --reason "commit: {sha}"`
 10. Log learnings in `learnings.md`
 
 **Important:** All commits stay local. Flow never pushes automatically.

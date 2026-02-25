@@ -103,7 +103,7 @@ Create `.agent/templates/{template_name}.md`:
 ## Phase 5: Register with Beads
 
 ```bash
-bd mol distill {epic_id} {template_name}
+br mol distill {epic_id} {template_name}
 ```
 
 ---
@@ -139,4 +139,4 @@ To use this template:
 
 1. **ABSTRACT PROPERLY** - Use meaningful placeholders
 2. **PRESERVE LEARNINGS** - Include gotchas and tips
-3. **BEADS SYNC** - Register with bd mol
+3. **BEADS SYNC** - Register with br mol

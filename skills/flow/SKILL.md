@@ -32,7 +32,7 @@ Flow requires Beads for persistent cross-session memory:
 - Each flow becomes a Beads epic
 - Tasks sync bidirectionally
 - Notes survive context compaction
-- Run `bd prime` at session start
+- Run `br prime` at session start
 
 ## Universal File Resolution Protocol
 
@@ -74,15 +74,15 @@ Flow requires Beads for persistent cross-session memory:
 
 ## Task Workflow (TDD) - Beads-First
 
-1. **Select task** from `bd ready` (Beads is source of truth)
-2. **Mark in progress**: `bd update {id} --status in_progress`
+1. **Select task** from `br ready` (Beads is source of truth)
+2. **Mark in progress**: `br update {id} --status in_progress`
 3. **Write failing tests** (Red phase) - CRITICAL: confirm failure first
 4. **Implement** to pass (Green phase)
 5. **Refactor** with test safety
 6. **Verify coverage** (>80% target)
 7. **Commit** with format: `<type>(<scope>): <description>`
 8. **Attach git notes** with task summary
-9. **Sync to Beads**: `bd close {id} --reason "commit: {sha}"`
+9. **Sync to Beads**: `br close {id} --reason "commit: {sha}"`
 
 **CRITICAL:** Never write `[x]` or `[~]` markers to spec.md. Beads is the source of truth.
 
@@ -103,13 +103,13 @@ When a phase completes:
 4. Await user confirmation
 5. Create checkpoint commit
 6. Attach verification report as git note
-7. Record checkpoint in Beads: `bd update {epic_id} --append-notes "Phase {N} checkpoint: {sha}"
+7. Record checkpoint in Beads: `br update {epic_id} --append-notes "Phase {N} checkpoint: {sha}"
 
 ## Proactive Behaviors
 
 When Flow skill is active:
 - Check for resume state at session start
-- Offer to run `bd prime` for context
+- Offer to run `br prime` for context
 - Prompt for learnings capture after tasks
 - Suggest pattern elevation at phase completion
 - Warn if tech-stack changes without documentation

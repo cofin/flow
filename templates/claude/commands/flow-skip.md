@@ -30,7 +30,7 @@ In `.agent/specs/{flow_id}/plan.md`:
 ## Phase 3: Update Beads
 
 ```bash
-bd update {task_id} --status skipped --notes "Skipped: {reason}"
+br update {task_id} --status skipped --notes "Skipped: {reason}"
 ```
 
 ---

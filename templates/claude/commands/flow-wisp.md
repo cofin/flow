@@ -23,7 +23,7 @@ Wisps have NO audit trail - they're meant to be discarded.
 ## Phase 1: Create Wisp
 
 ```bash
-bd create "Wisp: {description}" -t task -p 4 \
+br create "Wisp: {description}" -t task -p 4 \
   --description="{exploration_goal_and_what_youre_trying_to_learn}" \
   --notes="Ephemeral exploration. No audit trail. Created by /flow-wisp on {date}"
 ```
@@ -77,7 +77,7 @@ When done, choose:
 
 ```bash
 rm -rf .agent/wisps/{wisp_id}
-bd mol discard {wisp_id}
+br mol discard {wisp_id}
 git checkout .  # Discard any code changes
 ```
 

@@ -133,14 +133,14 @@ This creates:
 
 Flow follows TDD workflow (Beads-first):
 
-1. Select task from `bd ready` (Beads is source of truth)
-2. Mark in progress: `bd update <id> --status in_progress`
+1. Select task from `br ready` (Beads is source of truth)
+2. Mark in progress: `br update <id> --status in_progress`
 3. Write failing tests
 4. Implement to pass
 5. Refactor
 6. Verify coverage
 7. Commit with conventional format
-8. Sync to Beads: `bd close <id> --reason "commit: <sha>"`
+8. Sync to Beads: `br close <id> --reason "commit: <sha>"`
 9. Capture learnings
 
 **Note:** Never write `[x]` or `[~]` markers to spec.md. Beads is the source of truth.
@@ -222,25 +222,29 @@ Beads provides persistent memory across sessions:
 
 ```bash
 # At session start
-bd sync
-bd prime
+br sync --flush-only
+git add .beads/
+git commit -m "sync beads"
+br prime
 
 # During work
-bd ready              # Show unblocked tasks
-bd update <id> --status in_progress
-bd close <id> --reason "commit: abc123"
+br ready              # Show unblocked tasks
+br update <id> --status in_progress
+br close <id> --reason "commit: abc123"
 
 # At session end
-bd sync
+br sync --flush-only
+git add .beads/
+git commit -m "sync beads"
 # Notes survive context compaction!
 ```
 
 ### Session Protocol
 
-1. **Start**: `bd sync && bd prime` loads context
+1. **Start**: `br sync --flush-only && br prime` loads context
 2. **Work**: Update task status as you progress
 3. **Learn**: Add notes for important discoveries
-4. **End**: `bd sync` persists everything
+4. **End**: `br sync --flush-only && git add .beads/ && git commit -m "sync beads"` persists everything
 
 ## Knowledge System (Ralph-style)
 

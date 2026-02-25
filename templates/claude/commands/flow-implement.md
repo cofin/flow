@@ -44,9 +44,9 @@ Implementing flow: **$ARGUMENTS**
 ## Phase 1: Beads Sync
 
 ```bash
-bd prime                    # Load AI-optimized context
-bd ready                    # List unblocked tasks
-bd show {epic_id}          # View flow status
+br prime                    # Load AI-optimized context
+br ready                    # List unblocked tasks
+br show {epic_id}          # View flow status
 ```
 
 ---
@@ -58,11 +58,11 @@ bd show {epic_id}          # View flow status
 ### 2.1 Primary: Use Beads
 
 ```bash
-bd ready                    # List unblocked tasks ready to work
-bd show {epic_id}          # View epic with all tasks
+br ready                    # List unblocked tasks ready to work
+br show {epic_id}          # View epic with all tasks
 ```
 
-Select task from `bd ready` output. If multiple ready tasks, ask user which to start.
+Select task from `br ready` output. If multiple ready tasks, ask user which to start.
 
 ### 2.2 Fallback: Parse spec.md
 
@@ -75,23 +75,23 @@ If Beads unavailable or no tasks found:
 
 ## Phase 3: Task Execution Loop
 
-For each task from `bd ready` or spec.md:
+For each task from `br ready` or spec.md:
 
 ### 3.1 Mark In Progress
 
 **If task not in Beads, create it first:**
 
 ```bash
-bd create "{task_description}" --parent {epic_id} -p 2 \
+br create "{task_description}" --parent {epic_id} -p 2 \
   --description="{what_needs_to_be_done_and_why}" \
   --notes="Phase {N}, Task {M}. Files: {affected_files}. Created by /flow-implement"
-bd update {new_task_id} --status in_progress
+br update {new_task_id} --status in_progress
 ```
 
 **If task exists in Beads:**
 
 ```bash
-bd update {task_id} --status in_progress
+br update {task_id} --status in_progress
 ```
 
 **CRITICAL:** 
@@ -137,7 +137,7 @@ git commit -m "{type}({scope}): {description}"
 ### 3.7 Sync to Beads (Source of Truth)
 
 ```bash
-bd close {task_id} --reason "commit: {sha}"
+br close {task_id} --reason "commit: {sha}"
 ```
 
 **CRITICAL:** Beads is the source of truth. Do NOT update spec.md with `[x]` markers.
@@ -160,7 +160,7 @@ If pattern discovered, append to `learnings.md`:
 Sync to Beads:
 
 ```bash
-bd update {task_id} --notes "{learning}"
+br update {task_id} --notes "{learning}"
 ```
 
 ---
@@ -207,7 +207,7 @@ git commit --allow-empty -m "flow(checkpoint): Phase {N} complete"
 Record in Beads:
 
 ```bash
-bd update {epic_id} --append-notes "Phase {N} verified: tests passed, user confirmed, checkpoint: {sha}"
+br update {epic_id} --append-notes "Phase {N} verified: tests passed, user confirmed, checkpoint: {sha}"
 ```
 
 ### 4.7 Offer Pattern Elevation
@@ -264,4 +264,4 @@ Next Task: {description}
 3. **LEARNINGS CAPTURE** - Record patterns as discovered
 4. **PHASE CHECKPOINTS** - Verify and checkpoint at phase end
 5. **NO SKIP** - Use `/flow-skip` if task must be skipped
-6. **USE `bd ready`** - Always check Beads for next task
+6. **USE `br ready`** - Always check Beads for next task

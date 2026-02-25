@@ -35,7 +35,7 @@ Change status: `[~]` or `[ ]` → `[-]`
 
 ### 3.2 Sync to Beads
 ```bash
-bd close {task_id} --reason "SKIPPED: {reason}"
+br close {task_id} --reason "SKIPPED: {reason}"
 ```
 
 ### 3.3 Log to Skipped File
@@ -60,4 +60,4 @@ Reason: {reason}
 Finding next task...
 ```
 
-Then display next available task from `bd ready`.
+Then display next available task from `br ready`.

@@ -135,7 +135,7 @@ Create `.agent/templates/{template_name}.md`:
 
 If Beads epic exists:
 ```bash
-bd mol distill {epic_id} {template_name}
+br mol distill {epic_id} {template_name}
 ```
 
 ---
@@ -175,5 +175,5 @@ Registered with Beads: {yes/no}
 1. **INTERACTIVE** - Let user decide what to template
 2. **MEANINGFUL PLACEHOLDERS** - Use descriptive names
 3. **PRESERVE LEARNINGS** - Include gotchas and patterns
-4. **BEADS SYNC** - Register with bd mol
+4. **BEADS SYNC** - Register with br mol
 """

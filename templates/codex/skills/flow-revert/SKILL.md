@@ -62,7 +62,7 @@ Reset task status: `[x]` → `[ ]`
 
 ### 3.3 Reopen Beads Tasks
 ```bash
-bd update {task_id} --status pending
+br update {task_id} --status pending
 ```
 
 ### 3.4 Clear State

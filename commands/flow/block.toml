@@ -38,7 +38,7 @@ To: `- [!] N. Task description [BLOCKED: {reason}]`
 ## Phase 4: Update Beads
 
 ```bash
-bd block {task_id} --reason "{reason}"
+br block {task_id} --reason "{reason}"
 ```
 
 If bd command fails, report error but continue with plan update.
@@ -77,7 +77,7 @@ Logged: blockers.md
 Next Steps:
 - Address the blocker
 - Run `/flow:implement {flow_id}` to continue with other tasks
-- Run `bd ready` to see unblocked tasks
+- Run `br ready` to see unblocked tasks
 ```
 
 ---

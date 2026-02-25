@@ -5,8 +5,8 @@ Create context handoff document for session transfer.
 ## Phase 1: Gather Current State
 
 ```bash
-bd ready
-bd show {current_task_id}
+br ready
+br show {current_task_id}
 git log --oneline -10
 ```
 
@@ -34,7 +34,7 @@ Create `.agent/handoff.md`:
 
 ## Commands to Resume
 ```bash
-bd prime
+br prime
 /flow:implement {flow_id}
 ```
 ```
@@ -42,5 +42,5 @@ bd prime
 ## Phase 3: Sync to Beads
 
 ```bash
-bd update {task_id} --notes "HANDOFF: {summary}"
+br update {task_id} --notes "HANDOFF: {summary}"
 ```

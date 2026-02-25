@@ -24,7 +24,7 @@ For each flow in `.agent/flows.md`:
 ## Phase 2: Beads Validation
 
 ```bash
-bd status
+br status
 ```
 
 ### 2.1 Epic Sync

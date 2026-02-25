@@ -76,10 +76,10 @@ Append to `.agent/specs/{flow_id}/revisions.md`:
 If plan changed:
 ```bash
 # Update existing tasks with revision notes
-bd update {affected_task_ids} --notes "Revised: {reason}"
+br update {affected_task_ids} --notes "Revised: {reason}"
 
 # If NEW tasks were added during revision, create with FULL CONTEXT:
-bd create "{new_task}" --parent {epic_id} -p 2 \
+br create "{new_task}" --parent {epic_id} -p 2 \
   --description="{what_changed_and_why}" \
   --notes="Added during revision. Reason: {reason}. Created by /flow-revise on {date}"
 ```

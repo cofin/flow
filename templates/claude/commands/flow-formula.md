@@ -18,7 +18,7 @@ Managing Beads flow templates (formulas).
 
 Lists available templates from:
 - Local: `.agent/templates/`
-- Beads: `bd mol list`
+- Beads: `br mol list`
 
 ### Pour Template
 
@@ -47,7 +47,7 @@ Determine action: `list`, `pour`, or `distill`
 ## Phase 2: List Action
 
 ```bash
-bd mol list
+br mol list
 ```
 
 Display:
@@ -77,7 +77,7 @@ bugfix-standard
 ## Phase 3: Pour Action
 
 ```bash
-bd mol pour {template_name}
+br mol pour {template_name}
 ```
 
 Then customize:
@@ -99,7 +99,7 @@ Then customize:
 3. Save to `.agent/templates/{name}.md`
 4. Register with Beads:
    ```bash
-   bd mol distill {epic_id} {template_name}
+   br mol distill {epic_id} {template_name}
    ```
 
 ---
@@ -138,6 +138,6 @@ Then customize:
 
 ## Critical Rules
 
-1. **BEADS INTEGRATION** - Use bd mol commands
+1. **BEADS INTEGRATION** - Use br mol commands
 2. **ABSTRACT PROPERLY** - Use placeholders
 3. **PRESERVE GUIDANCE** - Include learnings

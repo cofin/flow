@@ -24,19 +24,19 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
 1.  **Scan Active Flows:** Parse the **Flow Registry** for active/in-progress flows.
 2.  **Get Beads Status (Source of Truth):**
     ```bash
-    bd ready
-    bd blocked
-    bd show <epic_id> --children --json
+    br ready
+    br blocked
+    br show <epic_id> --children --json
     ```
 3.  **Generate Report:**
     For each active flow:
-    *   Get task status from Beads (`bd show <epic_id> --children --json`).
+    *   Get task status from Beads (`br show <epic_id> --children --json`).
     *   Count: pending, in_progress, completed, blocked.
     *   Calculate percentage complete.
     *   **Format:**
         *   `[Icon] <flow_id>: <Description> (<N>% Complete)`
-        *   `      Next Task: <Next ready task from bd ready>`
-        *   `      Blockers: <Count from bd blocked>`
+        *   `      Next Task: <Next ready task from br ready>`
+        *   `      Blockers: <Count from br blocked>`
 
 ---
 
@@ -49,7 +49,7 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
 
 2.  **Get Beads Details:**
     *   Get the epic ID from `metadata.json`.
-    *   Run `bd show <epic_id>` to get Beads status.
+    *   Run `br show <epic_id>` to get Beads status.
 
 3.  **Generate Report:**
     *   **Header:** Flow Title & ID

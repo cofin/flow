@@ -75,9 +75,9 @@ Create `.agent/specs/{flow_id}/handoff_{N}.md`:
 
 To resume in new session:
 ```bash
-bd prime
-bd ready
-bd show {epic_id}
+br prime
+br ready
+br show {epic_id}
 ```
 
 ## Notes for Next Session
@@ -121,7 +121,7 @@ Handoff: handoff_{N}.md
 Progress: {completed}/{total} tasks
 
 To resume in new session:
-1. Run `bd prime` to load Beads context
+1. Run `br prime` to load Beads context
 2. Read .agent/specs/{flow_id}/handoff_{N}.md
 3. Run `/flow-implement {flow_id}` to continue
 ```

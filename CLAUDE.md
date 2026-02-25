@@ -113,7 +113,7 @@ project/
 │           ├── blockers.md       # Block history log
 │           ├── skipped.md        # Skipped tasks log
 │           └── revisions.md      # Revision history log
-└── .beads/                  # Beads data (created by bd init --stealth)
+└── .beads/                  # Beads data (created by br init --stealth)
 ```
 
 ## Key Concepts
@@ -128,48 +128,52 @@ A track is a logical unit of work (feature, bug fix, refactor). Each track has:
 
 ### Task Workflow (TDD)
 
-1. Select task from plan.md (or use `bd ready` for Beads-aware selection)
-2. Mark `[~]` in progress → sync to Beads: `bd update <id> --status in_progress`
+1. Select task from plan.md (or use `br ready` for Beads-aware selection)
+2. Mark `[~]` in progress → sync to Beads: `br update <id> --status in_progress`
 3. **Write failing tests** (Red)
 4. **Implement to pass** (Green)
 5. **Refactor** while green
 6. Verify >80% coverage
 7. Commit: `<type>(<scope>): <description>`
 8. Update plan.md with commit SHA: `[x]`
-9. Sync to Beads: `bd close <id> --reason "commit: <sha>"`
+9. Sync to Beads: `br close <id> --reason "commit: <sha>"`
 10. **Log learnings** in learnings.md
 
 **Important:** All commits stay local. Flow never pushes automatically.
 
 ### Beads Integration (Required)
 
+**Note:** `br` is non-invasive and never executes git commands. After `br sync --flush-only`, you must manually run `git add .beads/ && git commit`.
+
 Beads provides persistent cross-session memory:
 
 - **Stealth mode by default** (local-only, not committed)
 - Each track becomes a Beads epic
-- Tasks sync for dependency tracking: `bd ready` finds unblocked tasks
+- Tasks sync for dependency tracking: `br ready` finds unblocked tasks
 - **Notes survive context compaction** - critical for multi-session work
-- Graceful degradation if `bd` unavailable
+- Graceful degradation if `br` unavailable
 
 **Key Beads Commands:**
 
 ```bash
-bd init --stealth                     # Initialize Beads (stealth mode)
-bd create "Track: name" -t epic -p 1 \
+br init --stealth                     # Initialize Beads (stealth mode)
+br create "Track: name" -t epic -p 1 \
   --description="Track purpose and goals" \
   --notes="Created by /flow-prd on YYYY-MM-DD"
-bd create "Task" --parent <epic> -p 2 \
+br create "Task" --parent <epic> -p 2 \
   --description="What needs to be done and why" \
   --notes="Phase N, Task M. Files: affected_files"
-bd ready                              # Show tasks ready to work on
-bd update <id> --status in_progress   # Start task
-bd close <id> --reason "commit: sha"  # Complete task with commit reference
-bd blocked                            # Show blocked tasks
-bd sync                               # Sync with git
-bd prime                              # Load context for session
+br ready                              # Show tasks ready to work on
+br update <id> --status in_progress   # Start task
+br close <id> --reason "commit: sha"  # Complete task with commit reference
+br blocked                            # Show blocked tasks
+br sync --flush-only                               # Sync with git
+git add .beads/
+git commit -m "sync beads"
+br prime                              # Load context for session
 ```
 
-**CRITICAL: Always include `--description` and `--notes` with `bd create`:**
+**CRITICAL: Always include `--description` and `--notes` with `br create`:**
 
 - `--description`: WHY this issue exists and WHAT needs to be done
 - `--notes`: CONTEXT - files affected, dependencies, origin command, timestamp
@@ -188,7 +192,7 @@ bd prime                              # Load context for session
 **Why this matters:**
 
 - Notes survive context compaction - critical for multi-session work
-- `bd ready` finds unblocked work automatically
+- `br ready` finds unblocked work automatically
 - If resuming in 2 weeks would be hard without context, use Beads
 
 ### Learnings System (Ralph-style Knowledge Flywheel)
@@ -289,7 +293,7 @@ gemini install flow
 
 ```bash
 npm install -g beads-cli
-bd init --stealth
+br init --stealth
 ```
 
 ## Related Documentation

@@ -22,7 +22,7 @@ Wisps have NO audit trail - meant to be discarded.
 ### Phase 1: Create Wisp
 
 ```bash
-bd create "Wisp: {description}" -t task -p 4 \
+br create "Wisp: {description}" -t task -p 4 \
   --description="{exploration_goal}" \
   --notes="Ephemeral exploration. Created by /flow:wisp"
 ```

@@ -14,7 +14,7 @@ Check required files:
 ## Phase 2: Beads Validation
 
 ```bash
-bd status
+br status
 ```
 
 Verify flow/epic sync.

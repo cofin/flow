@@ -46,7 +46,7 @@ To: `- [-] N. Task description [-: {reason}]`
 ## Phase 5: Update Beads
 
 ```bash
-bd update {task_id} --status skipped --notes "Skipped: {reason}"
+br update {task_id} --status skipped --notes "Skipped: {reason}"
 ```
 
 ---

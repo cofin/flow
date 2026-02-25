@@ -24,7 +24,7 @@ This ensures spec.md reflects the final state from Beads (source of truth).
 Check Beads for completion status:
 
 ```bash
-bd show {epic_id}
+br show {epic_id}
 ```
 
 Or read `.agent/specs/{flow_id}/spec.md` Implementation Plan section to verify all tasks are `[x]` completed or `[-]` skipped.
@@ -61,8 +61,8 @@ Append selected patterns to `.agent/patterns.md`:
 ## Phase 3: Close Beads Epic
 
 ```bash
-bd close {epic_id} --reason "Flow archived"
-bd compact  # Optional: compact Beads after archiving
+br close {epic_id} --reason "Flow archived"
+br compact  # Optional: compact Beads after archiving
 ```
 
 ## Phase 4: Move to Archive

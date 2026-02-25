@@ -44,10 +44,10 @@ Append to `.agent/specs/{flow_id}/revisions.md`:
 ### Phase 6: Sync Beads
 
 ```bash
-bd update {affected_task_ids} --notes "Revised: {reason}"
+br update {affected_task_ids} --notes "Revised: {reason}"
 
 # If NEW tasks added:
-bd create "{new_task}" --parent {epic_id} -p 2 \
+br create "{new_task}" --parent {epic_id} -p 2 \
   --description="{what_and_why}" \
   --notes="Added during revision. Created by /flow:revise"
 ```

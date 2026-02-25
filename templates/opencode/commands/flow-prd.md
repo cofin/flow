@@ -25,43 +25,26 @@ You MAY ONLY:
 
 - Create/edit files in `.agent/specs/` (spec.md, metadata.json)
 - Create/edit `.agent/flows.md` registry
-- Run `bd create` commands for Beads tracking
+- Run `br create` commands for Beads tracking
 - Read source code for analysis (but NEVER modify it)
 
 **Implementation happens ONLY when user explicitly runs `/flow-implement`.**
 
 ---
 
-## 1.5 BEADS HOOK CHECK
+## 1.5 BEADS CLI CHECK
 
-**PROTOCOL: Ensure Beads hooks are installed before proceeding.**
+**PROTOCOL: Ensure Beads CLI is available before proceeding.**
+
+**Note:** `br` is non-invasive and never executes git commands. After `br sync --flush-only`, you must manually run `git add .beads/ && git commit`.
 
 1. **Check Beads CLI:**
 
     ```bash
-    command -v bd &> /dev/null && echo "BEADS_OK" || echo "BEADS_MISSING"
+    command -v br &> /dev/null && echo "BEADS_OK" || echo "BEADS_MISSING"
     ```
 
 2. **If BEADS_MISSING:** Stop and inform user to install Beads first.
-
-3. **Check Hook Status:**
-
-    ```bash
-    bd setup opencode --check 2>/dev/null && echo "HOOKS_OK" || echo "HOOKS_MISSING"
-    ```
-
-4. **If HOOKS_MISSING:**
-
-    > "Beads hooks not installed for OpenCode. Install now?"
-    >
-    > - **A) Yes** (recommended) - Run `bd setup opencode`
-    > - **B) No** - Skip (Beads sync may not work properly)
-
-    If A selected:
-
-    ```bash
-    bd setup opencode
-    ```
 
 ---
 
@@ -147,7 +130,7 @@ You MAY ONLY:
 1. **Master Epic:**
 
     ```bash
-    bd create "PRD: <prd_name>" -t epic -p 1 \
+    br create "PRD: <prd_name>" -t epic -p 1 \
       --description="<north_star_goal_and_full_context>" \
       --notes="Chapters: <list_of_chapter_names>. Created by /flow-prd on <date>"
     ```
@@ -163,7 +146,7 @@ You MAY ONLY:
     For each Chapter in Roadmap:
 
     ```bash
-    bd create "Flow: <flow_name>" --parent <master_epic_id> -t epic \
+    br create "Flow: <flow_name>" --parent <master_epic_id> -t epic \
       --description="<chapter_purpose_and_scope>" \
       --notes="Part of PRD: <prd_name>. Chapter <N> of <total>. Dependencies: <if any>"
     ```
@@ -301,8 +284,8 @@ Append to `.agent/flows.md`:
 ## Critical Rules
 
 1. **NO CODE MODIFICATION** - NEVER edit source code files. Planning documents ONLY.
-2. **BEADS REQUIRED** - Check hooks are installed
-3. **FULL CONTEXT** - Always use `--description` and `--notes` with bd create
+2. **BEADS REQUIRED** - Check CLI is available
+3. **FULL CONTEXT** - Always use `--description` and `--notes` with br create
 4. **ASK FIRST** - Clarifying questions before proposing chapters
 5. **CODE ANALYSIS (READ-ONLY)** - Read actual code before asking flow-specific questions but NEVER modify it
 6. **AUTO-PLAN** - Create unified spec.md for first flow (NOT implementation)

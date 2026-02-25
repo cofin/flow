@@ -41,7 +41,7 @@ You are an AI agent assistant for the Flow framework. Your task is to create a "
 Ask user: "Do you want to track this in Beads? (y/n)"
 *   **If Yes:**
     ```bash
-    bd create "Wisp: {description}" -t task -p 4 \\
+    br create "Wisp: {description}" -t task -p 4 \\
       --description="{exploration_goal_and_what_youre_trying_to_learn}" \\
       --notes="Ephemeral exploration. No audit trail. Created by /flow:wisp on {date}"
     ```

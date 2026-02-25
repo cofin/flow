@@ -16,7 +16,7 @@ Change status: `[~]` or `[ ]` → `[-]`
 
 ### 2.2 Sync to Beads
 ```bash
-bd close {task_id} --reason "SKIPPED: {reason}"
+br close {task_id} --reason "SKIPPED: {reason}"
 ```
 
 ### 2.3 Log to Skipped File
@@ -24,4 +24,4 @@ Append to `.agent/specs/{flow_id}/skipped.md`
 
 ## Phase 3: Continue
 
-Display next available task from `bd ready`.
+Display next available task from `br ready`.

@@ -13,7 +13,7 @@ You are an AI agent assistant for the Flow spec-driven development framework. Yo
 1.  **Sync to spec.md:**
     *   Run `/flow:sync <flow_id>` to ensure spec.md reflects current Beads state (source of truth).
 2.  **Check Input:** Ensure `flow_id` is provided. If not, list completed flows from the registry and ask user to select.
-3.  **Verify Completion:** Check Beads epic status with `bd show <epic_id>` or read spec.md Implementation Plan section.
+3.  **Verify Completion:** Check Beads epic status with `br show <epic_id>` or read spec.md Implementation Plan section.
     *   If tasks are incomplete, warn the user: "Flow '<flow_id>' has incomplete tasks. Archive anyway? (y/n)"
 
 ---
@@ -57,12 +57,12 @@ You are an AI agent assistant for the Flow spec-driven development framework. Yo
 1.  **Find Epic:** Get Beads epic ID from metadata.
 2.  **Close Epic:**
     ```bash
-    bd close <epic_id> --reason "Flow archived"
+    br close <epic_id> --reason "Flow archived"
     ```
     (This automatically archives child tasks if Beads is configured to do so).
 3.  **Compact Beads:**
     ```bash
-    bd compact
+    br compact
     ```
 
 ---

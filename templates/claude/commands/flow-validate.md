@@ -23,8 +23,8 @@ Check required files exist:
 ## Phase 2: Beads Health
 
 ```bash
-bd --version
-bd prime
+br --version
+br prime
 ```
 
 Check Beads is operational.

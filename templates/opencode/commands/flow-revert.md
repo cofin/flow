@@ -32,7 +32,7 @@ git commit -m "revert: {scope}"
 Update plan.md status to `[ ]`
 
 ```bash
-bd update {task_id} --status pending
+br update {task_id} --status pending
 ```
 
 ## Final Output

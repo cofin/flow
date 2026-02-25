@@ -16,7 +16,7 @@ Change status: `[~]` → `[!]`
 
 ### 2.2 Sync to Beads
 ```bash
-bd update {task_id} --status blocked --notes "{reason}"
+br update {task_id} --status blocked --notes "{reason}"
 ```
 
 ### 2.3 Log to Blockers File
@@ -30,6 +30,6 @@ Task {task_id} marked as BLOCKED
 Reason: {reason}
 
 Next options:
-1. Work on another task: `bd ready`
+1. Work on another task: `br ready`
 2. Skip this task: `/flow:skip {task_id}`
 ```

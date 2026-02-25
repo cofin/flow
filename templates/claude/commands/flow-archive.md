@@ -25,7 +25,7 @@ If not provided, list completed flows from `.agent/flows.md` and ask user to sel
 Check Beads for completion status:
 
 ```bash
-bd show {epic_id}
+br show {epic_id}
 ```
 
 Or read `.agent/specs/{flow_id}/spec.md` Implementation Plan section.
@@ -86,13 +86,13 @@ Edit `.agent/flows.md`:
 1. Get `beads_epic_id` from metadata.
 2. Close epic:
    ```bash
-   bd close {epic_id} --reason "Flow archived"
+   br close {epic_id} --reason "Flow archived"
    ```
 3. Compact Beads (optional but recommended):
    ```bash
-   bd compact
+   br compact
    # Or for aggressive compaction:
-   # bd mol squash
+   # br mol squash
    ```
 
 ---

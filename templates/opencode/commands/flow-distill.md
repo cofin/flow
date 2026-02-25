@@ -60,7 +60,7 @@ Create `.agent/templates/{template_name}.md`:
 ## Phase 5: Register with Beads
 
 ```bash
-bd mol distill {epic_id} {template_name}
+br mol distill {epic_id} {template_name}
 ```
 
 ## Critical Rules

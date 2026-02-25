@@ -17,8 +17,8 @@ Read current in-progress flow from `.agent/flows.md`
 
 ### 1.2 Current Task
 ```bash
-bd ready
-bd show {current_task_id}
+br ready
+br show {current_task_id}
 ```
 
 ### 1.3 Recent Activity
@@ -67,13 +67,13 @@ Create `.agent/handoff.md`:
 
 ## Beads Context
 ```bash
-bd prime
-bd ready
+br prime
+br ready
 ```
 
 ## Commands to Resume
 ```bash
-bd prime
+br prime
 # Then run:
 /flow:implement {flow_id}
 ```
@@ -82,7 +82,7 @@ bd prime
 ## Phase 3: Sync to Beads
 
 ```bash
-bd update {task_id} --notes "HANDOFF: {summary}"
+br update {task_id} --notes "HANDOFF: {summary}"
 ```
 
 ## Final Output
@@ -92,6 +92,6 @@ Handoff Created: .agent/handoff.md
 
 To resume in new session:
 1. Read .agent/handoff.md
-2. Run: bd prime
+2. Run: br prime
 3. Run: /flow:implement {flow_id}
 ```

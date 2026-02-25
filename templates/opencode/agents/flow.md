@@ -22,24 +22,24 @@ A flow is a logical unit of work (feature, bug fix, refactor). Each flow has:
 ### Beads Integration (Source of Truth)
 Beads provides persistent cross-session memory:
 ```bash
-bd init --stealth          # Initialize (stealth mode)
-bd ready                   # Show tasks ready to work on
-bd blocked                 # Show blocked tasks
-bd update <id> --status in_progress  # Start task
-bd close <id> --reason "..." # Complete task
-bd prime                   # Load context for session
-bd show <id> --children --json  # Export epic with tasks
-bd compact                 # Compact database
+br init --stealth          # Initialize (stealth mode)
+br ready                   # Show tasks ready to work on
+br blocked                 # Show blocked tasks
+br update <id> --status in_progress  # Start task
+br close <id> --reason "..." # Complete task
+br prime                   # Load context for session
+br show <id> --children --json  # Export epic with tasks
+br compact                 # Compact database
 ```
 
 ### Task Workflow (TDD) - Beads-First
-1. **Select task** from `bd ready` (Beads is source of truth)
-2. **Mark in progress** → `bd update <id> --status in_progress`
+1. **Select task** from `br ready` (Beads is source of truth)
+2. **Mark in progress** → `br update <id> --status in_progress`
 3. **Write failing tests** (Red)
 4. **Implement to pass** (Green)
 5. **Refactor** while green
 6. Commit with conventional format
-7. **Sync to Beads** → `bd close <id> --reason "commit: <sha>"`
+7. **Sync to Beads** → `br close <id> --reason "commit: <sha>"`
 8. Log learnings in learnings.md
 
 **CRITICAL:** Never write `[x]` or `[~]` markers to spec.md. Beads is the source of truth.

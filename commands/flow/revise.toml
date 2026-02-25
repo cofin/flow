@@ -99,19 +99,19 @@ Create revisions.md if it doesn't exist.
 
 If plan changed:
 ```bash
-bd update {affected_task_ids} --notes "Revised: {brief reason}"
+br update {affected_task_ids} --notes "Revised: {brief reason}"
 ```
 
 For new tasks (**CRITICAL: Include full context**):
 ```bash
-bd create "{task}" --parent {epic_id} -p 2 \\
+br create "{task}" --parent {epic_id} -p 2 \\
   --description="{what_changed_and_why_this_task_is_needed}" \\
   --notes="Added during revision. Reason: {revision_reason}. Created by /flow:revise on {date}"
 ```
 
 For removed tasks:
 ```bash
-bd close {task_id} --reason "Removed in revision"
+br close {task_id} --reason "Removed in revision"
 ```
 
 ---

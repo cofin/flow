@@ -16,9 +16,9 @@ Read `.agent/flows.md` to get list of active flows.
 ## Phase 2: Beads Status (Source of Truth)
 
 ```bash
-bd prime
-bd ready       # Unblocked tasks ready to work
-bd blocked     # Blocked tasks
+br prime
+br ready       # Unblocked tasks ready to work
+br blocked     # Blocked tasks
 ```
 
 ---
@@ -30,7 +30,7 @@ For each active flow:
 ### Primary: Get Status from Beads
 
 ```bash
-bd show {epic_id} --children --json
+br show {epic_id} --children --json
 ```
 
 Parse JSON to count:

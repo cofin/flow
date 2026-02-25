@@ -70,7 +70,7 @@ Reset task statuses in `plan.md`:
 ## Phase 6: Sync Beads
 
 ```bash
-bd update {task_ids} --status pending
+br update {task_ids} --status pending
 ```
 
 ---

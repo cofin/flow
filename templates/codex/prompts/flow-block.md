@@ -8,7 +8,7 @@ Mark a task as blocked with documented reason.
 ## Phase 1: Identify Task
 
 If task_id not provided, use current in-progress task from:
-1. Beads: `bd ready` (look for in_progress)
+1. Beads: `br ready` (look for in_progress)
 2. Plan.md: find `[~]` task
 
 ## Phase 2: Document Block
@@ -25,7 +25,7 @@ Add block note:
 
 ### 2.2 Sync to Beads
 ```bash
-bd update {task_id} --status blocked --notes "{reason}"
+br update {task_id} --status blocked --notes "{reason}"
 ```
 
 ### 2.3 Log to Blockers File
@@ -48,7 +48,7 @@ Task {task_id} marked as BLOCKED
 Reason: {reason}
 
 Next options:
-1. Work on another task: `bd ready`
+1. Work on another task: `br ready`
 2. Skip this task: `/flow:skip {task_id}`
 3. Resolve blocker and unblock: `/flow:unblock {task_id}`
 ```

@@ -30,7 +30,7 @@ In `.agent/specs/{flow_id}/plan.md`:
 ## Phase 3: Update Beads
 
 ```bash
-bd block {task_id} --reason "{reason}"
+br block {task_id} --reason "{reason}"
 ```
 
 ---
@@ -61,7 +61,7 @@ Reason: {reason}
 Next Steps:
 - Address the blocker
 - Run `/flow-implement {flow_id}` to continue with other tasks
-- Run `bd ready` to see unblocked tasks
+- Run `br ready` to see unblocked tasks
 ```
 
 ---

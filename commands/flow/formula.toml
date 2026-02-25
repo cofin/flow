@@ -23,7 +23,7 @@ If no arguments, default to `list`.
 ### Phase 2a: List Beads Molecules
 
 ```bash
-bd mol list
+br mol list
 ```
 
 ### Phase 3a: List Local Templates
@@ -60,7 +60,7 @@ frontend-component.md - React/Vue component template
 ### Phase 2b: Pour Template
 
 ```bash
-bd mol pour {template_name}
+br mol pour {template_name}
 ```
 
 ### Phase 3b: Customize
@@ -131,7 +131,7 @@ Create `.agent/templates/{name}.md`:
 ### Phase 5c: Register with Beads
 
 ```bash
-bd mol distill {epic_id} {name}
+br mol distill {epic_id} {name}
 ```
 
 ### Phase 6c: Report
@@ -151,7 +151,7 @@ To use: /flow:formula pour {name}
 
 ## Critical Rules
 
-1. **BEADS INTEGRATION** - Use bd mol commands
+1. **BEADS INTEGRATION** - Use br mol commands
 2. **PLACEHOLDER CLARITY** - Use descriptive placeholders
 3. **PRESERVE LEARNINGS** - Include gotchas in templates
 """

@@ -14,7 +14,7 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
 
 1. **Check for Beads CLI:**
    ```bash
-   command -v bd &> /dev/null && echo "BEADS_OK" || echo "BEADS_MISSING"
+   command -v br &> /dev/null && echo "BEADS_OK" || echo "BEADS_MISSING"
    ```
 
 2. **If BEADS_MISSING:**
@@ -29,22 +29,9 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
 
    If installation fails, announce error and HALT.
 
-3. **Check Hook Status:**
-   ```bash
-   bd setup gemini --check 2>/dev/null && echo "HOOKS_OK" || echo "HOOKS_MISSING"
-   ```
+3. **Note:** `br` is non-invasive and never executes git commands. After `br sync --flush-only`, you must manually run `git add .beads/ && git commit`.
 
-4. **If HOOKS_MISSING:**
-   > "Beads hooks not installed for Gemini CLI. Install now?
-   > A) Yes (recommended) - Run `bd setup gemini`
-   > B) No - Skip (Beads sync may not work properly)"
-
-   If A selected:
-   ```bash
-   bd setup gemini
-   ```
-
-5. **Continue:** Once Beads is available and hooks checked, proceed to 1.1.
+4. **Continue:** Once Beads is available, proceed to 1.1.
 
 ---
 
@@ -81,11 +68,11 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
 
 1.  **Beads Validation:**
     ```bash
-    command -v bd &> /dev/null && echo "BEADS_OK" || echo "BEADS_MISSING"
-    bd version
+    command -v br &> /dev/null && echo "BEADS_OK" || echo "BEADS_MISSING"
+    br version
     ```
     If outdated, suggest: `npm update -g beads-cli`
-    Run `bd setup claude --check` if available.
+    Verify `br` is available and current.
 
 2.  **Legacy Specs Migration:**
     Scan for legacy spec locations:
@@ -118,7 +105,7 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
     d. Check if referenced files still exist in codebase
     e. Copy to `.agent/specs/{flow_id}/` (Rename directory if needed)
     f. Update `.agent/flows.md` registry
-    g. Create Beads epic: `bd create "Flow: {flow_id}" -t epic -p 2 --description "{flow_description}" --notes "Created by Flow during setup"`
+    g. Create Beads epic: `br create "Flow: {flow_id}" -t epic -p 2 --description "{flow_description}" --notes "Created by Flow during setup"`
 
 3.  **Learnings Ingestion with Validation:**
     For each spec with learnings.md:
@@ -549,7 +536,7 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
     > Mode: Stealth (local-only, not committed to git)"
 
     ```bash
-    bd init --stealth
+    br init --stealth
     ```
 
 3.  **Create Beads Config:**
