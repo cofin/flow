@@ -1,6 +1,6 @@
 ---
 name: python-quality
-description: Configuration and usage of Python quality tools: Ruff (linter/formatter), Pyright, and Based-Pyright (type checking).
+description: "Configuration and usage of Python quality tools: Ruff (linter/formatter), Pyright, and Based-Pyright (type checking)."
 ---
 
 # Python Quality Skill
@@ -104,3 +104,19 @@ reportAny = false         # Disable "Any" type reporting if too noisy
 2. **Pre-commit**: Use `pre-commit` to enforce these checks locally.
 3. **CI**: Run `ruff check`, `ruff format --check`, and type checking in CI.
 4. **Strictness**: Start strict (`typeCheckingMode = "strict"` or `all`) and suppress specific errors rather than starting loose.
+
+## Official References
+
+- https://docs.astral.sh/ruff/configuration/
+- https://github.com/astral-sh/ruff/releases
+- https://raw.githubusercontent.com/microsoft/pyright/main/docs/configuration.md
+- https://github.com/microsoft/pyright/releases
+- https://docs.basedpyright.com/latest/configuration/config-files/
+- https://github.com/detachhead/basedpyright/releases
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [Python](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/python.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

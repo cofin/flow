@@ -22,3 +22,20 @@ Read `docs/guides/testing/testing.md` for the canonical testing rules and fixtur
 - Prefer fixture helpers from `tests/fixtures/` for configs and DDL setup; avoid raw service connection usage unless required.
 - Use `pytest-xdist` (`uv run pytest -n auto`) and avoid `:memory:` SQLite for pooled tests; use `tempfile.NamedTemporaryFile` to isolate databases.
 - Tests must be function-based, and integration tests should use markers (`@pytest.mark.postgres`, etc.) and live under `tests/integration/`.
+
+## Official References
+
+- https://sqlspec.dev/
+- https://github.com/litestar-org/sqlspec/releases
+- https://docs.pytest.org/en/stable/
+- https://pytest-xdist.readthedocs.io/en/latest/
+- https://litestar-org.github.io/pytest-databases/latest/
+- https://docs.astral.sh/uv/guides/projects/#running-commands
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [SQLSpec](https://github.com/cofin/flow/blob/main/templates/styleguides/frameworks/sqlspec.md)
+- [Python](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/python.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

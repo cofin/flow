@@ -1,7 +1,7 @@
 ---
 description: Conduct pre-PRD research including codebase analysis and documentation lookup
 argument-hint: <topic>
-allowed-tools: Read, Glob, Grep, Bash, WebSearch, mcp__context7__resolve-library-id, mcp__context7__query-docs
+allowed-tools: Read, Glob, Grep, Bash, WebSearch
 ---
 
 # Flow Research
@@ -124,7 +124,7 @@ Create explicit research tasks with status tracking:
 ### 3.1 Library Documentation Lookup
 
 1. Identify libraries from Tech Stack relevant to topic
-2. Use Context7 or web search for current documentation
+2. Use web search for current documentation
 3. Focus on APIs, patterns, best practices
 4. Note deprecations and migration guides
 
@@ -319,6 +319,6 @@ Before completion, verify:
 ## Critical Rules
 
 1. **THOROUGH EXPLORATION** - Analyze codebase before external research
-2. **CURRENT DOCS** - Use Context7 for up-to-date library documentation
+2. **CURRENT DOCS** - Use current, authoritative library documentation
 3. **RISK FOCUSED** - Always include recovery planning
 4. **ACTIONABLE OUTPUT** - Research should directly inform PRD creation

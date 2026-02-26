@@ -257,3 +257,20 @@ def process_buffer(buf: bytes | bytearray | memoryview) -> int: ...
 - Use `Bound<'py, T>` (not `&T`) for PyO3 0.22+ API.
 - Prefer `abi3` when targeting multiple Python versions without recompilation.
 - Document Python-visible APIs in both docstrings and `.pyi` stubs.
+
+## Official References
+
+- https://pyo3.rs/main/
+- https://pyo3.rs/main/changelog.html
+- https://pyo3.rs/latest/migration.html
+- https://pyo3.rs/main/free-threading
+- https://pyo3.rs/main/doc/pyo3/types/struct.pybytes
+- https://www.maturin.rs/
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [Rust](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/rust.md)
+- [Python](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/python.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

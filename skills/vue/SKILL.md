@@ -220,12 +220,20 @@ litestar assets build      # Production build
 litestar assets generate-types  # Generate TS types
 ```
 
-## Context7 Lookup
 
-```python
-mcp__context7__resolve-library-id(libraryName="vue")
-mcp__context7__query-docs(
-    libraryId="/vuejs/vue",
-    query="composition api typescript"
-)
-```
+## Official References
+
+- https://vuejs.org/guide/introduction.html
+- https://vuejs.org/guide/typescript/overview.html
+- https://vuejs.org/guide/components/v-model.html
+- https://github.com/vuejs/core/releases
+- https://vite.dev/guide/
+- https://inertiajs.com/docs/v2/installation/client-side-setup
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [Vue](https://github.com/cofin/flow/blob/main/templates/styleguides/frameworks/vue.md)
+- [TypeScript](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/typescript.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

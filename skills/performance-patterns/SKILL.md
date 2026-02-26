@@ -262,3 +262,19 @@ struct PacketMetadata {
 - Profile in release mode (`--release`) with debug symbols (`debug = true`).
 - Document performance targets in specs (latency, throughput, memory).
 - Re-benchmark after dependency updates — regressions hide in minor versions.
+
+## Official References
+
+- https://bheisler.github.io/criterion.rs/book/user_guide/command_line_options.html
+- https://doc.rust-lang.org/beta/rustc/profile-guided-optimization.html
+- https://docs.python.org/3/library/time.html#time.perf_counter_ns
+- https://pyo3.rs/latest/migration.html
+- https://arrow.apache.org/docs/python/generated/pyarrow.RecordBatch.html
+- https://jcristharif.com/msgspec/
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [Rust](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/rust.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

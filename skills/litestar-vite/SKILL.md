@@ -257,12 +257,21 @@ Check `VITE_DEV_MODE=true` in `.env` and ensure:
 - Node/Bun is installed
 - `npm install` has been run in frontend directory
 
-## Context7 Lookup
 
-```python
-# Use main Litestar docs (includes vite plugin)
-mcp__context7__query-docs(
-    libraryId="/websites/litestar_dev_2",
-    query="VitePlugin ViteConfig SPA mode TypeGenConfig"
-)
-```
+## Official References
+
+- https://litestar-org.github.io/litestar-vite/
+- https://litestar-org.github.io/litestar-vite/usage/operation-modes/
+- https://litestar-org.github.io/litestar-vite/usage/type-generation/
+- https://litestar-org.github.io/litestar-vite/usage/migration-v015/
+- https://github.com/litestar-org/litestar-vite/blob/main/src/py/litestar_vite/config/_types.py
+- https://github.com/litestar-org/litestar-vite/blob/main/src/py/litestar_vite/config/_paths.py
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [Litestar](https://github.com/cofin/flow/blob/main/templates/styleguides/frameworks/litestar.md)
+- [Python](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/python.md)
+- [TypeScript](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/typescript.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

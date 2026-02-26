@@ -808,9 +808,20 @@ import {
 
 ---
 
-## Context7 Lookup
 
-```python
-mcp__context7__resolve-library-id(libraryName="shadcn ui")
-mcp__context7__query-docs(libraryId="/shadcn-ui/ui", query="dialog form components")
-```
+## Official References
+
+- https://ui.shadcn.com/docs/installation
+- https://ui.shadcn.com/docs/cli
+- https://ui.shadcn.com/docs/changelog
+- https://ui.shadcn.com/docs/forms/tanstack-form
+- https://www.radix-ui.com/primitives/docs/overview/introduction
+- https://tailwindcss.com/docs/installation
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [Tailwind and Shadcn](https://github.com/cofin/flow/blob/main/templates/styleguides/frameworks/tailwind.md)
+- [React](https://github.com/cofin/flow/blob/main/templates/styleguides/frameworks/react.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

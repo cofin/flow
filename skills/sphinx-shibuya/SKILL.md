@@ -69,3 +69,18 @@ Use only what the docs actually need, but favor these Shibuya-friendly extension
 - Prefer examples in `docs/examples/` and reference them with `literalinclude`.
 - Keep pages short, avoid heavy emoji usage, and favor neutral tone.
 - Use custom directives from `tools/sphinx_ext/` when available (e.g., playground/changelog helpers).
+
+## Official References
+
+- https://shibuya.lepture.com/
+- https://shibuya.lepture.com/changelog/
+- https://www.sphinx-doc.org/en/master/
+- https://sphinx-design.readthedocs.io/en/latest/
+- https://sphinx-docsearch.readthedocs.io/
+- https://sharm294.github.io/sphinx-datatables/
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

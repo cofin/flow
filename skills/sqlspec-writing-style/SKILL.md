@@ -23,3 +23,19 @@ Read `docs/guides/development/code-standards.md` first, then confirm the require
 - Prefer guard clauses and small functions (<= 75 lines); avoid inline comments and use Google-style docstrings.
 - Follow testing rules: function-based pytest only and use temp files for SQLite pooling tests.
 - Update `specs/guides/` when new patterns or requirements emerge so Claude-style workflow stays aligned.
+
+## Official References
+
+- https://sqlspec.dev/
+- https://sqlspec.dev/changelog.html
+- https://docs.astral.sh/ruff/
+- https://mypy.readthedocs.io/en/stable/
+- https://docs.pytest.org/en/stable/
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [SQLSpec](https://github.com/cofin/flow/blob/main/templates/styleguides/frameworks/sqlspec.md)
+- [Python](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/python.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

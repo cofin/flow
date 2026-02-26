@@ -56,13 +56,15 @@ class User(UUIDAuditBase):
 ### Service Pattern (Inner Repository)
 
 ```python
-from litestar.plugins.sqlalchemy import repository, service
+from advanced_alchemy.repository import SQLAlchemyAsyncRepository
+from advanced_alchemy.service import SQLAlchemyAsyncRepositoryService
+from advanced_alchemy.service.typing import ModelDictT
 from app.db import models as m
 
-class UserService(service.SQLAlchemyAsyncRepositoryService[m.User]):
+class UserService(SQLAlchemyAsyncRepositoryService[m.User]):
     """Service for user operations."""
 
-    class Repo(repository.SQLAlchemyAsyncRepository[m.User]):
+    class Repo(SQLAlchemyAsyncRepository[m.User]):
         """User repository."""
         model_type = m.User
 
@@ -70,11 +72,11 @@ class UserService(service.SQLAlchemyAsyncRepositoryService[m.User]):
     match_fields = ["email"]  # For upsert matching
 
     # Transform data before create
-    async def to_model_on_create(self, data: service.ModelDictT[m.User]) -> service.ModelDictT[m.User]:
+    async def to_model_on_create(self, data: ModelDictT[m.User]) -> ModelDictT[m.User]:
         return await self._populate_model(data)
 
     # Transform data before update
-    async def to_model_on_update(self, data: service.ModelDictT[m.User]) -> service.ModelDictT[m.User]:
+    async def to_model_on_update(self, data: ModelDictT[m.User]) -> ModelDictT[m.User]:
         return await self._populate_model(data)
 
     async def _populate_model(self, data: dict) -> dict:
@@ -99,6 +101,8 @@ class UserService(service.SQLAlchemyAsyncRepositoryService[m.User]):
 ### Common Service Operations
 
 ```python
+from advanced_alchemy.filters import LimitOffset
+
 # Create
 user = await service.create({"email": "test@example.com", "name": "Test"})
 
@@ -113,10 +117,10 @@ user = await service.get_one_or_none(email="test@example.com")
 users = await service.list()
 
 # List with pagination
-users = await service.list(limit_offset=(20, 0))
+users = await service.list(LimitOffset(limit=20, offset=0))
 
 # List and count
-users, count = await service.list_and_count()
+users, count = await service.list_and_count(LimitOffset(limit=20, offset=0))
 
 # Update
 user = await service.update(user_id, {"name": "New Name"})
@@ -155,6 +159,7 @@ users = await service.list(
 ### Pagination Pattern
 
 ```python
+from advanced_alchemy.filters import LimitOffset
 from advanced_alchemy.service.pagination import OffsetPagination
 
 @get()
@@ -164,21 +169,72 @@ async def list_paginated(
     limit: int = 20,
     offset: int = 0,
 ) -> OffsetPagination[UserSchema]:
-    return await service.list_and_count(limit_offset=(limit, offset))
+    filters = [LimitOffset(limit=limit, offset=offset)]
+    results, total = await service.list_and_count(*filters)
+    return service.to_schema(results, total, filters=filters, schema_type=UserSchema)
 ```
+
+## Supported Database Backends (Current Snapshot)
+
+From current dependency groups and test markers in `pyproject.toml`, Advanced Alchemy actively targets:
+
+- PostgreSQL: `asyncpg`, `psycopg` (sync + async), `psycopg2-binary`
+- CockroachDB: `sqlalchemy-cockroachdb` with `asyncpg` / `psycopg`
+- SQLite: `aiosqlite`
+- MySQL: `asyncmy`
+- Oracle: `oracledb` (sync + async paths)
+- SQL Server: `pyodbc` (sync), `aioodbc` (async)
+- DuckDB: `duckdb-engine`
+- Spanner: `sqlalchemy-spanner`
+
+Also supported at framework integration level:
+
+- Litestar
+- FastAPI / Starlette
+- Flask
+- Sanic
+
+## Custom Types and Backend Support
+
+Advanced Alchemy `advanced_alchemy.types` includes several cross-dialect custom types:
+
+- `DateTimeUTC`: timezone-aware UTC normalization.
+- `GUID`: backend-aware UUID mapping.
+- `JsonB`: dialect-aware JSON storage strategy.
+- `BigIntIdentity`: bigint identity with SQLite-friendly fallback behavior.
+- `EncryptedString` / `EncryptedText`:
+  - `FernetBackend` (cryptography)
+  - `PGCryptoBackend` (PostgreSQL `pgcrypto`)
+- `PasswordHash`:
+  - `PwdlibHasher`
+  - `Argon2Hasher`
+  - `PasslibHasher`
+
+File object storage (`StoredObject`) supports two registered backend families:
+
+- `FSSpecBackend` (local, S3, and other `fsspec` filesystems)
+- `ObstoreBackend` (object storage backends via `obstore`)
+
+Type/backend guidance:
+
+- Pick password and encryption backend explicitly for reproducibility.
+- For `StoredObject`, register storage backends during app boot and confirm listener setup when not using framework adapters.
+- Validate dialect-specific behavior (`GUID`, `JsonB`, encryption) in integration tests for every production backend you ship.
 
 ## Migration Commands
 
 ```bash
 # Create migration
-app database make-migrations
+litestar database make-migrations
 
 # Apply migrations
-app database upgrade
+litestar database upgrade
 
 # Downgrade
-app database downgrade
+litestar database downgrade
 ```
+
+`litestar db ...` is also supported as a short alias in recent Litestar releases.
 
 ## Exception Handling
 
@@ -202,10 +258,24 @@ except NotFoundError:
 - Use `UUIDAuditBase` for auto id/created_at/updated_at
 - Use inner `Repo` class pattern inside services
 - Relationships should specify `lazy="selectin"` for eager loading
+- Prefer `advanced_alchemy.*` imports for repository/service APIs; avoid deprecated `litestar.plugins.sqlalchemy` import paths.
 
-## Context7 Lookup
 
-```python
-mcp__context7__resolve-library-id(libraryName="advanced-alchemy", query="...")
-mcp__context7__query-docs(libraryId="/litestar-org/advanced-alchemy", query="...")
-```
+## Official References
+
+- https://docs.advanced-alchemy.litestar.dev/latest/
+- https://docs.advanced-alchemy.litestar.dev/latest/usage/services.html
+- https://docs.advanced-alchemy.litestar.dev/latest/usage/cli.html
+- https://docs.advanced-alchemy.litestar.dev/latest/usage/types.html
+- https://docs.advanced-alchemy.litestar.dev/latest/reference/types.html
+- https://docs.advanced-alchemy.litestar.dev/latest/changelog.html
+- https://docs.litestar.dev/2/release-notes/changelog.html
+- https://docs.sqlalchemy.org/en/20/orm/quickstart.html
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [ORM and Advanced Alchemy](https://github.com/cofin/flow/blob/main/templates/styleguides/frameworks/orm.md)
+- [Python](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/python.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

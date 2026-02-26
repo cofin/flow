@@ -257,3 +257,18 @@ Generate tests for a specific feature or component.
 
 5. **Run and verify**: Execute tests to ensure they pass
 ```
+
+## Official References
+
+- https://code.claude.com/docs/en/overview
+- https://code.claude.com/docs/en/slash-commands
+- https://docs.anthropic.com/en/docs/claude-code/sub-agents
+- https://docs.anthropic.com/en/docs/claude-code/settings
+- https://docs.anthropic.com/en/docs/claude-code/memory
+- https://github.com/anthropics/claude-code/blob/main/CHANGELOG.md
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

@@ -250,12 +250,19 @@ litestar assets serve      # Dev server with HMR
 litestar assets build      # Production build
 ```
 
-## Context7 Lookup
 
-```python
-mcp__context7__resolve-library-id(libraryName="htmx")
-mcp__context7__query-docs(
-    libraryId="/bigskysoftware/htmx",
-    query="attributes triggers"
-)
-```
+## Official References
+
+- https://htmx.org/docs/
+- https://htmx.org/reference/
+- https://htmx.org/migration-guide-htmx-1/
+- https://extensions.htmx.org/
+- https://htmx.org/extensions/ws/
+- https://github.com/bigskysoftware/htmx/releases
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [HTMX](https://github.com/cofin/flow/blob/main/templates/styleguides/frameworks/htmx.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

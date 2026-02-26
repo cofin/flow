@@ -268,12 +268,19 @@ litestar assets build      # Production build
 litestar run               # Start Litestar backend
 ```
 
-## Context7 Lookup
 
-```python
-mcp__context7__resolve-library-id(libraryName="nuxt")
-mcp__context7__query-docs(
-    libraryId="/nuxt/nuxt",
-    query="composables server routes"
-)
-```
+## Official References
+
+- https://nuxt.com/docs/4.x/getting-started/introduction
+- https://nuxt.com/docs/4.x/getting-started/upgrade
+- https://nuxt.com/docs/4.x/api/composables/use-fetch
+- https://nuxt.com/docs/4.x/api/utils/define-nuxt-route-middleware
+- https://nitro.build/config/
+- https://github.com/nuxt/nuxt/releases
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [TypeScript](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/typescript.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

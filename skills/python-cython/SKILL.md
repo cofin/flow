@@ -117,3 +117,19 @@ setup(
 - [ ] Replace list/tuple with typed memoryviews (`double[:]`)
 - [ ] Release GIL (`with nogil`) for CPU-bound tasks in loops
 - [ ] Check `cython -a module.pyx` (yellow lines = Python interaction)
+
+## Official References
+
+- https://cython.readthedocs.io/en/stable/
+- https://cython.readthedocs.io/en/stable/src/tutorial/pure.html
+- https://cython.readthedocs.io/en/stable/src/userguide/memoryviews.html
+- https://cython.readthedocs.io/en/stable/src/userguide/source_files_and_compilation.html
+- https://github.com/cython/cython/releases
+- https://setuptools.pypa.io/en/stable/userguide/ext_modules.html
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [Python](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/python.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

@@ -245,12 +245,20 @@ litestar assets build      # Production build
 litestar assets generate-types  # Generate TS types
 ```
 
-## Context7 Lookup
 
-```python
-mcp__context7__resolve-library-id(libraryName="svelte")
-mcp__context7__query-docs(
-    libraryId="/sveltejs/svelte",
-    query="runes state derived effect"
-)
-```
+## Official References
+
+- https://svelte.dev/docs/svelte/what-are-runes
+- https://svelte.dev/docs/svelte/v5-migration-guide
+- https://svelte.dev/docs/kit/load
+- https://svelte.dev/docs/kit/form-actions
+- https://svelte.dev/docs/cli/overview
+- https://github.com/sveltejs/svelte/releases
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [Svelte](https://github.com/cofin/flow/blob/main/templates/styleguides/frameworks/svelte.md)
+- [TypeScript](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/typescript.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

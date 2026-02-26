@@ -45,3 +45,19 @@ uvx ty check
 >     ty check
 > fi
 > ```
+
+## Official References
+
+- https://docs.astral.sh/ty/
+- https://docs.astral.sh/ty/installation/
+- https://docs.astral.sh/ty/type-checking/
+- https://docs.astral.sh/ty/editors/
+- https://docs.astral.sh/ty/reference/cli/
+- https://github.com/astral-sh/ty/releases
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [Python](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/python.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

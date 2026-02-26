@@ -396,12 +396,21 @@ def create_router() -> Router:
     )
 ```
 
-## Context7 Lookup
 
-```python
-mcp__context7__resolve-library-id(libraryName="litestar")
-mcp__context7__query-docs(
-    libraryId="/litestar-org/litestar",
-    query="plugins middleware dependency-injection"
-)
-```
+## Official References
+
+- https://docs.litestar.dev/main/
+- https://docs.litestar.dev/2/release-notes/changelog.html
+- https://github.com/litestar-org/litestar
+- https://litestar-org.github.io/litestar-vite/
+- https://litestar-org.github.io/litestar-vite/usage/modes.html
+- https://pypi.org/project/litestar-vite/
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [Litestar](https://github.com/cofin/flow/blob/main/templates/styleguides/frameworks/litestar.md)
+- [Python](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/python.md)
+- [TypeScript](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/typescript.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

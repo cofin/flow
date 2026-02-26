@@ -381,12 +381,20 @@ test_container = make_async_container(
    - Create test-specific providers
    - Avoid global state in providers
 
-## Context7 Lookup
 
-```python
-mcp__context7__resolve-library-id(libraryName="dishka")
-mcp__context7__query-docs(
-    libraryId="/reagento/dishka",
-    query="provider scope container integration"
-)
-```
+## Official References
+
+- https://dishka.readthedocs.io/en/stable/
+- https://dishka.readthedocs.io/en/stable/integrations/litestar.html
+- https://dishka.readthedocs.io/en/stable/integrations/fastapi.html
+- https://dishka.readthedocs.io/en/stable/integrations/click.html
+- https://github.com/reagento/dishka/releases
+- https://pypi.org/project/dishka/
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [Dishka](https://github.com/cofin/flow/blob/main/templates/styleguides/frameworks/dishka.md)
+- [Python](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/python.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

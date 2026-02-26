@@ -258,3 +258,21 @@ export default defineConfig({
 - Use `vi.mock` for module mocking
 - Use Testing Library for component tests
 - Prefer user-centric queries (getByRole, getByText)
+
+## Official References
+
+- https://docs.pytest.org/en/stable/
+- https://docs.pytest.org/en/stable/changelog.html
+- https://vitest.dev/guide/
+- https://vitest.dev/config/coverage
+- https://github.com/vitest-dev/vitest/releases
+- https://anyio.readthedocs.io/en/stable/testing.html
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [Testing](https://github.com/cofin/flow/blob/main/templates/styleguides/frameworks/testing.md)
+- [Python](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/python.md)
+- [TypeScript](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/typescript.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

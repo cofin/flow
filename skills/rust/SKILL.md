@@ -217,3 +217,19 @@ RUSTFLAGS="-Zsanitizer=address" cargo +nightly test -Zbuild-std --target x86_64-
 - Use `tracing` (not `log`) for structured instrumentation.
 - Prefer `Arc<T>` over `Rc<T>` in async contexts.
 - Feature-gate optional functionality — don't force heavy deps on all consumers.
+
+## Official References
+
+- https://doc.rust-lang.org/book/
+- https://blog.rust-lang.org/releases/
+- https://tokio.rs/
+- https://hyper.rs/guides/1/server/graceful-shutdown/
+- https://pyo3.rs/
+- https://napi.rs/
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [Rust](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/rust.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

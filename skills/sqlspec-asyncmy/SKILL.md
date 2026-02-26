@@ -21,3 +21,21 @@ Read `.claude/skills/sqlspec_adapters/asyncmy.md` for Claude's adapter playbook 
 - Override `_connection_in_transaction()` with direct attribute access (returns False; AsyncMy relies on explicit BEGIN and does not expose reliable transaction state.).
 - Flow parameter styles through `StatementConfig` from the driver profile; adapter guides describe defaults and overrides.
 - Execute stacks with `StatementStack` using adapter-native pipeline when available, otherwise fall back to sequential execution.
+
+## Official References
+
+- https://sqlspec.dev/
+- https://sqlspec.dev/reference/adapters/asyncmy.html
+- https://sqlspec.dev/changelog.html
+- https://pypi.org/project/asyncmy/
+- https://github.com/long2ice/asyncmy
+- https://github.com/long2ice/asyncmy/releases
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [SQLSpec](https://github.com/cofin/flow/blob/main/templates/styleguides/frameworks/sqlspec.md)
+- [Python](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/python.md)
+- [MySQL and MariaDB](https://github.com/cofin/flow/blob/main/templates/styleguides/databases/mysql_mariadb.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

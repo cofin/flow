@@ -58,3 +58,19 @@ When integrating with Rust/Python backends:
 - **Linting**: Use **Biome** (`bunx @biomejs/biome`) for instant linting/formatting.
 - **Globals**: Use `Bun.env`, `Bun.sleep`, but generally avoid Node.js globals unless necessary for library compatibility.
 - **Lockfile**: Commit `bun.lockb` for deterministic builds.
+
+## Official References
+
+- https://bun.sh/docs
+- https://bun.sh/docs/test
+- https://bun.sh/docs/install/lockfile
+- https://bun.sh/docs/runtime/ffi
+- https://bun.sh/docs/runtime/node-api
+- https://github.com/oven-sh/bun/releases
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [TypeScript](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/typescript.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

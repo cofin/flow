@@ -21,3 +21,20 @@ Read `.claude/skills/sqlspec_adapters/adbc.md` for Claude's adapter playbook and
 - Override `_connection_in_transaction()` with direct attribute access (returns False; ADBC uses explicit BEGIN and does not expose reliable transaction state.).
 - Flow parameter styles through `StatementConfig` from the driver profile; adapter guides describe defaults and overrides.
 - Execute stacks with `StatementStack` using adapter-native pipeline when available, otherwise fall back to sequential execution.
+
+## Official References
+
+- https://sqlspec.readthedocs.io/en/latest/
+- https://sqlspec.readthedocs.io/en/latest/pages/adapters/adapter-catalog.html
+- https://github.com/caise-sh/sqlspec
+- https://arrow.apache.org/adbc/main/
+- https://arrow.apache.org/adbc/main/python/api/adbc_driver_manager.html
+- https://arrow.apache.org/release/
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [SQLSpec](https://github.com/cofin/flow/blob/main/templates/styleguides/frameworks/sqlspec.md)
+- [Python](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/python.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

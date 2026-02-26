@@ -116,3 +116,19 @@ test:                                               ## Run tests
 
 2. **Output**: Always use the `${INFO}`, `${OK}`, `${WARN}`, `${ERROR}` variables to prefix status messages.
 3. **Silence**: Use `.SILENT:` (conditioned on `VERBOSE`) to keep the output clean for the user, revealing commands only when debugging.
+
+## Official References
+
+- https://www.gnu.org/software/make/manual/make.html
+- https://www.gnu.org/software/make/manual/html_node/One-Shell.html
+- https://www.gnu.org/software/make/manual/html_node/Special-Targets.html
+- https://www.gnu.org/software/make/manual/html_node/Phony-Targets.html
+- https://lists.gnu.org/archive/html/info-gnu/2023-02/msg00011.html
+- https://pubs.opengroup.org/onlinepubs/9699919799/utilities/make.html
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [Bash](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/bash.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

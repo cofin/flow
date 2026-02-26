@@ -127,3 +127,18 @@ When Flow skill is active:
 - `references/structure.md` - Directory structure reference
 - `references/beads-integration.md` - Beads session protocols
 - `references/learnings-system.md` - Knowledge capture patterns
+
+## Official References
+
+- https://github.com/cofin/flow
+- https://raw.githubusercontent.com/cofin/flow/main/README.md
+- https://github.com/Dicklesworthstone/beads_rust
+- https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/README.md
+- https://docs.rs/beads_rust/latest/beads_rust/
+- https://geminicli.com/docs/extensions/reference/
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

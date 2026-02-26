@@ -326,12 +326,19 @@ export default defineConfig({
 });
 ```
 
-## Context7 Lookup
 
-```python
-mcp__context7__resolve-library-id(libraryName="vite")
-mcp__context7__query-docs(
-    libraryId="/vitejs/vite",
-    query="plugins configuration"
-)
-```
+## Official References
+
+- https://vite.dev/guide/
+- https://vite.dev/config/
+- https://vite.dev/guide/api-plugin
+- https://vite.dev/guide/env-and-mode
+- https://vite.dev/guide/migration
+- https://www.npmjs.com/package/vite
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [TypeScript](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/typescript.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

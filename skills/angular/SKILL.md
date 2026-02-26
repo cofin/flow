@@ -1,9 +1,9 @@
 ---
 name: angular
-description: Expert knowledge for Angular 18+ with signals and standalone components. Use when building Angular apps with modern patterns.
+description: Expert knowledge for modern Angular with signals, standalone components, control flow blocks, and current migration guidance. Use when building Angular apps with contemporary patterns and when validating version-specific API stability.
 ---
 
-# Angular 18+ Framework Skill
+# Angular Framework Skill
 
 ## Quick Reference
 
@@ -109,7 +109,9 @@ export class ItemService {
 }
 ```
 
-### Resource API (Angular 19+)
+### Resource API (Experimental)
+
+`resource()` and `httpResource()` are currently marked experimental in Angular docs. Use only when the project explicitly accepts experimental APIs.
 
 ```typescript
 import { resource, signal } from '@angular/core';
@@ -133,7 +135,7 @@ export class ItemComponent {
 }
 ```
 
-### Reactive Forms with Signals
+### Reactive Forms (Stable API)
 
 ```typescript
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
@@ -166,7 +168,7 @@ export class ItemFormComponent {
 
 ## Best Practices
 
-- Use standalone components (default in Angular 17+)
+- Prefer standalone components for new development (Angular team recommendation).
 - Prefer signals over RxJS for local state
 - Use `toSignal()` to convert observables
 - Use new control flow syntax (`@if`, `@for`, `@switch`)
@@ -174,6 +176,8 @@ export class ItemFormComponent {
 - Use `@defer` for lazy loading heavy components
 
 ## Litestar-Vite Integration
+
+This section is project-specific integration guidance. For plain Angular projects, use standard Angular CLI / Vite workflows.
 
 ### Setup with VitePlugin
 
@@ -232,12 +236,20 @@ litestar assets build      # Production build
 litestar assets generate-types  # Generate TS types
 ```
 
-## Context7 Lookup
 
-```python
-mcp__context7__resolve-library-id(libraryName="angular")
-mcp__context7__query-docs(
-    libraryId="/angular/angular",
-    query="signals standalone components"
-)
-```
+## Official References
+
+- https://angular.dev/reference/releases
+- https://angular.dev/guide/components
+- https://angular.dev/guide/templates/control-flow
+- https://angular.dev/api/core/resource
+- https://angular.dev/guide/forms/signals/overview
+- https://github.com/angular/angular/releases
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [Angular](https://github.com/cofin/flow/blob/main/templates/styleguides/frameworks/angular.md)
+- [TypeScript](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/typescript.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

@@ -366,12 +366,20 @@ litestar assets build          # Production build
 litestar assets generate-types # Generate page props types
 ```
 
-## Context7 Lookup
 
-```python
-mcp__context7__resolve-library-id(libraryName="inertiajs")
-mcp__context7__query-docs(
-    libraryId="/inertiajs/inertia",
-    query="forms shared data"
-)
-```
+## Official References
+
+- https://inertiajs.com/docs/v2
+- https://inertiajs.com/docs/v2/getting-started/upgrade-guide
+- https://inertiajs.com/docs/v2/installation/client-side-setup
+- https://github.com/inertiajs/inertia/releases
+- https://litestar-org.github.io/litestar-vite/inertia/
+- https://litestar-org.github.io/litestar-vite/reference/inertia/plugin.html
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [Inertia](https://github.com/cofin/flow/blob/main/templates/styleguides/frameworks/inertia.md)
+- [TypeScript](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/typescript.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

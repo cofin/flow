@@ -109,3 +109,20 @@ gcloud secrets versions access latest --secret="my-secret"
 - **SDK Cheat Sheet**: `gcloud cheat-sheet`
 - **Core Services List**: [Google Cloud Products](https://cloud.google.com/products)
 - **CLI Reference**: [gcloud CLI docs](https://cloud.google.com/sdk/gcloud/reference)
+
+## Official References
+
+- https://docs.cloud.google.com/
+- https://docs.cloud.google.com/sdk/gcloud/reference
+- https://cloud.google.com/sdk/gcloud/reference/run/deploy
+- https://docs.cloud.google.com/sdk/docs/authorizing
+- https://cloud.google.com/artifact-registry/docs/transition/transition-from-gcr
+- https://cloud.google.com/vertex-ai/generative-ai/docs/migrate/migrate-palm-to-gemini
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [GCP Scripting](https://github.com/cofin/flow/blob/main/templates/styleguides/cloud/gcp_scripting.md)
+- [Bash](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/bash.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

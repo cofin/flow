@@ -229,9 +229,19 @@ function Component({ className }: Props) {
 </Button>
 ```
 
-## Context7 Lookup
 
-```python
-mcp__context7__resolve-library-id(libraryName="tailwind css", query="...")
-mcp__context7__query-docs(libraryId="/tailwindlabs/tailwindcss", query="...")
-```
+## Official References
+
+- https://tailwindcss.com/docs
+- https://tailwindcss.com/docs/installation
+- https://tailwindcss.com/blog/tailwindcss-v4
+- https://tailwindcss.com/docs/upgrade-guide
+- https://github.com/tailwindlabs/tailwindcss/releases
+- https://ui.shadcn.com/docs
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [Tailwind and Shadcn](https://github.com/cofin/flow/blob/main/templates/styleguides/frameworks/tailwind.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

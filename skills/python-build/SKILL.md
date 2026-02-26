@@ -118,3 +118,19 @@ build-backend = "flit_core.buildapi"
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 ```
+
+## Official References
+
+- https://packaging.python.org/en/latest/specifications/pyproject-toml/
+- https://peps.python.org/pep-0517/
+- https://hatch.pypa.io/dev/config/build/
+- https://hatch.pypa.io/dev/history/hatchling/
+- https://github.com/ofek/hatch-vcs
+- https://docs.astral.sh/uv/concepts/build-backend/
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [Python](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/python.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

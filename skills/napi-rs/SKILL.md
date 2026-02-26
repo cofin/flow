@@ -291,3 +291,19 @@ napi-rs auto-generates `.d.ts` files. Verify they're included in the package.
 - Never block the JS event loop — use async tasks or spawn threads.
 - Provide `.d.ts` type definitions for all exports.
 - Use `Buffer` for binary data, not `Vec<u8>` (avoids copy).
+
+## Official References
+
+- https://napi.rs/
+- https://github.com/napi-rs/napi-rs
+- https://napi.rs/changelog/napi
+- https://napi.rs/blog/announce-v3
+- https://bun.sh/docs/runtime/node-api
+- https://nodejs.org/api/n-api.html
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [Rust](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/rust.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

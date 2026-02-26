@@ -81,3 +81,20 @@ litestar run
 - `src/py/litestar_vite/commands.py`
 - `src/py/litestar_vite/executor.py`
 - `specs/guides/testing.md`
+
+## Official References
+
+- https://litestar-org.github.io/litestar-vite/usage/vite.html
+- https://litestar-org.github.io/litestar-vite/usage/types.html
+- https://litestar-org.github.io/litestar-vite/changelog.html
+- https://pypi.org/project/litestar-vite/
+- https://github.com/litestar-org/litestar-vite/blob/main/src/py/litestar_vite/cli.py
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [Litestar](https://github.com/cofin/flow/blob/main/templates/styleguides/frameworks/litestar.md)
+- [Python](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/python.md)
+- [TypeScript](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/typescript.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

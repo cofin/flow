@@ -21,3 +21,20 @@ Read `.claude/skills/sqlspec_adapters/duckdb.md` for Claude's adapter playbook a
 - Override `_connection_in_transaction()` with direct attribute access (returns False; DuckDB requires explicit BEGIN and does not expose transaction state.).
 - Flow parameter styles through `StatementConfig` from the driver profile; adapter guides describe defaults and overrides.
 - Execute stacks with `StatementStack` using adapter-native pipeline when available, otherwise fall back to sequential execution.
+
+## Official References
+
+- https://sqlspec.dev/
+- https://sqlspec.dev/reference/adapters.html
+- https://duckdb.org/docs/stable/clients/python/overview
+- https://duckdb.org/docs/stable/sql/statements/transactions
+- https://duckdb.org/docs/stable/sql/query_syntax/prepared_statements
+- https://duckdb.org/news/
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [SQLSpec](https://github.com/cofin/flow/blob/main/templates/styleguides/frameworks/sqlspec.md)
+- [Python](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/python.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

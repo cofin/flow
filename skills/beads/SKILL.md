@@ -298,3 +298,17 @@ command -v br &> /dev/null && echo "BEADS_OK" || echo "BEADS_MISSING"
 - Single-session tracking
 - Quick task lists
 - Ephemeral checklists
+
+## Official References
+
+- https://github.com/Dicklesworthstone/beads_rust
+- https://github.com/Dicklesworthstone/beads_rust/blob/main/README.md
+- https://github.com/Dicklesworthstone/beads_rust/blob/main/docs/CLI_REFERENCE.md
+- https://github.com/Dicklesworthstone/beads_rust/blob/main/agent_baseline/schemas/schema_issue_details.json
+- https://github.com/Dicklesworthstone/beads_rust/releases
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

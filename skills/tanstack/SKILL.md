@@ -727,22 +727,20 @@ function useAuth() {
 
 ---
 
-## Context7 Lookup
 
-```python
-# TanStack Router
-mcp__context7__resolve-library-id(libraryName="tanstack router")
-mcp__context7__query-docs(libraryId="/tanstack/router", query="file routes loaders")
+## Official References
 
-# TanStack Query
-mcp__context7__resolve-library-id(libraryName="tanstack query")
-mcp__context7__query-docs(libraryId="/tanstack/query", query="mutations cache")
+- https://tanstack.com/router/latest/docs/framework/react/overview
+- https://tanstack.com/query/latest/docs/framework/react/overview
+- https://tanstack.com/table/latest/docs/framework/react/react-table
+- https://tanstack.com/form/latest/docs/framework/react/guides/validation
+- https://tanstack.com/store/latest/docs/framework/react/quick-start
+- https://github.com/TanStack/router/releases
 
-# TanStack Table
-mcp__context7__resolve-library-id(libraryName="tanstack table")
-mcp__context7__query-docs(libraryId="/tanstack/table", query="sorting pagination")
+## Shared Styleguide Baseline
 
-# TanStack Form
-mcp__context7__resolve-library-id(libraryName="tanstack form")
-mcp__context7__query-docs(libraryId="/tanstack/form", query="validation zod")
-```
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [TanStack](https://github.com/cofin/flow/blob/main/templates/styleguides/frameworks/tanstack.md)
+- [TypeScript](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/typescript.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

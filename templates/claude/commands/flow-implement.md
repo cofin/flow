@@ -1,7 +1,7 @@
 ---
 description: Execute tasks from flow plan with TDD workflow
 argument-hint: <flow_id>
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, WebSearch, mcp__context7__resolve-library-id, mcp__context7__query-docs, mcp__pal__thinkdeep, mcp__pal__debug, mcp__pal__analyze
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, WebSearch, mcp__pal__thinkdeep, mcp__pal__debug, mcp__pal__analyze
 ---
 
 # Flow Implement

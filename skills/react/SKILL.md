@@ -1,6 +1,6 @@
 ---
 name: react
-description: Expert knowledge for React 18+ development with TypeScript. Use when building React components, managing state, or integrating with backend APIs.
+description: Expert knowledge for modern React development with TypeScript, including client components, framework-scoped server components, and upgrade-aware best practices. Use when building React components, managing state, or integrating with backend APIs.
 ---
 
 # React Framework Skill
@@ -73,7 +73,8 @@ function useFetch<T>(url: string) {
 ### React 19+ Server Components (When Applicable)
 
 ```tsx
-// Server Component (default in app/ directory)
+// Server Components are framework-scoped (for example Next.js App Router)
+// and are not a universal default in plain React + Vite projects.
 async function UserProfile({ userId }: { userId: string }) {
   const user = await fetchUser(userId);
   return <div>{user.name}</div>;
@@ -146,7 +147,7 @@ export function useTheme() {
 
 - Use TypeScript with strict mode
 - Prefer functional components with hooks
-- Memoize callbacks with `useCallback`, values with `useMemo`
+- Use `useCallback`/`useMemo` only when profiling shows measurable benefit
 - Use `key` props correctly (stable, unique identifiers)
 - Handle cleanup in `useEffect` return function
 - Use Error Boundaries for error handling
@@ -232,13 +233,20 @@ For comprehensive coverage of these commonly-used React libraries:
 | Shadcn/ui components | `shadcn` | All components |
 | Tailwind CSS | `tailwind` | Styling patterns |
 
-## Context7 Lookup
 
-```python
-# React
-mcp__context7__resolve-library-id(libraryName="react")
-mcp__context7__query-docs(
-    libraryId="/facebook/react",
-    query="hooks components typescript"
-)
-```
+## Official References
+
+- https://react.dev/
+- https://react.dev/reference/rsc/server-components
+- https://react.dev/reference/react/useCallback
+- https://react.dev/blog/2024/04/25/react-19-upgrade-guide
+- https://litestar-org.github.io/litestar-vite/
+- https://inertiajs.com/docs/v2/installation/client-side-setup
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [React](https://github.com/cofin/flow/blob/main/templates/styleguides/frameworks/react.md)
+- [TypeScript](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/typescript.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

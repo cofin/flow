@@ -45,6 +45,41 @@ fn process(borrowed data: Tensor[DType.float32]) -> Tensor[DType.float32]:
 - Use `uv` exclusively for Python environment management. Never `pixi` or `conda`.
 - Use `mojo` CLI for compilation and testing.
 
+## Docs Retrieval Policy (Modular)
+
+Use Modular docs as the primary source of truth for Mojo behavior, MAX integration details, and assistant workflows.
+
+Resolution order for reference context:
+
+1. Use scoped reference files first:
+- https://docs.modular.com/llms-mojo.txt
+- https://docs.modular.com/llms-mojo-python.txt
+- https://docs.modular.com/llms-mojo-kernel.txt
+- https://docs.modular.com/llms-max.txt
+2. Use https://docs.modular.com/llms.txt for broad discovery.
+3. Use https://docs.modular.com/llms-full.txt only when scoped files are insufficient.
+
+Doc-linking requirements:
+
+- Prefer deep links to exact manual/API pages instead of only top-level doc hubs.
+- Include source links when behavior depends on implementation details.
+- Avoid version-pinned changelog anchors; link to the latest changelog root.
+
+## Assistant Integration
+
+Place shared Modular guidance in the assistant root context file for your environment:
+
+- Codex / Gemini CLI: `AGENTS.md`
+- Claude Code / Cline / Roo: `CLAUDE.md`
+- Cursor: `.cursorrules` or `.cursor/rules`
+- Windsurf: `.windsurfrules` or `.windsurf/rules`
+
+For Codex-style instructions, require links under:
+
+- MAX docs: `https://docs.modular.com/max/...`
+- Mojo docs: `https://docs.modular.com/mojo/...`
+- Source code: `https://github.com/modular/modular/tree/main/...`
+
 ## Performance: SIMD + Parallelize
 
 ### SIMD-First Vectorization
@@ -535,3 +570,28 @@ project/
 - Use `@parameter` for compile-time specialization.
 - Keep Python wrappers thin — compute logic stays in Mojo.
 - Use `uv` for all Python tooling (never `pip`, `pixi`, or `conda`).
+
+## Official References
+
+- https://docs.modular.com/max/coding-assistants
+- https://docs.modular.com/max/coding-assistants/codex/
+- https://docs.modular.com/llms-mojo.txt
+- https://docs.modular.com/llms-mojo-python.txt
+- https://docs.modular.com/llms-mojo-kernel.txt
+- https://docs.modular.com/llms-max.txt
+- https://docs.modular.com/llms.txt
+- https://docs.modular.com/mojo/
+- https://docs.modular.com/mojo/changelog/
+- https://docs.modular.com/mojo/manual/testing/
+- https://docs.modular.com/mojo/manual/python/mojo-from-python/
+- https://docs.modular.com/mojo/stdlib/ffi/external_call/
+- https://github.com/modular/modular/blob/main/.github/agents/AGENTS.md
+- https://github.com/modular/modular/blob/main/.github/agents/CLAUDE.md
+- https://pypi.org/project/hatch-mojo/
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [Python](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/python.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

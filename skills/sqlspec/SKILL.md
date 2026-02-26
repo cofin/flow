@@ -18,6 +18,29 @@ SQLSpec is a **type-safe SQL query mapper for Python** - NOT an ORM. It provides
 5. **Protocol-Based Design**: Uses Python protocols for runtime type checking instead of inheritance
 6. **Single-Pass Processing**: Parse once, transform once, validate once
 
+### Current Capability Snapshot (main branch, 2026-02-25)
+
+- Package/runtime: `sqlspec` version `0.40.0`, Python `>=3.10,<4.0`.
+- SQL adapter set in source tree (`sqlspec/adapters/`):
+  - `adbc`, `aiosqlite`, `asyncmy`, `asyncpg`, `bigquery`, `cockroach_asyncpg`, `cockroach_psycopg`, `duckdb`, `mysqlconnector`, `oracledb`, `psqlpy`, `psycopg`, `pymysql`, `spanner`, `sqlite` (plus `mock` for testing).
+- ADK storage: adapter-specific `adk/store.py` implementations exist for all production adapters above (excluding `mock`).
+- Event channel storage: adapter-specific `events/store.py` implementations exist for all production adapters above (excluding `mock`).
+- Litestar session storage: adapter-specific `litestar/store.py` implementations exist for all production adapters above (excluding `mock`).
+- General file/data storage pipeline exists under `sqlspec/storage/` with backends:
+  - `local`
+  - `fsspec`
+  - `obstore`
+
+### Recent SQLSpec Feature Highlights
+
+Notable additions from the current changelog trajectory:
+
+- ADK memory services and adapter-specific memory stores (`SQLSpecMemoryService` / `SQLSpecSyncMemoryService`) with cleanup and verification CLI commands.
+- Database event channels with queue-backed publish/listen APIs across adapters, plus native AsyncPG LISTEN/NOTIFY and experimental Oracle AQ backend support.
+- Expanded telemetry spans/metrics around events and query workloads.
+- Migration convenience methods directly on config classes (`upgrade`, `downgrade`, `create_migration`, etc.) for both sync and async adapters.
+- Query stack documentation and per-adapter support notes expanded for execution-mode clarity.
+
 ---
 
 ## MANDATORY Code Quality Standards
@@ -646,17 +669,35 @@ class MyDriver(SyncDriverAdapterBase):
 
 ## SQLglot Best Practices
 
-### Speed-First Habits
+### Guardrails (Correctness + Performance)
 
-- Parse once, reuse everywhere - store `Expression` objects
-- Prefer `sqlglot.transpile` with `read` and `write` dialects
-- Lean on `SQL.ensure_expression` before importing sqlglot directly
-- Cache constant fragments at module scope
-- Use `copy=False` for builder mutations (MANDATORY project default)
+- Parse once, reuse AST objects where possible.
+- Always set explicit source and target dialects (`read=...`, `write=...`); do not rely on default dialect inference.
+- Use strict unsupported handling in safety-critical paths:
+  - `unsupported_level=ErrorLevel.RAISE` (or `IMMEDIATE`).
+- Prefer compiled SQLGlot install for throughput-sensitive workloads:
+  - `sqlglot[c]`
+- Do not use `sqlglot[rs]` (upstream-deprecated/incompatible path).
+- Treat heavy optimizer passes (`qualify`, `annotate_types`, full `optimize`) as opt-in due to schema/type overhead.
+- Do not use SQLGlot's built-in executor for high-throughput execution paths.
+- If using optimizer interval simplification logic, ensure `python-dateutil` is installed.
+- Lean on `SQL.ensure_expression` before importing sqlglot directly.
+- Cache constant fragments at module scope.
+- Use `copy=False` for builder mutations (MANDATORY project default).
 
 ### Core Patterns
 
 ```python
+from sqlglot import ErrorLevel, transpile
+
+# Canonical transpilation with strict unsupported handling
+sql_out = transpile(
+    sql,
+    read="source_dialect",
+    write="target_dialect",
+    unsupported_level=ErrorLevel.RAISE,
+)[0]
+
 # Canonical AST parsing
 sqlglot.parse_one(sql, read="dialect")
 
@@ -1428,8 +1469,27 @@ class DomainServiceProvider(Provider):
 
 ## Key Resources
 
-- **SQLglot Docs**: https://sqlglot.com/sqlglot/index.html
-- **SQLglot Dialects**: https://sqlglot.com/sqlglot/dialects/
-- **SQLglot Expressions**: https://sqlglot.com/sqlglot/expressions/
+- **SQLglot Docs**: https://sqlglot.com/sqlglot.html
+- **SQLglot GitHub**: https://github.com/tobymao/sqlglot
 - **Mypyc Docs**: https://mypyc.readthedocs.io/
 - **PyArrow Docs**: https://arrow.apache.org/docs/python/
+
+## Official References
+
+- https://sqlspec.dev/
+- https://sqlspec.dev/changelog.html
+- https://pypi.org/project/sqlspec/
+- https://github.com/litestar-org/sqlspec
+- https://sqlspec.dev/reference/adapters.html
+- https://sqlspec.dev/extensions/adk/backends.html
+- https://sqlglot.com/sqlglot.html
+- https://github.com/tobymao/sqlglot/blob/main/CHANGELOG.md
+- https://mypyc.readthedocs.io/
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [SQLSpec](https://github.com/cofin/flow/blob/main/templates/styleguides/frameworks/sqlspec.md)
+- [Python](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/python.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

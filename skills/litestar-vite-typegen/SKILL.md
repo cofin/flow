@@ -101,3 +101,21 @@ Use the generated Inertia metadata to keep page props typed and in sync with ser
 - `src/js/src/shared/typegen-core.ts`
 - `src/js/src/shared/typegen-plugin.ts`
 - `specs/guides/architecture.md`
+
+## Official References
+
+- https://litestar-org.github.io/litestar-vite/usage/types.html
+- https://litestar-org.github.io/litestar-vite/inertia/type-generation.html
+- https://litestar-org.github.io/litestar-vite/reference/config.html
+- https://litestar-org.github.io/litestar-vite/usage/migration-v015.html
+- https://pypi.org/project/litestar-vite/
+- https://github.com/hey-api/openapi-ts
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [Litestar](https://github.com/cofin/flow/blob/main/templates/styleguides/frameworks/litestar.md)
+- [Python](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/python.md)
+- [TypeScript](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/typescript.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

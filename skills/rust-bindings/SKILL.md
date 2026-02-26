@@ -261,3 +261,19 @@ impl From<CoreError> for napi::Error {
 - Test in the target language, not just Rust.
 - Document public APIs in both Rust doc comments and target language docs.
 - Use `extension-module` feature only in cdylib crates, never in the core.
+
+## Official References
+
+- https://pyo3.rs/
+- https://pyo3.rs/latest/migration.html
+- https://github.com/PyO3/pyo3/releases
+- https://www.maturin.rs/
+- https://napi.rs/
+- https://github.com/napi-rs/napi-rs/releases
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [Rust](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/rust.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

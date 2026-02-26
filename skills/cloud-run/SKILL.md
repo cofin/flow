@@ -490,3 +490,20 @@ gcloud run revisions describe REVISION --region=REGION
 - [Cloud Run Pricing](https://cloud.google.com/run/pricing)
 - [General Development Tips](https://cloud.google.com/run/docs/tips/general)
 - [Cloud Run Samples](https://github.com/GoogleCloudPlatform/cloud-run-samples)
+
+## Official References
+
+- https://docs.cloud.google.com/run/docs
+- https://docs.cloud.google.com/run/docs/release-notes
+- https://docs.cloud.google.com/run/docs/configuring/task-timeout
+- https://docs.cloud.google.com/run/docs/configuring/services/cpu
+- https://docs.cloud.google.com/run/docs/configuring/services/gpu
+- https://docs.cloud.google.com/run/docs/mapping-custom-domains
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [GCP Scripting](https://github.com/cofin/flow/blob/main/templates/styleguides/cloud/gcp_scripting.md)
+- [Bash](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/bash.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

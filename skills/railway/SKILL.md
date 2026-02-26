@@ -335,3 +335,19 @@ railway variables --set 'LITESTAR_PORT=8080'
 - [Config-as-Code Reference](https://docs.railway.com/reference/config-as-code)
 - [Serverless/App Sleeping](https://docs.railway.com/reference/app-sleeping)
 - [Railway CLI](https://docs.railway.com/reference/cli-api)
+
+## Official References
+
+- https://docs.railway.com/
+- https://docs.railway.com/reference/app-sleeping
+- https://docs.railway.com/cli/service
+- https://docs.railway.com/cli/variable
+- https://docs.railway.com/config-as-code/reference
+- https://docs.railway.com/variables/reference
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [Bash](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/bash.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

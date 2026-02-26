@@ -1,6 +1,6 @@
 ---
 description: Orchestrate complex roadmaps, analyze complexity, and generate Sagas (Meta-Flows)
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion, mcp__context7__resolve-library-id, mcp__context7__query-docs, mcp__pal__thinkdeep, mcp__pal__analyze
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion, mcp__pal__thinkdeep, mcp__pal__analyze
 ---
 
 ## 1.0 SYSTEM DIRECTIVE

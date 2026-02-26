@@ -757,3 +757,20 @@ kubectl get networkpolicies -A
 - [Hardening Guide](https://cloud.google.com/kubernetes-engine/docs/how-to/hardening-your-cluster)
 - [Workload Identity](https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity)
 - [Autopilot Overview](https://cloud.google.com/kubernetes-engine/docs/concepts/autopilot-overview)
+
+## Official References
+
+- https://cloud.google.com/kubernetes-engine/docs
+- https://cloud.google.com/kubernetes-engine/docs/release-notes
+- https://cloud.google.com/kubernetes-engine/docs/concepts/release-channels
+- https://cloud.google.com/kubernetes-engine/docs/concepts/workload-identity
+- https://cloud.google.com/sdk/gcloud/reference/container/clusters
+- https://github.com/terraform-google-modules/terraform-google-kubernetes-engine/releases
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [GCP Scripting](https://github.com/cofin/flow/blob/main/templates/styleguides/cloud/gcp_scripting.md)
+- [Bash](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/bash.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

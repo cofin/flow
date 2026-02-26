@@ -89,3 +89,19 @@ options = { opt_level = "3" }
 1. **Clean MyPy Run**: Ensure `mypy .` passes cleanly.
 2. **Strictness**: Use strict mode in mypy configuration to catch `Any` types that degrade performance.
 3. **Fallback Check**: If performance is bad, check if the module failed compilation and silently fell back to interpreted mode (check build logs).
+
+## Official References
+
+- https://mypyc.readthedocs.io/en/latest/
+- https://mypyc.readthedocs.io/en/latest/getting_started.html
+- https://mypyc.readthedocs.io/en/latest/native_classes.html
+- https://mypyc.readthedocs.io/en/latest/differences_from_python.html
+- https://mypy.readthedocs.io/en/stable/changelog.html
+- https://github.com/python/mypy/tree/master/mypyc
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [Python](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/python.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

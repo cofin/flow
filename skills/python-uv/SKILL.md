@@ -135,3 +135,18 @@ build-backend = "hatchling.build"
 
 - **Export to requirements.txt**: `uv export --format requirements-txt > requirements.txt`
 - **Upgrade all packages**: `uv lock --upgrade`
+
+## Official References
+
+- https://docs.astral.sh/uv/
+- https://docs.astral.sh/uv/reference/cli/
+- https://docs.astral.sh/uv/concepts/projects/sync/
+- https://docs.astral.sh/uv/concepts/projects/workspaces/
+- https://github.com/astral-sh/uv/releases
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [Python](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/python.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

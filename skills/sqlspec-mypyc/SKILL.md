@@ -22,3 +22,19 @@ Read `docs/guides/performance/mypyc.md` for detailed rules and examples, then cr
 - Avoid `hasattr()`/`getattr()` in hot paths; prefer type guards and direct attribute access to enable mypyc optimizations.
 - Keep unions in PEP 604 form (`T | None`) and avoid `from __future__ import annotations`.
 - Troubleshoot failures by fixing mypy errors first, then re-running `HATCH_BUILD_HOOKS_ENABLE=1 uv build --extra mypyc` to surface mypyc-specific issues.
+
+## Official References
+
+- https://mypyc.readthedocs.io/en/stable/
+- https://mypyc.readthedocs.io/en/stable/native_classes.html
+- https://mypyc.readthedocs.io/en/stable/performance_tips_and_tricks.html
+- https://docs.astral.sh/uv/reference/cli/#uv-build
+- https://github.com/python/mypy/releases
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [SQLSpec](https://github.com/cofin/flow/blob/main/templates/styleguides/frameworks/sqlspec.md)
+- [Python](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/python.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.
