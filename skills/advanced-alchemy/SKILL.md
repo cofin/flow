@@ -71,6 +71,14 @@ class UserService(SQLAlchemyAsyncRepositoryService[m.User]):
     repository_type = Repo
     match_fields = ["email"]  # For upsert matching
 
+    # Transform data before create
+    async def to_model_on_create(self, data: ModelDictT[m.User]) -> ModelDictT[m.User]:
+        return await self._populate_model(data)
+
+    # Transform data before update
+    async def to_model_on_update(self, data: ModelDictT[m.User]) -> ModelDictT[m.User]:
+        return await self._populate_model(data)
+
     # Transform data before create/update
     async def to_model(
         self,
