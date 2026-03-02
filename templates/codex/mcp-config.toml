@@ -1,11 +1,20 @@
 # Flow Framework - Codex CLI MCP Configuration
 #
-# This file provides MCP server configuration for Codex CLI.
-# Add these configurations to ~/.codex/config.toml
+# This file documents the MCP server configuration for Codex CLI.
+# The installer (install.sh) generates runtime-aware config automatically.
+#
+# Standalone mode (preferred — no runtime required):
+#   [mcp_servers.flow-think]
+#   command = "~/.flow/mcp/flow-think/flow-think-mcp"
+#   args = []
+#
+# Node.js fallback (when Bun standalone not available):
+#   [mcp_servers.flow-think]
+#   command = "node"
+#   args = ["~/.flow/mcp/flow-think/index.js"]
 #
 # Installation:
-#   1. Append this to your ~/.codex/config.toml
-#   2. Or run: ./tools/scripts/install.sh (auto-merges)
+#   Run: ./tools/scripts/install.sh (auto-configures based on available runtime)
 #
 # Documentation: https://developers.openai.com/codex/mcp/
 
@@ -14,8 +23,8 @@
 # revision support, and Beads integration for complex problem-solving.
 
 [mcp_servers.flow-think]
-command = "bun"
-args = ["run", "${FLOW_INSTALL_PATH}/tools/flow-think/src/index.ts"]
+command = "${FLOW_MCP_COMMAND}"
+args = [${FLOW_MCP_ARGS}]
 startup_timeout_sec = 15
 tool_timeout_sec = 120
 

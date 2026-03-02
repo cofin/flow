@@ -5,6 +5,7 @@
  */
 
 import type { FlowThinkStep } from "../types.js";
+import { spawn } from "../runtime.js";
 import { BeadsDetection } from "./detection.js";
 import { formatStepForBeads, type BeadsSyncStatus } from "./types.js";
 
@@ -193,20 +194,13 @@ export class BeadsSync {
    * Uses `bd update --append-notes` to add the note.
    */
   private async executeSync(epicId: string, note: string): Promise<void> {
-    // Escape the note for shell
-    const escapedNote = note.replace(/'/g, "'\\''");
+    const result = await spawn(
+      ["bd", "update", epicId, "--append-notes", note],
+      { cwd: this.workingDirectory }
+    );
 
-    const proc = Bun.spawn(["bd", "update", epicId, "--append-notes", escapedNote], {
-      stdout: "pipe",
-      stderr: "pipe",
-      cwd: this.workingDirectory,
-    });
-
-    const exitCode = await proc.exited;
-
-    if (exitCode !== 0) {
-      const stderr = await new Response(proc.stderr).text();
-      throw new Error(`bd update failed: ${stderr}`);
+    if (result.exitCode !== 0) {
+      throw new Error(`bd update failed: ${result.stderr ?? "unknown error"}`);
     }
 
     console.error(`📝 Synced step to Beads epic ${epicId}`);

@@ -7,6 +7,7 @@
 
 import { existsSync } from "fs";
 import { join } from "path";
+import { spawn } from "../runtime.js";
 
 /**
  * Status of Beads availability.
@@ -56,14 +57,8 @@ export class BeadsDetection {
     }
 
     try {
-      // Use Bun's shell for subprocess
-      const proc = Bun.spawn(["which", "bd"], {
-        stdout: "pipe",
-        stderr: "pipe",
-      });
-
-      const exitCode = await proc.exited;
-      installedCache = exitCode === 0;
+      const result = await spawn(["which", "bd"]);
+      installedCache = result.exitCode === 0;
 
       if (installedCache) {
         console.error("🔗 Beads CLI detected");
@@ -73,13 +68,8 @@ export class BeadsDetection {
     } catch {
       // If which fails (e.g., Windows without which), try running bd --version
       try {
-        const proc = Bun.spawn(["bd", "--version"], {
-          stdout: "pipe",
-          stderr: "pipe",
-        });
-
-        const exitCode = await proc.exited;
-        installedCache = exitCode === 0;
+        const result = await spawn(["bd", "--version"]);
+        installedCache = result.exitCode === 0;
         return installedCache;
       } catch {
         installedCache = false;

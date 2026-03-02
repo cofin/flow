@@ -5,6 +5,7 @@
  */
 
 import type { FlowThinkStep } from "../types.js";
+import { spawn } from "../runtime.js";
 import { BeadsDetection } from "./detection.js";
 import { parseBeadsNote } from "./types.js";
 
@@ -86,21 +87,18 @@ export class BeadsRestoration {
    */
   private async fetchEpicNotes(epicId: string): Promise<string | null> {
     try {
-      const proc = Bun.spawn(["bd", "show", epicId], {
-        stdout: "pipe",
-        stderr: "pipe",
-        cwd: this.workingDirectory,
-      });
+      const result = await spawn(
+        ["bd", "show", epicId],
+        { cwd: this.workingDirectory }
+      );
 
-      const exitCode = await proc.exited;
-      if (exitCode !== 0) {
+      if (result.exitCode !== 0) {
         return null;
       }
 
-      const stdout = await new Response(proc.stdout).text();
-
       // Extract notes section from output
       // bd show output format includes a "Notes:" section
+      const stdout = result.stdout ?? "";
       const notesMatch = stdout.match(/Notes:\s*\n([\s\S]*?)(?=\n\w+:|$)/);
       return notesMatch ? notesMatch[1].trim() : null;
     } catch {

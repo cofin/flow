@@ -62,9 +62,42 @@ if command -v bun &> /dev/null; then
 else
     echo -e "    ${YELLOW}Bun not available, falling back to tsc${NC}"
 
-    # Run TypeScript compiler
+    # Ensure dependencies are installed
+    if [[ ! -d "node_modules" ]]; then
+        echo "    Installing dependencies..."
+        if command -v npm &>/dev/null; then
+            npm install --ignore-scripts 2>/dev/null || {
+                echo -e "    ${RED}Failed to install dependencies${NC}"
+                exit 1
+            }
+        else
+            echo -e "    ${RED}npm not found — install Node.js or Bun${NC}"
+            exit 1
+        fi
+    fi
+
+    # Create dist directory
+    mkdir -p dist
+
+    # Run TypeScript compiler (try tsc directly, then npx)
     echo "    Compiling TypeScript..."
-    npx tsc
+    if command -v tsc &>/dev/null; then
+        tsc || { echo -e "    ${RED}tsc compilation failed${NC}"; exit 1; }
+    elif command -v npx &>/dev/null; then
+        npx tsc || { echo -e "    ${RED}npx tsc compilation failed${NC}"; exit 1; }
+    else
+        echo -e "    ${RED}tsc not found — install typescript or use Bun${NC}"
+        exit 1
+    fi
+
+    # Add shebang for direct execution (if not already present)
+    if [[ -f dist/index.js ]] && ! head -1 dist/index.js | grep -q '^#!'; then
+        echo "    Adding shebang..."
+        TEMP_FILE=$(mktemp)
+        echo '#!/usr/bin/env node' > "$TEMP_FILE"
+        cat dist/index.js >> "$TEMP_FILE"
+        mv "$TEMP_FILE" dist/index.js
+    fi
 
     BUILD_MODE="compiled"
 fi

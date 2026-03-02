@@ -141,7 +141,11 @@ export function logRuntime(): void {
  */
 export async function spawn(
   command: string[],
-  options: { stdout?: "pipe" | "inherit"; stderr?: "pipe" | "inherit" } = {}
+  options: {
+    stdout?: "pipe" | "inherit";
+    stderr?: "pipe" | "inherit";
+    cwd?: string;
+  } = {}
 ): Promise<{ exitCode: number; stdout?: string; stderr?: string }> {
   const runtime = detectRuntime();
 
@@ -151,7 +155,7 @@ export async function spawn(
       Bun: {
         spawn: (
           command: string[],
-          options: { stdout?: string; stderr?: string }
+          options: { stdout?: string; stderr?: string; cwd?: string }
         ) => {
           exited: Promise<number>;
           stdout: { text: () => Promise<string> } | null;
@@ -163,6 +167,7 @@ export async function spawn(
     const proc = bunGlobal.Bun.spawn(command, {
       stdout: options.stdout ?? "pipe",
       stderr: options.stderr ?? "pipe",
+      ...(options.cwd ? { cwd: options.cwd } : {}),
     });
 
     const exitCode = await proc.exited;
@@ -182,6 +187,7 @@ export async function spawn(
           options.stdout === "inherit" ? "inherit" : "pipe",
           options.stderr === "inherit" ? "inherit" : "pipe",
         ],
+        ...(options.cwd ? { cwd: options.cwd } : {}),
       });
 
       let stdout = "";

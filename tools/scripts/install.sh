@@ -571,34 +571,6 @@ install_codex() {
         fi
     done
 
-    # Install MCP configuration for flow-think server
-    local mcp_config_src="$TEMPLATES_DIR/codex/mcp-config.toml"
-    local config_dst="$CODEX_DIR/config.toml"
-
-    if [[ -f "$mcp_config_src" ]]; then
-        if [[ -f "$config_dst" ]]; then
-            if grep -q "mcp_servers.flow-think" "$config_dst" 2>/dev/null; then
-                log_info "MCP config: flow-think already configured"
-            else
-                # Backup existing config
-                backup_file "$config_dst"
-                # Append MCP configuration
-                echo "" >> "$config_dst"
-                echo "# --- Flow Framework MCP Configuration ---" >> "$config_dst"
-                cat "$mcp_config_src" >> "$config_dst"
-                # Replace placeholder with actual install path
-                sed -i "s|\${FLOW_INSTALL_PATH}|$SCRIPT_DIR|g" "$config_dst"
-                log_success "MCP config: Added flow-think server to config.toml"
-            fi
-        else
-            # Create new config with MCP settings
-            cp "$mcp_config_src" "$config_dst"
-            # Replace placeholder with actual install path
-            sed -i "s|\${FLOW_INSTALL_PATH}|$SCRIPT_DIR|g" "$config_dst"
-            log_success "MCP config: Created config.toml with flow-think server"
-        fi
-    fi
-
     echo ""
     log_success "Codex CLI installation complete"
 }
@@ -778,6 +750,8 @@ install_antigravity() {
 # MCP Installation
 # ─────────────────────────────────────────────────────────────────────────────
 
+MCP_INSTALL_TYPE=""  # "standalone" or "node" — set by install_mcp
+
 install_mcp() {
     echo ""
     echo -e "${CYAN}Installing Flow Think MCP Server...${NC}"
@@ -785,7 +759,8 @@ install_mcp() {
 
     local mcp_src="$SCRIPT_DIR/tools/flow-think"
     local mcp_dst="$FLOW_DATA_DIR/mcp/flow-think"
-    local mcp_exe="$mcp_src/dist/flow-think-mcp"
+    local mcp_standalone="$mcp_src/dist/flow-think-mcp"
+    local mcp_js="$mcp_src/dist/index.js"
 
     # Check if flow-think exists
     if [[ ! -d "$mcp_src" ]]; then
@@ -794,24 +769,22 @@ install_mcp() {
         return
     fi
 
-    # Build executable if it doesn't exist
-    if [[ ! -f "$mcp_exe" ]]; then
+    # Build if neither artifact exists
+    if [[ ! -f "$mcp_standalone" && ! -f "$mcp_js" ]]; then
         log_info "Building Flow Think MCP..."
         if command -v bun &>/dev/null; then
             (cd "$mcp_src" && bun install && ./scripts/build.sh) || {
-                log_error "Failed to build Flow Think MCP with bun"
+                log_error "Failed to build Flow Think MCP with Bun"
                 return
             }
-        elif command -v npm &>/dev/null && command -v tsc &>/dev/null; then
-            log_info "Bun not found, using npm and tsc fallback..."
+        elif command -v npm &>/dev/null; then
+            log_info "Bun not found, using npm + tsc fallback..."
             (cd "$mcp_src" && npm install && ./scripts/build.sh) || {
                 log_error "Failed to build Flow Think MCP with npm"
                 return
             }
-            # Fallback path outputs to index.js since compile isn't available
-            mcp_exe="$mcp_src/dist/index.js"
         else
-            log_error "Bun or (npm+tsc) required to build Flow Think MCP"
+            log_error "Bun or npm required to build Flow Think MCP"
             log_info "Install Bun: curl -fsSL https://bun.sh/install | bash"
             return
         fi
@@ -820,31 +793,54 @@ install_mcp() {
     # Create destination directory
     mkdir -p "$mcp_dst"
 
-    # Copy the built entrypoint
-    cp "$mcp_exe" "$mcp_dst/flow-think-mcp"
-    chmod +x "$mcp_dst/flow-think-mcp"
+    # Prefer standalone executable, fall back to JS bundle
+    if [[ -f "$mcp_standalone" ]]; then
+        MCP_INSTALL_TYPE="standalone"
+        cp "$mcp_standalone" "$mcp_dst/flow-think-mcp"
+        chmod +x "$mcp_dst/flow-think-mcp"
+        log_success "Flow Think MCP installed (standalone executable)"
+    elif [[ -f "$mcp_js" ]]; then
+        MCP_INSTALL_TYPE="node"
+        cp "$mcp_js" "$mcp_dst/index.js"
+        chmod +x "$mcp_dst/index.js"
+        log_success "Flow Think MCP installed (Node.js bundle)"
+    else
+        log_error "Build produced no usable artifact"
+        return
+    fi
 
-    echo ""
-    log_success "Flow Think MCP installed (standalone executable)"
-    log_info "Path: $mcp_dst/flow-think-mcp"
+    log_info "Path: $mcp_dst/"
+}
+
+# Returns the MCP command and args for the current install type.
+# Usage: get_mcp_command → sets MCP_CMD and MCP_ARGS
+get_mcp_command() {
+    local mcp_dst="$FLOW_DATA_DIR/mcp/flow-think"
+    if [[ "$MCP_INSTALL_TYPE" == "standalone" ]]; then
+        MCP_CMD="$mcp_dst/flow-think-mcp"
+        MCP_ARGS='[]'
+    else
+        MCP_CMD="node"
+        MCP_ARGS="[\"$mcp_dst/index.js\"]"
+    fi
 }
 
 configure_mcp_for_claude() {
     local claude_json="$HOME/.claude.json"
-    local mcp_exe="$FLOW_DATA_DIR/mcp/flow-think/flow-think-mcp"
 
-    log_info "Configuring MCP for Claude Code..."
-
-    # Check if standalone executable exists
-    if [[ ! -f "$mcp_exe" ]]; then
-        log_warn "Flow Think MCP executable not found at $mcp_exe"
-        log_info "Run install_mcp first"
+    if [[ -z "$MCP_INSTALL_TYPE" ]]; then
+        log_warn "MCP not installed — skipping Claude Code MCP config"
         return
     fi
 
-    local mcp_config='{
+    log_info "Configuring MCP for Claude Code..."
+    get_mcp_command
+
+    local mcp_config
+    if [[ "$MCP_INSTALL_TYPE" == "standalone" ]]; then
+        mcp_config='{
   "flow-think": {
-    "command": "'"$mcp_exe"'",
+    "command": "'"$MCP_CMD"'",
     "args": [],
     "env": {
       "FLOW_MCP_BEADS_SYNC": "true",
@@ -852,6 +848,18 @@ configure_mcp_for_claude() {
     }
   }
 }'
+    else
+        mcp_config='{
+  "flow-think": {
+    "command": "node",
+    "args": ["'"$FLOW_DATA_DIR/mcp/flow-think/index.js"'"],
+    "env": {
+      "FLOW_MCP_BEADS_SYNC": "true",
+      "FLOW_MCP_OUTPUT_FORMAT": "console"
+    }
+  }
+}'
+    fi
 
     if [[ -f "$claude_json" ]]; then
         backup_file "$claude_json"
@@ -862,9 +870,9 @@ configure_mcp_for_claude() {
             jq --argjson mcp "$mcp_config" '.mcpServers = (.mcpServers // {}) + $mcp' "$claude_json" > "$temp_file" && mv "$temp_file" "$claude_json"
             log_success "Merged: MCP configuration into ~/.claude.json"
         else
-            log_warn "jq not installed - manual MCP config required"
+            log_warn "jq not installed — manual MCP config required"
             echo "         Add to ~/.claude.json mcpServers:"
-            echo "         \"flow-think\": { \"command\": \"$mcp_exe\", \"args\": [] }"
+            echo "         \"flow-think\": { \"command\": \"$MCP_CMD\", \"args\": $MCP_ARGS }"
         fi
     else
         # Create new claude.json
@@ -872,21 +880,133 @@ configure_mcp_for_claude() {
             echo "{\"mcpServers\": $mcp_config}" | jq '.' > "$claude_json"
             log_success "Created: ~/.claude.json with MCP configuration"
         else
-            cat > "$claude_json" << EOF
-{
-  "mcpServers": {
-    "flow-think": {
-      "command": "$mcp_exe",
-      "args": [],
-      "env": {
-        "FLOW_MCP_BEADS_SYNC": "true"
-      }
-    }
-  }
-}
-EOF
+            echo "{\"mcpServers\": $mcp_config}" > "$claude_json"
             log_success "Created: ~/.claude.json with MCP configuration"
         fi
+    fi
+}
+
+configure_mcp_for_codex() {
+    local config_dst="$CODEX_DIR/config.toml"
+
+    if [[ -z "$MCP_INSTALL_TYPE" ]]; then
+        log_warn "MCP not installed — skipping Codex MCP config"
+        return
+    fi
+
+    log_info "Configuring MCP for Codex CLI..."
+    get_mcp_command
+
+    # Check if already configured
+    if [[ -f "$config_dst" ]] && grep -q "mcp_servers.flow-think" "$config_dst" 2>/dev/null; then
+        log_info "MCP config: flow-think already configured in config.toml"
+        return
+    fi
+
+    local toml_block
+    if [[ "$MCP_INSTALL_TYPE" == "standalone" ]]; then
+        toml_block=$(cat <<EOFTOML
+
+# --- Flow Framework MCP Configuration ---
+[mcp_servers.flow-think]
+command = "$MCP_CMD"
+args = []
+startup_timeout_sec = 15
+tool_timeout_sec = 120
+
+[mcp_servers.flow-think.env]
+FLOW_MCP_OUTPUT_FORMAT = "json"
+FLOW_MCP_BEADS_SYNC = "true"
+EOFTOML
+)
+    else
+        toml_block=$(cat <<EOFTOML
+
+# --- Flow Framework MCP Configuration ---
+[mcp_servers.flow-think]
+command = "node"
+args = ["$FLOW_DATA_DIR/mcp/flow-think/index.js"]
+startup_timeout_sec = 15
+tool_timeout_sec = 120
+
+[mcp_servers.flow-think.env]
+FLOW_MCP_OUTPUT_FORMAT = "json"
+FLOW_MCP_BEADS_SYNC = "true"
+EOFTOML
+)
+    fi
+
+    if [[ -f "$config_dst" ]]; then
+        backup_file "$config_dst"
+        echo "$toml_block" >> "$config_dst"
+        log_success "MCP config: Added flow-think server to config.toml"
+    else
+        mkdir -p "$(dirname "$config_dst")"
+        echo "$toml_block" > "$config_dst"
+        log_success "MCP config: Created config.toml with flow-think server"
+    fi
+}
+
+configure_mcp_for_opencode() {
+    local config_dst="$OPENCODE_DIR/config.json"
+
+    if [[ -z "$MCP_INSTALL_TYPE" ]]; then
+        log_warn "MCP not installed — skipping OpenCode MCP config"
+        return
+    fi
+
+    log_info "Configuring MCP for OpenCode..."
+    get_mcp_command
+
+    local mcp_json
+    if [[ "$MCP_INSTALL_TYPE" == "standalone" ]]; then
+        mcp_json='{
+      "command": "'"$MCP_CMD"'",
+      "args": [],
+      "env": {
+        "FLOW_MCP_BEADS_SYNC": "true",
+        "FLOW_MCP_OUTPUT_FORMAT": "console"
+      }
+    }'
+    else
+        mcp_json='{
+      "command": "node",
+      "args": ["'"$FLOW_DATA_DIR/mcp/flow-think/index.js"'"],
+      "env": {
+        "FLOW_MCP_BEADS_SYNC": "true",
+        "FLOW_MCP_OUTPUT_FORMAT": "console"
+      }
+    }'
+    fi
+
+    if [[ -f "$config_dst" ]]; then
+        if grep -q '"flow-think"' "$config_dst" 2>/dev/null; then
+            log_info "MCP config: flow-think already configured in OpenCode"
+            return
+        fi
+
+        backup_file "$config_dst"
+
+        if command -v jq &>/dev/null; then
+            local temp_file
+            temp_file=$(mktemp)
+            jq --argjson ft "$mcp_json" '.mcpServers["flow-think"] = $ft' "$config_dst" > "$temp_file" && mv "$temp_file" "$config_dst"
+            log_success "MCP config: Added flow-think to OpenCode config.json"
+        else
+            log_warn "jq not installed — add flow-think MCP config to $config_dst manually"
+            echo "         Key: mcpServers.flow-think"
+            echo "         Command: $MCP_CMD"
+        fi
+    else
+        mkdir -p "$(dirname "$config_dst")"
+        cat > "$config_dst" << EOFOPENCODE
+{
+  "mcpServers": {
+    "flow-think": $mcp_json
+  }
+}
+EOFOPENCODE
+        log_success "MCP config: Created OpenCode config.json with flow-think"
     fi
 }
 
@@ -1045,8 +1165,11 @@ main() {
     # Install MCP server
     install_mcp
 
-    # Configure MCP for Claude Code
+    # Configure MCP for each installed CLI
     $CLAUDE_INSTALLED && configure_mcp_for_claude
+    $CODEX_INSTALLED && configure_mcp_for_codex
+    $OPENCODE_INSTALLED && configure_mcp_for_opencode
+    # Gemini: configured via embedded gemini-extension.json
 
     # Check Beads
     check_beads

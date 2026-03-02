@@ -2,16 +2,18 @@
   "_comment": [
     "Flow Think MCP Server Configuration for Codex CLI",
     "",
-    "Codex CLI MCP configuration for flow-think structured thinking.",
-    "Merge this into your ~/.codex/config.json mcpServers section.",
+    "The installer generates runtime-aware config automatically.",
+    "Standalone mode (preferred): command = ~/.flow/mcp/flow-think/flow-think-mcp",
+    "Node.js fallback: command = node, args = [~/.flow/mcp/flow-think/index.js]",
     "",
     "See: tools/flow-think/README.md for full documentation"
   ],
 
   "mcpServers": {
     "flow-think": {
-      "command": "bun",
-      "args": ["run", "~/.flow/mcp/flow-think/dist/index.js"],
+      "_comment": "Standalone executable (no runtime required) — installer auto-detects",
+      "command": "~/.flow/mcp/flow-think/flow-think-mcp",
+      "args": [],
       "env": {
         "FLOW_MCP_BEADS_SYNC": "true",
         "FLOW_MCP_OUTPUT_FORMAT": "console"

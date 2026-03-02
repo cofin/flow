@@ -4,6 +4,7 @@
  * Manages mapping between MCP sessions and Beads epics.
  */
 
+import { spawn } from "../runtime.js";
 import { BeadsDetection } from "./detection.js";
 
 /**
@@ -121,19 +122,16 @@ export class BeadsSessionManager {
     }
 
     try {
-      const proc = Bun.spawn(["bd", "show", epicId, "--format", "json"], {
-        stdout: "pipe",
-        stderr: "pipe",
-        cwd: this.workingDirectory,
-      });
+      const result = await spawn(
+        ["bd", "show", epicId, "--format", "json"],
+        { cwd: this.workingDirectory }
+      );
 
-      const exitCode = await proc.exited;
-      if (exitCode !== 0) {
+      if (result.exitCode !== 0) {
         return null;
       }
 
-      const stdout = await new Response(proc.stdout).text();
-      const data = JSON.parse(stdout);
+      const data = JSON.parse(result.stdout ?? "{}");
 
       return {
         id: epicId,
