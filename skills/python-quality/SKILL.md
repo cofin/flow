@@ -1,13 +1,13 @@
 ---
 name: python-quality
-description: "Configuration and usage of Python quality tools: Ruff (linter/formatter), Pyright, and BasedPyright (type checking)."
+description: "Configuration and usage of Python quality tools: Ruff (linter/formatter), Pyright, and Based-Pyright (type checking)."
 ---
 
 # Python Quality Skill
 
 ## Ruff (Linter & Formatter)
 
-Ruff is a widely used Python linter and formatter.
+Ruff is the de-facto standard for Python linting and formatting.
 
 ### Configuration (`pyproject.toml`)
 
@@ -70,9 +70,11 @@ Fast static type checker from Microsoft.
 [tool.pyright]
 include = ["src"]
 exclude = ["**/node_modules", "**/__pycache__", ".venv"]
+venvPath = "."
+venv = ".venv"
 
 # Type checking strictness
-typeCheckingMode = "strict"  # or "off", "basic", "standard"
+typeCheckingMode = "strict"  # or "basic", "standard"
 pythonVersion = "3.12"
 
 # Specific overrides
@@ -82,17 +84,17 @@ reportMissingTypeStubs = false
 
 ### Based-Pyright
 
-BasedPyright is a Pyright fork with stricter defaults and additional language-server features.
+A fork of Pyright with stricter rules and Pylance features (like inlay hints) enabled for all editors.
 
 **`pyproject.toml`**:
 
 ```toml
 [tool.basedpyright]
 include = ["src"]
-pythonVersion = "3.12"
+target-version = "py312"
 
-# BasedPyright-specific defaults/modes
-typeCheckingMode = "recommended"  # BasedPyright default; "all" is also available
+# Based-pyright specific features
+typeCheckingMode = "all"  # Enable all rules by default
 reportAny = false         # Disable "Any" type reporting if too noisy
 ```
 
@@ -103,20 +105,14 @@ reportAny = false         # Disable "Any" type reporting if too noisy
 3. **CI**: Run `ruff check`, `ruff format --check`, and type checking in CI.
 4. **Strictness**: Start strict (`typeCheckingMode = "strict"` or `all`) and suppress specific errors rather than starting loose.
 
-## Official Learn More
+## Official References
 
-- Ruff configuration: https://docs.astral.sh/ruff/configuration/
-- Ruff settings reference: https://docs.astral.sh/ruff/settings/
-- Ruff rule reference: https://docs.astral.sh/ruff/rules/
-- Ruff releases: https://github.com/astral-sh/ruff/releases
-- Pyright configuration: https://github.com/microsoft/pyright/blob/main/docs/configuration.md
-- Pyright import resolution: https://github.com/microsoft/pyright/blob/main/docs/import-resolution.md
-- Pyright releases: https://github.com/microsoft/pyright/releases
-- BasedPyright config files: https://docs.basedpyright.com/latest/configuration/config-files/
-- BasedPyright better defaults: https://docs.basedpyright.com/latest/benefits-over-pyright/better-defaults/
-- BasedPyright language-server improvements: https://docs.basedpyright.com/latest/benefits-over-pyright/language-server-improvements/
-- BasedPyright Pylance features: https://docs.basedpyright.com/latest/benefits-over-pyright/pylance-features/
-- BasedPyright releases: https://github.com/detachhead/basedpyright/releases
+- https://docs.astral.sh/ruff/configuration/
+- https://github.com/astral-sh/ruff/releases
+- https://raw.githubusercontent.com/microsoft/pyright/main/docs/configuration.md
+- https://github.com/microsoft/pyright/releases
+- https://docs.basedpyright.com/latest/configuration/config-files/
+- https://github.com/detachhead/basedpyright/releases
 
 ## Shared Styleguide Baseline
 

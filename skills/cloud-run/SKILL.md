@@ -7,12 +7,7 @@ description: Expert knowledge for Google Cloud Run serverless containers. Use wh
 
 ## Overview
 
-Cloud Run is a fully managed serverless platform for containerized workloads.
-It supports:
-- **Services** for HTTP/gRPC request-driven workloads
-- **Jobs** for batch workloads that run to completion
-
-Cloud Run can scale to zero and supports both request-based and instance-based billing, depending on configuration.
+Cloud Run is a fully managed serverless platform for running containerized applications. It automatically scales from zero to N based on incoming requests and charges only for resources used during request processing.
 
 ## Key Concepts
 
@@ -20,61 +15,62 @@ Cloud Run can scale to zero and supports both request-based and instance-based b
 
 | Feature | Services | Jobs |
 |---------|----------|------|
-| Purpose | HTTP/gRPC request handling | Batch/scheduled tasks |
-| Scaling | Auto-scales with traffic | Runs tasks to completion |
-| Billing | Request-based (default) or instance-based | Instance-based |
-| Timeout | Up to 60 minutes per request | Up to 168 hours (7 days) per task |
+| Purpose | HTTP request handling | Batch/scheduled tasks |
+| Scaling | Auto-scales with traffic | Runs to completion |
+| Billing | Per-request CPU time | Per-execution |
+| Timeout | Up to 60 minutes | Up to 24 hours |
 | Command | `gcloud run deploy` | `gcloud run jobs deploy` |
 
-### Billing/CPU Allocation Modes (Services)
+### CPU Allocation Modes
 
-1. **Request-based billing (default)**: CPU is allocated during request handling/startup/shutdown
-   - Best for: Cost optimization, intermittent traffic
-   - Limitation: No sustained CPU between requests
+1. **Request-based (default)**: CPU only allocated during request processing
+   - Best for: Cost optimization, sporadic traffic
+   - Limitation: No background processing between requests
 
-2. **Instance-based billing**: CPU is allocated for the full instance lifecycle
-   - Best for: Background processing, long-lived connections, streaming
-   - Tradeoff: Higher baseline cost
+2. **Always-allocated**: CPU allocated for entire container lifetime
+   - Best for: WebSockets, background tasks, streaming
+   - Cost: Higher, but enables more use cases
 
 ```bash
-# Instance-based billing / always allocated CPU
-gcloud run deploy SERVICE --no-cpu-throttling
+# Always-allocated CPU
+gcloud run deploy SERVICE --cpu-throttling=false
 
-# Request-based billing / throttled CPU (default)
-gcloud run deploy SERVICE --cpu-throttling
+# Request-based (default)
+gcloud run deploy SERVICE --cpu-throttling=true
 ```
 
 ## Cold Start Optimization
 
 ### Strategies
 
-1. **Minimum instances**: keep containers warm
+1. **Minimum Instances**: Keep containers warm
 ```bash
 gcloud run deploy SERVICE --min-instances=1
 ```
 
-2. **Startup CPU boost**: temporarily increase CPU during startup
+2. **Startup CPU Boost**: Temporarily increase CPU during startup
 ```bash
 gcloud run deploy SERVICE --cpu-boost
 ```
 
-3. **Application optimization**:
-   - Keep startup paths lean
+3. **Application Optimization**:
+   - Use minimal base images (Alpine, Distroless)
    - Lazy-load heavy dependencies
    - Defer non-critical initialization
-   - Avoid expensive global initialization
+   - Move heavy operations to background threads
 
-4. **Image optimization**:
-   - Prefer minimal/base hardened images (for security and transfer efficiency)
-   - Focus primarily on startup behavior (cold start is usually init-bound)
+4. **Image Optimization**:
+   - Image size doesn't affect cold start directly
+   - Focus on reducing initialization complexity
+   - Pre-compile bytecode (Python: `--compile-bytecode`)
 
 ## Concurrency Configuration
 
 ### Understanding Concurrency
 
 - **Default**: 80 concurrent requests per instance
-- **Maximum**: 1000
-- **Minimum**: 1
+- **Maximum**: 1000 concurrent requests per instance
+- **Minimum**: 1 (single-threaded apps)
 
 ### Tuning Guidelines
 
@@ -82,52 +78,40 @@ gcloud run deploy SERVICE --cpu-boost
 |---------------|------------------------|
 | I/O-bound async | 80-1000 |
 | CPU-intensive | 1-10 |
-| Memory-intensive | 10-50 |
-| Mixed workloads | 20-200 |
+| Memory-intensive | 10-20 |
+| Mixed workloads | 20-50 |
 
 ```bash
 # Set concurrency
 gcloud run deploy SERVICE --concurrency=80
 
-# Single-request mode
+# Single-threaded mode
 gcloud run deploy SERVICE --concurrency=1
 ```
 
 ### Language-Specific Notes
 
-**Python**: If using threaded servers, align thread count with concurrency target.
+**Python**: Set `THREADS` environment variable equal to concurrency
 ```bash
 gcloud run deploy SERVICE --set-env-vars="THREADS=80" --concurrency=80
 ```
 
-**Node.js**: Use async I/O; concurrency applies at the request level per instance.
+**Node.js**: Use async patterns; single-threaded but handles concurrent I/O well
 
 ## Resource Configuration
 
 ### CPU and Memory
 
 ```bash
-# CPU supports fractional and whole values (example values shown)
-gcloud run deploy SERVICE --cpu=1
+# CPU options: 1, 2, 4, 6, 8 vCPUs
+gcloud run deploy SERVICE --cpu=2
 
-# Memory supports up to 32Gi (min/max depend on chosen CPU)
+# Memory: 128Mi to 32Gi
 gcloud run deploy SERVICE --memory=2Gi
 
 # Combined
 gcloud run deploy SERVICE --cpu=2 --memory=4Gi
 ```
-
-### CPU-Memory Coupling (Common Values)
-
-| CPU | Memory range |
-|-----|--------------|
-| `0.08` | up to `512Mi` |
-| `0.5` | up to `1Gi` |
-| `1` | up to `4Gi` |
-| `2` | up to `8Gi` |
-| `4` | `2Gi` to `16Gi` |
-| `6` | `4Gi` to `24Gi` |
-| `8` | `4Gi` to `32Gi` |
 
 ### Memory Formula
 
@@ -135,7 +119,7 @@ gcloud run deploy SERVICE --cpu=2 --memory=4Gi
 Peak Memory = Standing Memory + (Memory per Request × Concurrency)
 ```
 
-### GPU Support
+### GPU Support (Preview)
 
 ```bash
 gcloud run deploy SERVICE \
@@ -144,11 +128,6 @@ gcloud run deploy SERVICE \
   --cpu=8 \
   --memory=32Gi
 ```
-
-Notes:
-- Cloud Run GPU supports NVIDIA L4.
-- Services GPU and Jobs GPU are available; verify latest region support before deploy.
-- GPU workloads require higher minimum CPU/memory (at least 4 CPU and 16Gi memory).
 
 ## CLI Commands
 
@@ -163,7 +142,7 @@ gcloud run deploy SERVICE \
 
 # Full deployment with common options
 gcloud run deploy SERVICE \
-  --image=us-docker.pkg.dev/PROJECT/REPO/IMAGE:TAG \
+  --image=gcr.io/PROJECT/IMAGE:TAG \
   --region=us-central1 \
   --cpu=2 \
   --memory=2Gi \
@@ -189,13 +168,17 @@ gcloud run services update-traffic SERVICE --to-latest
 gcloud run services update-traffic SERVICE \
   --to-revisions=REVISION1=70,REVISION2=30
 
-# Rollback to a specific revision
+# Gradual rollout (10% to latest)
 gcloud run services update-traffic SERVICE \
-  --to-revisions=REVISION_NAME=100
+  --to-revisions=LATEST=10
 
 # Tag-based routing
 gcloud run services update-traffic SERVICE \
-  --set-tags=stable=REVISION1,canary=REVISION2
+  --to-tags=canary=10
+
+# Rollback to specific revision
+gcloud run services update-traffic SERVICE \
+  --to-revisions=REVISION_NAME=100
 ```
 
 ### Revision Management
@@ -207,7 +190,11 @@ gcloud run revisions list --service=SERVICE
 # Describe revision
 gcloud run revisions describe REVISION
 
-# Delete revision
+# Set tags on revisions
+gcloud run services update-traffic SERVICE \
+  --set-tags=stable=REVISION1,canary=REVISION2
+
+# Delete old revisions
 gcloud run revisions delete REVISION
 ```
 
@@ -223,7 +210,7 @@ gcloud run services describe SERVICE --region=REGION
 # Delete service
 gcloud run services delete SERVICE --region=REGION
 
-# Update service env vars
+# Update service
 gcloud run services update SERVICE \
   --update-env-vars="KEY=VALUE" \
   --region=REGION
@@ -238,8 +225,7 @@ gcloud run jobs deploy JOB \
   --region=REGION \
   --tasks=10 \
   --parallelism=5 \
-  --task-timeout=1h \
-  --max-retries=3
+  --task-timeout=3600
 
 # Execute job
 gcloud run jobs execute JOB --region=REGION
@@ -259,7 +245,7 @@ resource "google_cloud_run_v2_service" "default" {
 
   template {
     containers {
-      image = "us-docker.pkg.dev/my-project/my-repo/my-image:latest"
+      image = "gcr.io/my-project/my-image:latest"
 
       resources {
         limits = {
@@ -273,6 +259,7 @@ resource "google_cloud_run_v2_service" "default" {
         value = "production"
       }
 
+      # Secret from Secret Manager
       env {
         name = "DB_PASSWORD"
         value_source {
@@ -287,8 +274,10 @@ resource "google_cloud_run_v2_service" "default" {
         http_get {
           path = "/healthz"
         }
-        period_seconds    = 3
-        failure_threshold = 3
+        initial_delay_seconds = 0
+        timeout_seconds       = 1
+        period_seconds        = 3
+        failure_threshold     = 3
       }
 
       liveness_probe {
@@ -320,16 +309,16 @@ resource "google_cloud_run_v2_service" "default" {
 
 ```hcl
 # Public access
-resource "google_cloud_run_v2_service_iam_member" "public" {
-  name     = google_cloud_run_v2_service.default.name
+resource "google_cloud_run_service_iam_member" "public" {
+  service  = google_cloud_run_v2_service.default.name
   location = google_cloud_run_v2_service.default.location
   role     = "roles/run.invoker"
   member   = "allUsers"
 }
 
-# Authenticated service account access
-resource "google_cloud_run_v2_service_iam_member" "auth" {
-  name     = google_cloud_run_v2_service.default.name
+# Authenticated only
+resource "google_cloud_run_service_iam_member" "auth" {
+  service  = google_cloud_run_v2_service.default.name
   location = google_cloud_run_v2_service.default.location
   role     = "roles/run.invoker"
   member   = "serviceAccount:${var.invoker_sa}"
@@ -353,19 +342,17 @@ resource "google_cloud_run_domain_mapping" "default" {
 }
 ```
 
-Notes:
-- Domain mappings have regional and certificate capability limits.
-- For advanced TLS controls and broader coverage, use Cloud Load Balancing.
-
 ## Multi-Container Services
 
-Cloud Run supports sidecars (for example: proxies, collectors, adapters).
+Cloud Run supports sidecar containers for proxies, logging, etc.
 
 ```yaml
 apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
   name: multi-container-service
+  annotations:
+    run.googleapis.com/launch-stage: BETA
 spec:
   template:
     metadata:
@@ -400,37 +387,20 @@ spec:
               memory: 512Mi
 ```
 
-Notes:
-- Exactly one container is ingress-facing.
-- Explicitly configure the ingress container port.
-
 ## Ingress Configuration
 
 ```bash
-# Internal only
+# Internal only (VPC)
 gcloud run deploy SERVICE --ingress=internal
 
-# Internal + External Application Load Balancer
+# Internal + Cloud Load Balancing
 gcloud run deploy SERVICE --ingress=internal-and-cloud-load-balancing
 
-# Public
+# All traffic (public)
 gcloud run deploy SERVICE --ingress=all
 ```
 
-## VPC Egress
-
-Prefer **Direct VPC egress** for new deployments.
-Use Serverless VPC Access connectors when Direct VPC egress is not suitable.
-
-### Direct VPC egress (recommended)
-
-```bash
-gcloud run deploy SERVICE \
-  --network=VPC_NETWORK \
-  --subnet=SUBNET
-```
-
-### Serverless VPC Access connector
+## VPC Connector
 
 ```bash
 # Create connector
@@ -448,11 +418,11 @@ gcloud run deploy SERVICE \
 ## Secrets Management
 
 ```bash
-# Secret Manager secret as env var
+# Use Secret Manager secret as env var
 gcloud run deploy SERVICE \
   --set-secrets="DB_PASSWORD=db-password:latest"
 
-# Secret Manager secret mounted as file
+# Mount secret as file
 gcloud run deploy SERVICE \
   --set-secrets="/secrets/config.json=app-config:latest"
 ```
@@ -461,77 +431,58 @@ gcloud run deploy SERVICE \
 
 ### Cost Optimization
 
-1. Set concurrency intentionally (higher concurrency can lower cost for I/O-heavy apps)
-2. Use min instances only where latency SLOs require it
-3. Default to request-based billing unless you need background CPU
-4. Right-size CPU/memory; revisit after production metrics
+1. **Use appropriate concurrency** - Higher concurrency = fewer instances = lower cost
+2. **Set min-instances wisely** - Balance cold starts vs always-on cost
+3. **Use request-based CPU** unless you need background processing
+4. **Right-size CPU/memory** - Don't over-provision
 
 ### Performance
 
-1. Enable startup CPU boost for startup-heavy apps
-2. Use startup/liveness probes for reliable readiness behavior
-3. Keep init paths short; defer optional startup work
-4. Deploy in regions near primary users/dependencies
+1. **Enable startup CPU boost** for faster cold starts
+2. **Use health probes** to ensure readiness before receiving traffic
+3. **Optimize container startup** - lazy load, async init
+4. **Use regional deployments** close to users
 
 ### Security
 
-1. Use user-managed service accounts (service identity), not static keys
-2. Store secrets in Secret Manager
-3. Restrict ingress appropriately
-4. Use VPC egress controls for private dependencies
-5. Use Binary Authorization when supply-chain controls are required
+1. **Use Workload Identity** instead of service account keys
+2. **Store secrets in Secret Manager**
+3. **Set appropriate ingress controls**
+4. **Use VPC Connector for internal resources**
+5. **Enable binary authorization** for trusted images only
 
 ### Reliability
 
-1. Set realistic timeouts for service requests and job tasks
-2. Configure retries for transient failures
-3. Use traffic splitting/tags for safer rollouts
-4. Monitor with Cloud Monitoring and logs-based alerting
+1. **Set appropriate timeouts** for your workload
+2. **Configure retries** for transient failures
+3. **Use traffic splitting** for safe deployments
+4. **Monitor with Cloud Monitoring** and set alerts
 
 ## Troubleshooting
 
 ### Container Fails to Start
 
 ```bash
-# Read service logs
+# Check logs
 gcloud run services logs read SERVICE --region=REGION
 
-# Inspect revision details
+# Check revision status
 gcloud run revisions describe REVISION --region=REGION
 ```
 
 ### High Latency
 
-1. Check cold-start frequency (`min-instances`, startup time)
-2. Revisit concurrency tuning
-3. Check CPU throttling/billing mode fit
-4. Profile startup and slow handlers
+1. Check cold start frequency (enable min-instances)
+2. Review concurrency settings
+3. Check for CPU throttling
+4. Profile application startup
 
 ### Memory Issues
 
 1. Increase memory limit
-2. Detect leaks and unbounded caches
-3. Reduce concurrency for memory-heavy requests
-4. Validate per-request memory profile under load
-
-## Where to Verify and Learn More (Official)
-
-- Product docs: https://cloud.google.com/run/docs
-- Release notes: https://cloud.google.com/run/docs/release-notes
-- Quotas and limits: https://cloud.google.com/run/quotas
-- CPU allocation/billing mode: https://cloud.google.com/run/docs/configuring/cpu-allocation
-- Services CPU tuning: https://cloud.google.com/run/docs/configuring/services/cpu
-- Services memory limits: https://cloud.google.com/run/docs/configuring/services/memory-limits
-- Concurrency: https://cloud.google.com/run/docs/about-concurrency
-- Jobs task timeout: https://cloud.google.com/run/docs/configuring/task-timeout
-- Services GPU: https://cloud.google.com/run/docs/configuring/services/gpu
-- Jobs GPU: https://cloud.google.com/run/docs/configuring/jobs/gpu
-- Multi-container services: https://cloud.google.com/run/docs/deploying#sidecars
-- Ingress controls: https://cloud.google.com/run/docs/securing/ingress
-- VPC connectivity (Direct egress and connectors): https://cloud.google.com/run/docs/configuring/connecting-vpc
-- Secrets: https://cloud.google.com/run/docs/configuring/services/secrets
-- Domain mapping: https://cloud.google.com/run/docs/mapping-custom-domains
-- Binary Authorization for Cloud Run: https://cloud.google.com/binary-authorization/docs/run/enabling-binauthz-cloud-run
+2. Check for memory leaks
+3. Reduce concurrency
+4. Review in-memory caching
 
 ## Resources
 
@@ -542,12 +493,12 @@ gcloud run revisions describe REVISION --region=REGION
 
 ## Official References
 
-- https://cloud.google.com/run/docs
-- https://cloud.google.com/run/docs/release-notes
-- https://cloud.google.com/run/docs/configuring/task-timeout
-- https://cloud.google.com/run/docs/configuring/services/cpu
-- https://cloud.google.com/run/docs/configuring/services/gpu
-- https://cloud.google.com/run/docs/mapping-custom-domains
+- https://docs.cloud.google.com/run/docs
+- https://docs.cloud.google.com/run/docs/release-notes
+- https://docs.cloud.google.com/run/docs/configuring/task-timeout
+- https://docs.cloud.google.com/run/docs/configuring/services/cpu
+- https://docs.cloud.google.com/run/docs/configuring/services/gpu
+- https://docs.cloud.google.com/run/docs/mapping-custom-domains
 
 ## Shared Styleguide Baseline
 

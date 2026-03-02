@@ -5,33 +5,31 @@ description: SQLSpec asyncmy adapter workflows. Use when implementing, debugging
 
 # SQLSpec AsyncMy Adapter
 
-Use this skill when touching SQLSpec's `asyncmy` adapter config, driver behavior, parameter handling, or adapter-specific tests/docs.
+Read `.claude/skills/sqlspec_adapters/asyncmy.md` for Claude's adapter playbook and `docs/guides/adapters/asyncmy.md` for project documentation.
 
-## Focus areas in the SQLSpec repo
+## Where to look
 
-- Adapter code: `sqlspec/adapters/asyncmy/`
-- Shared parameter/statement behavior: `sqlspec/core/parameters.py`
-- Driver base behavior: `sqlspec/driver/` and `sqlspec/driver/mixins/`
-- Adapter tests: `tests/integration/test_adapters/test_asyncmy/`
+- Adapter implementation: `sqlspec/adapters/asyncmy/` (config.py, driver.py, _typing.py)
+- Parameter profiles: `sqlspec/core/parameters.py` (asyncmy profile + statement config helpers)
+- Driver bases and mixins: `sqlspec/driver/` and `sqlspec/driver/mixins/`
+- Tests: `tests/integration/test_adapters/test_asyncmy/` and `tests/integration/test_stack_edge_cases.py`
+- Claude and specs references: `.claude/AGENTS.md`, `.claude/skills/README.md`, `specs/AGENTS.md`, `specs/guides/quality-gates.yaml`
 
-## Current guidance (keep this stable)
+## How it works
 
-- Use `AsyncmyConfig` from `sqlspec.adapters.asyncmy`.
-- Prefer `connection_config` / `connection_instance` naming (standardized in SQLSpec `v0.33.0`).
-- Treat `asyncmy` as async-only in SQLSpec flows (`async with` session usage).
-- For SQL text execution, align bind style with SQLSpec asyncmy docs/examples (`%s` positional placeholders).
-- Keep MySQL/MariaDB compatibility explicit in docs and tests (charset, JSON support, server version assumptions).
+- Use config classes to map `connection_config`, `driver_features`, and statement config; register via `SQLSpec.add_config()`.
+- Override `_connection_in_transaction()` with direct attribute access (returns False; AsyncMy relies on explicit BEGIN and does not expose reliable transaction state.).
+- Flow parameter styles through `StatementConfig` from the driver profile; adapter guides describe defaults and overrides.
+- Execute stacks with `StatementStack` using adapter-native pipeline when available, otherwise fall back to sequential execution.
 
-## Official learn-more links
+## Official References
 
-- SQLSpec adapter catalog: https://sqlspec.dev/reference/adapters.html
-- SQLSpec driver/query usage: https://sqlspec.dev/usage/drivers_and_querying.html
-- SQLSpec changelog (`v0.33.0` config rename + adapter updates): https://sqlspec.dev/changelog.html
-- SQLSpec AsyncMy ADK backend guide: https://sqlspec.dev/extensions/adk/backends/asyncmy.html
-- SQLAlchemy MySQL dialect (`asyncmy` section): https://docs.sqlalchemy.org/en/20/dialects/mysql.html#asyncmy
-- asyncmy package (official release metadata): https://pypi.org/project/asyncmy/
-- asyncmy upstream repository: https://github.com/long2ice/asyncmy
-- MySQL JSON type reference: https://dev.mysql.com/doc/en/json.html
+- https://sqlspec.dev/
+- https://sqlspec.dev/reference/adapters/asyncmy.html
+- https://sqlspec.dev/changelog.html
+- https://pypi.org/project/asyncmy/
+- https://github.com/long2ice/asyncmy
+- https://github.com/long2ice/asyncmy/releases
 
 ## Shared Styleguide Baseline
 

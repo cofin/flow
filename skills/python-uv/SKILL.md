@@ -5,97 +5,144 @@ description: Expert knowledge for using `uv` for Python package and project mana
 
 # `uv` Skill
 
-`uv` is Astral's Python package and project manager.
+## Overview
 
-## Core workflow
+`uv` is an extremely fast Python package and project manager written in Rust. It replaces `pip`, `pip-tools`, `pipx`, `poetry`, `pyenv`, `twine`, and `virtualenv`.
+
+## Core Capabilities
+
+### 1. Project Initialization & Management
 
 ```bash
-# Create a project
+# Initialize a new project (application)
 uv init my-app
 cd my-app
 
-# Add/remove dependencies
-uv add httpx
-uv add --dev pytest ruff
-uv remove httpx
+# Initialize a library
+uv init --lib my-lib
 
-# Run commands in the project environment
-uv run pytest
-uv run python -m my_app
+# specific python version
+uv init --python 3.12
+```
 
-# Create/update lockfile and sync env
-uv lock
+### 2. Dependency Management
+
+```bash
+# Add dependencies (updates pyproject.toml and creates/updates uv.lock)
+uv add requests httpx
+
+# Add development dependencies
+uv add --dev pytest ruff mypy
+
+# Remove dependencies
+uv remove requests
+
+# Sync environment with lockfile
 uv sync
 ```
 
-## Tools vs project commands
+### 3. Virtual Environment Management
 
 ```bash
-# Run a tool in an isolated env (alias of "uv tool run")
-uvx ruff check
-uv tool run --from "cowsay" cowsay "hello"
+# Create a virtual environment
+uv venv
 
-# Install a tool persistently
-uv tool install ruff
+# Activate (standard)
+source .venv/bin/activate
 ```
 
-Prefer `uv run` for project-bound tools (for example, `pytest`, `mypy`) and `uvx` / `uv tool run` for standalone tool execution.
+### 4. Running Code & Tools
 
-## Python version management
+`uv` can run scripts and tools in ephemeral environments or the project environment.
 
 ```bash
+# Run a script with dependencies (PEP 723)
+uv run script.py
+
+# Run a command in the project environment
+uv run python manage.py runserver
+
+# Run a tool (like pipx)
+uvx ruff check
+uvx --from "cowsay" cowsay "Hello"
+```
+
+### 5. Python Version Management
+
+`uv` manages Python versions automatically.
+
+```bash
+# Install a specific version
 uv python install 3.12
-uv python pin 3.12
+
+# Pin a project to a version
+uv python pin 3.11
+
+# List available versions
 uv python list
 ```
 
-## Script mode (PEP 723)
+### 6. Workspaces
 
-Use inline metadata for single-file scripts:
+`uv` supports Cargo-style workspaces for monorepos.
 
-```python
-# /// script
-# requires-python = ">=3.12"
-# dependencies = ["requests<3", "rich"]
-# ///
-```
-
-Run with:
-
-```bash
-uv run script.py
-```
-
-## Workspaces
-
-Use a root `pyproject.toml` with `tool.uv.workspace`:
+**Root `pyproject.toml`**:
 
 ```toml
+[project]
+name = "my-workspace"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = []
+
 [tool.uv.workspace]
 members = ["packages/*", "apps/*"]
 ```
 
-Then run workspace-aware operations from root or with `--package` as needed.
+**Child `pyproject.toml` (e.g., `packages/utils`)**:
 
-## Practical guidance
+```toml
+[project]
+name = "utils"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = ["httpx"]
 
-- Commit `uv.lock` for reproducibility.
-- In CI, prefer locked installs (`uv sync --frozen` or `uv run --frozen ...`) when lockfile drift should fail fast.
-- Use `uv export --format requirements.txt` when interoperability with pip-based tooling is required.
-- Use `uv pip ...` only when you explicitly need pip-style low-level workflows.
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+```
 
-## Official learn more
+## Best Practices
 
-- Overview: https://docs.astral.sh/uv/
-- Install and upgrade uv: https://docs.astral.sh/uv/getting-started/installation/
-- Create projects: https://docs.astral.sh/uv/concepts/projects/init/
-- Manage dependencies: https://docs.astral.sh/uv/concepts/projects/dependencies/
-- Locking and syncing: https://docs.astral.sh/uv/concepts/projects/sync/
-- Run and install tools: https://docs.astral.sh/uv/concepts/tools/
-- Workspaces: https://docs.astral.sh/uv/concepts/projects/workspaces/
-- Pip interface: https://docs.astral.sh/uv/pip/
-- Full command reference: https://docs.astral.sh/uv/reference/cli/
-- Release notes: https://github.com/astral-sh/uv/releases
+- **Always use `uv run`**: Avoid manually activating virtual environments. `uv run` ensures the environment is in sync.
+- **Lockfile**: Commit `uv.lock` to ensure reproducible builds.
+- **Scripts**: Use `script.py` with inline metadata for single-file tools.
+
+  ```python
+  # /// script
+  # requires-python = ">=3.12"
+  # dependencies = [
+  #     "requests<3",
+  #     "rich",
+  # ]
+  # ///
+  ```
+
+- **CI/CD**: `uv` is optimized for caching. Use `uv sync` in CI.
+
+## Common patterns
+
+- **Export to requirements.txt**: `uv export --format requirements-txt > requirements.txt`
+- **Upgrade all packages**: `uv lock --upgrade`
+
+## Official References
+
+- https://docs.astral.sh/uv/
+- https://docs.astral.sh/uv/reference/cli/
+- https://docs.astral.sh/uv/concepts/projects/sync/
+- https://docs.astral.sh/uv/concepts/projects/workspaces/
+- https://github.com/astral-sh/uv/releases
 
 ## Shared Styleguide Baseline
 

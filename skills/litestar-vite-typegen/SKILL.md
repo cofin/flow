@@ -6,28 +6,24 @@ description: Configure and run litestar-vite type generation (TypeGenConfig and 
 # Litestar Vite Type Generation
 
 ## Overview
-Use Litestar as the source of truth and generate deterministic TypeScript artifacts for routes, OpenAPI types, SDK helpers, and Inertia props metadata.
+Generate deterministic, typed artifacts from the Python backend and consume them in TypeScript.
 
 ## Quick Start
 
-Enable type generation in `ViteConfig`:
+Python config (enable type generation in `ViteConfig`):
 
 ```python
-from pathlib import Path
-from litestar_vite import ViteConfig, VitePlugin
-from litestar_vite.config import TypeGenConfig
+from litestar_vite import TypeGenConfig, ViteConfig
 
-vite = VitePlugin(
-    config=ViteConfig(
-        types=TypeGenConfig(
-            output=Path("src/generated"),  # default
-            generate_sdk=True,             # default
-            generate_routes=True,          # default
-            generate_schemas=True,         # default
-            generate_page_props=True,      # only effective with Inertia enabled
-        ),
-        inertia=True,  # required for Inertia page props generation
-    )
+vite_config = ViteConfig(
+    types=TypeGenConfig(
+        enabled=True,
+        generate_sdk=True,
+        generate_routes=True,
+        generate_page_props=True,
+        generate_schemas=True,
+        output="src/generated",
+    ),
 )
 ```
 
@@ -38,13 +34,7 @@ litestar assets generate-types
 litestar assets export-routes
 ```
 
-Shortcut for defaults:
-
-```python
-VitePlugin(config=ViteConfig(types=True))
-```
-
-## Defaults and Output Paths
+## Key Outputs and Defaults
 
 - `output`: `src/generated`
 - `openapi_path`: `src/generated/openapi.json`
@@ -53,36 +43,23 @@ VitePlugin(config=ViteConfig(types=True))
 - `schemas_ts_path`: `src/generated/schemas.ts`
 - `page_props_path`: `src/generated/inertia-pages.json`
 
-## TypeGenConfig Options
+## TypeGenConfig Knobs
 
 - `generate_zod`: emit Zod schemas (optional)
-- `generate_sdk`: emit TS SDK output (`src/generated/api/...`)
-- `generate_routes`: emit typed `routes.ts`
-- `generate_page_props`: emit Inertia page-props metadata (`inertia-pages.json`)
-- `generate_schemas`: emit helper types in `schemas.ts`
-- `global_route`: optionally register `route()` on `window`
-- `fallback_type`: fallback for unknown container types (`unknown` or `any`)
+- `generate_sdk`: emit TS client SDK
+- `generate_routes`: emit type-safe `routes.ts`
+- `generate_page_props`: emit Inertia page props metadata
+- `generate_schemas`: emit `schemas.ts`
+- `global_route`: global route helper (optional)
+- `fallback_type`: fallback for unknown schema types
 - `type_import_paths`: custom TS import paths
 
 ## Inertia Type Generation
 
-Configure default shared Inertia prop types via `InertiaConfig.type_gen`:
+Use `InertiaTypeGenConfig` when you need default shared props:
 
-```python
-from litestar_vite import ViteConfig
-from litestar_vite.config import InertiaConfig, InertiaTypeGenConfig
-
-config = ViteConfig(
-    inertia=InertiaConfig(
-        type_gen=InertiaTypeGenConfig(
-            include_default_auth=True,
-            include_default_flash=True,
-        )
-    )
-)
-```
-
-Use `include_default_auth=False` when your user shape does not match the default `User/AuthData` interfaces.
+- `include_default_auth`
+- `include_default_flash`
 
 ## Frontend Consumption Patterns
 
@@ -91,42 +68,48 @@ Use `include_default_auth=False` when your user shape does not match the default
 ```typescript
 import { route } from '../generated/routes';
 
-const url = route('api:books.detail', { book_id: 123 });
+const url = route('users:get', { id: 123 });
 ```
 
 ### Schemas
 
 ```typescript
-import type { FormInput, SuccessResponse } from '../generated/schemas';
+import type { components } from '../generated/schemas';
 
-type LoginInput = FormInput<'api:login'>;
-type LoginOk = SuccessResponse<'api:login'>;
+type User = components['schemas']['User'];
 ```
 
 ### Page Props (Inertia)
 
-`litestar assets generate-types` writes `inertia-pages.json`; the Vite plugin then generates `page-props.ts` from that metadata.
+Use the generated Inertia metadata to keep page props typed and in sync with server props.
 
 ## Determinism and Write-on-Change
 
 - Generated files are deterministic and only written when content changes.
-- `.litestar.json` is also refreshed during generation to keep Python and Vite config in sync.
+- If files change unexpectedly, check for non-deterministic fields or route ordering changes.
 
 ## Troubleshooting
 
-- If generated files are missing, confirm `types` is enabled (`types=True` or `TypeGenConfig(...)` present).
-- If Inertia props types are missing, confirm both `inertia` and `generate_page_props` are enabled.
-- If `schemas.ts` looks incomplete, confirm `generate_sdk=True` (schemas helpers wrap generated SDK types).
-- If imports fail in frontend code, align `output` with your TS alias/path config.
+- If generated files are missing, confirm `types.enabled` is true.
+- If outputs are in unexpected paths, check `TypeGenConfig` overrides.
+- If the frontend cannot resolve generated imports, verify `output` matches TS path expectations.
 
-## Learn More (Official)
+## Related Files
 
-- Type generation guide (pipeline + generated files): https://litestar-org.github.io/litestar-vite/usage/types.html
-- Inertia type generation details: https://litestar-org.github.io/litestar-vite/inertia/type-generation.html
-- Config API (`TypeGenConfig`, `ViteConfig`, `InertiaTypeGenConfig`): https://litestar-org.github.io/litestar-vite/reference/config.html
-- Codegen API details: https://litestar-org.github.io/litestar-vite/reference/codegen.html
-- Package and release history: https://pypi.org/project/litestar-vite/
-- OpenAPI TS generator used by litestar-vite: https://heyapi.dev/openapi-ts/get-started
+- `src/py/litestar_vite/codegen/`
+- `src/py/litestar_vite/config/`
+- `src/js/src/shared/typegen-core.ts`
+- `src/js/src/shared/typegen-plugin.ts`
+- `specs/guides/architecture.md`
+
+## Official References
+
+- https://litestar-org.github.io/litestar-vite/usage/types.html
+- https://litestar-org.github.io/litestar-vite/inertia/type-generation.html
+- https://litestar-org.github.io/litestar-vite/reference/config.html
+- https://litestar-org.github.io/litestar-vite/usage/migration-v015.html
+- https://pypi.org/project/litestar-vite/
+- https://github.com/hey-api/openapi-ts
 
 ## Shared Styleguide Baseline
 

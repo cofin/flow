@@ -1,6 +1,6 @@
 ---
 name: pyo3
-description: "Current PyO3 patterns for Rust-Python bindings: module setup, attach/detach threading model, free-threading, buffer-safe data exchange, async bridging, maturin packaging, and stubs. Use when exposing Rust to Python."
+description: "PyO3 patterns for Rust-Python bindings: module setup, GIL management, free-threading, buffer protocol, async bridging, maturin builds, and type stubs. Use when exposing Rust to Python."
 ---
 
 # PyO3 (Rust-Python Bindings)
@@ -8,19 +8,11 @@ description: "Current PyO3 patterns for Rust-Python bindings: module setup, atta
 ## Scope
 
 - Module initialization and class export.
-- Thread attach/detach model and free-threading (Python 3.13+ / 3.14+).
-- Buffer protocol and memoryview-safe data exchange.
+- GIL management, free-threading (Python 3.13+), and `allow_threads`.
+- Buffer protocol and zero-copy data transfer.
 - Async bridging with `pyo3-async-runtimes`.
 - Maturin build configuration and wheel distribution.
 - Type stubs (`.pyi`) for IDE support.
-
-## Current Baseline (2026)
-
-- Prefer PyO3 `0.28.x` APIs and naming.
-- Use `Python::attach` / `Python::detach` terminology (not `with_gil` / `allow_threads`).
-- Free-threaded support defaults changed in recent PyO3:
-  - `0.23` to `0.27`: opt-in via `#[pymodule(gil_used = false)]`
-  - `0.28+`: default assumes thread-safe module; opt out with `#[pymodule(gil_used = true)]`
 
 ## Module Setup
 
@@ -32,7 +24,7 @@ name = "_core"
 crate-type = ["cdylib", "rlib"]  # cdylib for Python, rlib for Rust tests
 
 [dependencies]
-pyo3 = { version = "0.28", features = ["extension-module"] }
+pyo3 = { version = "0.24", features = ["extension-module"] }
 
 [features]
 extension-module = ["pyo3/extension-module"]
@@ -61,19 +53,19 @@ fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
 from my_package._core import MyClass, my_function
 ```
 
-## Threading Model (Attach / Detach)
+## GIL Management
 
-### Detach for long CPU / blocking work
+### Release GIL for CPU Work
 
-Use `detach` when Python runtime access is not needed:
+Always release the GIL when doing CPU-bound Rust work:
 
 ```rust
 #[pymethods]
 impl MyClass {
     fn compute(&self, py: Python<'_>) -> PyResult<Vec<u8>> {
         let data = self.inner.clone();
-        py.detach(move || {
-            // Interpreter detached; Rust can run without blocking Python runtime access.
+        py.allow_threads(move || {
+            // GIL released — Python threads can run
             Ok(data.process())
         })
     }
@@ -82,46 +74,73 @@ impl MyClass {
 
 ### Free-Threading (Python 3.13+)
 
-- Avoid assuming `Python<'py>` implies global exclusivity.
-- Audit `unsafe` and interior mutability paths for true thread safety.
-- If your module still requires GIL-based assumptions, mark it explicitly:
+Detect and handle free-threaded builds:
 
 ```rust
-#[pymodule(gil_used = true)]
-fn _core(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    Ok(())
+#[pymethods]
+impl SharedState {
+    fn update(&self, py: Python<'_>, value: i64) -> PyResult<()> {
+        if py.version_info() >= (3, 13) {
+            // Free-threaded: use atomic operations
+            self.value.store(value, Ordering::Release);
+        } else {
+            // GIL-protected: direct mutation safe
+            self.value_non_atomic = value;
+        }
+        Ok(())
+    }
 }
 ```
 
-### When attachment is required
+### When to Hold the GIL
 
-- Calling Python APIs or methods.
-- Converting to/from Python objects.
-- Allocating Python-owned objects.
+- Calling Python objects or APIs (`PyDict`, `PyList`, callbacks).
+- Accessing `Python<'_>` token for type conversions.
+- Creating new Python objects.
 
-## Buffer Protocol & Data Transfer
+## Buffer Protocol & Zero-Copy
 
-### Important correctness note
+### Exposing Rust Data to Python
 
-- `PyBytes::new` copies input bytes into a Python `bytes` object.
-- Do not describe `PyBytes::new` as zero-copy.
+Use `PyBuffer` for zero-copy access to contiguous Rust data:
 
-### Accepting Python buffers (borrowed view, no extra Rust allocation)
+```rust
+#[pymethods]
+impl RingBuffer {
+    fn read_into<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
+        let data = self.inner.read()?;
+        // Zero-copy: creates PyBytes pointing to Rust data
+        Ok(PyBytes::new(py, &data))
+    }
+}
+```
 
-Use `PyBuffer<T>` for typed access to buffer-protocol objects:
+### Accepting Python Buffers
 
 ```rust
 #[pyfunction]
-fn process_buffer(py: Python<'_>, obj: &Bound<'_, PyAny>) -> PyResult<usize> {
-    let buf = PyBuffer::<u8>::get(obj)?;
+fn process_buffer(py: Python<'_>, buf: PyBuffer<u8>) -> PyResult<usize> {
+    // Access contiguous memory without copying
     let slice = buf.as_slice(py)?;
-    py.detach(|| Ok(compute_on_slice(slice)))
+    py.allow_threads(|| Ok(compute_on_slice(slice)))
 }
 ```
 
-### Returning memoryview from Python-owned buffer objects
+### memoryview for Large Data
 
-Use `PyMemoryView::from(&py_obj)` from a Python object that implements buffer protocol. Avoid ad-hoc raw-pointer memoryview construction patterns in skill docs.
+```rust
+#[pymethods]
+impl SharedMemoryRegion {
+    fn as_memoryview<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyMemoryView>> {
+        // SAFETY: Region outlives the memoryview (enforced by Python ref to self)
+        unsafe {
+            let ptr = self.inner.as_ptr();
+            let len = self.inner.len();
+            PyMemoryView::from_raw_parts(py, ptr, len)
+        }
+    }
+}
+```
 
 ## Error Mapping
 
@@ -145,7 +164,7 @@ impl From<CoreError> for PyErr {
 
 ## Async Bridging
 
-Bridge Rust futures to Python awaitables with `pyo3-async-runtimes`:
+Bridge Tokio futures to Python async:
 
 ```rust
 use pyo3_async_runtimes::tokio::future_into_py;
@@ -161,8 +180,6 @@ impl AsyncClient {
     }
 }
 ```
-
-Use crate/runtime versions compatible with your PyO3 major version.
 
 ## Maturin Build
 
@@ -237,21 +254,18 @@ def process_buffer(buf: bytes | bytearray | memoryview) -> int: ...
 
 - Name Rust modules with `_` prefix: `_core`, `_engine`.
 - Always add `__version__` from `CARGO_PKG_VERSION`.
-- Use modern `Bound<'py, T>` APIs.
-- Treat `abi3` and free-threaded builds as separate packaging concerns.
+- Use `Bound<'py, T>` (not `&T`) for PyO3 0.22+ API.
+- Prefer `abi3` when targeting multiple Python versions without recompilation.
 - Document Python-visible APIs in both docstrings and `.pyi` stubs.
 
-## Learn More (Official)
+## Official References
 
-- PyO3 user guide: https://pyo3.rs/main/
-- PyO3 migration guide (versioned): https://pyo3.rs/latest/migration.html
-- PyO3 changelog: https://pyo3.rs/latest/changelog
-- PyO3 free-threading guide: https://pyo3.rs/main/free-threading
-- PyBytes docs (`new` copies): https://pyo3.rs/main/doc/pyo3/types/struct.pybytes
-- PyBuffer docs: https://pyo3.rs/main/doc/pyo3/buffer/struct.pybuffer
-- PyMemoryView docs: https://pyo3.rs/main/doc/pyo3/types/struct.PyMemoryView
-- `pyo3-async-runtimes` docs: https://docs.rs/pyo3-async-runtimes/latest/pyo3_async_runtimes/
-- Maturin user guide: https://www.maturin.rs/
+- https://pyo3.rs/main/
+- https://pyo3.rs/main/changelog.html
+- https://pyo3.rs/latest/migration.html
+- https://pyo3.rs/main/free-threading
+- https://pyo3.rs/main/doc/pyo3/types/struct.pybytes
+- https://www.maturin.rs/
 
 ## Shared Styleguide Baseline
 

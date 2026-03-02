@@ -75,15 +75,6 @@ Flow requires Beads for persistent cross-session memory:
 | `/flow-distill` | `/flow:distill` | Extract reusable template |
 | `/flow-docs` | `/flow:docs` | Documentation workflow |
 
-## Gemini Install Paths (Important)
-
-- **Agent Skills** belong in `.gemini/skills/` (workspace) or `~/.gemini/skills/` (user scope).
-- **Extensions** belong in `~/.gemini/extensions/` and must include `gemini-extension.json`.
-- Do not copy plain skill folders into `~/.gemini/extensions/` unless you are packaging a full extension.
-- Prefer official commands over manual copying:
-  - `gemini skills install <repo-or-path>` or `gemini skills link <path>`
-  - `gemini extensions install <repo-or-path>` or `gemini extensions link <path>`
-
 ## Task Workflow (TDD) - Beads-First
 
 1. **Select task** from `br ready` (Beads is source of truth)
@@ -93,9 +84,9 @@ Flow requires Beads for persistent cross-session memory:
 5. **Refactor** with test safety
 6. **Verify coverage** (>80% target)
 7. **Commit** with format: `<type>(<scope>): <description>`
-8. **Sync to Beads**: `br close {id} --reason "commit: {sha}"`
-9. **Capture learnings** in `learnings.md`
-10. **Sync to markdown**: run `/flow:sync` (MANDATORY — keeps spec.md readable)
+8. **Attach git notes** with task summary
+9. **Sync to Beads**: `br close {id} --reason "commit: {sha}"`
+10. **Sync to markdown**: run `/flow-sync` (MANDATORY — keeps spec.md readable)
 
 **CRITICAL:** Never write `[x]`, `[~]`, `[!]`, or `[-]` markers to spec.md. Beads is the source of truth. After ANY Beads state change, agents MUST run `/flow-sync` to update spec.md.
 
@@ -115,8 +106,9 @@ When a phase completes:
 3. Propose manual verification steps
 4. Await user confirmation
 5. Create checkpoint commit
-6. Record checkpoint context in Beads comments (when useful)
-7. Sync to markdown: run `/flow:sync` (MANDATORY)
+6. Attach verification report as git note
+7. Record checkpoint in Beads: `br comments add {epic_id} "Phase {N} checkpoint: {sha}"`
+8. Sync to markdown: run `/flow-sync` (MANDATORY)
 
 ## Proactive Behaviors
 
@@ -138,13 +130,12 @@ When Flow skill is active:
 
 ## Official References
 
-Learn more in official docs:
-
-- Flow (official): https://github.com/cofin/flow
-- Beads Rust / `br` (official): https://github.com/Dicklesworthstone/beads_rust
-- Gemini CLI Agent Skills (official): https://geminicli.com/docs/cli/skills/
-- Gemini CLI Extensions (official): https://google-gemini.github.io/gemini-cli/docs/extensions/
-- Gemini CLI extension authoring (official): https://geminicli.com/docs/extensions/writing-extensions/
+- https://github.com/cofin/flow
+- https://raw.githubusercontent.com/cofin/flow/main/README.md
+- https://github.com/Dicklesworthstone/beads_rust
+- https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/README.md
+- https://docs.rs/beads_rust/latest/beads_rust/
+- https://geminicli.com/docs/extensions/reference/
 
 ## Shared Styleguide Baseline
 

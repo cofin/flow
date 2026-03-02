@@ -36,19 +36,18 @@ project/
 **Key rules:**
 - Core crate has zero FFI dependencies — bindings wrap it.
 - Use `[workspace.dependencies]` to pin shared dependency versions once.
-- For Rust 2024 workspaces, prefer `resolver = "3"` (set it explicitly for virtual workspaces).
 - Separate `cdylib` crates for each binding target (Python, Node, C).
 
 ```toml
 # Root Cargo.toml
 [workspace]
-resolver = "3"
+resolver = "2"
 members = ["crates/*"]
 
 [workspace.dependencies]
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1.49", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
-thiserror = "1"
+thiserror = "2"
 ```
 
 ## Core Rules
@@ -74,7 +73,6 @@ pub enum CoreError {
 ### Unsafe Discipline
 
 - Document every `unsafe` block with a `// SAFETY:` comment.
-- Enforce safety docs in CI with Clippy (`clippy::undocumented_unsafe_blocks`).
 - Isolate platform-specific unsafe in `platform/` modules behind safe traits.
 - Prefer `rustix` over raw `libc` for POSIX syscalls.
 - Specify atomic `Ordering` explicitly — never default to `SeqCst` without justification.
@@ -143,14 +141,13 @@ tokio::select! {
 
 - Build servers on `hyper::service::service_fn` for control.
 - Use `tower` middleware for shared concerns (tracing, auth, compression).
-- For coordinated shutdown across connections in Hyper 1.x, use `hyper-util` graceful shutdown patterns.
+- Connection-level graceful shutdown via `hyper::server::conn::http2::Connection::graceful_shutdown`.
 
 ## FFI Surface Rules
 
 - Expose APIs via PyO3 + napi-rs first (see dedicated skills).
 - Add optional C ABI only when stable ABI distribution is required.
 - Map errors deterministically — never panic across FFI.
-- Do not unwind across non-unwinding ABIs (`extern "C"`); use `extern "C-unwind"` only when explicitly required and validated.
 - Return slices/views for zero-copy when lifetime is clear; copy otherwise.
 - Use `#[repr(C)]` only for types crossing the C ABI boundary.
 
@@ -172,14 +169,12 @@ module-name = "my_package._core"
 ### Profile-Guided Optimization (PGO)
 
 ```bash
-# Install LLVM tools first
-rustup component add llvm-tools-preview
 # Build instrumented binary
 RUSTFLAGS="-Cprofile-generate=/tmp/pgo" cargo build --release
 # Run representative workload
 ./target/release/my_server --benchmark
 # Merge profiles and rebuild
-llvm-profdata merge -o /tmp/pgo/merged.profdata /tmp/pgo/*.profraw
+llvm-profdata merge -o /tmp/pgo/merged.profdata /tmp/pgo
 RUSTFLAGS="-Cprofile-use=/tmp/pgo/merged.profdata" cargo build --release
 ```
 
@@ -206,7 +201,7 @@ debug = true  # flamegraph symbols
 - `cargo nextest run` for parallel test execution.
 - `proptest` for property-based testing of invariants.
 - `criterion` for benchmarks — always compare against a baseline.
-- Run Miri on unsafe code (nightly): `rustup +nightly component add miri && cargo +nightly miri test`.
+- Run Miri on unsafe code: `cargo +nightly miri test`.
 - Use `cargo-llvm-cov` for coverage.
 - Sanitizers for binding layers:
 
@@ -225,18 +220,12 @@ RUSTFLAGS="-Zsanitizer=address" cargo +nightly test -Zbuild-std --target x86_64-
 
 ## Official References
 
-- Rust Book: https://doc.rust-lang.org/book/
-- Rust Reference: https://doc.rust-lang.org/reference/
-- Rustonomicon (unsafe + FFI): https://doc.rust-lang.org/nomicon/
-- Cargo Reference (workspaces/resolver/profiles): https://doc.rust-lang.org/cargo/reference/
-- Rust 2024 resolver notes: https://doc.rust-lang.org/stable/edition-guide/rust-2024/cargo-resolver.html
-- rustc PGO guide: https://doc.rust-lang.org/rustc/profile-guided-optimization.html
-- Miri (`cargo miri`): https://doc.rust-lang.org/cargo/commands/cargo-miri.html
-- Clippy docs + lints: https://doc.rust-lang.org/clippy/
-- Tokio docs: https://docs.rs/tokio/latest/tokio/
-- Hyper graceful shutdown (1.x): https://hyper.rs/guides/1/server/graceful-shutdown/
-- PyO3 docs: https://pyo3.rs/
-- napi-rs docs: https://napi.rs/
+- https://doc.rust-lang.org/book/
+- https://blog.rust-lang.org/releases/
+- https://tokio.rs/
+- https://hyper.rs/guides/1/server/graceful-shutdown/
+- https://pyo3.rs/
+- https://napi.rs/
 
 ## Shared Styleguide Baseline
 

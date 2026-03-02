@@ -5,49 +5,72 @@ description: Expert knowledge for HTMX development. Use when building hypermedia
 
 # HTMX Skill
 
-## Scope
+## Quick Reference
 
-Use this skill for HTMX-first UI development where the server returns HTML fragments and the client updates targeted DOM regions via HTMX attributes.
-
-## Core HTMX patterns (2.x)
-
-### Requests, targets, swaps
+### Core Attributes
 
 ```html
-<button hx-get="/items" hx-target="#item-list">Load</button>
-<button hx-post="/items" hx-vals='{"name":"New Item"}'>Create</button>
+<!-- Basic request types -->
+<button hx-get="/items">Load Items</button>
+<button hx-post="/items" hx-vals='{"name": "New Item"}'>Create</button>
+<button hx-put="/items/1">Update</button>
+<button hx-delete="/items/1">Delete</button>
 
+<!-- Specify target -->
+<button hx-get="/items" hx-target="#item-list">Load</button>
+
+<!-- Swap strategies -->
 <div hx-get="/items" hx-swap="innerHTML">Replace content</div>
 <div hx-get="/items" hx-swap="outerHTML">Replace element</div>
 <div hx-get="/items" hx-swap="beforeend">Append</div>
 <div hx-get="/items" hx-swap="afterbegin">Prepend</div>
-```
+<div hx-get="/items" hx-swap="delete">Delete element</div>
 
-### Triggers and polling
-
-```html
-<input hx-get="/search" hx-trigger="keyup changed delay:500ms" hx-target="#results">
-<div hx-get="/updates" hx-trigger="every 5s"></div>
+<!-- Triggers -->
+<input hx-get="/search" hx-trigger="keyup changed delay:500ms">
+<div hx-get="/updates" hx-trigger="every 5s">Polling</div>
 <button hx-get="/modal" hx-trigger="click once">Open once</button>
 ```
 
-### Out-of-band updates
+### OOB (Out of Band) Swaps
 
 ```html
-<!-- Returned from server -->
-<div id="main-content">...</div>
-<div id="notification" hx-swap-oob="true">Saved</div>
+<!-- Server response with multiple updates -->
+<div id="main-content">
+  Main content here
+</div>
+<div id="notification" hx-swap-oob="true">
+  New notification!
+</div>
 <div id="counter" hx-swap-oob="innerHTML">42</div>
 ```
 
-### Forms and indicators
+### Forms
 
 ```html
-<form hx-post="/users" hx-target="#result">
+<form hx-post="/users" hx-target="#result" hx-swap="outerHTML">
+  <input name="name" required>
   <input name="email" type="email" required>
-  <button type="submit" hx-indicator="#spinner">Save</button>
-  <img id="spinner" class="htmx-indicator" src="/spinner.svg" alt="Loading">
+  <button type="submit">
+    <span class="htmx-indicator">Saving...</span>
+    <span>Save</span>
+  </button>
 </form>
+
+<!-- With validation -->
+<form hx-post="/users" hx-target="#result">
+  <input name="email" hx-get="/validate/email" hx-trigger="blur">
+  <span id="email-error"></span>
+</form>
+```
+
+### Indicators
+
+```html
+<button hx-get="/slow" hx-indicator="#spinner">
+  Load Data
+  <img id="spinner" class="htmx-indicator" src="/spinner.svg">
+</button>
 
 <style>
   .htmx-indicator { display: none; }
@@ -56,26 +79,56 @@ Use this skill for HTMX-first UI development where the server returns HTML fragm
 </style>
 ```
 
-### Boosting and navigation
+### Boosted Links
 
 ```html
+<!-- Boost all links in a section -->
 <div hx-boost="true">
   <a href="/page1">Page 1</a>
   <a href="/page2">Page 2</a>
 </div>
 
+<!-- Push URL to history -->
 <a hx-get="/page" hx-push-url="true">Navigate</a>
 ```
 
-### Extensions in HTMX 2.x (separate packages)
+### Events
 
 ```html
-<script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.8/dist/htmx.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/htmx-ext-sse@2.2.4"></script>
-<script src="https://cdn.jsdelivr.net/npm/htmx-ext-ws@2.0.4"></script>
+<!-- Trigger on custom event -->
+<div hx-get="/data" hx-trigger="myEvent from:body">
+  Waiting for event...
+</div>
 
-<div hx-ext="sse" sse-connect="/events" sse-swap="message"></div>
+<script>
+  document.body.dispatchEvent(new Event('myEvent'));
+</script>
 
+<!-- Listen to htmx events -->
+<script>
+  document.body.addEventListener('htmx:afterSwap', (e) => {
+    console.log('Swapped:', e.detail.target);
+  });
+</script>
+```
+
+### Extensions
+
+```html
+<!-- JSON encoding extension -->
+<script src="https://unpkg.com/htmx.org/dist/ext/json-enc.js"></script>
+
+<form hx-post="/api/users" hx-ext="json-enc">
+  <input name="email" type="email">
+  <button>Submit as JSON</button>
+</form>
+
+<!-- SSE extension -->
+<div hx-ext="sse" sse-connect="/events" sse-swap="message">
+  Live updates here
+</div>
+
+<!-- WebSocket extension -->
 <div hx-ext="ws" ws-connect="/chat">
   <form ws-send>
     <input name="message">
@@ -83,11 +136,37 @@ Use this skill for HTMX-first UI development where the server returns HTML fragm
 </div>
 ```
 
-## Server response headers (common)
+### Headers & CSRF
+
+```html
+<!-- Include CSRF token -->
+<meta name="csrf-token" content="{{ csrf_token }}">
+
+<script>
+  document.body.addEventListener('htmx:configRequest', (e) => {
+    e.detail.headers['X-CSRF-Token'] =
+      document.querySelector('meta[name="csrf-token"]').content;
+  });
+</script>
+```
+
+### Confirm & Prompt
+
+```html
+<button hx-delete="/items/1" hx-confirm="Are you sure?">
+  Delete
+</button>
+
+<button hx-post="/action" hx-prompt="Enter reason:">
+  Action with reason
+</button>
+```
+
+## Server Response Headers
 
 ```python
-response.headers["HX-Location"] = "/items"
-response.headers["HX-Redirect"] = "/login"
+# Python example
+response.headers["HX-Redirect"] = "/new-page"
 response.headers["HX-Refresh"] = "true"
 response.headers["HX-Trigger"] = "itemCreated"
 response.headers["HX-Trigger-After-Swap"] = "formReset"
@@ -95,30 +174,95 @@ response.headers["HX-Reswap"] = "outerHTML"
 response.headers["HX-Retarget"] = "#new-target"
 ```
 
-## Security baseline
+## Best Practices
 
-- Return HTML fragments from trusted templates; do not inject untrusted HTML directly.
-- Add CSRF headers/tokens for unsafe methods (`POST`, `PUT`, `PATCH`, `DELETE`).
-- Use `hx-confirm` for destructive actions.
+- Return partial HTML, not full pages
+- Use `hx-swap-oob` for updating multiple elements
+- Add loading indicators for slow operations
+- Use `hx-boost` for progressive enhancement
+- Include CSRF tokens in headers
+- Use semantic HTML for accessibility
 
-## Litestar note
+## Litestar-Vite Integration
 
-For Litestar-specific HTMX plugin/request/response helpers, follow official Litestar HTMX docs instead of custom wrappers.
+### Setup with VitePlugin
 
-## Learn more (official)
+```python
+# Python backend
+from litestar import Litestar
+from litestar_vite import ViteConfig, VitePlugin
 
-- HTMX docs: https://htmx.org/docs/
-- HTMX reference: https://htmx.org/reference/
-- HTMX 1.x to 2.x migration: https://htmx.org/migration-guide-htmx-1/
-- HTMX SSE extension: https://htmx.org/extensions/sse/
-- HTMX WebSocket extension: https://htmx.org/extensions/ws/
-- HTMX releases: https://github.com/bigskysoftware/htmx/releases
-- Litestar HTMX docs: https://docs.litestar.dev/main/usage/htmx.html
-- Litestar Vite docs: https://litestar-org.github.io/litestar-vite/
+vite_config = ViteConfig(
+    mode="htmx",  # HTMX mode for partials
+    paths=PathConfig(resource_dir="src"),
+)
 
-## Shared styleguide baseline
+app = Litestar(plugins=[VitePlugin(config=vite_config)])
+```
+
+### HTMX Helpers from litestar-vite-plugin
+
+```typescript
+import {
+  addDirective,
+  registerHtmxExtension,
+  setHtmxDebug,
+  swapJson,
+} from 'litestar-vite-plugin/helpers/htmx';
+
+// Register custom extension
+registerHtmxExtension('my-ext', {
+  onEvent: (name, evt) => { ... }
+});
+
+// Enable debug mode
+setHtmxDebug(true);
+
+// Add custom directive
+addDirective('confirm', (element, value) => {
+  element.setAttribute('hx-confirm', value);
+});
+
+// Swap JSON response into DOM
+swapJson(targetEl, jsonData, 'innerHTML');
+```
+
+### Server-Side HTMX Responses
+
+```python
+from litestar import get
+from litestar.response import Template
+
+@get("/partials/items")
+async def get_items_partial() -> Template:
+    items = await fetch_items()
+    return Template(
+        "partials/items.html",
+        context={"items": items},
+    )
+```
+
+### CLI Commands
+
+```bash
+litestar assets install    # Install deps
+litestar assets serve      # Dev server with HMR
+litestar assets build      # Production build
+```
+
+
+## Official References
+
+- https://htmx.org/docs/
+- https://htmx.org/reference/
+- https://htmx.org/migration-guide-htmx-1/
+- https://extensions.htmx.org/
+- https://htmx.org/extensions/ws/
+- https://github.com/bigskysoftware/htmx/releases
+
+## Shared Styleguide Baseline
 
 - Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
 - [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
 - [HTMX](https://github.com/cofin/flow/blob/main/templates/styleguides/frameworks/htmx.md)
-- Keep this skill focused on HTMX workflows, edge cases, and integration details.
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

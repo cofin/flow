@@ -1,32 +1,26 @@
 ---
 name: litestar-assets-cli
-description: Use Litestar assets CLI commands (`init`, `install`, `serve`, `build`, `deploy`, `generate-types`, `export-routes`, `status`, `doctor`) for Litestar-Vite workflows. Prefer these commands over raw npm/Vite in integrated templates.
+description: Use Litestar assets CLI commands (install, serve, build, generate-types, export-routes, status, doctor) for dev, prod, tests, and diagnostics; avoid direct npm or Vite commands. Use when starting dev servers, building assets, generating types, or validating the Litestar-Vite integration layer.
 ---
 
 # Litestar Assets CLI
 
 ## Overview
-Use `litestar assets` as the primary workflow for Litestar-Vite projects so backend config, runtime bridge (`.litestar.json`), and frontend tooling stay aligned.
+Standardize all frontend operations through `litestar assets` to keep Python and Vite in sync.
 
 ## Command Map
 
 ```bash
-# Scaffold frontend (template + config-aware setup)
-litestar assets init
-
 # Install frontend deps
 litestar assets install
 
-# Dev server (manual/two-port mode)
+# Dev server (managed by Litestar)
 litestar assets serve
 
 # Production build
 litestar assets build
 
-# Deploy built assets (optional CDN/storage flow)
-litestar assets deploy
-
-# SSR production server (SSR templates only)
+# SSR production server (framework/ssr modes)
 litestar assets serve --production
 
 # Diagnostics
@@ -43,7 +37,8 @@ litestar assets export-routes
 ### Development (single-port)
 
 ```bash
-litestar run --reload
+litestar assets serve
+litestar run
 ```
 
 ### Development (two-port)
@@ -67,21 +62,18 @@ litestar assets build
 litestar assets serve --production
 litestar run
 ```
-Use this only for SSR templates where the frontend has a production server command.
 
 ## Testing and E2E Guidance
 
-- Prefer `litestar assets` commands for Litestar-Vite integrated templates.
-- Exception: `angular-cli` (external mode) uses standard Angular CLI commands (`ng serve`/`npm start`) by design.
+- Always use `litestar assets` commands in tests. Do not call `npm run dev` or `npm run build`.
 - Use `litestar assets status` before E2E tests to validate bridge config.
-- Use `litestar assets doctor` for config/runtime diagnostics (`--check` for CI, `--fix` for guided repair, `--runtime-checks` for reachability/hotfile checks).
+- Use `litestar assets doctor` when diagnosing missing Node executors, port conflicts, or malformed config.
 
 ## Common Pitfalls
 
-- Using `litestar assets serve` for default single-port dev; `litestar run --reload` already manages/proxies Vite when `dev_mode=True`.
-- Running raw npm/Vite commands in integrated templates (can bypass config synchronization), except external/`angular-cli` workflows.
+- Running npm scripts directly (bypasses Litestar integration layer).
 - Starting Vite on a port that does not match `.litestar.json`.
-- Running production without `litestar assets build` and expecting manifest-backed assets to exist.
+- Building assets without `litestar assets build` and then expecting Litestar to serve them.
 
 ## Related Files
 
@@ -90,15 +82,13 @@ Use this only for SSR templates where the frontend has a production server comma
 - `src/py/litestar_vite/executor.py`
 - `specs/guides/testing.md`
 
-## Learn More (Official)
+## Official References
 
-- Litestar Vite home: https://litestar-org.github.io/litestar-vite/
-- Vite integration usage: https://litestar-org.github.io/litestar-vite/usage/vite.html
-- Type generation usage: https://litestar-org.github.io/litestar-vite/usage/types.html
-- Angular (Vite vs Angular CLI modes): https://litestar-org.github.io/litestar-vite/frameworks/angular.html
-- Changelog: https://litestar-org.github.io/litestar-vite/changelog.html
-- CLI source of truth: https://github.com/litestar-org/litestar-vite/blob/main/src/py/litestar_vite/cli.py
-- Package metadata/releases: https://pypi.org/project/litestar-vite/
+- https://litestar-org.github.io/litestar-vite/usage/vite.html
+- https://litestar-org.github.io/litestar-vite/usage/types.html
+- https://litestar-org.github.io/litestar-vite/changelog.html
+- https://pypi.org/project/litestar-vite/
+- https://github.com/litestar-org/litestar-vite/blob/main/src/py/litestar_vite/cli.py
 
 ## Shared Styleguide Baseline
 

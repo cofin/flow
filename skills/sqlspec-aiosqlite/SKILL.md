@@ -5,35 +5,36 @@ description: SQLSpec aiosqlite adapter workflows. Use when implementing, debuggi
 
 # SQLSpec AioSQLite Adapter
 
-Use this skill for SQLSpec's `aiosqlite` adapter implementation and docs work.
+Read `.claude/skills/sqlspec_adapters/aiosqlite.md` for Claude's adapter playbook and `docs/guides/adapters/aiosqlite.md` for project documentation.
 
 ## Where to look
 
-- Adapter code: `sqlspec/adapters/aiosqlite/` (`config.py`, `driver.py`, `_typing.py`)
-- Parameter profiles and statement config: `sqlspec/core/parameters.py`
-- Driver base behavior: `sqlspec/driver/` and `sqlspec/driver/mixins/`
-- Tests: `tests/integration/test_adapters/test_aiosqlite/` and stack edge-case coverage
+- Adapter implementation: `sqlspec/adapters/aiosqlite/` (config.py, driver.py, _typing.py)
+- Parameter profiles: `sqlspec/core/parameters.py` (aiosqlite profile + statement config helpers)
+- Driver bases and mixins: `sqlspec/driver/` and `sqlspec/driver/mixins/`
+- Tests: `tests/integration/test_adapters/test_aiosqlite/` and `tests/integration/test_stack_edge_cases.py`
+- Claude and specs references: `.claude/AGENTS.md`, `.claude/skills/README.md`, `specs/AGENTS.md`, `specs/guides/quality-gates.yaml`
 
 ## How it works
 
-- Configure adapter with `AiosqliteConfig` and register via `SQLSpec.add_config()`.
-- Use `connection_config` and `connection_instance` naming (standardized in SQLSpec `v0.33.0`).
-- Keep transaction checks aligned with `aiosqlite.Connection.in_transaction`.
-- Parameter binding should follow SQLite/DB-API placeholder rules (qmark `?` and named `:name`).
-- Remember aiosqlite execution model: one shared worker thread per connection (async proxy over sqlite3).
+- Use config classes to map `connection_config`, `driver_features`, and statement config; register via `SQLSpec.add_config()`.
+- Override `_connection_in_transaction()` with direct attribute access (uses connection.in_transaction.).
+- Flow parameter styles through `StatementConfig` from the driver profile; adapter guides describe defaults and overrides.
+- Execute stacks with `StatementStack` using adapter-native pipeline when available, otherwise fall back to sequential execution.
 
-## Review checklist
+## Official References
 
-- Confirm docs/examples use `AiosqliteConfig` import path: `sqlspec.adapters.aiosqlite`.
-- Reject legacy config names (`pool_config`, `pool_instance`) in new guidance.
-- Ensure SQL parameter examples use placeholders, never string interpolation.
-- Keep async examples using `await` / `async with` for connection and cursor lifecycle.
+- https://sqlspec.dev/reference/adapters.html
+- https://sqlspec.dev/usage/drivers_and_querying.html
+- https://sqlspec.dev/changelog.html
+- https://aiosqlite.omnilib.dev/en/latest/index.html
+- https://pypi.org/project/aiosqlite/
+- https://docs.python.org/3/library/sqlite3.html
 
-## Official learn more
+## Shared Styleguide Baseline
 
-- SQLSpec adapter reference: https://sqlspec.dev/reference/adapters.html
-- SQLSpec drivers/querying guide: https://sqlspec.dev/usage/drivers_and_querying.html
-- SQLSpec changelog (`v0.33.0` config rename): https://sqlspec.dev/changelog.html
-- aiosqlite docs (overview + API): https://aiosqlite.omnilib.dev/en/latest/
-- aiosqlite package metadata/releases: https://pypi.org/project/aiosqlite/
-- Python `sqlite3` reference (parameter placeholders and transaction behavior): https://docs.python.org/3/library/sqlite3.html
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [SQLSpec](https://github.com/cofin/flow/blob/main/templates/styleguides/frameworks/sqlspec.md)
+- [Python](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/python.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

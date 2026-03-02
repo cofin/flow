@@ -16,13 +16,6 @@ This skill activates when:
 ## Installation
 
 ```bash
-# Option A (recommended): install from source
-cargo install --git https://github.com/Dicklesworthstone/beads_rust.git
-
-# Option B: download latest release binary
-# https://github.com/Dicklesworthstone/beads_rust/releases/latest
-
-# Option C: installer script
 curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash
 ```
 
@@ -71,7 +64,7 @@ br close {id} --reason "commit: abc"   # Complete task
 ### Session End
 
 ```bash
-br sync --flush-only         # Export DB state to JSONL
+br sync --flush-only         # Push to git (if normal mode)
 git add .beads/
 git commit -m "sync beads"
 ```
@@ -116,10 +109,9 @@ br update {id} --notes "CONTEXT: files affected, dependencies, origin command, t
 | `br status` | Workspace overview and statistics |
 | `br ready` | List unblocked ready tasks |
 | `br list` | List all open issues |
-| `br list --status in_progress` | Filter by status |
+| `br list --status=in_progress` | Filter by status |
 | `br graph {id}` | Show dependency graph |
 | `br stale` | Show stale issues |
-| `br count --by status` | Count/group issues |
 
 ### Dependencies
 
@@ -137,9 +129,6 @@ br update {id} --notes "CONTEXT: files affected, dependencies, origin command, t
 | `br search "query"` | Full-text search |
 | `br label add {id} {label}` | Add label |
 | `br epic` | Epic management commands |
-| `br doctor` | Run diagnostics and integrity checks |
-| `br stats` | Project statistics |
-| `br config --list` | List effective configuration |
 
 ### Export and Import
 
@@ -239,18 +228,16 @@ After ANY Beads state change, agents MUST run `/flow-sync` (or `/flow:sync`) to 
 
 ## Configuration
 
-Beads runtime/project config lives in:
+`.agent/beads.json`:
 
-- `.beads/config.yaml` (project)
-- `~/.config/beads/config.yaml` (user)
-
-Inspect/update via CLI:
-
-```bash
-br config --list
-br config --get id.prefix
-br config --set id.prefix=myproj
-br config --edit
+```json
+{
+  "enabled": true,
+  "mode": "stealth",
+  "sync": "bidirectional",
+  "epicPrefix": "flow",
+  "autoSyncOnComplete": true
+}
 ```
 
 ## Troubleshooting
@@ -258,22 +245,21 @@ br config --edit
 **br not found:**
 
 ```bash
-command -v br || cargo install --git https://github.com/Dicklesworthstone/beads_rust.git
+curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash
 ```
 
-**Not initialized:**
+**Permission denied:**
 
 ```bash
-br init
+br init  # Reinitialize
 ```
 
 **Sync failed:**
 
 ```bash
-br sync --status
-br doctor
-# If intentionally overriding safety guards:
-br sync --import-only --force
+br sync --flush-only --force   # Force sync
+git add .beads/
+git commit -m "sync beads"
 ```
 
 **Check CLI:**
@@ -313,15 +299,13 @@ command -v br &> /dev/null && echo "BEADS_OK" || echo "BEADS_MISSING"
 - Quick task lists
 - Ephemeral checklists
 
-## Where to Find More Information
+## Official References
 
-- Start here: https://github.com/Dicklesworthstone/beads_rust/blob/main/README.md
-- Full command/flags reference: https://github.com/Dicklesworthstone/beads_rust/blob/main/docs/CLI_REFERENCE.md
-- Install methods and platform notes: https://github.com/Dicklesworthstone/beads_rust/blob/main/docs/INSTALLING.md
-- Agent workflow patterns (`--claim`, JSON output, sync flow): https://github.com/Dicklesworthstone/beads_rust/blob/main/docs/AGENT_INTEGRATION.md
-- Troubleshooting and recovery: https://github.com/Dicklesworthstone/beads_rust/blob/main/docs/TROUBLESHOOTING.md
-- Canonical schema (issue types + status enum): https://github.com/Dicklesworthstone/beads_rust/blob/main/agent_baseline/schemas/schema_issue_details.json
-- Releases/changelog: https://github.com/Dicklesworthstone/beads_rust/releases
+- https://github.com/Dicklesworthstone/beads_rust
+- https://github.com/Dicklesworthstone/beads_rust/blob/main/README.md
+- https://github.com/Dicklesworthstone/beads_rust/blob/main/docs/CLI_REFERENCE.md
+- https://github.com/Dicklesworthstone/beads_rust/blob/main/agent_baseline/schemas/schema_issue_details.json
+- https://github.com/Dicklesworthstone/beads_rust/releases
 
 ## Shared Styleguide Baseline
 

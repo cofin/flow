@@ -1,6 +1,6 @@
 ---
 name: react
-description: Expert knowledge for React 19+ with TypeScript, including client components, framework-scoped server components, and upgrade-aware best practices. Use when building React components, managing state, or integrating with backend APIs.
+description: Expert knowledge for modern React development with TypeScript, including client components, framework-scoped server components, and upgrade-aware best practices. Use when building React components, managing state, or integrating with backend APIs.
 ---
 
 # React Framework Skill
@@ -70,7 +70,7 @@ function useFetch<T>(url: string) {
 }
 ```
 
-### React 19+ Server Components (Framework-Scoped)
+### React 19+ Server Components (When Applicable)
 
 ```tsx
 // Server Components are framework-scoped (for example Next.js App Router)
@@ -79,12 +79,9 @@ async function UserProfile({ userId }: { userId: string }) {
   const user = await fetchUser(userId);
   return <div>{user.name}</div>;
 }
-```
 
-```tsx
-// Client Component file: 'use client' must be first in the module.
+// Client Component
 'use client';
-
 export function InteractiveButton({ onClick }: { onClick: () => void }) {
   return <button onClick={onClick}>Click me</button>;
 }
@@ -150,12 +147,10 @@ export function useTheme() {
 
 - Use TypeScript with strict mode
 - Prefer functional components with hooks
-- Keep rendering logic pure; enable `<StrictMode>` in development
-- Prefer deriving UI from props/state; avoid Effects unless syncing with external systems
-- Use `useCallback`/`useMemo` only when they produce measurable benefit
+- Use `useCallback`/`useMemo` only when profiling shows measurable benefit
 - Use `key` props correctly (stable, unique identifiers)
 - Handle cleanup in `useEffect` return function
-- Use Error Boundaries for render/lifecycle errors (not event-handler control flow)
+- Use Error Boundaries for error handling
 
 ## Litestar-Vite Integration
 
@@ -166,7 +161,10 @@ export function useTheme() {
 from litestar import Litestar
 from litestar_vite import ViteConfig, VitePlugin
 
-vite_config = ViteConfig(dev_mode=True)  # defaults to SPA mode
+vite_config = ViteConfig(
+    mode="spa",  # or "hybrid" for Inertia
+    paths=PathConfig(resource_dir="src"),
+)
 
 app = Litestar(plugins=[VitePlugin(config=vite_config)])
 ```
@@ -238,18 +236,12 @@ For comprehensive coverage of these commonly-used React libraries:
 
 ## Official References
 
-### Learn More (Official)
-
-- React docs (overview): https://react.dev/learn
-- React API reference: https://react.dev/reference/react
-- React `useActionState`: https://react.dev/reference/react/useActionState
-- React Server Components (framework-scoped): https://react.dev/reference/rsc/server-components
-- React Strict Mode: https://react.dev/reference/react/StrictMode
-- React “You Might Not Need an Effect”: https://react.dev/learn/you-might-not-need-an-effect
-- React `memo` (includes React Compiler note): https://react.dev/reference/react/memo
-- React 19 upgrade guide: https://react.dev/blog/2024/04/25/react-19-upgrade-guide
-- Litestar-Vite docs: https://litestar-org.github.io/litestar-vite/
-- Inertia.js React client setup: https://inertiajs.com/docs/v2/installation/client-side-setup
+- https://react.dev/
+- https://react.dev/reference/rsc/server-components
+- https://react.dev/reference/react/useCallback
+- https://react.dev/blog/2024/04/25/react-19-upgrade-guide
+- https://litestar-org.github.io/litestar-vite/
+- https://inertiajs.com/docs/v2/installation/client-side-setup
 
 ## Shared Styleguide Baseline
 
