@@ -43,6 +43,7 @@ GEMINI_DIR="$HOME/.gemini"
 GEMINI_EXT_DIR="$GEMINI_DIR/extensions/flow"
 ANTIGRAVITY_DIR="$HOME/.gemini/antigravity/skills"
 JETSKI_DIR="$HOME/.jetski/skills"
+GEMINI_JETSKI_DIR="$HOME/.gemini/jetski/skills"
 
 show_banner() {
     echo -e "${CYAN}"
@@ -431,9 +432,11 @@ detect_clis() {
     local target_agy_dir="$ANTIGRAVITY_DIR"
     if [[ -d "$HOME/.jetski" ]]; then
         target_agy_dir="$JETSKI_DIR"
+    elif [[ -d "$HOME/.gemini/jetski" ]]; then
+        target_agy_dir="$GEMINI_JETSKI_DIR"
     fi
     
-    if command -v agy &> /dev/null || command -v jetski &> /dev/null || [[ -d "$ANTIGRAVITY_DIR" ]] || [[ -d "$JETSKI_DIR" ]]; then
+    if command -v agy &> /dev/null || command -v jetski &> /dev/null || [[ -d "$ANTIGRAVITY_DIR" ]] || [[ -d "$JETSKI_DIR" ]] || [[ -d "$GEMINI_JETSKI_DIR" ]]; then
         ANTIGRAVITY_INSTALLED=true
         log_success "Google Antigravity (Jetski) detected"
         [[ -d "$target_agy_dir" ]] && echo "         Existing skills: $(ls -1d "$target_agy_dir"/*/ 2>/dev/null | wc -l)"
@@ -734,6 +737,8 @@ install_antigravity() {
     local target_agy_dir="$ANTIGRAVITY_DIR"
     if [[ -d "$HOME/.jetski" ]]; then
         target_agy_dir="$JETSKI_DIR"
+    elif [[ -d "$HOME/.gemini/jetski" ]]; then
+        target_agy_dir="$GEMINI_JETSKI_DIR"
     fi
 
     # Create skills directory
