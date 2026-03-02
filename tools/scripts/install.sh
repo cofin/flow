@@ -906,12 +906,12 @@ check_beads() {
         log_warn "Beads CLI not found"
         echo ""
         echo "Flow requires Beads for cross-session memory."
-        echo "Install with: npm install -g beads-cli"
+        echo "Install with: curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash"
         echo ""
         read -p "Install Beads now? [Y/n] " -n 1 -r
         echo
-        if [[ ! $REPLY =~ ^[Nn]$ ]]; then
-            npm install -g beads-cli
+        if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
+            curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash
             log_success "Beads CLI installed"
         fi
     fi
