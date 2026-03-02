@@ -1,4 +1,4 @@
-description = "List and manage flow templates (Beads formulas)"
+description = "List and manage flow templates"
 prompt = """
 ## SYSTEM DIRECTIVE
 You are managing Beads flow templates (formulas). Handle list, pour, and distill operations.

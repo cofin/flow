@@ -1,6 +1,6 @@
 ---
 name: flow-archive
-description: "Archive completed flow and elevate patterns. Use after all tasks are done to preserve knowledge."
+description: "Archive completed flows + elevate patterns"
 ---
 
 # Flow Archive
@@ -11,15 +11,9 @@ Archive completed flow and elevate patterns to project level.
 
 `flow-archive {flow_id}`
 
-## Phase 1: Sync and Validate
+## Phase 1: Validate
 
-### 1.1 Sync Beads State First
-
-**CRITICAL:** Run `flow-sync {flow_id}` FIRST to export current Beads state to spec.md before archiving.
-
-This ensures spec.md reflects the final state from Beads (source of truth).
-
-### 1.2 Validate Flow
+### 1.1 Validate Flow
 
 Check Beads for completion status:
 

@@ -9,8 +9,8 @@ description: "Zero-copy IPC patterns: shared memory regions, SPSC/MPMC ring buff
 
 - Shared memory regions (POSIX `shm_open` + `mmap`, Windows `CreateFileMapping`).
 - Lock-free ring buffers (SPSC, MPMC).
-- Platform-specific synchronization (futex, ulock, Win32 Event).
-- Notification mechanisms (eventfd, pipe, kqueue).
+- Platform-specific synchronization (futex, Win32 Event).
+- Notification mechanisms (eventfd, pipe, kqueue/EVFILT_USER).
 - Async ring integration with Tokio.
 - Buffer pools and zero-copy data transfer.
 
@@ -62,9 +62,10 @@ impl Drop for ShmRegion {
 
 ### Key Rules
 
-- Always unlink shared memory names immediately after mapping (prevents leaks on crash).
+- `shm_unlink` removes the name, but the object remains alive until all mappings/fds are closed.
+- Unlink immediately only for ephemeral regions when peers no longer need to open by name.
 - Use RAII for both the mapping and the file descriptor.
-- Align region sizes to page boundaries (`sysconf(_SC_PAGESIZE)`).
+- `mmap` length does not need page alignment; align sizes for predictability/perf, and keep offsets page-aligned.
 
 ## Ring Buffers
 
@@ -135,15 +136,21 @@ pub struct EventFdNotifier {
 impl Notifier for EventFdNotifier {
     fn notify(&self) -> Result<(), IpcError> {
         let val: u64 = 1;
-        // SAFETY: fd is valid, writing 8 bytes to eventfd
-        unsafe { libc::write(self.fd.0, &val as *const u64 as *const _, 8) };
+        // SAFETY: fd is valid; write must be exactly 8 bytes for eventfd
+        let n = unsafe { libc::write(self.fd.0, &val as *const u64 as *const _, 8) };
+        if n != 8 {
+            return Err(IpcError::Io(std::io::Error::last_os_error()));
+        }
         Ok(())
     }
 
     fn wait(&self, timeout: Option<Duration>) -> Result<(), IpcError> {
-        // Use poll() with timeout, then read the eventfd
+        // Use poll()/epoll with timeout, then read exactly 8 bytes
         let mut buf: u64 = 0;
-        unsafe { libc::read(self.fd.0, &mut buf as *mut u64 as *mut _, 8) };
+        let n = unsafe { libc::read(self.fd.0, &mut buf as *mut u64 as *mut _, 8) };
+        if n != 8 {
+            return Err(IpcError::Io(std::io::Error::last_os_error()));
+        }
         Ok(())
     }
 }
@@ -228,17 +235,18 @@ impl<'a> Drop for MappedGuard<'a> {
 
 - **Multi-process tests:** Fork parent/child to test shared memory across process boundaries.
 - **Property tests:** `proptest` for FIFO ordering, no-loss, and no-duplication invariants.
-- **Stress tests:** Concurrent producer/consumer with `loom` for atomic ordering verification.
-- **Miri:** Run on all unsafe code paths: `cargo +nightly miri test`.
-- **Sanitizers:** ThreadSanitizer for data race detection in ring buffers.
+- **Model checking:** Use `loom` to explore interleavings under its supported memory-model subset.
+- **Stress tests:** Separate from `loom`; run real concurrent load tests for throughput/latency regressions.
+- **Miri:** Use `cargo miri test` (nightly + `miri` component).
+- **Sanitizers:** ThreadSanitizer can catch data races, but requires full instrumentation and has limits.
 
 ## Performance Targets
 
 | Metric | Target |
 |--------|--------|
-| Shared memory latency | < 10 us |
-| Ring buffer throughput | > 1M msg/sec |
-| Zero-copy overhead | < 1 us per transfer |
+| Shared memory latency | Define per workload and hardware baseline |
+| Ring buffer throughput | Set SLO from production-like traffic |
+| Zero-copy overhead | Track p50/p99 and regression thresholds |
 
 Measure with `criterion` and record baselines before optimizing.
 
@@ -254,9 +262,33 @@ Measure with `criterion` and record baselines before optimizing.
 - https://doc.rust-lang.org/std/os/fd/struct.OwnedFd.html
 - https://docs.rs/crate/rustix/latest
 - https://man7.org/linux/man-pages/man3/shm_open.3.html
+- https://pubs.opengroup.org/onlinepubs/009696699/functions/shm_unlink.html
+- https://pubs.opengroup.org/onlinepubs/9799919799/functions/mmap.html
 - https://man7.org/linux/man-pages/man2/eventfd.2.html
+- https://man7.org/linux/man-pages/man2/futex.2.html
 - https://docs.rs/tokio/latest/tokio/sync/struct.Notify.html
+- https://docs.rs/tokio/latest/src/tokio/sync/notify.rs.html
 - https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-createfilemappingw
+- https://learn.microsoft.com/en-us/windows/win32/sync/using-event-objects
+- https://github.com/tokio-rs/loom
+- https://github.com/rust-lang/miri
+- https://doc.rust-lang.org/beta/unstable-book/compiler-flags/sanitizer.html
+
+## Learn More (Official Docs)
+
+- POSIX shared memory and mappings:
+  - https://pubs.opengroup.org/onlinepubs/009696699/functions/shm_unlink.html
+  - https://pubs.opengroup.org/onlinepubs/9799919799/functions/mmap.html
+- Linux IPC primitives:
+  - https://man7.org/linux/man-pages/man2/eventfd.2.html
+  - https://man7.org/linux/man-pages/man2/futex.2.html
+- Rust async/concurrency tooling:
+  - https://docs.rs/tokio/latest/tokio/sync/struct.Notify.html
+  - https://github.com/tokio-rs/loom
+  - https://github.com/rust-lang/miri
+- Windows synchronization and shared memory:
+  - https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-createfilemappingw
+  - https://learn.microsoft.com/en-us/windows/win32/sync/using-event-objects
 
 ## Shared Styleguide Baseline
 

@@ -1,25 +1,26 @@
 ---
 name: python-cython
-description: Guide to high-performance Python with Cython, focusing on typed memoryviews and modern C-API interaction.
+description: Practical Cython 3 guidance for performance work, typed memoryviews, and modern packaging/build workflows.
 ---
 
 # Cython Optimization Skill
 
 ## Overview
 
-Cython allows compiling Python-like code to C extensions, offering performance comparable to C.
+Cython compiles `.pyx` or typed Python syntax into C/C++ extension modules. Biggest wins usually come from typing hot paths, reducing Python object interaction, and using memoryviews for numeric data.
 
 ## Core Best Practices
 
-### 1. Static Typing (The 80/20 Rule)
+### 1. Type hot paths first
 
-Type declarations provide the massive speedups.
+Start with profiling, then add types where time is spent.
 
 ```python
-# Pure Python mode (recommended for modern code)
+# Pure Python syntax (Cython 3+)
 import cython
 
-def f(x: cython.int):
+@cython.cfunc
+def f(x: cython.int) -> cython.double:
     y: cython.double = 0.5
     return x + y
 
@@ -29,26 +30,22 @@ cpdef int f(int x):
     return x + y
 ```
 
-### 2. Typed Memoryviews (Fast Array Access)
+### 2. Prefer typed memoryviews for array-like data
 
-Avoid raw pointers. Use typed memoryviews to access NumPy arrays or memory buffers without Python overhead.
+Use typed memoryviews instead of Python indexing in loops.
 
 ```python
-import numpy as np
-cimport numpy as np
-
-# 'double[:]' is a 1D memoryview of doubles
 def sum_array(double[:] arr):
     cdef int i
     cdef double total = 0.0
-    # nogil allows multi-threading
+    # indexing typed memoryviews can run without the GIL
     with nogil:
         for i in range(arr.shape[0]):
             total += arr[i]
     return total
 ```
 
-### 3. Compiler Directives
+### 3. Use compiler directives surgically
 
 Disable safety checks in hot loops **after** verification.
 
@@ -63,69 +60,58 @@ def fast_loop(int[:] data):
     ...
 ```
 
-### 4. Direct C-API Interaction
+### 4. Use `cython -a` / `cythonize -a` to guide optimization
 
-Interface directly with C libraries without Python overhead.
+Annotated HTML highlights Python interaction (hot yellow lines).
 
-```python
-cdef extern from "math.h":
-    double sin(double x)
+## Build/Packaging (current baseline)
 
-def fast_sin(double x):
-    return sin(x)
-```
-
-## Compilation (Modern `pyproject.toml`)
-
-Use `scikit-build-core` or `meson-python` (or standard `setuptools` with `Cython`).
-
-**`pyproject.toml` (setuptools approach)**:
+Prefer `pyproject.toml` with an explicit `[build-system]`.
 
 ```toml
 [build-system]
-requires = ["setuptools", "wheel", "Cython", "numpy"]
+requires = ["setuptools>=74.1", "Cython>=3.0"]
 build-backend = "setuptools.build_meta"
 ```
 
-**`setup.py`**:
+If you need programmatic extension config, keep a minimal `setup.py`:
 
 ```python
 from setuptools import setup, Extension
 from Cython.Build import cythonize
-import numpy
 
 extensions = [
     Extension(
         "my_module",
         ["my_module.pyx"],
-        include_dirs=[numpy.get_include()],
-        # Optimization flags
-        extra_compile_args=["-O3", "-march=native"],
     )
 ]
 
 setup(
-    ext_modules=cythonize(extensions, compiler_directives={"language_level": "3"})
+    ext_modules=cythonize(
+        extensions,
+        compiler_directives={"language_level": "3"},
+    )
 )
 ```
 
-## Optimization Checklist
+## Quick Checklist
 
-- [ ] Profile first (cProfile, viztracer)
-- [ ] Add static types (`cdef type var`)
-- [ ] Use `cdef class` (extension types) instead of `class`
-- [ ] Replace list/tuple with typed memoryviews (`double[:]`)
-- [ ] Release GIL (`with nogil`) for CPU-bound tasks in loops
-- [ ] Check `cython -a module.pyx` (yellow lines = Python interaction)
+- [ ] Profile first.
+- [ ] Add types in hot loops/functions.
+- [ ] Use typed memoryviews for numeric/buffer data.
+- [ ] Release the GIL only in truly GIL-safe blocks.
+- [ ] Apply `boundscheck=False` / `wraparound=False` only where validated.
+- [ ] Inspect annotation output (`cythonize -a`).
 
-## Official References
+## Official Learn More
 
-- https://cython.readthedocs.io/en/stable/
-- https://cython.readthedocs.io/en/stable/src/tutorial/pure.html
-- https://cython.readthedocs.io/en/stable/src/userguide/memoryviews.html
-- https://cython.readthedocs.io/en/stable/src/userguide/source_files_and_compilation.html
-- https://github.com/cython/cython/releases
-- https://setuptools.pypa.io/en/stable/userguide/ext_modules.html
+- Cython docs (stable): https://cython.readthedocs.io/en/stable/
+- Pure Python mode (Cython 3): https://cython.readthedocs.io/en/stable/src/tutorial/pure.html
+- Typed memoryviews: https://cython.readthedocs.io/en/stable/src/userguide/memoryviews.html
+- Source files + compilation (`cythonize`, `setup.py`, `pyproject.toml` notes): https://cython.readthedocs.io/en/stable/src/userguide/source_files_and_compilation.html
+- Setuptools extension modules: https://setuptools.pypa.io/en/latest/userguide/ext_modules.html
+- `pyproject.toml` build-system spec: https://packaging.python.org/specifications/declaring-build-dependencies/
 
 ## Shared Styleguide Baseline
 

@@ -1,5 +1,5 @@
 ---
-description: Skip task with justification
+description: Skip current task with justification
 argument-hint: <flow_id> <task_number> "<reason>"
 allowed-tools: Read, Write, Edit, Bash
 ---
@@ -38,13 +38,10 @@ Append to `.agent/specs/{flow_id}/skipped.md`:
 
 ---
 
-## Phase 4: Sync to Markdown (MANDATORY)
+### Markdown Sync (Automatic)
 
-Run `/flow-sync {flow_id}` to export Beads state to spec.md.
-
-**Do NOT write `[-]` markers directly to spec.md.** Beads is the source of truth.
-
----
+The git pre-commit hook automatically exports Beads state to spec.md on commit.
+**CRITICAL:** Do NOT write markers directly to spec.md and do NOT run sync manually.
 
 ## Phase 5: Check Dependencies
 
@@ -61,5 +58,4 @@ Consider updating dependencies or blocking Task {M}
 
 1. **REASON REQUIRED** - Must justify skip
 2. **BEADS FIRST** - Update Beads before anything else
-3. **MANDATORY SYNC** - Run `/flow-sync` after Beads update (never write `[-]` directly)
 4. **CHECK DEPS** - Warn about dependent tasks

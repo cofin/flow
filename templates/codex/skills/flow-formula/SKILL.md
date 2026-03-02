@@ -10,7 +10,7 @@ List and manage flow templates.
 ## Usage
 
 ```
-/flow:formula [list|pour|distill] [template_name]
+$flow:formula [list|pour|distill] [template_name]
 ```
 
 ## Commands
@@ -18,7 +18,7 @@ List and manage flow templates.
 ### List Templates
 
 ```bash
-/flow:formula list
+$flow:formula list
 ```
 
 Lists templates from:
@@ -27,7 +27,7 @@ Lists templates from:
 ### Pour Template
 
 ```bash
-/flow:formula pour {template_name}
+$flow:formula pour {template_name}
 ```
 
 Creates a flow from a template.
@@ -35,7 +35,7 @@ Creates a flow from a template.
 ### Distill Template
 
 ```bash
-/flow:formula distill {flow_id} {template_name}
+$flow:formula distill {flow_id} {template_name}
 ```
 
 Extracts a template from an existing flow.

@@ -1,6 +1,6 @@
 ---
 name: flow-implement
-description: "Execute tasks from flow using TDD workflow"
+description: "Execute tasks from plan (context-aware)"
 ---
 
 # Flow Implement
@@ -9,7 +9,7 @@ Execute tasks from a flow's plan using TDD workflow.
 
 ## Usage
 
-`/flow:implement {flow_id}` or `/flow:implement` (uses current flow)
+`$flow:implement {flow_id}` or `$flow:implement` (uses current flow)
 
 ## Phase 1: Load Context
 
@@ -21,7 +21,7 @@ Execute tasks from a flow's plan using TDD workflow.
 2. **Read Project Context:** `.agent/patterns.md`
 3. **Read Parent Context:**
     - Check if this flow has a parent PRD/Saga.
-    - If yes, read `.agent/prd/<parent_id>/prd.md`.
+    - If yes, read `.agent/specs/<parent_id>/prd.md`.
 4. **Load Beads context:**
     - `br status` (workspace overview)
     - `br ready` (list unblocked tasks)
@@ -60,7 +60,7 @@ If Beads unavailable, parse `spec.md` Implementation Plan section for pending ta
 ```bash
 br create "{task_description}" --parent {epic_id} -p 2 \
   --description="{what_needs_to_be_done_and_why}"
-br update {new_task_id} --notes "Phase {N}, Task {M}. Files: {affected_files}. Created by /flow:implement"
+br update {new_task_id} --notes "Phase {N}, Task {M}. Files: {affected_files}. Created by $flow:implement"
 ```
 
 Then mark in progress:
@@ -115,11 +115,10 @@ Format: conventional commits
 br close {task_id} --reason "commit: {sha}"
 ```
 
-## Phase 5.1: Sync to Markdown (MANDATORY)
+### Markdown Sync (Automatic)
 
-Run `/flow:sync {flow_id}` to export Beads state to spec.md.
-
-**CRITICAL:** Do NOT write `[x]` markers directly to spec.md. Beads is the source of truth — use `/flow:sync` instead.
+The git pre-commit hook automatically exports Beads state to spec.md on commit.
+**CRITICAL:** Do NOT write markers directly to spec.md and do NOT run sync manually.
 
 ### 5.2 Log Learnings
 
@@ -143,8 +142,7 @@ Save progress to `.agent/specs/{flow_id}/implement_state.json`:
 At end of each phase:
 
 1. Run full test suite
-2. Create tag: `checkpoint/{flow_id}/phase-{N}`
-3. Sync to markdown: run `/flow:sync {flow_id}` (MANDATORY)
+2. Ensure phase completion is committed
 4. Prompt for pattern elevation
 5. Ask user to verify
 
@@ -160,7 +158,6 @@ If continuing, loop back to Phase 2.
 1. **TDD ALWAYS** - Write tests before implementation
 2. **SMALL COMMITS** - One task = one commit
 3. **BEADS IS SOURCE OF TRUTH** - Never write markers to spec.md
-4. **MANDATORY SYNC** - Run `/flow:sync` after every `br close` and phase completion
 5. **LOG LEARNINGS** - Capture patterns as you go
 6. **LOCAL ONLY** - Never push automatically
 7. **USE `br ready`** - Always check Beads for next task

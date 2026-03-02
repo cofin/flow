@@ -1,6 +1,6 @@
 ---
 name: flow-export
-description: "Generate project summary export. Use to create a snapshot of all flow progress and patterns."
+description: "Generate project summary export"
 ---
 
 # Flow Export

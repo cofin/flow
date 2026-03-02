@@ -8,9 +8,9 @@ description: "Git-aware revert of flows, phases, or tasks"
 Git-aware revert of flows, phases, or tasks.
 
 ## Usage
-- `/flow:revert task` - Revert last task
-- `/flow:revert phase` - Revert current phase
-- `/flow:revert flow {flow_id}` - Revert entire flow
+- `$flow:revert task` - Revert last task
+- `$flow:revert phase` - Revert current phase
+- `$flow:revert flow {flow_id}` - Revert entire flow
 
 ## Phase 1: Identify Scope
 
@@ -62,11 +62,10 @@ git commit -m "revert: {scope} - {reason}"
 br update {task_id} --status open
 ```
 
-### 3.3 Sync to Markdown (MANDATORY)
+### Markdown Sync (Automatic)
 
-Run `/flow:sync {flow_id}` to export Beads state to spec.md.
-
-**Do NOT write markers directly to spec.md.** Beads is the source of truth — use `/flow:sync` instead.
+The git pre-commit hook automatically exports Beads state to spec.md on commit.
+**CRITICAL:** Do NOT write markers directly to spec.md and do NOT run sync manually.
 
 ### 3.4 Clear State
 Update `implement_state.json` to previous checkpoint.
@@ -90,5 +89,5 @@ Revert Commit: {new_sha}
 Plan updated: {count} tasks reset to pending
 Beads updated: {count} tasks reopened
 
-Resume with: /flow:implement {flow_id}
+Resume with: $flow:implement {flow_id}
 ```

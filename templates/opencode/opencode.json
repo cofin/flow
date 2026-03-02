@@ -64,6 +64,10 @@
       "description": "Conduct pre-PRD research",
       "agent": "flow"
     },
+    "flow:docs": {
+      "description": "Five-phase documentation workflow",
+      "agent": "flow"
+    },
     "flow:revise": {
       "description": "Update spec/plan when implementation reveals issues",
       "agent": "flow"

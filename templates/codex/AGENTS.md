@@ -13,7 +13,7 @@ A flow is a logical unit of work (feature, bug fix, refactor). Each flow has:
 ### Beads Integration (Source of Truth)
 Beads provides persistent cross-session memory:
 ```bash
-br init                    # Initialize Beads
+br init --prefix <project_name_slug> # Initialize Beads
 br status                  # Workspace overview
 br ready                   # Show tasks ready to work on
 br list --status in_progress  # Resume active work
@@ -30,10 +30,10 @@ br show <id> --format json  # Export epic with tasks
 5. **Refactor** while green
 6. Commit with conventional format
 7. **Sync to Beads** → `br close <id> --reason "commit: <sha>"`
-8. **Sync to markdown** → run `/flow:sync` (MANDATORY)
+8. Markdown synced automatically via git pre-commit hook.
 9. Log learnings in learnings.md
 
-**CRITICAL:** After ANY Beads state change (close, block, skip, revert, revise), agents MUST run `/flow:sync` to update spec.md. Never write `[x]`, `[~]`, `[!]`, or `[-]` markers directly to spec.md.
+**CRITICAL:** Do not manually edit spec.md markers. Beads state is exported automatically upon commit.
 
 ### Directory Structure
 ```
@@ -50,15 +50,26 @@ br show <id> --format json  # Export epic with tasks
 ```
 
 ## Flow Commands
-- `/flow:setup` - Initialize project
-- `/flow:prd` - Create PRD (Saga)
-- `/flow:plan` - Plan single flow with unified spec.md
-- `/flow:sync` - Sync Beads state to spec.md
-- `/flow:implement` - Execute tasks from Beads
-- `/flow:status` - Display progress overview
-- `/flow:block` - Mark task as blocked
-- `/flow:skip` - Skip task with justification
-- `/flow:archive` - Archive completed flow
+- `$flow:setup` - Initialize project with context files, Beads, and first flow
+- `$flow:prd` - Analyze goals and generate Master Roadmap (Sagas)
+- `$flow:plan` - Create unified spec.md for a single Flow
+- `$flow:sync` - Export Beads state to spec.md (source of truth sync)
+- `$flow:research` - Conduct pre-PRD research
+- `$flow:docs` - Five-phase documentation workflow
+- `$flow:implement` - Execute tasks from plan (context-aware)
+- `$flow:status` - Display progress overview with Beads status
+- `$flow:revert` - Git-aware revert of flows, phases, or tasks
+- `$flow:validate` - Validate project integrity and fix issues
+- `$flow:block` - Mark task as blocked with reason
+- `$flow:skip` - Skip current task with justification
+- `$flow:revise` - Update spec/plan when implementation reveals issues
+- `$flow:archive` - Archive completed flows + elevate patterns
+- `$flow:export` - Generate project summary export
+- `$flow:handoff` - Create context handoff for session transfer
+- `$flow:refresh` - Sync context docs with current codebase state
+- `$flow:formula` - List and manage flow templates
+- `$flow:wisp` - Create ephemeral exploration flow (no audit trail)
+- `$flow:distill` - Extract reusable template from completed flow
 
 ## Agent Skills
 

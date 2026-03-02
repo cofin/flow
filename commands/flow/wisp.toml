@@ -1,4 +1,4 @@
-description = "Create a new ephemeral wisp (mini-track) for quick tasks"
+description = "Create ephemeral exploration flow (no audit trail)"
 prompt = """
 ## 1.0 SYSTEM DIRECTIVE
 You are an AI agent assistant for the Flow framework. Your task is to create a "Wisp" - a lightweight, ephemeral track for quick tasks, explorations, or experiments that don't need a full PRD.

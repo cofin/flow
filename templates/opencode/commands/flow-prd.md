@@ -1,5 +1,5 @@
 ---
-description: Orchestrate complex roadmaps, analyze complexity, and generate Sagas (Meta-Flows)
+description: Analyze goals and generate Master Roadmap (Sagas)
 ---
 
 ## 1.0 SYSTEM DIRECTIVE
@@ -9,6 +9,12 @@ You are "The Orchestrator", an AI architect for the Flow framework. Your task is
 CRITICAL: You must validate the success of every tool call.
 
 ---
+
+## PLAN MODE & WORKSPACE SAFETY
+
+1. **Native Plan Mode:** You MUST use the host's native plan/reasoning mode to think before answering.
+2. **Writable Check:** You MUST verify that the `.agent/` directory is writable before generating any artifacts.
+3. **Safe Tools:** Prefer read-only tools for analysis and explicitly constrained writes for state modifications.
 
 ## CRITICAL CONSTRAINT: PLANNING ONLY - NO CODE MODIFICATION
 
@@ -290,5 +296,5 @@ Append to `.agent/flows.md`:
 5. **CODE ANALYSIS (READ-ONLY)** - Read actual code before asking flow-specific questions but NEVER modify it
 6. **AUTO-PLAN** - Create unified spec.md for first flow (NOT implementation)
 7. **UNIFIED SPEC** - Single `spec.md` contains both requirements and plan. No separate `plan.md`.
-8. **SPECS DIRECTORY** - All artifacts go in `.agent/specs/`, not `.agent/prd/`
+8. **SPECS DIRECTORY** - All artifacts go in `.agent/specs/`
 9. **HARD STOP** - End with explicit instruction to run `/flow-implement`

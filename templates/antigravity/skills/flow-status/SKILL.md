@@ -1,6 +1,6 @@
 ---
 name: flow-status
-description: "Display progress overview for all active flows. Use to check what's in progress, blocked, or ready."
+description: "Display progress overview with Beads status"
 ---
 
 # Flow Status

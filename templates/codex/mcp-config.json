@@ -1,0 +1,21 @@
+{
+  "_comment": [
+    "Flow Think MCP Server Configuration for Codex CLI",
+    "",
+    "Codex CLI MCP configuration for flow-think structured thinking.",
+    "Merge this into your ~/.codex/config.json mcpServers section.",
+    "",
+    "See: tools/flow-think/README.md for full documentation"
+  ],
+
+  "mcpServers": {
+    "flow-think": {
+      "command": "bun",
+      "args": ["run", "~/.flow/mcp/flow-think/dist/index.js"],
+      "env": {
+        "FLOW_MCP_BEADS_SYNC": "true",
+        "FLOW_MCP_OUTPUT_FORMAT": "console"
+      }
+    }
+  }
+}

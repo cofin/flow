@@ -1,6 +1,6 @@
 ---
 name: flow-sync
-description: "Export Beads state to spec.md. Syncs task status from Beads to on-disk plan files."
+description: "Export Beads state to spec.md (source of truth sync)"
 ---
 
 # Flow Sync

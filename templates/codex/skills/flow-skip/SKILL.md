@@ -1,6 +1,6 @@
 ---
 name: flow-skip
-description: "Skip task with justification"
+description: "Skip current task with justification"
 ---
 
 # Flow Skip
@@ -8,7 +8,7 @@ description: "Skip task with justification"
 Skip current task with documented justification.
 
 ## Usage
-`/flow:skip {task_id} "{reason}"`
+`$flow:skip {task_id} "{reason}"`
 
 ## Phase 1: Identify Task
 
@@ -42,11 +42,10 @@ Append to `.agent/specs/{flow_id}/skipped.md`:
 **Decision By:** User
 ```
 
-## Phase 5: Sync to Markdown (MANDATORY)
+### Markdown Sync (Automatic)
 
-Run `/flow:sync {flow_id}` to export Beads state to spec.md.
-
-**Do NOT write `[-]` markers directly to spec.md.** Beads is the source of truth.
+The git pre-commit hook automatically exports Beads state to spec.md on commit.
+**CRITICAL:** Do NOT write markers directly to spec.md and do NOT run sync manually.
 
 ## Phase 6: Continue
 

@@ -1,6 +1,6 @@
 ---
 name: flow-wisp
-description: "Create ephemeral exploration flow"
+description: "Create ephemeral exploration flow (no audit trail)"
 ---
 
 # Flow Wisp
@@ -10,7 +10,7 @@ Create ephemeral exploration flow (no audit trail).
 ## Usage
 
 ```
-/flow:wisp <description>
+$flow:wisp <description>
 ```
 
 ## Overview
@@ -29,7 +29,7 @@ Wisps have NO audit trail - meant to be discarded.
 ```bash
 br create "Wisp: {description}" -t task -p 4 \
   --description="{exploration_goal}"
-br update {wisp_task_id} --notes "Ephemeral exploration. Created by /flow:wisp"
+br update {wisp_task_id} --notes "Ephemeral exploration. Created by $flow:wisp"
 ```
 
 ### Phase 2: Wisp Directory
@@ -51,7 +51,7 @@ When done, choose:
 
 **Promote** - Convert to a real flow:
 ```bash
-/flow:prd "{description}"
+$flow:prd "{description}"
 ```
 
 **Discard** - Delete everything:

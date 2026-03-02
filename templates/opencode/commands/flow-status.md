@@ -1,3 +1,7 @@
+---
+description: Display progress overview with Beads status
+---
+
 # Flow Status
 
 Display progress overview for all active flows.

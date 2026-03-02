@@ -7,7 +7,12 @@ description: modern Python build systems and backend configuration, focusing on 
 
 ## Overview
 
-Modern Python packaging relies on `pyproject.toml` (PEP 621) and build backends (PEP 517). `hatchling` is a popular, modern, extensible build backend.
+Modern Python packaging uses `pyproject.toml` with:
+- `[build-system]` (PEP 517/518 backend + build deps)
+- `[project]` (PEP 621 metadata)
+- `[tool.*]` (tool-specific config)
+
+`hatchling` is a standards-compliant backend commonly used for pure-Python packages.
 
 ## Hatchling Configuration
 
@@ -38,7 +43,7 @@ my-cli = "my_project.cli:main"
 
 ### Dynamic Versioning
 
-Use `hatch-vcs` to derive version from Git tags.
+Use `hatch-vcs` to derive version from VCS tags.
 
 ```toml
 [build-system]
@@ -48,14 +53,16 @@ build-backend = "hatchling.build"
 [tool.hatch.version]
 source = "vcs"
 
+[project]
+dynamic = ["version"]
+
 [tool.hatch.build.hooks.vcs]
 version-file = "src/my_project/_version.py"
 ```
 
 ### Build Targets
 
-**Wheel (default)**:
-Includes everything in the project root defined by packages.
+Define explicit wheel/sdist selection instead of relying on defaults:
 
 ```toml
 [tool.hatch.build.targets.wheel]
@@ -77,23 +84,27 @@ include = [
 
 ## Hatch (The Tool)
 
-Hatch is also a project manager (like `uv`), but `hatchling` (the build backend) is often used with `uv`.
+`hatch` (project manager) and `uv` (project/package manager) are separate tools. `hatchling` is only the backend.
+Use one workflow consistently; either is valid.
 
-If using `hatch` for environment management:
+If using Hatch environments:
 
 ```bash
-# Create env
 hatch env create
-
-# Run command
 hatch run test
 ```
 
-**Recommendation**: Use `uv` for project/environment management and `hatchling` as the build backend.
+If using uv with a PEP 517 backend:
+
+```bash
+uv build
+# or
+python -m build
+```
 
 ## Other Build Backends
 
-### Setuptools (Legacy/Standard)
+### Setuptools
 
 ```toml
 [build-system]
@@ -119,14 +130,26 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 ```
 
-## Official References
+## Official Learn More
 
-- https://packaging.python.org/en/latest/specifications/pyproject-toml/
-- https://peps.python.org/pep-0517/
-- https://hatch.pypa.io/dev/config/build/
-- https://hatch.pypa.io/dev/history/hatchling/
-- https://github.com/ofek/hatch-vcs
-- https://docs.astral.sh/uv/concepts/build-backend/
+- Python Packaging User Guide: writing `pyproject.toml`  
+  https://packaging.python.org/guides/writing-pyproject-toml/
+- Python Packaging User Guide: `pyproject.toml` spec  
+  https://packaging.python.org/specifications/declaring-project-metadata/
+- PEP 517 (build backend interface)  
+  https://peps.python.org/pep-0517/
+- PEP 621 (project metadata in `pyproject.toml`)  
+  https://peps.python.org/pep-0621/
+- Hatch build configuration  
+  https://hatch.pypa.io/dev/config/build/
+- Hatch versioning  
+  https://hatch.pypa.io/dev/version/
+- hatch-vcs project/docs  
+  https://pypi.org/project/hatch-vcs/
+- uv build backend  
+  https://docs.astral.sh/uv/concepts/build-backend/
+- PyPA `build` frontend (`python -m build`)  
+  https://pypi.org/project/build/
 
 ## Shared Styleguide Baseline
 

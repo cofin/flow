@@ -1,3 +1,7 @@
+---
+description: Validate project integrity and fix issues
+---
+
 # Flow Validate
 
 Validate project integrity and fix issues.

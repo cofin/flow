@@ -1,5 +1,5 @@
 ---
-description: Five-phase documentation workflow with validation, knowledge capture, and cleanup
+description: Five-phase documentation workflow
 argument-hint: [validate|capture|archive|cleanup|full]
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash
 ---

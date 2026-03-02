@@ -1,0 +1,34 @@
+{
+  "_comment": [
+    "Flow Think MCP Server Configuration for Claude Code",
+    "",
+    "This file contains the MCP server configuration for flow-think,",
+    "which provides structured thinking capabilities with step tracking,",
+    "confidence scoring, and Beads integration.",
+    "",
+    "Installation:",
+    "  1. Run: ./scripts/install.sh",
+    "  2. Or manually add 'mcpServers' section to ~/.claude.json",
+    "",
+    "Configuration options (environment variables):",
+    "  FLOW_MCP_OUTPUT_FORMAT: console|json|markdown (default: console)",
+    "  FLOW_MCP_MAX_HISTORY: Maximum steps to retain (default: 100)",
+    "  FLOW_MCP_SESSION_TIMEOUT: Session timeout in minutes (default: 60)",
+    "  FLOW_MCP_BEADS_SYNC: Enable Beads integration (default: true)",
+    "  FLOW_MCP_LOW_CONFIDENCE: Low confidence threshold (default: 0.5)",
+    "",
+    "See: tools/flow-think/README.md for full documentation"
+  ],
+
+  "mcpServers": {
+    "flow-think": {
+      "_comment": "Standalone executable (no runtime required)",
+      "command": "~/.flow/mcp/flow-think/flow-think-mcp",
+      "args": [],
+      "env": {
+        "FLOW_MCP_BEADS_SYNC": "true",
+        "FLOW_MCP_OUTPUT_FORMAT": "console"
+      }
+    }
+  }
+}

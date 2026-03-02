@@ -1,5 +1,5 @@
 ---
-description: Initialize Flow project with context files, Beads integration, and first flow
+description: Initialize project with context files, Beads, and first flow
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion, mcp__sequential-thinking__sequentialthinking
 ---
 
@@ -278,8 +278,7 @@ Based on detected languages, offer relevant styleguides:
 **CRITICAL: Initialize in stealth mode by default.**
 
 ```bash
-br init
-```
+br init --prefix <project_name_slug>```
 
 Or prompt user:
 
@@ -420,6 +419,24 @@ Next Steps:
 1. Run `br status` to verify Beads context
 2. Run `/flow-prd "description"` to create your first flow
 3. Run `/flow-implement {flow_id}` to start coding
+```
+
+---
+
+## Phase 8: Install Git Hooks
+
+**PROTOCOL: Install pre-commit hook to automate Beads sync.**
+
+Copy the `pre-commit` hook to the `.git/hooks/` directory to ensure Bead states remain synchronized before any commit:
+
+```bash
+if [ -f ~/.flow/hooks/pre-commit ]; then
+  cp ~/.flow/hooks/pre-commit .git/hooks/pre-commit
+  chmod +x .git/hooks/pre-commit
+elif [ -f ~/.gemini/extensions/flow/scripts/hooks/pre-commit ]; then
+  cp ~/.gemini/extensions/flow/scripts/hooks/pre-commit .git/hooks/pre-commit
+  chmod +x .git/hooks/pre-commit
+fi
 ```
 
 ---

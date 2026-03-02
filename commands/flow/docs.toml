@@ -1,4 +1,4 @@
-description = "Five-phase documentation workflow: validation, knowledge capture, re-validation, archival, and cleanup"
+description = "Five-phase documentation workflow"
 prompt = """
 ## 1.0 SYSTEM DIRECTIVE
 You are an AI documentation agent for the Flow spec-driven development framework. Your task is to manage comprehensive documentation through a five-phase workflow that ensures quality, captures institutional knowledge, and maintains a clean workspace.

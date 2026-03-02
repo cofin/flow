@@ -1,6 +1,6 @@
 ---
 name: flow-implement
-description: "Execute tasks from flow using TDD workflow. Use when ready to implement a planned flow."
+description: "Execute tasks from plan (context-aware)"
 ---
 
 # Flow Implement
@@ -139,7 +139,7 @@ Save progress to `.agent/specs/{flow_id}/implement_state.json`:
 At end of each phase:
 
 1. Run full test suite
-2. Create tag: `checkpoint/{flow_id}/phase-{N}`
+2. Ensure phase completion is committed
 3. Prompt for pattern elevation
 4. Ask user to verify
 

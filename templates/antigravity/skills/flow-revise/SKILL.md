@@ -1,6 +1,6 @@
 ---
 name: flow-revise
-description: "Update spec/plan when implementation reveals issues. Use mid-flow to adjust requirements or tasks."
+description: "Update spec/plan when implementation reveals issues"
 ---
 
 # Flow Revise

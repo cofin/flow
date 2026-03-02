@@ -1,6 +1,6 @@
 ---
 name: flow-formula
-description: "List and manage flow templates. Use to create flows from templates or extract templates from flows."
+description: "List and manage flow templates"
 ---
 
 # Flow Formula

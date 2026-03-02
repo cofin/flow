@@ -1,4 +1,4 @@
-description = "Execute tasks from flow plan with TDD workflow"
+description = "Execute tasks from plan (context-aware)"
 prompt = """
 ## 1.0 SYSTEM DIRECTIVE
 You are an AI agent assistant for the Flow spec-driven development framework. Your task is to execute the tasks defined in a Flow's implementation plan (`spec.md`) using a Test-Driven Development (TDD) workflow.
@@ -99,8 +99,8 @@ CRITICAL: Check `.gitignore` before committing. If `.agent/` or specific artifac
     *   Update `implement_state.json` with the new current task index.
 3.  **Sync Beads (Primary):**
     *   Close the task in Beads: `br close <issue_id> --reason "commit: <hash>"`
-4.  **Sync to Markdown (MANDATORY):**
-    *   Run `/flow:sync <flow_id>` to export Beads state to spec.md.
+4.  **Markdown Sync (Automatic):**
+    *   The git pre-commit hook automatically exports Beads state to spec.md on commit.
     *   **Do NOT write `[x]` markers directly to spec.md.**
 
 ### 3.4 Capture Learnings
@@ -115,10 +115,10 @@ CRITICAL: Check `.gitignore` before committing. If `.agent/` or specific artifac
 
 1.  **Run Full Test Suite:** Execute the full project test suite to check for regressions.
 2.  **Create Checkpoint:**
-    *   Create a git tag: `git tag checkpoint/<flow_id>/phase-<N>`
-    *   Announce: "Phase <N> complete. Checkpoint created."
+    *   Ensure the phase completion is committed: `git commit -m "chore(flow): complete phase <N>"`
+    *   Announce: "Phase <N> complete. Checkpoint created via commit."
 3.  **Verify Coverage:** Check if test coverage meets the workflow requirements (default >80%).
-4.  **Sync to Markdown (MANDATORY):** Run `/flow:sync <flow_id>` to export Beads state to spec.md after phase completion.
+4.  **Markdown Sync (Automatic):** The git pre-commit hook automatically exports Beads state to spec.md on commit.
 5.  **Prompt for Elevation:**
     *   Ask the user: "Are there any learnings from this phase that should be elevated to the global `patterns.md`?"
     *   If yes, move them from `learnings.md` to `.agent/patterns.md`.

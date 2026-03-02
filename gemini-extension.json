@@ -1,5 +1,16 @@
 {
   "name": "flow",
-  "version": "0.8.1",
-  "contextFileName": "GEMINI.md"
+  "version": "0.7.0",
+  "contextFileName": "GEMINI.md",
+  "mcpServers": {
+    "flow-think": {
+      "command": "${extensionPath}${/}tools${/}flow-think${/}dist${/}flow-think-mcp",
+      "args": [],
+      "cwd": "${extensionPath}",
+      "env": {
+        "FLOW_MCP_OUTPUT_FORMAT": "console",
+        "FLOW_MCP_BEADS_SYNC": "true"
+      }
+    }
+  }
 }

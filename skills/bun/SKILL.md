@@ -9,22 +9,22 @@ description: Usage of Bun as a high-performance JavaScript runtime, bundler, and
 
 ### 1. Runtime
 
-Bun is a drop-in replacement for Node.js, focused on speed.
+Bun is a fast JavaScript/TypeScript runtime designed to be largely drop-in for Node.js projects, with compatibility still actively improving.
 
-- **HTTP Server**: `Bun.serve()` is faster than Node's `http` module.
-- **File I/O**: `Bun.file()` and `Bun.write()` are optimized.
+- **HTTP Server**: `Bun.serve()` is a built-in server API for high-throughput services.
+- **File I/O**: `Bun.file()` and `Bun.write()` are optimized and recommended for common file operations.
 - **TypeScript**: Native support (no transpilation step needed for dev).
 
 ### 2. Task & Test Runner
 
 - **Run Scripts**: `bun run script.ts` replaces `ts-node`.
-- **Test**: `bun test` is a Jest-compatible, ultra-fast test runner.
+- **Test**: `bun test` is a Jest-compatible, TypeScript-first test runner.
 
     ```bash
     bun test --watch
     ```
 
-- **Package Manager**: `bun install` is significantly faster than npm/yarn.
+- **Package Manager**: `bun install` is Bun’s npm-compatible package manager with workspaces and lockfile support.
 
 ## High Performance & Integration Patterns (Vertebra)
 
@@ -34,18 +34,18 @@ This section details how to integrate Bun into high-performance, polyglot system
 
 When integrating with Rust/Python backends:
 
-- **Shared Memory (ShmRing)**: For latency < 10µs, avoid piping JSON over stdout/stdin. Use shared memory ring buffers.
+- **Shared Memory (ShmRing)**: Prefer shared memory ring buffers for high-throughput/low-latency local IPC instead of JSON over stdio on hot paths.
   - *Pattern*: Pointers/offsets only passed over socket; data stays in shared memory.
-- **Unix Domain Sockets (UDS)**: Use `Bun.connect()` and `Bun.listen()` with abstract namespaces (Linux) or file paths (macOS) if Shm not available.
+- **Sockets**: Use `Bun.connect()` / `Bun.listen()` (TCP) and Unix sockets where appropriate if shared memory is not available.
 - **Serialization**:
   - Avoid `JSON.stringify` on hot paths.
-  - Use **Msgspec** (via bindings) or **Apache Arrow** (via `apache-arrow` js package) for zero-copy structure sharing.
+  - Prefer binary formats and typed arrays for predictable allocations and lower overhead.
 
 ### 2. Native Bindings (FFI vs N-API)
 
 - **N-API (`napi-rs`)**: Preferred for stability and complex logic. It maps Rust Structs to JS Classes easily.
-- **Bun FFI (`bun:ffi`)**: faster for simple C function calls but harder to maintain for complex objects.
-  - *Recommendation*: Use `napi-rs` for business logic, `bun:ffi` only for ultra-thin C wrappers.
+- **Bun FFI (`bun:ffi`)**: Useful for direct C ABI calls, but Bun marks it as experimental.
+  - *Recommendation*: Default to N-API for production/stable native modules; use `bun:ffi` for narrow, carefully scoped interop.
 
 ### 3. Performance Gotchas
 
@@ -57,16 +57,19 @@ When integrating with Rust/Python backends:
 
 - **Linting**: Use **Biome** (`bunx @biomejs/biome`) for instant linting/formatting.
 - **Globals**: Use `Bun.env`, `Bun.sleep`, but generally avoid Node.js globals unless necessary for library compatibility.
-- **Lockfile**: Commit `bun.lockb` for deterministic builds.
+- **Lockfile**: Commit `bun.lock` for deterministic builds.
 
-## Official References
+## Where to Find More Information (Official)
 
-- https://bun.sh/docs
-- https://bun.sh/docs/test
-- https://bun.sh/docs/install/lockfile
-- https://bun.sh/docs/runtime/ffi
-- https://bun.sh/docs/runtime/node-api
-- https://github.com/oven-sh/bun/releases
+- Start here: https://bun.sh/docs
+- Runtime overview (`bun run`, watch/hot mode): https://bun.sh/docs/cli/run
+- Test runner (`bun test`): https://bun.sh/docs/cli/test
+- Package manager + lockfiles (`bun.lock`): https://bun.sh/docs/install/lockfile
+- Node compatibility status: https://bun.sh/docs/runtime/nodejs-apis
+- Native modules (Node-API): https://bun.sh/docs/api/node-api
+- FFI (`bun:ffi`, experimental): https://bun.sh/docs/runtime/ffi
+- TCP sockets (`Bun.listen`, `Bun.connect`): https://bun.sh/docs/api/tcp
+- Releases/changelog: https://github.com/oven-sh/bun/releases
 
 ## Shared Styleguide Baseline
 

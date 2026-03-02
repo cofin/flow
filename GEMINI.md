@@ -299,7 +299,7 @@ At phase completion:
 
 1. Run full test suite
 2. Verify coverage requirements
-3. Create git tag: `checkpoint/{flow_id}/phase-{N}`
+3. Ensure phase completion is committed
 4. Prompt for pattern elevation
 5. Manual verification with user
 

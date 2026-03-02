@@ -1,5 +1,5 @@
 ---
-description: Conduct pre-PRD research including codebase analysis and documentation lookup
+description: Conduct pre-PRD research
 argument-hint: <topic>
 allowed-tools: Read, Glob, Grep, Bash, WebSearch
 ---

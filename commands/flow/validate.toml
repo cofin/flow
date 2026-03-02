@@ -1,4 +1,4 @@
-description = "Validate Flow project integrity and optionally fix issues"
+description = "Validate project integrity and fix issues"
 prompt = """
 ## SYSTEM DIRECTIVE
 You are validating a Flow project's integrity. Check all files, Beads status, and flow consistency.

@@ -1,6 +1,6 @@
 ---
 name: flow-block
-description: "Mark task as blocked with reason. Use when a task cannot proceed due to external dependency or issue."
+description: "Mark task as blocked with reason"
 ---
 
 # Flow Block

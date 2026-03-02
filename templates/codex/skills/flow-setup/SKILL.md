@@ -1,6 +1,6 @@
 ---
 name: flow-setup
-description: "Initialize project with Flow framework and Beads integration"
+description: "Initialize project with context files, Beads, and first flow"
 ---
 
 # Flow Setup
@@ -74,7 +74,7 @@ Alignment Complete
 No action needed / Issues found:
 - {list any warnings}
 
-Run `/flow:status` to see current state.
+Run `$flow:status` to see current state.
 ```
 
 **After alignment, HALT (don't continue to full setup).**
@@ -206,8 +206,7 @@ Based on detected languages, offer relevant styleguides:
 **CRITICAL: Initialize in stealth mode by default.**
 
 ```bash
-br init
-```
+br init --prefix <project_name_slug>```
 
 Or prompt user:
 
@@ -271,7 +270,7 @@ Copy `knowledge/index.md` from the Flow templates (`templates/agent/knowledge/in
 > **Would you like to create your first flow?**
 > Describe what you want to build.
 
-If yes, invoke `/flow:prd` with description.
+If yes, invoke `$flow:prd` with description.
 
 ---
 
@@ -313,8 +312,26 @@ Created:
 
 Next Steps:
 1. Run `br status` to see workspace overview
-2. Run `/flow:prd "description"` to create your first flow
-3. Run `/flow:implement {flow_id}` to start coding
+2. Run `$flow:prd "description"` to create your first flow
+3. Run `$flow:implement {flow_id}` to start coding
+```
+
+---
+
+## Phase 8: Install Git Hooks
+
+**PROTOCOL: Install pre-commit hook to automate Beads sync.**
+
+Copy the `pre-commit` hook to the `.git/hooks/` directory to ensure Bead states remain synchronized before any commit:
+
+```bash
+if [ -f ~/.flow/hooks/pre-commit ]; then
+  cp ~/.flow/hooks/pre-commit .git/hooks/pre-commit
+  chmod +x .git/hooks/pre-commit
+elif [ -f ~/.gemini/extensions/flow/scripts/hooks/pre-commit ]; then
+  cp ~/.gemini/extensions/flow/scripts/hooks/pre-commit .git/hooks/pre-commit
+  chmod +x .git/hooks/pre-commit
+fi
 ```
 
 ---

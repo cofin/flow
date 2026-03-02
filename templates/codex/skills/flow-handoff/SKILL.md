@@ -8,7 +8,7 @@ description: "Create context handoff for session transfer"
 Create context handoff document for session transfer.
 
 ## Usage
-`/flow:handoff`
+`$flow:handoff`
 
 ## Phase 1: Gather Current State
 
@@ -77,7 +77,7 @@ br list --status in_progress  # Active work
 br status
 br list --status in_progress
 # Then run:
-/flow:implement {flow_id}
+$flow:implement {flow_id}
 ```
 ```
 
@@ -95,5 +95,5 @@ Handoff Created: .agent/handoff.md
 To resume in new session:
 1. Read .agent/handoff.md
 2. Run: br status && br list --status in_progress
-3. Run: /flow:implement {flow_id}
+3. Run: $flow:implement {flow_id}
 ```

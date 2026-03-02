@@ -1,0 +1,166 @@
+#!/usr/bin/env python3
+import os
+import sys
+import json
+import re
+import subprocess
+from datetime import datetime
+from typing import List, Dict, Optional, Any
+
+def run_cmd(cmd: List[str]) -> Optional[str]:
+    try:
+        result: subprocess.CompletedProcess[str] = subprocess.run(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True
+        )
+        return result.stdout
+    except subprocess.CalledProcessError as e:
+        print(f"Error running {' '.join(cmd)}: {e.stderr}", file=sys.stderr)
+        return None
+
+def get_active_flows() -> List[str]:
+    flows_md: str = ".agent/flows.md"
+    if not os.path.exists(flows_md):
+        return []
+    
+    with open(flows_md, 'r') as f:
+        content: str = f.read()
+
+    # Extract flow ids from the active flows section.
+    # Matches: *Link: [./specs/<flow_id>/](./specs/<flow_id>/)*
+    active_section_match: Optional[re.Match[str]] = re.search(r'## Active Flows(.*?)## Archived', content, re.DOTALL | re.IGNORECASE)
+    if not active_section_match:
+        # Fallback if no archived section
+        active_section_match = re.search(r'## Active Flows(.*)', content, re.DOTALL | re.IGNORECASE)
+        if not active_section_match:
+            return []
+    
+    active_section: str = active_section_match.group(1)
+    flow_ids: List[str] = re.findall(r'\.\/specs\/([^/]+)\/', active_section)
+    return list(set(flow_ids))
+
+def sync_flow(flow_id: str) -> bool:
+    spec_path: str = f".agent/specs/{flow_id}/spec.md"
+    meta_path: str = f".agent/specs/{flow_id}/metadata.json"
+
+    if not os.path.exists(spec_path) or not os.path.exists(meta_path):
+        return False
+
+    try:
+        with open(meta_path, 'r') as f:
+            meta: Dict[str, Any] = json.load(f)
+    except json.JSONDecodeError:
+        return False
+
+    beads_epic_id: Optional[str] = meta.get("beads_epic_id")
+    if not beads_epic_id:
+        return False
+
+    br_output: Optional[str] = run_cmd(["br", "show", beads_epic_id, "--children", "--format", "json"])
+    if not br_output:
+        # fallback to without --children if needed
+        br_output = run_cmd(["br", "show", beads_epic_id, "--format", "json"])
+        if not br_output:
+            return False
+
+    try:
+        epic_data: Dict[str, Any] = json.loads(br_output)
+    except json.JSONDecodeError:
+        return False
+
+    # Extract tasks
+    tasks: List[Dict[str, Any]] = epic_data.get("children", [])
+    if not tasks:
+        tasks = epic_data.get("tasks", [])
+
+    status_map: Dict[str, str] = {
+        "pending": "[ ]",
+        "open": "[ ]",
+        "in_progress": "[~]",
+        "completed": "[x]",
+        "closed": "[x]",
+        "blocked": "[!]",
+        "skipped": "[-]"
+    }
+
+    # Normalize Beads data to a simple matching struct
+    task_info: List[Dict[str, str]] = []
+    for t in tasks:
+        # We need description/title and status
+        title: str = t.get("description", t.get("title", ""))
+        status: str = t.get("status", "open").lower()
+        marker: str = status_map.get(status, "[ ]")
+        task_info.append({"title": title, "marker": marker})
+
+    with open(spec_path, 'r') as f:
+        spec_content: List[str] = f.readlines()
+
+    updated_lines: List[str] = []
+    changes_made: bool = False
+
+    # A simple regex to match task lines like "- [ ] Task 1:" or "- [x] Something"
+    task_regex: re.Pattern[str] = re.compile(r'^(\s*-\s*)\[( |x|~|!|-)\](.*)', re.IGNORECASE)
+
+    for line in spec_content:
+        match: Optional[re.Match[str]] = task_regex.match(line)
+        if match:
+            prefix: str = match.group(1)
+            content: str = match.group(3)
+            
+            # Find the matching task in beads
+            # Simple heuristic: if the spec line contains the beads task description (ignoring case)
+            matched_marker: Optional[str] = None
+            for t in task_info:
+                if t["title"].lower() in content.lower() or content.lower().strip() in t["title"].lower():
+                    matched_marker = t["marker"]
+                    break
+            
+            if matched_marker and match.group(2) != matched_marker[1]:
+                updated_lines.append(f"{prefix}{matched_marker}{content}\n")
+                changes_made = True
+            else:
+                updated_lines.append(line)
+        else:
+            updated_lines.append(line)
+
+    if changes_made:
+        with open(spec_path, 'w') as f:
+            f.writelines(updated_lines)
+        
+        # Update metadata
+        meta["synced_at"] = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+        meta["updated_at"] = meta["synced_at"]
+        with open(meta_path, 'w') as f:
+            json.dump(meta, f, indent=2)
+            f.write("\n")
+        
+        run_cmd(["git", "add", spec_path, meta_path])
+        return True
+
+    return False
+
+def main() -> None:
+    if os.environ.get("SKIP_FLOW_SYNC") == "1":
+        sys.exit(0)
+
+    if not os.path.exists(".agent") or not os.path.exists(".beads"):
+        sys.exit(0)
+    
+    # Check if br is installed
+    try:
+        subprocess.run(["br", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        sys.exit(0)
+
+    run_cmd(["br", "sync", "--flush-only"])
+
+    flows: List[str] = get_active_flows()
+    synced_any: bool = False
+    for f in flows:
+        if sync_flow(f):
+            synced_any = True
+    
+    if synced_any:
+        print("[Flow] Auto-synced Beads state to spec.md")
+
+if __name__ == "__main__":
+    main()

@@ -1,4 +1,4 @@
-description = "Scaffolds the project and sets up the Flow environment with Beads integration"
+description = "Initialize project with context files, Beads, and first flow"
 prompt = """
 ## 1.0 SYSTEM DIRECTIVE
 You are an AI agent. Your primary function is to set up and manage a software project using the Flow methodology with Beads task persistence. This document is your operational protocol. Adhere to these instructions precisely and sequentially. Do not make assumptions.
@@ -543,7 +543,7 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
     > Mode: Stealth (local-only, not committed to git)"
 
     ```bash
-    br init
+    br init --prefix <project_name_slug>
     ```
 
 3.  **Create Beads Config:**
@@ -664,6 +664,19 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
 
         ---
         ```
+
+### 2.8 Install Git Hooks
+1.  **Install Pre-Commit Hook:**
+    -   Copy the `pre-commit` hook to the `.git/hooks/` directory to ensure Bead states remain synchronized before any commit:
+    ```bash
+    if [ -f ~/.flow/hooks/pre-commit ]; then
+      cp ~/.flow/hooks/pre-commit .git/hooks/pre-commit
+      chmod +x .git/hooks/pre-commit
+    elif [ -f ~/.gemini/extensions/flow/scripts/hooks/pre-commit ]; then
+      cp ~/.gemini/extensions/flow/scripts/hooks/pre-commit .git/hooks/pre-commit
+      chmod +x .git/hooks/pre-commit
+    fi
+    ```
 
 3.  **Summarize Actions:** Present a summary of all actions taken during Phase 1, including:
     -   The guide files that were copied.

@@ -1,3 +1,7 @@
+---
+description: Five-phase documentation workflow
+---
+
 # Flow Docs
 
 Five-phase documentation workflow with validation, knowledge capture, and cleanup.

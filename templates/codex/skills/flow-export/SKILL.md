@@ -10,7 +10,7 @@ Generate project summary export.
 ## Usage
 
 ```
-/flow:export [--format markdown|json]
+$flow:export [--format markdown|json]
 ```
 
 ## Workflow

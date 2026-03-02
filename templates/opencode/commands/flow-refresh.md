@@ -1,3 +1,7 @@
+---
+description: Sync context docs with current codebase state
+---
+
 # Flow Refresh
 
 Sync context documents with current codebase state.

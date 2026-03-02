@@ -1,6 +1,6 @@
 ---
 name: flow-status
-description: "Display progress overview for all active flows"
+description: "Display progress overview with Beads status"
 ---
 
 # Flow Status
@@ -85,9 +85,9 @@ Coverage: 82%
 
 Based on status, suggest next action:
 
-- If blocked: "Run `/flow:block` to document blockers"
-- If no in-progress: "Run `/flow:implement {flow_id}`"
-- If complete: "Run `/flow:archive {flow_id}`"
+- If blocked: "Run `$flow:block` to document blockers"
+- If no in-progress: "Run `$flow:implement {flow_id}`"
+- If complete: "Run `$flow:archive {flow_id}`"
 
 ## Critical Rules
 

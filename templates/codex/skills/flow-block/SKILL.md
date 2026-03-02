@@ -8,7 +8,7 @@ description: "Mark task as blocked with reason"
 Mark a task as blocked with documented reason.
 
 ## Usage
-`/flow:block {task_id} "{reason}"`
+`$flow:block {task_id} "{reason}"`
 
 ## Phase 1: Identify Task
 
@@ -35,11 +35,10 @@ Append to `.agent/specs/{flow_id}/blockers.md`:
 **Resolution Path:** {suggested resolution}
 ```
 
-## Phase 4: Sync to Markdown (MANDATORY)
+### Markdown Sync (Automatic)
 
-Run `/flow:sync {flow_id}` to export Beads state to spec.md.
-
-**Do NOT write `[!]` markers directly to spec.md.** Beads is the source of truth.
+The git pre-commit hook automatically exports Beads state to spec.md on commit.
+**CRITICAL:** Do NOT write markers directly to spec.md and do NOT run sync manually.
 
 ## Phase 5: Suggest Next Actions
 
@@ -50,6 +49,6 @@ Reason: {reason}
 
 Next options:
 1. Work on another task: `br ready`
-2. Skip this task: `/flow:skip {task_id}`
-3. Resolve blocker and unblock: `/flow:unblock {task_id}`
+2. Skip this task: `$flow:skip {task_id}`
+3. Resolve blocker and unblock: `$flow:unblock {task_id}`
 ```

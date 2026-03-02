@@ -1,103 +1,68 @@
 ---
 name: python-mypyc
-description: Comprehensive guide to using MyPyC for compiling type-annotated Python to C extensions, including optimizations, limitations, and debugging.
+description: Practical mypyc guide for compiling typed Python to C extensions with current constraints, performance tips, and official references.
 ---
 
-# MyPyC Optimization Skill
+# mypyc Skill
 
 ## Overview
 
-MyPyC compiles standard, type-annotated Python code into C extensions. It is the compiler used by `mypy` itself.
+mypyc compiles typed Python modules into CPython C extensions for speedups (often strongest in typed, object-heavy code). It ships with `mypy` and is used to compile `mypy` itself.
 
-## Core Optimization Patterns
+## Use It When
 
-### 1. Native Classes & Memory Layout
+- You already have solid type coverage in hot modules.
+- Profiling shows Python interpreter overhead in those modules.
+- You can accept C-extension build/distribution requirements.
 
-MyPyC optimizes native classes significantly better than standard Python classes.
+## Core Guidance (Current)
 
-- **Native Classes**: Defined by simply compiling a class. They use C structures for memory layout.
-- **`__slots__`**: Always use `__slots__` to ensure fixed memory layout and faster attribute access.
-- **Traits (`@trait`)**: Use `mypy_extensions.trait` for native class multiple inheritance/mixins. Standard multiple inheritance is NOT supported for native classes.
+### 1. Favor precise, non-`Any` types in hot paths
 
-    ```python
-    from mypy_extensions import trait
+- mypyc generates better native ops when types are concrete.
+- Add explicit annotations at boundaries to avoid `Any` propagation from untyped libs.
 
-    @trait
-    class Hashable:
-        def __init__(self) -> None: ...
-        def hash_value(self) -> int: ...
-    
-    class Item(Hashable): ...
-    ```
+### 2. Understand native classes
 
-### 2. Type Annotations & Inference
+- Classes in compiled modules are native by default (with exceptions).
+- Native classes are already slot-like in behavior; `__slots__` is not a universal requirement.
+- Only single inheritance is supported for native classes, except traits via `mypy_extensions.trait`.
+- Dataclasses/attrs are supported with partial native support, typically less efficient than plain native classes.
 
-Types are not just hints; they are compiled to C types.
+### 3. Expect runtime type enforcement
 
-- **Precise Types**: Use `int`, `str`, `float` (native C types).
-- **Early Binding**: MyPyC resolves attributes/methods at compile time. Dynamic access (`getattr`) breaks this and is much slower.
-- **Annotate External Libraries**: Even if a library isn't compiled, annotating calls to it helps MyPyC generate optimized C code for the call site.
+- mypyc enforces many annotations at runtime and can raise `TypeError` where interpreted Python would not.
+- `cast(...)` can become runtime checks in compiled code.
 
-### 3. High-Performance Idioms
+### 4. Plan around Python-compat differences
 
-- **Fast Paths**: Implement checks to skip complex logic (e.g., identity checks before equality).
-- **Pre-allocation**: Avoid creating objects in hot loops. Reuse buffers or separate creation from processing.
-- **Avoid "Slow" Python Features**:
-  - **Class Decorators/Metaclasses**: Generally unsupported or slow.
-  - **Monkey Patching**: Compiled code is immutable. You cannot `mock.patch` compiled methods easily.
-  - **Profiling**: specialized tools required (e.g., `linux-perf` on the binary), `cProfile` often misses C-level details.
+- Compiled functions/classes/module attributes are more static/immutable.
+- Some features are unsupported or limited (for example nested classes and conditional class/function definitions).
+- Compiled extensions are imported modules, not script entrypoints.
 
-## Limitations & Gotchas
+## Build and Workflow
 
-### 1. Runtime Behavior
+1. Type-check first (`mypy`) and tighten untyped areas in performance-critical code.
+2. Compile targeted modules first (do not compile everything blindly).
+3. Re-profile compiled vs interpreted behavior before expanding scope.
 
-- **Type Enforcement**: Unlike interpreted Python, MyPyC enforces types at runtime. `TypeError` will be raised for violations. `Any` is dangerous.
-- **Executability**: Compiled modules must be imported; they cannot be run directly as scripts.
-- **Immutability**: Function and class definitions are frozen.
+Minimal official build entrypoint example uses `setuptools` + `mypyc.build.mypycify` (see Getting Started docs).
 
-### 2. Known Issues
+## Common Pitfalls
 
-- **`Final` Constants**: Can cause crashes if returned under specific conditions involving `None`.
-- **`match` Statements**: Tuple matching implementation may vary from CPython semantics in edge cases.
-- **`TYPE_CHECKING` Blocks**: Code inside these blocks is strictly stripped, sometimes leading to "unreachable code" errors if logic depends on it.
+- Treating mypyc as a drop-in speedup without type cleanup.
+- Heavy dynamic patterns (runtime mutation, unsupported decorators/metaclasses) in compiled modules.
+- Assuming CPython runtime behavior is identical in all edge cases.
 
-## The "SQLSpec" Pattern
+## Official Learn More
 
-Best practices derived from `sqlspec` optimizations:
-
-1. **Strict Type Guards**: Use `isinstance` checks that MyPyC can verify to narrow types in hot paths.
-2. **No Dataclasses in Hot Paths**: While supported, manual `__init__` + `__slots__` offers more predictable C-struct generation for performance-critical objects.
-3. **No `from __future__ import annotations`**: Stringified annotations can obscure types from the compiler.
-4. **Hybrid Inheritance**: If you need interpreted classes to inherit from compiled ones, use `@mypyc_attr(allow_interpreted_subclasses=True)`, but be aware of the performance penalty (vtable lookups become slower).
-
-## Build Configuration (Hatch)
-
-```toml
-[build-system]
-requires = ["hatchling", "hatch-mypyc"]
-build-backend = "hatchling.build"
-
-[tool.hatch.build.targets.wheel.hooks.mypyc]
-enable-by-default = false
-dependencies = ["hatch-mypyc", "mypy_extensions"]
-include = ["src/my_package/core"]
-options = { opt_level = "3" }
-```
-
-## Debugging Compilation
-
-1. **Clean MyPy Run**: Ensure `mypy .` passes cleanly.
-2. **Strictness**: Use strict mode in mypy configuration to catch `Any` types that degrade performance.
-3. **Fallback Check**: If performance is bad, check if the module failed compilation and silently fell back to interpreted mode (check build logs).
-
-## Official References
-
-- https://mypyc.readthedocs.io/en/latest/
-- https://mypyc.readthedocs.io/en/latest/getting_started.html
-- https://mypyc.readthedocs.io/en/latest/native_classes.html
-- https://mypyc.readthedocs.io/en/latest/differences_from_python.html
-- https://mypy.readthedocs.io/en/stable/changelog.html
-- https://github.com/python/mypy/tree/master/mypyc
+- Docs home: https://mypyc.readthedocs.io/en/stable/
+- Getting started: https://mypyc.readthedocs.io/en/stable/getting_started.html
+- Performance tips: https://mypyc.readthedocs.io/en/stable/performance_tips_and_tricks.html
+- Native classes: https://mypyc.readthedocs.io/en/stable/native_classes.html
+- Differences from Python: https://mypyc.readthedocs.io/en/stable/differences_from_python.html
+- Type annotations and optimization model: https://mypyc.readthedocs.io/en/stable/using_type_annotations.html
+- mypy repository (`mypyc` source lives there): https://github.com/python/mypy/tree/master/mypyc
 
 ## Shared Styleguide Baseline
 

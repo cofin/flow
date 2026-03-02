@@ -1,3 +1,7 @@
+---
+description: Git-aware revert of flows, phases, or tasks
+---
+
 # Flow Revert
 
 Git-aware revert of flows, phases, or tasks.
@@ -35,11 +39,10 @@ git commit -m "revert: {scope}"
 br update {task_id} --status open
 ```
 
-### 3.2 Sync to Markdown (MANDATORY)
+### Markdown Sync (Automatic)
 
-Run `/flow:sync {flow_id}` to export Beads state to spec.md.
-
-**Do NOT write markers directly to spec.md.** Beads is the source of truth — use `/flow:sync` instead.
+The git pre-commit hook automatically exports Beads state to spec.md on commit.
+**CRITICAL:** Do NOT write markers directly to spec.md and do NOT run sync manually.
 
 ## Final Output
 

@@ -10,7 +10,7 @@ Extract reusable template from completed flow.
 ## Usage
 
 ```
-/flow:distill <flow_id> <template_name>
+$flow:distill <flow_id> <template_name>
 ```
 
 ## Workflow

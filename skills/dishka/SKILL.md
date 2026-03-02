@@ -1,395 +1,228 @@
 ---
 name: dishka
-description: Expert knowledge for Dishka dependency injection framework. Use when configuring DI containers, providers, scopes, or integrating with web frameworks like Litestar or FastAPI.
+description: Expert knowledge for Dishka dependency injection framework. Use when configuring providers, scopes, containers, and framework integrations (Litestar/FastAPI/Click).
 ---
 
 # Dishka Dependency Injection Skill
 
-## Quick Reference
+## Scope of This Skill
 
-### Core Concepts
+- **Official Dishka guidance**: canonical API and framework integrations from Dishka docs.
+- **Project-specific guidance (DMA accelerator)**: local conventions in `dma/lib/di.py` and `dma/ioc.py`.
+- Keep these layers separate: prefer official API unless this project explicitly standardizes a local pattern.
+
+## Official Dishka Patterns (Canonical)
+
+### Minimal provider + container
 
 ```python
-from dishka import Provider, Scope, provide, make_async_container, AsyncContainer
+from collections.abc import Iterable
+from dishka import Provider, Scope, make_container, provide
 
-class MyProvider(Provider):
-    """Providers group related dependencies."""
+class Connection:
+    def close(self) -> None:
+        ...
 
+class Service:
+    def __init__(self, conn: Connection) -> None:
+        self.conn = conn
+
+class AppProvider(Provider):
     @provide(scope=Scope.APP)
-    def provide_config(self) -> Config:
-        """App-scoped: created once, shared across all requests."""
-        return Config.from_env()
-
-    @provide(scope=Scope.REQUEST)
-    def provide_service(self, config: Config) -> MyService:
-        """Request-scoped: created per request, auto-injected deps."""
-        return MyService(config)
-
-    @provide(scope=Scope.REQUEST)
-    async def provide_async_resource(self) -> AsyncIterable[DBConnection]:
-        """Async generator for resources needing cleanup."""
-        conn = await create_connection()
+    def connection(self) -> Iterable[Connection]:
+        conn = Connection()
         yield conn
-        await conn.close()
+        conn.close()
+
+    service = provide(Service, scope=Scope.REQUEST)
+
+container = make_container(AppProvider())
 ```
 
-### Scopes
-
-| Scope | Lifetime | Use Case |
-|-------|----------|----------|
-| `Scope.APP` | Application lifetime | Config, connection pools, singletons |
-| `Scope.REQUEST` | Single request | Services, database sessions, user context |
-| `Scope.ACTION` | Sub-request operation | Nested transactions, batch operations |
-| `Scope.STEP` | Single resolution | Factories, unique instances |
-
-### Container Creation
+### Async container
 
 ```python
-from dishka import make_async_container, make_container
+from dishka import make_async_container
 
-# Async container (for async frameworks)
-container = make_async_container(
-    ConfigProvider(),
-    PersistenceProvider(),
-    DomainServiceProvider(),
+container = make_async_container(AppProvider())
+```
+
+### Scope model
+
+Default scope chain:
+- `[RUNTIME] -> APP -> [SESSION] -> REQUEST -> ACTION -> STEP`
+
+Practical guidance:
+- use `APP` for long-lived objects (config, pools)
+- use `REQUEST` for per-request/per-event services
+- use `SESSION` for connection/session lifetimes (for websocket-style flows)
+- use `ACTION`/`STEP` only when finer granularity is needed
+
+Notes:
+- `RUNTIME` and `SESSION` are skipped by default in normal traversal.
+- close the top-level container on shutdown to finalize app-scoped resources.
+
+## Official Framework Integrations
+
+### Litestar
+
+```python
+from dishka import Provider, Scope, make_async_container, provide
+from dishka.integrations.litestar import (
+    FromDishka,
+    LitestarProvider,
+    inject,
+    setup_dishka,
 )
+from litestar import Litestar, get
 
-# Sync container
-container = make_container(ConfigProvider(), ServiceProvider())
-```
+class AppProvider(Provider):
+    @provide(scope=Scope.REQUEST)
+    def make_service(self) -> Service:
+        return Service(...)
 
-### Clean Naming Pattern
-
-Create framework-agnostic aliases for cleaner code:
-
-```python
-# di.py - Central DI module
-from dishka import AsyncContainer, Container, Provider, Scope
-from dishka import make_async_container, make_container, provide
-from dishka.integrations.litestar import FromDishka as Inject
-from dishka.integrations.litestar import LitestarProvider, setup_dishka
-
-__all__ = [
-    "AsyncContainer",
-    "Container",
-    "Inject",  # Clean alias for FromDishka
-    "Provider",
-    "Scope",
-    "make_async_container",
-    "make_container",
-    "provide",
-    "setup_dishka",
-]
-```
-
-Usage with clean naming:
-
-```python
-from myapp.di import Inject
+container = make_async_container(AppProvider(), LitestarProvider())
 
 @get("/users")
-async def list_users(service: Inject[UserService]) -> list[User]:
-    return await service.list_all()
+@inject
+async def list_users(service: FromDishka[Service]) -> list[str]:
+    return ["ok"]
+
+app = Litestar(route_handlers=[list_users])
+setup_dishka(container=container, app=app)
 ```
 
-## Litestar Integration
-
-### Setup
+### FastAPI
 
 ```python
-from dishka.integrations.litestar import setup_dishka, LitestarProvider
-from litestar import Litestar
-
-container = make_async_container(
-    LitestarProvider(),  # Provides Request, State, etc.
-    PersistenceProvider(),
-    DomainServiceProvider(),
+from dishka import Provider, Scope, make_async_container, provide
+from dishka.integrations.fastapi import (
+    DishkaRoute,
+    FastapiProvider,
+    FromDishka,
+    setup_dishka,
 )
+from fastapi import APIRouter, FastAPI
 
-app = Litestar(route_handlers=[...])
-setup_dishka(container, app)
-```
+class AppProvider(Provider):
+    @provide(scope=Scope.REQUEST)
+    def make_service(self) -> Service:
+        return Service(...)
 
-### Controller Injection
+router = APIRouter(route_class=DishkaRoute)
 
-```python
-from dishka.integrations.litestar import FromDishka as Inject
-
-class UserController(Controller):
-    path = "/api/users"
-
-    @get(operation_id="ListUsers")
-    async def list_users(
-        self,
-        service: Inject[UserService],  # Injected by Dishka
-    ) -> list[User]:
-        return await service.list_all()
-
-    @get("/{user_id:uuid}")
-    async def get_user(
-        self,
-        service: Inject[UserService],
-        user_id: UUID,  # From path parameter
-    ) -> User:
-        return await service.get(user_id)
-```
-
-### DishkaRouter for Auto-Discovery
-
-```python
-from dishka.integrations.litestar import DishkaRouter
-
-# Wrap controllers for automatic DI integration
-router = DishkaRouter(
-    path="/api",
-    route_handlers=[UserController, OrderController],
-)
-```
-
-### Manual Resolution from Connection
-
-```python
-async def get_from_connection(
-    connection: ASGIConnection,
-    dependency_type: type[T],
-) -> T:
-    """Get dependency from Dishka container via connection."""
-    container: AsyncContainer = connection.state.dishka_container
-    return await container.get(dependency_type)
-
-# Usage in middleware, guards, JWT callbacks
-async def jwt_auth_callback(token: str, connection: ASGIConnection) -> User:
-    service = await get_from_connection(connection, UserService)
-    return await service.get_by_token(token)
-```
-
-## FastAPI Integration
-
-```python
-from dishka.integrations.fastapi import FromDishka, setup_dishka
-from fastapi import FastAPI
+@router.get("/users")
+async def list_users(service: FromDishka[Service]) -> list[str]:
+    return ["ok"]
 
 app = FastAPI()
-container = make_async_container(ServiceProvider())
-setup_dishka(container, app)
-
-@app.get("/users")
-async def list_users(service: FromDishka[UserService]) -> list[User]:
-    return await service.list_all()
+app.include_router(router)
+container = make_async_container(AppProvider(), FastapiProvider())
+setup_dishka(container=container, app=app)
 ```
 
-## Provider Patterns
-
-### Persistence Provider
+### Click
 
 ```python
-from collections.abc import AsyncIterable
+import click
+from dishka import make_container
+from dishka.integrations.click import FromDishka, setup_dishka
 
-class PersistenceProvider(Provider):
-    """Database connection provider."""
+@click.group()
+@click.pass_context
+def main(context: click.Context) -> None:
+    container = make_container(AppProvider())
+    setup_dishka(container=container, context=context, auto_inject=True)
 
-    @provide(scope=Scope.REQUEST)
-    async def provide_driver(self) -> AsyncIterable[AsyncDriverAdapterBase]:
-        """Provide database session with automatic cleanup."""
-        async with db_manager.provide_session(db) as driver:
-            yield driver
+@main.command(name="run")
+def run_cmd(service: FromDishka[Service]) -> None:
+    print(service)
 ```
 
-### Domain Service Provider
+## DMA Accelerator Conventions (Project-Specific)
 
-```python
-class DomainServiceProvider(Provider):
-    """Business logic services provider."""
+Reference files:
+- `/home/cody/code/g/dma/accelerator/src/py/dma/lib/di.py`
+- `/home/cody/code/g/dma/accelerator/src/py/dma/ioc.py`
 
-    @provide(scope=Scope.REQUEST)
-    def provide_user_service(
-        self,
-        driver: AsyncDriverAdapterBase,  # Auto-injected
-    ) -> UserService:
-        return UserService(driver)
+### 1) `Inject` alias in local DI module
 
-    @provide(scope=Scope.REQUEST)
-    def provide_order_service(
-        self,
-        driver: AsyncDriverAdapterBase,
-        user_service: UserService,  # Can depend on other services
-    ) -> OrderService:
-        return OrderService(driver, user_service)
-```
+Pattern:
+- local DI module re-exports `FromDishka` as `Inject`
+- app code imports `Inject` from local DI module, not directly from Dishka integration packages
 
-### External Service Provider
+Why:
+- cleaner handler signatures
+- isolates framework-specific type from business modules
+- enables easier migration if DI backend changes
 
-```python
-class EmailServiceProvider(Provider):
-    """Third-party service integration."""
+### 2) Container factories split by runtime
 
-    @provide(scope=Scope.REQUEST)
-    async def provide_email_service(self) -> AsyncIterable[EmailService]:
-        async with email_backend.provide_service() as service:
-            yield service
+Pattern:
+- `make_litestar_container()`
+- `make_cli_container()`
+- `make_worker_container(worker_db)`
 
-    @provide(scope=Scope.REQUEST)
-    def provide_notification_service(
-        self,
-        email: EmailService,
-        config: Config,
-    ) -> NotificationService:
-        return NotificationService(email, config)
-```
+Why:
+- runtime-specific provider composition
+- separate persistence strategies per environment
+- avoids one monolithic container with conditional logic
 
-### Factory Functions (Alternative to Methods)
+### 3) Worker/request context helpers
 
-```python
-from dishka import provide, Scope
+Pattern:
+- context vars hold active containers (`request_container_var`, `worker_container_var`, plus request metadata like `query_id_var`)
+- `worker_scope()` opens short-lived `Scope.REQUEST` from the worker container for DB/session usage
 
-@provide(scope=Scope.REQUEST)
-async def provide_cache() -> AsyncIterable[CacheClient]:
-    client = await CacheClient.connect()
-    yield client
-    await client.close()
+Why:
+- background jobs are long-lived; DB/session resources should be short-lived
+- explicit request-scope boundaries prevent holding sessions for entire job execution
 
-# Register in container
-container = make_async_container(
-    provide_cache,  # Functions work too
-    ServiceProvider(),
-)
-```
+### 4) WebSocket request-scope helpers
 
-## CLI Integration
+Pattern:
+- `with_websocket_request(connection)` creates temporary child `REQUEST` scope from websocket/session container
+- `WebSocketScope` wraps that pattern as a callable scope factory for Litestar dependencies
+- `provide_websocket_scope(socket)` supplies `WebSocketScope` for route dependencies
 
-### Click with Async Injection
+Why:
+- websocket/session lifecycle is long-lived
+- DB-backed services are request-scoped
+- explicit temporary request scope gives safe acquisition/release for brief DB operations during stream lifetime
 
-```python
-import functools
-from collections.abc import Callable, Coroutine
-from typing import Any, ParamSpec, TypeVar
+### 5) Background job injection decorator (`job_inject`)
 
-import anyio
-from dishka import AsyncContainer
+Pattern:
+- decorator inspects function annotations
+- resolves local DI markers (`Inject[...]` / `Annotated[..., FromDishka marker]` variants) from current request container context
+- falls back to normal function execution when no container exists
 
-P = ParamSpec("P")
-R = TypeVar("R")
+Why:
+- background job entrypoints run outside normal web handler auto-injection pipeline
+- provides explicit bridge so job functions can still receive Dishka-managed dependencies
+- keeps jobs ergonomic while preserving runtime safety when DI context is absent
 
-def async_inject(
-    func: Callable[P, Coroutine[Any, Any, R]],
-) -> Callable[..., R]:
-    """Decorator for Click commands with Dishka injection."""
+## Provider Design Guidelines
 
-    @functools.wraps(func)
-    def wrapper(*args: Any, **kwargs: Any) -> R:
-        async def run() -> R:
-            container = make_cli_container()
-            async with container() as request_container:
-                # Resolve dependencies from type hints
-                resolved = {}
-                for name, hint in func.__annotations__.items():
-                    if name == "return":
-                        continue
-                    if name not in kwargs or kwargs[name] is None:
-                        try:
-                            resolved[name] = await request_container.get(hint)
-                        except Exception:
-                            pass  # Not a DI type, skip
-                return await func(*args, **{**kwargs, **resolved})
-        return anyio.from_thread.run(run)
+- Keep providers cohesive by layer (infra, domain, app wiring).
+- Prefer constructor/type-hint based wiring over manual service location.
+- Use generator/async-generator factories for resources that require cleanup.
+- Keep `APP` scope small; most business services belong in `REQUEST`.
+- Build test containers with alternate providers instead of mutating globals.
 
-    return wrapper
+## Where to Learn More (Official)
 
-# Usage
-@click.command()
-@click.option("--email", "-e", required=True)
-@async_inject
-async def create_user(
-    user_service: UserService,  # Injected by Dishka
-    email: str,                 # From Click option
-) -> None:
-    user = await user_service.create(email=email)
-    print(f"Created: {user.id}")
-```
-
-## Testing
-
-### Test Container
-
-```python
-import pytest
-from dishka import make_async_container, Provider, provide, Scope
-
-class TestProvider(Provider):
-    """Mock provider for tests."""
-
-    @provide(scope=Scope.REQUEST)
-    def provide_user_service(self) -> UserService:
-        return MockUserService()
-
-@pytest.fixture
-async def container():
-    container = make_async_container(TestProvider())
-    yield container
-    await container.close()
-
-@pytest.fixture
-async def user_service(container):
-    async with container() as request:
-        yield await request.get(UserService)
-```
-
-### Override in Tests
-
-```python
-from dishka import Provider, provide, Scope
-
-class MockPersistenceProvider(Provider):
-    """Replace real DB with in-memory for tests."""
-
-    @provide(scope=Scope.REQUEST)
-    async def provide_driver(self) -> AsyncIterable[AsyncDriverAdapterBase]:
-        async with in_memory_db() as driver:
-            yield driver
-
-# Use mock provider in test container
-test_container = make_async_container(
-    MockPersistenceProvider(),  # Replaces real persistence
-    DomainServiceProvider(),    # Real domain services
-)
-```
-
-## Best Practices
-
-1. **Scope Selection**:
-   - Use `Scope.APP` sparingly (config, pools)
-   - Default to `Scope.REQUEST` for services
-   - Use `Scope.STEP` for factories
-
-2. **Provider Organization**:
-   - Group related dependencies in one Provider
-   - Separate infrastructure (DB, cache) from domain services
-   - Create framework-specific providers (Litestar, CLI)
-
-3. **Clean Naming**:
-   - Create `Inject` alias for `FromDishka`
-   - Centralize DI exports in single module
-   - Use type hints, not string references
-
-4. **Resource Management**:
-   - Use `AsyncIterable` for cleanup
-   - Yield resources, cleanup after yield
-   - Let Dishka manage lifecycle
-
-5. **Testability**:
-   - Design providers for easy replacement
-   - Create test-specific providers
-   - Avoid global state in providers
-
-
-## Official References
-
-- https://dishka.readthedocs.io/en/stable/
-- https://dishka.readthedocs.io/en/stable/integrations/litestar.html
-- https://dishka.readthedocs.io/en/stable/integrations/fastapi.html
-- https://dishka.readthedocs.io/en/stable/integrations/click.html
-- https://github.com/reagento/dishka/releases
-- https://pypi.org/project/dishka/
+- Docs home: https://dishka.readthedocs.io/en/stable/
+- Quickstart: https://dishka.readthedocs.io/en/stable/quickstart.html
+- Provider API: https://dishka.readthedocs.io/en/stable/provider/index.html
+- Scopes: https://dishka.readthedocs.io/en/stable/advanced/scopes.html
+- Integrations overview: https://dishka.readthedocs.io/en/stable/integrations/index.html
+- Litestar integration: https://dishka.readthedocs.io/en/stable/integrations/litestar.html
+- FastAPI integration: https://dishka.readthedocs.io/en/stable/integrations/fastapi.html
+- Click integration: https://dishka.readthedocs.io/en/stable/integrations/click.html
+- GitHub repo: https://github.com/reagento/dishka
+- Releases: https://github.com/reagento/dishka/releases
+- PyPI: https://pypi.org/project/dishka/
 
 ## Shared Styleguide Baseline
 

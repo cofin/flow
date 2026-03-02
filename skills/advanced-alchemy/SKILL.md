@@ -13,13 +13,13 @@ description: Expert knowledge for Advanced Alchemy / SQLAlchemy ORM patterns. Us
 from advanced_alchemy.base import UUIDAuditBase
 from sqlalchemy import String, ForeignKey
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from uuid import UUID
 
 class User(UUIDAuditBase):
     """User model with audit fields (id, created_at, updated_at)."""
 
     __tablename__ = "user_account"
     __table_args__ = {"comment": "User accounts"}
-    __pii_columns__ = {"name", "email"}  # PII tracking
 
     # Required field
     email: Mapped[str] = mapped_column(unique=True, index=True, nullable=False)
@@ -71,13 +71,15 @@ class UserService(SQLAlchemyAsyncRepositoryService[m.User]):
     repository_type = Repo
     match_fields = ["email"]  # For upsert matching
 
-    # Transform data before create
-    async def to_model_on_create(self, data: ModelDictT[m.User]) -> ModelDictT[m.User]:
-        return await self._populate_model(data)
-
-    # Transform data before update
-    async def to_model_on_update(self, data: ModelDictT[m.User]) -> ModelDictT[m.User]:
-        return await self._populate_model(data)
+    # Transform data before create/update
+    async def to_model(
+        self,
+        data: ModelDictT[m.User],
+        operation: str | None = None,
+    ) -> m.User:
+        if isinstance(data, dict):
+            data = await self._populate_model(data)
+        return await super().to_model(data, operation)
 
     async def _populate_model(self, data: dict) -> dict:
         """Custom model population logic."""
@@ -174,9 +176,9 @@ async def list_paginated(
     return service.to_schema(results, total, filters=filters, schema_type=UserSchema)
 ```
 
-## Supported Database Backends (Current Snapshot)
+## Supported Database Backends (Official Tested Support)
 
-From current dependency groups and test markers in `pyproject.toml`, Advanced Alchemy actively targets:
+Per Advanced Alchemy’s official docs/package metadata, tested support includes:
 
 - PostgreSQL: `asyncpg`, `psycopg` (sync + async), `psycopg2-binary`
 - CockroachDB: `sqlalchemy-cockroachdb` with `asyncpg` / `psycopg`
@@ -187,7 +189,7 @@ From current dependency groups and test markers in `pyproject.toml`, Advanced Al
 - DuckDB: `duckdb-engine`
 - Spanner: `sqlalchemy-spanner`
 
-Also supported at framework integration level:
+Supported framework integrations include:
 
 - Litestar
 - FastAPI / Starlette
@@ -224,17 +226,16 @@ Type/backend guidance:
 ## Migration Commands
 
 ```bash
-# Create migration
+# Advanced Alchemy CLI
+alchemy make-migrations --config path.to.alchemy-config.config
+alchemy upgrade --config path.to.alchemy-config.config
+alchemy downgrade --config path.to.alchemy-config.config
+
+# Litestar integration commands
 litestar database make-migrations
-
-# Apply migrations
 litestar database upgrade
-
-# Downgrade
 litestar database downgrade
 ```
-
-`litestar db ...` is also supported as a short alias in recent Litestar releases.
 
 ## Exception Handling
 
@@ -258,19 +259,21 @@ except NotFoundError:
 - Use `UUIDAuditBase` for auto id/created_at/updated_at
 - Use inner `Repo` class pattern inside services
 - Relationships should specify `lazy="selectin"` for eager loading
-- Prefer `advanced_alchemy.*` imports for repository/service APIs; avoid deprecated `litestar.plugins.sqlalchemy` import paths.
+- Use `advanced_alchemy.*` imports for repository/service/type APIs.
+- Use `advanced_alchemy.extensions.litestar` or `litestar.plugins.sqlalchemy` for Litestar plugin integration based on your app conventions.
 
 
-## Official References
+## Where to Learn More (Official Docs)
 
-- https://docs.advanced-alchemy.litestar.dev/latest/
-- https://docs.advanced-alchemy.litestar.dev/latest/usage/services.html
-- https://docs.advanced-alchemy.litestar.dev/latest/usage/cli.html
-- https://docs.advanced-alchemy.litestar.dev/latest/usage/types.html
-- https://docs.advanced-alchemy.litestar.dev/latest/reference/types.html
-- https://docs.advanced-alchemy.litestar.dev/latest/changelog.html
-- https://docs.litestar.dev/2/release-notes/changelog.html
-- https://docs.sqlalchemy.org/en/20/orm/quickstart.html
+- Docs home: https://docs.advanced-alchemy.litestar.dev/latest/
+- Repositories: https://docs.advanced-alchemy.litestar.dev/latest/usage/repositories.html
+- Services: https://docs.advanced-alchemy.litestar.dev/latest/usage/services.html
+- Types: https://docs.advanced-alchemy.litestar.dev/latest/usage/types.html
+- CLI (standalone): https://docs.advanced-alchemy.litestar.dev/latest/usage/cli.html
+- Litestar integration + `litestar database` migrations: https://docs.advanced-alchemy.litestar.dev/latest/usage/frameworks/litestar.html
+- API reference index: https://docs.advanced-alchemy.litestar.dev/latest/reference/
+- Changelog: https://docs.advanced-alchemy.litestar.dev/latest/changelog.html
+- SQLAlchemy ORM quickstart: https://docs.sqlalchemy.org/en/20/orm/quickstart.html
 
 ## Shared Styleguide Baseline
 

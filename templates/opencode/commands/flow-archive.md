@@ -1,3 +1,7 @@
+---
+description: Archive completed flows + elevate patterns
+---
+
 # Flow Archive
 
 Archive completed flow and elevate patterns.
@@ -5,13 +9,9 @@ Archive completed flow and elevate patterns.
 ## Usage
 `/flow:archive {flow_id}`
 
-## Phase 1: Sync and Validate
+## Phase 1: Validate
 
-### 1.1 Sync Beads State
-
-**CRITICAL:** Run `/flow:sync {flow_id}` FIRST to export current Beads state to spec.md.
-
-### 1.2 Validate Flow
+### 1.1 Validate Flow
 
 Check Beads for completion:
 

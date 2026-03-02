@@ -1,6 +1,6 @@
 ---
 name: flow-handoff
-description: "Create context handoff for session transfer. Use when switching sessions or handing work to another agent."
+description: "Create context handoff for session transfer"
 ---
 
 # Flow Handoff

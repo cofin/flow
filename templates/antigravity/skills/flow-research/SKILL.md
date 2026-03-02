@@ -1,6 +1,6 @@
 ---
 name: flow-research
-description: "Conduct pre-PRD research including codebase analysis and documentation lookup. Use before creating a flow to gather context."
+description: "Conduct pre-PRD research"
 ---
 
 # Flow Research

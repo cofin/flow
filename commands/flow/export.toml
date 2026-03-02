@@ -1,4 +1,4 @@
-description = "Generate project summary export in markdown or JSON format"
+description = "Generate project summary export"
 prompt = """
 ## 1.0 SYSTEM DIRECTIVE
 You are generating a project summary export for the Flow spec-driven development framework. Your task is to collect all project data and generate a comprehensive export document.

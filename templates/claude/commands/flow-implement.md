@@ -1,5 +1,5 @@
 ---
-description: Execute tasks from flow plan with TDD workflow
+description: Execute tasks from plan (context-aware)
 argument-hint: <flow_id>
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, WebSearch, mcp__pal__thinkdeep, mcp__pal__debug, mcp__pal__analyze
 ---
@@ -35,7 +35,7 @@ Implementing flow: **$ARGUMENTS**
 3. **Load Flow Context:**
     * **Read Artifacts:** `spec.md` (unified spec+plan), `learnings.md` (create if missing).
     * **Read Project Context:** Read `.agent/patterns.md` and `.agent/workflow.md`.
-    * **Read Parent Context:** If this flow is part of a PRD/Saga, read `.agent/prd/<parent_id>/prd.md`.
+    * **Read Parent Context:** If this flow is part of a PRD/Saga, read `.agent/specs/<parent_id>/prd.md`.
 
 **CRITICAL:** Before starting, check `.gitignore`. If `.agent/` is ignored, do NOT commit changes to artifacts inside it using git. Update them on disk only.
 
@@ -141,11 +141,10 @@ git commit -m "{type}({scope}): {description}"
 br close {task_id} --reason "commit: {sha}"
 ```
 
-### 3.8 Sync to Markdown (MANDATORY)
+### Markdown Sync (Automatic)
 
-Run `/flow-sync {flow_id}` to export Beads state to spec.md.
-
-**CRITICAL:** Do NOT write `[x]` markers directly to spec.md. Beads is the source of truth — use `/flow-sync` instead.
+The git pre-commit hook automatically exports Beads state to spec.md on commit.
+**CRITICAL:** Do NOT write markers directly to spec.md and do NOT run sync manually.
 
 ### 3.9 Record Learning (if any)
 
@@ -215,9 +214,10 @@ Record in Beads:
 br comments add {epic_id} "Phase {N} verified: tests passed, user confirmed, checkpoint: {sha}"
 ```
 
-### 4.6 Sync to Markdown (MANDATORY)
+### Markdown Sync (Automatic)
 
-Run `/flow-sync {flow_id}` to export Beads state to spec.md after phase completion.
+The git pre-commit hook automatically exports Beads state to spec.md on commit.
+**CRITICAL:** Do NOT write markers directly to spec.md and do NOT run sync manually.
 
 ### 4.7 Offer Pattern Elevation
 
@@ -270,7 +270,6 @@ Next Task: {description}
 
 1. **TDD MANDATORY** - Write failing tests first
 2. **BEADS IS SOURCE OF TRUTH** - Never write `[x]` or `[~]` markers to spec.md
-3. **MANDATORY SYNC** - Run `/flow-sync` after every `br close` and phase completion
 4. **LEARNINGS CAPTURE** - Record patterns as discovered
 5. **PHASE CHECKPOINTS** - Verify and checkpoint at phase end
 6. **NO SKIP** - Use `/flow-skip` if task must be skipped

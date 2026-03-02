@@ -1,271 +1,93 @@
 ---
 name: litestar-vite
-description: Expert knowledge for Litestar-Vite SPA integration. Use when configuring Vite plugin, type generation, or frontend/backend integration.
+description: Integrate Litestar backend with Vite frontend, including VitePlugin setup, modes, runtime bridge, and type generation.
 ---
 
 # Litestar-Vite Skill
 
-## Quick Reference
+Use this skill when wiring Litestar + Vite, choosing operation modes, or setting up type generation.
 
-This skill covers **SPA mode** - a jinja-less configuration where:
-- Backend serves API only (no template rendering)
-- Frontend is a standalone React SPA
-- TypeScript types/SDK auto-generated from OpenAPI schema
+## Recommended baseline
 
-### VitePlugin Setup (Python)
+1. Configure backend with `VitePlugin(config=ViteConfig(...))`.
+2. Configure frontend with `litestar-vite-plugin` in `vite.config.ts`.
+3. Treat Python config as source of truth. The runtime bridge file `.litestar.json` is generated from backend config.
+4. Use `litestar assets generate-types` for OpenAPI + routes + TypeScript generation pipeline.
+
+## Minimal backend setup
 
 ```python
 from litestar import Litestar
-from litestar_vite import ViteConfig, VitePlugin, PathConfig, RuntimeConfig, TypeGenConfig
+from litestar_vite import ViteConfig, VitePlugin, TypeGenConfig
 
-vite_config = ViteConfig(
-    mode="spa",  # spa, template, htmx, hybrid, framework
-    dev_mode=True,
-    runtime=RuntimeConfig(
-        executor="bun",  # or "npm", "pnpm"
-        port=5173,
-        host="localhost",
-    ),
-    paths=PathConfig(
-        root=Path("src/js"),
-        bundle_dir=Path("src/js/dist"),
-        asset_url="/",
-    ),
-    types=TypeGenConfig(
-        output=Path("src/js/src/lib/generated"),
-        openapi_path=Path("src/js/src/lib/generated/openapi.json"),
-        generate_zod=True,      # Generate Zod validation schemas
-        generate_sdk=True,      # Generate API client SDK
-        generate_routes=True,   # Generate route definitions
-    ),
+vite = VitePlugin(
+    config=ViteConfig(
+        mode="spa",
+        dev_mode=True,
+        types=TypeGenConfig(
+            generate_zod=True,
+            generate_sdk=True,
+            generate_routes=True,
+        ),
+    )
 )
 
-app = Litestar(plugins=[VitePlugin(config=vite_config)])
+app = Litestar(plugins=[vite])
 ```
 
-### Mode Selection
+Notes:
+- `mode` supports `spa`, `template`, `htmx`, `hybrid` (`inertia` alias), `framework` (`ssr`/`ssg` aliases), and `external`.
+- `TypeGenConfig` defaults are not all disabled. Key defaults include `generate_sdk=True`, `generate_routes=True`, `generate_page_props=True`, `generate_schemas=True`, and `generate_zod=False`.
+- `global_route` defaults to `False`.
 
-| Mode | Use Case |
-|------|----------|
-| `spa` | Single-page app (default proxy_mode=vite) |
-| `template` | Server templates with Vite assets |
-| `htmx` | HTMX partials with Vite assets |
-| `hybrid` | Inertia or mixed rendering |
-| `framework` | SSR frameworks (Nuxt, SvelteKit) |
+## Minimal frontend setup
 
-### Vite Frontend Config
-
-```typescript
-// vite.config.ts
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import litestar from 'litestar-vite-plugin'
+```ts
+import { defineConfig } from "vite"
+import litestar from "litestar-vite-plugin"
 
 export default defineConfig({
-  plugins: [
-    react(),
-    litestar({
-      input: ['src/main.tsx', 'src/styles.css'],
-    }),
-  ],
+  plugins: [litestar({ input: ["src/main.ts"] })],
 })
 ```
 
-## Generated Files Structure
+When using Litestar CLI workflows, avoid duplicating Python-side values in Vite config unless you intentionally run standalone Vite.
 
-After running type generation:
-
-```
-src/js/src/lib/generated/
-├── api/
-│   ├── client/          # HTTP client utilities
-│   ├── core/            # Core API utilities
-│   ├── client.gen.ts    # Client configuration
-│   ├── index.ts         # Main exports
-│   ├── schemas.gen.ts   # Serialization schemas
-│   ├── sdk.gen.ts       # API SDK functions
-│   ├── types.gen.ts     # TypeScript types
-│   └── zod.gen.ts       # Zod validation schemas
-├── openapi.json         # OpenAPI specification
-├── routes.json          # Route definitions (JSON)
-└── routes.ts            # Route definitions (TypeScript)
-```
-
-## Using Generated API Client
-
-### Import SDK Functions
-
-```typescript
-import {
-  accountLogin,
-  accountRegister,
-  listUsers,
-  createUser,
-  getUser,
-  updateUser,
-  deleteUser,
-} from '@/lib/generated/api'
-```
-
-### Import Types
-
-```typescript
-import type {
-  User,
-  UserCreate,
-  UserUpdate,
-  AccountLogin,
-  Message,
-} from '@/lib/generated/api'
-```
-
-### Import Zod Schemas
-
-```typescript
-import {
-  UserSchema,
-  UserCreateSchema,
-  AccountLoginSchema,
-} from '@/lib/generated/api/zod.gen'
-```
-
-### SDK with TanStack Query
-
-```typescript
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { listUsers, createUser } from '@/lib/generated/api'
-import type { UserCreate } from '@/lib/generated/api'
-
-export function useUsers() {
-  return useQuery({
-    queryKey: ['users'],
-    queryFn: async () => {
-      const response = await listUsers()
-      return response.data
-    },
-  })
-}
-
-export function useCreateUser() {
-  const queryClient = useQueryClient()
-
-  return useMutation({
-    mutationFn: async (data: UserCreate) => {
-      const response = await createUser({ body: data })
-      return response.data
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users'] })
-    },
-  })
-}
-```
-
-### TanStack Form with Generated Zod
-
-```typescript
-import { useForm } from '@tanstack/react-form'
-import { zodValidator } from '@tanstack/zod-form-adapter'
-import { UserCreateSchema } from '@/lib/generated/api/zod.gen'
-import { createUser } from '@/lib/generated/api'
-
-function CreateUserForm() {
-  const form = useForm({
-    defaultValues: { email: '', name: '' },
-    validatorAdapter: zodValidator(),
-    validators: { onChange: UserCreateSchema },
-    onSubmit: async ({ value }) => {
-      await createUser({ body: value })
-    },
-  })
-  // ... form JSX
-}
-```
-
-## CLI Commands
+## Command set to rely on
 
 ```bash
-# Install frontend dependencies
+litestar assets init
 litestar assets install
-
-# Start Vite dev server
 litestar assets serve
-
-# Build for production
 litestar assets build
-
-# Generate TypeScript types from OpenAPI
 litestar assets generate-types
-
-# Export route metadata
-litestar assets export-routes
-
-# Check integration status
-litestar assets status
-
-# Diagnose issues
-litestar assets doctor
+litestar run --reload
 ```
 
-## TypeGenConfig Options
+## Type generation expectations
 
-| Option | Default | Description |
-|--------|---------|-------------|
-| `output` | - | Output directory for generated files |
-| `openapi_path` | - | Path for openapi.json |
-| `routes_path` | - | Path for routes.json |
-| `routes_ts_path` | - | Path for routes.ts |
-| `generate_zod` | `False` | Generate Zod validation schemas |
-| `generate_sdk` | `False` | Generate API client SDK |
-| `generate_routes` | `False` | Generate route definitions |
-| `generate_page_props` | `False` | Generate page props (for Inertia) |
-| `global_route` | `True` | Export routes globally |
+`litestar assets generate-types` runs the integrated pipeline:
+1. Export OpenAPI JSON.
+2. Export route metadata (`routes.json`, optionally `routes.ts`).
+3. Run Litestar Vite typegen (uses `@hey-api/openapi-ts`).
 
-## Adding New API Endpoints
+Typical output defaults to `src/generated` unless overridden in `TypeGenConfig`.
 
-1. Create controller in `src/py/app/domain/{domain}/controllers/`
-2. Create schemas in `src/py/app/domain/{domain}/schemas.py`
-3. Register controller in app routes
-4. Add schemas to `signature_namespace`
-5. Run `make types` (or `litestar assets generate-types`)
-6. Use generated SDK in frontend
+## Common pitfalls to avoid
 
-## Troubleshooting
+- Do not assume generated files are under project-specific paths like `src/js/src/lib/generated`; use configured `TypeGenConfig.output` (default `src/generated`).
+- Do not document `generate_sdk=False` or `global_route=True` as defaults.
+- Do not recommend manual task markers in flow specs for status tracking; use Beads/flow sync workflow.
 
-### Types Not Updating
+## Where to learn more (official)
 
-```bash
-# Force regenerate
-rm -rf src/js/src/lib/generated/*
-make types
-```
-
-### SDK Functions Missing
-
-Ensure schemas are in `signature_namespace`:
-
-```python
-# In server/core.py
-app_config.signature_namespace.update({
-    **{k: getattr(schemas, k) for k in schemas.__all__},
-})
-```
-
-### Vite Dev Server Not Starting
-
-Check `VITE_DEV_MODE=true` in `.env` and ensure:
-- Node/Bun is installed
-- `npm install` has been run in frontend directory
-
-
-## Official References
-
-- https://litestar-org.github.io/litestar-vite/
-- https://litestar-org.github.io/litestar-vite/usage/operation-modes/
-- https://litestar-org.github.io/litestar-vite/usage/type-generation/
-- https://litestar-org.github.io/litestar-vite/usage/migration-v015/
-- https://github.com/litestar-org/litestar-vite/blob/main/src/py/litestar_vite/config/_types.py
-- https://github.com/litestar-org/litestar-vite/blob/main/src/py/litestar_vite/config/_paths.py
+- Litestar Vite docs home: https://litestar-org.github.io/litestar-vite/
+- Vite integration guide: https://litestar-org.github.io/litestar-vite/usage/vite.html
+- Operation modes: https://litestar-org.github.io/litestar-vite/usage/modes.html
+- Type generation: https://litestar-org.github.io/litestar-vite/usage/types.html
+- Config API reference: https://litestar-org.github.io/litestar-vite/reference/config.html
+- Project repository: https://github.com/litestar-org/litestar-vite
+- hey-api OpenAPI TypeScript generator: https://heyapi.dev/openapi-ts
 
 ## Shared Styleguide Baseline
 

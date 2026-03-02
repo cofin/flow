@@ -1,6 +1,6 @@
 ---
 name: flow-validate
-description: "Validate project integrity and fix issues. Checks structure, Beads sync, content, and git state."
+description: "Validate project integrity and fix issues"
 ---
 
 # Flow Validate

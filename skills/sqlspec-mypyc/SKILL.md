@@ -5,7 +5,7 @@ description: SQLSpec mypyc optimization workflows. Use when optimizing for mypyc
 
 # SQLSpec MyPyC Optimization
 
-Read `docs/guides/performance/mypyc.md` for detailed rules and examples, then cross-check `docs/guides/development/code-standards.md` for the mandatory typing constraints.
+Read `docs/guides/performance/mypyc.md` first, then cross-check `docs/guides/development/code-standards.md` for required typing constraints.
 
 ## Where to look
 
@@ -17,19 +17,22 @@ Read `docs/guides/performance/mypyc.md` for detailed rules and examples, then cr
 
 ## How it works
 
-- Profile first, then target hot paths; add explicit type annotations everywhere using stringified non-builtin hints.
-- Keep mypyc-friendly classes in `sqlspec/core/` and `sqlspec/driver/` using `__slots__`, explicit `__init__`, and no dataclasses.
-- Avoid `hasattr()`/`getattr()` in hot paths; prefer type guards and direct attribute access to enable mypyc optimizations.
-- Keep unions in PEP 604 form (`T | None`) and avoid `from __future__ import annotations`.
-- Troubleshoot failures by fixing mypy errors first, then re-running `HATCH_BUILD_HOOKS_ENABLE=1 uv build --extra mypyc` to surface mypyc-specific issues.
+- Profile first, then target hot paths.
+- Add explicit type annotations for performance-critical functions, methods, and locals (especially where inference would become `Any`).
+- Prefer native-class-friendly designs in hot paths (explicit attributes, predictable layouts, limited dynamic behavior).
+- Treat dynamic features (unsupported decorators/metaclasses, heavy reflective patterns) as potential slowdown/fallback triggers.
+- Dataclasses/attrs are supported only partially by mypyc and are typically less efficient than pure native classes; prefer plain classes for hottest paths.
+- Troubleshoot in this order: fix mypy type errors, then rebuild with `HATCH_BUILD_HOOKS_ENABLE=1 uv build --extra mypyc` to isolate mypyc-specific failures.
 
-## Official References
+## Official Learn More
 
-- https://mypyc.readthedocs.io/en/stable/
-- https://mypyc.readthedocs.io/en/stable/native_classes.html
-- https://mypyc.readthedocs.io/en/stable/performance_tips_and_tricks.html
-- https://docs.astral.sh/uv/reference/cli/#uv-build
-- https://github.com/python/mypy/releases
+- Mypyc docs index: https://mypyc.readthedocs.io/en/stable/
+- Getting started (install/build workflow): https://mypyc.readthedocs.io/en/stable/getting_started.html
+- Native classes (capabilities and limits): https://mypyc.readthedocs.io/en/stable/native_classes.html
+- Performance tips and tricks: https://mypyc.readthedocs.io/en/stable/performance_tips_and_tricks.html
+- Differences from Python (compatibility caveats): https://mypyc.readthedocs.io/en/stable/differences_from_python.html
+- Mypy release notes (for mypy/mypyc version drift): https://mypy.readthedocs.io/en/stable/changelog.html
+- `uv build` reference: https://docs.astral.sh/uv/reference/cli/#uv-build
 
 ## Shared Styleguide Baseline
 

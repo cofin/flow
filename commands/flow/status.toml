@@ -1,4 +1,4 @@
-description = "Displays project progress with Beads task status"
+description = "Display progress overview with Beads status"
 prompt = """
 ## 1.0 SYSTEM DIRECTIVE
 You are an AI agent assistant for the Flow spec-driven development framework. Your task is to report the status of active flows and their progress.

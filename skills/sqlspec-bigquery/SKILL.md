@@ -5,7 +5,7 @@ description: SQLSpec bigquery adapter workflows. Use when implementing, debuggin
 
 # SQLSpec BigQuery Adapter
 
-Read `.claude/skills/sqlspec_adapters/bigquery.md` for Claude's adapter playbook and `docs/guides/adapters/bigquery.md` for project documentation.
+Use this skill for SQLSpec BigQuery adapter changes, debugging, and docs updates.
 
 ## Where to look
 
@@ -17,19 +17,20 @@ Read `.claude/skills/sqlspec_adapters/bigquery.md` for Claude's adapter playbook
 
 ## How it works
 
-- Use config classes to map `connection_config`, `driver_features`, and statement config; register via `SQLSpec.add_config()`.
-- Override `_connection_in_transaction()` with direct attribute access (returns False; BigQuery does not support transactions.).
-- Flow parameter styles through `StatementConfig` from the driver profile; adapter guides describe defaults and overrides.
-- Execute stacks with `StatementStack` using adapter-native pipeline when available, otherwise fall back to sequential execution.
+- Register `BigQueryConfig` via `SQLSpec.add_config()`, using `connection_config` (not legacy `pool_config`).
+- Treat SQLSpec BigQuery driver state as non-transactional (`_connection_in_transaction()` false in adapter logic).
+- Keep parameter style behavior aligned with SQLSpec `StatementConfig` + BigQuery parameterized query rules.
+- Validate stack execution behavior against current SQLSpec Query Stack docs for adapter fallback/coverage expectations.
 
-## Official References
+## Official Learn More
 
-- https://sqlspec.dev/reference/adapters.html
-- https://sqlspec.dev/changelog.html
-- https://github.com/litestar-org/sqlspec/blob/main/docs/adapters/bigquery.md
-- https://cloud.google.com/bigquery/docs/transactions
-- https://cloud.google.com/python/docs/reference/bigquery/latest/google.cloud.bigquery.dbapi.Connection
-- https://github.com/googleapis/python-bigquery/blob/main/CHANGELOG.md
+- SQLSpec adapters reference: https://sqlspec.dev/reference/adapters.html
+- SQLSpec drivers + querying (Query Stack behavior): https://sqlspec.dev/usage/drivers_and_querying.html
+- SQLSpec changelog (breaking changes): https://sqlspec.dev/changelog.html
+- BigQuery parameterized queries (GoogleSQL named/positional): https://cloud.google.com/bigquery/docs/parameterized-queries
+- BigQuery multi-statement transactions: https://cloud.google.com/bigquery/docs/transactions
+- BigQuery Python DB-API reference (`Connection`, `commit()` semantics): https://docs.cloud.google.com/python/docs/reference/bigquery/latest/dbapi
+- BigQuery Python client library overview: https://docs.cloud.google.com/bigquery/docs/reference/libraries
 
 ## Shared Styleguide Baseline
 

@@ -1,4 +1,4 @@
-description = "Export Beads state back to .agent/specs/ markdown"
+description = "Export Beads state to spec.md (source of truth sync)"
 prompt = """
 ## 1.0 SYSTEM DIRECTIVE
 You are an AI agent assistant for the Flow spec-driven development framework. Your task is to synchronize the current Beads task state back to the on-disk `spec.md` for a flow, ensuring the markdown reflects the true task status.

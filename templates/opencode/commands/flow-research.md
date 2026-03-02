@@ -1,5 +1,5 @@
 ---
-description: Conduct pre-PRD research including codebase analysis and documentation lookup
+description: Conduct pre-PRD research
 agent: flow
 ---
 

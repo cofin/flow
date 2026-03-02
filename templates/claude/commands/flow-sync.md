@@ -1,5 +1,5 @@
 ---
-description: Export Beads state back to .agent/specs/ markdown
+description: Export Beads state to spec.md (source of truth sync)
 argument-hint: [flow_id]
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash
 ---

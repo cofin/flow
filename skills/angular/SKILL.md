@@ -111,7 +111,7 @@ export class ItemService {
 
 ### Resource API (Experimental)
 
-`resource()` and `httpResource()` are currently marked experimental in Angular docs. Use only when the project explicitly accepts experimental APIs.
+`resource()` and `httpResource()` are currently marked experimental in Angular docs. Use only when the project explicitly accepts experimental APIs and potential breaking changes.
 
 ```typescript
 import { resource, signal } from '@angular/core';
@@ -169,10 +169,10 @@ export class ItemFormComponent {
 ## Best Practices
 
 - Prefer standalone components for new development (Angular team recommendation).
-- Prefer signals over RxJS for local state
-- Use `toSignal()` to convert observables
+- Use signals for component-local state; use RxJS for async streams and complex event/data flows.
+- Use `toSignal()` when observable data must be consumed in signal-based components/templates.
 - Use new control flow syntax (`@if`, `@for`, `@switch`)
-- Use `inject()` instead of constructor injection
+- Use `inject()` in field initializers/factories when it improves readability; constructor injection remains supported.
 - Use `@defer` for lazy loading heavy components
 
 ## Litestar-Vite Integration
@@ -237,14 +237,21 @@ litestar assets generate-types  # Generate TS types
 ```
 
 
-## Official References
+## Where to Learn More (Official Docs)
 
-- https://angular.dev/reference/releases
-- https://angular.dev/guide/components
-- https://angular.dev/guide/templates/control-flow
-- https://angular.dev/api/core/resource
-- https://angular.dev/guide/forms/signals/overview
-- https://github.com/angular/angular/releases
+- Release cadence and support windows: https://angular.dev/reference/releases
+- Version compatibility (Node.js, TypeScript, RxJS): https://angular.dev/reference/versions
+- Update/migration guide: https://angular.dev/update-guide
+- Components + standalone: https://angular.dev/guide/components
+- Inputs and outputs APIs: https://angular.dev/guide/components/inputs and https://angular.dev/guide/components/outputs
+- Template control flow (`@if`, `@for`, `@switch`): https://angular.dev/guide/templates/control-flow
+- Deferred loading (`@defer`): https://angular.dev/guide/templates/defer
+- Signals overview: https://angular.dev/guide/signals
+- RxJS interop `toSignal()`: https://angular.dev/api/core/rxjs-interop/toSignal
+- Typed reactive forms: https://angular.dev/guide/forms/typed-forms
+- Signal forms (experimental): https://angular.dev/guide/forms/signals/overview
+- `resource()` (experimental): https://angular.dev/guide/signals/resource
+- `httpResource()` (experimental): https://angular.dev/guide/http/http-resource
 
 ## Shared Styleguide Baseline
 

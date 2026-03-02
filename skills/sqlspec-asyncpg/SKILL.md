@@ -5,7 +5,7 @@ description: SQLSpec asyncpg adapter workflows. Use when implementing, debugging
 
 # SQLSpec AsyncPG Adapter
 
-Read `.claude/skills/sqlspec_adapters/asyncpg.md` for Claude's adapter playbook and `docs/guides/adapters/asyncpg.md` for project documentation.
+Use this skill when changing SQLSpec's asyncpg adapter behavior, parameter/profile handling, or adapter-specific tests/docs.
 
 ## Where to look
 
@@ -18,18 +18,23 @@ Read `.claude/skills/sqlspec_adapters/asyncpg.md` for Claude's adapter playbook 
 ## How it works
 
 - Use config classes to map `connection_config`, `driver_features`, and statement config; register via `SQLSpec.add_config()`.
-- Override `_connection_in_transaction()` with direct attribute access (uses connection.is_in_transaction().).
-- Flow parameter styles through `StatementConfig` from the driver profile; adapter guides describe defaults and overrides.
+- For transaction-state checks, use asyncpg's `Connection.is_in_transaction()` method.
+- Asyncpg uses PostgreSQL positional placeholders (`$1`, `$2`, ...), not named placeholders.
+- Flow parameter styles through `StatementConfig` from the driver profile; keep asyncpg profile defaults and overrides aligned.
 - Execute stacks with `StatementStack` using adapter-native pipeline when available, otherwise fall back to sequential execution.
+- Prefer pooling patterns aligned with `asyncpg.create_pool()` / `pool.acquire()` usage in async services.
+- Keep `executemany()` semantics in mind: asyncpg documents it as atomic in current versions (changed in 0.22.0).
+- Use `set_type_codec()` / `set_builtin_type_codec()` when adapter work depends on non-default type encoding/decoding.
 
-## Official References
+## Official learn more
 
-- https://sqlspec.dev/reference/adapters.html
-- https://sqlspec.dev/usage/drivers_and_querying.html
-- https://sqlspec.dev/changelog.html
-- https://magicstack.github.io/asyncpg/current/
-- https://magicstack.github.io/asyncpg/current/api/index.html
-- https://github.com/MagicStack/asyncpg/releases
+- SQLSpec adapters reference: https://sqlspec.dev/reference/adapters.html
+- SQLSpec drivers and querying: https://sqlspec.dev/usage/drivers_and_querying.html
+- SQLSpec configuration (asyncpg examples): https://sqlspec.dev/usage/configuration.html
+- asyncpg usage guide: https://magicstack.github.io/asyncpg/current/usage.html
+- asyncpg API reference: https://magicstack.github.io/asyncpg/current/api/index.html
+- asyncpg release notes: https://github.com/MagicStack/asyncpg/releases
+- PostgreSQL PREPARE (`$1`, `$2` parameter semantics): https://www.postgresql.org/docs/current/sql-prepare.html
 
 ## Shared Styleguide Baseline
 

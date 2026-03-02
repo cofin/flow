@@ -1,3 +1,7 @@
+---
+description: Mark task as blocked with reason
+---
+
 # Flow Block
 
 Mark a task as blocked with documented reason.
@@ -19,11 +23,10 @@ br update {task_id} --status blocked --notes "{reason}"
 
 Append to `.agent/specs/{flow_id}/blockers.md`
 
-## Phase 4: Sync to Markdown (MANDATORY)
+### Markdown Sync (Automatic)
 
-Run `/flow:sync {flow_id}` to export Beads state to spec.md.
-
-**Do NOT write `[!]` markers directly to spec.md.** Beads is the source of truth.
+The git pre-commit hook automatically exports Beads state to spec.md on commit.
+**CRITICAL:** Do NOT write markers directly to spec.md and do NOT run sync manually.
 
 ## Phase 5: Suggest Next Actions
 

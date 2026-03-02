@@ -7,9 +7,6 @@
 # - Codex CLI (~/.codex/)
 # - OpenCode (~/.config/opencode/)
 #
-# Note: Gemini CLI now uses native extension installation:
-#   gemini extensions install flow
-#
 # Features:
 # - Detects existing configurations
 # - Backs up before modifying
@@ -42,7 +39,8 @@ FORCE_OVERWRITE=false
 CLAUDE_DIR="$HOME/.claude"
 CODEX_DIR="$HOME/.codex"
 OPENCODE_DIR="$HOME/.config/opencode"
-ANTIGRAVITY_DIR="$HOME/.gemini/antigravity/skills"
+GEMINI_DIR="$HOME/.gemini"
+GEMINI_EXT_DIR="$GEMINI_DIR/extensions/flow"
 
 show_banner() {
     echo -e "${CYAN}"
@@ -387,7 +385,7 @@ detect_clis() {
     CLAUDE_INSTALLED=false
     CODEX_INSTALLED=false
     OPENCODE_INSTALLED=false
-    ANTIGRAVITY_INSTALLED=false
+    GEMINI_INSTALLED=false
 
     # Claude Code
     if command -v claude &> /dev/null || [[ -d "$CLAUDE_DIR" ]]; then
@@ -417,13 +415,13 @@ detect_clis() {
         log_info "OpenCode not detected"
     fi
 
-    # Google Antigravity
-    if command -v agy &> /dev/null || [[ -d "$ANTIGRAVITY_DIR" ]]; then
-        ANTIGRAVITY_INSTALLED=true
-        log_success "Google Antigravity detected"
-        [[ -d "$ANTIGRAVITY_DIR" ]] && echo "         Existing skills: $(ls -1d "$ANTIGRAVITY_DIR"/*/ 2>/dev/null | wc -l)"
+    # Gemini CLI
+    if command -v gemini &> /dev/null || [[ -d "$GEMINI_DIR" ]]; then
+        GEMINI_INSTALLED=true
+        log_success "Gemini CLI detected"
+        [[ -d "$GEMINI_EXT_DIR" ]] && echo "         Existing extension: Found"
     else
-        log_info "Google Antigravity not detected"
+        log_info "Gemini CLI not detected"
     fi
 
     echo ""
@@ -497,7 +495,7 @@ install_codex() {
 
     # Backup existing
     backup_file "$CODEX_DIR/AGENTS.md"
-    backup_dir "$CODEX_DIR/skills"
+    backup_dir "$CODEX_DIR/prompts"
 
     # Install AGENTS.md (merge if exists)
     local agents_src="$TEMPLATES_DIR/codex/AGENTS.md"
@@ -521,39 +519,28 @@ install_codex() {
         log_success "Installed: AGENTS.md"
     fi
 
-    # Install Flow skills from templates/codex/skills/ (new Agent Skills format)
-    local skills_src="$TEMPLATES_DIR/codex/skills"
-    local skills_dst="$CODEX_DIR/skills"
+    # Install prompts
+    local prompts_src="$TEMPLATES_DIR/codex/prompts"
+    local prompts_dst="$CODEX_DIR/prompts"
 
-    if [[ -d "$skills_src" ]]; then
-        for skill_dir in "$skills_src"/*/; do
-            [[ -d "$skill_dir" ]] || continue
-            local skill_name="$(basename "$skill_dir")"
-            local skill_dst_dir="$skills_dst/$skill_name"
-
-            mkdir -p "$skill_dst_dir"
-
-            # Process each file in the skill directory
-            for skill_file in "$skill_dir"*; do
-                [[ -f "$skill_file" ]] || continue
-                local file_name="$(basename "$skill_file")"
-                local dest_file="$skill_dst_dir/$file_name"
-
-                merge_or_install_file "$skill_file" "$dest_file"
-            done
-            log_success "Installed skill: $skill_name"
+    if [[ -d "$prompts_src" ]]; then
+        for prompt in "$prompts_src"/*.md; do
+            [[ -f "$prompt" ]] && install_command "$prompt" "$prompts_dst/$(basename "$prompt")"
         done
     fi
 
-    # Also install core skills (flow, beads) from skills/ directory
-    local core_skills_src="$SKILLS_DIR"
+    # Install skills (beads and flow only for now) with intelligent merge
+    local skills_src="$SKILLS_DIR"
+    local skills_dst="$CODEX_DIR/skills"
+
     for skill_name in "flow" "beads"; do
-        local core_skill_dir="$core_skills_src/$skill_name"
-        if [[ -d "$core_skill_dir" ]]; then
+        local skill_dir="$skills_src/$skill_name"
+        if [[ -d "$skill_dir" ]]; then
             local skill_dst_dir="$skills_dst/$skill_name"
             mkdir -p "$skill_dst_dir"
 
-            for skill_file in "$core_skill_dir"/*; do
+            # Process each file in the skill directory
+            for skill_file in "$skill_dir"/*; do
                 [[ -f "$skill_file" ]] || continue
                 local file_name="$(basename "$skill_file")"
                 local dest_file="$skill_dst_dir/$file_name"
@@ -562,6 +549,34 @@ install_codex() {
             done
         fi
     done
+
+    # Install MCP configuration for flow-think server
+    local mcp_config_src="$TEMPLATES_DIR/codex/mcp-config.toml"
+    local config_dst="$CODEX_DIR/config.toml"
+
+    if [[ -f "$mcp_config_src" ]]; then
+        if [[ -f "$config_dst" ]]; then
+            if grep -q "mcp_servers.flow-think" "$config_dst" 2>/dev/null; then
+                log_info "MCP config: flow-think already configured"
+            else
+                # Backup existing config
+                backup_file "$config_dst"
+                # Append MCP configuration
+                echo "" >> "$config_dst"
+                echo "# --- Flow Framework MCP Configuration ---" >> "$config_dst"
+                cat "$mcp_config_src" >> "$config_dst"
+                # Replace placeholder with actual install path
+                sed -i "s|\${FLOW_INSTALL_PATH}|$SCRIPT_DIR|g" "$config_dst"
+                log_success "MCP config: Added flow-think server to config.toml"
+            fi
+        else
+            # Create new config with MCP settings
+            cp "$mcp_config_src" "$config_dst"
+            # Replace placeholder with actual install path
+            sed -i "s|\${FLOW_INSTALL_PATH}|$SCRIPT_DIR|g" "$config_dst"
+            log_success "MCP config: Created config.toml with flow-think server"
+        fi
+    fi
 
     echo ""
     log_success "Codex CLI installation complete"
@@ -627,44 +642,183 @@ install_opencode() {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Google Antigravity Installation
+# Gemini CLI Installation
 # ─────────────────────────────────────────────────────────────────────────────
 
-install_antigravity() {
+install_gemini() {
     echo ""
-    echo -e "${CYAN}Installing Flow for Google Antigravity...${NC}"
+    echo -e "${CYAN}Installing Flow for Gemini CLI...${NC}"
     echo ""
 
-    # Create skills directory
-    mkdir -p "$ANTIGRAVITY_DIR"
+    # Create extension directory
+    mkdir -p "$GEMINI_EXT_DIR"
 
     # Backup existing
-    backup_dir "$ANTIGRAVITY_DIR"
+    backup_dir "$GEMINI_EXT_DIR"
 
-    # Install Antigravity workflow skills
-    local skills_src="$TEMPLATES_DIR/antigravity/skills"
+    # Install extension manifest and context
+    cp "$SCRIPT_DIR/gemini-extension.json" "$GEMINI_EXT_DIR/"
+    cp "$SCRIPT_DIR/GEMINI.md" "$GEMINI_EXT_DIR/"
+    log_success "Installed: extension manifest and context"
 
-    if [[ -d "$skills_src" ]]; then
-        for skill_dir in "$skills_src"/*/; do
-            [[ -d "$skill_dir" ]] || continue
-            local skill_name="$(basename "$skill_dir")"
-            local skill_dst_dir="$ANTIGRAVITY_DIR/$skill_name"
+    # Install commands
+    mkdir -p "$GEMINI_EXT_DIR/commands"
+    cp -r "$SCRIPT_DIR/commands/flow" "$GEMINI_EXT_DIR/commands/"
+    log_success "Installed: Flow commands"
 
-            mkdir -p "$skill_dst_dir"
+    # Install templates
+    mkdir -p "$GEMINI_EXT_DIR/templates"
+    cp -r "$TEMPLATES_DIR"/* "$GEMINI_EXT_DIR/templates/"
+    log_success "Installed: Templates"
 
-            for skill_file in "$skill_dir"*; do
-                [[ -f "$skill_file" ]] || continue
-                local file_name="$(basename "$skill_file")"
-                local dest_file="$skill_dst_dir/$file_name"
+    # Install skills (all) to the extension directory
+    # Gemini CLI automatically discovers and registers skills within extensions
+    mkdir -p "$GEMINI_EXT_DIR/skills"
+    cp -r "$SKILLS_DIR"/* "$GEMINI_EXT_DIR/skills/"
+    log_success "Installed: Skills"
 
-                merge_or_install_file "$skill_file" "$dest_file"
-            done
-            log_success "Installed skill: $skill_name"
-        done
+    # Install flow-think MCP server (standalone executable)
+    local TOOLS_DIR="$SCRIPT_DIR/tools"
+    if [[ -d "$TOOLS_DIR/flow-think" ]]; then
+        local mcp_exe="$TOOLS_DIR/flow-think/dist/flow-think-mcp"
+
+        # Build if executable doesn't exist
+        if [[ ! -f "$mcp_exe" ]]; then
+            log_info "Building flow-think MCP server..."
+            (cd "$TOOLS_DIR/flow-think" && ./scripts/build.sh) || {
+                log_warn "Failed to build flow-think MCP server"
+                return
+            }
+        fi
+
+        # Copy standalone executable
+        mkdir -p "$GEMINI_EXT_DIR/tools/flow-think/dist"
+        cp "$mcp_exe" "$GEMINI_EXT_DIR/tools/flow-think/dist/"
+        chmod +x "$GEMINI_EXT_DIR/tools/flow-think/dist/flow-think-mcp"
+        log_success "Installed: flow-think MCP server (standalone executable)"
+        echo "         Tool available as: mcp__flow-think__flow_think"
+    else
+        log_warn "flow-think MCP server not found"
     fi
 
     echo ""
-    log_success "Google Antigravity installation complete"
+    log_success "Gemini CLI installation complete"
+}
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MCP Installation
+# ─────────────────────────────────────────────────────────────────────────────
+
+install_mcp() {
+    echo ""
+    echo -e "${CYAN}Installing Flow Think MCP Server...${NC}"
+    echo ""
+
+    local mcp_src="$SCRIPT_DIR/tools/flow-think"
+    local mcp_dst="$FLOW_DATA_DIR/mcp/flow-think"
+    local mcp_exe="$mcp_src/dist/flow-think-mcp"
+
+    # Check if flow-think exists
+    if [[ ! -d "$mcp_src" ]]; then
+        log_warn "Flow Think MCP source not found: $mcp_src"
+        log_info "Skipping MCP installation"
+        return
+    fi
+
+    # Build executable if it doesn't exist
+    if [[ ! -f "$mcp_exe" ]]; then
+        log_info "Building Flow Think MCP..."
+        if command -v bun &>/dev/null; then
+            (cd "$mcp_src" && bun install && ./scripts/build.sh) || {
+                log_error "Failed to build Flow Think MCP with bun"
+                return
+            }
+        elif command -v npm &>/dev/null && command -v tsc &>/dev/null; then
+            log_info "Bun not found, using npm and tsc fallback..."
+            (cd "$mcp_src" && npm install && ./scripts/build.sh) || {
+                log_error "Failed to build Flow Think MCP with npm"
+                return
+            }
+            # Fallback path outputs to index.js since compile isn't available
+            mcp_exe="$mcp_src/dist/index.js"
+        else
+            log_error "Bun or (npm+tsc) required to build Flow Think MCP"
+            log_info "Install Bun: curl -fsSL https://bun.sh/install | bash"
+            return
+        fi
+    fi
+
+    # Create destination directory
+    mkdir -p "$mcp_dst"
+
+    # Copy the built entrypoint
+    cp "$mcp_exe" "$mcp_dst/flow-think-mcp"
+    chmod +x "$mcp_dst/flow-think-mcp"
+
+    echo ""
+    log_success "Flow Think MCP installed (standalone executable)"
+    log_info "Path: $mcp_dst/flow-think-mcp"
+}
+
+configure_mcp_for_claude() {
+    local claude_json="$HOME/.claude.json"
+    local mcp_exe="$FLOW_DATA_DIR/mcp/flow-think/flow-think-mcp"
+
+    log_info "Configuring MCP for Claude Code..."
+
+    # Check if standalone executable exists
+    if [[ ! -f "$mcp_exe" ]]; then
+        log_warn "Flow Think MCP executable not found at $mcp_exe"
+        log_info "Run install_mcp first"
+        return
+    fi
+
+    local mcp_config='{
+  "flow-think": {
+    "command": "'"$mcp_exe"'",
+    "args": [],
+    "env": {
+      "FLOW_MCP_BEADS_SYNC": "true",
+      "FLOW_MCP_OUTPUT_FORMAT": "console"
+    }
+  }
+}'
+
+    if [[ -f "$claude_json" ]]; then
+        backup_file "$claude_json"
+
+        if command -v jq &>/dev/null; then
+            local temp_file
+            temp_file=$(mktemp)
+            jq --argjson mcp "$mcp_config" '.mcpServers = (.mcpServers // {}) + $mcp' "$claude_json" > "$temp_file" && mv "$temp_file" "$claude_json"
+            log_success "Merged: MCP configuration into ~/.claude.json"
+        else
+            log_warn "jq not installed - manual MCP config required"
+            echo "         Add to ~/.claude.json mcpServers:"
+            echo "         \"flow-think\": { \"command\": \"$mcp_exe\", \"args\": [] }"
+        fi
+    else
+        # Create new claude.json
+        if command -v jq &>/dev/null; then
+            echo "{\"mcpServers\": $mcp_config}" | jq '.' > "$claude_json"
+            log_success "Created: ~/.claude.json with MCP configuration"
+        else
+            cat > "$claude_json" << EOF
+{
+  "mcpServers": {
+    "flow-think": {
+      "command": "$mcp_exe",
+      "args": [],
+      "env": {
+        "FLOW_MCP_BEADS_SYNC": "true"
+      }
+    }
+  }
+}
+EOF
+            log_success "Created: ~/.claude.json with MCP configuration"
+        fi
+    fi
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -676,19 +830,19 @@ check_beads() {
     echo -e "${CYAN}Checking Beads CLI...${NC}"
     echo ""
 
-    if command -v br &> /dev/null; then
-        local version=$(br version 2>/dev/null || echo "unknown")
+    if command -v bd &> /dev/null; then
+        local version=$(bd --version 2>/dev/null || echo "unknown")
         log_success "Beads CLI installed: $version"
     else
         log_warn "Beads CLI not found"
         echo ""
         echo "Flow requires Beads for cross-session memory."
-        echo "Install with: curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash"
+        echo "Install with: npm install -g beads-cli"
         echo ""
         read -p "Install Beads now? [Y/n] " -n 1 -r
         echo
         if [[ ! $REPLY =~ ^[Nn]$ ]]; then
-            curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash
+            npm install -g beads-cli
             log_success "Beads CLI installed"
         fi
     fi
@@ -754,13 +908,13 @@ main() {
     detect_clis
 
     # If none detected, ask which to install for
-    if ! $CLAUDE_INSTALLED && ! $CODEX_INSTALLED && ! $OPENCODE_INSTALLED && ! $ANTIGRAVITY_INSTALLED; then
+    if ! $CLAUDE_INSTALLED && ! $CODEX_INSTALLED && ! $OPENCODE_INSTALLED && ! $GEMINI_INSTALLED; then
         echo "No supported CLIs detected. Which would you like to install for?"
         echo ""
         echo "  1) Claude Code (~/.claude/)"
         echo "  2) Codex CLI (~/.codex/)"
         echo "  3) OpenCode (~/.config/opencode/)"
-        echo "  4) Google Antigravity (~/.gemini/antigravity/skills/)"
+        echo "  4) Gemini CLI (~/.gemini/)"
         echo "  5) All of the above"
         echo "  6) Exit"
         echo ""
@@ -770,8 +924,8 @@ main() {
             1) CLAUDE_INSTALLED=true ;;
             2) CODEX_INSTALLED=true ;;
             3) OPENCODE_INSTALLED=true ;;
-            4) ANTIGRAVITY_INSTALLED=true ;;
-            5) CLAUDE_INSTALLED=true; CODEX_INSTALLED=true; OPENCODE_INSTALLED=true; ANTIGRAVITY_INSTALLED=true ;;
+            4) GEMINI_INSTALLED=true ;;
+            5) CLAUDE_INSTALLED=true; CODEX_INSTALLED=true; OPENCODE_INSTALLED=true; GEMINI_INSTALLED=true ;;
             6) exit 0 ;;
         esac
     else
@@ -781,7 +935,7 @@ main() {
         $CLAUDE_INSTALLED && echo "  1) Claude Code"
         $CODEX_INSTALLED && echo "  2) Codex CLI"
         $OPENCODE_INSTALLED && echo "  3) OpenCode"
-        $ANTIGRAVITY_INSTALLED && echo "  4) Google Antigravity"
+        $GEMINI_INSTALLED && echo "  4) Gemini CLI"
         echo "  a) All detected"
         echo "  q) Quit"
         echo ""
@@ -795,19 +949,19 @@ main() {
                 INSTALL_CLAUDE=false
                 INSTALL_CODEX=false
                 INSTALL_OPENCODE=false
-                INSTALL_ANTIGRAVITY=false
+                INSTALL_GEMINI=false
                 for sel in $SELECTION; do
                     case $sel in
                         1) INSTALL_CLAUDE=true ;;
                         2) INSTALL_CODEX=true ;;
                         3) INSTALL_OPENCODE=true ;;
-                        4) INSTALL_ANTIGRAVITY=true ;;
+                        4) INSTALL_GEMINI=true ;;
                     esac
                 done
                 $INSTALL_CLAUDE || CLAUDE_INSTALLED=false
                 $INSTALL_CODEX || CODEX_INSTALLED=false
                 $INSTALL_OPENCODE || OPENCODE_INSTALLED=false
-                $INSTALL_ANTIGRAVITY || ANTIGRAVITY_INSTALLED=false
+                $INSTALL_GEMINI || GEMINI_INSTALLED=false
                 ;;
         esac
     fi
@@ -816,7 +970,15 @@ main() {
     $CLAUDE_INSTALLED && install_claude
     $CODEX_INSTALLED && install_codex
     $OPENCODE_INSTALLED && install_opencode
-    $ANTIGRAVITY_INSTALLED && install_antigravity
+    install_mcp
+    $CLAUDE_INSTALLED && configure_mcp_for_claude
+    $GEMINI_INSTALLED && install_gemini
+
+    # Install MCP server
+    install_mcp
+
+    # Configure MCP for Claude Code
+    $CLAUDE_INSTALLED && configure_mcp_for_claude
 
     # Check Beads
     check_beads
@@ -843,20 +1005,135 @@ main() {
     echo "     cd /path/to/your/project"
     echo ""
     echo "  2. Initialize Flow:"
-    $CLAUDE_INSTALLED && echo "     Claude Code:        /flow-setup"
-    $CODEX_INSTALLED && echo "     Codex CLI:          /flow:setup"
-    $OPENCODE_INSTALLED && echo "     OpenCode:           /flow:setup"
-    $ANTIGRAVITY_INSTALLED && echo "     Google Antigravity: flow-setup (skill)"
+    $CLAUDE_INSTALLED && echo "     Claude Code: /flow-setup"
+    $CODEX_INSTALLED && echo "     Codex CLI:   /flow:setup"
+    $OPENCODE_INSTALLED && echo "     OpenCode:    /flow:setup"
+    $GEMINI_INSTALLED && echo "     Gemini CLI:  /flow:setup"
     echo ""
     echo "  3. Create your first flow:"
-    $CLAUDE_INSTALLED && echo "     Claude Code:        /flow-prd \"your feature description\""
-    $CODEX_INSTALLED && echo "     Codex CLI:          /flow:prd \"your feature description\""
-    $OPENCODE_INSTALLED && echo "     OpenCode:           /flow:prd \"your feature description\""
-    $ANTIGRAVITY_INSTALLED && echo "     Google Antigravity: flow-prd \"your feature description\""
+    $CLAUDE_INSTALLED && echo "     Claude Code: /flow-prd \"your feature description\""
+    $CODEX_INSTALLED && echo "     Codex CLI:   /flow:prd \"your feature description\""
+    $OPENCODE_INSTALLED && echo "     OpenCode:    /flow:prd \"your feature description\""
+    $GEMINI_INSTALLED && echo "     Gemini CLI:  /flow:prd \"your feature description\""
     echo ""
-    echo "Documentation: https://github.com/cofin/flow"
+    echo "Documentation: https://github.com/your-org/flow"
     echo ""
 }
 
 # Run
 main "$@"
+# ─────────────────────────────────────────────────────────────────────────────
+# MCP Installation
+# ─────────────────────────────────────────────────────────────────────────────
+
+install_mcp() {
+    echo ""
+    echo -e "${CYAN}Installing Flow Think MCP Server...${NC}"
+    echo ""
+
+    local mcp_src="$SCRIPT_DIR/tools/flow-think"
+    local mcp_dst="$FLOW_DATA_DIR/mcp/flow-think"
+    local mcp_exe="$mcp_src/dist/flow-think-mcp"
+
+    # Check if flow-think exists
+    if [[ ! -d "$mcp_src" ]]; then
+        log_warn "Flow Think MCP source not found: $mcp_src"
+        log_info "Skipping MCP installation"
+        return
+    fi
+
+    # Build executable if it doesn't exist
+    if [[ ! -f "$mcp_exe" ]]; then
+        log_info "Building Flow Think MCP..."
+        if command -v bun &>/dev/null; then
+            (cd "$mcp_src" && bun install && ./scripts/build.sh) || {
+                log_error "Failed to build Flow Think MCP with bun"
+                return
+            }
+        elif command -v npm &>/dev/null && command -v tsc &>/dev/null; then
+            log_info "Bun not found, using npm and tsc fallback..."
+            (cd "$mcp_src" && npm install && ./scripts/build.sh) || {
+                log_error "Failed to build Flow Think MCP with npm"
+                return
+            }
+            # Fallback path outputs to index.js since compile isn't available
+            mcp_exe="$mcp_src/dist/index.js"
+        else
+            log_error "Bun or (npm+tsc) required to build Flow Think MCP"
+            log_info "Install Bun: curl -fsSL https://bun.sh/install | bash"
+            return
+        fi
+    fi
+
+    # Create destination directory
+    mkdir -p "$mcp_dst"
+
+    # Copy the built entrypoint
+    cp "$mcp_exe" "$mcp_dst/flow-think-mcp"
+    chmod +x "$mcp_dst/flow-think-mcp"
+
+    echo ""
+    log_success "Flow Think MCP installed (standalone executable)"
+    log_info "Path: $mcp_dst/flow-think-mcp"
+}
+
+configure_mcp_for_claude() {
+    local claude_json="$HOME/.claude.json"
+    local mcp_exe="$FLOW_DATA_DIR/mcp/flow-think/flow-think-mcp"
+
+    log_info "Configuring MCP for Claude Code..."
+
+    # Check if standalone executable exists
+    if [[ ! -f "$mcp_exe" ]]; then
+        log_warn "Flow Think MCP executable not found at $mcp_exe"
+        log_info "Run install_mcp first"
+        return
+    fi
+
+    local mcp_config='{
+  "flow-think": {
+    "command": "'"$mcp_exe"'",
+    "args": [],
+    "env": {
+      "FLOW_MCP_BEADS_SYNC": "true",
+      "FLOW_MCP_OUTPUT_FORMAT": "console"
+    }
+  }
+}'
+
+    if [[ -f "$claude_json" ]]; then
+        backup_file "$claude_json"
+
+        if command -v jq &>/dev/null; then
+            local temp_file
+            temp_file=$(mktemp)
+            jq --argjson mcp "$mcp_config" '.mcpServers = (.mcpServers // {}) + $mcp' "$claude_json" > "$temp_file" && mv "$temp_file" "$claude_json"
+            log_success "Merged: MCP configuration into ~/.claude.json"
+        else
+            log_warn "jq not installed - manual MCP config required"
+            echo "         Add to ~/.claude.json mcpServers:"
+            echo "         \"flow-think\": { \"command\": \"$mcp_exe\", \"args\": [] }"
+        fi
+    else
+        # Create new claude.json
+        if command -v jq &>/dev/null; then
+            echo "{\"mcpServers\": $mcp_config}" | jq '.' > "$claude_json"
+            log_success "Created: ~/.claude.json with MCP configuration"
+        else
+            cat > "$claude_json" << EOI
+{
+  "mcpServers": {
+    "flow-think": {
+      "command": "$mcp_exe",
+      "args": [],
+      "env": {
+        "FLOW_MCP_BEADS_SYNC": "true"
+      }
+    }
+  }
+}
+EOI
+            log_success "Created: ~/.claude.json with MCP configuration"
+        fi
+    fi
+}

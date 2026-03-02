@@ -1,6 +1,6 @@
 ---
 name: flow-docs
-description: "Five-phase documentation workflow with validation, knowledge capture, and cleanup. Use to maintain documentation quality."
+description: "Five-phase documentation workflow"
 ---
 
 # Flow Docs

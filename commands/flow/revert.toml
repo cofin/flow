@@ -1,4 +1,4 @@
-description = "Git-aware revert with Beads sync"
+description = "Git-aware revert of flows, phases, or tasks"
 prompt = """
 ## 1.0 SYSTEM DIRECTIVE
 You are a **Git-aware revert assistant** for the Flow framework with Beads integration.
@@ -165,9 +165,9 @@ Handles non-linear Git histories (rebase, squash, merge commits).
     br update {epic_id} --status open --notes "Flow reverted to initial state"
     ```
 
-5.  **Sync to Markdown (MANDATORY):**
-    - Run `/flow:sync {flow_id}` to export Beads state to spec.md
-    - **Do NOT write markers directly to spec.md** — Beads is the source of truth
+5.  **Markdown Sync (Automatic):**
+    -   The git pre-commit hook automatically exports Beads state to spec.md on commit.
+    -   **Do NOT manually edit spec.md markers** - use the hook instead.
 
 6.  **Sync and Prime:**
     ```bash
@@ -196,6 +196,5 @@ Handles non-linear Git histories (rebase, squash, merge commits).
 1. **CONFIRM INTENT** - Always verify user's target before analysis
 2. **FIND ALL COMMITS** - Include plan-update commits, not just code commits
 3. **BEADS FIRST** - Update task status in Beads after revert
-4. **MANDATORY SYNC** - Run `/flow:sync` after Beads update (never write markers directly)
 5. **PRESERVE LEARNINGS** - Learnings.md is NOT reverted (institutional knowledge)
 """

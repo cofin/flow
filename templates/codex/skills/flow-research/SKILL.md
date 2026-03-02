@@ -10,7 +10,7 @@ Conduct pre-PRD research including codebase analysis and documentation lookup.
 ## Usage
 
 ```
-/flow:research <topic>
+$flow:research <topic>
 ```
 
 ## Workflow

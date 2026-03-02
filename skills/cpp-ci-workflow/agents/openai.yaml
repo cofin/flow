@@ -1,0 +1,3 @@
+interface:
+  display_name: "C++ CI Workflow"
+  short_description: "Run C++ build, git, and CI workflows"

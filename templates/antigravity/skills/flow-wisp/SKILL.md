@@ -1,6 +1,6 @@
 ---
 name: flow-wisp
-description: "Create ephemeral exploration flow. Use for proof of concept, experiments, or research spikes with no audit trail."
+description: "Create ephemeral exploration flow (no audit trail)"
 ---
 
 # Flow Wisp

@@ -8,7 +8,7 @@ description: "Validate project integrity and fix issues"
 Validate project integrity and fix issues.
 
 ## Usage
-`/flow:validate`
+`$flow:validate`
 
 ## Phase 1: Structure Validation
 

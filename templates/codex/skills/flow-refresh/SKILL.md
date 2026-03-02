@@ -8,7 +8,7 @@ description: "Sync context docs with current codebase state"
 Sync context documents with current codebase state.
 
 ## Usage
-`/flow:refresh`
+`$flow:refresh`
 
 ## Phase 1: Scan Codebase
 
@@ -72,5 +72,5 @@ Flagged for Review:
 - patterns.md: Line 45 references removed file
 - {flow_id}: Task 3 file path changed
 
-Run `/flow:validate` for full integrity check.
+Run `$flow:validate` for full integrity check.
 ```

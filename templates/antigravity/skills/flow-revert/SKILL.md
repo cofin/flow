@@ -1,6 +1,6 @@
 ---
 name: flow-revert
-description: "Git-aware revert of flows, phases, or tasks. Use to undo implementation work safely."
+description: "Git-aware revert of flows, phases, or tasks"
 ---
 
 # Flow Revert

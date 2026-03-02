@@ -1,5 +1,5 @@
 ---
-description: Archive a completed flow and elevate learnings
+description: Archive completed flows + elevate patterns
 argument-hint: <flow_id>
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, WebSearch
 ---
@@ -8,15 +8,9 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, WebSearch
 
 Archiving flow: **$ARGUMENTS**
 
-## Phase 1: Sync and Validation
+## Phase 1: Validation
 
-### 1.1 Sync Beads State to spec.md
-
-**CRITICAL:** Run `/flow-sync {flow_id}` FIRST to export current Beads state to spec.md before archiving.
-
-This ensures spec.md reflects the final state from Beads (source of truth).
-
-### 1.2 Resolve Flow ID
+### 1.1 Resolve Flow ID
 
 If not provided, list completed flows from `.agent/flows.md` and ask user to select.
 

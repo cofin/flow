@@ -1,0 +1,3 @@
+interface:
+  display_name: "Oracle OCI"
+  short_description: "Build reliable Oracle OCI integrations"

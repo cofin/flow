@@ -112,8 +112,8 @@ All tasks follow a strict lifecycle:
 9. **Record Task Completion (Beads-First):**
    - **Step 9.1: Get Commit Hash:** Obtain the hash of the *just-completed commit* (`git log -1 --format="%h"`).
    - **Step 9.2: Close in Beads:** `br close <id> --reason "commit: <sha>"`
-   - **Step 9.3 (MANDATORY):** Run `/flow:sync <flow_id>` to export Beads state to spec.md for human-readable status
-   - **Do NOT manually edit spec.md markers** - use `/flow:sync` instead
+   - **Step 9.3 (Automatic Sync):** The git pre-commit hook will automatically export Beads state to `spec.md`. There is no need to run `/flow:sync` manually.
+   - **Do NOT manually edit spec.md markers** - they are managed automatically.
 
 10. **Log Learnings:**
     - Append discoveries to track's `learnings.md`
@@ -207,9 +207,9 @@ All tasks follow a strict lifecycle:
 7.  **Record Verification in Beads:**
     -   Update the epic with verification summary: `br comments add <epic_id> "Phase N verified: tests passed, manual verification confirmed by user, checkpoint: <sha>"`
 
-8.  **Sync to spec.md (MANDATORY):**
-    -   Run `/flow:sync <flow_id>` to export current Beads state to spec.md for human-readable status
-    -   **Do NOT manually edit spec.md** - Beads is source of truth
+8.  **Sync to spec.md (Automatic):**
+    -   The git pre-commit hook automatically exports the current Beads state to `spec.md` for human-readable status.
+    -   **Do NOT manually edit spec.md** - Beads is source of truth and synced automatically.
 
 9.  **Announce Completion:** Inform the user that the phase is complete and the checkpoint has been recorded in Beads.
 
@@ -352,7 +352,7 @@ A task is complete when:
 7. Implementation notes added to `spec.md`
 8. Changes committed with proper message
 9. Task closed in Beads with commit reference: `br close <id> --reason "commit: <sha>"`
-10. Markdown synced via `/flow:sync` (MANDATORY after any Beads state change)
+10. Markdown synced automatically via git pre-commit hook.
 
 ## Emergency Procedures
 

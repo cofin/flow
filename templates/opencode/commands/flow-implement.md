@@ -1,3 +1,7 @@
+---
+description: Execute tasks from plan (context-aware)
+---
+
 # Flow Implement
 
 Execute tasks from a flow's plan using TDD workflow.
@@ -16,7 +20,7 @@ Execute tasks from a flow's plan using TDD workflow.
 2. **Read Project Context:** `.agent/patterns.md`
 3. **Read Parent Context:**
     - Check if this flow has a parent PRD/Saga.
-    - If yes, read `.agent/prd/<parent_id>/prd.md`.
+    - If yes, read `.agent/specs/<parent_id>/prd.md`.
 4. **Load Beads:**
     - `br status` (workspace overview)
     - `br ready` (list unblocked tasks)
@@ -99,11 +103,10 @@ git commit -m "<type>(<scope>): <description>"
 br close {task_id} --reason "commit: {sha}"
 ```
 
-## Phase 5.1: Sync to Markdown (MANDATORY)
+### Markdown Sync (Automatic)
 
-Run `/flow:sync {flow_id}` to export Beads state to spec.md.
-
-**CRITICAL:** Do NOT write `[x]` markers directly to spec.md. Beads is the source of truth — use `/flow:sync` instead.
+The git pre-commit hook automatically exports Beads state to spec.md on commit.
+**CRITICAL:** Do NOT write markers directly to spec.md and do NOT run sync manually.
 
 ### 5.2 Log Learnings
 
@@ -119,7 +122,6 @@ After each task:
 1. **TDD ALWAYS** - Write tests before implementation
 2. **SMALL COMMITS** - One task = one commit
 3. **BEADS IS SOURCE OF TRUTH** - Never write markers to spec.md
-4. **MANDATORY SYNC** - Run `/flow:sync` after every `br close` and phase completion
 5. **LOG LEARNINGS** - Capture patterns as you go
 6. **LOCAL ONLY** - Never push automatically
 7. **USE `br ready`** - Always check Beads for next task

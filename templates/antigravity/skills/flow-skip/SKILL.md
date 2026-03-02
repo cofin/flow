@@ -1,6 +1,6 @@
 ---
 name: flow-skip
-description: "Skip task with justification. Use when a task is no longer needed or out of scope."
+description: "Skip current task with justification"
 ---
 
 # Flow Skip
