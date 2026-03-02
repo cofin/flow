@@ -234,7 +234,12 @@ Type/backend guidance:
 ## Migration Commands
 
 ```bash
-# Create migration
+# Advanced Alchemy CLI (Standalone)
+alchemy make-migrations --config path.to.alchemy-config.config
+alchemy upgrade --config path.to.alchemy-config.config
+alchemy downgrade --config path.to.alchemy-config.config
+
+# Litestar integration commands
 litestar database make-migrations
 
 # Apply migrations
