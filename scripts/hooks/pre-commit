@@ -55,22 +55,25 @@ def sync_flow(flow_id: str) -> bool:
     if not beads_epic_id:
         return False
 
-    br_output: Optional[str] = run_cmd(["br", "show", beads_epic_id, "--children", "--format", "json"])
+    br_output: Optional[str] = run_cmd(["br", "show", beads_epic_id, "--format", "json"])
     if not br_output:
-        # fallback to without --children if needed
-        br_output = run_cmd(["br", "show", beads_epic_id, "--format", "json"])
-        if not br_output:
-            return False
+        return False
 
     try:
-        epic_data: Dict[str, Any] = json.loads(br_output)
+        parsed_data = json.loads(br_output)
+        if isinstance(parsed_data, list) and len(parsed_data) > 0:
+            epic_data: Dict[str, Any] = parsed_data[0]
+        else:
+            epic_data: Dict[str, Any] = parsed_data # type: ignore
     except json.JSONDecodeError:
         return False
 
+    if not isinstance(epic_data, dict):
+        return False
+
     # Extract tasks
-    tasks: List[Dict[str, Any]] = epic_data.get("children", [])
-    if not tasks:
-        tasks = epic_data.get("tasks", [])
+    raw_dependents = epic_data.get("dependents", [])
+    tasks: List[Dict[str, Any]] = [d for d in raw_dependents if d.get("dependency_type") == "parent-child"]
 
     status_map: Dict[str, str] = {
         "pending": "[ ]",
