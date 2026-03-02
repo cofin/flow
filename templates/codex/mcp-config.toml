@@ -5,7 +5,7 @@
 #
 # Installation:
 #   1. Append this to your ~/.codex/config.toml
-#   2. Or run: ./scripts/install.sh (auto-merges)
+#   2. Or run: ./tools/scripts/install.sh (auto-merges)
 #
 # Documentation: https://developers.openai.com/codex/mcp/
 

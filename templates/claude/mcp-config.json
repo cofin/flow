@@ -7,7 +7,7 @@
     "confidence scoring, and Beads integration.",
     "",
     "Installation:",
-    "  1. Run: ./scripts/install.sh",
+    "  1. Run: ./tools/scripts/install.sh",
     "  2. Or manually add 'mcpServers' section to ~/.claude.json",
     "",
     "Configuration options (environment variables):",

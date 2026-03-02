@@ -276,7 +276,7 @@ At phase completion:
 ### Intelligent Installer (Recommended)
 
 ```bash
-./scripts/install.sh
+./tools/scripts/install.sh
 ```
 
 The installer detects installed CLIs, backs up existing configs, and merges intelligently.

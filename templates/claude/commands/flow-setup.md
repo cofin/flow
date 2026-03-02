@@ -433,8 +433,8 @@ Copy the `pre-commit` hook to the `.git/hooks/` directory to ensure Bead states 
 if [ -f ~/.flow/hooks/pre-commit ]; then
   cp ~/.flow/hooks/pre-commit .git/hooks/pre-commit
   chmod +x .git/hooks/pre-commit
-elif [ -f ~/.gemini/extensions/flow/scripts/hooks/pre-commit ]; then
-  cp ~/.gemini/extensions/flow/scripts/hooks/pre-commit .git/hooks/pre-commit
+elif [ -f ~/.gemini/extensions/flow/tools/scripts/hooks/pre-commit ]; then
+  cp ~/.gemini/extensions/flow/tools/scripts/hooks/pre-commit .git/hooks/pre-commit
   chmod +x .git/hooks/pre-commit
 fi
 ```

@@ -35,7 +35,7 @@ git clone https://github.com/cofin/flow.git
 cd flow
 
 # Run installer
-./scripts/install.sh
+./tools/scripts/install.sh
 ```
 
 The installer supports:

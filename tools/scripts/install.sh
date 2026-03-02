@@ -24,9 +24,10 @@ CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 # Script directory (where flow templates are)
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TEMPLATES_DIR="$SCRIPT_DIR/templates"
-SKILLS_DIR="$SCRIPT_DIR/skills"
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+SCRIPT_DIR="$PROJECT_ROOT"
+TEMPLATES_DIR="$PROJECT_ROOT/templates"
+SKILLS_DIR="$PROJECT_ROOT/skills"
 FLOW_DATA_DIR="$HOME/.flow"
 BACKUP_DIR="$FLOW_DATA_DIR/backups/$(date +%Y%m%d-%H%M%S)"
 MERGE_HISTORY="$FLOW_DATA_DIR/merge-history.json"
