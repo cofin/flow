@@ -211,20 +211,21 @@ When used with Flow:
 | Mark blocked | `br update {id} --status blocked --notes "BLOCKED: {reason}"` |
 | Mark skipped | `br close {id} --reason "Skipped: {reason}"` |
 
-## Mandatory Markdown Sync
+## Automatic Markdown Sync
 
-After ANY Beads state change, agents MUST run `/flow-sync` (or `/flow:sync`) to update spec.md. Never write markers (`[x]`, `[~]`, `[!]`, `[-]`) directly to spec.md.
+The git pre-commit hook automatically exports Beads state to spec.md on commit. 
+Never write markers (`[x]`, `[~]`, `[!]`, `[-]`) directly to spec.md. Beads is the source of truth.
 
-**State changes that trigger mandatory sync:**
+**State changes that trigger updates (synced on next commit):**
 
-| Action | Beads Command | Sync Required |
-|--------|---------------|---------------|
-| Complete task | `br close {id} --reason "commit: {sha}"` | MANDATORY |
-| Block task | `br update {id} --status blocked` | MANDATORY |
-| Skip task | `br close {id} --reason "Skipped: {reason}"` | MANDATORY |
-| Revert task | `br update {id} --status open` | MANDATORY |
-| Revise plan | `br update {id} --notes "Revised: ..."` | MANDATORY |
-| Start task | `br update {id} --status in_progress` | MANDATORY |
+| Action | Beads Command |
+|--------|---------------|
+| Complete task | `br close {id} --reason "commit: {sha}"` |
+| Block task | `br update {id} --status blocked` |
+| Skip task | `br close {id} --reason "Skipped: {reason}"` |
+| Revert task | `br update {id} --status open` |
+| Revise plan | `br update {id} --notes "Revised: ..."` |
+| Start task | `br update {id} --status in_progress` |
 
 ## Configuration
 
