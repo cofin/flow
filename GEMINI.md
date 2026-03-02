@@ -9,7 +9,7 @@ This file provides guidance to Gemini CLI when working with code in this reposit
 - **Flow Framework**: Spec-first planning, human-readable context, TDD workflow
 - **Beads Integration**: Dependency-aware task graph, cross-session memory, agent-optimized output
 
-Beads is a **required dependency**. Flow will offer to install it and initializes in **stealth mode** by default.
+Beads is a **required dependency**. Flow will offer to install it and configures it for **local-only mode** by default.
 
 ## Configuration
 
@@ -139,14 +139,13 @@ curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/i
 br init
 ```
 
-For local-only (stealth) use, add `.beads/` to `.gitignore` after initialization.
+For local-only use, add `.beads/` to `.gitignore` after initialization.
 
 ### Configuration (`.agent/beads.json`)
 
 ```json
 {
   "enabled": true,
-  "mode": "stealth",
   "sync": "bidirectional",
   "epicPrefix": "flow",
   "autoCreateTasks": true,

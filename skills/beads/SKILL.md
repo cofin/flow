@@ -25,7 +25,7 @@ curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/i
 br init
 ```
 
-After initialization, add `.beads/` to `.gitignore` for local-only (stealth) use:
+After initialization, add `.beads/` to `.gitignore` for local-only use:
 
 ```bash
 echo ".beads/" >> .gitignore
@@ -234,7 +234,6 @@ Never write markers (`[x]`, `[~]`, `[!]`, `[-]`) directly to spec.md. Beads is t
 ```json
 {
   "enabled": true,
-  "mode": "stealth",
   "sync": "bidirectional",
   "epicPrefix": "flow",
   "autoSyncOnComplete": true

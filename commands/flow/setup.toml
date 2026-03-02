@@ -531,7 +531,7 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
             `{"last_successful_step": "2.5_workflow", "root_directory": "<root_directory>"}`
 
 ### 2.6 Beads Initialization
-**PROTOCOL: Initialize Beads in stealth mode.**
+**PROTOCOL: Initialize Beads.**
 
 1.  **Check Beads Init Status:**
     ```bash
@@ -539,8 +539,7 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
     ```
 
 2.  **If NOT INITIALIZED:**
-    > "Initializing Beads for persistent task tracking.
-    > Mode: Stealth (local-only, not committed to git)"
+    > "Initializing Beads for persistent task tracking."
 
     ```bash
     br init --prefix <project_name_slug>
@@ -551,7 +550,6 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
     ```json
     {
       "enabled": true,
-      "mode": "stealth",
       "sync": "bidirectional",
       "epicPrefix": "flow",
       "autoCreateTasks": true,

@@ -11,7 +11,7 @@
 
 ## Beads Integration
 
-Beads provides persistent cross-session memory. Initialized in stealth mode during setup.
+Beads provides persistent cross-session memory. Configured for local-only use during setup.
 
 ### Session Protocol
 

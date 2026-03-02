@@ -106,7 +106,7 @@ cp -r templates/antigravity/skills/* ~/.gemini/antigravity/skills/
 Flow will:
 
 1. Check/install Beads
-2. Initialize Beads in stealth mode
+2. Initialize Beads
 3. Create project context files
 4. Guide you through product, tech stack, and workflow setup
 5. Create your first flow
@@ -204,7 +204,7 @@ project/
 │   │       ├── learnings.md
 │   │       └── metadata.json
 │   └── archive/             # Completed flows
-└── .beads/                  # Beads data (stealth mode)
+└── .beads/                  # Beads data (local-only)
 ```
 
 ## Flow Naming

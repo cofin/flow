@@ -377,7 +377,7 @@ export class FlowThinkDoctor {
         name,
         status: "skip",
         message: "Beads not initialized (optional)",
-        details: "Initialize with: br init --stealth",        duration_ms: Date.now() - start,
+        details: "Initialize with: br init --prefix <project_name_slug>",        duration_ms: Date.now() - start,
       };
     } catch (error) {
       return {
