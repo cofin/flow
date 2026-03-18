@@ -254,6 +254,44 @@ litestar assets generate-types  # Generate TS types
 ```
 
 
+## Deployment
+
+### Static Asset Bundles
+Angular builds compile into optimal static files:
+
+```bash
+ng build
+# or litestar assets build for integrated setups
+```
+
+### Hybrid Prerendering (SSR/SSG)
+Deploy to Edge nodes or node servers. Ensure triggers are optimized post-hydrate context avoiding layout shifts for deferred blocks.
+
+---
+
+## CI/CD Actions
+
+Example GitHub Actions workflow for building:
+
+```yaml
+name: Angular CI
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - run: npm ci
+      - run: npm run build
+```
+
 ## Official References
 
 - https://angular.dev/reference/releases

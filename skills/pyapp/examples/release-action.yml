@@ -1,0 +1,104 @@
+# .github/workflows/release.yml
+name: Release Standalone Binaries
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  # 1. Build the standard Wheel first
+  build-wheel:
+    name: Build Python Wheel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+      - name: Build
+        run: uv build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels
+          path: dist/*.whl
+
+  # 2. Build Standalone Binaries via Matrix
+  build-binaries:
+    name: Build for ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    needs: [build-wheel]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            artifact: myapp-x86_64-linux
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            artifact: myapp-aarch64-linux
+
+    env:
+      PYAPP_VERSION: "v0.29.0"
+      PYAPP_REPO: "pyapp-source"
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Clone PyApp
+        run: git clone --depth 1 --branch ${{ env.PYAPP_VERSION }} https://github.com/ofek/pyapp ${{ env.PYAPP_REPO }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install Zig (For Linux Backward Compatibility)
+        if: contains(matrix.target, 'linux-gnu')
+        uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: 0.13.0
+
+      - name: Install cargo-zigbuild
+        if: contains(matrix.target, 'linux-gnu')
+        run: uv tool install cargo-zigbuild
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Download wheel artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: wheels
+          path: dist/
+
+      - name: Generate requirements.txt
+        run: |
+          uv export --no-dev --no-emit-project > dist/requirements.txt
+          echo "${{ github.workspace }}/dist/*.whl" >> dist/requirements.txt
+
+      - name: Bundle Python Distribution (Offline Packager)
+        run: |
+          uv run scripts/bundler.py build \
+            --target ${{ matrix.target }} \
+            --requirements dist/requirements.txt \
+            --output dist/python-dist-${{ matrix.target }}.tar.gz \
+            --pyapp-dir ${{ env.PYAPP_REPO }} \
+            --install-dir "~/.myapp"
+
+      - name: Compile PyApp Binary (Linux GNU)
+        if: contains(matrix.target, 'linux-gnu')
+        working-directory: ${{ env.PYAPP_REPO }}
+        env:
+          # Instruct PyApp to embed the bundle we just created
+          PYAPP_DISTRIBUTION_PATH: ${{ github.workspace }}/dist/python-dist-${{ matrix.target }}.tar.gz
+          PYAPP_SKIP_INSTALL: "true"
+        run: cargo zigbuild --release --target ${{ matrix.target }}.2.17
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ env.PYAPP_REPO }}/target/${{ matrix.target }}/release/pyapp

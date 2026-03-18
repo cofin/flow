@@ -221,6 +221,43 @@ litestar assets generate-types  # Generate TS types
 ```
 
 
+## Deployment
+
+### Build Production
+Vue applications are built into static assets using Vite.
+
+```bash
+vite build
+```
+
+### Strategy
+Deploy to static runners or reverse proxies. For Inertia apps, bundle assets inside the backend build directory for joint deployment.
+
+---
+
+## CI/CD Actions
+
+Example GitHub Actions workflow for building:
+
+```yaml
+name: Vue CI
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - run: npm ci
+      - run: npm run build
+```
+
 ## Official References
 
 - https://vuejs.org/guide/introduction.html

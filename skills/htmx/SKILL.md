@@ -251,6 +251,35 @@ litestar assets build      # Production build
 ```
 
 
+## Deployment
+
+### Hypermedia Strategy
+HTMX applications are deployed bundled with their backend engine (e.g., Litestar). Deployment involves standard backend containerization or server hosting.
+
+### Static Assets
+Ensure `htmx.min.js` and desired 2.x extensions are bundle-copied to the backend static directory.
+
+---
+
+## CI/CD Actions
+
+Example GitHub Actions workflow targeting Backend Tests ensuring partial content returns:
+
+```yaml
+name: Backend CI
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+      - run: pip install -r requirements.txt
+      - run: pytest tests/ # Verify handlers return partial html correctly
+```
+
 ## Official References
 
 - https://htmx.org/docs/

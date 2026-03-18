@@ -136,7 +136,46 @@ Solution: add `install = { kind, path }` on non-extension jobs.
 4. Python extension not importable
 Solution: verify `module` matches final package import path (e.g., `my_pkg._core`).
 
-## 9. Where to learn more
+## 9. Deployment
+
+### Publishing to PyPI
+Use `uv publish` for publishing completed wheels. 2026 standards prefer OIDC authentication.
+
+---
+
+## 10. CI/CD Actions
+
+Example GitHub Actions workflow utilizing `cibuildwheel` to compile multi-platform wheels support:
+
+```yaml
+name: Build Wheels
+on: [push, pull_request]
+
+jobs:
+  build_wheels:
+    name: Build wheels on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Mojo
+        run: |
+          curl -s https://get.modular.com | sh -
+          modular install mojo
+          echo "$HOME/.modular/pkg/packages.modular.com_mojo/bin" >> $GITHUB_PATH
+
+      - name: Build and test wheels
+        uses: pypa/cibuildwheel@v2.22
+        env:
+          CIBW_BEFORE_BUILD: "pip install hatchling hatch-mojo"
+          # Apply platform-conditional repair commands from section 7
+```
+
+## 11. Where to learn more
 
 1. Library repo: `https://github.com/cofin/hatch-mojo`
 2. Project README: `/home/cody/code/c/hatch-mojo/README.md`

@@ -136,6 +136,43 @@ build-backend = "hatchling.build"
 - **Export to requirements.txt**: `uv export --format requirements-txt > requirements.txt`
 - **Upgrade all packages**: `uv lock --upgrade`
 
+## Deployment
+
+### Package Distribution
+Build and publish wheels leveraging modern endpoints:
+
+```bash
+uv build
+uv publish
+```
+
+Uses secure OIDC-authenticated setups by default simplifying registry trust.
+
+---
+
+## CI/CD Actions
+
+Example GitHub Actions workflow using official support:
+
+```yaml
+name: Python CI
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+
+      - run: uv sync
+      - run: uv run pytest tests/
+```
+
 ## Official References
 
 - https://docs.astral.sh/uv/

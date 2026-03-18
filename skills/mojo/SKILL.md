@@ -571,6 +571,56 @@ project/
 - Keep Python wrappers thin — compute logic stays in Mojo.
 - Use `uv` for all Python tooling (never `pip`, `pixi`, or `conda`).
 
+## Deployment
+
+### Building Artifacts
+Mojo projects can deploy as standalone executables or Python wheels (via hatch-mojo).
+
+```bash
+# Standalone executable
+mojo build src/main.mojo -o dist/app
+
+# Python Wheel
+hatch build -t wheel
+```
+
+### Platform Considerations
+Specify `--target` for cross-compilation if building for different architectures than the runner.
+
+---
+
+## CI/CD Actions
+
+Example GitHub Actions workflow for compiling and testing:
+
+```yaml
+name: Mojo CI
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Mojo
+        run: |
+          curl -s https://get.modular.com | sh -
+          # auth required for some features
+          # modular auth ${{ secrets.MODULAR_AUTH }}
+          modular install mojo
+          echo "$HOME/.modular/pkg/packages.modular.com_mojo/bin" >> $GITHUB_PATH
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Run Mojo Tests
+        run: mojo test src/mo/tests/
+
+      - name: Run Python Interop Tests
+        run: uv run pytest tests/
+```
+
 ## Official References
 
 - https://docs.modular.com/max/coding-assistants

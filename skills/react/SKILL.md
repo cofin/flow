@@ -235,6 +235,43 @@ For comprehensive coverage of these commonly-used React libraries:
 | Tailwind CSS | `tailwind` | Styling patterns |
 
 
+## Deployment
+
+### Static Runtimes
+Bundle traditional SPA apps into static sets:
+
+```bash
+vite build
+```
+
+### Server and Edge Nodes
+Align Server Actions and components to runtimes offering full Server-Side script continuity safely supporting `'use server'` handlers.
+
+---
+
+## CI/CD Actions
+
+Example GitHub Actions workflow for static build:
+
+```yaml
+name: React CI
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - run: npm ci
+      - run: npm run build
+```
+
 ## Official References
 
 - https://react.dev/
