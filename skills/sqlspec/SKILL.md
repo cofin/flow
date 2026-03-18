@@ -547,13 +547,13 @@ SQLSpec provides two CockroachDB adapters:
 **Key Classes (cockroach_psycopg)**:
 - `CockroachPsycopgSyncConfig`, `CockroachPsycopgAsyncConfig`
 - `CockroachPsycopgSyncDriver`, `CockroachPsycopgAsyncDriver`
-- `CockroachPsycopgConnectionConfig`, `CockroachPsycopgPoolConfig`
+- `CockroachPsycopgConnectionConfig`
 - `CockroachPsycopgDriverFeatures` (enable_auto_retry, enable_follower_reads)
 
 **Key Classes (cockroach_asyncpg)**:
 - `CockroachAsyncpgConfig`
 - `CockroachAsyncpgDriver`
-- `CockroachAsyncpgConnectionConfig`, `CockroachAsyncpgPoolConfig`
+- `CockroachAsyncpgConnectionConfig`
 - `CockroachAsyncpgDriverFeatures`
 
 **Transaction Retry Pattern**:
@@ -587,7 +587,7 @@ with config.provide_session(follower_reads="15s") as session:
 **Key Classes**:
 - `MysqlConnectorSyncConfig`, `MysqlConnectorAsyncConfig`
 - `MysqlConnectorSyncDriver`, `MysqlConnectorAsyncDriver`
-- `MysqlConnectorConnectionConfig`, `MysqlConnectorPoolConfig`
+- `MysqlConnectorConnectionConfig`
 - `MysqlConnectorDriverFeatures` (json_serializer, json_deserializer)
 
 **Exception Mapping**:
@@ -607,10 +607,10 @@ with config.provide_session(follower_reads="15s") as session:
 **Key Classes**:
 - `PyMysqlConfig`
 - `PyMysqlDriver`
-- `PyMysqlConnectionConfig`, `PyMysqlPoolConfig`
+- `PyMysqlConnectionConfig`
 - `PyMysqlDriverFeatures`
 
-**Pool Configuration**:
+**Connection Configuration**:
 ```python
 config = PyMysqlConfig(
     connection_config={
@@ -619,8 +619,6 @@ config = PyMysqlConfig(
         "user": "root",
         "password": "password",
         "database": "mydb",
-    },
-    pool_config={
         "min_size": 2,
         "max_size": 10,
     }
@@ -667,7 +665,7 @@ class MyDriver(SyncDriverAdapterBase):
 
 ---
 
-## SQLglot Best Practices
+## SQLglot Best Practices (v30+)
 
 ### Guardrails (Correctness + Performance)
 
@@ -677,7 +675,9 @@ class MyDriver(SyncDriverAdapterBase):
   - `unsupported_level=ErrorLevel.RAISE` (or `IMMEDIATE`).
 - Prefer compiled SQLGlot install for throughput-sensitive workloads:
   - `sqlglot[c]`
-- Do not use `sqlglot[rs]` (upstream-deprecated/incompatible path).
+- **CRITICAL (v30+)**: Do not use `sqlglot[rs]` (upstream-deprecated/incompatible path).
+- **CRITICAL (v30+)**: Use `exp.Expr` for typing, not the deprecated `Expression`.
+- **CRITICAL (v30+)**: Use DFS traversal when crawling AST nodes; BFS scope traversal module splits have changed in v30+. Avoid direct `scope.walk` without understanding the new module layout.
 - Treat heavy optimizer passes (`qualify`, `annotate_types`, full `optimize`) as opt-in due to schema/type overhead.
 - Do not use SQLGlot's built-in executor for high-throughput execution paths.
 - If using optimizer interval simplification logic, ensure `python-dateutil` is installed.
@@ -738,12 +738,31 @@ query = sqlglot.select("*").from_("users").where(predicate, copy=True)
 
 ---
 
-## Apache Arrow Integration
+## Storage & Apache Arrow ADBC Integration
+
+SQLSpec natively supports Arrow via ADBC and the `sqlspec.protocols.ObjectStoreProtocol`. This is highly leveraged in domain collectors (e.g., `accelerator`) for massive data pushes.
+
+### Object Store & Arrow Pushes
+
+Arrow tables can be zero-copy transferred from local memory (like `duckdb`) directly to cloud analytics (`bigquery` via `bq_push`) using ADBC loaders.
+
+```python
+from sqlspec.storage.storage_registry import get_storage_backend
+from sqlspec.protocols import ObjectStoreProtocol
+
+# Extract data into Arrow format (Zero-copy on DuckDB/ADBC)
+result = await duckdb_session.select_to_arrow("SELECT * FROM local_analytics")
+arrow_table = result.arrow()
+
+# Push natively using ADBC filters and loaders via BigQuery
+await bq_session.copy_from_arrow(arrow_table, target_table="refined_analytics")
+```
 
 ### Two-Path Strategy
 
 **Native Arrow Path** (ADBC, DuckDB, BigQuery):
 - Zero-copy data transfer (5-10x faster)
+- Utilizes ADBC loaders and filters extensively for ETL sync workflows
 - `cursor.fetch_arrow_table()` or `result.arrow()`
 
 **Conversion Path** (other adapters):
@@ -1392,7 +1411,11 @@ class UserService(SQLSpecAsyncService):
 
     async def list_with_count(self, *filters: StatementFilter) -> OffsetPagination[User]:
         """List users with pagination and filtering."""
-        return await self.paginate(db_manager.get_sql("list-users"), *filters, schema_type=User)
+        return await self.select_with_count(db_manager.get_sql("list-users"), *filters, schema_type=User)
+
+    async def list_all(self, *filters: StatementFilter) -> list[User]:
+        """List all users matching filters."""
+        return await self.select_only(db_manager.get_sql("list-users"), *filters, schema_type=User)
 
     async def get_user(self, user_id: UUID) -> User:
         """Get a single user by ID."""

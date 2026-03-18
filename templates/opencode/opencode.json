@@ -21,7 +21,7 @@
       "agent": "flow"
     },
     "flow:sync": {
-      "description": "Export Beads state to spec.md",
+      "description": "Synchronize context docs, Beads state, and export summaries",
       "agent": "flow"
     },
     "flow:implement": {
@@ -32,24 +32,8 @@
       "description": "Display progress overview",
       "agent": "flow"
     },
-    "flow:block": {
-      "description": "Mark task as blocked",
-      "agent": "flow"
-    },
-    "flow:skip": {
-      "description": "Skip task with justification",
-      "agent": "flow"
-    },
     "flow:archive": {
       "description": "Archive completed flow",
-      "agent": "flow"
-    },
-    "flow:handoff": {
-      "description": "Create session handoff document",
-      "agent": "flow"
-    },
-    "flow:refresh": {
-      "description": "Sync context with codebase",
       "agent": "flow"
     },
     "flow:validate": {
@@ -72,20 +56,8 @@
       "description": "Update spec/plan when implementation reveals issues",
       "agent": "flow"
     },
-    "flow:export": {
-      "description": "Generate project summary export",
-      "agent": "flow"
-    },
-    "flow:distill": {
-      "description": "Extract reusable template from completed flow",
-      "agent": "flow"
-    },
-    "flow:formula": {
-      "description": "List and manage flow templates",
-      "agent": "flow"
-    },
-    "flow:wisp": {
-      "description": "Create ephemeral exploration flow",
+    "flow:task": {
+      "description": "Create ephemeral exploration task",
       "agent": "flow"
     }
   }

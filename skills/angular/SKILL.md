@@ -179,6 +179,23 @@ export class ItemFormComponent {
 
 This section is project-specific integration guidance. For plain Angular projects, use standard Angular CLI / Vite workflows.
 
+### SPA Router Configuration
+
+When operating in SPA mode (`mode="spa"`), routing is managed via the Angular Router on the frontend instead of the server resolving HTML endpoints. Configure your router with `provideRouter` and client-side specific options (e.g. hash routing if fallback is missing, or standard HTML5 path routing supported by Litestar's SPA routing mode).
+
+```typescript
+import { ApplicationConfig, provideZoneChangeDetection } from '@angular/core';
+import { provideRouter, withComponentInputBinding } from '@angular/router';
+import { routes } from './app.routes';
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideZoneChangeDetection({ eventCoalescing: true }),
+    provideRouter(routes, withComponentInputBinding())
+  ]
+};
+```
+
 ### Setup with VitePlugin
 
 ```python

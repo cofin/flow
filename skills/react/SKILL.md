@@ -162,7 +162,7 @@ from litestar import Litestar
 from litestar_vite import ViteConfig, VitePlugin
 
 vite_config = ViteConfig(
-    mode="spa",  # or "hybrid" for Inertia
+    mode="spa",
     paths=PathConfig(resource_dir="src"),
 )
 
@@ -183,23 +183,24 @@ export default defineConfig({
 });
 ```
 
-### React with Inertia.js + Litestar
+### React SPA Integration (e.g. TanStack Router)
+
+When operating in SPA mode (`mode="spa"`), the entire routing lifecycle is managed on the frontend. Ensure your Litestar app maps a catch-all route to serve the `index.html` asset bundle (automatically handled by the VitePlugin in SPA mode) so deep links work locally and in production.
 
 ```tsx
-// app.tsx
-import { createInertiaApp } from '@inertiajs/react';
-import { createRoot } from 'react-dom/client';
-import { resolvePageComponent } from 'litestar-vite-plugin/inertia-helpers';
+// src/main.tsx
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import { RouterProvider, createRouter } from '@tanstack/react-router'
+import { routeTree } from './routeTree.gen' // Or your manual routes
 
-createInertiaApp({
-  resolve: (name) => resolvePageComponent(
-    name,
-    import.meta.glob('./pages/**/*.tsx'),
-  ),
-  setup({ el, App, props }) {
-    createRoot(el).render(<App {...props} />);
-  },
-});
+const router = createRouter({ routeTree })
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <RouterProvider router={router} />
+  </StrictMode>
+)
 ```
 
 ### Using Generated Types

@@ -27,10 +27,16 @@ class MyProvider(Provider):
 
     @provide(scope=Scope.REQUEST)
     async def provide_async_resource(self) -> AsyncIterable[DBConnection]:
-        """Async generator for resources needing cleanup."""
+        """
+        [CRITICAL] TEARDOWN LOGIC MUST USE AsyncIterable:
+        Always yield the resource and perform cleanup after the yield.
+        Do not use standard returning methods if the resource requires teardown.
+        """
         conn = await create_connection()
-        yield conn
-        await conn.close()
+        try:
+            yield conn
+        finally:
+            await conn.close()
 ```
 
 ### Scopes
@@ -58,9 +64,9 @@ container = make_async_container(
 container = make_container(ConfigProvider(), ServiceProvider())
 ```
 
-### Clean Naming Pattern
+### Clean Naming Pattern (Inject[T])
 
-Create framework-agnostic aliases for cleaner code:
+Create framework-agnostic aliases for cleaner code, specifically targeting `Inject[T]` to simplify controller signatures:
 
 ```python
 # di.py - Central DI module
@@ -93,6 +99,12 @@ async def list_users(service: Inject[UserService]) -> list[User]:
 ```
 
 ## Litestar Integration
+
+> [!WARNING]
+> **Discourage Litestar Default Displacement:**
+> Use Dishka primarily for domain services, application configuration, and database adapters.
+> Do **NOT** try to configure Dishka to provide Litestar native primitives like `Request`, `Response`, `State`, or `WebSocket`.
+> Displacing Litestar's highly optimized native dependency injection for these objects can lead to request scoping issues and unnecessary overhead.
 
 ### Setup
 
@@ -134,13 +146,14 @@ class UserController(Controller):
         return await service.get(user_id)
 ```
 
-### DishkaRouter for Auto-Discovery
+### LitestarRouter Integration
+
+When organizing controllers, rely on the standard Litestar `Router`. Dishka injections are automatically resolved down the router tree once `setup_dishka` is applied to the main `Litestar` app. No special Dishka wrappers are needed.
 
 ```python
-from dishka.integrations.litestar import DishkaRouter
+from litestar import Router
 
-# Wrap controllers for automatic DI integration
-router = DishkaRouter(
+router = Router(
     path="/api",
     route_handlers=[UserController, OrderController],
 )

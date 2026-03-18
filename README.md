@@ -17,7 +17,7 @@ Control your code. By treating context as a managed artifact alongside your code
 - **Spec-First Development**: Create specs and plans before writing code
 - **TDD Workflow**: Red-Green-Refactor with >80% coverage requirements
 - **Knowledge Flywheel**: Capture and elevate patterns across flows (Ralph-style)
-- **Flow Management**: Block, skip, revise, archive with full audit trail
+- **Flow Management**: Revise, archive, and revert with full audit trail
 - **Git-Aware Revert**: Understands logical units of work, not just commits
 - **Parallel Execution**: Phase-level task parallelism via sub-agents
 
@@ -168,16 +168,9 @@ Flow follows TDD workflow (Beads-first):
 | Check status | `/flow-status` | `/flow:status` | `$flow:status` |
 | Revert changes | `/flow-revert` | `/flow:revert` | `$flow:revert` |
 | Validate integrity | `/flow-validate` | `/flow:validate` | `$flow:validate` |
-| Block task | `/flow-block` | `/flow:block` | `$flow:block` |
-| Skip task | `/flow-skip` | `/flow:skip` | `$flow:skip` |
 | Revise spec/plan | `/flow-revise` | `/flow:revise` | `$flow:revise` |
-| Archive flow | `/flow-archive` | `/flow:archive` | `$flow:archive` |
-| Export summary | `/flow-export` | `/flow:export` | `$flow:export` |
-| Session handoff | `/flow-handoff` | `/flow:handoff` | `$flow:handoff` |
-| Sync context | `/flow-refresh` | `/flow:refresh` | `$flow:refresh` |
-| Manage templates | `/flow-formula` | `/flow:formula` | `$flow:formula` |
-| Ephemeral flow | `/flow-wisp` | `/flow:wisp` | `$flow:wisp` |
-| Extract template | `/flow-distill` | `/flow:distill` | `$flow:distill` |
+| Archive completed | `/flow-archive` | `/flow:archive` | `$flow:archive` |
+| Ephemeral task | `/flow-task` | `/flow:task` | `$flow:task` |
 
 > **Note**: Gemini CLI and OpenCode use `/flow:command`; Codex examples use `$flow:command`.
 

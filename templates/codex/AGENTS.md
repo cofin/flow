@@ -53,23 +53,16 @@ br show <id> --format json  # Export epic with tasks
 - `$flow:setup` - Initialize project with context files, Beads, and first flow
 - `$flow:prd` - Analyze goals and generate Master Roadmap (Sagas)
 - `$flow:plan` - Create unified spec.md for a single Flow
-- `$flow:sync` - Export Beads state to spec.md (source of truth sync)
+- `$flow:sync` - Synchronize context docs, Beads state, and export summaries
 - `$flow:research` - Conduct pre-PRD research
 - `$flow:docs` - Five-phase documentation workflow
 - `$flow:implement` - Execute tasks from plan (context-aware)
 - `$flow:status` - Display progress overview with Beads status
 - `$flow:revert` - Git-aware revert of flows, phases, or tasks
 - `$flow:validate` - Validate project integrity and fix issues
-- `$flow:block` - Mark task as blocked with reason
-- `$flow:skip` - Skip current task with justification
 - `$flow:revise` - Update spec/plan when implementation reveals issues
 - `$flow:archive` - Archive completed flows + elevate patterns
-- `$flow:export` - Generate project summary export
-- `$flow:handoff` - Create context handoff for session transfer
-- `$flow:refresh` - Sync context docs with current codebase state
-- `$flow:formula` - List and manage flow templates
-- `$flow:wisp` - Create ephemeral exploration flow (no audit trail)
-- `$flow:distill` - Extract reusable template from completed flow
+- `$flow:task` - Create ephemeral exploration task
 
 ## Agent Skills
 

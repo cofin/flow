@@ -109,24 +109,35 @@ class TimingMiddleware(AbstractMiddleware):
         logger.info(f"Request took {duration:.3f}s")
 ```
 
-### DTO Pattern
+### DTO Pattern (OpenAPI & msgspec Alignment)
+
+Litestar is heavily optimized for `msgspec`. DTOs automatically provide data mapping, validation, and flawless OpenAPI schema generation.
 
 ```python
-from litestar.dto import DataclassDTO, DTOConfig
+from litestar.dto import DataclassDTO, DTOConfig, MsgspecDTO
 from dataclasses import dataclass
+import msgspec
 
+# Dataclass Example
 @dataclass
 class User:
     id: int
     name: str
-    email: str
     password_hash: str  # Sensitive!
 
 class UserReadDTO(DataclassDTO[User]):
-    config = DTOConfig(exclude={"password_hash"})
+    config = DTOConfig(
+        exclude={"password_hash"},
+        rename_fields={"name": "full_name"}  # Data mapping
+    )
 
-class UserCreateDTO(DataclassDTO[User]):
-    config = DTOConfig(exclude={"id", "password_hash"})
+# msgspec Example (Recommended for High Performance)
+class UserStruct(msgspec.Struct):
+    id: int
+    name: str
+
+class UserStructDTO(MsgspecDTO[UserStruct]):
+    pass
 
 @get("/users/{user_id:int}", return_dto=UserReadDTO)
 async def get_user(user_id: int) -> User:
@@ -192,6 +203,42 @@ app = Litestar(
 | `htmx` | HTMX partials with Vite assets |
 | `hybrid` | Inertia or mixed rendering |
 | `framework` | SSR frameworks (Nuxt, SvelteKit) |
+
+### Vite Template Rendering Hooks
+
+When using SSR or hybrid modes with Jinja2 or Mako, use the Vite template hooks to automatically inject HMR and asset tags:
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- Injects Vite client for hot module replacement in dev -->
+    {{ vite_hmr() }}
+    
+    <!-- Injects compiled production assets or dev server links -->
+    {{ vite_assets('src/main.ts') }}
+</head>
+<body>
+    <div id="app"></div>
+</body>
+</html>
+```
+
+To enable these macros, ensure you provide a valid `TemplateConfig` to the `Litestar` app alongside `VitePlugin`.
+
+```python
+from litestar.template.config import TemplateConfig
+from litestar.contrib.mako import MakoTemplateEngine
+
+app = Litestar(
+    plugins=[VitePlugin(config=vite_config)],
+    # VitePlugin automatically registers the template callables (vite_hmr, vite_assets)
+    template_config=TemplateConfig(
+        directory="templates",
+        engine=MakoTemplateEngine,
+    )
+)
+```
 
 ### Type Generation
 
@@ -332,30 +379,6 @@ domain = DomainPlugin(DomainPluginConfig(
 # Controllers are auto-discovered from:
 # dma/domain/*/controllers/*.py
 # dma/domain/*/routes/*.py
-```
-
-## Background Task System
-
-```python
-from dma.lib.jobs import task, TaskResult
-
-@task(priority=5, cron="0 2 * * *")  # Daily at 2 AM
-async def daily_cleanup() -> dict:
-    # Task logic
-    return {"cleaned": 100}
-
-@task(timeout=300, retries=3)
-async def process_data(data_id: str) -> dict:
-    # Task logic
-    return {"processed": True}
-
-# Enqueue for background execution
-result: TaskResult = await process_data.enqueue(data_id="123")
-await result.wait(max_wait=30)  # Wait for completion
-print(result.status)  # "completed" or "failed"
-
-# Runtime customization
-result = await process_data.using(priority=10).enqueue(data_id="456")
 ```
 
 ## CLI with Async Injection

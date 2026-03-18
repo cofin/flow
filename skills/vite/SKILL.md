@@ -206,6 +206,18 @@ export default defineConfig({
 - Configure proper aliases for clean imports
 - Use environment-specific configs with mode
 
+## SPA Integration
+
+When building a Single Page Application (SPA) with Vite, you usually rely on the history API for client-side routing. Vite automatically handles index.html fallback during development. However, for production or custom backend integration, make sure your backend serves the `index.html` file for all non-static and non-API requests.
+
+```typescript
+// Example: Setting a base URL if your SPA isn't served from the root
+export default defineConfig({
+  base: '/my-app/',
+  // ...
+})
+```
+
 ## Litestar-Vite Plugin
 
 ### Basic Setup

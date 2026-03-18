@@ -73,21 +73,13 @@ class UserService(SQLAlchemyAsyncRepositoryService[m.User]):
 
     # Transform data before create
     async def to_model_on_create(self, data: ModelDictT[m.User]) -> ModelDictT[m.User]:
+        """Hook called by `self.create()`. Great place to hash passwords or fetch related entities."""
         return await self._populate_model(data)
 
     # Transform data before update
     async def to_model_on_update(self, data: ModelDictT[m.User]) -> ModelDictT[m.User]:
+        """Hook called by `self.update()`."""
         return await self._populate_model(data)
-
-    # Transform data before create/update
-    async def to_model(
-        self,
-        data: ModelDictT[m.User],
-        operation: str | None = None,
-    ) -> m.User:
-        if isinstance(data, dict):
-            data = await self._populate_model(data)
-        return await super().to_model(data, operation)
 
     async def _populate_model(self, data: dict) -> dict:
         """Custom model population logic."""
@@ -106,6 +98,7 @@ class UserService(SQLAlchemyAsyncRepositoryService[m.User]):
         if not user or not verify_password(password, user.hashed_password):
             raise PermissionDeniedException("Invalid credentials")
         return user
+
 ```
 
 ### Common Service Operations
@@ -148,7 +141,9 @@ exists = await service.exists(email="test@example.com")
 count = await service.count()
 ```
 
-### Filtering
+### Filtering and Services/Repositories Mapping Filters
+
+Advanced Alchemy provides powerful filter primitives that usually seamlessly pair with Litestar endpoints. However, when passing filters into a Service that hit complex mappings (like relations or custom columns), you may need to map them before returning or passing them to the repository.
 
 ```python
 from advanced_alchemy.filters import (
@@ -156,9 +151,20 @@ from advanced_alchemy.filters import (
     OrderBy,
     SearchFilter,
     CollectionFilter,
+    FilterTypes,
 )
 
-# Using filters
+class UserService(SQLAlchemyAsyncRepositoryService[User]):
+    # ...
+    async def list_active_users(self, *filters: FilterTypes) -> list[User]:
+        # You can manually append repository-level limits or standard Advanced Alchemy filters
+        custom_filters = [
+            SearchFilter(field_name="is_active", value=True),
+        ]
+        custom_filters.extend(filters)
+        return await self.list(*custom_filters)
+
+# Using filters in controllers/handlers:
 users = await service.list(
     LimitOffset(limit=20, offset=0),
     OrderBy(field_name="created_at", sort_order="desc"),
@@ -275,6 +281,28 @@ except NotFoundError:
 - Relationships should specify `lazy="selectin"` for eager loading
 - Prefer `advanced_alchemy.*` imports for repository/service APIs; avoid deprecated `litestar.plugins.sqlalchemy` import paths.
 
+
+## Testing Strategies (`pytest-databases`)
+
+When writing tests in the Litestar ecosystem involving Advanced Alchemy, use `pytest-databases` (found in `litestar-fullstack`) for true database isolation, rather than using mock databases or custom rolling-back fixtures.
+
+1. **Docker-based Isolation:** `pytest-databases` uses Docker SDK to run isolated database instances (PostgreSQL, MySQL, etc.) for your tests. This ensures tests do not interfere with each other and operate under real conditions.
+2. **Setup:** Add plugins via your `conftest.py`, e.g., `pytest_plugins = ["pytest_databases.docker.postgres"]`. This provisions database fixtures you can inject.
+3. **Usage:** Tests typically use these real database fixtures to perform async operations, test repositories, or integration test API endpoints instead of custom transactional sandboxes.
+
+```python
+import pytest
+from advanced_alchemy.repository import SQLAlchemyAsyncRepository
+
+@pytest.mark.asyncio
+async def test_user_creation(user_repo: SQLAlchemyAsyncRepository[m.User]):
+    user = m.User(email="test@example.com")
+    user = await user_repo.add(user)
+    await user_repo.session.commit()
+    
+    fetched = await user_repo.get(user.id)
+    assert fetched.email == "test@example.com"
+```
 
 ## Official References
 

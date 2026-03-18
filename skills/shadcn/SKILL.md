@@ -19,6 +19,22 @@ bunx --bun shadcn@latest add button card input label
 
 ---
 
+## SPA Integration Notes
+
+When using shadcn/ui components within a Single Page Application (SPA), ensure navigation does not cause full page reloads. Most components like `Button`, `DropdownMenuItem`, or `NavigationMenuItem` that act as links support an `asChild` prop (from Radix UI). Use `asChild` to pass the routing `Link` child directly.
+
+```tsx
+import { Link } from '@tanstack/react-router'
+// or: import { Link } from 'react-router-dom'
+import { Button } from "@/components/ui/button"
+
+<Button asChild>
+  <Link to="/settings">Go to Settings</Link>
+</Button>
+```
+
+---
+
 ## Core Components
 
 ### Button
