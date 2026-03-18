@@ -10,7 +10,7 @@ description: "Context-driven development workflow with Beads integration. Auto-a
 This skill activates when:
 - `.agents/` directory exists in the project root
 - User mentions "flow", "spec", "plan", or "implement"
-- User invokes `/flow-*` commands
+- User invokes `/flow:*` commands
 
 ## Core Concepts
 
@@ -79,9 +79,9 @@ Flow requires Beads for persistent cross-session memory:
 7. **Commit** with format: `<type>(<scope>): <description>`
 8. **Attach git notes** with task summary
 9. **Sync to Beads**: `br close {id} --reason "commit: {sha}"`
-10. **Sync to markdown**: run `/flow-sync` (MANDATORY — keeps spec.md readable)
+10. **Sync to markdown**: run `/flow:sync` (MANDATORY — keeps spec.md readable)
 
-**CRITICAL:** Never write `[x]`, `[~]`, `[!]`, or `[-]` markers to spec.md. Beads is the source of truth. After ANY Beads state change, agents MUST run `/flow-sync` to update spec.md.
+**CRITICAL:** Never write `[x]`, `[~]`, `[!]`, or `[-]` markers to spec.md. Beads is the source of truth. After ANY Beads state change, agents MUST run `/flow:sync` to update spec.md.
 
 ## Knowledge Flywheel (Three-Tier)
 
@@ -101,7 +101,7 @@ When a phase completes:
 5. Create checkpoint commit
 6. Attach verification report as git note
 7. Record checkpoint in Beads: `br comments add {epic_id} "Phase {N} checkpoint: {sha}"`
-8. Sync to markdown: run `/flow-sync` (MANDATORY)
+8. Sync to markdown: run `/flow:sync` (MANDATORY)
 
 ## Proactive Behaviors
 
@@ -112,7 +112,7 @@ When Flow skill is active:
 - Prompt for learnings capture after tasks
 - Suggest pattern elevation at phase completion
 - Warn if tech-stack changes without documentation
-- Enforce mandatory `/flow-sync` after any Beads state change
+- Enforce mandatory `/flow:sync` after any Beads state change
 
 ## References Index
 

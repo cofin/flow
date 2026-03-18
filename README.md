@@ -83,7 +83,7 @@ cp -r templates/opencode/agents/* ~/.config/opencode/agents/
 
 ```bash
 # Gemini now uses native extension installation
-gemini extensions install flow
+gemini extensions install https://github.com/cofin/flow
 ```
 
 ##### Google Antigravity

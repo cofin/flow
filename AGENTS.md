@@ -266,7 +266,7 @@ Phases can annotate parallel execution:
   <!-- depends: task3 -->
 ```
 
-State tracked in `parallel_state.json`. Uses Claude's Task Tool to spawn sub-agents.
+State tracked in `parallel_state.json`. Uses the `invoke_subagent` tool to spawn sub-agents.
 
 ## Task Workflow (TDD)
 
@@ -302,18 +302,20 @@ Skills are available in `skills/` for copying to `.gemini/skills/`:
 | Skill | Purpose |
 |-------|---------|
 | **flow** | Auto-activates when `.agents/` exists. Workflow guidance. |
-| **beads** | Auto-activates when `.beads/` exists. Persistent memory. |
 | **50+ tech skills** | React, Rust, Litestar, SQLSpec, testing, etc. |
 
 ## Installation
 
 ```bash
 # Install as Gemini extension
-gemini extensions install flow
+gemini extensions install https://github.com/cofin/flow
 
-# Or copy manually
-cp -r commands/* ~/.gemini/extensions/flow/commands/
-cp -r skills ~/.gemini/skills/
+# Or copy manually (Run from repo root)
+mkdir -p ~/.gemini/extensions/flow
+cp -r . ~/.gemini/extensions/flow/
+
+# Or link
+gemini extensions link .
 
 # Install Beads (required)
 curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash
