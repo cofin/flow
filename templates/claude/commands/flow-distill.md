@@ -39,7 +39,7 @@ Ask user about abstraction:
 
 ## Phase 4: Generate Template File
 
-Create `.agent/templates/{template_name}.md`:
+Create `.agents/templates/{template_name}.md`:
 
 ```markdown
 # Template: {template_name}
@@ -103,7 +103,7 @@ Create `.agent/templates/{template_name}.md`:
 ## Phase 5: Commit Template
 
 ```bash
-git add .agent/templates/{template_name}.md
+git add .agents/templates/{template_name}.md
 git commit -m "flow(template): Add {template_name} from {flow_id}"
 ```
 
@@ -116,7 +116,7 @@ Template Extracted
 
 Name: {template_name}
 Source: {flow_id}
-Location: .agent/templates/{template_name}.md
+Location: .agents/templates/{template_name}.md
 
 Placeholders: {count}
 Tasks: {count}
@@ -131,4 +131,4 @@ To use this template:
 
 1. **ABSTRACT PROPERLY** - Use meaningful placeholders
 2. **PRESERVE LEARNINGS** - Include gotchas and tips
-3. **LOCAL STORAGE** - Templates saved to .agent/templates/
+3. **LOCAL STORAGE** - Templates saved to .agents/templates/

@@ -21,7 +21,7 @@ br close {task_id} --reason "SKIPPED: {reason}"
 
 ## Phase 3: Log to Skipped File
 
-Append to `.agent/specs/{flow_id}/skipped.md`
+Append to `.agents/specs/{flow_id}/skipped.md`
 
 ### Markdown Sync (Automatic)
 

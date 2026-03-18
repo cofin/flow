@@ -15,18 +15,18 @@ Execute tasks from a flow's plan using TDD workflow.
 **PROTOCOL: Load Flow, Project, and Parent Context.**
 
 1. **Read Artifacts:**
-    - `.agent/specs/{flow_id}/spec.md` (unified spec+plan)
-    - `.agent/specs/{flow_id}/learnings.md`
-2. **Read Project Context:** `.agent/patterns.md`
+    - `.agents/specs/{flow_id}/spec.md` (unified spec+plan)
+    - `.agents/specs/{flow_id}/learnings.md`
+2. **Read Project Context:** `.agents/patterns.md`
 3. **Read Parent Context:**
     - Check if this flow has a parent PRD/Saga.
-    - If yes, read `.agent/specs/<parent_id>/prd.md`.
+    - If yes, read `.agents/specs/<parent_id>/prd.md`.
 4. **Load Beads:**
     - `br status` (workspace overview)
     - `br ready` (list unblocked tasks)
     - `br list --status in_progress` (resume active work)
 
-**CRITICAL:** Before starting, check `.gitignore`. If `.agent/` is ignored, do NOT commit changes to artifacts inside it using git. Update them on disk only.
+**CRITICAL:** Before starting, check `.gitignore`. If `.agents/` is ignored, do NOT commit changes to artifacts inside it using git. Update them on disk only.
 
 ## Phase 2: Select Task (Beads-First)
 
@@ -35,7 +35,7 @@ Execute tasks from a flow's plan using TDD workflow.
 ### 2.1 Check for Resume State
 
 ```bash
-cat .agent/specs/{flow_id}/implement_state.json 2>/dev/null
+cat .agents/specs/{flow_id}/implement_state.json 2>/dev/null
 ```
 
 ### 2.2 Find Next Task
@@ -110,7 +110,7 @@ The git pre-commit hook automatically exports Beads state to spec.md on commit.
 
 ### 5.2 Log Learnings
 
-Add discoveries to `.agent/specs/{flow_id}/learnings.md`
+Add discoveries to `.agents/specs/{flow_id}/learnings.md`
 
 ## Phase 6: Continue or Stop
 

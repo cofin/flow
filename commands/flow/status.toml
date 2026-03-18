@@ -44,7 +44,7 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
 **PROTOCOL: Report deep details for a specific flow.**
 
 1.  **Load Flow Context:**
-    *   **Identify Flow Folder:** `<Flow Directory>/<flow_id>/` (e.g. `.agent/specs/<flow_id>/`).
+    *   **Identify Flow Folder:** `<Flow Directory>/<flow_id>/` (e.g. `.agents/specs/<flow_id>/`).
     *   Read `spec.md` (unified spec+plan), `metadata.json`, `learnings.md`, `blockers.md`.
 
 2.  **Get Beads Details:**

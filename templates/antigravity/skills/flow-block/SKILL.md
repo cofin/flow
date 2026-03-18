@@ -24,7 +24,7 @@ br update {task_id} --status blocked --notes "BLOCKED: {reason}"
 ```
 
 ### 2.2 Log to Blockers File
-Append to `.agent/specs/{flow_id}/blockers.md`:
+Append to `.agents/specs/{flow_id}/blockers.md`:
 ```markdown
 ## {date} - Task {task_id}
 

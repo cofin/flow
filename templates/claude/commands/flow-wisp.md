@@ -40,7 +40,7 @@ This creates:
 
 ## Phase 2: Wisp Directory
 
-Create `.agent/wisps/{wisp_id}/`:
+Create `.agents/wisps/{wisp_id}/`:
 - `notes.md` - Scratch notes
 - `findings.md` - What you learned
 
@@ -76,7 +76,7 @@ When done, choose:
 ### Discard
 
 ```bash
-rm -rf .agent/wisps/{wisp_id}
+rm -rf .agents/wisps/{wisp_id}
 br close {wisp_id} --reason "Wisp discarded"  # if tracked in Beads
 git checkout .  # Discard any code changes
 ```
@@ -84,8 +84,8 @@ git checkout .  # Discard any code changes
 ### Keep Notes
 
 ```bash
-mv .agent/wisps/{wisp_id}/findings.md .agent/research/
-rm -rf .agent/wisps/{wisp_id}
+mv .agents/wisps/{wisp_id}/findings.md .agents/research/
+rm -rf .agents/wisps/{wisp_id}
 git checkout .
 ```
 
@@ -97,7 +97,7 @@ git checkout .
 Wisp Created
 
 ID: {wisp_id}
-Location: .agent/wisps/{wisp_id}/
+Location: .agents/wisps/{wisp_id}/
 
 This is an ephemeral exploration flow.
 - No audit trail

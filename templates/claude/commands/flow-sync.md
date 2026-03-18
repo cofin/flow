@@ -12,7 +12,7 @@ Syncing Beads state to disk for flow: **$ARGUMENTS**
 
 1. **Check for User Input:** If `$ARGUMENTS` is provided, use it as `flow_id`.
 2. **Auto-Discovery (No Argument):**
-    - Read `.agent/flows.md` for active flows.
+    - Read `.agents/flows.md` for active flows.
     - If exactly one active flow, select it.
     - If multiple, choose most recently modified.
     - If none, report "No active flows to sync."
@@ -21,7 +21,7 @@ Syncing Beads state to disk for flow: **$ARGUMENTS**
 
 ## Phase 2: Load Flow Metadata
 
-1. Read `.agent/specs/{flow_id}/metadata.json`.
+1. Read `.agents/specs/{flow_id}/metadata.json`.
 2. Extract `beads_epic_id`.
 3. If no `beads_epic_id`, report error: "Flow has no linked Beads epic. Cannot sync."
 
@@ -47,7 +47,7 @@ Parse the JSON output. Map each task's Beads status to a markdown marker:
 
 ## Phase 4: Regenerate spec.md Task Section
 
-1. Read `.agent/specs/{flow_id}/spec.md`.
+1. Read `.agents/specs/{flow_id}/spec.md`.
 2. Find the `## Implementation Plan` section (or `## Plan` or task list section).
 3. For each task line matching `- [ ] ...`, `- [x] ...`, `- [~] ...`, `- [!] ...`, `- [-] ...`:
    - Match the task to the corresponding Beads task (by title or position).
@@ -61,7 +61,7 @@ Parse the JSON output. Map each task's Beads status to a markdown marker:
 
 ## Phase 5: Update Metadata
 
-Update `.agent/specs/{flow_id}/metadata.json`:
+Update `.agents/specs/{flow_id}/metadata.json`:
 - Set `"synced_at": "{ISO timestamp}"`
 - Set `"updated_at": "{ISO timestamp}"`
 
@@ -79,7 +79,7 @@ Tasks synced from Beads epic: {beads_epic_id}
   Blocked:     {count}
   Skipped:     {count}
 
-Updated: .agent/specs/{flow_id}/spec.md
+Updated: .agents/specs/{flow_id}/spec.md
 ```
 
 ---

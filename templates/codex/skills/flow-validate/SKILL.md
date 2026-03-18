@@ -14,16 +14,16 @@ Validate project integrity and fix issues.
 
 ### 1.1 Required Files
 Check existence of:
-- `.agent/product.md`
-- `.agent/tech-stack.md`
-- `.agent/workflow.md`
-- `.agent/patterns.md`
-- `.agent/flows.md`
-- `.agent/beads.json`
+- `.agents/product.md`
+- `.agents/tech-stack.md`
+- `.agents/workflow.md`
+- `.agents/patterns.md`
+- `.agents/flows.md`
+- `.agents/beads.json`
 
 ### 1.2 Flow Directories
-For each flow in `.agent/flows.md`:
-- Verify `.agent/specs/{flow_id}/` exists
+For each flow in `.agents/flows.md`:
+- Verify `.agents/specs/{flow_id}/` exists
 - Check for `spec.md`, `metadata.json`
 
 ## Phase 2: Beads Validation

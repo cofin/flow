@@ -9,7 +9,7 @@ Display progress overview for all active flows.
 
 ## Phase 1: Load Registry
 
-Read `.agent/flows.md` to get list of active flows.
+Read `.agents/flows.md` to get list of active flows.
 
 ---
 
@@ -45,7 +45,7 @@ Calculate progress: `completed / total * 100`
 ### Fallback: Parse spec.md
 
 If Beads unavailable:
-1. Read `.agent/specs/{flow_id}/spec.md` (unified spec+plan)
+1. Read `.agents/specs/{flow_id}/spec.md` (unified spec+plan)
 2. Parse Implementation Plan section
 3. Count tasks by status (from Beads export or markers)
 

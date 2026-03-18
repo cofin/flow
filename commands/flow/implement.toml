@@ -5,7 +5,7 @@ You are an AI agent assistant for the Flow spec-driven development framework. Yo
 
 CRITICAL: You must validate the success of every tool call. If any tool call fails, you MUST halt the current operation immediately, announce the failure to the user, and await further instructions.
 
-CRITICAL: Check `.gitignore` before committing. If `.agent/` or specific artifacts are ignored, do NOT include them in git commits. Update the files on disk, but exclude them from `git add`.
+CRITICAL: Check `.gitignore` before committing. If `.agents/` or specific artifacts are ignored, do NOT include them in git commits. Update the files on disk, but exclude them from `git add`.
 
 ---
 
@@ -13,29 +13,11 @@ CRITICAL: Check `.gitignore` before committing. If `.agent/` or specific artifac
 **PROTOCOL: Load the Flow context.**
 
 1.  **Check for User Input:** First, check if the user provided a flow ID as an argument (e.g., `/flow:implement <flow_id>`).
-    *   **If provided:** Use that `flow_id` and proceed to step 3.
-    *   **If NOT provided:** Proceed to step 2 to auto-discover the flow.
-
-2.  **Auto-Discovery (No Argument Provided):**
-    *   **Scan for Active Flows:** Read the **Flow Registry** (via the **Universal File Resolution Protocol** using the project's index file). Look for flows marked as "Active" or "In Progress".
-    *   **Heuristics for Selection:**
-        *   If there is exactly one active flow, select it automatically.
-        *   If there are multiple active flows, look for the most recently modified one (check file timestamps in `.agent/specs/`).
-        *   If no active flows are found, list the available pending flows from the registry and ask the user to choose one.
-    *   **Announce Selection:**
-        *   "Found active flow '{flow_id}'. Resuming implementation..."
-
-3.  **Load Flow Context:**
-    *   **Identify Flow Folder:** `<Flow Directory>/<flow_id>/` (e.g. `.agent/specs/<flow_id>/`).
-    *   **Read Artifacts:** Read the following files from the flow folder:
-        *   `spec.md` (unified spec+plan with requirements and implementation plan)
-        *   `learnings.md` (for previous lessons - create if missing)
-        *   `implement_state.json` (for restoring session state - create if missing)
-    *   **Read Project Context:** Read `.agent/patterns.md` and `.agent/workflow.md`.
-
-4.  **Restore State:**
-    *   Check `implement_state.json`. If it contains state (current phase, current task), load it.
-    *   Verify the state against `spec.md` (e.g., ensure the task is still pending).
+2.  **Auto-Discovery (No Argument Provided):** Scan `.agents/flows.md` for active flows. Select if only one, choose most recent if multiple, ask if none.
+3.  **Load Flow Context:** Read `spec.md`, `learnings.md` (create if missing), `implement_state.json` (create if missing) from `.agents/specs/<flow_id>/`. Read `.agents/patterns.md` and `.agents/workflow.md`.
+4.  **Mark Flow In-Progress:** 
+    * Find the flow entry in `.agents/flows.md`.
+    * Update its status marker from `[ ]` to `[~]`.
 
 ---
 
@@ -44,9 +26,9 @@ CRITICAL: Check `.gitignore` before committing. If `.agent/` or specific artifac
 
 1.  **Check Workspace:**
     ```bash
-    br status                          # Workspace overview
-    br ready                           # List unblocked tasks
-    br list --status in_progress       # Resume active work
+    br status
+    br ready
+    br list --status in_progress
     ```
 
 ---
@@ -55,88 +37,61 @@ CRITICAL: Check `.gitignore` before committing. If `.agent/` or specific artifac
 **PROTOCOL: Execute the plan task by task.**
 
 ### 3.1 Select Task (Beads-First)
-**CRITICAL:** Beads is the source of truth. Do NOT use spec.md markers.
-
-1.  **Primary - Use Beads:**
-    *   Run `br ready` to find unblocked tasks.
-    *   If multiple ready tasks, ask user which to start.
-    *   **Announce:** "Starting Task [N]: [Task Description]"
-2.  **Fallback - Parse spec.md:**
-    *   If Beads unavailable, parse `spec.md` Implementation Plan section.
-    *   Find first pending task not yet tracked in Beads.
-3.  **Sync Beads:**
-    *   Find the Beads issue ID for this task (if stored in metadata).
-    *   If task not in Beads, create it with FULL CONTEXT:
-        ```bash
-        br create "{task_description}" --parent {epic_id} -p 2 \\
-          --description="{what_needs_to_be_done_and_why}"
-        br update <task_id> --notes "Phase {N}, Task {M}. Files: {affected_files}. Created by /flow:implement"
-        ```
-    *   Mark as in progress: `br update <issue_id> --status in_progress`
-    *   **CRITICAL:** Always include `--description` when creating tasks, then add `--notes` via `br update`.
+1.  **Primary - Use Beads:** Run `br ready` to find unblocked tasks.
+2.  **Sync Beads:** If task not in Beads, create it and update notes. Mark as in progress: `br update <issue_id> --status in_progress`.
 
 ### 3.2 TDD Workflow (Red-Green-Refactor)
-1.  **Red (Write Tests):**
-    *   Create or update test files for the feature.
-    *   Run the test command (from `tech-stack.md` or `workflow.md`).
-    *   **Verify Failure:** Ensure the tests fail as expected (capturing the output).
-2.  **Green (Implement):**
-    *   Write the minimum code necessary to pass the tests.
-    *   Adhere to patterns in `.agent/patterns.md` and learnings in `learnings.md`.
-    *   Run tests again.
-    *   **Verify Pass:** Ensure all tests pass.
-3.  **Refactor:**
-    *   Clean up the code (formatting, linting, optimization) without changing behavior.
-    *   Run tests one last time to ensure no regressions.
+1.  **Red (Write Tests):** Create/update test files, run tests, verify expected failure.
+2.  **Green (Implement):** Write code adhering to `patterns.md` and `learnings.md`. Ensure all tests pass.
+3.  **Refactor:** Clean up code, formatting, linting without changing behavior. Run tests to verify pass.
 
-### 3.3 Commit and Sync (Beads is Source of Truth)
-**CRITICAL:** Only update Beads. Do NOT write `[x]` markers to spec.md.
-
-1.  **Git Commit:**
-    *   Stage changes: `git add .`
-    *   Commit with conventional message: `git commit -m "feat(flow): [Task Description]"`
-2.  **Update State:**
-    *   Update `implement_state.json` with the new current task index.
-3.  **Sync Beads (Primary):**
-    *   Close the task in Beads: `br close <issue_id> --reason "commit: <hash>"`
-4.  **Markdown Sync (Automatic):**
-    *   The git pre-commit hook automatically exports Beads state to spec.md on commit.
-    *   **Do NOT write `[x]` markers directly to spec.md.**
+### 3.3 Commit and Sync
+1.  **Git Commit:** `git add .`, `git commit -m "feat(flow): [Task Description]"`
+2.  **Sync Beads (Primary):** `br close <issue_id> --reason "commit: <hash>"`
+    *   Markdown Sync (Automatic via pre-commit hook). Do NOT write `[x]` markers directly to `spec.md`.
 
 ### 3.4 Capture Learnings
-1.  **Analyze:** Did you discover a new pattern, gotcha, or architectural insight?
-2.  **Log:** If yes, append it to `.agent/specs/<flow_id>/learnings.md`.
-3.  **Sync:** Add the learning as a note to the Beads issue: `br update <issue_id> --notes "<learning>"`
+1.  **Log:** Append new patterns, gotchas, or insights to `.agents/specs/<flow_id>/learnings.md`.
+2.  **Sync:** Add note to Beads issue: `br update <issue_id> --notes "<learning>"`
 
 ---
 
 ## 4.0 PHASE COMPLETION GATE
-**PROTOCOL: When a Phase in `spec.md` is complete.**
-
-1.  **Run Full Test Suite:** Execute the full project test suite to check for regressions.
-2.  **Create Checkpoint:**
-    *   Ensure the phase completion is committed: `git commit -m "chore(flow): complete phase <N>"`
-    *   Announce: "Phase <N> complete. Checkpoint created via commit."
-3.  **Verify Coverage:** Check if test coverage meets the workflow requirements (default >80%).
-4.  **Markdown Sync (Automatic):** The git pre-commit hook automatically exports Beads state to spec.md on commit.
-5.  **Prompt for Elevation:**
-    *   Ask the user: "Are there any learnings from this phase that should be elevated to the global `patterns.md`?"
-    *   If yes, move them from `learnings.md` to `.agent/patterns.md`.
+1.  **Run Full Test Suite:** Check for regressions.
+2.  **Create Checkpoint:** `git commit -m "chore(flow): complete phase <N>"`
+3.  **Prompt for Elevation:** Ask: "Are there any learnings from this phase that should be elevated to the global `patterns.md`?"
 
 ---
 
-## 5.0 FLOW COMPLETION
-**PROTOCOL: When all tasks in `spec.md` are complete.**
+## 5.0 SYNCHRONIZE PROJECT DOCUMENTATION (Flow Complete)
+**PROTOCOL: Update core knowledge when the entire Flow finishes.**
+
+1.  **Review Core Docs:** Inspect `.agents/product.md`, `.agents/tech-stack.md`, `.agents/product-guidelines.md`.
+2.  **Analyze Impact:** Based on the code changes and learnings, determine if any of these documents need to be updated.
+3.  **Propose Updates:** If updates are needed, present the diffs to the user.
+4.  **Ask for Approval:** "Do you **Approve** these documentation updates, or **Skip** them?"
+    * If Approved, update the markdown files.
+
+---
+
+## 6.0 TRACK CLEANUP (Flow Complete)
+**PROTOCOL: Manage the Flow artifacts.**
 
 1.  **Final Verification:** Run all tests.
-2.  **Archive:**
-    *   Move the flow folder to `.agent/archive/<flow_id>/`.
-    *   Update the **Flow Registry** (`.agent/flows.md`) to move the flow to an "Archived" section.
-3.  **Announce:** "Flow '<flow_id>' is complete and archived."
+2.  **Mark Flow Completed:** 
+    * Find the flow entry in `.agents/flows.md`.
+    * Update its status marker from `[~]` to `[x]`.
+3.  **Cleanup Prompt:** Ask the user: 
+    * "The Flow is complete. Do you want to:
+       A) **Archive** moving it to `.agents/archive/<flow_id>/`
+       B) **Delete** the `.agents/specs/<flow_id>/` directory
+       C) **Skip** cleanup and leave it."
+    * Perform the user's chosen action.
+4.  **Announce:** "Flow '<flow_id>' is complete and <Archive/Delete/Kept>."
 
 ---
 
-## 6.0 ERROR HANDLING
-*   **Test Failure:** If tests fail in the "Green" phase, analyze the error, adjust the code, and retry (up to 3 times). If still failing, stop and ask for human guidance.
-*   **Tool Failure:** If a shell command fails, report the error code and stderr output to the user immediately.
+## 7.0 ERROR HANDLING
+*   **Test Failure:** Analyze and retry up to 3 times in Green phase. If failing, stop and ask human.
+*   **Tool Failure:** Report error explicitly and wait.
 """

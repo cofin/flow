@@ -14,9 +14,9 @@ git diff --stat HEAD~10
 
 ## Phase 2: Update Context Files
 
-- Compare `.agent/tech-stack.md` with actual dependencies
-- Rebuild `.agent/index.md`
-- Flag stale patterns in `.agent/patterns.md`
+- Compare `.agents/tech-stack.md` with actual dependencies
+- Rebuild `.agents/index.md`
+- Flag stale patterns in `.agents/patterns.md`
 
 ## Phase 3: Flow Sync
 

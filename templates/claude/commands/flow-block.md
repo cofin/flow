@@ -28,7 +28,7 @@ br dep add {task_id} {blocking_task_id}  # if blocked by another task
 
 ## Phase 3: Log Blocker
 
-Append to `.agent/specs/{flow_id}/blockers.md`:
+Append to `.agents/specs/{flow_id}/blockers.md`:
 
 ```markdown
 ## [YYYY-MM-DD HH:MM] Task N: {description}

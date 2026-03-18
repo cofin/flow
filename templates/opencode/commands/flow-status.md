@@ -8,7 +8,7 @@ Display progress overview for all active flows.
 
 ## Phase 1: Load Registry
 
-Read `.agent/flows.md` to get list of active flows.
+Read `.agents/flows.md` to get list of active flows.
 
 ## Phase 2: Beads Status (Source of Truth)
 
@@ -34,7 +34,7 @@ Count tasks by status: pending, in_progress, completed, blocked
 ### Fallback: Parse spec.md
 
 If Beads unavailable:
-1. Read `.agent/specs/{flow_id}/spec.md`
+1. Read `.agents/specs/{flow_id}/spec.md`
 2. Parse Implementation Plan section
 
 ## Phase 4: Display Dashboard

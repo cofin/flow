@@ -11,9 +11,9 @@ Conducting research for: **$ARGUMENTS**
 ## Phase 0: Setup Check
 
 Using the **Universal File Resolution Protocol**, verify:
-- **Product Definition** (`.agent/product.md`)
-- **Tech Stack** (`.agent/tech-stack.md`)
-- **Workflow** (`.agent/workflow.md`)
+- **Product Definition** (`.agents/product.md`)
+- **Tech Stack** (`.agents/tech-stack.md`)
+- **Workflow** (`.agents/workflow.md`)
 
 If ANY missing: "Flow not set up. Run `/flow-setup` first." → HALT
 
@@ -222,15 +222,15 @@ Create explicit research tasks with status tracking:
 
 2. **Create Research Directory:**
    ```bash
-   mkdir -p .agent/research/{research_id}
+   mkdir -p .agents/research/{research_id}
    ```
 
-3. **Write Research Document:** `.agent/research/{research_id}/research.md`
+3. **Write Research Document:** `.agents/research/{research_id}/research.md`
 
    ```markdown
    # Research: [Topic]
 
-   **Workspace**: `.agent/research/{research_id}/`
+   **Workspace**: `.agents/research/{research_id}/`
    **Status**: Complete
    **Type**: [New Feature|Bug|Integration|Refactoring|Performance]
 
@@ -267,11 +267,11 @@ Create explicit research tasks with status tracking:
 
    ## Research Outputs
    **This research informs:**
-   - PRD: `.agent/specs/{prd_id}/prd.md` (when created)
-   - Flow: `.agent/specs/{flow_id}/` (when created)
+   - PRD: `.agents/specs/{prd_id}/prd.md` (when created)
+   - Flow: `.agents/specs/{flow_id}/` (when created)
    ```
 
-4. **Create Metadata:** `.agent/research/{research_id}/metadata.json`
+4. **Create Metadata:** `.agents/research/{research_id}/metadata.json`
    ```json
    {
      "research_id": "{research_id}",
@@ -291,7 +291,7 @@ Create explicit research tasks with status tracking:
 >
 > [3-5 bullet points]
 >
-> **Full research:** `.agent/research/{research_id}/research.md`
+> **Full research:** `.agents/research/{research_id}/research.md`
 >
 > **Next step:** Run `/flow-prd` to create a PRD based on this research."
 

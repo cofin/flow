@@ -1,6 +1,6 @@
 ---
 name: flow
-description: "Context-driven development workflow with Beads integration. Auto-activates when .agent/ directory exists. Provides spec-first planning, TDD workflow, knowledge capture, and cross-session memory via Beads."
+description: "Context-driven development workflow with Beads integration. Auto-activates when .agents/ directory exists. Provides spec-first planning, TDD workflow, knowledge capture, and cross-session memory via Beads."
 ---
 
 # Flow - Context-Driven Development
@@ -8,7 +8,7 @@ description: "Context-driven development workflow with Beads integration. Auto-a
 ## Auto-Activation
 
 This skill activates when:
-- `.agent/` directory exists in the project root
+- `.agents/` directory exists in the project root
 - User mentions "flow", "spec", "plan", or "implement"
 - User invokes `/flow-*` commands
 
@@ -17,7 +17,7 @@ This skill activates when:
 ### Flows (formerly PRDs)
 A flow is a logical unit of work (feature or bug fix). Each flow has:
 - **ID format**: `shortname_YYYYMMDD` (e.g., `auth_20260124`)
-- **Location**: `.agent/specs/{flow_id}/`
+- **Location**: `.agents/specs/{flow_id}/`
 - **Files**: spec.md (unified spec+plan), metadata.json, learnings.md
 
 ### Status Markers
@@ -38,16 +38,16 @@ Flow requires Beads for persistent cross-session memory:
 
 **To locate files within Flow context:**
 
-1. **Project Index**: `.agent/index.md`
-2. **Flow Registry**: `.agent/flows.md`
-3. **Flow Index**: `.agent/specs/{flow_id}/index.md`
+1. **Project Index**: `.agents/index.md`
+2. **Flow Registry**: `.agents/flows.md`
+3. **Flow Index**: `.agents/specs/{flow_id}/index.md`
 
 **Default Paths:**
-- Product: `.agent/product.md`
-- Tech Stack: `.agent/tech-stack.md`
-- Workflow: `.agent/workflow.md`
-- Patterns: `.agent/patterns.md`
-- Beads Config: `.agent/beads.json`
+- Product: `.agents/product.md`
+- Tech Stack: `.agents/tech-stack.md`
+- Workflow: `.agents/workflow.md`
+- Patterns: `.agents/patterns.md`
+- Beads Config: `.agents/beads.json`
 
 ## Workflow Commands
 

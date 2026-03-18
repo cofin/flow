@@ -26,7 +26,7 @@ br update {wisp_task_id} --notes "Ephemeral exploration. Created by /flow:wisp"
 
 ## Phase 2: Wisp Directory
 
-Create `.agent/wisps/{wisp_id}/`:
+Create `.agents/wisps/{wisp_id}/`:
 - `notes.md` - Scratch notes
 - `findings.md` - What you learned
 
@@ -48,14 +48,14 @@ When done, choose:
 
 **Discard** - Delete everything:
 ```bash
-rm -rf .agent/wisps/{wisp_id}
+rm -rf .agents/wisps/{wisp_id}
 git checkout .
 ```
 
 **Keep Notes** - Delete code, keep findings:
 ```bash
-mv .agent/wisps/{wisp_id}/findings.md .agent/research/
-rm -rf .agent/wisps/{wisp_id}
+mv .agents/wisps/{wisp_id}/findings.md .agents/research/
+rm -rf .agents/wisps/{wisp_id}
 ```
 
 ## Critical Rules

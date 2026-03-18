@@ -27,7 +27,7 @@ br close {task_id} --reason "Skipped: {reason}"
 
 ## Phase 3: Log Skip
 
-Append to `.agent/specs/{flow_id}/skipped.md`:
+Append to `.agents/specs/{flow_id}/skipped.md`:
 
 ```markdown
 ## [YYYY-MM-DD HH:MM] Task N: {description}

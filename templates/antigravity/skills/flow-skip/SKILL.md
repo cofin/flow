@@ -31,7 +31,7 @@ br close {task_id} --reason "SKIPPED: {reason}"
 ```
 
 ### 3.2 Log to Skipped File
-Append to `.agent/specs/{flow_id}/skipped.md`:
+Append to `.agents/specs/{flow_id}/skipped.md`:
 ```markdown
 ## {date} - Task {task_id}
 

@@ -9,11 +9,11 @@ Validate project integrity and fix issues.
 ## Phase 1: Structure Validation
 
 Check required files:
-- `.agent/product.md`
-- `.agent/tech-stack.md`
-- `.agent/workflow.md`
-- `.agent/patterns.md`
-- `.agent/flows.md`
+- `.agents/product.md`
+- `.agents/tech-stack.md`
+- `.agents/workflow.md`
+- `.agents/patterns.md`
+- `.agents/flows.md`
 
 ## Phase 2: Beads Validation
 

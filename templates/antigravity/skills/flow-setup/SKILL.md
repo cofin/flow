@@ -12,7 +12,7 @@ Initialize a project for context-driven development with Beads integration.
 Check for existing setup state:
 
 ```bash
-cat .agent/setup-state.json 2>/dev/null
+cat .agents/setup-state.json 2>/dev/null
 ```
 
 **If state exists AND `last_successful_step` is "complete":**
@@ -52,15 +52,15 @@ If outdated, suggest: `curl -fsSL https://raw.githubusercontent.com/Dicklesworth
 
 ### 0.1.2 Knowledge Base Check
 
-Check for missing `.agent/knowledge/` directory. If absent, create it and write `knowledge/index.md` from template.
+Check for missing `.agents/knowledge/` directory. If absent, create it and write `knowledge/index.md` from template.
 
 ### 0.1.3 Configuration Validation
 
 Check and update:
 
-- `.agent/beads.json` - Ensure valid configuration
-- `.agent/workflow.md` - Check for outdated command syntax
-- `.agent/tech-stack.md` - Verify detected languages match codebase
+- `.agents/beads.json` - Ensure valid configuration
+- `.agents/workflow.md` - Check for outdated command syntax
+- `.agents/tech-stack.md` - Verify detected languages match codebase
 
 ### 0.1.4 Alignment Summary
 
@@ -106,13 +106,13 @@ If installed, verify version is current.
 
 > **Where would you like to store Flow specification files?**
 >
-> - **A) `.agent/`** (Recommended - hidden from project root)
+> - **A) `.agents/`** (Recommended - hidden from project root)
 > - **B) `specs/`** (Visible at project root)
 > - **C) Custom path** (Type your own)
 
 **Store Configuration:** Based on user's choice, set `root_directory` variable.
 
-- Default to `.agent/` if A selected
+- Default to `.agents/` if A selected
 - Use `specs/` if B selected
 - Use custom path if C selected
 
@@ -122,7 +122,7 @@ If installed, verify version is current.
 mkdir -p <root_directory>
 ```
 
-**All subsequent file paths use `<root_directory>` instead of hardcoded `.agent/`.**
+**All subsequent file paths use `<root_directory>` instead of hardcoded `.agents/`.**
 
 ---
 

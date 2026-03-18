@@ -185,7 +185,7 @@ Flow follows TDD workflow (Beads-first):
 
 ```
 project/
-├── .agent/
+├── .agents/
 │   ├── product.md           # Product vision and goals
 │   ├── product-guidelines.md # Brand/style guidelines
 │   ├── tech-stack.md        # Technology choices

@@ -15,7 +15,7 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
 ## PLAN MODE & WORKSPACE SAFETY
 
 1. **Native Plan Mode:** You MUST use the host's native plan/reasoning mode to think before answering.
-2. **Writable Check:** You MUST verify that the `.agent/` directory is writable before generating any artifacts.
+2. **Writable Check:** You MUST verify that the `.agents/` directory is writable before generating any artifacts.
 3. **Safe Tools:** Prefer read-only tools for analysis and explicitly constrained writes for state modifications.
 
 ## CRITICAL CONSTRAINT: PLANNING ONLY - NO CODE MODIFICATION
@@ -27,12 +27,12 @@ You are STRICTLY FORBIDDEN from:
 - Writing, editing, or modifying ANY source code files
 - Creating new code files (*.py, *.ts, *.js, *.rs, etc.)
 - Running implementation commands
-- Making ANY changes outside of `.agent/` directory
+- Making ANY changes outside of `.agents/` directory
 
 You MAY ONLY:
 
-- Create/edit files in `.agent/specs/` (spec.md, metadata.json)
-- Create/edit `.agent/flows.md` registry
+- Create/edit files in `.agents/specs/` (spec.md, metadata.json)
+- Create/edit `.agents/flows.md` registry
 - Run `br create` commands for Beads tracking
 - Read source code for analysis (but NEVER modify it)
 
@@ -45,15 +45,15 @@ You MAY ONLY:
 **PROTOCOL: Read global and parent context to constrain the plan.**
 
 1. **Read Global Patterns:**
-    - Resolve and read `.agent/patterns.md`.
+    - Resolve and read `.agents/patterns.md`.
     - Keep these patterns in mind. If the user suggests something violating a pattern, WARN them.
 
 2. **Read Parent Context (Optional):**
-    - If a `parent_prd_id` is provided (or if you find an active PRD in `.agent/specs/`), read its `prd.md`.
+    - If a `parent_prd_id` is provided (or if you find an active PRD in `.agents/specs/`), read its `prd.md`.
     - Ensure this Flow's spec aligns with the Master Roadmap.
 
 3. **Read Research:**
-    - Check `.agent/research/`. If relevant research exists, ask to use it.
+    - Check `.agents/research/`. If relevant research exists, ask to use it.
 
 ---
 
@@ -180,7 +180,7 @@ You MAY ONLY:
 
 1. **Unique ID:** `slug_YYYYMMDD` (e.g., `user-auth_20260126`).
 
-2. **Directory:** `.agent/specs/<flow_id>/`.
+2. **Directory:** `.agents/specs/<flow_id>/`.
 
 3. **Files:** Write `spec.md` and `metadata.json`.
 
@@ -199,7 +199,7 @@ You MAY ONLY:
     }
     ```
 
-5. **Registry:** Append to `.agent/flows.md`.
+5. **Registry:** Append to `.agents/flows.md`.
 
 6. **Beads Integration:**
 
@@ -225,7 +225,7 @@ Announce:
 > - Key files: [list]
 >
 > **Artifacts:**
-> - Spec: `.agent/specs/<flow_id>/spec.md` ([N] phases, [M] tasks)
+> - Spec: `.agents/specs/<flow_id>/spec.md` ([N] phases, [M] tasks)
 >
 > Ready to execute? Run:
 > `$flow:implement <flow_id>`"
@@ -238,5 +238,5 @@ Announce:
 2. **INFORMED QUESTIONS** - Questions must reference actual files/code found
 3. **PATTERNS COMPLIANCE** - Check patterns.md and warn on violations
 4. **UNIFIED SPEC** - Single `spec.md` contains both requirements and plan. No separate `plan.md`.
-5. **SPECS DIRECTORY** - All artifacts go in `.agent/specs/`
+5. **SPECS DIRECTORY** - All artifacts go in `.agents/specs/`
 6. **BEADS CONTEXT** - Include description and notes with br create

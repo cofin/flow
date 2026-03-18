@@ -22,7 +22,7 @@ $flow:formula list
 ```
 
 Lists templates from:
-- Local: `.agent/templates/`
+- Local: `.agents/templates/`
 
 ### Pour Template
 
@@ -42,20 +42,20 @@ Extracts a template from an existing flow.
 
 ## List Action
 
-Scan `.agent/templates/` directory and display available templates with descriptions.
+Scan `.agents/templates/` directory and display available templates with descriptions.
 
 ## Pour Action
 
-1. Read `.agent/templates/{template_name}.md`
+1. Read `.agents/templates/{template_name}.md`
 2. Customize placeholders and create Beads tasks
 
 ## Distill Action
 
 1. Read flow's spec.md
 2. Abstract into template with placeholders
-3. Save to `.agent/templates/{name}.md`
+3. Save to `.agents/templates/{name}.md`
 
 ## Critical Rules
 
-1. **FILE-BASED** - Templates stored in `.agent/templates/`
+1. **FILE-BASED** - Templates stored in `.agents/templates/`
 2. **ABSTRACT PROPERLY** - Use placeholders

@@ -10,10 +10,10 @@ Implementing flow: **$ARGUMENTS**
 
 ## Phase 0: Load Context
 
-1. Load flow from `.agent/specs/{flow_id}/`
+1. Load flow from `.agents/specs/{flow_id}/`
 2. Read `spec.md` (unified spec+plan), `learnings.md`
-3. Read `.agent/patterns.md` for project patterns
-4. Read `.agent/workflow.md` for process guidelines
+3. Read `.agents/patterns.md` for project patterns
+4. Read `.agents/workflow.md` for process guidelines
 
 ---
 
@@ -26,7 +26,7 @@ Implementing flow: **$ARGUMENTS**
     * **If NOT provided:** Proceed to step 2 to auto-discover the flow.
 
 2. **Auto-Discovery (No Argument Provided):**
-    * **Scan for Active Flows:** Read `.agent/flows.md` and look for flows marked as "Active" or "In Progress".
+    * **Scan for Active Flows:** Read `.agents/flows.md` and look for flows marked as "Active" or "In Progress".
     * **Heuristics:**
         * If exact one active flow, select it.
         * If multiple, choose most recent.
@@ -34,10 +34,10 @@ Implementing flow: **$ARGUMENTS**
 
 3. **Load Flow Context:**
     * **Read Artifacts:** `spec.md` (unified spec+plan), `learnings.md` (create if missing).
-    * **Read Project Context:** Read `.agent/patterns.md` and `.agent/workflow.md`.
-    * **Read Parent Context:** If this flow is part of a PRD/Saga, read `.agent/specs/<parent_id>/prd.md`.
+    * **Read Project Context:** Read `.agents/patterns.md` and `.agents/workflow.md`.
+    * **Read Parent Context:** If this flow is part of a PRD/Saga, read `.agents/specs/<parent_id>/prd.md`.
 
-**CRITICAL:** Before starting, check `.gitignore`. If `.agent/` is ignored, do NOT commit changes to artifacts inside it using git. Update them on disk only.
+**CRITICAL:** Before starting, check `.gitignore`. If `.agents/` is ignored, do NOT commit changes to artifacts inside it using git. Update them on disk only.
 
 ---
 
@@ -231,7 +231,7 @@ When all tasks complete:
 
 1. Run `/flow-archive {flow_id}` to archive
 2. Elevate remaining learnings to `patterns.md`
-3. Update `.agent/flows.md` status to `[x]`
+3. Update `.agents/flows.md` status to `[x]`
 
 ---
 

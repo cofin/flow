@@ -13,13 +13,13 @@ Beads is a **required dependency**. Flow will offer to install it and configures
 
 ## Configuration
 
-The root directory for Flow artifacts defaults to `.agent/`. This can be customized during `/flow:setup`.
+The root directory for Flow artifacts defaults to `.agents/`. This can be customized during `/flow:setup`.
 
 To find the configured root directory:
 
-1. Check for `.agent/setup-state.json`
+1. Check for `.agents/setup-state.json`
 2. Read the `root_directory` value from the found file
-3. If no file found, use `.agent/` as default
+3. If no file found, use `.agents/` as default
 
 ## Universal File Resolution Protocol
 
@@ -28,7 +28,7 @@ To find the configured root directory:
 To find a file (e.g., "**Product Definition**") within a specific context:
 
 1. **Identify Index:** Determine the relevant index file:
-    - **Project Context:** `.agent/index.md`
+    - **Project Context:** `.agents/index.md`
     - **Flow Context:**
         a. Resolve and read the **Flow Registry** (via Project Context)
         b. Find the entry for the specific `<flow_id>`
@@ -47,29 +47,29 @@ To find a file (e.g., "**Product Definition**") within a specific context:
 
 | Key | Default Path |
 |-----|--------------|
-| **Product Definition** | `.agent/product.md` |
-| **Tech Stack** | `.agent/tech-stack.md` |
-| **Workflow** | `.agent/workflow.md` |
-| **Product Guidelines** | `.agent/product-guidelines.md` |
-| **Flow Registry** | `.agent/flows.md` |
-| **Flow Directory** | `.agent/specs/` |
-| **Archive Directory** | `.agent/archive/` |
-| **Template Directory** | `.agent/templates/` |
-| **Code Styleguides Directory** | `.agent/code-styleguides/` |
-| **Patterns** | `.agent/patterns.md` |
-| **Knowledge Base** | `.agent/knowledge/` |
-| **Knowledge Index** | `.agent/knowledge/index.md` |
-| **Beads Config** | `.agent/beads.json` |
-| **Research Directory** | `.agent/research/` |
-| **Wisps Directory** | `.agent/wisps/` |
+| **Product Definition** | `.agents/product.md` |
+| **Tech Stack** | `.agents/tech-stack.md` |
+| **Workflow** | `.agents/workflow.md` |
+| **Product Guidelines** | `.agents/product-guidelines.md` |
+| **Flow Registry** | `.agents/flows.md` |
+| **Flow Directory** | `.agents/specs/` |
+| **Archive Directory** | `.agents/archive/` |
+| **Template Directory** | `.agents/templates/` |
+| **Code Styleguides Directory** | `.agents/code-styleguides/` |
+| **Patterns** | `.agents/patterns.md` |
+| **Knowledge Base** | `.agents/knowledge/` |
+| **Knowledge Index** | `.agents/knowledge/index.md` |
+| **Beads Config** | `.agents/beads.json` |
+| **Research Directory** | `.agents/research/` |
+| **Wisps Directory** | `.agents/wisps/` |
 
 **Standard Default Paths (Flow):**
 
 | Key | Default Path |
 |-----|--------------|
-| **Specification** | `.agent/specs/<flow_id>/spec.md` (unified spec + plan) |
-| **Metadata** | `.agent/specs/<flow_id>/metadata.json` |
-| **Learnings** | `.agent/specs/<flow_id>/learnings.md` |
+| **Specification** | `.agents/specs/<flow_id>/spec.md` (unified spec + plan) |
+| **Metadata** | `.agents/specs/<flow_id>/metadata.json` |
+| **Learnings** | `.agents/specs/<flow_id>/learnings.md` |
 
 ## Flow ID Naming Convention
 
@@ -78,7 +78,7 @@ To find a file (e.g., "**Product Definition**") within a specific context:
 - **Active Flows:** Slug + date (e.g., `dark-mode_20260124`)
   - Derived from description: lowercase, hyphens for spaces, max 3-4 words
   - Date suffix prevents collisions and aids chronological sorting
-- **Archived Flows:** Keep same ID, moved to `.agent/archive/`
+- **Archived Flows:** Keep same ID, moved to `.agents/archive/`
 
 ## Task Status Markers
 
@@ -141,7 +141,7 @@ br init
 
 For local-only use, add `.beads/` to `.gitignore` after initialization.
 
-### Configuration (`.agent/beads.json`)
+### Configuration (`.agents/beads.json`)
 
 ```json
 {
@@ -251,11 +251,11 @@ Consolidated patterns from all flows:
 ### Knowledge Flywheel (Three-Tier)
 
 1. **Capture** - After each task, append learnings to flow's `learnings.md`
-2. **Elevate** - At phase/flow completion, move reusable patterns to `.agent/patterns.md`
+2. **Elevate** - At phase/flow completion, move reusable patterns to `.agents/patterns.md`
 3. **Extract** - At archive, persist full learnings to `knowledge/{flow_id}.md`
 4. **Inherit** - New flows read `patterns.md` + scan `knowledge/index.md`
 
-Knowledge entries in `.agent/knowledge/` survive archive cleanup, ensuring detailed learnings are never lost.
+Knowledge entries in `.agents/knowledge/` survive archive cleanup, ensuring detailed learnings are never lost.
 
 ## Parallel Execution
 
@@ -308,7 +308,7 @@ Skills are available in `skills/` for copying to `.gemini/skills/`:
 
 | Skill | Purpose |
 |-------|---------|
-| **flow** | Auto-activates when `.agent/` exists. Workflow guidance. |
+| **flow** | Auto-activates when `.agents/` exists. Workflow guidance. |
 | **beads** | Auto-activates when `.beads/` exists. Persistent memory. |
 | **50+ tech skills** | React, Rust, Litestar, SQLSpec, testing, etc. |
 

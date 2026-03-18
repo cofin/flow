@@ -11,8 +11,8 @@ Syncing Flow context with current codebase state.
 
 Compare context files with actual codebase:
 
-1. **Tech Stack** - Check if detected stack matches `.agent/tech-stack.md`
-2. **Patterns** - Search for patterns not in `.agent/patterns.md`
+1. **Tech Stack** - Check if detected stack matches `.agents/tech-stack.md`
+2. **Patterns** - Search for patterns not in `.agents/patterns.md`
 3. **Files** - Check if referenced files still exist
 
 ---
@@ -74,7 +74,7 @@ Ensure Beads is current with git.
 
 ## Phase 6: Save Refresh State
 
-Create `.agent/refresh_state.json`:
+Create `.agents/refresh_state.json`:
 
 ```json
 {

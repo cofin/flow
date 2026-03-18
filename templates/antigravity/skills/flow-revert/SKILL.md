@@ -16,7 +16,7 @@ Git-aware revert of flows, phases, or tasks.
 
 ### 1.1 Read Current State
 ```bash
-cat .agent/specs/{flow_id}/implement_state.json
+cat .agents/specs/{flow_id}/implement_state.json
 ```
 
 ### 1.2 Gather Commits

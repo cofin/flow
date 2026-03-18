@@ -26,7 +26,7 @@ Ask user about abstraction:
 
 ## Phase 4: Generate Template File
 
-Create `.agent/templates/{template_name}.md`:
+Create `.agents/templates/{template_name}.md`:
 
 ```markdown
 # Template: {template_name}

@@ -10,12 +10,12 @@ Validate Flow project integrity and optionally fix issues.
 ## Phase 1: Directory Structure
 
 Check required files exist:
-- [ ] `.agent/product.md`
-- [ ] `.agent/tech-stack.md`
-- [ ] `.agent/workflow.md`
-- [ ] `.agent/beads.json`
-- [ ] `.agent/flows.md`
-- [ ] `.agent/patterns.md`
+- [ ] `.agents/product.md`
+- [ ] `.agents/tech-stack.md`
+- [ ] `.agents/workflow.md`
+- [ ] `.agents/beads.json`
+- [ ] `.agents/flows.md`
+- [ ] `.agents/patterns.md`
 - [ ] `.beads/` directory
 
 ---
@@ -33,9 +33,9 @@ Check Beads is operational.
 
 ## Phase 3: Flow Consistency
 
-For each flow in `.agent/flows.md`:
+For each flow in `.agents/flows.md`:
 
-1. Verify directory exists: `.agent/specs/{flow_id}/`
+1. Verify directory exists: `.agents/specs/{flow_id}/`
 2. Verify required files: spec.md, metadata.json
 3. Verify Beads epic exists
 4. Check task count matches spec
@@ -63,7 +63,7 @@ Verify git notes exist for completed tasks.
 Flow Validation Report
 
 === Structure ===
-[x] .agent/ directory complete
+[x] .agents/ directory complete
 [x] Beads initialized
 
 === Flows ===

@@ -16,7 +16,7 @@ git log --oneline -10
 
 ## Phase 2: Compile Handoff
 
-Create `.agent/handoff.md`:
+Create `.agents/handoff.md`:
 
 ```markdown
 # Session Handoff

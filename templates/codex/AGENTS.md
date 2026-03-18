@@ -8,7 +8,7 @@ You are working in a project using the **Flow Framework** for context-driven dev
 A flow is a logical unit of work (feature, bug fix, refactor). Each flow has:
 - **Unique ID format:** `shortname_YYYYMMDD` (e.g., `user-auth_20260124`)
 - **Status markers:** `[ ]` pending, `[~]` in progress, `[x]` completed, `[!]` blocked, `[-]` skipped
-- **Own directory** at `.agent/specs/{flow_id}/` with unified spec, metadata, learnings
+- **Own directory** at `.agents/specs/{flow_id}/` with unified spec, metadata, learnings
 
 ### Beads Integration (Source of Truth)
 Beads provides persistent cross-session memory:
@@ -37,7 +37,7 @@ br show <id> --format json  # Export epic with tasks
 
 ### Directory Structure
 ```
-.agent/
+.agents/
 ├── product.md           # Product vision
 ├── tech-stack.md        # Technology choices
 ├── workflow.md          # Development workflow

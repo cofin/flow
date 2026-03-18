@@ -27,7 +27,7 @@ Identify new/removed:
 ## Phase 2: Update Context Files
 
 ### 2.1 Tech Stack
-Compare `.agent/tech-stack.md` with actual:
+Compare `.agents/tech-stack.md` with actual:
 - package.json / pyproject.toml / Cargo.toml
 - Framework usage
 - Database connections
@@ -35,10 +35,10 @@ Compare `.agent/tech-stack.md` with actual:
 Update if differences found.
 
 ### 2.2 Index
-Rebuild `.agent/index.md` with current file structure.
+Rebuild `.agents/index.md` with current file structure.
 
 ### 2.3 Patterns
-Check if patterns in `.agent/patterns.md` are still valid:
+Check if patterns in `.agents/patterns.md` are still valid:
 - Do referenced files exist?
 - Are APIs still the same?
 

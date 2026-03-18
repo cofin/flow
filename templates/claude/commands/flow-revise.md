@@ -11,8 +11,8 @@ Revising flow: **$ARGUMENTS**
 ## Phase 1: Load Current State
 
 Read:
-- `.agent/specs/{flow_id}/spec.md`
-- `.agent/specs/{flow_id}/learnings.md`
+- `.agents/specs/{flow_id}/spec.md`
+- `.agents/specs/{flow_id}/learnings.md`
 
 ---
 
@@ -52,7 +52,7 @@ Based on revision type:
 
 ## Phase 5: Log Revision
 
-Append to `.agent/specs/{flow_id}/revisions.md`:
+Append to `.agents/specs/{flow_id}/revisions.md`:
 
 ```markdown
 ## [YYYY-MM-DD HH:MM] Revision {N}
@@ -95,7 +95,7 @@ The git pre-commit hook automatically exports Beads state to spec.md on commit.
 ## Phase 8: Commit Revision
 
 ```bash
-git add .agent/specs/{flow_id}/
+git add .agents/specs/{flow_id}/
 git commit -m "flow(revise): {flow_id} - {brief description}"
 ```
 

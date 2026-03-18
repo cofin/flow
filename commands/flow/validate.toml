@@ -10,12 +10,12 @@ You are validating a Flow project's integrity. Check all files, Beads status, an
 Verify required files exist:
 
 1. **Core Files:**
-   - `.agent/product.md`
-   - `.agent/tech-stack.md`
-   - `.agent/workflow.md`
-   - `.agent/beads.json`
-   - `.agent/flows.md`
-   - `.agent/patterns.md`
+   - `.agents/product.md`
+   - `.agents/tech-stack.md`
+   - `.agents/workflow.md`
+   - `.agents/beads.json`
+   - `.agents/flows.md`
+   - `.agents/patterns.md`
 
 2. **Beads Directory:**
    - `.beads/` must exist
@@ -36,9 +36,9 @@ Report any Beads errors.
 
 ## Phase 3: Flow Consistency
 
-For each flow in `.agent/flows.md`:
+For each flow in `.agents/flows.md`:
 
-1. Verify directory exists: `.agent/specs/{flow_id}/`
+1. Verify directory exists: `.agents/specs/{flow_id}/`
 2. Verify required files:
    - spec.md
    - metadata.json
@@ -64,7 +64,7 @@ Generate validation report:
 Flow Validation Report
 
 === Structure ===
-[x] .agent/ directory complete
+[x] .agents/ directory complete
 [x] Beads initialized
 
 === Flows ===

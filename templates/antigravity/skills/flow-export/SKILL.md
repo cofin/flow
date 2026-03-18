@@ -18,10 +18,10 @@ flow-export [--format markdown|json]
 ### Phase 1: Gather Data
 
 Collect:
-- All flows from `.agent/flows.md`
-- All patterns from `.agent/patterns.md`
-- Flow details from `.agent/specs/*/`
-- Archive details from `.agent/archive/*/`
+- All flows from `.agents/flows.md`
+- All patterns from `.agents/patterns.md`
+- Flow details from `.agents/specs/*/`
+- Archive details from `.agents/archive/*/`
 
 ### Phase 2: Generate Report
 
@@ -57,7 +57,7 @@ Collect:
 
 ### Phase 3: Output
 
-Write to `.agent/export_{date}.md`
+Write to `.agents/export_{date}.md`
 
 ## Critical Rules
 

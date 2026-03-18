@@ -9,7 +9,7 @@ Revising flow: $ARGUMENTS
 
 ## Phase 1: Load Current State
 
-Read `.agent/specs/{flow_id}/`:
+Read `.agents/specs/{flow_id}/`:
 - spec.md
 - learnings.md
 
@@ -27,7 +27,7 @@ Update spec.md as needed.
 
 ## Phase 5: Log Revision
 
-Append to `.agent/specs/{flow_id}/revisions.md`:
+Append to `.agents/specs/{flow_id}/revisions.md`:
 
 ```markdown
 ## [YYYY-MM-DD HH:MM] Revision {N}

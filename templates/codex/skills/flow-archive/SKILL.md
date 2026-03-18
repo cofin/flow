@@ -21,14 +21,14 @@ Check Beads for completion status:
 br show {epic_id}
 ```
 
-Or read `.agent/specs/{flow_id}/spec.md` Implementation Plan section to verify all tasks are `[x]` completed or `[-]` skipped.
+Or read `.agents/specs/{flow_id}/spec.md` Implementation Plan section to verify all tasks are `[x]` completed or `[-]` skipped.
 
 If incomplete tasks exist, warn and confirm.
 
 ## Phase 2: Extract Learnings
 
 ### 2.1 Read Flow Learnings
-Parse `.agent/specs/{flow_id}/learnings.md`
+Parse `.agents/specs/{flow_id}/learnings.md`
 
 ### 2.2 Identify Patterns for Elevation
 Present discovered patterns:
@@ -43,7 +43,7 @@ Which patterns should be elevated to project-level? [all/select/none]
 ```
 
 ### 2.3 Merge to Project Patterns
-Append selected patterns to `.agent/patterns.md`:
+Append selected patterns to `.agents/patterns.md`:
 ```markdown
 ## Code Conventions
 - Use Zod for form validation (from: {flow_id})
@@ -54,16 +54,16 @@ Append selected patterns to `.agent/patterns.md`:
 
 ## Phase 3: Knowledge Extraction
 
-1. Create `.agent/knowledge/` if missing.
+1. Create `.agents/knowledge/` if missing.
 2. Read `learnings.md`, `spec.md` header, and `metadata.json` from the flow.
-3. Generate `.agent/knowledge/{flow_id}.md` with:
+3. Generate `.agents/knowledge/{flow_id}.md` with:
    - Flow ID, description, completion date, archive date
    - Topic tags (2-5 tags inferred from learnings content)
    - Which patterns were elevated to patterns.md
    - **Full verbatim content** from learnings.md
    - Key files mentioned in learnings
    - 2-3 sentence summary
-4. Update `.agent/knowledge/index.md`:
+4. Update `.agents/knowledge/index.md`:
    - Append row to Entries table: `| {flow_id} | {date} | {topics} | {summary} |`
    - Add entries under Topic Index headings (create headings if new)
 
@@ -77,16 +77,16 @@ br close {epic_id} --reason "Flow archived"
 
 1. Move directory:
    ```
-   .agent/specs/{flow_id}/ → .agent/archive/{flow_id}/
+   .agents/specs/{flow_id}/ → .agents/archive/{flow_id}/
    ```
 
-2. Update `.agent/flows.md`:
+2. Update `.agents/flows.md`:
    - Remove from Active section
    - Add to Archived section with completion date
 
 ## Phase 6: Create Archive Summary
 
-Create `.agent/archive/{flow_id}/summary.md`:
+Create `.agents/archive/{flow_id}/summary.md`:
 ```markdown
 # Archive Summary: {flow_id}
 
@@ -112,10 +112,10 @@ All tests passing, coverage at {X}%
 ```
 Flow Archived: {flow_id}
 
-Location: .agent/archive/{flow_id}/
+Location: .agents/archive/{flow_id}/
 Patterns Elevated: {count}
 Epic Closed: {epic_id}
 
 Project patterns updated. View with:
-cat .agent/patterns.md
+cat .agents/patterns.md
 ```

@@ -12,10 +12,10 @@ Five-phase documentation workflow with validation, knowledge capture, and cleanu
 ## Phase 0: Setup Check
 
 Verify Flow environment:
-- **Product Definition** (`.agent/product.md`)
-- **Tech Stack** (`.agent/tech-stack.md`)
-- **Workflow** (`.agent/workflow.md`)
-- **Flow Registry** (`.agent/flows.md`)
+- **Product Definition** (`.agents/product.md`)
+- **Tech Stack** (`.agents/tech-stack.md`)
+- **Workflow** (`.agents/workflow.md`)
+- **Flow Registry** (`.agents/flows.md`)
 
 If ANY missing: "Flow not set up. Run `/flow:setup` first." → HALT
 
@@ -36,11 +36,11 @@ Scan all documentation, verify quality gates (structural, content, consistency, 
 
 ## Mode B: Knowledge Capture
 
-Extract knowledge from completed flows, update `.agent/knowledge-base.md`.
+Extract knowledge from completed flows, update `.agents/knowledge-base.md`.
 
 ## Mode C: Archive
 
-Archive completed flows to `.agent/archive/`, update registry.
+Archive completed flows to `.agents/archive/`, update registry.
 
 ## Mode D: Cleanup
 

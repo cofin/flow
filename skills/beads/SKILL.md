@@ -229,7 +229,7 @@ Never write markers (`[x]`, `[~]`, `[!]`, `[-]`) directly to spec.md. Beads is t
 
 ## Configuration
 
-`.agent/beads.json`:
+`.agents/beads.json`:
 
 ```json
 {

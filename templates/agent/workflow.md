@@ -118,12 +118,12 @@ All tasks follow a strict lifecycle:
 10. **Log Learnings:**
     - Append discoveries to track's `learnings.md`
     - Sync to Beads: `br update <id> --notes "pattern: ..."`
-    - Elevate reusable patterns to `.agent/patterns.md` at phase completion
+    - Elevate reusable patterns to `.agents/patterns.md` at phase completion
 
 ### Knowledge Flywheel (Three-Tier)
 
 1. **Capture** - After each task, append learnings to track's `learnings.md`
-2. **Elevate** - At phase/track completion, move reusable patterns to `.agent/patterns.md`
+2. **Elevate** - At phase/track completion, move reusable patterns to `.agents/patterns.md`
 3. **Extract** - At archive, persist full learnings to `knowledge/{flow_id}.md`
 4. **Inherit** - New flows read `patterns.md` + scan `knowledge/index.md`
 
@@ -131,11 +131,11 @@ All tasks follow a strict lifecycle:
 
 | Tier | File | Loaded | Purpose |
 |------|------|--------|---------|
-| **Patterns** | `.agent/patterns.md` | Always | Elevated actionable rules for priming |
-| **Knowledge Index** | `.agent/knowledge/index.md` | Always | Lightweight scan of all flow learnings |
-| **Knowledge Entries** | `.agent/knowledge/{flow_id}.md` | On demand | Full detailed learnings per flow |
+| **Patterns** | `.agents/patterns.md` | Always | Elevated actionable rules for priming |
+| **Knowledge Index** | `.agents/knowledge/index.md` | Always | Lightweight scan of all flow learnings |
+| **Knowledge Entries** | `.agents/knowledge/{flow_id}.md` | On demand | Full detailed learnings per flow |
 
-**Important:** `.agent/patterns.md` is NOT archived with tracks. It remains at the top level as persistent project knowledge. Knowledge entries in `.agent/knowledge/` also persist independently of archives.
+**Important:** `.agents/patterns.md` is NOT archived with tracks. It remains at the top level as persistent project knowledge. Knowledge entries in `.agents/knowledge/` also persist independently of archives.
 
 **Learnings Entry Format:**
 

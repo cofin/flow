@@ -29,7 +29,7 @@ Collect:
 
 ## Phase 3: Generate Handoff Document
 
-Create `.agent/specs/{flow_id}/handoff_{N}.md`:
+Create `.agents/specs/{flow_id}/handoff_{N}.md`:
 
 ```markdown
 # Handoff: {flow_id}
@@ -106,7 +106,7 @@ Save to `implement_state.json`:
 ## Phase 5: Commit Handoff
 
 ```bash
-git add .agent/specs/{flow_id}/
+git add .agents/specs/{flow_id}/
 git commit -m "flow(handoff): {flow_id} handoff {N}"
 ```
 
@@ -123,7 +123,7 @@ Progress: {completed}/{total} tasks
 
 To resume in new session:
 1. Run `br status` and `br ready` to load Beads context
-2. Read .agent/specs/{flow_id}/handoff_{N}.md
+2. Read .agents/specs/{flow_id}/handoff_{N}.md
 3. Run `/flow-implement {flow_id}` to continue
 ```
 

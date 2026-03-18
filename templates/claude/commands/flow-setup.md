@@ -12,7 +12,7 @@ Initialize a project for context-driven development with Beads integration.
 Check for existing setup state:
 
 ```bash
-cat .agent/setup-state.json 2>/dev/null
+cat .agents/setup-state.json 2>/dev/null
 ```
 
 **If state exists AND `last_successful_step` is "complete":**
@@ -56,8 +56,8 @@ If outdated, suggest: `curl -fsSL https://raw.githubusercontent.com/Dicklesworth
 
 - `specs/active/`
 - `specs/archive/`
-- `.agent/specs/active/` (if different from current)
-- `.agent/specs/archive/`
+- `.agents/specs/active/` (if different from current)
+- `.agents/specs/archive/`
 
 **For each discovered spec directory:**
 
@@ -72,7 +72,7 @@ Archived (specs/archive/):
   - initial-mvp_20260101 (archived, has learnings)
 
 Options:
-A) Migrate all to .agent/specs/ (recommended)
+A) Migrate all to .agents/specs/ (recommended)
 B) Migrate active only, skip archive
 C) Review each spec individually
 D) Skip migration
@@ -84,8 +84,8 @@ D) Skip migration
 2. Read `spec.md`
 3. Read `learnings.md` if exists
 4. Check if referenced files still exist in codebase
-5. Copy to `.agent/specs/{flow_id}/`
-6. Update `.agent/flows.md` registry
+5. Copy to `.agents/specs/{flow_id}/`
+6. Update `.agents/flows.md` registry
 7. Create Beads epic if not exists:
 
     ```bash
@@ -117,20 +117,20 @@ From user-auth_20260110/learnings.md:
 ```
 
 3. Present validated learnings for confirmation
-4. Merge confirmed patterns into `.agent/patterns.md`
+4. Merge confirmed patterns into `.agents/patterns.md`
 5. Archive original learnings.md with migration note
 
 ### 0.1.4 Knowledge Base Check
 
-Check for missing `.agent/knowledge/` directory. If absent, create it and write `knowledge/index.md` from template.
+Check for missing `.agents/knowledge/` directory. If absent, create it and write `knowledge/index.md` from template.
 
 ### 0.1.5 Configuration Validation
 
 Check and update:
 
-- `.agent/beads.json` - Ensure valid configuration
-- `.agent/workflow.md` - Check for outdated bd command syntax
-- `.agent/tech-stack.md` - Verify detected languages match codebase
+- `.agents/beads.json` - Ensure valid configuration
+- `.agents/workflow.md` - Check for outdated bd command syntax
+- `.agents/tech-stack.md` - Verify detected languages match codebase
 
 ### 0.1.6 Alignment Summary
 
@@ -178,13 +178,13 @@ If installed, verify version is current.
 
 > **Where would you like to store Flow specification files?**
 >
-> - **A) `.agent/`** (Recommended - hidden from project root)
+> - **A) `.agents/`** (Recommended - hidden from project root)
 > - **B) `specs/`** (Visible at project root)
 > - **C) Custom path** (Type your own)
 
 **Store Configuration:** Based on user's choice, set `root_directory` variable.
 
-- Default to `.agent/` if A selected
+- Default to `.agents/` if A selected
 - Use `specs/` if B selected
 - Use custom path if C selected
 
@@ -194,7 +194,7 @@ If installed, verify version is current.
 mkdir -p <root_directory>
 ```
 
-**All subsequent file paths use `<root_directory>` instead of hardcoded `.agent/`.**
+**All subsequent file paths use `<root_directory>` instead of hardcoded `.agents/`.**
 
 ---
 

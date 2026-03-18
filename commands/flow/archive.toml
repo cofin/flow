@@ -18,8 +18,8 @@ You are an AI agent assistant for the Flow spec-driven development framework. Yo
 ## 2.0 PATTERN ELEVATION
 **PROTOCOL: Extract and merge knowledge.**
 
-1.  **Read Learnings:** Read `.agent/specs/<flow_id>/learnings.md`.
-2.  **Read Patterns:** Read `.agent/patterns.md`.
+1.  **Read Learnings:** Read `.agents/specs/<flow_id>/learnings.md`.
+2.  **Read Patterns:** Read `.agents/patterns.md`.
 3.  **Analysis:**
     *   Identify new patterns, gotchas, or conventions in `learnings.md` that are NOT yet in `patterns.md`.
     *   Filter out flow-specific trivialities.
@@ -27,7 +27,7 @@ You are an AI agent assistant for the Flow spec-driven development framework. Yo
     *   Present a list of "Candidates for Pattern Elevation" to the user.
     *   Ask: "Which of these should be added to the global patterns?"
 5.  **Merge:**
-    *   Append selected patterns to `.agent/patterns.md` under appropriate sections.
+    *   Append selected patterns to `.agents/patterns.md` under appropriate sections.
     *   Format: `- {Pattern} (derived from <flow_id>)`
 
 ---
@@ -35,9 +35,9 @@ You are an AI agent assistant for the Flow spec-driven development framework. Yo
 ## 3.0 KNOWLEDGE EXTRACTION
 **PROTOCOL: Persist full learnings independently of archive.**
 
-1.  **Create Directory:** Create `.agent/knowledge/` if missing.
+1.  **Create Directory:** Create `.agents/knowledge/` if missing.
 2.  **Read Sources:** Read `learnings.md`, `spec.md` header, and `metadata.json` from the flow.
-3.  **Generate Knowledge Entry:** Create `.agent/knowledge/<flow_id>.md` with:
+3.  **Generate Knowledge Entry:** Create `.agents/knowledge/<flow_id>.md` with:
     ```markdown
     # Knowledge: <flow_id>
 
@@ -61,7 +61,7 @@ You are an AI agent assistant for the Flow spec-driven development framework. Yo
     ## Summary
     {2-3 sentence auto-generated summary}
     ```
-4.  **Update Index:** Update `.agent/knowledge/index.md`:
+4.  **Update Index:** Update `.agents/knowledge/index.md`:
     *   Append row to Entries table: `| <flow_id> | {date} | {topics} | {summary} |`
     *   Add entries under Topic Index headings (create headings if new)
 
@@ -71,15 +71,15 @@ You are an AI agent assistant for the Flow spec-driven development framework. Yo
 **PROTOCOL: Move and update records.**
 
 1.  **Move Directory:**
-    *   Create `.agent/archive/` if missing.
+    *   Create `.agents/archive/` if missing.
     *   Generate archive ID: `<flow_id>_YYYYMMDD` (using current date).
-    *   Move `.agent/specs/<flow_id>/` to `.agent/archive/<flow_id>_YYYYMMDD/`.
+    *   Move `.agents/specs/<flow_id>/` to `.agents/archive/<flow_id>_YYYYMMDD/`.
 2.  **Update Registry:**
-    *   Edit **Flow Registry** (`.agent/flows.md`).
+    *   Edit **Flow Registry** (`.agents/flows.md`).
     *   Move the flow entry from "Active" to "Archived".
     *   Update the link to point to the new archive location: `./archive/<flow_id>_YYYYMMDD/`.
 3.  **Update Metadata:**
-    *   Edit `.agent/archive/<flow_id>_YYYYMMDD/metadata.json`.
+    *   Edit `.agents/archive/<flow_id>_YYYYMMDD/metadata.json`.
     *   Set `"status": "archived"`.
     *   Set `"archived_at": "{timestamp}"`.
 
@@ -98,14 +98,14 @@ You are an AI agent assistant for the Flow spec-driven development framework. Yo
 ## 6.0 GIT COMMIT
 1.  **Check Ignore Status:**
     ```bash
-    git check-ignore .agent/
+    git check-ignore .agents/
     ```
-    *   If output is non-empty (ignored), **SKIP COMMIT** and warn user: "Note: .agent/ is ignored. Archival changes are local only."
+    *   If output is non-empty (ignored), **SKIP COMMIT** and warn user: "Note: .agents/ is ignored. Archival changes are local only."
     *   If output is empty (not ignored), proceed to commit.
 
 2.  **Commit Changes (if not ignored):**
     ```bash
-    git add .agent/patterns.md .agent/flows.md .agent/knowledge/ .agent/archive/<flow_id>_YYYYMMDD/ .agent/specs/<flow_id>
+    git add .agents/patterns.md .agents/flows.md .agents/knowledge/ .agents/archive/<flow_id>_YYYYMMDD/ .agents/specs/<flow_id>
     git commit -m "flow(archive): Archive <flow_id> and elevate patterns"
     ```
 
@@ -116,7 +116,7 @@ Announce:
 "Flow '<flow_id>' successfully archived to `<flow_id>_YYYYMMDD`.
 - Patterns updated: [Count]
 - Patterns updated: [Count]
-- Artifacts moved to: .agent/archive/<flow_id>_YYYYMMDD/
+- Artifacts moved to: .agents/archive/<flow_id>_YYYYMMDD/
 - Registry updated
 - Beads epic closed"
 """

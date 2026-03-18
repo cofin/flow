@@ -17,7 +17,7 @@ Managing flow templates (formulas).
 ```
 
 Lists available templates from:
-- Local: `.agent/templates/`
+- Local: `.agents/templates/`
 
 ### Pour Template
 
@@ -46,7 +46,7 @@ Determine action: `list`, `pour`, or `distill`
 ## Phase 2: List Action
 
 ```bash
-ls .agent/templates/*.md
+ls .agents/templates/*.md
 ```
 
 Display:
@@ -55,15 +55,15 @@ Available Templates
 
 === Local Templates ===
 
-.agent/templates/api-endpoint.md
-.agent/templates/frontend-component.md
+.agents/templates/api-endpoint.md
+.agents/templates/frontend-component.md
 ```
 
 ---
 
 ## Phase 3: Pour Action
 
-1. Read template file: `.agent/templates/{template_name}.md`
+1. Read template file: `.agents/templates/{template_name}.md`
 2. Parse placeholders (e.g., `{{feature_name}}`, `{{model_name}}`)
 3. Ask user to fill in each placeholder
 4. Generate flow_id
@@ -81,7 +81,7 @@ Available Templates
    - Generalize tasks
    - Keep learnings as guidance
 
-3. Save to `.agent/templates/{name}.md`
+3. Save to `.agents/templates/{name}.md`
 4. Verify template is valid and complete
 
 ---
@@ -120,6 +120,6 @@ Available Templates
 
 ## Critical Rules
 
-1. **FILE-BASED** - Templates stored in .agent/templates/
+1. **FILE-BASED** - Templates stored in .agents/templates/
 2. **ABSTRACT PROPERLY** - Use placeholders
 3. **PRESERVE GUIDANCE** - Include learnings

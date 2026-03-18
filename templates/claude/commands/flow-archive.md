@@ -12,7 +12,7 @@ Archiving flow: **$ARGUMENTS**
 
 ### 1.1 Resolve Flow ID
 
-If not provided, list completed flows from `.agent/flows.md` and ask user to select.
+If not provided, list completed flows from `.agents/flows.md` and ask user to select.
 
 ### 1.3 Verify Completion
 
@@ -22,7 +22,7 @@ Check Beads for completion status:
 br show {epic_id}
 ```
 
-Or read `.agent/specs/{flow_id}/spec.md` Implementation Plan section.
+Or read `.agents/specs/{flow_id}/spec.md` Implementation Plan section.
 
 - If uncompleted tasks exist: "Warning: Flow has incomplete tasks. Continue? (y/n)" → Halt if 'n'.
 
@@ -30,24 +30,24 @@ Or read `.agent/specs/{flow_id}/spec.md` Implementation Plan section.
 
 ## Phase 2: Pattern Elevation
 
-1. Read `.agent/specs/{flow_id}/learnings.md`.
-2. Read `.agent/patterns.md`.
+1. Read `.agents/specs/{flow_id}/learnings.md`.
+2. Read `.agents/patterns.md`.
 3. Identify new patterns not present in global patterns.
 4. **Interactive Selection:**
    - "Found these potential patterns:"
    - [ ] Pattern 1
    - [ ] Pattern 2
    - "Select patterns to elevate (or 'all'/'none'):"
-5. **Merge:** Append selected patterns to `.agent/patterns.md`.
+5. **Merge:** Append selected patterns to `.agents/patterns.md`.
    - Format: `- {new pattern} (from: {flow_id})`
 
 ---
 
 ## Phase 3: Knowledge Extraction
 
-1. Create `.agent/knowledge/` if missing.
+1. Create `.agents/knowledge/` if missing.
 2. Read `learnings.md`, `spec.md` header, and `metadata.json` from the flow.
-3. Generate `.agent/knowledge/{flow_id}.md` with:
+3. Generate `.agents/knowledge/{flow_id}.md` with:
    ```markdown
    # Knowledge: {flow_id}
 
@@ -71,7 +71,7 @@ Or read `.agent/specs/{flow_id}/spec.md` Implementation Plan section.
    ## Summary
    {2-3 sentence auto-generated summary}
    ```
-4. Update `.agent/knowledge/index.md`:
+4. Update `.agents/knowledge/index.md`:
    - Append row to Entries table: `| {flow_id} | {date} | {topics} | {summary} |`
    - Add entries under Topic Index headings (create headings if new)
 
@@ -79,9 +79,9 @@ Or read `.agent/specs/{flow_id}/spec.md` Implementation Plan section.
 
 ## Phase 4: Archive Artifacts
 
-1. Create `.agent/archive/` if missing.
+1. Create `.agents/archive/` if missing.
 2. **Generate Summary:**
-   Create `.agent/archive/{flow_id}/summary.md`:
+   Create `.agents/archive/{flow_id}/summary.md`:
    ```markdown
    # Archive Summary: {flow_id}
    **Archived:** {date}
@@ -91,10 +91,10 @@ Or read `.agent/specs/{flow_id}/spec.md` Implementation Plan section.
    ```
 3. **Move Directory:**
    ```bash
-   mv .agent/specs/{flow_id} .agent/archive/{flow_id}
+   mv .agents/specs/{flow_id} .agents/archive/{flow_id}
    ```
 4. **Update Metadata:**
-   Update `.agent/archive/{flow_id}/metadata.json`:
+   Update `.agents/archive/{flow_id}/metadata.json`:
    - Set `"status": "archived"`
    - Set `"archived_at": "{timestamp}"`
 
@@ -102,7 +102,7 @@ Or read `.agent/specs/{flow_id}/spec.md` Implementation Plan section.
 
 ## Phase 5: Registry Update
 
-Edit `.agent/flows.md`:
+Edit `.agents/flows.md`:
 1. Find entry for `{flow_id}`.
 2. Move from "Active" section to "Archived" section.
 3. Update link to: `[./archive/{flow_id}/](./archive/{flow_id}/)`
@@ -127,11 +127,11 @@ Edit `.agent/flows.md`:
 
 1. **Check Ignore Status:**
    ```bash
-   git check-ignore .agent/
+   git check-ignore .agents/
    ```
 2. **Commit (if not ignored):**
    ```bash
-   git add .agent/patterns.md .agent/flows.md .agent/knowledge/ .agent/archive/{flow_id}/
+   git add .agents/patterns.md .agents/flows.md .agents/knowledge/ .agents/archive/{flow_id}/
    git commit -m "flow(archive): {flow_id} complete"
    ```
    *If ignored, skip commit and notify user.*
@@ -144,7 +144,7 @@ Edit `.agent/flows.md`:
 >
 > **Summary:**
 > - ID: {flow_id}
-> - Location: .agent/archive/{flow_id}/
+> - Location: .agents/archive/{flow_id}/
 > - Patterns Elevated: {count}
 >
 > Ready for next flow: `/flow-prd`"

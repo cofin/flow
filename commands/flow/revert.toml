@@ -19,7 +19,7 @@ Handles non-linear Git histories (rebase, squash, merge commits).
 **PROTOCOL: Verify environment and Beads.**
 
 1.  **Verify Core Context:** Using **Universal File Resolution Protocol**, verify:
-    - **Flow Registry** (`.agent/flows.md`)
+    - **Flow Registry** (`.agents/flows.md`)
     - Flow is not empty
 
 2.  **Verify Beads:**

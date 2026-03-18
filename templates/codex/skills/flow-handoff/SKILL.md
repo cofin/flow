@@ -13,7 +13,7 @@ Create context handoff document for session transfer.
 ## Phase 1: Gather Current State
 
 ### 1.1 Active Flow
-Read current in-progress flow from `.agent/flows.md`
+Read current in-progress flow from `.agents/flows.md`
 
 ### 1.2 Current Task
 ```bash
@@ -28,7 +28,7 @@ git log --oneline -10
 
 ## Phase 2: Compile Handoff
 
-Create `.agent/handoff.md`:
+Create `.agents/handoff.md`:
 
 ```markdown
 # Session Handoff
@@ -90,10 +90,10 @@ br update {task_id} --notes "HANDOFF: {summary}"
 ## Final Output
 
 ```
-Handoff Created: .agent/handoff.md
+Handoff Created: .agents/handoff.md
 
 To resume in new session:
-1. Read .agent/handoff.md
+1. Read .agents/handoff.md
 2. Run: br status && br list --status in_progress
 3. Run: $flow:implement {flow_id}
 ```

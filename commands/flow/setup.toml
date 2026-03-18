@@ -39,7 +39,7 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
 **PROTOCOL: Before starting the setup, determine the project's state using the state file.**
 
 1.  **Read State File:** Check for the existence of the state file:
-    - `.agent/setup-state.json`
+    - `.agents/setup-state.json`
     - If it does not exist, this is a new project setup. Proceed directly to Step 1.2.
     - If the state file exists, read its content.
 
@@ -78,9 +78,9 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
     Scan for legacy spec locations:
     - `specs/active/`
     - `specs/archive/`
-    - `.agent/specs/active/` (if different root)
-    - `.agent/specs/archive/`
-    - `.agent/specs/` (current location)
+    - `.agents/specs/active/` (if different root)
+    - `.agents/specs/archive/`
+    - `.agents/specs/` (current location)
 
     For each discovered spec directory, present:
     > "Found [N] specs in legacy locations:
@@ -93,7 +93,7 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
     >   - initial-mvp_20260101 (archived, has learnings)
     >
     > Options:
-    > A) Migrate all to .agent/specs/ (recommended)
+    > A) Migrate all to .agents/specs/ (recommended)
     > B) Migrate active only, skip archive
     > C) Review each spec individually
     > D) Skip migration"
@@ -103,8 +103,8 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
     b. Read `spec.md`
     c. Read `learnings.md` if exists
     d. Check if referenced files still exist in codebase
-    e. Copy to `.agent/specs/{flow_id}/` (Rename directory if needed)
-    f. Update `.agent/flows.md` registry
+    e. Copy to `.agents/specs/{flow_id}/` (Rename directory if needed)
+    f. Update `.agents/flows.md` registry
     g. Create Beads epic and add notes:
        ```bash
        br create "Flow: {flow_id}" -t epic -p 2 --description "{flow_description}"
@@ -119,15 +119,15 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
        - ⚠ REVIEW: Referenced files not found (ask user)
        - ✗ STALE: Package/dependency no longer exists (auto-remove)
     c. Present validated learnings for confirmation
-    d. Merge confirmed patterns into `.agent/patterns.md`
+    d. Merge confirmed patterns into `.agents/patterns.md`
     e. Archive original learnings.md with migration note
 
 4.  **Template Update:**
-    -   **Workflow File:** Compare `.agent/workflow.md` with the latest template.
+    -   **Workflow File:** Compare `.agents/workflow.md` with the latest template.
     -   **Offer Update:**
         > "I can update your project's Flow templates to the latest version.
         > This will overwrite:
-        > - .agent/workflow.md (Core workflow definitions)
+        > - .agents/workflow.md (Core workflow definitions)
         >
         > Do you want to update templates?
         > A) Yes (Recommended)
@@ -137,11 +137,11 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
         -   Announce: "Updated workflow.md to latest version."
 
 5.  **Knowledge Base Check:**
-    -   Check for missing `.agent/knowledge/` directory. If absent, create it and write `knowledge/index.md` from template.
+    -   Check for missing `.agents/knowledge/` directory. If absent, create it and write `knowledge/index.md` from template.
 
 6.  **Configuration Validation:**
-    -   Check `.agent/beads.json` for valid config
-    -   Verify `.agent/tech-stack.md` matches detected languages
+    -   Check `.agents/beads.json` for valid config
+    -   Verify `.agents/tech-stack.md` matches detected languages
 
 7.  **Alignment Summary:**
     > "Alignment Complete
@@ -233,12 +233,12 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
 4.  **Configure Root Directory:**
     -   **Ask for Configuration:** Ask the user where they would like to store Flow specification files:
         > "Where would you like to store Flow specification files?
-        > A) `.agent/` (Recommended - hidden from project root)
+        > A) `.agents/` (Recommended - hidden from project root)
         > B) `specs/` (Visible at project root)
         > C) Custom path (Type your own)
         >
         > Please respond with A, B, or C."
-    -   **Store Configuration:** Based on the user's choice, set the `root_directory` variable. Defaults to `.agent/` if A is selected.
+    -   **Store Configuration:** Based on the user's choice, set the `root_directory` variable. Defaults to `.agents/` if A is selected.
 
 5.  **Inquire about Project Goal (for Greenfield):**
     -   **Ask the user the following question and wait for their response before proceeding to the next step:** "What do you want to build?"
@@ -263,7 +263,7 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
 2.  **Offer Migration:**
     > "I found existing guides in [location]. Would you like me to:
     > A) Read, analyze, and synthesize them into the new Flow structure
-    > B) Copy them as-is to `.agent/code-styleguides/custom/`
+    > B) Copy them as-is to `.agents/code-styleguides/custom/`
     > C) Skip guide migration"
 
 3.  **If Option A (Synthesize):**
@@ -273,13 +273,13 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
         -   Code conventions -> tech-stack.md
         -   Style rules -> product-guidelines.md
         -   Process rules -> workflow.md
-    -   Create summary in `.agent/code-styleguides/legacy-synthesis.md`
+    -   Create summary in `.agents/code-styleguides/legacy-synthesis.md`
     -   Offer to remove the original guide directory after successful synthesis
 
 4.  **If Option B (Copy):**
-    -   Execute `mkdir -p .agent/code-styleguides/custom`
-    -   Copy all `.md` files to `.agent/code-styleguides/custom/`
-    -   Announce: "Legacy guides copied to `.agent/code-styleguides/custom/`"
+    -   Execute `mkdir -p .agents/code-styleguides/custom`
+    -   Copy all `.md` files to `.agents/code-styleguides/custom/`
+    -   Announce: "Legacy guides copied to `.agents/code-styleguides/custom/`"
     -   Offer to remove the original guide directory after successful copy
 
 5.  **Continue:** Proceed to 2.0.6.
@@ -289,8 +289,8 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
 
 1.  **Check for Existing Knowledge:**
     -   Scan for existing PRD-like structures in these locations:
-        -   `specs/active/` or `.agent/specs/active/`
-        -   `specs/archive/` or `.agent/specs/archive/`
+        -   `specs/active/` or `.agents/specs/active/`
+        -   `specs/archive/` or `.agents/specs/archive/`
     -   If no PRD folders found, skip to 2.1.
 
 2.  **Cross-Reference with Source Code:**
@@ -314,10 +314,10 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
     -   Extract incomplete tasks from partial PRDs
     -   Generate a migration PRD with slug: `legacy-migration`
     -   Add tasks to complete remaining work
-    -   Archive the original PRD folders to `.agent/archive/`
+    -   Archive the original PRD folders to `.agents/archive/`
 
 5.  **If Option B (Archive All):**
-    -   Move all existing PRDs to `.agent/archive/` with timestamp prefix
+    -   Move all existing PRDs to `.agents/archive/` with timestamp prefix
     -   Announce: "All legacy PRDs archived. Starting fresh."
 
 6.  **If Option C (Review Each):**
@@ -501,7 +501,7 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
             - Ask the user for a simple confirmation to proceed with options like:
                     A) Yes, I want to proceed with the suggested code style guides.
                     B) No, I want to add more code style guides.
-    -   **Action:** Construct and execute a command to create the directory and copy all selected files. For example: `mkdir -p .agent/code-styleguides && cp ~/.gemini/extensions/flow/templates/styleguides/languages/python.md ~/.gemini/extensions/flow/templates/styleguides/languages/javascript.md .agent/code-styleguides/`
+    -   **Action:** Construct and execute a command to create the directory and copy all selected files. For example: `mkdir -p .agents/code-styleguides && cp ~/.gemini/extensions/flow/templates/styleguides/languages/python.md ~/.gemini/extensions/flow/templates/styleguides/languages/javascript.md .agents/code-styleguides/`
     -   **Commit State:** Upon successful completion of the copy command, you MUST immediately write to `<root_directory>/setup-state.json` with the exact content:
         `{"last_successful_step": "2.4_code_styleguides", "root_directory": "<root_directory>"}`
 
@@ -546,7 +546,7 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
     ```
 
 3.  **Create Beads Config:**
-    Create `.agent/beads.json`:
+    Create `.agents/beads.json`:
     ```json
     {
       "enabled": true,
@@ -598,11 +598,11 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
     -   **Announce:** "Created `<root_directory>/index.md` to serve as the project context index."
 
 2.  **Create Additional Directories:**
-    -   Execute `mkdir -p .agent/archive .agent/templates .agent/code-styleguides .agent/research .agent/wisps .agent/knowledge`.
+    -   Execute `mkdir -p .agents/archive .agents/templates .agents/code-styleguides .agents/research .agents/wisps .agents/knowledge`.
     -   **Announce:** "Created directories for archives, templates, code styleguides, research, wisps, and knowledge base."
 
 3.  **Create patterns.md:**
-    -   Create `.agent/patterns.md` with initial structure:
+    -   Create `.agents/patterns.md` with initial structure:
         ```markdown
         # Project Patterns
 
@@ -634,7 +634,7 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
         ```
 
 4.  **Create knowledge/index.md:**
-    -   Create `.agent/knowledge/index.md` with initial structure:
+    -   Create `.agents/knowledge/index.md` with initial structure:
         ```markdown
         # Knowledge Base
 
@@ -653,7 +653,7 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
         ```
 
 5.  **Create flows.md:**
-    -   Create `.agent/flows.md` with initial structure:
+    -   Create `.agents/flows.md` with initial structure:
         ```markdown
         # Flow Registry
 
@@ -734,17 +734,17 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
 ### 3.3 Convert the Initial PRD into Artifacts (Automated)
 1.  **State Your Goal:** Once the PRD is approved, announce that you will now create the artifacts for this initial PRD.
 2.  **Git Configuration (Optional - APPEND ONLY):**
-    -   Ask the user: "Would you like to add `.agent/` to `.gitignore` to keep context local-only?"
+    -   Ask the user: "Would you like to add `.agents/` to `.gitignore` to keep context local-only?"
     -   If yes:
         -   **Check if already present:**
             ```bash
-            [ -f ".gitignore" ] && grep -q ".agent/" .gitignore && echo "ALREADY_EXISTS" || echo "NEEDS_UPDATE"
+            [ -f ".gitignore" ] && grep -q ".agents/" .gitignore && echo "ALREADY_EXISTS" || echo "NEEDS_UPDATE"
             ```
         -   **If NEEDS_UPDATE, APPEND (never overwrite):**
             ```bash
             echo "" >> .gitignore
             echo "# Flow specification files (local-only)" >> .gitignore
-            echo ".agent/" >> .gitignore
+            echo ".agents/" >> .gitignore
             ```
 
 3.  **Initialize Flow Registry File:** Create the `<root_directory>/flows.md` file with the initial header and the first PRD:
@@ -813,18 +813,18 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
         ```
     -   **If EXISTS:**
         -   Read current content
-        -   Check if `!.agent/` already present
+        -   Check if `!.agents/` already present
         -   **If NOT present, APPEND (don't overwrite):**
             ```bash
             echo "" >> .geminiignore
             echo "# Allow Gemini to access Flow specification files" >> .geminiignore
-            echo "!.agent/" >> .geminiignore
+            echo "!.agents/" >> .geminiignore
             ```
     -   **If NEW:**
         -   Create with content:
             ```bash
             echo "# Allow Gemini to access Flow specification files" > .geminiignore
-            echo "!.agent/" >> .geminiignore
+            echo "!.agents/" >> .geminiignore
             ```
     -   **Add `.geminiignore` to `.gitignore` (APPEND only):**
         -   Check if `.gitignore` exists and does not already contain `.geminiignore`.
@@ -842,11 +842,11 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
 
 3.  **Save Flow Files (Respect Gitignore):**
     -   **CRITICAL:** NEVER use `git add -f` to force-add gitignored files.
-    -   Check if `.agent/` is listed in `.gitignore`.
-    -   **If `.agent/` IS gitignored:**
-        -   Announce: "Flow setup complete. Note: `.agent/` is gitignored, so Flow files will not be committed. This is often intentional for keeping specs local."
+    -   Check if `.agents/` is listed in `.gitignore`.
+    -   **If `.agents/` IS gitignored:**
+        -   Announce: "Flow setup complete. Note: `.agents/` is gitignored, so Flow files will not be committed. This is often intentional for keeping specs local."
         -   Do NOT attempt to commit Flow specification files.
-    -   **If `.agent/` is NOT gitignored:**
+    -   **If `.agents/` is NOT gitignored:**
         -   Ask the user: "Would you like to commit the Flow setup files?"
             -   A) Yes, commit them
             -   B) No, I'll handle commits myself

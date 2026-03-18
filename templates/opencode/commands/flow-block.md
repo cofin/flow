@@ -21,7 +21,7 @@ br update {task_id} --status blocked --notes "{reason}"
 
 ## Phase 3: Log to Blockers File
 
-Append to `.agent/specs/{flow_id}/blockers.md`
+Append to `.agents/specs/{flow_id}/blockers.md`
 
 ### Markdown Sync (Automatic)
 
