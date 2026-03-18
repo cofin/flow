@@ -1,6 +1,6 @@
 ---
 name: vite
-description: Expert knowledge for Vite build tool. Use when configuring Vite, creating plugins, managing HMR, or handling asset bundling.
+description: "Expert knowledge for Vite build tool. Use when: configuring Vite (`vite.config.ts`), creating plugins, managing HMR (Hot Module Replacement), or asset bundling in JS/TS projects."
 ---
 
 # Vite Build Tool Skill

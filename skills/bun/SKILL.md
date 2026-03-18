@@ -1,6 +1,6 @@
 ---
 name: bun
-description: Usage of Bun as a high-performance JavaScript runtime, bundler, and test runner, with specific focus on native integration and low-latency patterns.
+description: "Usage of Bun as a high-performance JavaScript runtime, bundler, and test runner. Use when: running JS/TS code with Bun, using bun install, configuring Bun workspaces, or fixing low-latency node runtimes."
 ---
 
 # Bun Skill

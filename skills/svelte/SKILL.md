@@ -1,6 +1,6 @@
 ---
 name: svelte
-description: Expert knowledge for Svelte 5 development with runes. Use when building Svelte components, using $state/$derived/$effect, or working with SvelteKit.
+description: "Expert knowledge for Svelte 5 development with Runes. Use when: building Svelte components (`.svelte` files), using runic states ($state, $derived), or working with SvelteKit."
 ---
 
 # Svelte 5 Framework Skill

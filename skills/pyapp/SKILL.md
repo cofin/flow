@@ -1,3 +1,8 @@
+---
+name: pyapp
+description: "Build air-gapped, multi-architecture standalone Python executables using PyApp and uv. Use when: bundling Python runtimes for network-isolated environments, patching PyApp defaults, or compiling single-binary assets."
+---
+
 # PyApp Standalone Binaries
 
 Enable building self-contained, air-gapped, multi-architecture standalone executables for any Python application using **PyApp** and **uv**.

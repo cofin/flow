@@ -1,6 +1,6 @@
 ---
 name: gcp
-description: "Expert knowledge for Google Cloud Platform: Core services, `gcloud` CLI scripting patterns, and automation best practices."
+description: "Expert knowledge for Google Cloud Platform: Core services, `gcloud` CLI scripting patterns, and automation. Use when: configuring IAM, Cloud Storage, Pub/Sub, or creating cloud resources via gcloud CLI."
 ---
 
 # Google Cloud Platform (GCP) Skill

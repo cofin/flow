@@ -1,3 +1,8 @@
+---
+name: hatch-mojo
+description: "Hatch build hook for compiling .mojo sources during Python package builds. Use when: building Python packages with Mojo extensions, configuring pyproject.toml for Mojo compilation, or setting up cibuildwheel for Mojo wheels."
+---
+
 # hatch-mojo Usage Guide
 
 `hatch-mojo` is a Hatch build hook that compiles `.mojo` sources during Python package builds.

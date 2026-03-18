@@ -114,12 +114,23 @@ When Flow skill is active:
 - Warn if tech-stack changes without documentation
 - Enforce mandatory `/flow-sync` after any Beads state change
 
-## References
+## References Index
 
-- `references/workflows.md` - Detailed command workflows
-- `references/structure.md` - Directory structure reference
-- `references/beads-integration.md` - Beads session protocols
-- `references/learnings-system.md` - Knowledge capture patterns
+For detailed instructions and directives for specific flow commands, refer to the following documents in `references/`:
+
+- **[Setup](references/setup.md)** - `/flow:setup`
+- **[PRD](references/prd.md)** - `/flow:prd`
+- **[Plan](references/plan.md)** - `/flow:plan`
+- **[Implement](references/implement.md)** - `/flow:implement`
+- **[Sync](references/sync.md)** - `/flow:sync`
+- **[Status](references/status.md)** - `/flow:status`
+- **[Revert](references/revert.md)** - `/flow:revert`
+- **[Validate](references/validate.md)** - `/flow:validate`
+- **[Revise](references/revise.md)** - `/flow:revise`
+- **[Archive](references/archive.md)** - `/flow:archive`
+- **[Task](references/task.md)** - `/flow:task`
+- **[Docs](references/docs.md)** - `/flow:docs`
+- **[Research](references/research.md)** - `/flow:research`
 
 ## Official References
 

@@ -1,6 +1,6 @@
 ---
 name: ty
-description: Usage of `ty`, a zero-config, high-performance type checker from Astral. Should only be used when explicitly installed.
+description: "Usage of `ty`, a zero-config, high-performance type checker from Astral. Use when: running fast static analysis on Python codebases where `ty` is installed."
 ---
 
 # Ty Skill

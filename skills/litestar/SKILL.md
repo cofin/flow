@@ -169,119 +169,17 @@ async def get_item(item_id: int) -> Item:
 - Use Google-style docstrings
 - All I/O operations should be async
 
-## Litestar-Vite Integration
+---
 
-### VitePlugin Setup
+## References Index
 
-```python
-from litestar import Litestar
-from litestar_vite import ViteConfig, VitePlugin, PathConfig, RuntimeConfig
+For detailed guides on specific extensions and tools:
 
-vite_config = ViteConfig(
-    mode="spa",  # spa, template, htmx, hybrid, framework
-    paths=PathConfig(
-        resource_dir="src",
-        bundle_dir="dist",
-    ),
-    runtime=RuntimeConfig(
-        port=5173,
-        host="localhost",
-    ),
-)
+- **[Vite & TypeGen Integration](references/vite.md)**
+  - VitePlugin setup, Mode selection, Type generation config, and CLI commands.
 
-app = Litestar(
-    plugins=[VitePlugin(config=vite_config)],
-)
-```
+---
 
-### Mode Selection
-
-| Mode | Use Case |
-|------|----------|
-| `spa` | Single-page app (default proxy_mode=vite) |
-| `template` | Server templates with Vite assets |
-| `htmx` | HTMX partials with Vite assets |
-| `hybrid` | Inertia or mixed rendering |
-| `framework` | SSR frameworks (Nuxt, SvelteKit) |
-
-### Vite Template Rendering Hooks
-
-When using SSR or hybrid modes with Jinja2 or Mako, use the Vite template hooks to automatically inject HMR and asset tags:
-
-```html
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <!-- Injects Vite client for hot module replacement in dev -->
-    {{ vite_hmr() }}
-    
-    <!-- Injects compiled production assets or dev server links -->
-    {{ vite_assets('src/main.ts') }}
-</head>
-<body>
-    <div id="app"></div>
-</body>
-</html>
-```
-
-To enable these macros, ensure you provide a valid `TemplateConfig` to the `Litestar` app alongside `VitePlugin`.
-
-```python
-from litestar.template.config import TemplateConfig
-from litestar.contrib.mako import MakoTemplateEngine
-
-app = Litestar(
-    plugins=[VitePlugin(config=vite_config)],
-    # VitePlugin automatically registers the template callables (vite_hmr, vite_assets)
-    template_config=TemplateConfig(
-        directory="templates",
-        engine=MakoTemplateEngine,
-    )
-)
-```
-
-### Type Generation
-
-```python
-from litestar_vite import TypeGenConfig
-
-vite_config = ViteConfig(
-    types=TypeGenConfig(
-        enabled=True,
-        generate_sdk=True,      # TS API client
-        generate_routes=True,   # Type-safe routes
-        generate_schemas=True,  # OpenAPI schemas
-        output="src/generated",
-    ),
-)
-```
-
-### Inertia Integration
-
-```python
-from litestar_vite.inertia import InertiaPlugin, InertiaConfig
-
-app = Litestar(
-    plugins=[
-        VitePlugin(config=vite_config),
-        InertiaPlugin(config=InertiaConfig(
-            root_template="base.html",
-        )),
-    ],
-)
-```
-
-### CLI Commands
-
-```bash
-litestar assets install        # Install frontend deps
-litestar assets serve          # Start Vite dev server
-litestar assets build          # Build for production
-litestar assets generate-types # Generate TypeScript types
-litestar assets export-routes  # Export route metadata
-litestar assets status         # Check integration status
-litestar assets doctor         # Diagnose issues
-```
 
 ## Guards (Authentication/Authorization)
 

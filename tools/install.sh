@@ -486,11 +486,13 @@ install_claude() {
 
             mkdir -p "$skill_dst_dir"
 
-            # Process each file in the skill directory
-            for skill_file in "$skill_dir"*; do
-                [[ -f "$skill_file" ]] || continue
-                local file_name="$(basename "$skill_file")"
-                local dest_file="$skill_dst_dir/$file_name"
+            # Process each file in the skill directory recursively
+            find "$skill_dir" -type f | while read -r skill_file; do
+                local rel_path="${skill_file#$skill_dir}"
+                local dest_file="$skill_dst_dir/$rel_path"
+
+                # Ensure parent directory exists in destination
+                mkdir -p "$(dirname "$dest_file")"
 
                 merge_or_install_file "$skill_file" "$dest_file"
             done
@@ -560,11 +562,13 @@ install_codex() {
             local skill_dst_dir="$skills_dst/$skill_name"
             mkdir -p "$skill_dst_dir"
 
-            # Process each file in the skill directory
-            for skill_file in "$skill_dir"/*; do
-                [[ -f "$skill_file" ]] || continue
-                local file_name="$(basename "$skill_file")"
-                local dest_file="$skill_dst_dir/$file_name"
+            # Process each file in the skill directory recursively
+            find "$skill_dir" -type f | while read -r skill_file; do
+                local rel_path="${skill_file#$skill_dir/}"
+                local dest_file="$skill_dst_dir/$rel_path"
+
+                # Ensure parent directory exists in destination
+                mkdir -p "$(dirname "$dest_file")"
 
                 merge_or_install_file "$skill_file" "$dest_file"
             done
@@ -695,8 +699,8 @@ install_antigravity() {
     # Backup existing
     backup_dir "$target_agy_dir"
 
-    # Install Antigravity workflow skills
-    local skills_src="$TEMPLATES_DIR/antigravity/skills"
+    # Install skills
+    local skills_src="$SKILLS_DIR"
 
     if [[ -d "$skills_src" ]]; then
         for skill_dir in "$skills_src"/*/; do
@@ -706,10 +710,11 @@ install_antigravity() {
 
             mkdir -p "$skill_dst_dir"
 
-            for skill_file in "$skill_dir"*; do
-                [[ -f "$skill_file" ]] || continue
-                local file_name="$(basename "$skill_file")"
-                local dest_file="$skill_dst_dir/$file_name"
+            find "$skill_dir" -type f | while read -r skill_file; do
+                local rel_path="${skill_file#$skill_dir}"
+                local dest_file="$skill_dst_dir/$rel_path"
+
+                mkdir -p "$(dirname "$dest_file")"
 
                 merge_or_install_file "$skill_file" "$dest_file"
             done

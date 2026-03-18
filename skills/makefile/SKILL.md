@@ -1,6 +1,6 @@
 ---
 name: makefile
-description: Standard Makefile patterns and template for consistent project automation (colors, help text, standard targets).
+description: "Standard Makefile patterns and template for consistent project automation. Use when: creating or refining a Makefile, adding standard development targets (install, clean, test, lint), or configuring self-documenting help targets."
 ---
 
 # Makefile Skill

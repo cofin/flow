@@ -1,6 +1,6 @@
 ---
 name: htmx
-description: Expert knowledge for HTMX development. Use when building hypermedia-driven applications with partial HTML responses.
+description: "Expert knowledge for HTMX hypermedia development. Use when: building hypermedia-driven apps with partial HTML responses, using `hx-` attributes, or rendering `.html` templates."
 ---
 
 # HTMX Skill

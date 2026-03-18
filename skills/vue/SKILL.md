@@ -1,6 +1,6 @@
 ---
 name: vue
-description: Expert knowledge for Vue 3 development with TypeScript and Composition API. Use when building Vue components, composables, or SFCs.
+description: "Expert knowledge for Vue 3 development with TypeScript. Use when: building Vue components (`.vue` files), using Composition API (`<script setup>`), or managing Vue SFC state."
 ---
 
 # Vue 3 Framework Skill
