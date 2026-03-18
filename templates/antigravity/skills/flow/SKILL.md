@@ -61,16 +61,9 @@ Flow requires Beads for persistent cross-session memory:
 | `flow-status` | Display progress overview |
 | `flow-revert` | Git-aware revert |
 | `flow-validate` | Validate project integrity |
-| `flow-block` | Mark task blocked |
-| `flow-skip` | Skip task with reason |
 | `flow-revise` | Update spec/plan mid-work |
 | `flow-archive` | Archive completed flow |
-| `flow-export` | Generate summary export |
-| `flow-handoff` | Context handoff for sessions |
-| `flow-refresh` | Sync context with codebase |
-| `flow-formula` | Manage flow templates |
-| `flow-wisp` | Ephemeral exploration flow |
-| `flow-distill` | Extract reusable template |
+| `flow-task` | Ephemeral exploration task |
 | `flow-docs` | Documentation workflow |
 | `flow-research` | Conduct pre-PRD research |
 

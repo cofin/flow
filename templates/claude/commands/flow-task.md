@@ -4,28 +4,28 @@ argument-hint: <description>
 allowed-tools: Read, Write, Bash
 ---
 
-# Flow Wisp
+# Flow Task
 
 Creating ephemeral exploration flow: **$ARGUMENTS**
 
 ## Overview
 
-A "wisp" is a lightweight, temporary flow for:
+A "task" is a lightweight, temporary flow for:
 - Proof of concept exploration
 - Quick experiments
 - Research spikes
 - Learning exercises
 
-Wisps have NO audit trail - they're meant to be discarded.
+Tasks have NO audit trail - they're meant to be discarded.
 
 ---
 
-## Phase 1: Create Wisp
+## Phase 1: Create Task
 
 ```bash
-br create "Wisp: {description}" -t task -p 4 \
+br create "Task: {description}" -t task -p 4 \
   --description="{exploration_goal_and_what_youre_trying_to_learn}"
-br update {wisp_id} --notes "Ephemeral exploration. No audit trail. Created by /flow-wisp on {date}"
+br update {task_id} --notes "Ephemeral exploration. No audit trail. Created by /flow-task on {date}"
 ```
 
 This creates:
@@ -38,9 +38,9 @@ This creates:
 
 ---
 
-## Phase 2: Wisp Directory
+## Phase 2: Task Directory
 
-Create `.agents/wisps/{wisp_id}/`:
+Create `.agents/tasks/{task_id}/`:
 - `notes.md` - Scratch notes
 - `findings.md` - What you learned
 
@@ -48,7 +48,7 @@ Create `.agents/wisps/{wisp_id}/`:
 
 ## Phase 3: Work Freely
 
-During wisp:
+During task:
 - No TDD required
 - No commit conventions
 - No coverage requirements
@@ -60,7 +60,7 @@ During wisp:
 
 When done, choose:
 
-> **What do you want to do with this wisp?**
+> **What do you want to do with this task?**
 >
 > - **Promote** - Convert to a real flow (preserves learnings)
 > - **Discard** - Delete everything
@@ -76,16 +76,16 @@ When done, choose:
 ### Discard
 
 ```bash
-rm -rf .agents/wisps/{wisp_id}
-br close {wisp_id} --reason "Wisp discarded"  # if tracked in Beads
+rm -rf .agents/tasks/{task_id}
+br close {task_id} --reason "Task discarded"  # if tracked in Beads
 git checkout .  # Discard any code changes
 ```
 
 ### Keep Notes
 
 ```bash
-mv .agents/wisps/{wisp_id}/findings.md .agents/research/
-rm -rf .agents/wisps/{wisp_id}
+mv .agents/tasks/{task_id}/findings.md .agents/research/
+rm -rf .agents/tasks/{task_id}
 git checkout .
 ```
 
@@ -94,10 +94,10 @@ git checkout .
 ## Final Output
 
 ```
-Wisp Created
+Task Created
 
-ID: {wisp_id}
-Location: .agents/wisps/{wisp_id}/
+ID: {task_id}
+Location: .agents/tasks/{task_id}/
 
 This is an ephemeral exploration flow.
 - No audit trail
@@ -105,15 +105,15 @@ This is an ephemeral exploration flow.
 - Explore freely
 
 When done:
-- /flow-wisp promote {wisp_id} - Convert to real flow
-- /flow-wisp discard {wisp_id} - Delete everything
-- /flow-wisp keep {wisp_id} - Keep notes only
+- /flow-task promote {task_id} - Convert to real flow
+- /flow-task discard {task_id} - Delete everything
+- /flow-task keep {task_id} - Keep notes only
 ```
 
 ---
 
 ## Critical Rules
 
-1. **NO AUDIT** - Wisps are temporary
+1. **NO AUDIT** - Tasks are temporary
 2. **LOW CEREMONY** - Minimal process
 3. **EXPLICIT END** - Must promote, discard, or keep

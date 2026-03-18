@@ -70,16 +70,10 @@ br show <id> --format json  # Export epic with tasks
 - `/flow:status` - Display progress overview with Beads status
 - `/flow:revert` - Git-aware revert of flows, phases, or tasks
 - `/flow:validate` - Validate project integrity and fix issues
-- `/flow:block` - Mark task as blocked with reason
-- `/flow:skip` - Skip current task with justification
 - `/flow:revise` - Update spec/plan when implementation reveals issues
 - `/flow:archive` - Archive completed flows + elevate patterns
-- `/flow:export` - Generate project summary export
-- `/flow:handoff` - Create context handoff for session transfer
-- `/flow:refresh` - Sync context docs with current codebase state
-- `/flow:formula` - List and manage flow templates
-- `/flow:wisp` - Create ephemeral exploration flow (no audit trail)
-- `/flow:distill` - Extract reusable template from completed flow
+- `/flow:task` - Create ephemeral exploration task
+
 
 ## Critical Rules
 1. **Read patterns.md** before starting work
