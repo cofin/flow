@@ -46,9 +46,9 @@ CRITICAL: Check `.gitignore` before committing. If `.agents/` or specific artifa
 3.  **Refactor:** Clean up code, formatting, linting without changing behavior. Run tests to verify pass.
 
 ### 3.3 Commit and Sync
-1.  **Git Commit:** `git add .`, `git commit -m "feat(flow): [Task Description]"`
+1.  **Git Commit:** `git add .`, `git commit -m "<type>(<scope>): <description>"`
 2.  **Sync Beads (Primary):** `br close <issue_id> --reason "commit: <hash>"`
-    *   Markdown Sync (Automatic via pre-commit hook). Do NOT write `[x]` markers directly to `spec.md`.
+    *   Markdown Sync (Manual via command). It is MANDATORY that you run `/flow-sync`. Do NOT write `[x]` markers directly to `spec.md`.
 
 ### 3.4 Capture Learnings
 1.  **Log:** Append new patterns, gotchas, or insights to `.agents/specs/<flow_id>/learnings.md`.
@@ -58,7 +58,7 @@ CRITICAL: Check `.gitignore` before committing. If `.agents/` or specific artifa
 
 ## 4.0 PHASE COMPLETION GATE
 1.  **Run Full Test Suite:** Check for regressions.
-2.  **Create Checkpoint:** `git commit -m "chore(flow): complete phase <N>"`
+2.  **Create Checkpoint:** `git commit -m "chore(checkpoint): complete phase <N>"`
 3.  **Prompt for Elevation:** Ask: "Are there any learnings from this phase that should be elevated to the global `patterns.md`?"
 
 ---

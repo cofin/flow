@@ -47,11 +47,16 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
 
 ---
 
-## 4.0 PATTERN DISCOVERY & FILE VALIDATION
+## 4.0 KNOWLEDGE SYNTHESIS & FILE VALIDATION
+**PROTOCOL: Synthesize learnings and validate references.**
 
-1.  **Pattern Discovery:** Search codebase for common structures not yet in `patterns.md`. Note any new conventions.
-2.  **File Validation:** Check file paths referenced in `spec.md` files and `patterns.md`. 
-3.  Report any broken references found.
+1.  **Knowledge Synthesis (MANDATORY):**
+    *   Read `.agents/specs/<flow_id>/learnings.md`.
+    *   Synthesize learnings directly into cohesive, logically organized knowledge base chapters in `.agents/knowledge/` (e.g., `architecture.md`, `conventions.md`).
+    *   Update the current state. Do NOT outline history or create per-flow logs.
+2.  **Pattern Elevation:** Extract reusable patterns to `.agents/patterns.md`.
+3.  **File Validation:** Check file paths referenced in `spec.md` files and `patterns.md`. 
+4.  Report any broken references found.
 
 ---
 
@@ -75,7 +80,7 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
     * Gather Archived PRDs from `.agents/archive/`.
     * Count Patterns.
     * Gather Git Stats (commits) and Test Coverage.
-    * Output Markdown/JSON report to `.agents/export_[YYYYMMDD].[md|json]`.
+    * Output Markdown/JSON report to `.agents/export.[md|json]`.
     * Announce completion of export.
 
 ---

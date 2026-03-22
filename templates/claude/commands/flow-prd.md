@@ -1,6 +1,6 @@
 ---
 description: Analyze goals and generate Master Roadmap (Sagas)
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion, mcp__pal__thinkdeep, mcp__pal__analyze
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion
 ---
 
 ## 1.0 SYSTEM DIRECTIVE
@@ -43,7 +43,7 @@ You MAY ONLY:
 
 **PROTOCOL: Ensure Beads CLI is available before proceeding.**
 
-**Note:** `br` is non-invasive and never executes git commands. After `br sync --flush-only`, you must manually run `git add .beads/ && git commit`.
+**Note:** `br` is non-invasive and never executes git commands. After `br sync --flush-only`, you must manually run `git add .beads/`.
 
 1. **Check Beads CLI:**
 

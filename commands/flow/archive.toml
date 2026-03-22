@@ -32,38 +32,15 @@ You are an AI agent assistant for the Flow spec-driven development framework. Yo
 
 ---
 
-## 3.0 KNOWLEDGE EXTRACTION
-**PROTOCOL: Persist full learnings independently of archive.**
+## 3.0 KNOWLEDGE SYNTHESIS
+**PROTOCOL: Persist synthesized learnings.**
 
 1.  **Create Directory:** Create `.agents/knowledge/` if missing.
 2.  **Read Sources:** Read `learnings.md`, `spec.md` header, and `metadata.json` from the flow.
-3.  **Generate Knowledge Entry:** Create `.agents/knowledge/<flow_id>.md` with:
-    ```markdown
-    # Knowledge: <flow_id>
-
-    **Flow:** <flow_id>
-    **Description:** {from metadata/spec}
-    **Completed:** {date}
-    **Archived:** {today}
-
-    ## Topics
-    {lowercase, comma-separated tags: e.g., authentication, middleware, testing}
-
-    ## Patterns Elevated
-    - {patterns selected for elevation in section 2.0}
-
-    ## All Learnings
-    {verbatim learnings.md content}
-
-    ## Key Files
-    {files mentioned in learnings entries}
-
-    ## Summary
-    {2-3 sentence auto-generated summary}
-    ```
-4.  **Update Index:** Update `.agents/knowledge/index.md`:
-    *   Append row to Entries table: `| <flow_id> | {date} | {topics} | {summary} |`
-    *   Add entries under Topic Index headings (create headings if new)
+3.  **Synthesize Knowledge:**
+    *   Synthesize learnings directly into cohesive, logically organized knowledge base chapters in `.agents/knowledge/` (e.g., `architecture.md`, `conventions.md`).
+    *   Update the current state of these documents. Do NOT outline history or create per-flow logs.
+    *   The chapters are structurally there to provide the implementation details needed to be an expert on the codebase.
 
 ---
 
@@ -72,14 +49,13 @@ You are an AI agent assistant for the Flow spec-driven development framework. Yo
 
 1.  **Move Directory:**
     *   Create `.agents/archive/` if missing.
-    *   Generate archive ID: `<flow_id>_YYYYMMDD` (using current date).
-    *   Move `.agents/specs/<flow_id>/` to `.agents/archive/<flow_id>_YYYYMMDD/`.
+    *   Move `.agents/specs/<flow_id>/` to `.agents/archive/<flow_id>/`.
 2.  **Update Registry:**
     *   Edit **Flow Registry** (`.agents/flows.md`).
     *   Move the flow entry from "Active" to "Archived".
-    *   Update the link to point to the new archive location: `./archive/<flow_id>_YYYYMMDD/`.
+    *   Update the link to point to the new archive location: `./archive/<flow_id>/`.
 3.  **Update Metadata:**
-    *   Edit `.agents/archive/<flow_id>_YYYYMMDD/metadata.json`.
+    *   Edit `.agents/archive/<flow_id>/metadata.json`.
     *   Set `"status": "archived"`.
     *   Set `"archived_at": "{timestamp}"`.
 
@@ -105,18 +81,17 @@ You are an AI agent assistant for the Flow spec-driven development framework. Yo
 
 2.  **Commit Changes (if not ignored):**
     ```bash
-    git add .agents/patterns.md .agents/flows.md .agents/knowledge/ .agents/archive/<flow_id>_YYYYMMDD/ .agents/specs/<flow_id>
-    git commit -m "flow(archive): Archive <flow_id> and elevate patterns"
+    git add .agents/patterns.md .agents/flows.md .agents/knowledge/ .agents/archive/<flow_id>/ .agents/specs/<flow_id>
+    git commit -m "chore(archive): Archive <flow_id> and elevate patterns"
     ```
 
 ---
 
 ## 7.0 COMPLETION
 Announce:
-"Flow '<flow_id>' successfully archived to `<flow_id>_YYYYMMDD`.
+"Flow '<flow_id>' successfully archived.
 - Patterns updated: [Count]
-- Patterns updated: [Count]
-- Artifacts moved to: .agents/archive/<flow_id>_YYYYMMDD/
+- Artifacts moved to: .agents/archive/<flow_id>/
 - Registry updated
 - Beads epic closed"
 """

@@ -31,7 +31,7 @@ Handles non-linear Git histories (rebase, squash, merge commits).
     ```bash
     br sync --flush-only
     git add .beads/
-    git commit -m "sync beads"
+    # You can commit beads state manually or alongside your features
     ```
 
 4.  **Handle Failure:** If missing/empty: "Project not set up. Run `/flow:setup`." → HALT
@@ -165,15 +165,15 @@ Handles non-linear Git histories (rebase, squash, merge commits).
     br update {epic_id} --status open --notes "Flow reverted to initial state"
     ```
 
-5.  **Markdown Sync (Automatic):**
-    -   The git pre-commit hook automatically exports Beads state to spec.md on commit.
-    -   **Do NOT manually edit spec.md markers** - use the hook instead.
+5.  **Markdown Sync (Manual):**
+    -   It is MANDATORY that you run `/flow-sync` to export Beads state to spec.md on commit.
+    -   **Do NOT manually edit spec.md markers** - use the command instead.
 
 6.  **Sync and Prime:**
     ```bash
     br sync --flush-only
     git add .beads/
-    git commit -m "sync beads"
+    # You can commit beads state manually or alongside your features
     br status
     ```
 

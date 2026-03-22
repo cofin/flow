@@ -202,7 +202,7 @@ project/
 
 ## Flow Naming
 
-Flows use format: `shortname_YYYYMMDD`
+Flows use format: `shortname`
 
 Examples:
 
@@ -238,7 +238,7 @@ br close <id> --reason "commit: abc123"
 # At session end
 br sync --flush-only
 git add .beads/
-git commit -m "sync beads"
+# You can commit beads state manually or alongside your features
 # Notes survive context compaction!
 ```
 
@@ -247,7 +247,7 @@ git commit -m "sync beads"
 1. **Start**: `br status` + `br ready` to load context and find unblocked tasks
 2. **Work**: Update task status as you progress
 3. **Learn**: Add notes for important discoveries
-4. **End**: `br sync --flush-only && git add .beads/ && git commit -m "sync beads"` persists everything
+4. **End**: `br sync --flush-only && git add .beads/` persists everything
 
 ## Knowledge System (Three-Tier)
 
@@ -277,14 +277,14 @@ Consolidated in `patterns.md`:
 
 ### Persistent Knowledge Base
 
-Full learnings persisted in `knowledge/{flow_id}.md` during archival. Survives archive cleanup — detailed learnings are never lost. The `knowledge/index.md` provides a lightweight topic-based lookup.
+Learnings are synthesized into cohesive, logically organized knowledge base chapters in `knowledge/` during sync and archival. Content is integrated directly into existing chapters to describe the current state of the codebase. It is structurally there to provide the implementation details needed to be an expert on the codebase.
 
 ### Knowledge Flywheel
 
 1. **Capture** - After each task, append learnings to `learnings.md`
 2. **Elevate** - At phase/flow completion, move patterns to `patterns.md`
-3. **Extract** - At archive, persist full learnings to `knowledge/{flow_id}.md`
-4. **Inherit** - New flows read `patterns.md` + scan `knowledge/index.md`
+3. **Synthesize** - During sync and archive, integrate learnings directly into cohesive, logically organized knowledge base chapters in `knowledge/` (e.g., `architecture.md`, `conventions.md`). Do NOT outline history; update the current state.
+4. **Inherit** - New flows read `patterns.md` + scan `knowledge/` chapters.
 
 ## Skills Library
 

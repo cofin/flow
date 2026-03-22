@@ -73,11 +73,10 @@ To find a file (e.g., "**Product Definition**") within a specific context:
 
 ## Flow ID Naming Convention
 
-**Format:** `shortname_YYYYMMDD` (e.g., `user-auth_20260124`)
+**Format:** `shortname` (e.g., `user-auth`)
 
-- **Active Flows:** Slug + date (e.g., `dark-mode_20260124`)
+- **Active Flows:** Simple slug (e.g., `dark-mode`)
   - Derived from description: lowercase, hyphens for spaces, max 3-4 words
-  - Date suffix prevents collisions and aids chronological sorting
 - **Archived Flows:** Keep same ID, moved to `.agents/archive/`
 
 ## Task Status Markers
@@ -204,7 +203,7 @@ At session end:
 ```bash
 br sync --flush-only
 git add .beads/
-git commit -m "sync beads"
+# You can commit beads state manually or alongside your features
 # Notes survive context compaction!
 ```
 
@@ -241,14 +240,14 @@ Consolidated patterns from all flows:
 - Run `npm run typecheck` before commit
 ```
 
-### Knowledge Flywheel (Three-Tier)
+### Knowledge Flywheel
 
 1. **Capture** - After each task, append learnings to flow's `learnings.md`
 2. **Elevate** - At phase/flow completion, move reusable patterns to `.agents/patterns.md`
-3. **Extract** - At archive, persist full learnings to `knowledge/{flow_id}.md`
-4. **Inherit** - New flows read `patterns.md` + scan `knowledge/index.md`
+3. **Synthesize** - During sync and archive, integrate learnings directly into cohesive, logically organized knowledge base chapters in `.agents/knowledge/` (e.g., `architecture.md`, `conventions.md`). Update the current state, do NOT outline history.
+4. **Inherit** - New flows read `patterns.md` + scan `.agents/knowledge/` chapters.
 
-Knowledge entries in `.agents/knowledge/` survive archive cleanup, ensuring detailed learnings are never lost.
+Knowledge chapters in `.agents/knowledge/` survive archive cleanup and serve as the expert implementation details for the codebase.
 
 ## Parallel Execution
 

@@ -205,7 +205,7 @@ Based on research, the recommended approach is: [Summary]
 
 ### 7.1 Create Research Document
 
-1.  **Generate Research ID:** Create a unique ID using format `research_YYYYMMDD_shortname`.
+1.  **Generate Research ID:** Create a unique ID using format `research_shortname`.
 
 2.  **Create Research Directory:** Create `<PRD Directory>/research/<research_id>/`.
 

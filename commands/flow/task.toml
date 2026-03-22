@@ -9,7 +9,7 @@ You are an AI agent assistant for the Flow framework. Your goal is to create a "
 
 ## 1.1 INITIALIZATION
 1.  **Parse Input:** Get description from arguments. If missing, ask the user: "What is the goal of this task?"
-2.  **Generate ID:** Create `task_id` format: `task_YYYYMMDD_shortname` (e.g., `task_20231027_fix_login`).
+2.  **Generate ID:** Create `task_id` format: `task_shortname` (e.g., `task_fix_login`).
 
 ---
 

@@ -1,7 +1,7 @@
 ---
 description: Execute tasks from plan (context-aware)
 argument-hint: <flow_id>
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, WebSearch, mcp__pal__thinkdeep, mcp__pal__debug, mcp__pal__analyze
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, WebSearch
 ---
 
 # Flow Implement
@@ -141,10 +141,9 @@ git commit -m "{type}({scope}): {description}"
 br close {task_id} --reason "commit: {sha}"
 ```
 
-### Markdown Sync (Automatic)
+### Markdown Sync (Manual)
 
-The git pre-commit hook automatically exports Beads state to spec.md on commit.
-**CRITICAL:** Do NOT write markers directly to spec.md and do NOT run sync manually.
+**CRITICAL:** Do NOT write markers directly to spec.md. It is MANDATORY that you run `/flow-sync` to update the markdown state after any task completion or status change.
 
 ### 3.9 Record Learning (if any)
 
@@ -205,7 +204,7 @@ Manual Verification Steps:
 ### 4.5 Create Checkpoint
 
 ```bash
-git commit --allow-empty -m "flow(checkpoint): Phase {N} complete"
+git commit --allow-empty -m "chore(checkpoint): Phase {N} complete"
 ```
 
 Record in Beads:
@@ -214,10 +213,9 @@ Record in Beads:
 br comments add {epic_id} "Phase {N} verified: tests passed, user confirmed, checkpoint: {sha}"
 ```
 
-### Markdown Sync (Automatic)
+### Markdown Sync (Manual)
 
-The git pre-commit hook automatically exports Beads state to spec.md on commit.
-**CRITICAL:** Do NOT write markers directly to spec.md and do NOT run sync manually.
+**CRITICAL:** Do NOT write markers directly to spec.md. It is MANDATORY that you run `/flow-sync` to update the markdown state after any task completion or status change.
 
 ### 4.7 Offer Pattern Elevation
 
@@ -240,7 +238,7 @@ When all tasks complete:
 If implementation fails:
 
 1. Check error message
-2. Use `mcp__pal__debug` for complex issues
+2. Use standard debugging tools for complex issues
 3. Update `learnings.md` with issue details
 4. If blocked, run `/flow-block {task_id} "{reason}"`
 

@@ -218,7 +218,7 @@ Create explicit research tasks with status tracking:
 
 ### 6.1 Create Research Document
 
-1. **Generate Research ID:** `research_{YYYYMMDD}_{shortname}`
+1. **Generate Research ID:** `research_{shortname}`
 
 2. **Create Research Directory:**
    ```bash

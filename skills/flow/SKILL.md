@@ -16,7 +16,7 @@ This skill activates when:
 
 ### Flows (formerly PRDs)
 A flow is a logical unit of work (feature or bug fix). Each flow has:
-- **ID format**: `shortname_YYYYMMDD` (e.g., `auth_20260124`)
+- **ID format**: `shortname` (e.g., `auth`)
 - **Location**: `.agents/specs/{flow_id}/`
 - **Files**: spec.md (unified spec+plan), metadata.json, learnings.md
 
@@ -47,8 +47,8 @@ Flow requires Beads for persistent cross-session memory:
 - Tech Stack: `.agents/tech-stack.md`
 - Workflow: `.agents/workflow.md`
 - Patterns: `.agents/patterns.md`
+- Knowledge Base: `.agents/knowledge/`
 - Knowledge Index: `.agents/knowledge/index.md`
-- Knowledge Entries: `.agents/knowledge/{flow_id}.md`
 - Beads Config: `.agents/beads.json`
 
 ## Workflow Commands
@@ -83,13 +83,13 @@ Flow requires Beads for persistent cross-session memory:
 
 **CRITICAL:** Never write `[x]`, `[~]`, `[!]`, or `[-]` markers to spec.md. Beads is the source of truth. After ANY Beads state change, agents MUST run `/flow:sync` to update spec.md.
 
-## Knowledge Flywheel (Three-Tier)
+## Knowledge Flywheel
 
 1. **Capture** - After each task, append learnings to flow's `learnings.md`
 2. **Sync** - Auto-sync to Beads notes
 3. **Elevate** - At phase/flow completion, move reusable patterns to `patterns.md`
-4. **Extract** - At archive, persist full learnings to `knowledge/{flow_id}.md`
-5. **Inherit** - New flows read `patterns.md` + scan `knowledge/index.md`
+4. **Synthesize** - During sync and archive, integrate learnings directly into cohesive, logically organized knowledge base chapters in `.agents/knowledge/`.
+5. **Inherit** - New flows read `patterns.md` + scan `.agents/knowledge/` chapters.
 
 ## Phase Completion Protocol
 

@@ -30,7 +30,7 @@ Proceed? [y/N]
 
 ```bash
 git revert --no-commit {commits}
-git commit -m "revert: {scope}"
+git commit -m "revert({scope}): {description}"
 ```
 
 ### 3.1 Reopen Beads Tasks (Source of Truth)
@@ -39,10 +39,9 @@ git commit -m "revert: {scope}"
 br update {task_id} --status open
 ```
 
-### Markdown Sync (Automatic)
+### Markdown Sync (Manual)
 
-The git pre-commit hook automatically exports Beads state to spec.md on commit.
-**CRITICAL:** Do NOT write markers directly to spec.md and do NOT run sync manually.
+**CRITICAL:** Do NOT write markers directly to spec.md. It is MANDATORY that you run `/flow-sync` to update the markdown state after any task completion or status change.
 
 ## Final Output
 

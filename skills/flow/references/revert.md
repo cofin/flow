@@ -49,7 +49,7 @@ Proceed? [y/N]
 ### 3.1 Git Revert
 ```bash
 git revert --no-commit {commit_sha}..HEAD
-git commit -m "revert: {scope} - {reason}"
+git commit -m "revert({scope}): {reason}"
 ```
 
 ### 3.2 Reopen Beads Tasks

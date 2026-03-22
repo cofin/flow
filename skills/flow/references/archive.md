@@ -48,20 +48,12 @@ Append selected patterns to `.agents/patterns.md`:
 - Must update barrel exports after adding files (from: {flow_id})
 ```
 
-## Phase 3: Knowledge Extraction
+## Phase 3: Knowledge Synthesis
 
 1. Create `.agents/knowledge/` if missing.
 2. Read `learnings.md`, `spec.md` header, and `metadata.json` from the flow.
-3. Generate `.agents/knowledge/{flow_id}.md` with:
-   - Flow ID, description, completion date, archive date
-   - Topic tags (2-5 tags inferred from learnings content)
-   - Which patterns were elevated to patterns.md
-   - **Full verbatim content** from learnings.md
-   - Key files mentioned in learnings
-   - 2-3 sentence summary
-4. Update `.agents/knowledge/index.md`:
-   - Append row to Entries table: `| {flow_id} | {date} | {topics} | {summary} |`
-   - Add entries under Topic Index headings (create headings if new)
+3. Synthesize learnings directly into cohesive, logically organized knowledge base chapters in `.agents/knowledge/` (e.g., `architecture.md`, `conventions.md`).
+4. Update the current state of these documents. Do NOT outline history or create per-flow logs. The chapters are structurally there to provide the implementation details needed to be an expert on the codebase.
 
 ## Phase 4: Close Beads Epic
 

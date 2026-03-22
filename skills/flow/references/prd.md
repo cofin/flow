@@ -41,7 +41,7 @@ You MAY ONLY:
 
 **PROTOCOL: Ensure Beads CLI is available before proceeding.**
 
-**Note:** `br` is non-invasive and never executes git commands. After `br sync --flush-only`, you must manually run `git add .beads/ && git commit`.
+**Note:** `br` is non-invasive and never executes git commands. After `br sync --flush-only`, you must manually run `git add .beads/`.
 
 1. **Check Beads CLI:**
 

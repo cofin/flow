@@ -67,10 +67,9 @@ br update {task_ids} --status open
 
 ---
 
-### Markdown Sync (Automatic)
+### Markdown Sync (Manual)
 
-The git pre-commit hook automatically exports Beads state to spec.md on commit.
-**CRITICAL:** Do NOT write markers directly to spec.md and do NOT run sync manually.
+**CRITICAL:** Do NOT write markers directly to spec.md. It is MANDATORY that you run `/flow-sync` to update the markdown state after any task completion or status change.
 
 ## Critical Rules
 

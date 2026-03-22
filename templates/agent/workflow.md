@@ -28,7 +28,6 @@ br list --status in_progress       # Resume active work
 ```bash
 br sync --flush-only         # Sync notes locally
 git add .beads/
-git commit -m "sync beads"
 ```
 
 > If `br` is unavailable, workflow degrades gracefully to git-only tracking.
@@ -112,30 +111,29 @@ All tasks follow a strict lifecycle:
 9. **Record Task Completion (Beads-First):**
    - **Step 9.1: Get Commit Hash:** Obtain the hash of the *just-completed commit* (`git log -1 --format="%h"`).
    - **Step 9.2: Close in Beads:** `br close <id> --reason "commit: <sha>"`
-   - **Step 9.3 (Automatic Sync):** The git pre-commit hook will automatically export Beads state to `spec.md`. There is no need to run `/flow:sync` manually.
-   - **Do NOT manually edit spec.md markers** - they are managed automatically.
+   - **Step 9.3 (Manual Sync):** You MUST run `/flow-sync` to update the markdown state in `spec.md` so it aligns with Beads.
+   - **Do NOT manually edit spec.md markers** - they are managed by running `/flow-sync`.
 
 10. **Log Learnings:**
     - Append discoveries to track's `learnings.md`
     - Sync to Beads: `br update <id> --notes "pattern: ..."`
     - Elevate reusable patterns to `.agents/patterns.md` at phase completion
 
-### Knowledge Flywheel (Three-Tier)
+### Knowledge Flywheel
 
-1. **Capture** - After each task, append learnings to track's `learnings.md`
-2. **Elevate** - At phase/track completion, move reusable patterns to `.agents/patterns.md`
-3. **Extract** - At archive, persist full learnings to `knowledge/{flow_id}.md`
-4. **Inherit** - New flows read `patterns.md` + scan `knowledge/index.md`
+1. **Capture** - After each task, append learnings to flow's `learnings.md`
+2. **Elevate** - At phase/flow completion, move reusable patterns to `.agents/patterns.md`
+3. **Synthesize** - During sync and archive, integrate learnings directly into cohesive, logically organized knowledge base chapters in `.agents/knowledge/` (e.g., `architecture.md`, `conventions.md`). Update the current state, do NOT outline history.
+4. **Inherit** - New flows read `patterns.md` + scan `.agents/knowledge/` chapters.
 
-**Three-Tier Knowledge:**
+**Knowledge Base:**
 
 | Tier | File | Loaded | Purpose |
 |------|------|--------|---------|
 | **Patterns** | `.agents/patterns.md` | Always | Elevated actionable rules for priming |
-| **Knowledge Index** | `.agents/knowledge/index.md` | Always | Lightweight scan of all flow learnings |
-| **Knowledge Entries** | `.agents/knowledge/{flow_id}.md` | On demand | Full detailed learnings per flow |
+| **Knowledge Chapters** | `.agents/knowledge/*.md` | On demand | Synthesized implementation details and current state |
 
-**Important:** `.agents/patterns.md` is NOT archived with tracks. It remains at the top level as persistent project knowledge. Knowledge entries in `.agents/knowledge/` also persist independently of archives.
+**Important:** `.agents/patterns.md` is NOT archived with flows. It remains at the top level as persistent project knowledge. Knowledge chapters in `.agents/knowledge/` also persist independently of archives and describe the active codebase state.
 
 **Learnings Entry Format:**
 
@@ -207,9 +205,9 @@ All tasks follow a strict lifecycle:
 7.  **Record Verification in Beads:**
     -   Update the epic with verification summary: `br comments add <epic_id> "Phase N verified: tests passed, manual verification confirmed by user, checkpoint: <sha>"`
 
-8.  **Sync to spec.md (Automatic):**
-    -   The git pre-commit hook automatically exports the current Beads state to `spec.md` for human-readable status.
-    -   **Do NOT manually edit spec.md** - Beads is source of truth and synced automatically.
+8.  **Sync to spec.md (Manual):**
+    -   You MUST run `/flow-sync` to update the markdown state in `spec.md` so it aligns with Beads for human-readable status.
+    -   **Do NOT manually edit spec.md** - Beads is source of truth, and you must sync it using the command.
 
 9.  **Announce Completion:** Inform the user that the phase is complete and the checkpoint has been recorded in Beads.
 
@@ -352,7 +350,7 @@ A task is complete when:
 7. Implementation notes added to `spec.md`
 8. Changes committed with proper message
 9. Task closed in Beads with commit reference: `br close <id> --reason "commit: <sha>"`
-10. Markdown synced automatically via git pre-commit hook.
+10. Markdown synced manually by running `/flow-sync`.
 
 ## Emergency Procedures
 

@@ -43,37 +43,12 @@ Or read `.agents/specs/{flow_id}/spec.md` Implementation Plan section.
 
 ---
 
-## Phase 3: Knowledge Extraction
+## Phase 3: Knowledge Synthesis
 
 1. Create `.agents/knowledge/` if missing.
 2. Read `learnings.md`, `spec.md` header, and `metadata.json` from the flow.
-3. Generate `.agents/knowledge/{flow_id}.md` with:
-   ```markdown
-   # Knowledge: {flow_id}
-
-   **Flow:** {flow_id}
-   **Description:** {from metadata/spec}
-   **Completed:** {date}
-   **Archived:** {today}
-
-   ## Topics
-   {lowercase, comma-separated tags: e.g., authentication, middleware, testing}
-
-   ## Patterns Elevated
-   - {patterns selected for elevation in Phase 2}
-
-   ## All Learnings
-   {verbatim learnings.md content}
-
-   ## Key Files
-   {files mentioned in learnings entries}
-
-   ## Summary
-   {2-3 sentence auto-generated summary}
-   ```
-4. Update `.agents/knowledge/index.md`:
-   - Append row to Entries table: `| {flow_id} | {date} | {topics} | {summary} |`
-   - Add entries under Topic Index headings (create headings if new)
+3. Synthesize learnings directly into cohesive, logically organized knowledge base chapters in `.agents/knowledge/` (e.g., `architecture.md`, `conventions.md`).
+4. Update the current state of these documents. Do NOT outline history or create per-flow logs. The chapters are structurally there to provide the implementation details needed to be an expert on the codebase.
 
 ---
 
@@ -132,7 +107,7 @@ Edit `.agents/flows.md`:
 2. **Commit (if not ignored):**
    ```bash
    git add .agents/patterns.md .agents/flows.md .agents/knowledge/ .agents/archive/{flow_id}/
-   git commit -m "flow(archive): {flow_id} complete"
+   git commit -m "chore(archive): {flow_id} complete"
    ```
    *If ignored, skip commit and notify user.*
 

@@ -40,10 +40,10 @@ br show <id> --format json  # Export epic with tasks
 5. **Refactor** while green
 6. Commit with conventional format
 7. **Sync to Beads** → `br close <id> --reason "commit: <sha>"`
-8. Markdown synced automatically via git pre-commit hook.
-9. Log learnings in learnings.md
+8. **Sync to markdown:** run `/flow-sync` (MANDATORY — keeps spec.md readable)
 
-**CRITICAL:** Do not manually edit spec.md markers. Beads state is exported automatically upon commit.
+**CRITICAL:** It is MANDATORY that after ANY Beads state change (close, block, skip, revert, revise), agents run `/flow-sync` to update spec.md. Never write markers (`[x]`, `[~]`, `[!]`, `[-]`) directly to spec.md.
+9. Log learnings in learnings.md
 
 ### Directory Structure
 ```

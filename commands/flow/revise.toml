@@ -115,16 +115,15 @@ br close {task_id} --reason "Removed in revision"
 
 ---
 
-### Markdown Sync (Automatic)
+### Markdown Sync (Manual)
 
-The git pre-commit hook automatically exports Beads state to spec.md on commit.
-**CRITICAL:** Do NOT write markers directly to spec.md and do NOT run sync manually.
+**CRITICAL:** Do NOT write markers directly to spec.md. It is MANDATORY that you run `/flow-sync` to update the markdown state after any task completion or status change.
 
 ## Phase 8: Commit Revision
 
 ```bash
 git add .agents/specs/{flow_id}/
-git commit -m "flow(revise): {flow_id} - {brief description}"
+git commit -m "chore(revise): {flow_id} - {brief description}"
 ```
 
 ---

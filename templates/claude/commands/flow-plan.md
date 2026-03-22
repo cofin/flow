@@ -1,6 +1,6 @@
 ---
 description: Create unified spec.md for a single Flow
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion, mcp__pal__thinkdeep, mcp__pal__analyze
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion
 ---
 
 ## 1.0 SYSTEM DIRECTIVE

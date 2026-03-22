@@ -29,7 +29,7 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
 
    If installation fails, announce error and HALT.
 
-3. **Note:** `br` is non-invasive and never executes git commands. After `br sync --flush-only`, you must manually run `git add .beads/ && git commit`.
+3. **Note:** `br` is non-invasive and never executes git commands. After `br sync --flush-only`, you must manually run `git add .beads/`.
 
 4. **Continue:** Once Beads is available, proceed to 1.1.
 
