@@ -50,7 +50,7 @@ show_banner() {
     echo -e "${CYAN}"
     echo "╔══════════════════════════════════════════════════════════════╗"
     echo "║           Flow Framework - Intelligent Installer             ║"
-    echo "║                       Version 0.5.0                          ║"
+    echo "║                       Version 0.10.1                         ║"
     echo "╚══════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
 

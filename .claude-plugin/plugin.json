@@ -1,0 +1,10 @@
+{
+  "name": "flow",
+  "description": "Unified toolkit for Context-Driven Development with Flow and Beads",
+  "version": "0.10.1",
+  "author": {
+    "name": "cofin"
+  },
+  "repository": "https://github.com/cofin/flow",
+  "license": "MIT"
+}

@@ -1,0 +1,12 @@
+{
+  "name": "flow-marketplace",
+  "description": "The Flow Framework Marketplace",
+  "plugins": [
+    {
+      "name": "flow",
+      "description": "Context-Driven Development framework",
+      "version": "0.10.1",
+      "source": "./"
+    }
+  ]
+}
