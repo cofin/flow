@@ -306,12 +306,12 @@ async def test_user_creation(user_repo: SQLAlchemyAsyncRepository[m.User]):
 
 ## Official References
 
-- https://docs.advanced-alchemy.litestar.dev/latest/
-- https://docs.advanced-alchemy.litestar.dev/latest/usage/services.html
-- https://docs.advanced-alchemy.litestar.dev/latest/usage/cli.html
-- https://docs.advanced-alchemy.litestar.dev/latest/usage/types.html
-- https://docs.advanced-alchemy.litestar.dev/latest/reference/types.html
-- https://docs.advanced-alchemy.litestar.dev/latest/changelog.html
+- https://advanced-alchemy.litestar.dev/latest/
+- https://advanced-alchemy.litestar.dev/latest/usage/services.html
+- https://advanced-alchemy.litestar.dev/latest/usage/cli.html
+- https://advanced-alchemy.litestar.dev/latest/usage/modeling/types.html
+- https://advanced-alchemy.litestar.dev/latest/reference/types.html
+- https://advanced-alchemy.litestar.dev/latest/changelog.html
 - https://docs.litestar.dev/2/release-notes/changelog.html
 - https://docs.sqlalchemy.org/en/20/orm/quickstart.html
 
