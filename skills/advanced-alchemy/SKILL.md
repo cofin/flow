@@ -59,9 +59,14 @@ For detailed guides and code examples, refer to the following documents in `refe
 
 ## Official References
 
-- <https://docs.advanced-alchemy.litestar.dev/>
-- <https://github.com/litestar-org/advanced-alchemy>
-- <https://docs.sqlalchemy.org/en/20/orm/quickstart.html>
+- https://advanced-alchemy.litestar.dev/latest/
+- https://advanced-alchemy.litestar.dev/latest/usage/services.html
+- https://advanced-alchemy.litestar.dev/latest/usage/cli.html
+- https://advanced-alchemy.litestar.dev/latest/usage/modeling/types.html
+- https://advanced-alchemy.litestar.dev/latest/reference/types.html
+- https://advanced-alchemy.litestar.dev/latest/changelog.html
+- https://docs.litestar.dev/2/release-notes/changelog.html
+- https://docs.sqlalchemy.org/en/20/orm/quickstart.html
 
 ## Shared Styleguide Baseline
 
