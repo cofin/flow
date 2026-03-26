@@ -85,26 +85,32 @@ class MyDriver(SyncDriverAdapterBase):
 ## Specific Adapter Notes
 
 ### ADBC
+
 - **Transaction Support**: Returns `False` for `_connection_in_transaction()`. ADBC uses explicit `BEGIN` and does not expose reliable transaction state.
 - **Optimized**: Arrow framework transfers.
 
 ### AsyncPG
+
 - **Key Value**: Zero-copy JSON with `driver` strategy.
 - **Dialect**: `postgres`.
 - **Features**: pgvector, Cloud SQL connectors.
 
 ### DuckDB
+
 - **Key Value**: Native Apache Arrow support.
 - **Optimized**: In-memory analytics.
 
 ### Mock
+
 - Transpiles dialect SQL into SQLite `:memory:` execution.
 - Ideal for high-throughput unit testing without infrastructure.
 
 ### BigQuery
+
 - Uses `google-cloud-bigquery` job execution.
 - Recommends Storage Read API for large Arrow datasets.
 
 ### CockroachDB
+
 - Built-in retry logic for serialization conflicts (`40001`).
 - Follower reads capabilities to minimize query latency.

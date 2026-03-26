@@ -1,6 +1,6 @@
 ---
 name: mojo
-description: Mojo development patterns for high-performance computing: SIMD vectorization, zero-copy Python interop, GIL-free parallelism, C FFI, and Hatch build integration.
+description: "Mojo development patterns for high-performance computing: SIMD, zero-copy Python interop, GIL-free parallelism, C FFI, and Hatch build integration. Use when: writing Mojo code, .mojo files, SIMD kernels, Python-Mojo hybrid projects, hatch-mojo build hooks, or packaging Mojo extensions into wheels."
 ---
 
 # Mojo (High-Performance Computing)
@@ -23,6 +23,7 @@ For detailed guides and code examples, refer to the following documents in `refe
   - Static `external_call`, dynamic `DLHandle`, and struct mapping.
 - **[Build System](references/build.md)**
   - `hatch-mojo` configuration and manual compilation.
+- **[Hatch-Mojo Build Hook](references/hatch_mojo.md)** — Hatch build hook for compiling .mojo sources, pyproject.toml config, cibuildwheel, and CI/CD.
 - **[Testing](references/testing.md)**
   - Mojo unit tests and boundary integration tests.
 
@@ -38,6 +39,6 @@ For detailed guides and code examples, refer to the following documents in `refe
 
 ## Official References
 
-- https://docs.modular.com/mojo/
-- https://docs.modular.com/llms-mojo.txt
-- https://docs.modular.com/mojo/manual/python/
+- <https://docs.modular.com/mojo/>
+- <https://docs.modular.com/llms-mojo.txt>
+- <https://docs.modular.com/mojo/manual/python/>

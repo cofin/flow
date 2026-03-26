@@ -5,13 +5,14 @@ Create ephemeral exploration flow (no audit trail).
 
 ## Usage
 
-```
+```text
 flow-task <description>
 ```
 
 ## Overview
 
 A "task" is a lightweight, temporary flow for:
+
 - Proof of concept exploration
 - Quick experiments
 - Research spikes
@@ -31,12 +32,14 @@ br update {task_task_id} --notes "Ephemeral exploration. Created by flow-task"
 ### Phase 2: Task Directory
 
 Create `.agents/tasks/{task_id}/`:
+
 - `notes.md` - Scratch notes
 - `findings.md` - What you learned
 
 ### Phase 3: Work Freely
 
 During task:
+
 - No TDD required
 - No commit conventions
 - Just explore and learn
@@ -46,17 +49,20 @@ During task:
 When done, choose:
 
 **Promote** - Convert to a real flow:
+
 ```bash
 flow-prd "{description}"
 ```
 
 **Discard** - Delete everything:
+
 ```bash
 rm -rf .agents/tasks/{task_id}
 git checkout .
 ```
 
 **Keep Notes** - Delete code, keep findings:
+
 ```bash
 mv .agents/tasks/{task_id}/findings.md .agents/research/
 rm -rf .agents/tasks/{task_id}

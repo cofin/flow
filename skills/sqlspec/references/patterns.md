@@ -77,7 +77,7 @@ def add_tenant_guard(sql: str, tenant_id: int) -> str:
 Create bounded context managers or providers utilizing `SQLSpecAsyncService` containing boilerplate-wrapped methods (`paginate`, `get_or_404`).
 
 ```python
-from dma.lib.service import SQLSpecAsyncService, OffsetPagination
+from sqlspec.service import SQLSpecAsyncService, OffsetPagination
 
 class UserService(SQLSpecAsyncService):
     async def get_user(self, user_id: UUID) -> User:

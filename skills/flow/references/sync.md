@@ -47,7 +47,7 @@ Set `"synced_at"` and `"updated_at"` in metadata.json.
 
 ## Final Output
 
-```
+```text
 Flow Sync Complete: {flow_id}
 
 Synced from Beads epic: {beads_epic_id}

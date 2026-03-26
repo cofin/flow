@@ -81,6 +81,6 @@ extensions = [
 
 ## Integration best practices
 
--   **Sandboxed execution**: Favor loading heavy Wasm environments (like Pyodide libraries) in `<iframe>` wrappers or lazy-triggering them only when users click "Run" to minimize landing page load overhead.
--   **Dynamic Seeding**: Modify the directive layout so that users can place code inside directive bodies using standard block containers.
--   **Environment Cleanup**: Ensure execution variables do not bleed between multiple playground triggers sitting on alternative tabs.
+- **Sandboxed execution**: Favor loading heavy Wasm environments (like Pyodide libraries) in `<iframe>` wrappers or lazy-triggering them only when users click "Run" to minimize landing page load overhead.
+- **Dynamic Seeding**: Modify the directive layout so that users can place code inside directive bodies using standard block containers.
+- **Environment Cleanup**: Ensure execution variables do not bleed between multiple playground triggers sitting on alternative tabs.

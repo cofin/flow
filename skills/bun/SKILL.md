@@ -61,12 +61,12 @@ When integrating with Rust/Python backends:
 
 ## Official References
 
-- https://bun.sh/docs
-- https://bun.sh/docs/test
-- https://bun.sh/docs/install/lockfile
-- https://bun.sh/docs/runtime/ffi
-- https://bun.sh/docs/runtime/node-api
-- https://github.com/oven-sh/bun/releases
+- <https://bun.sh/docs>
+- <https://bun.sh/docs/test>
+- <https://bun.sh/docs/install/lockfile>
+- <https://bun.sh/docs/runtime/ffi>
+- <https://bun.sh/docs/runtime/node-api>
+- <https://github.com/oven-sh/bun/releases>
 
 ## Shared Styleguide Baseline
 

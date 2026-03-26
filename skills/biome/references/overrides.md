@@ -3,6 +3,7 @@
 Specific configurations to apply overrides for generated code, UI components, and routing structures.
 
 ## 1. Generated Code
+
 Directories: `src/lib/api/**/*`, `src/lib/generated/**/*`
 
 - **Status**: **DISABLED**
@@ -11,6 +12,7 @@ Directories: `src/lib/api/**/*`, `src/lib/generated/**/*`
 ---
 
 ## 2. UI Components (ShadCN)
+
 Directory: `src/components/ui/**/*`
 
 Overrides to accommodate standard ShadCN/ui component code styles.
@@ -25,6 +27,7 @@ Overrides to accommodate standard ShadCN/ui component code styles.
 ---
 
 ## 3. Routes (TanStack Router)
+
 Directory: `src/routes/**/*`
 
 | Group | Rule | Status | Rationale |
@@ -34,6 +37,7 @@ Directory: `src/routes/**/*`
 ---
 
 ## 4. Barrel Files
+
 Files: `src/lib/auth/index.ts`, `src/stores/index.ts`
 
 | Group | Rule | Status | Rationale |

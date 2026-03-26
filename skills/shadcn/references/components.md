@@ -1,6 +1,7 @@
 # ShadCN Core Components
 
 ## Button
+
 ```tsx
 import { Button } from "@/components/ui/button"
 
@@ -16,6 +17,7 @@ import { Button } from "@/components/ui/button"
 ```
 
 ## Input & Label
+
 ```tsx
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -27,6 +29,7 @@ import { Label } from "@/components/ui/label"
 ```
 
 ## Card
+
 ```tsx
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 
@@ -37,6 +40,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 ```
 
 ## Select
+
 ```tsx
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
@@ -53,7 +57,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 ## Utilities
 
 ### cn() Function
+
 Merges Tailwind classes intelligently.
+
 ```tsx
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"

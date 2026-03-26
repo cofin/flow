@@ -2,9 +2,9 @@
 
 ## Container Not Starting
 
-1.  Ensure Docker/Podman is running.
-2.  Check if port is already in use (plugin uses random ports, but conflicts happen).
-3.  Verify image pull: `docker pull postgres:18`
+1. Ensure Docker/Podman is running.
+2. Check if port is already in use (plugin uses random ports, but conflicts happen).
+3. Verify image pull: `docker pull postgres:18`
 
 ## ARM Architecture (Apple Silicon)
 

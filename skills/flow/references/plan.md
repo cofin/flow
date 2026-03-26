@@ -22,7 +22,7 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
 You are STRICTLY FORBIDDEN from:
 
 - Writing, editing, or modifying ANY source code files
-- Creating new code files (*.py, *.ts, *.js, *.rs, etc.)
+- Creating new code files (*.py,*.ts, *.js,*.rs, etc.)
 - Running implementation commands
 - Making ANY changes outside of `.agents/` directory
 
@@ -132,6 +132,7 @@ You MAY ONLY:
 3. **Draft unified `spec.md`:**
     - The spec.md must contain BOTH requirements AND implementation plan in a single file
     - Structure:
+
       ```markdown
       # Flow: {flow_name}
 
@@ -160,6 +161,7 @@ You MAY ONLY:
       - [ ] 2.1 Task description
       ...
       ```
+
     - Include "Code Analysis Summary" section with files examined
     - Include "Relevant Patterns" section (extracted from `patterns.md`)
     - Include "Parent Context" section (if applicable)
@@ -218,10 +220,12 @@ Announce:
 > **NO CODE HAS BEEN MODIFIED.**
 >
 > **Code Analysis Summary:**
+>
 > - Files examined: [count]
 > - Key files: [list]
 >
 > **Artifacts:**
+>
 > - Spec: `.agents/specs/<flow_id>/spec.md` ([N] phases, [M] tasks)
 >
 > Ready to execute? Run:

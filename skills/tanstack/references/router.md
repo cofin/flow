@@ -4,7 +4,7 @@
 
 Standard structure for route files:
 
-```
+```text
 src/routes/
 ├── __root.tsx           # Root layout
 ├── index.tsx            # / route

@@ -251,12 +251,12 @@ Measure with `criterion` and record baselines before optimizing.
 
 ## Official References
 
-- https://doc.rust-lang.org/std/os/fd/struct.OwnedFd.html
-- https://docs.rs/crate/rustix/latest
-- https://man7.org/linux/man-pages/man3/shm_open.3.html
-- https://man7.org/linux/man-pages/man2/eventfd.2.html
-- https://docs.rs/tokio/latest/tokio/sync/struct.Notify.html
-- https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-createfilemappingw
+- <https://doc.rust-lang.org/std/os/fd/struct.OwnedFd.html>
+- <https://docs.rs/crate/rustix/latest>
+- <https://man7.org/linux/man-pages/man3/shm_open.3.html>
+- <https://man7.org/linux/man-pages/man2/eventfd.2.html>
+- <https://docs.rs/tokio/latest/tokio/sync/struct.Notify.html>
+- <https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-createfilemappingw>
 
 ## Shared Styleguide Baseline
 

@@ -1,6 +1,6 @@
 ---
 name: nuxt
-description: Expert knowledge for Nuxt 3 development. Use when building Nuxt apps with server routes, composables, or hybrid rendering.
+description: "Vue SSR framework expertise for Nuxt 3. Use when: using useFetch, useAsyncData, Nitro server routes, SSR/SSG rendering, nuxt.config.ts, or building any Nuxt application."
 ---
 
 # Nuxt 3 Framework Skill
@@ -207,76 +207,18 @@ export const useUserStore = defineStore('user', () => {
 - Use middleware for route guards
 - Use `definePageMeta` for page-level config
 
-## Litestar-Vite Integration (Framework Mode)
+## References Index
 
-### Setup with VitePlugin
-
-```python
-# Python backend for Nuxt
-from litestar import Litestar
-from litestar_vite import ViteConfig, VitePlugin, RuntimeConfig
-
-vite_config = ViteConfig(
-    mode="framework",  # Framework SSR mode
-    proxy_mode="proxy",  # Proxy everything except Litestar routes
-    runtime=RuntimeConfig(
-        port=5173,
-        framework_port=3000,  # Nuxt dev server port
-    ),
-)
-
-app = Litestar(plugins=[VitePlugin(config=vite_config)])
-```
-
-### Using Generated Types
-
-```typescript
-// composables/useApi.ts
-import { route } from '~/generated/routes';
-import type { components } from '~/generated/schemas';
-
-type User = components['schemas']['User'];
-
-export function useUser(id: Ref<string>) {
-  // Type-safe route building
-  return useFetch(() => route('users:get', { id: id.value }));
-}
-```
-
-### Nuxt + Litestar API Routes
-
-```typescript
-// nuxt.config.ts
-export default defineNuxtConfig({
-  nitro: {
-    devProxy: {
-      '/api': {
-        target: 'http://localhost:8000',
-        changeOrigin: true,
-      },
-    },
-  },
-});
-```
-
-### CLI Commands
-
-```bash
-litestar assets install    # Install deps
-litestar assets serve      # Start Nuxt dev server
-litestar assets build      # Production build
-litestar run               # Start Litestar backend
-```
-
+- **[Litestar-Vite Integration](references/litestar_vite.md)** — Backend integration with Litestar-Vite plugin.
 
 ## Official References
 
-- https://nuxt.com/docs/4.x/getting-started/introduction
-- https://nuxt.com/docs/4.x/getting-started/upgrade
-- https://nuxt.com/docs/4.x/api/composables/use-fetch
-- https://nuxt.com/docs/4.x/api/utils/define-nuxt-route-middleware
-- https://nitro.build/config/
-- https://github.com/nuxt/nuxt/releases
+- <https://nuxt.com/docs/4.x/getting-started/introduction>
+- <https://nuxt.com/docs/4.x/getting-started/upgrade>
+- <https://nuxt.com/docs/4.x/api/composables/use-fetch>
+- <https://nuxt.com/docs/4.x/api/utils/define-nuxt-route-middleware>
+- <https://nitro.build/config/>
+- <https://github.com/nuxt/nuxt/releases>
 
 ## Shared Styleguide Baseline
 

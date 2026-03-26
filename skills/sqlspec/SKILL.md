@@ -1,6 +1,6 @@
 ---
 name: sqlspec
-description: Expert knowledge for SQLSpec SQL query mapper. Use when working with database adapters, SQL execution, Arrow integration, parameter handling, framework extensions, or query building.
+description: "Expert knowledge for SQLSpec SQL query mapper. Use when working with database adapters, SQL execution, Arrow integration, parameter handling, framework extensions, or query building."
 ---
 
 # SQLSpec Skill
@@ -18,7 +18,7 @@ SQLSpec is a **type-safe SQL query mapper for Python** - NOT an ORM. It provides
 5. **Protocol-Based Design**: Uses Python protocols for runtime type checking instead of inheritance
 6. **Single-Pass Processing**: Parse once, transform once, validate once
 
-### Current Capability Snapshot (main branch, 2026-02-25)
+### Current Capability Snapshot
 
 - Package/runtime: `sqlspec` version `0.40.0`, Python `>=3.10,<4.0`.
 - SQL adapter set in source tree (`sqlspec/adapters/`):
@@ -34,21 +34,25 @@ SQLSpec is a **type-safe SQL query mapper for Python** - NOT an ORM. It provides
 For detailed instructions, patterns, and API guides, refer to the following documents:
 
 ### Standards & Style
+
 - **[Code Quality & Mypyc](references/standards.md)**
   - Type annotation rules, import standards, test structure.
   - `__slots__` classes, factory methods, Mypyc compatibility.
 
 ### Core Utilities
+
 - **[SQLglot Best Practices](references/sqlglot.md)**
   - v30+ guardrails, AST manipulation, `copy=False` pattern.
 
 ### Architecture & Performance
+
 - **[Architecture & Data Flow](references/architecture.md)**
   - Performance tuning, cache namespaces.
   - Apache Arrow, ADBC streaming collectors.
   - Database event channels (`listen_notify`).
 
 ### API & Integration
+
 - **[Adapter & Driver Registry](references/adapters.md)**
   - Parameter style matrix (NUMERIC vs QMARK vs PYFORMAT).
   - Specific tuning for AsyncPG, BigQuery, DuckDB, Mock.
@@ -58,6 +62,7 @@ For detailed instructions, patterns, and API guides, refer to the following docu
   - Telemetry semantics, correlation extraction middleware.
 
 ### Advanced Patterns
+
 - **[Design Patterns](references/patterns.md)**
   - bulk `MERGE` upsert, dynamic AST tenant filter guards, `SQLSpecAsyncService` layout.
 
@@ -65,19 +70,21 @@ For detailed instructions, patterns, and API guides, refer to the following docu
 
 ## Key Resources
 
-- **SQLglot Docs**: https://sqlglot.com/sqlglot.html
-- **SQLglot GitHub**: https://github.com/tobymao/sqlglot
-- **Mypyc Docs**: https://mypyc.readthedocs.io/
-- **PyArrow Docs**: https://arrow.apache.org/docs/python/
+- **SQLglot Docs**: <https://sqlglot.com/sqlglot.html>
+- **SQLglot GitHub**: <https://github.com/tobymao/sqlglot>
+- **Mypyc Docs**: <https://mypyc.readthedocs.io/>
+- **PyArrow Docs**: <https://arrow.apache.org/docs/python/>
 
 ## Official References
 
-- https://sqlspec.dev/
-- https://sqlspec.dev/changelog.html
-- https://github.com/litestar-org/sqlspec
+- <https://sqlspec.dev/>
+- <https://sqlspec.dev/changelog.html>
+- <https://github.com/litestar-org/sqlspec>
 
 ## Shared Styleguide Baseline
 
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
 - [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
 - [SQLSpec](https://github.com/cofin/flow/blob/main/templates/styleguides/frameworks/sqlspec.md)
 - [Python](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/python.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

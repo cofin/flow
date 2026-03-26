@@ -16,6 +16,7 @@ gcloud container node-pools create POOL_NAME \
 ## Specialized Pools
 
 ### GPU Node Pool
+
 ```bash
 gcloud container node-pools create gpu-pool \
   --cluster=CLUSTER_NAME \
@@ -26,6 +27,7 @@ gcloud container node-pools create gpu-pool \
 ```
 
 ### Spot VM Pool (Cost Savings)
+
 ```bash
 gcloud container node-pools create spot-pool \
   --cluster=CLUSTER_NAME \

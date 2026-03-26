@@ -5,6 +5,7 @@ Standard configuration for Biome linter and formatter.
 ## Core Settings
 
 ### Formatter
+
 - **Enabled**: `true`
 - **Indent Width**: `2`
 - **Line Width**: `180`
@@ -12,11 +13,13 @@ Standard configuration for Biome linter and formatter.
 - **Line Ending**: `lf`
 
 ### Javascript Formatter
+
 - **Quote Style**: `"double"`
 - **JSX Quote Style**: `"double"`
 - **Semicolons**: `"asNeeded"`
 
 ### Linter
+
 - **Enabled**: `true`
 - **Recommended**: `true`
 

@@ -53,6 +53,7 @@ query = select("*").from_("users").where(predicate, copy=True)
 ```
 
 **Why copy=False**:
+
 - Deep copies walk the entire expression tree and allocate new nodes; 5-20x slower.
 - SQLSpec builders expect mutable expressions.
 - Only use `copy=True` when crossing thread boundaries.

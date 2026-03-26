@@ -68,12 +68,14 @@ vite_config = ViteConfig(
 ### Frontend Consumption
 
 #### Routes
+
 ```typescript
 import { route } from '../generated/routes';
 const url = route('users:get', { id: 123 });
 ```
 
 #### Schemas
+
 ```typescript
 import type { components } from '../generated/schemas';
 type User = components['schemas']['User'];

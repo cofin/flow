@@ -1,11 +1,11 @@
 ---
 name: gcp
-description: "Expert knowledge for Google Cloud Platform: Core services, `gcloud` CLI scripting patterns, and automation. Use when: configuring IAM, Cloud Storage, Pub/Sub, or creating cloud resources via gcloud CLI."
+description: "Google Cloud Platform expert: gcloud CLI, IAM, service accounts, Cloud Storage, Pub/Sub, BigQuery, Vertex AI. Use when: managing GCP resources, scripting gcloud commands, or configuring any GCP service."
 ---
 
 # Google Cloud Platform (GCP) Skill
 
-## Service Overview (2025)
+## Service Overview
 
 ### Core Services
 
@@ -104,6 +104,10 @@ gcloud run deploy ... --set-secrets="/secrets/db=my-db-secret:latest"
 gcloud secrets versions access latest --secret="my-secret"
 ```
 
+## References Index
+
+- **[IAM Guide](references/iam.md)** - Service accounts, role bindings, Workload Identity, and IAM best practices.
+
 ## Documentation & References
 
 - **SDK Cheat Sheet**: `gcloud cheat-sheet`
@@ -112,12 +116,12 @@ gcloud secrets versions access latest --secret="my-secret"
 
 ## Official References
 
-- https://docs.cloud.google.com/
-- https://docs.cloud.google.com/sdk/gcloud/reference
-- https://cloud.google.com/sdk/gcloud/reference/run/deploy
-- https://docs.cloud.google.com/sdk/docs/authorizing
-- https://cloud.google.com/artifact-registry/docs/transition/transition-from-gcr
-- https://cloud.google.com/vertex-ai/generative-ai/docs/migrate/migrate-palm-to-gemini
+- <https://docs.cloud.google.com/>
+- <https://docs.cloud.google.com/sdk/gcloud/reference>
+- <https://cloud.google.com/sdk/gcloud/reference/run/deploy>
+- <https://docs.cloud.google.com/sdk/docs/authorizing>
+- <https://cloud.google.com/artifact-registry/docs/transition/transition-from-gcr>
+- <https://cloud.google.com/vertex-ai/generative-ai/docs/migrate/migrate-palm-to-gemini>
 
 ## Shared Styleguide Baseline
 

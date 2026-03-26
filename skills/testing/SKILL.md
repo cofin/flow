@@ -1,6 +1,6 @@
 ---
 name: testing
-description: Expert knowledge for testing with pytest (Python) and Vitest (TypeScript/JavaScript). Use when writing tests, fixtures, or mocks.
+description: "Testing with pytest and vitest: fixtures, mocking, coverage, async testing, anyio. Use when: writing or refactoring tests, setting up fixtures/mocks, configuring coverage, or debugging test failures."
 ---
 
 # Testing Skill
@@ -246,6 +246,7 @@ export default defineConfig({
 ## Best Practices
 
 ### Python
+
 - Use function-based tests (not class-based)
 - Use `pytest.mark.anyio` for async tests
 - Use fixtures for setup/teardown
@@ -253,20 +254,25 @@ export default defineConfig({
 - Target 90%+ coverage on modified modules
 
 ### TypeScript
+
 - Use `describe` for grouping related tests
 - Use `beforeEach` to reset state
 - Use `vi.mock` for module mocking
 - Use Testing Library for component tests
 - Prefer user-centric queries (getByRole, getByText)
 
+## References Index
+
+- **[Async Testing](references/async_testing.md)** - anyio/pytest-anyio setup, async fixtures, context manager testing, and common pitfalls.
+
 ## Official References
 
-- https://docs.pytest.org/en/stable/
-- https://docs.pytest.org/en/stable/changelog.html
-- https://vitest.dev/guide/
-- https://vitest.dev/config/coverage
-- https://github.com/vitest-dev/vitest/releases
-- https://anyio.readthedocs.io/en/stable/testing.html
+- <https://docs.pytest.org/en/stable/>
+- <https://docs.pytest.org/en/stable/changelog.html>
+- <https://vitest.dev/guide/>
+- <https://vitest.dev/config/coverage>
+- <https://github.com/vitest-dev/vitest/releases>
+- <https://anyio.readthedocs.io/en/stable/testing.html>
 
 ## Shared Styleguide Baseline
 

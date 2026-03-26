@@ -1,6 +1,7 @@
 # Data Tables
 
 ## Concept
+
 ShadCN uses `@tanstack/react-table` to provide headless table logic, which you then style yourself using the core `<Table>` component.
 
 ---

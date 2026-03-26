@@ -1,6 +1,6 @@
 ---
 name: gke
-description: Expert knowledge for Google Kubernetes Engine (GKE). Use when creating clusters, managing node pools, configuring workloads, setting up security, or troubleshooting deployments.
+description: "Kubernetes on GCP expertise for GKE. Use when: running kubectl, Helm charts, pod/node pool management, workload identity, Kubernetes deployments, cluster scaling, or any GKE troubleshooting."
 ---
 
 # Google Kubernetes Engine (GKE)
@@ -33,11 +33,15 @@ For detailed guides and configuration examples, refer to the following documents
   - Essential access and operations commands.
 - **[Troubleshooting](references/troubleshooting.md)**
   - Debugging nodes, pods, and network issues.
+- **[Helm Deployment](references/helm_deployment.md)**
+  - Helm chart patterns for web + worker deployments, health probes, migration jobs, and security contexts.
+- **[SAQ Workers](references/saq_workers.md)**
+  - SAQ worker architecture, queue distribution, concurrency configuration, and graceful shutdown.
 
 ---
 
 ## Official References
 
-- https://cloud.google.com/kubernetes-engine/docs
-- https://cloud.google.com/kubernetes-engine/docs/best-practices
-- https://cloud.google.com/kubernetes-engine/docs/how-to/hardening-your-cluster
+- <https://cloud.google.com/kubernetes-engine/docs>
+- <https://cloud.google.com/kubernetes-engine/docs/best-practices>
+- <https://cloud.google.com/kubernetes-engine/docs/how-to/hardening-your-cluster>

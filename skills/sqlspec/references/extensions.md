@@ -41,11 +41,13 @@ plugin = SQLSpecPlugin(sqlspec, app)
 Analyze and optimize query execution plans fluently.
 
 ### Database Compatibility
+
 - **PostgreSQL**: ANALYZE, buffers, timing, JSON formatting.
 - **MySQL**: JSON / TREE formatting.
 - **SQLite**: QUERY PLAN text output only.
 
 ### Fluent Usage
+
 ```python
 explain = (
     Explain("SELECT * FROM users", dialect="postgres")
@@ -70,5 +72,6 @@ All internal adapters wrap exceptions with `wrap_exceptions` referencing static 
 ### Two-Tier Event Reporting
 
 Inside middleware or loaders:
-1.  **Graceful Skip**: Input lacks required markers - return empty set, logging DEBUG.
-2.  **Hard Error**: Malformed inputs - raise strictly.
+
+1. **Graceful Skip**: Input lacks required markers - return empty set, logging DEBUG.
+2. **Hard Error**: Malformed inputs - raise strictly.

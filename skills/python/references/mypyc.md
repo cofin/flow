@@ -88,12 +88,12 @@ options = { opt_level = "3" }
 
 ## Official References
 
-- https://mypyc.readthedocs.io/en/latest/
-- https://mypyc.readthedocs.io/en/latest/getting_started.html
-- https://mypyc.readthedocs.io/en/latest/native_classes.html
-- https://mypyc.readthedocs.io/en/latest/differences_from_python.html
-- https://mypy.readthedocs.io/en/stable/changelog.html
-- https://github.com/python/mypy/tree/master/mypyc
+- <https://mypyc.readthedocs.io/en/latest/>
+- <https://mypyc.readthedocs.io/en/latest/getting_started.html>
+- <https://mypyc.readthedocs.io/en/latest/native_classes.html>
+- <https://mypyc.readthedocs.io/en/latest/differences_from_python.html>
+- <https://mypy.readthedocs.io/en/stable/changelog.html>
+- <https://github.com/python/mypy/tree/master/mypyc>
 
 ## Shared Styleguide Baseline
 

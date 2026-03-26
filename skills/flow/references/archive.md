@@ -24,11 +24,14 @@ If incomplete tasks exist, warn and confirm.
 ## Phase 2: Extract Learnings
 
 ### 2.1 Read Flow Learnings
+
 Parse `.agents/specs/{flow_id}/learnings.md`
 
 ### 2.2 Identify Patterns for Elevation
+
 Present discovered patterns:
-```
+
+```text
 Patterns from {flow_id}:
 
 1. [Code] Use Zod for form validation
@@ -39,7 +42,9 @@ Which patterns should be elevated to project-level? [all/select/none]
 ```
 
 ### 2.3 Merge to Project Patterns
+
 Append selected patterns to `.agents/patterns.md`:
+
 ```markdown
 ## Code Conventions
 - Use Zod for form validation (from: {flow_id})
@@ -64,7 +69,8 @@ br close {epic_id} --reason "Flow archived"
 ## Phase 5: Move to Archive
 
 1. Move directory:
-   ```
+
+   ```text
    .agents/specs/{flow_id}/ -> .agents/archive/{flow_id}/
    ```
 
@@ -75,6 +81,7 @@ br close {epic_id} --reason "Flow archived"
 ## Phase 6: Create Archive Summary
 
 Create `.agents/archive/{flow_id}/summary.md`:
+
 ```markdown
 # Archive Summary: {flow_id}
 
@@ -97,7 +104,7 @@ All tests passing, coverage at {X}%
 
 ## Final Output
 
-```
+```text
 Flow Archived: {flow_id}
 
 Location: .agents/archive/{flow_id}/

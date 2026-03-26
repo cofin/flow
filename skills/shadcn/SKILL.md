@@ -1,6 +1,6 @@
 ---
 name: shadcn
-description: Expert knowledge for Shadcn/ui component library. Use when building UI with Radix primitives, dialogs, forms, data tables, or command palettes.
+description: "Tailwind component expertise for shadcn/ui. Use when: using cn() utility, Radix primitives, shadcn add, copy-paste components, component CLI, dialogs, forms, data tables, or command palettes."
 ---
 
 # Shadcn/ui Component Library
@@ -20,7 +20,7 @@ bunx --bun shadcn@latest add button card dialog form table
 
 For detailed guides and code examples, refer to the following documents in `references/`:
 
-- **[Best Practices 2026](references/best_practices_2026.md)**
+- **[Best Practices](references/best_practices.md)**
   - TanStack Router & React Router integration, accessibility, and agent guidance.
 - **[Core Components](references/components.md)**
   - Button, Input, Card, Select, Checkbox, Switch, and `cn()` utility.
@@ -30,6 +30,8 @@ For detailed guides and code examples, refer to the following documents in `refe
   - Integration with `react-hook-form` and `zod`.
 - **[Tables](references/tables.md)**
   - Data Table pattern with TanStack Table.
+- **[Shadcn Docs](references/shadcn-docs.md)**
+  - Official shadcn/ui documentation overview, CLI, theming, and registry.
 
 ---
 
@@ -50,6 +52,9 @@ import { Button } from "@/components/ui/button"
 
 ## Official References
 
-- https://ui.shadcn.com/
-- https://ui.shadcn.com/docs/components
-- https://ui.shadcn.com/docs/forms/tanstack-form
+- <https://ui.shadcn.com/>
+- <https://ui.shadcn.com/docs/components>
+- <https://ui.shadcn.com/docs/forms/tanstack-form>
+
+- **[Shadcn Docs](references/shadcn-docs.md)**
+  - Official Shadcn/ui documentation reference.

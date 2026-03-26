@@ -9,30 +9,34 @@ Enable building self-contained, air-gapped, multi-architecture standalone execut
 
 ---
 
-## 📖 Overview
+## Overview
 
 Standard `pyapp` installation bootstraps the environment on first run, which usually requires internet access. For **air-gapped** or **network-isolated** environments, you must embed the entire Python distribution and its dependencies ahead of time.
 
 This skill documents the **Bundle-Patch-Compile** workflow:
-1.  **Bundle**: Download a standalone Python build, install dependencies into its `site-packages`, and repackage.
-2.  **Patch**: Modify the PyApp source code to enforce custom install locations or isolation defaults.
-3.  **Compile**: Compile the patched PyApp binary with the bundled distribution embedded.
+
+1. **Bundle**: Download a standalone Python build, install dependencies into its `site-packages`, and repackage.
+2. **Patch**: Modify the PyApp source code to enforce custom install locations or isolation defaults.
+3. **Compile**: Compile the patched PyApp binary with the bundled distribution embedded.
 
 ---
 
-## 🛠️ Architecture & Philosophy
+## Architecture & Philosophy
 
 ### The Packaged Distribution
+
 Instead of installing at runtime, we build a **hybrid distribution**:
-*   A basic standalone Python distribution (e.g., from `python-build-standalone`).
-*   Pre-populated `site-packages` via `uv pip install --target`.
-*   This avoids running any package managers on first execution.
+
+* A basic standalone Python distribution (e.g., from `python-build-standalone`).
+* Pre-populated `site-packages` via `uv pip install --target`.
+* This avoids running any package managers on first execution.
 
 ---
 
-## 📝 Configuration
+## Configuration
 
 ### 1. Standard Settings
+
 In your `pyproject.toml`, configure the Hatch target or custom builder to use specific variables.
 
 ```toml
@@ -48,18 +52,18 @@ PYAPP_ALLOW_UPDATES = "1"
 
 ---
 
-## ⚙️ Step-by-Step Workflow
+## Step-by-Step Workflow
 
 ### Phase 1: Bundling (Prep the Runtime)
 
 To enable fully offline operations, follow these steps using an automation script (see `scripts/bundler.py`):
 
-1.  **Download Standalone Python**: Acquire a compatible `install_only_stripped` version for the Target Rust arch (e.g., `x86_64-unknown-linux-gnu`).
-2.  **Install Deps Off-Target**: Use `uv pip install` with specific cross-compilation flags:
-    *   `--target <extracted_python_site_packages>`
-    *   `--python-platform <uv_supported_platform>`
-    *   `--upgrade`
-3.  **Repackage**: Compress the resulting layout back into a `.tar.gz`.
+1. **Download Standalone Python**: Acquire a compatible `install_only_stripped` version for the Target Rust arch (e.g., `x86_64-unknown-linux-gnu`).
+2. **Install Deps Off-Target**: Use `uv pip install` with specific cross-compilation flags:
+    * `--target <extracted_python_site_packages>`
+    * `--python-platform <uv_supported_platform>`
+    * `--upgrade`
+3. **Repackage**: Compress the resulting layout back into a `.tar.gz`.
 
 ### Phase 2: PyApp Patching (Enforce Paths)
 
@@ -77,16 +81,18 @@ app_rs.write_text(pattern.sub(replacement, content))
 ### Phase 3: Compiling
 
 To maintain maximum glibc backward-compatibility (e.g., supporting RHEL 7+ / manylinux2014 baseline):
-*   Use **Zig** as the linker trigger: `cargo zigbuild --release --target <target>.2.17`
+
+* Use **Zig** as the linker trigger: `cargo zigbuild --release --target <target>.2.17`
 
 ---
 
-## 🚀 CI/CD Integration
+## CI/CD Integration
 
 Ensure your GitHub Action includes:
-1.  An upstream build step creating target-agnostic `.whl` files.
-2.  A cross-target build matrix (`x86_64-linux-gnu`, `aarch64-linux-gnu`, `aarch64-apple-darwin`, etc.).
-3.  Zig setup steps for robust glibc pin targeting.
+
+1. An upstream build step creating target-agnostic `.whl` files.
+2. A cross-target build matrix (`x86_64-linux-gnu`, `aarch64-linux-gnu`, `aarch64-apple-darwin`, etc.).
+3. Zig setup steps for robust glibc pin targeting.
 
 > [!TIP]
 > Always test inside a non-networked container:
@@ -94,7 +100,7 @@ Ensure your GitHub Action includes:
 
 ---
 
-## 🧰 Provided Resources
+## Provided Resources
 
-*   [Abstracted Bundler Template](file:///usr/local/google/home/codyfincher/code/utils/flow/skills/pyapp/scripts/bundler.py)
-*   [CI Matrix Action Example](file:///usr/local/google/home/codyfincher/code/utils/flow/skills/pyapp/examples/release-action.yml)
+* **Bundler Template**: `scripts/bundler.py` (in this skill directory)
+* **CI Matrix Action Example**: `examples/release-action.yml` (in this skill directory)

@@ -37,13 +37,13 @@ cat .agents/specs/{flow_id}/implement_state.json 2>/dev/null
 
 ### 2.2 Find Next Task
 
-**Primary: Use Beads**
+#### Primary: Use Beads
 
 ```bash
 br ready
 ```
 
-**Fallback: Parse spec.md**
+#### Fallback: Parse spec.md
 
 If Beads unavailable, parse `spec.md` Implementation Plan section for pending tasks.
 

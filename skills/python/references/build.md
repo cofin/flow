@@ -117,12 +117,12 @@ build-backend = "poetry.core.masonry.api"
 
 ## Official References
 
-- https://packaging.python.org/en/latest/specifications/pyproject-toml/
-- https://peps.python.org/pep-0517/
-- https://hatch.pypa.io/dev/config/build/
-- https://hatch.pypa.io/dev/history/hatchling/
-- https://github.com/ofek/hatch-vcs
-- https://docs.astral.sh/uv/concepts/build-backend/
+- <https://packaging.python.org/en/latest/specifications/pyproject-toml/>
+- <https://peps.python.org/pep-0517/>
+- <https://hatch.pypa.io/dev/config/build/>
+- <https://hatch.pypa.io/dev/history/hatchling/>
+- <https://github.com/ofek/hatch-vcs>
+- <https://docs.astral.sh/uv/concepts/build-backend/>
 
 ## Shared Styleguide Baseline
 

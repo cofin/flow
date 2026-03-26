@@ -68,12 +68,12 @@ Use only what the docs actually need, but favor these Shibuya-friendly extension
 
 ## Official References
 
-- https://shibuya.lepture.com/
-- https://shibuya.lepture.com/changelog/
-- https://www.sphinx-doc.org/en/master/
-- https://sphinx-design.readthedocs.io/en/latest/
-- https://sphinx-docsearch.readthedocs.io/
-- https://sharm294.github.io/sphinx-datatables/
+- <https://shibuya.lepture.com/>
+- <https://shibuya.lepture.com/changelog/>
+- <https://www.sphinx-doc.org/en/master/>
+- <https://sphinx-design.readthedocs.io/en/latest/>
+- <https://sphinx-docsearch.readthedocs.io/>
+- <https://sharm294.github.io/sphinx-datatables/>
 
 ## Shared Styleguide Baseline
 

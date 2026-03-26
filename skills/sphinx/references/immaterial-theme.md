@@ -148,6 +148,6 @@ pre > code {
 
 ## Best Practices
 
--   **MyST extensions**: Activate `colon_fence`, `attrs_block`, and `deflist` in `conf.py` for rich Markdown rendering that doesn't rely on crude tables.
--   **Navigation density**: Immaterial benefits from deep hierarchies; do not be afraid to nest toctrees, as the expandable sidebar handles them well.
--   **Feature Toggles**: Start with all navigation features enabled, then strip down if layout is crowded for your specific page flow.
+- **MyST extensions**: Activate `colon_fence`, `attrs_block`, and `deflist` in `conf.py` for rich Markdown rendering that doesn't rely on crude tables.
+- **Navigation density**: Immaterial benefits from deep hierarchies; do not be afraid to nest toctrees, as the expandable sidebar handles them well.
+- **Feature Toggles**: Start with all navigation features enabled, then strip down if layout is crowded for your specific page flow.

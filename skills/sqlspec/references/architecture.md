@@ -14,6 +14,7 @@ file_cache: SQLFileCacheEntry          # File loading with checksums
 ```
 
 ### Cache Expiry & Maintenance
+
 - **Thread safety**: Avoid mutating shared cache entries across execution batches without lock wrappers.
 - Caches generally leverage `LRUCache` bounded sets.
 
@@ -38,10 +39,10 @@ await bq_session.copy_from_arrow(arrow_table, target_table="refined_analytics")
 
 ### Two-Path Strategy
 
-1.  **Native Arrow Path** (ADBC, DuckDB, BigQuery):
+1. **Native Arrow Path** (ADBC, DuckDB, BigQuery):
     - Zero-copy data transfer (5-10x faster).
     - Utilizes ADBC loaders and filters extensively.
-2.  **Conversion Path**:
+2. **Conversion Path**:
     - Dict results converted to Arrow via `pyarrow`.
 
 ---
@@ -51,6 +52,7 @@ await bq_session.copy_from_arrow(arrow_table, target_table="refined_analytics")
 Simple publisher-subscriber interface utilizing native database capabilities.
 
 ### Configuration
+
 ```python
 config = SqliteConfig(
     connection_config={"database": ":memory:"},
@@ -80,5 +82,6 @@ HATCH_BUILD_HOOKS_ENABLE=1 uv build --wheel
 ```
 
 ### Safety
+
 - favor primitive types to minimize boxed operations.
 - gate CPU-bound crawlers under `@profile` for debugging logic gaps.

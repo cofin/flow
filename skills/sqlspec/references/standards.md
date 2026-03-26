@@ -42,6 +42,7 @@ if TYPE_CHECKING:
 ```
 
 **Rules:**
+
 - ALL imports at module level by default
 - ONLY nest imports for circular import prevention
 - Third-party packages may be nested for optional dependencies only
@@ -70,6 +71,7 @@ class TestConfig:
 ```
 
 **Guidelines:**
+
 - Use `pytest-databases` service fixtures (`postgres_service`, etc.) instead of infra scripts.
 - Keep fixtures session-scoped where possible to avoid container churn.
 - Use `pytest-xdist` for parallelism.
@@ -121,6 +123,7 @@ class MyMetadata:
 ```
 
 **Key Principles:**
+
 - `__slots__` reduces memory and speeds up attribute access
 - Explicit `__init__`, `__repr__`, `__eq__`, `__hash__`
 - Avoid `@dataclass` decorators in mypyc-compiled modules
@@ -160,11 +163,13 @@ class RetryConfig:
 ```
 
 **Why this pattern:**
+
 - Mypyc error: "Cannot access instance attribute through class object" when using `cls.max_retries`
 - `Final` tells mypyc the value is a compile-time constant, enabling inlining
 - Module-level constants provide single source of truth
 
 **Prohibited pattern (causes mypyc error):**
+
 ```python
 @dataclass
 class BadConfig:
@@ -193,5 +198,6 @@ class MyProtocol(Protocol):
 ```
 
 **When to use `@runtime_checkable`:**
+
 - Only when you need `isinstance(obj, MyProtocol)` checks at runtime
 - If no isinstance checks exist, remove the decorator for mypyc compatibility
