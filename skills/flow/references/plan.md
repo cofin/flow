@@ -175,6 +175,33 @@ You MAY ONLY:
 
 ---
 
+### 3.3.5 Spec Review Loop
+
+**Before presenting to user for final approval, run automated quality review.**
+
+1. **Dispatch spec-reviewer subagent** with:
+   - Path to drafted spec.md
+   - Flow requirements and constraints
+   - Relevant patterns from `.agents/patterns.md`
+   - Review criteria: completeness, consistency, feasibility, TDD task structure
+
+2. **Handle results:**
+   - **Issues found** → fix, re-dispatch reviewer (max 3 iterations)
+   - **Approved** → proceed to human review gate (step 4)
+   - **3 iterations exhausted** → present remaining issues to user for guidance
+
+3. **Review criteria checklist:**
+   - All requirements have corresponding implementation tasks
+   - Tasks are ordered correctly (dependencies respected)
+   - Each task is small enough for one commit
+   - TDD checkpoints are included
+   - File paths are specific (not vague)
+   - No gaps between spec requirements and plan tasks
+
+**Template:** See `templates/agent/spec-reviewer-prompt.md`
+
+---
+
 ### 3.4 Artifact Creation
 
 1. **Unique ID:** `slug` (e.g., `user-auth`).

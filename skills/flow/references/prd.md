@@ -121,7 +121,13 @@ You MAY ONLY:
     - **Roadmap:** Ordered list of Flows with descriptions.
     - **Global Constraints:** Rules that apply to ALL flows in this PRD.
 
-3. **Write Artifacts:**
+3. **Spec Review Loop:**
+    - Dispatch spec-reviewer subagent with: drafted prd.md, patterns.md, review criteria
+    - If issues found → fix, re-dispatch (max 3 iterations)
+    - If approved → proceed to user confirmation
+    - See `templates/agent/spec-reviewer-prompt.md`
+
+4. **Write Artifacts:**
     - Directory: `.agents/specs/<prd_id>/`
     - File: `prd.md`
     - File: `progress.md` (Tracks status of chapters)

@@ -35,7 +35,7 @@ git clone https://github.com/cofin/flow.git
 cd flow
 
 # Run installer
-./tools/scripts/install.sh
+./tools/install.sh
 ```
 
 The installer supports:
@@ -87,6 +87,15 @@ Add Flow to your global or project-level `opencode.json`:
 ```
 
 Restart OpenCode to auto-register all skills and commands.
+
+### Cursor IDE
+
+Install Flow from the plugin system:
+```
+/add-plugin flow
+```
+
+Or add to your `.cursor-plugin` configuration manually.
 
 ### Codex CLI
 
@@ -181,6 +190,8 @@ Flow follows TDD workflow (Beads-first):
 | Revise spec/plan | `/flow-revise` | `/flow:revise` | `$flow:revise` |
 | Archive completed | `/flow-archive` | `/flow:archive` | `$flow:archive` |
 | Ephemeral task | `/flow-task` | `/flow:task` | `$flow:task` |
+| Code review | `/flow-review` | `/flow:review` | `$flow:review` |
+| Finish flow | `/flow-finish` | `/flow:finish` | `$flow:finish` |
 
 > **Note**: Gemini CLI and OpenCode use `/flow:command`; Codex examples use `$flow:command`.
 

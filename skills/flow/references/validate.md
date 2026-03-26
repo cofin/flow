@@ -67,15 +67,32 @@ git status
 - Check for uncommitted changes
 - Verify no conflicts
 
-## Phase 5: Report & Fix
+## Phase 5: Verification Gate
+
+```
+IRON LAW: NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
+```
+
+Every validation check must produce evidence, not assertions:
+
+| Check | Evidence Required | Not Sufficient |
+|-------|-------------------|----------------|
+| Structure OK | File existence confirmed | Assumed from last run |
+| Beads synced | `br status` output matches flows.md | "Should be synced" |
+| Patterns valid | File refs verified on disk | Previous check |
+| Git clean | `git status` output shown | Assumed clean |
+
+Run each check fresh. Read output. Report actual results.
+
+## Phase 6: Report & Fix
 
 ```text
 Validation Results
 
-- Structure: OK
-- Beads: Synced
-- Patterns: 2 stale references
-- Git: Clean
+- Structure: OK (verified: {N} files checked)
+- Beads: Synced (verified: {N} epics matched)
+- Patterns: 2 stale references (verified: {N} refs checked)
+- Git: Clean (verified: git status output)
 
 Issues Found:
 1. patterns.md:45 - File 'src/old.ts' not found

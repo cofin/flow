@@ -53,7 +53,12 @@ Search and read files related to the problem, map implementation paths, note con
         *   Implementation Plan (Phases and TDD Tasks)
     -   Include "Manual Verification" step at end.
 
-3.  **Present Draft and Await Explicit Approval:**
+3.  **Spec Review Loop (Automated):**
+    -   Dispatch spec-reviewer subagent with: drafted spec.md, patterns.md, review criteria (completeness, consistency, feasibility, TDD task structure).
+    -   If issues found → fix, re-dispatch (max 3 iterations). If 3 iterations exhausted → surface to user.
+    -   Template: `templates/agent/spec-reviewer-prompt.md`
+
+4.  **Present Draft and Await Explicit Approval:**
     -   Show the user a summary of the unified `spec.md`.
     -   Explicitly ask: "Here is the drafted flow specification. Do you **Approve** it, or do you want to **Revise** it? (Please type 'Approve' or 'Revise' and include any feedback)."
     -   Do not proceed to write files or create Beads until explicitly approved.

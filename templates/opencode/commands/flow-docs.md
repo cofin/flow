@@ -7,7 +7,7 @@ description: Five-phase documentation workflow
 Five-phase documentation workflow with validation, knowledge capture, and cleanup.
 
 ## Usage
-`/flow:docs [validate|capture|archive|cleanup|full]`
+`/flow-docs [validate|capture|archive|cleanup|full]`
 
 ## Phase 0: Setup Check
 
@@ -17,7 +17,7 @@ Verify Flow environment:
 - **Workflow** (`.agents/workflow.md`)
 - **Flow Registry** (`.agents/flows.md`)
 
-If ANY missing: "Flow not set up. Run `/flow:setup` first." → HALT
+If ANY missing: "Flow not set up. Run `/flow-setup` first." → HALT
 
 ## Phase 1: Mode Selection
 

@@ -73,6 +73,8 @@ br show <id> --format json  # Export epic with tasks
 - `/flow:revise` - Update spec/plan when implementation reveals issues
 - `/flow:archive` - Archive completed flows + elevate patterns
 - `/flow:task` - Create ephemeral exploration task
+- `/flow:review` - Dispatch code review with Beads-aware git range
+- `/flow:finish` - Complete flow work: verify, review, merge/PR/keep/discard
 
 
 ## Critical Rules

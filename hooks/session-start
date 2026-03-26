@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# SessionStart hook for Flow plugin
+# Injects Flow context into agent conversations at startup
+
+set -euo pipefail
+
+# Determine plugin root directory
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PLUGIN_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+# Read the Flow skill content for bootstrap context
+flow_skill_content=$(cat "${PLUGIN_ROOT}/skills/flow/SKILL.md" 2>&1 || echo "Error reading flow skill")
+
+# Escape string for JSON embedding using bash parameter substitution
+escape_for_json() {
+    local s="$1"
+    s="${s//\\/\\\\}"
+    s="${s//\"/\\\"}"
+    s="${s//$'\n'/\\n}"
+    s="${s//$'\r'/\\r}"
+    s="${s//$'\t'/\\t}"
+    printf '%s' "$s"
+}
+
+flow_skill_escaped=$(escape_for_json "$flow_skill_content")
+session_context="You have the Flow framework installed.\n\nFlow provides Context-Driven Development with spec-first planning, TDD workflow, and Beads integration for cross-session memory.\n\nUse the Skill tool to invoke Flow skills. Key skills:\n- flow: Main workflow orchestrator\n- Other domain skills available in skills/ directory\n\nKey commands: /flow-setup, /flow-prd, /flow-plan, /flow-implement, /flow-sync, /flow-status\n\nFor full details, invoke the 'flow' skill."
+
+# Output context injection as JSON
+# Cursor hooks expect additional_context
+# Claude Code hooks expect hookSpecificOutput.additionalContext
+# Only emit the field consumed by the current platform to avoid double injection
+if [ -n "${CURSOR_PLUGIN_ROOT:-}" ]; then
+  printf '{\n  "additional_context": "%s"\n}\n' "$session_context"
+elif [ -n "${CLAUDE_PLUGIN_ROOT:-}" ]; then
+  printf '{\n  "hookSpecificOutput": {\n    "hookEventName": "SessionStart",\n    "additionalContext": "%s"\n  }\n}\n' "$session_context"
+else
+  printf '{\n  "additional_context": "%s"\n}\n' "$session_context"
+fi
+
+exit 0

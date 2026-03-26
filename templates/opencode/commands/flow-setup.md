@@ -310,7 +310,7 @@ Created:
 Next Steps:
 1. Run `br status` to see workspace overview
 2. Run `/flow-prd "description"` to create your first flow
-3. Run `/flow:implement {flow_id}` to start coding
+3. Run `/flow-implement {flow_id}` to start coding
 ```
 
 ---

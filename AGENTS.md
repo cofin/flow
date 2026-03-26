@@ -106,6 +106,8 @@ To find a file (e.g., "**Product Definition**") within a specific context:
 | `/flow:revise` | Update spec/plan when implementation reveals issues |
 | `/flow:archive` | Archive completed flows + elevate patterns |
 | `/flow:task` | Create ephemeral exploration task |
+| `/flow:finish` | Complete flow: verify, review, merge/PR/keep/discard |
+| `/flow:review` | Dispatch code review with Beads-aware git range |
 
 ## Beads Integration
 

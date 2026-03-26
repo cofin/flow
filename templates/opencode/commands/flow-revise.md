@@ -45,7 +45,7 @@ br update {affected_task_ids} --notes "Revised: {reason}"
 # If NEW tasks added:
 br create "{new_task}" --parent {epic_id} -p 2 \
   --description="{what_and_why}"
-br update {new_task_id} --notes "Added during revision. Created by /flow:revise"
+br update {new_task_id} --notes "Added during revision. Created by /flow-revise"
 ```
 
 ### Markdown Sync (Manual)

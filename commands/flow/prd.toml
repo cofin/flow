@@ -53,12 +53,15 @@ Check if `br` is available via `command -v br`. Stop if missing.
     -   Title, North Star context.
     -   Roadmap of proposed Chapters (Flows).
     -   Global Constraints applying to all flows.
-2.  **Present Draft to User:**
+2.  **Spec Review Loop (Automated):**
+    -   Dispatch spec-reviewer subagent with: drafted prd.md, patterns.md, review criteria (completeness, chapter ordering, dependency mapping).
+    -   If issues found → fix, re-dispatch (max 3 iterations). If exhausted → surface to user.
+3.  **Present Draft to User:**
     -   Show the user a summary of the Master PRD.
     -   Explicitly ask: "Here is the drafted PRD. Do you **Approve** it, or do you want to **Revise** it? (Please type 'Approve' or 'Revise' and include any feedback)."
-3.  **Handle Revisions:**
+4.  **Handle Revisions:**
     -   If the user chooses Revise, adjust the PRD draft and present it again until approved.
-4.  **Save Artifacts (Post-Approval Only!):**
+5.  **Save Artifacts (Post-Approval Only!):**
     -   Write to `.agents/specs/<prd_id>/prd.md` and `progress.md`.
 
 ---

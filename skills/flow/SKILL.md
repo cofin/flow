@@ -75,14 +75,18 @@ Flow requires Beads for persistent cross-session memory:
 | `/flow-task` | `/flow:task` | Ephemeral exploration task |
 | `/flow-docs` | `/flow:docs` | Documentation workflow |
 | `/flow-refresh` | `/flow:refresh` | Sync context with codebase |
+| `/flow-finish` | `/flow:finish` | Complete flow: verify, review, merge/PR |
+| `/flow-review` | `/flow:review` | Dispatch code review with Beads git range |
 
 ## Task Workflow (TDD) - Beads-First
 
+**See `references/discipline.md` for iron laws, rationalization tables, and red flags.**
+
 1. **Select task** from `br ready` (Beads is source of truth)
 2. **Mark in progress**: `br update {id} --status in_progress`
-3. **Write failing tests** (Red phase) - CRITICAL: confirm failure first
-4. **Implement** to pass (Green phase)
-5. **Refactor** with test safety
+3. **Write failing tests** (Red phase) - MUST confirm failure for right reason
+4. **Implement** minimal code to pass (Green phase) - MUST confirm all tests pass
+5. **Refactor** with test safety — must stay green
 6. **Verify coverage** (>80% target)
 7. **Commit** with format: `<type>(<scope>): <description>`
 8. **Attach git notes** with task summary
@@ -101,14 +105,16 @@ Flow requires Beads for persistent cross-session memory:
 
 ## Phase Completion Protocol
 
+**No completion claims without fresh verification evidence.** See `references/discipline.md`.
+
 When a phase completes:
 
-1. Run full test suite
-2. Verify coverage for phase files
-3. Propose manual verification steps
-4. Await user confirmation
-5. Create checkpoint commit
-6. Attach verification report as git note
+1. **Run full test suite** — read output, confirm 0 failures
+2. **Verify coverage** for phase files — confirm with actual numbers
+3. **Dispatch code review** (recommended) — see `references/review.md`
+4. **Create checkpoint commit**
+5. Propose manual verification steps
+6. Await user confirmation
 7. Record checkpoint in Beads: `br comments add {epic_id} "Phase {N} checkpoint: {sha}"`
 8. Sync to markdown: run `/flow:sync` (MANDATORY)
 
@@ -142,6 +148,9 @@ For detailed instructions and directives for specific flow commands, refer to th
 - **[Docs](references/docs.md)** - `/flow:docs`
 - **[Research](references/research.md)** - `/flow:research`
 - **[Refresh](references/refresh.md)** - `/flow:refresh`
+- **[Finish](references/finish.md)** - `/flow:finish`
+- **[Review](references/review.md)** - `/flow:review`
+- **[Discipline](references/discipline.md)** - TDD, debugging, and verification iron laws
 
 ## Official References
 

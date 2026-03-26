@@ -6,6 +6,8 @@
 # - Claude Code (~/.claude/)
 # - Codex CLI (~/.codex/)
 # - OpenCode (~/.config/opencode/)
+# - Gemini CLI (~/.gemini/extensions/flow/)
+# - Google Antigravity (~/.gemini/antigravity/skills/)
 #
 # Features:
 # - Detects existing configurations
@@ -655,7 +657,7 @@ install_gemini() {
 
     # Install extension manifest and context
     cp "$SCRIPT_DIR/gemini-extension.json" "$GEMINI_EXT_DIR/"
-    cp "$SCRIPT_DIR/GEMINI.md" "$GEMINI_EXT_DIR/"
+    cp "$SCRIPT_DIR/AGENTS.md" "$GEMINI_EXT_DIR/"
     log_success "Installed: extension manifest and context"
 
     # Install commands
@@ -673,6 +675,15 @@ install_gemini() {
     mkdir -p "$GEMINI_EXT_DIR/skills"
     cp -r "$SKILLS_DIR"/* "$GEMINI_EXT_DIR/skills/"
     log_success "Installed: Skills"
+
+    # Install hooks
+    if [[ -d "$SCRIPT_DIR/hooks" ]]; then
+        mkdir -p "$GEMINI_EXT_DIR/hooks"
+        cp -r "$SCRIPT_DIR/hooks"/* "$GEMINI_EXT_DIR/hooks/"
+        chmod +x "$GEMINI_EXT_DIR/hooks/session-start" "$GEMINI_EXT_DIR/hooks/run-hook.cmd" 2>/dev/null || true
+        log_success "Installed: Hooks"
+    fi
+
     echo ""
     log_success "Gemini CLI installation complete"
 }
@@ -735,9 +746,9 @@ check_beads() {
     echo -e "${CYAN}Checking Beads CLI...${NC}"
     echo ""
 
-    if command -v bd &> /dev/null; then
-        local version=$(bd --version 2>/dev/null || echo "unknown")
-        log_success "Beads CLI installed: $version"
+    if command -v br &> /dev/null; then
+        local version=$(br --version 2>/dev/null || echo "unknown")
+        log_success "Beads CLI (br) installed: $version"
     else
         log_warn "Beads CLI not found"
         echo ""
@@ -924,7 +935,7 @@ main() {
     $GEMINI_INSTALLED && echo "     Gemini CLI:  /flow:prd \"your feature description\""
     $ANTIGRAVITY_INSTALLED && echo "     Google Antigravity: flow-prd \"your feature description\""
     echo ""
-    echo "Documentation: https://github.com/your-org/flow"
+    echo "Documentation: https://github.com/cofin/flow"
     echo ""
 }
 

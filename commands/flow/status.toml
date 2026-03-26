@@ -60,5 +60,5 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
     *   **Blockers:** List any open blockers.
     *   **Beads Status:** Summary of linked Beads epic status.
 
-4.  **Next Actions:** Suggest the next logical command (e.g., `/flow:implement <flow_id>` or `/flow:block <flow_id>`).
+4.  **Next Actions:** Suggest the next logical command (e.g., `/flow:implement <flow_id>` or `br update {id} --status blocked --notes "BLOCKED: {reason}"`).
 """

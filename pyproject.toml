@@ -64,6 +64,11 @@ replace = '"version": "{new_version}"'
 search = '"version": "{current_version}"'
 
 [[tool.bumpversion.files]]
+filename = ".cursor-plugin/plugin.json"
+replace = '"version": "{new_version}"'
+search = '"version": "{current_version}"'
+
+[[tool.bumpversion.files]]
 filename = "tools/install.sh"
 replace = 'Version {new_version}'
 search = 'Version {current_version}'

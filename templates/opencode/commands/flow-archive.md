@@ -7,7 +7,7 @@ description: Archive completed flows + elevate patterns
 Archive completed flow and elevate patterns.
 
 ## Usage
-`/flow:archive {flow_id}`
+`/flow-archive {flow_id}`
 
 ## Phase 1: Validate
 
