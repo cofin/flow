@@ -5,7 +5,7 @@ Conduct pre-PRD research including codebase analysis and documentation lookup.
 
 ## Usage
 
-```
+```text
 flow-research <topic>
 ```
 
@@ -40,6 +40,7 @@ flow-research <topic>
 ### Phase 6: Create Research Document
 
 Create `.agents/research/{research_id}/research.md` with:
+
 - Executive Summary
 - Codebase Analysis
 - Library Documentation

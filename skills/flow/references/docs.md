@@ -10,6 +10,7 @@ Five-phase documentation workflow with validation, knowledge capture, and cleanu
 ## Phase 0: Setup Check
 
 Verify Flow environment:
+
 - **Product Definition** (`.agents/product.md`)
 - **Tech Stack** (`.agents/tech-stack.md`)
 - **Workflow** (`.agents/workflow.md`)
@@ -35,6 +36,7 @@ If ANY missing: "Flow not set up. Run `flow-setup` first." -> HALT
 ### Scan Documentation
 
 Identify all docs:
+
 - Flow specs (`.agents/`)
 - Flow folders (`.agents/specs/*/`)
 - Research folders (`.agents/research/*/`)
@@ -42,6 +44,7 @@ Identify all docs:
 ### Quality Gate Checks
 
 For each document verify:
+
 - **Structural:** Required sections present, no empty placeholders
 - **Content:** No `[TODO]`, `[NEEDS CLARIFICATION]` tags
 - **Consistency:** Terminology matches, references accurate

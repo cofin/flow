@@ -117,7 +117,7 @@ br close {task_id} --reason "Removed in revision"
 
 ### Markdown Sync (Manual)
 
-**CRITICAL:** Do NOT write markers directly to spec.md. It is MANDATORY that you run `/flow-sync` to update the markdown state after any task completion or status change.
+**CRITICAL:** Do NOT write markers directly to spec.md. It is MANDATORY that you run `/flow:sync` to update the markdown state after any task completion or status change.
 
 ## Phase 8: Commit Revision
 

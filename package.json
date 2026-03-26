@@ -1,0 +1,24 @@
+{
+  "name": "flow",
+  "version": "0.11.0",
+  "description": "Unified toolkit for Context-Driven Development",
+  "type": "module",
+  "main": ".opencode/plugins/flow.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "flow",
+    "context-driven-development",
+    "beads",
+    "tdd",
+    "ai-agent",
+    "workflow"
+  ],
+  "author": "Cofin",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cofin/flow.git"
+  }
+}

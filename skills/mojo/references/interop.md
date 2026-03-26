@@ -30,6 +30,7 @@ fn to_numpy(tensor: Tensor[DType.float32]) -> PythonObject:
 ## Python C-API Extensions
 
 ### Module Entry Point
+
 ```mojo
 from python.module import PythonModuleBuilder
 

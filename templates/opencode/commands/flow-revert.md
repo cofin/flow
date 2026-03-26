@@ -7,9 +7,9 @@ description: Git-aware revert of flows, phases, or tasks
 Git-aware revert of flows, phases, or tasks.
 
 ## Usage
-- `/flow:revert task` - Revert last task
-- `/flow:revert phase` - Revert current phase
-- `/flow:revert flow {flow_id}` - Revert entire flow
+- `/flow-revert task` - Revert last task
+- `/flow-revert phase` - Revert current phase
+- `/flow-revert flow {flow_id}` - Revert entire flow
 
 ## Phase 1: Identify Scope
 
@@ -51,5 +51,5 @@ Revert Complete
 Commits Reverted: {count}
 Tasks Reset: {count}
 
-Resume with: /flow:implement {flow_id}
+Resume with: /flow-implement {flow_id}
 ```

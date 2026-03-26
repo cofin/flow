@@ -11,6 +11,7 @@ fn test_dot_product():
 ```
 
 Run tests via CLI:
+
 ```bash
 mojo test src/mo/tests/
 ```
@@ -31,6 +32,7 @@ def test_dot_product():
 ```
 
 Run via pytest:
+
 ```bash
 uv run pytest tests/
 ```

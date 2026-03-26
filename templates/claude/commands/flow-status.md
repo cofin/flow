@@ -97,7 +97,7 @@ Coverage: 82%
 
 Based on status, suggest next action:
 
-- If blocked tasks exist: "Consider running `/flow-block` to document blockers"
+- If blocked tasks exist: "Document blockers with `br update {id} --status blocked --notes \"BLOCKED: {reason}\"`"
 - If no in-progress: "Ready to continue? Run `/flow-implement {flow_id}`"
 - If flow complete: "Flow ready for archive? Run `/flow-archive {flow_id}`"
 

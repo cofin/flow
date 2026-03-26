@@ -103,12 +103,12 @@ reportAny = false         # Disable "Any" type reporting if too noisy
 
 ## Official References
 
-- https://docs.astral.sh/ruff/configuration/
-- https://github.com/astral-sh/ruff/releases
-- https://raw.githubusercontent.com/microsoft/pyright/main/docs/configuration.md
-- https://github.com/microsoft/pyright/releases
-- https://docs.basedpyright.com/latest/configuration/config-files/
-- https://github.com/detachhead/basedpyright/releases
+- <https://docs.astral.sh/ruff/configuration/>
+- <https://github.com/astral-sh/ruff/releases>
+- <https://raw.githubusercontent.com/microsoft/pyright/main/docs/configuration.md>
+- <https://github.com/microsoft/pyright/releases>
+- <https://docs.basedpyright.com/latest/configuration/config-files/>
+- <https://github.com/detachhead/basedpyright/releases>
 
 ## Shared Styleguide Baseline
 

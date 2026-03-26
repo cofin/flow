@@ -8,7 +8,7 @@ Execute tasks from a flow's plan using TDD workflow.
 
 ## Usage
 
-`/flow:implement {flow_id}` or `/flow:implement` (uses current flow)
+`/flow-implement {flow_id}` or `/flow-implement` (uses current flow)
 
 ## Phase 1: Load Context
 
@@ -59,7 +59,7 @@ If Beads unavailable, parse `spec.md` Implementation Plan section for pending ta
 ```bash
 br create "{task_description}" --parent {epic_id} -p 2 \
   --description="{what_needs_to_be_done_and_why}"
-br update {new_task_id} --notes "Phase {N}, Task {M}. Files: {affected_files}. Created by /flow:implement"
+br update {new_task_id} --notes "Phase {N}, Task {M}. Files: {affected_files}. Created by /flow-implement"
 ```
 
 Then mark in progress:

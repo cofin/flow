@@ -116,12 +116,12 @@ setup(
 
 ## Official References
 
-- https://cython.readthedocs.io/en/stable/
-- https://cython.readthedocs.io/en/stable/src/tutorial/pure.html
-- https://cython.readthedocs.io/en/stable/src/userguide/memoryviews.html
-- https://cython.readthedocs.io/en/stable/src/userguide/source_files_and_compilation.html
-- https://github.com/cython/cython/releases
-- https://setuptools.pypa.io/en/stable/userguide/ext_modules.html
+- <https://cython.readthedocs.io/en/stable/>
+- <https://cython.readthedocs.io/en/stable/src/tutorial/pure.html>
+- <https://cython.readthedocs.io/en/stable/src/userguide/memoryviews.html>
+- <https://cython.readthedocs.io/en/stable/src/userguide/source_files_and_compilation.html>
+- <https://github.com/cython/cython/releases>
+- <https://setuptools.pypa.io/en/stable/userguide/ext_modules.html>
 
 ## Shared Styleguide Baseline
 

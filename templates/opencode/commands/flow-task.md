@@ -21,7 +21,7 @@ Tasks have NO audit trail - meant to be discarded.
 ```bash
 br create "Task: {description}" -t task -p 4 \
   --description="{exploration_goal}"
-br update {task_task_id} --notes "Ephemeral exploration. Created by /flow:task"
+br update {task_task_id} --notes "Ephemeral exploration. Created by /flow-task"
 ```
 
 ## Phase 2: Task Directory
@@ -43,7 +43,7 @@ When done, choose:
 
 **Promote** - Convert to a real flow:
 ```bash
-/flow:prd "{description}"
+/flow-prd "{description}"
 ```
 
 **Discard** - Delete everything:

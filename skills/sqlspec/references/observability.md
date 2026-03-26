@@ -5,6 +5,7 @@
 SQLSpec emits structured log records following OpenTelemetry semantic conventions to aid distributed systems diagnosis.
 
 ### Common Event Fields
+
 - `timestamp`, `level`, `logger`, `message` (static name)
 - `db.system`, `db.operation`, `db.statement` (truncated if needed)
 - `duration_ms`, `rows_affected`
@@ -30,10 +31,11 @@ ObservabilityConfig(
 Extracts trace headers across HTTP environments (Starlette, FastAPI, Flask).
 
 ### Supported Headers (Priority order)
-1.  `CorrelationExtractor` configured `correlation_header`
-2.  `traceparent` (W3C Trace Context)
-3.  `x-cloud-trace-context` (GCP)
-4.  `x-request-id`
+
+1. `CorrelationExtractor` configured `correlation_header`
+2. `traceparent` (W3C Trace Context)
+3. `x-cloud-trace-context` (GCP)
+4. `x-request-id`
 
 ### Generic Extraction Pattern
 

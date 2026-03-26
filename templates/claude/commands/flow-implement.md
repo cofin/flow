@@ -240,7 +240,7 @@ If implementation fails:
 1. Check error message
 2. Use standard debugging tools for complex issues
 3. Update `learnings.md` with issue details
-4. If blocked, run `/flow-block {task_id} "{reason}"`
+4. If blocked, run `br update {task_id} --status blocked --notes "BLOCKED: {reason}"`
 
 ---
 
@@ -270,5 +270,5 @@ Next Task: {description}
 2. **BEADS IS SOURCE OF TRUTH** - Never write `[x]` or `[~]` markers to spec.md
 4. **LEARNINGS CAPTURE** - Record patterns as discovered
 5. **PHASE CHECKPOINTS** - Verify and checkpoint at phase end
-6. **NO SKIP** - Use `/flow-skip` if task must be skipped
+6. **NO SKIP** - Use `br close {id} --reason "Skipped: {reason}"` if task must be skipped
 7. **USE `br ready`** - Always check Beads for next task

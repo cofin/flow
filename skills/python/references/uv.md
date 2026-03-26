@@ -135,6 +135,7 @@ build-backend = "hatchling.build"
 ## Deployment
 
 ### Package Distribution
+
 Build and publish wheels leveraging modern endpoints:
 
 ```bash
@@ -171,11 +172,11 @@ jobs:
 
 ## Official References
 
-- https://docs.astral.sh/uv/
-- https://docs.astral.sh/uv/reference/cli/
-- https://docs.astral.sh/uv/concepts/projects/sync/
-- https://docs.astral.sh/uv/concepts/projects/workspaces/
-- https://github.com/astral-sh/uv/releases
+- <https://docs.astral.sh/uv/>
+- <https://docs.astral.sh/uv/reference/cli/>
+- <https://docs.astral.sh/uv/concepts/projects/sync/>
+- <https://docs.astral.sh/uv/concepts/projects/workspaces/>
+- <https://github.com/astral-sh/uv/releases>
 
 ## Shared Styleguide Baseline
 

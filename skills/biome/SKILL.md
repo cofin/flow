@@ -1,6 +1,6 @@
 ---
 name: biome
-description: Expert knowledge for Biome toolchain (Linter, Formatter). Use when configuring workspace styles, troubleshooting linter errors, or setting up ignores/overrides for frontend projects.
+description: "Expert knowledge for Biome toolchain (Linter, Formatter). Use when configuring workspace styles, troubleshooting linter errors, or setting up ignores/overrides for frontend projects."
 ---
 
 # Biome Skill
@@ -24,6 +24,6 @@ For detailed guides on configurations and overrides:
 
 ## Official References
 
-- https://biomejs.dev/
-- https://biomejs.dev/linter/rules/
-- https://biomejs.dev/formatter/
+- <https://biomejs.dev/>
+- <https://biomejs.dev/linter/rules/>
+- <https://biomejs.dev/formatter/>

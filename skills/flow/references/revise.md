@@ -5,7 +5,7 @@ Update spec or plan when implementation reveals issues.
 
 ## Usage
 
-```
+```text
 flow-revise <flow_id>
 ```
 
@@ -14,6 +14,7 @@ flow-revise <flow_id>
 ### Phase 1: Load Current State
 
 Read `.agents/specs/{flow_id}/`:
+
 - spec.md
 - learnings.md
 

@@ -1,6 +1,6 @@
 ---
 name: railway
-description: Expert knowledge for Railway deployment platform. Use when deploying applications, configuring services, managing databases, or troubleshooting Railway deployments.
+description: "Expert knowledge for Railway deployment platform. Use when deploying applications, configuring services, managing databases, or troubleshooting Railway deployments."
 ---
 
 # Railway Deployment Platform Skill
@@ -12,12 +12,14 @@ description: Expert knowledge for Railway deployment platform. Use when deployin
 Railway's serverless feature puts services to sleep after 10 minutes of no **outbound** traffic.
 
 **Key Rules:**
+
 - Services wake ONLY on incoming HTTP requests
 - Workers/background tasks CANNOT use serverless (no HTTP to wake them)
 - Database connections, Redis polling, and telemetry count as outbound traffic (keep service awake)
 - `sleepApplication: false` in railway.json disables serverless
 
 **When to disable serverless:**
+
 - Background workers (Celery, SAQ, RQ, Sidekiq)
 - Queue processors
 - Cron services
@@ -46,6 +48,7 @@ Railway's serverless feature puts services to sleep after 10 minutes of no **out
 ```
 
 **Important:** A single `railway.json` in root applies globally to ALL services from the same repo. For service-specific configs:
+
 1. Create separate config files: `railway.app.json`, `railway.worker.json`
 2. Configure in Railway dashboard: Settings → Deploy → Config file path
 3. Different root directories (monorepo approach)
@@ -167,12 +170,14 @@ railway run --service=backend npm run dev
 For applications with background task processing:
 
 **Web Service:**
+
 - Uses main Dockerfile with HTTP server
 - Enable health checks (e.g., `/health`)
 - Can use serverless if desired
 - Config: `tools/deploy/railway/railway.app.json`
 
 **Worker Service:**
+
 - Uses worker Dockerfile with task runner
 - **MUST disable serverless** (no HTTP wake mechanism)
 - **MUST disable health checks** (no HTTP endpoint)
@@ -182,6 +187,7 @@ For applications with background task processing:
 **Example Config Files:**
 
 Web (`railway.app.json`):
+
 ```json
 {
   "$schema": "https://railway.com/railway.schema.json",
@@ -199,6 +205,7 @@ Web (`railway.app.json`):
 ```
 
 Worker (`railway.worker.json`):
+
 ```json
 {
   "$schema": "https://railway.com/railway.schema.json",
@@ -218,11 +225,13 @@ Worker (`railway.worker.json`):
 **Example Dockerfiles:**
 
 Web (Dockerfile):
+
 ```dockerfile
 CMD ["python", "-m", "gunicorn", "app:create_app", "--bind", "0.0.0.0:8000"]
 ```
 
 Worker (Dockerfile.worker):
+
 ```dockerfile
 CMD ["python", "-m", "celery", "-A", "app.tasks", "worker"]
 ```
@@ -230,11 +239,13 @@ CMD ["python", "-m", "celery", "-A", "app.tasks", "worker"]
 ### Shared Configuration
 
 Both services need access to:
+
 - Database URL (`${{Postgres.DATABASE_URL}}`)
 - Redis URL (`${{Redis.REDIS_URL}}`)
 - Shared secrets (SECRET_KEY, API keys)
 
 Copy shared variables to worker service:
+
 ```bash
 railway service link "Web App"
 SECRET=$(railway variables --kv | grep SECRET_KEY | cut -d'=' -f2-)
@@ -253,11 +264,13 @@ railway variables --set "SECRET_KEY=${SECRET}" \
 **Symptoms:** Service stuck in "Sleeping" state, requests timeout
 
 **Causes:**
+
 1. Serverless enabled on worker service (can't wake without HTTP)
 2. Service crashed and didn't restart properly
 3. Health check failing
 
 **Solutions:**
+
 1. Check if serverless is enabled: `railway.json` → `sleepApplication`
 2. Disable serverless for workers in Railway dashboard
 3. Check logs: `railway logs`
@@ -268,11 +281,13 @@ railway variables --set "SECRET_KEY=${SECRET}" \
 **Symptoms:** Jobs queued but not processed
 
 **Causes:**
+
 1. Worker sleeping due to serverless
 2. Redis connection issue
 3. Worker crashed
 
 **Solutions:**
+
 1. Disable serverless for worker service
 2. Verify `REDIS_URL` is set correctly with `${{Redis.REDIS_URL}}`
 3. Check worker logs: `railway service link "Worker" && railway logs`
@@ -280,6 +295,7 @@ railway variables --set "SECRET_KEY=${SECRET}" \
 ### Build Failures
 
 **Common issues:**
+
 - Dockerfile not found: Check `dockerfilePath` in railway.json
 - Dependencies not installing: Check build logs for errors
 - Out of memory: Increase service resources in dashboard
@@ -287,6 +303,7 @@ railway variables --set "SECRET_KEY=${SECRET}" \
 ### Health Check Failures
 
 **For HTTP services:**
+
 ```json
 {
   "deploy": {
@@ -338,12 +355,12 @@ railway variables --set 'LITESTAR_PORT=8080'
 
 ## Official References
 
-- https://docs.railway.com/
-- https://docs.railway.com/reference/app-sleeping
-- https://docs.railway.com/cli/service
-- https://docs.railway.com/cli/variable
-- https://docs.railway.com/config-as-code/reference
-- https://docs.railway.com/variables/reference
+- <https://docs.railway.com/>
+- <https://docs.railway.com/reference/app-sleeping>
+- <https://docs.railway.com/cli/service>
+- <https://docs.railway.com/cli/variable>
+- <https://docs.railway.com/config-as-code/reference>
+- <https://docs.railway.com/variables/reference>
 
 ## Shared Styleguide Baseline
 

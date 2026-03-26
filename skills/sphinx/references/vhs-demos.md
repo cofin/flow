@@ -25,7 +25,7 @@ Set Padding 20
 # Slow down typing speed for clarity
 Set TypingSpeed 75ms
 
-Type "uv run dma assessment list"
+Type "uv run myapp items list"
 Sleep 500ms
 Enter
 
@@ -36,8 +36,8 @@ Sleep 3s
 
 Running `vhs` requires supporting tools to render streams accurately in isolation.
 
--   **Core dependency**: `vhs`
--   **Supporting nodes**: `ttyd` (isolates terminal output), `ffmpeg` (compilation)
+- **Core dependency**: `vhs`
+- **Supporting nodes**: `ttyd` (isolates terminal output), `ffmpeg` (compilation)
 
 To compile local script additions:
 
@@ -63,7 +63,7 @@ Here is how list assessment works visually:
 
 ## Best Practices
 
--   **Static output locations**: Always route Outputs to `docs/_static/demos/*.gif` so standard theme modules detect and package them smoothly.
--   **Sandbox isolation**: In environments utilizing complex setups, isolate rendering via `docker` configurations if local dependency chains conflict.
--   **Bypassing Safety Checks**: If tape commands intentional execute live endpoints requiring security triggers, supply bypass flags scoped only for the visualization step without tampering codebase defenses.
--   **Framerate guidelines**: Favor standard frame rates; very fast speeds make scanning harder for new users.
+- **Static output locations**: Always route Outputs to `docs/_static/demos/*.gif` so standard theme modules detect and package them smoothly.
+- **Sandbox isolation**: In environments utilizing complex setups, isolate rendering via `docker` configurations if local dependency chains conflict.
+- **Bypassing Safety Checks**: If tape commands intentional execute live endpoints requiring security triggers, supply bypass flags scoped only for the visualization step without tampering codebase defenses.
+- **Framerate guidelines**: Favor standard frame rates; very fast speeds make scanning harder for new users.

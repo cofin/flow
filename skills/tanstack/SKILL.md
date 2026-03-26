@@ -1,6 +1,6 @@
 ---
 name: tanstack
-description: Expert knowledge for TanStack ecosystem (Router, Query, Table, Form, Store). Use when building SPAs with file-based routing, data fetching, tables, or forms.
+description: "TanStack ecosystem expertise (Router, Query, Table, Form). Use when: using useQuery, createRouter, React Query, TanStack Table, file-based routing, data fetching, or SPA state management."
 ---
 
 # TanStack Ecosystem
@@ -30,8 +30,8 @@ For detailed guides and code examples, refer to the following documents in `refe
 
 ## Official References
 
-- https://tanstack.com/router/
-- https://tanstack.com/query/
-- https://tanstack.com/table/
-- https://tanstack.com/form/
-- https://tanstack.com/store/
+- <https://tanstack.com/router/>
+- <https://tanstack.com/query/>
+- <https://tanstack.com/table/>
+- <https://tanstack.com/form/>
+- <https://tanstack.com/store/>

@@ -3,6 +3,7 @@
 ## Services
 
 ### ClusterIP (Internal)
+
 ```yaml
 apiVersion: v1
 kind: Service
@@ -16,6 +17,7 @@ spec:
 ```
 
 ### LoadBalancer (External)
+
 ```yaml
 apiVersion: v1
 kind: Service

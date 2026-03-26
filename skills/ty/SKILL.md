@@ -48,12 +48,12 @@ uvx ty check
 
 ## Official References
 
-- https://docs.astral.sh/ty/
-- https://docs.astral.sh/ty/installation/
-- https://docs.astral.sh/ty/type-checking/
-- https://docs.astral.sh/ty/editors/
-- https://docs.astral.sh/ty/reference/cli/
-- https://github.com/astral-sh/ty/releases
+- <https://docs.astral.sh/ty/>
+- <https://docs.astral.sh/ty/installation/>
+- <https://docs.astral.sh/ty/type-checking/>
+- <https://docs.astral.sh/ty/editors/>
+- <https://docs.astral.sh/ty/reference/cli/>
+- <https://github.com/astral-sh/ty/releases>
 
 ## Shared Styleguide Baseline
 

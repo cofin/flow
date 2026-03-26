@@ -35,7 +35,7 @@ git clone https://github.com/cofin/flow.git
 cd flow
 
 # Run installer
-./tools/scripts/install.sh
+./tools/install.sh
 ```
 
 The installer supports:
@@ -47,50 +47,69 @@ The installer supports:
 
 **Note:** Gemini CLI now uses native extension installation: `gemini extensions install flow`
 
-#### Manual Installation
+## Installation
 
-##### Beads (Required)
+Flow can be installed as a native plugin or extension on supported AI CLI platforms.
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash
-```
-
-##### Claude Code
+### Gemini CLI
 
 ```bash
-cp -r templates/claude/commands/* ~/.claude/commands/
-cp -r skills/* ~/.claude/skills/
-```
-
-##### Codex CLI
-
-```bash
-cp -r templates/codex/skills/* ~/.codex/skills/
-cat templates/codex/AGENTS.md >> ~/.codex/AGENTS.md
-cp -r skills/flow ~/.codex/skills/
-cp -r skills/beads ~/.codex/skills/
-```
-
-##### OpenCode
-
-```bash
-cp -r templates/opencode/commands/* ~/.config/opencode/commands/
-cp -r templates/opencode/agents/* ~/.config/opencode/agents/
-# Merge templates/opencode/opencode.json with existing config
-```
-
-##### Gemini CLI
-
-```bash
-# Gemini now uses native extension installation
 gemini extensions install https://github.com/cofin/flow
 ```
 
-##### Google Antigravity
+To update:
+```bash
+gemini extensions update flow
+```
+
+### Claude Code
+
+Install Flow from its plugin marketplace:
 
 ```bash
-# Copy Flow workflow skills to Antigravity skills directory
-cp -r templates/antigravity/skills/* ~/.gemini/antigravity/skills/
+/plugin marketplace add cofin/flow-marketplace
+/plugin install flow@flow-marketplace
+```
+
+Or directly from GitHub:
+```bash
+/plugin install flow@git+https://github.com/cofin/flow.git
+```
+
+### OpenCode
+
+Add Flow to your global or project-level `opencode.json`:
+
+```json
+{
+  "plugin": ["flow@git+https://github.com/cofin/flow.git"]
+}
+```
+
+Restart OpenCode to auto-register all skills and commands.
+
+### Cursor IDE
+
+Install Flow from the plugin system:
+```
+/add-plugin flow
+```
+
+Or add to your `.cursor-plugin` configuration manually.
+
+### Codex CLI
+
+Tell Codex:
+```
+Fetch and follow instructions from https://raw.githubusercontent.com/cofin/flow/refs/heads/main/.codex/INSTALL.md
+```
+
+### Legacy Installation (bash)
+
+For manual installation or custom environments:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/cofin/flow/main/tools/install.sh | bash
 ```
 
 ### Initialize a Project
@@ -171,6 +190,8 @@ Flow follows TDD workflow (Beads-first):
 | Revise spec/plan | `/flow-revise` | `/flow:revise` | `$flow:revise` |
 | Archive completed | `/flow-archive` | `/flow:archive` | `$flow:archive` |
 | Ephemeral task | `/flow-task` | `/flow:task` | `$flow:task` |
+| Code review | `/flow-review` | `/flow:review` | `$flow:review` |
+| Finish flow | `/flow-finish` | `/flow:finish` | `$flow:finish` |
 
 > **Note**: Gemini CLI and OpenCode use `/flow:command`; Codex examples use `$flow:command`.
 

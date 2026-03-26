@@ -1,6 +1,6 @@
 ---
 name: tailwind
-description: Expert knowledge for Tailwind CSS v4 development. Use when styling components, using utility classes, or working with Shadcn/ui components.
+description: "Tailwind CSS v4: utility classes, responsive design, @apply, cn(), @theme config. Use when: styling with Tailwind, writing utility classes, configuring Tailwind v4, or building responsive layouts with Shadcn/ui."
 ---
 
 # Tailwind CSS v4 Skill
@@ -229,15 +229,14 @@ function Component({ className }: Props) {
 </Button>
 ```
 
-
 ## Official References
 
-- https://tailwindcss.com/docs
-- https://tailwindcss.com/docs/installation
-- https://tailwindcss.com/blog/tailwindcss-v4
-- https://tailwindcss.com/docs/upgrade-guide
-- https://github.com/tailwindlabs/tailwindcss/releases
-- https://ui.shadcn.com/docs
+- <https://tailwindcss.com/docs>
+- <https://tailwindcss.com/docs/installation>
+- <https://tailwindcss.com/blog/tailwindcss-v4>
+- <https://tailwindcss.com/docs/upgrade-guide>
+- <https://github.com/tailwindlabs/tailwindcss/releases>
+- <https://ui.shadcn.com/docs>
 
 ## Shared Styleguide Baseline
 

@@ -183,80 +183,18 @@ response.headers["HX-Retarget"] = "#new-target"
 - Include CSRF tokens in headers
 - Use semantic HTML for accessibility
 
-## Litestar-Vite Integration
+## References Index
 
-### Setup with VitePlugin
-
-```python
-# Python backend
-from litestar import Litestar
-from litestar_vite import ViteConfig, VitePlugin
-
-vite_config = ViteConfig(
-    mode="htmx",  # HTMX mode for partials
-    paths=PathConfig(resource_dir="src"),
-)
-
-app = Litestar(plugins=[VitePlugin(config=vite_config)])
-```
-
-### HTMX Helpers from litestar-vite-plugin
-
-```typescript
-import {
-  addDirective,
-  registerHtmxExtension,
-  setHtmxDebug,
-  swapJson,
-} from 'litestar-vite-plugin/helpers/htmx';
-
-// Register custom extension
-registerHtmxExtension('my-ext', {
-  onEvent: (name, evt) => { ... }
-});
-
-// Enable debug mode
-setHtmxDebug(true);
-
-// Add custom directive
-addDirective('confirm', (element, value) => {
-  element.setAttribute('hx-confirm', value);
-});
-
-// Swap JSON response into DOM
-swapJson(targetEl, jsonData, 'innerHTML');
-```
-
-### Server-Side HTMX Responses
-
-```python
-from litestar import get
-from litestar.response import Template
-
-@get("/partials/items")
-async def get_items_partial() -> Template:
-    items = await fetch_items()
-    return Template(
-        "partials/items.html",
-        context={"items": items},
-    )
-```
-
-### CLI Commands
-
-```bash
-litestar assets install    # Install deps
-litestar assets serve      # Dev server with HMR
-litestar assets build      # Production build
-```
-
+- **[Litestar-Vite Integration](references/litestar_vite.md)** — Backend integration with Litestar-Vite plugin.
 
 ## Deployment
 
 ### Hypermedia Strategy
+
 HTMX applications are deployed bundled with their backend engine (e.g., Litestar). Deployment involves standard backend containerization or server hosting.
 
 ### Static Assets
+
 Ensure `htmx.min.js` and desired 2.x extensions are bundle-copied to the backend static directory.
 
 ---
@@ -282,12 +220,12 @@ jobs:
 
 ## Official References
 
-- https://htmx.org/docs/
-- https://htmx.org/reference/
-- https://htmx.org/migration-guide-htmx-1/
-- https://extensions.htmx.org/
-- https://htmx.org/extensions/ws/
-- https://github.com/bigskysoftware/htmx/releases
+- <https://htmx.org/docs/>
+- <https://htmx.org/reference/>
+- <https://htmx.org/migration-guide-htmx-1/>
+- <https://extensions.htmx.org/>
+- <https://htmx.org/extensions/ws/>
+- <https://github.com/bigskysoftware/htmx/releases>
 
 ## Shared Styleguide Baseline
 

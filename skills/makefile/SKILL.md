@@ -1,6 +1,6 @@
 ---
 name: makefile
-description: "Standard Makefile patterns and template for consistent project automation. Use when: creating or refining a Makefile, adding standard development targets (install, clean, test, lint), or configuring self-documenting help targets."
+description: "GNU Make patterns for uv-based Python project automation: .PHONY, targets, recipes. Use when: creating or editing a Makefile, adding development targets (install, clean, test, lint), or setting up self-documenting help."
 ---
 
 # Makefile Skill
@@ -119,12 +119,12 @@ test:                                               ## Run tests
 
 ## Official References
 
-- https://www.gnu.org/software/make/manual/make.html
-- https://www.gnu.org/software/make/manual/html_node/One-Shell.html
-- https://www.gnu.org/software/make/manual/html_node/Special-Targets.html
-- https://www.gnu.org/software/make/manual/html_node/Phony-Targets.html
-- https://lists.gnu.org/archive/html/info-gnu/2023-02/msg00011.html
-- https://pubs.opengroup.org/onlinepubs/9699919799/utilities/make.html
+- <https://www.gnu.org/software/make/manual/make.html>
+- <https://www.gnu.org/software/make/manual/html_node/One-Shell.html>
+- <https://www.gnu.org/software/make/manual/html_node/Special-Targets.html>
+- <https://www.gnu.org/software/make/manual/html_node/Phony-Targets.html>
+- <https://lists.gnu.org/archive/html/info-gnu/2023-02/msg00011.html>
+- <https://pubs.opengroup.org/onlinepubs/9699919799/utilities/make.html>
 
 ## Shared Styleguide Baseline
 

@@ -6,6 +6,7 @@
 **Package**: `psycopg>=3`
 
 **Available Fixtures**:
+
 - Service: `postgres_service`, `postgres_18_service`
 - Connection: `postgres_connection`
 

@@ -4,6 +4,7 @@
 Git-aware revert of flows, phases, or tasks.
 
 ## Usage
+
 - `flow-revert task` - Revert last task
 - `flow-revert phase` - Revert current phase
 - `flow-revert flow {flow_id}` - Revert entire flow
@@ -11,11 +12,13 @@ Git-aware revert of flows, phases, or tasks.
 ## Phase 1: Identify Scope
 
 ### 1.1 Read Current State
+
 ```bash
 cat .agents/specs/{flow_id}/implement_state.json
 ```
 
 ### 1.2 Gather Commits
+
 For task: last commit
 For phase: all commits in current phase
 For flow: all commits since flow started
@@ -26,7 +29,7 @@ git log --oneline --since="{flow_start_date}"
 
 ## Phase 2: Confirm Revert
 
-```
+```text
 Revert Scope: {task|phase|flow}
 
 Commits to revert:
@@ -47,17 +50,20 @@ Proceed? [y/N]
 ## Phase 3: Execute Revert
 
 ### 3.1 Git Revert
+
 ```bash
 git revert --no-commit {commit_sha}..HEAD
 git commit -m "revert({scope}): {reason}"
 ```
 
 ### 3.2 Reopen Beads Tasks
+
 ```bash
 br update {task_id} --status open
 ```
 
 ### 3.3 Clear State
+
 Update `implement_state.json` to previous checkpoint.
 
 ## Phase 4: Verify
@@ -69,7 +75,7 @@ npm test
 
 ## Final Output
 
-```
+```text
 Revert Complete
 
 Scope: {scope}

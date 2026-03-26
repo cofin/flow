@@ -3,6 +3,7 @@
 ## Autopilot vs Standard Mode
 
 ### Autopilot (Recommended)
+
 - Google manages nodes, scaling, security, upgrades.
 - Pay per pod resource usage.
 - Security best practices enforced by default.
@@ -13,6 +14,7 @@ gcloud container clusters create-auto CLUSTER_NAME \
 ```
 
 ### Standard Mode
+
 - Full control over node configuration.
 - Manual node pool management.
 - Pay for node resources.
@@ -29,7 +31,9 @@ gcloud container clusters create CLUSTER_NAME \
 ## Cluster Creation Types
 
 ### Regional Cluster (Production)
+
 Control plane replicated across zones for high availability.
+
 ```bash
 gcloud container clusters create CLUSTER \
   --region=us-central1 \
@@ -37,7 +41,9 @@ gcloud container clusters create CLUSTER \
 ```
 
 ### Private Cluster
+
 Disables public IP addresses for nodes.
+
 ```bash
 gcloud container clusters create CLUSTER \
   --region=us-central1 \

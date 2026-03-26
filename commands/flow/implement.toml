@@ -41,14 +41,17 @@ CRITICAL: Check `.gitignore` before committing. If `.agents/` or specific artifa
 2.  **Sync Beads:** If task not in Beads, create it and update notes. Mark as in progress: `br update <issue_id> --status in_progress`.
 
 ### 3.2 TDD Workflow (Red-Green-Refactor)
-1.  **Red (Write Tests):** Create/update test files, run tests, verify expected failure.
-2.  **Green (Implement):** Write code adhering to `patterns.md` and `learnings.md`. Ensure all tests pass.
-3.  **Refactor:** Clean up code, formatting, linting without changing behavior. Run tests to verify pass.
+
+**IRON LAW: NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST.** Write code before the test? Delete it. Start over.
+
+1.  **Red (Write Tests):** Create/update test files. Run tests. **MANDATORY: Confirm test FAILS for the right reason** (feature missing, not typo). Test passes immediately? Fix the test.
+2.  **Green (Implement):** Write **simplest code** to pass. No extras. Run tests. **MANDATORY: Confirm ALL tests pass**, output pristine.
+3.  **Refactor:** Clean up without changing behavior. Run tests. Must stay green. Don't add behavior.
 
 ### 3.3 Commit and Sync
 1.  **Git Commit:** `git add .`, `git commit -m "<type>(<scope>): <description>"`
 2.  **Sync Beads (Primary):** `br close <issue_id> --reason "commit: <hash>"`
-    *   Markdown Sync (Manual via command). It is MANDATORY that you run `/flow-sync`. Do NOT write `[x]` markers directly to `spec.md`.
+    *   Markdown Sync (Manual via command). It is MANDATORY that you run `/flow:sync`. Do NOT write `[x]` markers directly to `spec.md`.
 
 ### 3.4 Capture Learnings
 1.  **Log:** Append new patterns, gotchas, or insights to `.agents/specs/<flow_id>/learnings.md`.
@@ -57,9 +60,15 @@ CRITICAL: Check `.gitignore` before committing. If `.agents/` or specific artifa
 ---
 
 ## 4.0 PHASE COMPLETION GATE
-1.  **Run Full Test Suite:** Check for regressions.
-2.  **Create Checkpoint:** `git commit -m "chore(checkpoint): complete phase <N>"`
-3.  **Prompt for Elevation:** Ask: "Are there any learnings from this phase that should be elevated to the global `patterns.md`?"
+
+**IRON LAW: NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE.** Run the command, read the output, THEN claim the result.
+
+1.  **Run Full Test Suite:** Read output. Confirm 0 failures. No "should pass."
+2.  **Dispatch Code Review** (recommended): Get git range from Beads, dispatch review subagent with spec.md requirements. Fix Critical/Important before proceeding.
+3.  **Create Checkpoint:** `git commit -m "chore(checkpoint): complete phase <N>"`
+4.  **Prompt for Elevation:** Ask: "Are there any learnings from this phase that should be elevated to the global `patterns.md`?"
+5.  **Record in Beads:** `br comments add <epic_id> "Phase <N> checkpoint: <sha>"`
+6.  **Sync to markdown:** Run `/flow:sync` (MANDATORY).
 
 ---
 
@@ -92,6 +101,10 @@ CRITICAL: Check `.gitignore` before committing. If `.agents/` or specific artifa
 ---
 
 ## 7.0 ERROR HANDLING
-*   **Test Failure:** Analyze and retry up to 3 times in Green phase. If failing, stop and ask human.
+
+**IRON LAW: NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST.** Do NOT guess at fixes.
+
+*   **Test Failure:** Follow systematic debugging: (1) Read error messages completely, (2) Reproduce consistently, (3) Trace data flow to source, (4) Form single hypothesis, test minimally. If 3+ fixes fail, STOP and question the architecture with user.
 *   **Tool Failure:** Report error explicitly and wait.
+*   **Multiple Independent Failures:** Consider dispatching parallel agents — one per independent problem domain. See `superpowers:dispatching-parallel-agents`.
 """

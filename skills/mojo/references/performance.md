@@ -20,6 +20,7 @@ fn relu_simd(inout tensor: Tensor[DType.float32]):
 ```
 
 **Rules:**
+
 - Use `simdwidthof` to auto-detect hardware SIMD width.
 - Use `@parameter` for compile-time loop specialization.
 

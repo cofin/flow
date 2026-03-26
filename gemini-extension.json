@@ -1,5 +1,6 @@
 {
   "name": "flow",
-  "version": "0.10.1",
+  "description": "Unified toolkit for Context-Driven Development with spec-first planning, TDD workflow, and Beads integration",
+  "version": "0.11.0",
   "contextFileName": "AGENTS.md"
 }

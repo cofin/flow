@@ -22,7 +22,7 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
 You are STRICTLY FORBIDDEN from:
 
 - Writing, editing, or modifying ANY source code files
-- Creating new code files (*.py, *.ts, *.js, *.rs, etc.)
+- Creating new code files (*.py,*.ts, *.js,*.rs, etc.)
 - Running implementation commands
 - Making ANY changes outside of `.agents/` directory
 
@@ -132,6 +132,7 @@ You MAY ONLY:
 3. **Draft unified `spec.md`:**
     - The spec.md must contain BOTH requirements AND implementation plan in a single file
     - Structure:
+
       ```markdown
       # Flow: {flow_name}
 
@@ -160,6 +161,7 @@ You MAY ONLY:
       - [ ] 2.1 Task description
       ...
       ```
+
     - Include "Code Analysis Summary" section with files examined
     - Include "Relevant Patterns" section (extracted from `patterns.md`)
     - Include "Parent Context" section (if applicable)
@@ -170,6 +172,33 @@ You MAY ONLY:
     - Reference specific files identified in code analysis
 
 4. **Confirm:** Ask user to approve.
+
+---
+
+### 3.3.5 Spec Review Loop
+
+**Before presenting to user for final approval, run automated quality review.**
+
+1. **Dispatch spec-reviewer subagent** with:
+   - Path to drafted spec.md
+   - Flow requirements and constraints
+   - Relevant patterns from `.agents/patterns.md`
+   - Review criteria: completeness, consistency, feasibility, TDD task structure
+
+2. **Handle results:**
+   - **Issues found** → fix, re-dispatch reviewer (max 3 iterations)
+   - **Approved** → proceed to human review gate (step 4)
+   - **3 iterations exhausted** → present remaining issues to user for guidance
+
+3. **Review criteria checklist:**
+   - All requirements have corresponding implementation tasks
+   - Tasks are ordered correctly (dependencies respected)
+   - Each task is small enough for one commit
+   - TDD checkpoints are included
+   - File paths are specific (not vague)
+   - No gaps between spec requirements and plan tasks
+
+**Template:** See `templates/agent/spec-reviewer-prompt.md`
 
 ---
 
@@ -218,10 +247,12 @@ Announce:
 > **NO CODE HAS BEEN MODIFIED.**
 >
 > **Code Analysis Summary:**
+>
 > - Files examined: [count]
 > - Key files: [list]
 >
 > **Artifacts:**
+>
 > - Spec: `.agents/specs/<flow_id>/spec.md` ([N] phases, [M] tasks)
 >
 > Ready to execute? Run:

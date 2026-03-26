@@ -60,7 +60,7 @@ Check and update:
 
 ### 0.1.4 Alignment Summary
 
-```
+```text
 Alignment Complete
 
 - Beads: v{version} (up to date)
@@ -287,7 +287,7 @@ Save setup state to `<root_directory>/setup-state.json`:
 
 ## Final Summary
 
-```
+```text
 Flow Setup Complete
 
 Directory: <root_directory>

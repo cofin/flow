@@ -72,9 +72,9 @@ Blocked tasks:
 
 Based on status, suggest next action:
 
-- If blocked: "Run `/flow:block` to document blockers"
-- If no in-progress: "Run `/flow:implement {flow_id}`"
-- If complete: "Run `/flow:archive {flow_id}`"
+- If blocked: "Document blockers with `br update {id} --status blocked --notes \"BLOCKED: {reason}\"`"
+- If no in-progress: "Run `/flow-implement {flow_id}`"
+- If complete: "Run `/flow-archive {flow_id}`"
 
 ## Critical Rules
 

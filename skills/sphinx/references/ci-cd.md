@@ -95,6 +95,6 @@ Push strictly from the compiled payload artifact sets:
 
 ## Best Practices
 
--   **Separate Pre-renderers**: Keeps asset builder failures isolated from core page compilation cycles; easily skips tape generation if triggers specify visual frames didn't mutate.
--   **Package Management with `uv`**: Avoid slow legacy standard setups; standard sync groups accelerate pipeline steps immensely when utilizing multi-threaded synchronization models.
--   **Sandbox permissions**: Avoid Supply Chain vulnerabilities by loading script execution tools strictly inside isolated build components without mounting secret keys during demo rendering.
+- **Separate Pre-renderers**: Keeps asset builder failures isolated from core page compilation cycles; easily skips tape generation if triggers specify visual frames didn't mutate.
+- **Package Management with `uv`**: Avoid slow legacy standard setups; standard sync groups accelerate pipeline steps immensely when utilizing multi-threaded synchronization models.
+- **Sandbox permissions**: Avoid Supply Chain vulnerabilities by loading script execution tools strictly inside isolated build components without mounting secret keys during demo rendering.

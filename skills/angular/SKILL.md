@@ -1,6 +1,6 @@
 ---
 name: angular
-description: Expert knowledge for modern Angular with signals, standalone components, control flow blocks, and current migration guidance. Use when building Angular apps with contemporary patterns and when validating version-specific API stability.
+description: "Expert knowledge for modern Angular with signals, standalone components, control flow blocks, and current migration guidance. Use when building Angular apps with contemporary patterns and when validating version-specific API stability."
 ---
 
 # Angular Framework Skill
@@ -175,88 +175,14 @@ export class ItemFormComponent {
 - Use `inject()` instead of constructor injection
 - Use `@defer` for lazy loading heavy components
 
-## Litestar-Vite Integration
+## References Index
 
-This section is project-specific integration guidance. For plain Angular projects, use standard Angular CLI / Vite workflows.
-
-### SPA Router Configuration
-
-When operating in SPA mode (`mode="spa"`), routing is managed via the Angular Router on the frontend instead of the server resolving HTML endpoints. Configure your router with `provideRouter` and client-side specific options (e.g. hash routing if fallback is missing, or standard HTML5 path routing supported by Litestar's SPA routing mode).
-
-```typescript
-import { ApplicationConfig, provideZoneChangeDetection } from '@angular/core';
-import { provideRouter, withComponentInputBinding } from '@angular/router';
-import { routes } from './app.routes';
-
-export const appConfig: ApplicationConfig = {
-  providers: [
-    provideZoneChangeDetection({ eventCoalescing: true }),
-    provideRouter(routes, withComponentInputBinding())
-  ]
-};
-```
-
-### Setup with VitePlugin
-
-```python
-# Python backend
-from litestar import Litestar
-from litestar_vite import ViteConfig, VitePlugin
-
-vite_config = ViteConfig(
-    mode="spa",
-    paths=PathConfig(resource_dir="src"),
-)
-
-app = Litestar(plugins=[VitePlugin(config=vite_config)])
-```
-
-```typescript
-// vite.config.ts
-import { defineConfig } from 'vite';
-import angular from '@analogjs/vite-plugin-angular';
-import { litestarVitePlugin } from 'litestar-vite-plugin';
-
-export default defineConfig({
-  plugins: [
-    angular(),
-    litestarVitePlugin({ input: ['src/main.ts'] }),
-  ],
-});
-```
-
-### Using Generated Types
-
-```typescript
-import { route } from './generated/routes';
-import type { components } from './generated/schemas';
-
-type User = components['schemas']['User'];
-
-@Component({ ... })
-export class UserComponent {
-  private http = inject(HttpClient);
-
-  loadUser(id: number) {
-    // Type-safe route building
-    return this.http.get<User>(route('users:get', { id }));
-  }
-}
-```
-
-### CLI Commands
-
-```bash
-litestar assets install    # Install deps (NOT npm install)
-litestar assets serve      # Dev server (NOT ng serve)
-litestar assets build      # Production build
-litestar assets generate-types  # Generate TS types
-```
-
+- **[Litestar-Vite Integration](references/litestar_vite.md)** — Backend integration with Litestar-Vite plugin.
 
 ## Deployment
 
 ### Static Asset Bundles
+
 Angular builds compile into optimal static files:
 
 ```bash
@@ -265,6 +191,7 @@ ng build
 ```
 
 ### Hybrid Prerendering (SSR/SSG)
+
 Deploy to Edge nodes or node servers. Ensure triggers are optimized post-hydrate context avoiding layout shifts for deferred blocks.
 
 ---
@@ -294,12 +221,12 @@ jobs:
 
 ## Official References
 
-- https://angular.dev/reference/releases
-- https://angular.dev/guide/components
-- https://angular.dev/guide/templates/control-flow
-- https://angular.dev/api/core/resource
-- https://angular.dev/guide/forms/signals/overview
-- https://github.com/angular/angular/releases
+- <https://angular.dev/reference/releases>
+- <https://angular.dev/guide/components>
+- <https://angular.dev/guide/templates/control-flow>
+- <https://angular.dev/api/core/resource>
+- <https://angular.dev/guide/forms/signals/overview>
+- <https://github.com/angular/angular/releases>
 
 ## Shared Styleguide Baseline
 

@@ -22,7 +22,7 @@ CRITICAL: You must validate the success of every tool call.
 You are STRICTLY FORBIDDEN from:
 
 - Writing, editing, or modifying ANY source code files
-- Creating new code files (*.py, *.ts, *.js, *.rs, etc.)
+- Creating new code files (*.py,*.ts, *.js,*.rs, etc.)
 - Running implementation commands
 - Making ANY changes outside of `.agents/` directory
 
@@ -121,7 +121,13 @@ You MAY ONLY:
     - **Roadmap:** Ordered list of Flows with descriptions.
     - **Global Constraints:** Rules that apply to ALL flows in this PRD.
 
-3. **Write Artifacts:**
+3. **Spec Review Loop:**
+    - Dispatch spec-reviewer subagent with: drafted prd.md, patterns.md, review criteria
+    - If issues found → fix, re-dispatch (max 3 iterations)
+    - If approved → proceed to user confirmation
+    - See `templates/agent/spec-reviewer-prompt.md`
+
+4. **Write Artifacts:**
     - Directory: `.agents/specs/<prd_id>/`
     - File: `prd.md`
     - File: `progress.md` (Tracks status of chapters)
@@ -194,6 +200,7 @@ You MAY ONLY:
     **2.4 Generate Unified Spec (`.agents/specs/` ONLY):**
     - Generate a single `spec.md` containing BOTH requirements AND implementation plan
     - The spec.md must follow this structure:
+
       ```markdown
       # Flow: {flow_name}
       ## Specification
@@ -205,6 +212,7 @@ You MAY ONLY:
       ### Phase 2: {name}
       ...
       ```
+
     - Create Beads tasks under the chapter's epic
     - **ONLY write to `.agents/specs/<flow_id>/` - NO other directories**
 

@@ -9,26 +9,38 @@ Archive completed flow and elevate patterns to project level.
 
 ## Phase 1: Validate
 
-### 1.1 Validate Flow
+### 1.1 Verification Gate
 
-Check Beads for completion status:
-
-```bash
-br show {epic_id}
+```
+IRON LAW: NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
 ```
 
-Or read `.agents/specs/{flow_id}/spec.md` Implementation Plan section to verify all tasks are `[x]` completed or `[-]` skipped.
+1. **Run full test suite** — read output, confirm 0 failures
+2. **Check Beads** for completion status:
+   ```bash
+   br show {epic_id}
+   ```
+3. **Verify** all tasks are completed or explicitly skipped — read `spec.md` Implementation Plan section
+4. If incomplete tasks or failing tests exist, warn and confirm.
 
-If incomplete tasks exist, warn and confirm.
+### 1.2 Optional Code Review
+
+For flows being archived without prior `flow-review`:
+- Dispatch final code review subagent with full flow git range
+- Log findings to `learnings.md` (will be archived with flow)
+- Fix Critical issues before archiving
 
 ## Phase 2: Extract Learnings
 
 ### 2.1 Read Flow Learnings
+
 Parse `.agents/specs/{flow_id}/learnings.md`
 
 ### 2.2 Identify Patterns for Elevation
+
 Present discovered patterns:
-```
+
+```text
 Patterns from {flow_id}:
 
 1. [Code] Use Zod for form validation
@@ -39,7 +51,9 @@ Which patterns should be elevated to project-level? [all/select/none]
 ```
 
 ### 2.3 Merge to Project Patterns
+
 Append selected patterns to `.agents/patterns.md`:
+
 ```markdown
 ## Code Conventions
 - Use Zod for form validation (from: {flow_id})
@@ -64,7 +78,8 @@ br close {epic_id} --reason "Flow archived"
 ## Phase 5: Move to Archive
 
 1. Move directory:
-   ```
+
+   ```text
    .agents/specs/{flow_id}/ -> .agents/archive/{flow_id}/
    ```
 
@@ -75,6 +90,7 @@ br close {epic_id} --reason "Flow archived"
 ## Phase 6: Create Archive Summary
 
 Create `.agents/archive/{flow_id}/summary.md`:
+
 ```markdown
 # Archive Summary: {flow_id}
 
@@ -97,7 +113,7 @@ All tests passing, coverage at {X}%
 
 ## Final Output
 
-```
+```text
 Flow Archived: {flow_id}
 
 Location: .agents/archive/{flow_id}/

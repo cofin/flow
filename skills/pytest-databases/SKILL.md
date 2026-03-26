@@ -1,6 +1,6 @@
 ---
 name: pytest-databases
-description: Ready-made database fixtures for testing using Docker containers. Use when setting up database testing with pytest.
+description: "Container-based database testing with pytest. Use when: creating PostgreSQL/MySQL/SQLite/Oracle fixtures, Docker test containers, database integration tests, or any pytest database setup."
 ---
 
 # pytest-databases
@@ -29,12 +29,15 @@ For detailed guides and code examples, refer to the following documents in `refe
 ## Quick Start
 
 ### 1. Enable in Project
+
 Add to `conftest.py`:
+
 ```python
 pytest_plugins = ["pytest_databases.docker.postgres"]
 ```
 
 ### 2. Use Fixtures
+
 ```python
 def test_database(postgres_service):
     # Use postgres_service.host, .port, etc.
@@ -45,5 +48,5 @@ def test_database(postgres_service):
 
 ## Official References
 
-- https://github.com/litestar-org/pytest-databases
-- https://litestar-org.github.io/pytest-databases/latest/
+- <https://github.com/litestar-org/pytest-databases>
+- <https://litestar-org.github.io/pytest-databases/latest/>
