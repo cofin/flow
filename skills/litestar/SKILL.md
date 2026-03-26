@@ -42,6 +42,8 @@ For detailed guides and configuration examples, refer to the following documents
   - VitePlugin setup, Mode selection, Type generation config, and CLI commands.
 - **[Deployment](references/deployment.md)**
   - ASGI server configuration, IAP authentication integration, static asset serving, and deployment checklist.
+- **[WebSockets & Real-time Broadcasting](references/websockets.md)**
+  - WebSocket handlers, Channels plugin, pub/sub patterns, and multi-tenant channel isolation.
 
 ---
 

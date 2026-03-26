@@ -1,6 +1,6 @@
 ---
 name: advanced-alchemy
-description: "Expert knowledge for Advanced Alchemy / SQLAlchemy ORM patterns. Use when: defining models with UUIDAuditBase, building repositories and services, configuring Litestar SQLAlchemy plugin, creating DTOs, running Alembic migrations, or working with EncryptedString/FileObject types."
+description: "Expert knowledge for Advanced Alchemy / SQLAlchemy ORM patterns. Use when: defining models with UUIDAuditBase, building repositories and services, configuring SQLAlchemy plugins for Litestar/FastAPI/Flask/Sanic, creating DTOs, running Alembic migrations, using custom types (EncryptedString, FileObject, PasswordHash, DateTimeUTC), composing filters and pagination, choosing base classes and mixins, configuring dogpile.cache query caching, setting up read/write replica routing, or managing file storage with obstore/fsspec backends."
 ---
 
 # Advanced Alchemy
@@ -40,6 +40,20 @@ For detailed guides and code examples, refer to the following documents in `refe
   SQLAlchemy plugin config, DTOs, dependency injection, and session management.
 - **[Migrations](references/migrations.md)**
   Alembic integration, CLI commands, metadata registry, and multi-database support.
+- **[Types](references/types.md)**
+  Complete catalog of custom column types: EncryptedString, FileObject, DateTimeUTC, GUID, PasswordHash, ColorType, and more.
+- **[Base Classes](references/bases.md)**
+  Declarative base classes, UUID/BigInt/Nanoid variants, audit mixins, SlugKey, UniqueMixin, metadata registry, and custom base creation.
+- **[Filters](references/filters.md)**
+  Filter system, pagination, SearchFilter, CollectionFilter, BeforeAfter, OrderBy, LimitOffset, and frontend integration patterns.
+- **[Framework Integrations](references/frameworks.md)**
+  FastAPI, Flask, Starlette, and Sanic plugin setup, session management, and feature comparison across frameworks.
+- **[Caching](references/caching.md)**
+  Dogpile.cache integration, CacheConfig, CacheManager API, automatic cache invalidation via session events, version-based list cache keys, singleflight stampede protection, and serialization.
+- **[Read Replicas](references/replicas.md)**
+  Read/write routing, RoutingConfig, engine groups, RoundRobinSelector/RandomSelector, sticky-after-write consistency, context managers for explicit routing, and RoutingAsyncSessionMaker.
+- **[Storage (obstore)](references/storage.md)**
+  FileObject and StoredObject types, ObstoreBackend and FSSpecBackend configuration (S3, GCS, Azure, local), StorageRegistry, presigned URL generation, automatic file lifecycle via session tracker, and Pydantic integration.
 
 ---
 
