@@ -99,10 +99,30 @@ Or add to your `.cursor-plugin` configuration manually.
 
 ### Codex CLI
 
-Tell Codex:
-```
-Fetch and follow instructions from https://raw.githubusercontent.com/cofin/flow/refs/heads/main/.codex/INSTALL.md
-```
+Install Flow as a Codex plugin:
+
+1. Clone Flow:
+   ```bash
+   git clone https://github.com/cofin/flow.git ~/.codex/plugins/flow
+   ```
+
+2. Create marketplace entry at `~/.agents/plugins/marketplace.json`:
+   ```json
+   {
+     "name": "personal-plugins",
+     "interface": { "displayName": "Personal Plugins" },
+     "plugins": [
+       {
+         "name": "flow",
+         "source": { "source": "local", "path": "~/.codex/plugins/flow" },
+         "policy": { "installation": "AVAILABLE" },
+         "category": "Development"
+       }
+     ]
+   }
+   ```
+
+3. Restart Codex. Run `/plugins` to verify Flow appears.
 
 ### Legacy Installation (bash)
 
@@ -152,10 +172,10 @@ This creates:
 
 ```bash
 # Claude Code
-/flow-implement auth_20260124
+/flow-implement auth
 
 # Gemini CLI
-/flow:implement auth_20260124
+/flow:implement auth
 ```
 
 Flow follows TDD workflow (Beads-first):
@@ -175,25 +195,26 @@ Flow follows TDD workflow (Beads-first):
 
 ## Commands
 
-| Purpose | Claude Code | Gemini / OpenCode | Codex CLI |
-|---------|-------------|-------------------|-----------|
-| Initialize project | `/flow-setup` | `/flow:setup` | `$flow:setup` |
-| Create PRD (Saga) | `/flow-prd` | `/flow:prd` | `$flow:prd` |
-| Plan single flow | `/flow-plan` | `/flow:plan` | `$flow:plan` |
-| Sync Beads to spec | `/flow-sync` | `/flow:sync` | `$flow:sync` |
-| Pre-PRD research | `/flow-research` | `/flow:research` | `$flow:research` |
-| Documentation workflow | `/flow-docs` | `/flow:docs` | `$flow:docs` |
-| Implement tasks | `/flow-implement` | `/flow:implement` | `$flow:implement` |
-| Check status | `/flow-status` | `/flow:status` | `$flow:status` |
-| Revert changes | `/flow-revert` | `/flow:revert` | `$flow:revert` |
-| Validate integrity | `/flow-validate` | `/flow:validate` | `$flow:validate` |
-| Revise spec/plan | `/flow-revise` | `/flow:revise` | `$flow:revise` |
-| Archive completed | `/flow-archive` | `/flow:archive` | `$flow:archive` |
-| Ephemeral task | `/flow-task` | `/flow:task` | `$flow:task` |
-| Code review | `/flow-review` | `/flow:review` | `$flow:review` |
-| Finish flow | `/flow-finish` | `/flow:finish` | `$flow:finish` |
+| Purpose | Claude Code | Others |
+|---------|-------------|--------|
+| Initialize project | `/flow-setup` | `/flow:setup` |
+| Create PRD (Saga) | `/flow-prd` | `/flow:prd` |
+| Plan single flow | `/flow-plan` | `/flow:plan` |
+| Sync Beads to spec | `/flow-sync` | `/flow:sync` |
+| Pre-PRD research | `/flow-research` | `/flow:research` |
+| Documentation workflow | `/flow-docs` | `/flow:docs` |
+| Implement tasks | `/flow-implement` | `/flow:implement` |
+| Check status | `/flow-status` | `/flow:status` |
+| Refresh context | `/flow-refresh` | `/flow:refresh` |
+| Revert changes | `/flow-revert` | `/flow:revert` |
+| Validate integrity | `/flow-validate` | `/flow:validate` |
+| Revise spec/plan | `/flow-revise` | `/flow:revise` |
+| Archive completed | `/flow-archive` | `/flow:archive` |
+| Ephemeral task | `/flow-task` | `/flow:task` |
+| Code review | `/flow-review` | `/flow:review` |
+| Finish flow | `/flow-finish` | `/flow:finish` |
 
-> **Note**: Gemini CLI and OpenCode use `/flow:command`; Codex examples use `$flow:command`.
+> **Note**: Claude Code uses `/flow-command` (hyphen); Gemini CLI, OpenCode, and Codex CLI use `/flow:command` (colon).
 
 ## Directory Structure
 
@@ -213,7 +234,7 @@ project/
 │   │   ├── index.md          # Quick reference index
 │   │   └── {flow_id}.md      # Per-flow detailed learnings
 │   ├── specs/
-│   │   └── <flow_id>/       # e.g., user-auth_20260124/
+│   │   └── <flow_id>/       # e.g., user-auth/
 │   │       ├── spec.md       # Unified spec + plan
 │   │       ├── learnings.md
 │   │       └── metadata.json
@@ -227,9 +248,9 @@ Flows use format: `shortname`
 
 Examples:
 
-- `user-auth_20260124`
-- `dark-mode_20260124`
-- `api-v2_20260124`
+- `user-auth`
+- `dark-mode`
+- `api-v2`
 
 ## Task Status Markers
 
