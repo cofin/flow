@@ -1,6 +1,6 @@
 ---
 name: flow
-description: "Context-driven dev workflow. Use when: /flow:plan, /flow:prd, editing spec.md, .agents/ directory exists, beads, cross-session memory, spec-first planning, or TDD workflow orchestration."
+description: "REQUIRED when .agents/ directory exists. Context-driven dev workflow with Beads integration. Auto-activate when: .agents/ directory present, any /flow:* command, editing spec.md or files in .agents/, beads/br commands, TDD workflow, spec-first planning, cross-session memory."
 ---
 
 # Flow - Context-Driven Development
@@ -129,6 +129,8 @@ When Flow skill is active:
 - Suggest pattern elevation at phase completion
 - Warn if tech-stack changes without documentation
 - Enforce mandatory `/flow:sync` after any Beads state change
+- Override superpowers brainstorming spec directory to `.agents/specs/` when Flow is active
+- Override superpowers writing-plans plan directory to `.agents/specs/` when Flow is active
 
 ## References Index
 
