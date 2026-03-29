@@ -1,19 +1,16 @@
 #!/usr/bin/env bash
 #
-# Flow Framework - Intelligent Installer
+# Flow Framework - Plugin Installer
 #
-# Installs Flow commands and skills for supported AI CLI tools:
-# - Claude Code (~/.claude/)
-# - Codex CLI (~/.codex/)
-# - OpenCode (~/.config/opencode/)
+# Installs Flow as a plugin for supported AI CLI tools:
+# - Claude Code (marketplace plugin via extraKnownMarketplaces)
+# - Codex CLI (~/.codex/plugins/flow/)
+# - OpenCode (~/.config/opencode/plugins/flow/)
 # - Gemini CLI (~/.gemini/extensions/flow/)
 # - Google Antigravity (~/.gemini/antigravity/skills/)
 #
-# Features:
-# - Detects existing configurations
-# - Backs up before modifying
-# - Merges intelligently (doesn't overwrite)
-# - Installs only for detected/selected CLIs
+# All CLIs use their native plugin/extension system.
+# No direct skill or command copying.
 
 set -euo pipefail
 
@@ -25,17 +22,14 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
-# Script directory (where flow templates are)
+# Script directory (where flow source is)
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SCRIPT_DIR="$PROJECT_ROOT"
-TEMPLATES_DIR="$PROJECT_ROOT/templates"
 SKILLS_DIR="$PROJECT_ROOT/skills"
+COMMANDS_DIR="$PROJECT_ROOT/commands"
 FLOW_DATA_DIR="$HOME/.flow"
 BACKUP_DIR="$FLOW_DATA_DIR/backups/$(date +%Y%m%d-%H%M%S)"
-MERGE_HISTORY="$FLOW_DATA_DIR/merge-history.json"
 
 # Flags (parsed from command line)
-USE_LLM_MERGE=false
 FORCE_OVERWRITE=false
 
 # CLI paths
@@ -51,16 +45,12 @@ GEMINI_JETSKI_DIR="$HOME/.gemini/jetski/skills"
 show_banner() {
     echo -e "${CYAN}"
     echo "╔══════════════════════════════════════════════════════════════╗"
-    echo "║           Flow Framework - Intelligent Installer             ║"
-    echo "║                       Version 0.12.0                         ║"
+    echo "║             Flow Framework - Plugin Installer                ║"
+    echo "║                       Version 0.12.1                         ║"
     echo "╚══════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
 
-    # Show merge mode if enabled
-    if $USE_LLM_MERGE; then
-        echo -e "${GREEN}Mode: LLM-Assisted Merge${NC} (using Claude/Gemini for intelligent merging)"
-        echo ""
-    elif $FORCE_OVERWRITE; then
+    if $FORCE_OVERWRITE; then
         echo -e "${YELLOW}Mode: Force Overwrite${NC} (existing files will be replaced)"
         echo ""
     fi
@@ -110,272 +100,155 @@ backup_dir() {
     fi
 }
 
-# Check if a command has conflicting name
-has_command_conflict() {
-    local target_dir="$1"
-    local command_name="$2"
-
-    if [[ -f "$target_dir/$command_name" ]]; then
-        # Check if it's a flow command (has Flow header)
-        if grep -q "Flow" "$target_dir/$command_name" 2>/dev/null; then
-            return 1  # No conflict, it's our own file
-        fi
-        return 0  # Conflict with non-flow file
-    fi
-    return 1  # No conflict
-}
-
-# Merge or install a command file
-install_command() {
-    local source="$1"
-    local target="$2"
-    local name="$(basename "$source")"
-
-    if [[ -f "$target" ]]; then
-        if grep -q "Flow" "$target" 2>/dev/null; then
-            # Existing Flow file - update it
-            cp "$source" "$target"
-            log_success "Updated: $name"
-        else
-            # Conflict with non-Flow file
-            log_warn "Skipped $name (conflict with existing non-Flow command)"
-            echo "         Existing: $target"
-            echo "         To install: rename existing file and re-run"
-        fi
-    else
-        cp "$source" "$target"
-        log_success "Installed: $name"
-    fi
-}
-
 # ─────────────────────────────────────────────────────────────────────────────
-# LLM-Assisted Merge Functions
+# Legacy Cleanup Functions
 # ─────────────────────────────────────────────────────────────────────────────
 
-# Detect available LLM CLI
-detect_llm_cli() {
-    if command -v claude &> /dev/null; then
-        echo "claude"
-    elif command -v gemini &> /dev/null; then
-        echo "gemini"
-    else
-        echo ""
-    fi
-}
+# List of skill directory names that flow installs
+FLOW_SKILL_DIRS=(
+    advanced-alchemy alloydb alloydb-omni angular bash bd-to-br-migration
+    biome bun cloud-run cpp dishka docker duckdb flow gcp gke htmx inertia
+    ipc litestar makefile mojo mysql nuxt oracle podman postgres pyapp
+    pytest-databases python railway react rust shadcn sphinx sqlalchemy
+    sqlserver sqlspec svelte tailwind tanstack testing ty vite vue
+)
 
-# Merge files using LLM
-# Returns 0 on success, 1 on failure/skip
-merge_with_llm() {
-    local source_file="$1"
-    local dest_file="$2"
-    local output_file="$3"
-    local llm_cli="$4"
-
-    local source_content
-    local dest_content
-    source_content=$(cat "$source_file")
-    dest_content=$(cat "$dest_file")
-
-    local merge_prompt="Merge these two skill files. The SOURCE is the new version from Flow.
-The DESTINATION is the user's existing version with potential customizations.
-
-Rules:
-1. Keep user customizations that don't conflict with new features
-2. Update any outdated command syntax or patterns
-3. Preserve user-added sections or examples
-4. Use the new structure/format from SOURCE where applicable
-5. Output ONLY the merged content, no explanations
-
---- SOURCE (new version) ---
-$source_content
-
---- DESTINATION (user's version) ---
-$dest_content
-
-Output the merged content:"
-
-    local merged
-    case "$llm_cli" in
-        claude)
-            merged=$(echo "$merge_prompt" | claude -p 2>/dev/null) || return 1
-            ;;
-        gemini)
-            merged=$(gemini -p "$merge_prompt" 2>/dev/null) || return 1
-            ;;
-        *)
-            return 1
-            ;;
-    esac
-
-    # Validate we got content
-    if [[ -z "$merged" || ${#merged} -lt 50 ]]; then
-        return 1
-    fi
-
-    echo "$merged" > "$output_file"
-    return 0
-}
-
-# Show diff and prompt for action
-show_diff_prompt() {
-    local source_file="$1"
-    local dest_file="$2"
-    local name="$3"
-
+cleanup_claude_legacy() {
     echo ""
-    echo -e "${YELLOW}Differences found in: $name${NC}"
-    echo "─────────────────────────────────────────"
-
-    # Show compact diff
-    diff --color=auto -u "$dest_file" "$source_file" | head -50 || true
-
-    local line_count
-    line_count=$(diff "$dest_file" "$source_file" | wc -l)
-    if [[ $line_count -gt 50 ]]; then
-        echo "... ($((line_count - 50)) more lines)"
-    fi
-
-    echo "─────────────────────────────────────────"
+    echo -e "${CYAN}Cleaning up legacy Claude Code installations...${NC}"
     echo ""
-    echo "Options:"
-    echo "  o) Overwrite with new version"
-    echo "  k) Keep existing version"
-    echo "  v) View full diff"
-    echo ""
-    read -p "Select [o/k/v]: " -n 1 -r
-    echo
 
-    case $REPLY in
-        o|O)
-            return 0  # Overwrite
-            ;;
-        v|V)
-            diff --color=auto -u "$dest_file" "$source_file" | less
-            show_diff_prompt "$source_file" "$dest_file" "$name"
-            return $?
-            ;;
-        *)
-            return 1  # Keep existing
-            ;;
-    esac
-}
+    local cleaned=false
 
-# Intelligent merge for a single file
-# Handles LLM merge, diff preview, or simple overwrite based on flags
-merge_or_install_file() {
-    local source_file="$1"
-    local dest_file="$2"
-    local name="$(basename "$source_file")"
-    local llm_cli
-
-    # If destination doesn't exist, simple copy
-    if [[ ! -f "$dest_file" ]]; then
-        cp "$source_file" "$dest_file"
-        log_success "Installed: $name"
-        return 0
-    fi
-
-    # Check if files are identical
-    if diff -q "$source_file" "$dest_file" &>/dev/null; then
-        log_info "Unchanged: $name"
-        return 0
-    fi
-
-    # Force overwrite mode
-    if $FORCE_OVERWRITE; then
-        cp "$source_file" "$dest_file"
-        log_success "Overwrote: $name"
-        return 0
-    fi
-
-    # LLM merge mode
-    if $USE_LLM_MERGE; then
-        llm_cli=$(detect_llm_cli)
-        if [[ -n "$llm_cli" ]]; then
-            log_info "Merging $name with $llm_cli..."
-            local temp_merged
-            temp_merged=$(mktemp)
-
-            if merge_with_llm "$source_file" "$dest_file" "$temp_merged" "$llm_cli"; then
-                # Show what the LLM produced
-                echo ""
-                echo -e "${CYAN}LLM Merge Preview for: $name${NC}"
-                echo "─────────────────────────────────────────"
-                diff --color=auto -u "$dest_file" "$temp_merged" | head -30 || true
-                echo "─────────────────────────────────────────"
-                echo ""
-                read -p "Accept merge? [Y/n/d(iff)]: " -n 1 -r
-                echo
-
-                case $REPLY in
-                    n|N)
-                        rm "$temp_merged"
-                        log_info "Skipped: $name (kept existing)"
-                        return 0
-                        ;;
-                    d|D)
-                        diff --color=auto -u "$dest_file" "$temp_merged" | less
-                        read -p "Accept merge after review? [Y/n]: " -n 1 -r
-                        echo
-                        if [[ $REPLY =~ ^[Nn]$ ]]; then
-                            rm "$temp_merged"
-                            log_info "Skipped: $name (kept existing)"
-                            return 0
-                        fi
-                        ;;
-                esac
-
-                cp "$temp_merged" "$dest_file"
-                rm "$temp_merged"
-                log_success "Merged: $name (with $llm_cli)"
-
-                # Record merge history
-                record_merge_history "$name" "$llm_cli"
-                return 0
-            else
-                log_warn "LLM merge failed for $name, falling back to diff"
-                rm -f "$temp_merged"
+    # Remove legacy skills from ~/.claude/skills/
+    if [[ -d "$CLAUDE_DIR/skills" ]]; then
+        for skill in "${FLOW_SKILL_DIRS[@]}"; do
+            if [[ -d "$CLAUDE_DIR/skills/$skill" ]]; then
+                rm -rf "$CLAUDE_DIR/skills/$skill"
+                log_success "Removed legacy skill: ~/.claude/skills/$skill"
+                cleaned=true
             fi
-        else
-            log_warn "No LLM CLI available, falling back to diff"
+        done
+
+        # Remove the skills dir if empty
+        if [[ -d "$CLAUDE_DIR/skills" ]] && [[ -z "$(ls -A "$CLAUDE_DIR/skills" 2>/dev/null)" ]]; then
+            rmdir "$CLAUDE_DIR/skills"
+            log_success "Removed empty ~/.claude/skills/"
         fi
     fi
 
-    # Default: show diff and prompt
-    if show_diff_prompt "$source_file" "$dest_file" "$name"; then
-        cp "$source_file" "$dest_file"
-        log_success "Updated: $name"
-    else
-        log_info "Kept existing: $name"
+    # Remove legacy commands from ~/.claude/commands/
+    if [[ -d "$CLAUDE_DIR/commands" ]]; then
+        for cmd in "$CLAUDE_DIR/commands"/flow-*.md; do
+            if [[ -f "$cmd" ]]; then
+                rm -f "$cmd"
+                log_success "Removed legacy command: $(basename "$cmd")"
+                cleaned=true
+            fi
+        done
+
+        # Remove the commands dir if empty
+        if [[ -d "$CLAUDE_DIR/commands" ]] && [[ -z "$(ls -A "$CLAUDE_DIR/commands" 2>/dev/null)" ]]; then
+            rmdir "$CLAUDE_DIR/commands"
+            log_success "Removed empty ~/.claude/commands/"
+        fi
     fi
 
-    return 0
+    # Remove legacy hooks from ~/.claude/hooks/ (only if they are flow hooks)
+    if [[ -d "$CLAUDE_DIR/hooks" ]]; then
+        for hook_file in "hooks.json" "run-hook.cmd" "session-start"; do
+            if [[ -f "$CLAUDE_DIR/hooks/$hook_file" ]] && grep -q -i "flow\|beads\|br sync" "$CLAUDE_DIR/hooks/$hook_file" 2>/dev/null; then
+                rm -f "$CLAUDE_DIR/hooks/$hook_file"
+                log_success "Removed legacy hook: $hook_file"
+                cleaned=true
+            fi
+        done
+
+        # Remove the hooks dir if empty
+        if [[ -d "$CLAUDE_DIR/hooks" ]] && [[ -z "$(ls -A "$CLAUDE_DIR/hooks" 2>/dev/null)" ]]; then
+            rmdir "$CLAUDE_DIR/hooks"
+            log_success "Removed empty ~/.claude/hooks/"
+        fi
+    fi
+
+    if $cleaned; then
+        log_success "Legacy Claude Code installation cleaned up"
+    else
+        log_info "No legacy Claude Code installation found"
+    fi
 }
 
-# Record merge in history file
-record_merge_history() {
-    local file_name="$1"
-    local llm_used="$2"
-    local timestamp
-    timestamp=$(date -Iseconds)
+cleanup_codex_legacy() {
+    echo ""
+    echo -e "${CYAN}Cleaning up legacy Codex installations...${NC}"
+    echo ""
 
-    mkdir -p "$(dirname "$MERGE_HISTORY")"
+    local cleaned=false
 
-    # Create or append to merge history
-    if [[ ! -f "$MERGE_HISTORY" ]]; then
-        echo '{"merges":[]}' > "$MERGE_HISTORY"
+    # Remove stale git clone at ~/.codex/flow/
+    if [[ -d "$CODEX_DIR/flow" ]]; then
+        backup_dir "$CODEX_DIR/flow"
+        rm -rf "$CODEX_DIR/flow"
+        log_success "Removed stale clone: ~/.codex/flow/"
+        cleaned=true
     fi
 
-    # Append entry (simple JSON append - jq would be cleaner but may not be installed)
-    local temp_file
-    temp_file=$(mktemp)
-    if command -v jq &>/dev/null; then
-        jq --arg f "$file_name" --arg l "$llm_used" --arg t "$timestamp" \
-            '.merges += [{"file": $f, "llm": $l, "timestamp": $t}]' \
-            "$MERGE_HISTORY" > "$temp_file" && mv "$temp_file" "$MERGE_HISTORY"
+    # Remove stale skills at ~/.codex/skills/
+    if [[ -d "$CODEX_DIR/skills" ]]; then
+        backup_dir "$CODEX_DIR/skills"
+        rm -rf "$CODEX_DIR/skills"
+        log_success "Removed stale skills: ~/.codex/skills/"
+        cleaned=true
+    fi
+
+    # Remove old prompts
+    if ls "$CODEX_DIR/prompts/flow-"*.md &>/dev/null 2>&1; then
+        rm -f "$CODEX_DIR/prompts/flow-"*.md
+        log_success "Removed legacy prompts"
+        cleaned=true
+    fi
+
+    # Remove Flow section from old AGENTS.md
+    if [[ -f "$CODEX_DIR/AGENTS.md" ]] && grep -q "Flow Framework" "$CODEX_DIR/AGENTS.md" 2>/dev/null; then
+        backup_file "$CODEX_DIR/AGENTS.md"
+        sed -i '/^# Flow Framework/,$d' "$CODEX_DIR/AGENTS.md"
+        sed -i -e :a -e '/^\n*$/{$d;N;ba' -e '}' "$CODEX_DIR/AGENTS.md"
+        log_success "Removed legacy Flow section from AGENTS.md"
+        cleaned=true
+    fi
+
+    if $cleaned; then
+        log_success "Legacy Codex installation cleaned up"
     else
-        # Fallback: just log to file
-        echo "$timestamp: Merged $file_name using $llm_used" >> "${MERGE_HISTORY%.json}.log"
+        log_info "No legacy Codex installation found"
+    fi
+}
+
+cleanup_opencode_legacy() {
+    echo ""
+    echo -e "${CYAN}Cleaning up legacy OpenCode installations...${NC}"
+    echo ""
+
+    local cleaned=false
+
+    # Remove old agent files
+    if [[ -f "$OPENCODE_DIR/agents/flow.md" ]]; then
+        rm -f "$OPENCODE_DIR/agents/flow.md"
+        log_success "Removed legacy agents/flow.md"
+        cleaned=true
+    fi
+
+    # Remove old command files
+    if ls "$OPENCODE_DIR/commands/flow-"*.md &>/dev/null 2>&1; then
+        rm -f "$OPENCODE_DIR/commands/flow-"*.md
+        log_success "Removed legacy command files"
+        cleaned=true
+    fi
+
+    if $cleaned; then
+        log_success "Legacy OpenCode installation cleaned up"
+    else
+        log_info "No legacy OpenCode installation found"
     fi
 }
 
@@ -398,8 +271,6 @@ detect_clis() {
     if command -v claude &> /dev/null || [[ -d "$CLAUDE_DIR" ]]; then
         CLAUDE_INSTALLED=true
         log_success "Claude Code detected"
-        [[ -d "$CLAUDE_DIR/commands" ]] && echo "         Existing commands: $(ls -1 "$CLAUDE_DIR/commands" 2>/dev/null | wc -l)"
-        [[ -d "$CLAUDE_DIR/skills" ]] && echo "         Existing skills: $(ls -1 "$CLAUDE_DIR/skills" 2>/dev/null | wc -l)"
     else
         log_info "Claude Code not detected"
     fi
@@ -408,7 +279,6 @@ detect_clis() {
     if command -v codex &> /dev/null || [[ -d "$CODEX_DIR" ]]; then
         CODEX_INSTALLED=true
         log_success "Codex CLI detected"
-        [[ -d "$CODEX_DIR/prompts" ]] && echo "         Existing prompts: $(ls -1 "$CODEX_DIR/prompts" 2>/dev/null | wc -l)"
     else
         log_info "Codex CLI not detected"
     fi
@@ -417,7 +287,6 @@ detect_clis() {
     if command -v opencode &> /dev/null || [[ -d "$OPENCODE_DIR" ]]; then
         OPENCODE_INSTALLED=true
         log_success "OpenCode detected"
-        [[ -d "$OPENCODE_DIR/commands" ]] && echo "         Existing commands: $(ls -1 "$OPENCODE_DIR/commands" 2>/dev/null | wc -l)"
     else
         log_info "OpenCode not detected"
     fi
@@ -426,23 +295,14 @@ detect_clis() {
     if command -v gemini &> /dev/null || [[ -d "$GEMINI_DIR" ]]; then
         GEMINI_INSTALLED=true
         log_success "Gemini CLI detected"
-        [[ -d "$GEMINI_EXT_DIR" ]] && echo "         Existing extension: Found"
     else
         log_info "Gemini CLI not detected"
     fi
 
     # Google Antigravity
-    local target_agy_dir="$ANTIGRAVITY_DIR"
-    if [[ -d "$HOME/.jetski" ]]; then
-        target_agy_dir="$JETSKI_DIR"
-    elif [[ -d "$HOME/.gemini/jetski" ]]; then
-        target_agy_dir="$GEMINI_JETSKI_DIR"
-    fi
-    
     if command -v agy &> /dev/null || command -v jetski &> /dev/null || [[ -d "$ANTIGRAVITY_DIR" ]] || [[ -d "$JETSKI_DIR" ]] || [[ -d "$GEMINI_JETSKI_DIR" ]]; then
         ANTIGRAVITY_INSTALLED=true
         log_success "Google Antigravity detected"
-        [[ -d "$target_agy_dir" ]] && echo "         Existing skills: $(ls -1d "$target_agy_dir"/*/ 2>/dev/null | wc -l)"
     else
         log_info "Google Antigravity not detected"
     fi
@@ -451,7 +311,7 @@ detect_clis() {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Claude Code Installation
+# Claude Code Installation (plugin via marketplace)
 # ─────────────────────────────────────────────────────────────────────────────
 
 install_claude() {
@@ -459,69 +319,88 @@ install_claude() {
     echo -e "${CYAN}Installing Flow for Claude Code...${NC}"
     echo ""
 
-    # Create directories
-    mkdir -p "$CLAUDE_DIR/commands"
-    mkdir -p "$CLAUDE_DIR/skills"
+    # Step 1: Clean up ALL legacy installations
+    cleanup_claude_legacy
 
-    # Backup existing
-    backup_dir "$CLAUDE_DIR/commands"
-    backup_dir "$CLAUDE_DIR/skills"
+    # Step 2: Ensure settings.json has the marketplace entry
+    local settings_file="$CLAUDE_DIR/settings.json"
 
-    # Install commands
-    local commands_src="$TEMPLATES_DIR/claude/commands"
-    local commands_dst="$CLAUDE_DIR/commands"
-
-    if [[ -d "$commands_src" ]]; then
-        for cmd in "$commands_src"/*.md; do
-            [[ -f "$cmd" ]] && install_command "$cmd" "$commands_dst/$(basename "$cmd")"
-        done
+    if [[ ! -f "$settings_file" ]]; then
+        log_warn "No settings.json found at $settings_file"
+        log_info "Create it or run: claude settings"
+        echo ""
+        log_info "Then add to settings.json:"
+        echo '    "extraKnownMarketplaces": {'
+        echo '      "flow-marketplace": {'
+        echo '        "source": { "source": "github", "repo": "cofin/flow" }'
+        echo '      }'
+        echo '    }'
+        echo ""
+        echo '    "enabledPlugins": {'
+        echo '      "flow@flow-marketplace": true'
+        echo '    }'
+        return
     fi
 
-    # Install skills (merge with existing using intelligent merge)
-    local skills_src="$SKILLS_DIR"
-    local skills_dst="$CLAUDE_DIR/skills"
+    # Check if marketplace entry exists
+    if command -v jq &>/dev/null; then
+        local has_marketplace
+        has_marketplace=$(jq -r '.extraKnownMarketplaces."flow-marketplace" // empty' "$settings_file" 2>/dev/null)
 
-    if [[ -d "$skills_src" ]]; then
-        for skill_dir in "$skills_src"/*/; do
-            local skill_name="$(basename "$skill_dir")"
-            local skill_dst_dir="$skills_dst/$skill_name"
+        if [[ -z "$has_marketplace" ]]; then
+            log_info "Adding flow-marketplace to settings.json..."
+            backup_file "$settings_file"
 
-            mkdir -p "$skill_dst_dir"
+            local tmp_file
+            tmp_file=$(mktemp)
+            jq '.extraKnownMarketplaces."flow-marketplace" = {"source": {"source": "github", "repo": "cofin/flow"}}' \
+                "$settings_file" > "$tmp_file" && mv "$tmp_file" "$settings_file"
+            log_success "Added extraKnownMarketplaces entry"
+        else
+            log_info "flow-marketplace already configured"
+        fi
 
-            # Process each file in the skill directory recursively
-            find "$skill_dir" -type f | while read -r skill_file; do
-                local rel_path="${skill_file#$skill_dir}"
-                local dest_file="$skill_dst_dir/$rel_path"
+        # Check if plugin is enabled
+        local is_enabled
+        is_enabled=$(jq -r '.enabledPlugins."flow@flow-marketplace" // empty' "$settings_file" 2>/dev/null)
 
-                # Ensure parent directory exists in destination
-                mkdir -p "$(dirname "$dest_file")"
-
-                merge_or_install_file "$skill_file" "$dest_file"
-            done
-        done
-    fi
-
-    # Install hooks
-    local hooks_src="$PROJECT_ROOT/hooks"
-    local hooks_dst="$CLAUDE_DIR/hooks"
-
-    if [[ -d "$hooks_src" ]]; then
-        mkdir -p "$hooks_dst"
-        for hook_file in "hooks.json" "run-hook.cmd" "session-start"; do
-            if [[ -f "$hooks_src/$hook_file" ]]; then
-                merge_or_install_file "$hooks_src/$hook_file" "$hooks_dst/$hook_file"
-            fi
-        done
-        chmod +x "$hooks_dst/session-start" "$hooks_dst/run-hook.cmd" 2>/dev/null || true
-        log_success "Installed: hooks"
+        if [[ -z "$is_enabled" ]]; then
+            log_info "Enabling flow plugin..."
+            local tmp_file
+            tmp_file=$(mktemp)
+            jq '.enabledPlugins."flow@flow-marketplace" = true' \
+                "$settings_file" > "$tmp_file" && mv "$tmp_file" "$settings_file"
+            log_success "Enabled flow@flow-marketplace"
+        else
+            log_info "flow@flow-marketplace already enabled"
+        fi
+    else
+        # No jq — check with grep
+        if ! grep -q "flow-marketplace" "$settings_file" 2>/dev/null; then
+            log_warn "jq not available for automatic config update"
+            echo ""
+            log_info "Add to $settings_file:"
+            echo '    "extraKnownMarketplaces": {'
+            echo '      "flow-marketplace": {'
+            echo '        "source": { "source": "github", "repo": "cofin/flow" }'
+            echo '      }'
+            echo '    }'
+            echo ""
+            echo '    "enabledPlugins": {'
+            echo '      "flow@flow-marketplace": true'
+            echo '    }'
+        else
+            log_info "flow-marketplace already configured"
+        fi
     fi
 
     echo ""
-    log_success "Claude Code installation complete"
+    log_success "Claude Code installation complete (plugin via marketplace)"
+    log_info "Claude Code will pull the latest version from GitHub on next start"
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Codex CLI Installation
+# Codex CLI Installation (local plugin)
 # ─────────────────────────────────────────────────────────────────────────────
 
 install_codex() {
@@ -529,45 +408,17 @@ install_codex() {
     echo -e "${CYAN}Installing Flow for Codex CLI...${NC}"
     echo ""
 
-    # ── Legacy cleanup ──────────────────────────────────────────────
-    local legacy_cleaned=false
+    # Step 1: Clean up ALL legacy installations
+    cleanup_codex_legacy
 
-    # Remove old prompts
-    if ls "$CODEX_DIR/prompts/flow-"*.md &>/dev/null 2>&1; then
-        rm -f "$CODEX_DIR/prompts/flow-"*.md
-        log_success "Removed legacy prompts"
-        legacy_cleaned=true
-    fi
-
-    # Remove old skills
-    for old_skill in "flow" "beads"; do
-        if [[ -d "$CODEX_DIR/skills/$old_skill" ]]; then
-            rm -rf "$CODEX_DIR/skills/$old_skill"
-            log_success "Removed legacy skill: $old_skill"
-            legacy_cleaned=true
-        fi
-    done
-
-    # Remove Flow section from old AGENTS.md
-    if [[ -f "$CODEX_DIR/AGENTS.md" ]] && grep -q "Flow Framework" "$CODEX_DIR/AGENTS.md" 2>/dev/null; then
-        backup_file "$CODEX_DIR/AGENTS.md"
-        sed -i '/^# Flow Framework/,$d' "$CODEX_DIR/AGENTS.md"
-        sed -i -e :a -e '/^\n*$/{$d;N;ba' -e '}' "$CODEX_DIR/AGENTS.md"
-        log_success "Removed legacy Flow section from AGENTS.md"
-        legacy_cleaned=true
-    fi
-
-    if $legacy_cleaned; then
-        echo ""
-        log_info "Legacy Codex installation cleaned up"
-        echo ""
-    fi
-
-    # ── New plugin installation ─────────────────────────────────────
+    # Step 2: Install plugin at ~/.codex/plugins/flow/
     local plugin_dir="$HOME/.codex/plugins/flow"
 
     # Backup existing plugin if present
-    backup_dir "$plugin_dir"
+    if [[ -d "$plugin_dir" ]]; then
+        backup_dir "$plugin_dir"
+        rm -rf "$plugin_dir"
+    fi
 
     # Create plugin directory
     mkdir -p "$plugin_dir"
@@ -582,9 +433,9 @@ install_codex() {
     cp "$PROJECT_ROOT/AGENTS.md" "$plugin_dir/"
     log_success "Installed: AGENTS.md"
 
-    # Copy commands
+    # Copy commands (Codex uses commands/flow/*.toml)
     mkdir -p "$plugin_dir/commands"
-    cp -r "$PROJECT_ROOT/commands/flow" "$plugin_dir/commands/"
+    cp -r "$COMMANDS_DIR/flow" "$plugin_dir/commands/"
     log_success "Installed: commands"
 
     # Copy hooks
@@ -595,13 +446,13 @@ install_codex() {
     chmod +x "$plugin_dir/hooks/session-start" "$plugin_dir/hooks/run-hook.cmd"
     log_success "Installed: hooks"
 
-    # Copy skills (all of them)
+    # Copy skills
     if [[ -d "$SKILLS_DIR" ]]; then
         cp -r "$SKILLS_DIR" "$plugin_dir/skills"
         log_success "Installed: skills ($(ls -1d "$SKILLS_DIR"/*/ 2>/dev/null | wc -l) skills)"
     fi
 
-    # Create or merge marketplace.json
+    # Step 3: Create or update marketplace.json
     local marketplace_dir="$HOME/.agents/plugins"
     local marketplace_file="$marketplace_dir/marketplace.json"
     mkdir -p "$marketplace_dir"
@@ -634,7 +485,7 @@ MARKETPLACE_EOF
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# OpenCode Installation
+# OpenCode Installation (local plugin)
 # ─────────────────────────────────────────────────────────────────────────────
 
 install_opencode() {
@@ -642,34 +493,17 @@ install_opencode() {
     echo -e "${CYAN}Installing Flow for OpenCode...${NC}"
     echo ""
 
-    # ── Legacy cleanup ──────────────────────────────────────────────
-    local legacy_cleaned=false
+    # Step 1: Clean up ALL legacy installations
+    cleanup_opencode_legacy
 
-    # Remove old agent files
-    if [[ -f "$OPENCODE_DIR/agents/flow.md" ]]; then
-        rm -f "$OPENCODE_DIR/agents/flow.md"
-        log_success "Removed legacy agents/flow.md"
-        legacy_cleaned=true
-    fi
-
-    # Remove old command files
-    if ls "$OPENCODE_DIR/commands/flow-"*.md &>/dev/null 2>&1; then
-        rm -f "$OPENCODE_DIR/commands/flow-"*.md
-        log_success "Removed legacy command files"
-        legacy_cleaned=true
-    fi
-
-    if $legacy_cleaned; then
-        echo ""
-        log_info "Legacy OpenCode installation cleaned up"
-        echo ""
-    fi
-
-    # ── Plugin installation ─────────────────────────────────────────
+    # Step 2: Install plugin at ~/.config/opencode/plugins/flow/
     local plugin_dir="$OPENCODE_DIR/plugins/flow"
 
     # Backup existing plugin if present
-    backup_dir "$plugin_dir"
+    if [[ -d "$plugin_dir" ]]; then
+        backup_dir "$plugin_dir"
+        rm -rf "$plugin_dir"
+    fi
 
     # Create plugin directory and copy plugin files
     mkdir -p "$plugin_dir"
@@ -684,12 +518,12 @@ install_opencode() {
         log_success "Installed: skills ($(ls -1d "$SKILLS_DIR"/*/ 2>/dev/null | wc -l) skills)"
     fi
 
-    # Copy commands
+    # Copy commands (Codex/Gemini .toml format)
     mkdir -p "$plugin_dir/commands"
-    cp -r "$PROJECT_ROOT/commands/flow" "$plugin_dir/commands/"
+    cp -r "$COMMANDS_DIR/flow" "$plugin_dir/commands/"
     log_success "Installed: commands"
 
-    # Update opencode.json config
+    # Step 3: Update opencode.json config
     local config_file="$OPENCODE_DIR/opencode.json"
 
     if [[ -f "$config_file" ]]; then
@@ -715,7 +549,7 @@ OC_CONFIG_EOF
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Gemini CLI Installation
+# Gemini CLI Installation (extension)
 # ─────────────────────────────────────────────────────────────────────────────
 
 install_gemini() {
@@ -723,39 +557,38 @@ install_gemini() {
     echo -e "${CYAN}Installing Flow for Gemini CLI...${NC}"
     echo ""
 
+    # Backup existing extension
+    if [[ -d "$GEMINI_EXT_DIR" ]]; then
+        backup_dir "$GEMINI_EXT_DIR"
+        rm -rf "$GEMINI_EXT_DIR"
+    fi
+
     # Create extension directory
     mkdir -p "$GEMINI_EXT_DIR"
 
-    # Backup existing
-    backup_dir "$GEMINI_EXT_DIR"
-
     # Install extension manifest and context
-    cp "$SCRIPT_DIR/gemini-extension.json" "$GEMINI_EXT_DIR/"
-    cp "$SCRIPT_DIR/AGENTS.md" "$GEMINI_EXT_DIR/"
+    cp "$PROJECT_ROOT/gemini-extension.json" "$GEMINI_EXT_DIR/"
+    cp "$PROJECT_ROOT/AGENTS.md" "$GEMINI_EXT_DIR/"
     log_success "Installed: extension manifest and context"
 
-    # Install commands
+    # Install commands (Gemini uses commands/flow/*.toml)
     mkdir -p "$GEMINI_EXT_DIR/commands"
-    cp -r "$SCRIPT_DIR/commands/flow" "$GEMINI_EXT_DIR/commands/"
-    log_success "Installed: Flow commands"
+    cp -r "$COMMANDS_DIR/flow" "$GEMINI_EXT_DIR/commands/"
+    log_success "Installed: commands"
 
-    # Install templates
-    mkdir -p "$GEMINI_EXT_DIR/templates"
-    cp -r "$TEMPLATES_DIR"/* "$GEMINI_EXT_DIR/templates/"
-    log_success "Installed: Templates"
-
-    # Install skills (all) to the extension directory
-    # Gemini CLI automatically discovers and registers skills within extensions
-    mkdir -p "$GEMINI_EXT_DIR/skills"
-    cp -r "$SKILLS_DIR"/* "$GEMINI_EXT_DIR/skills/"
-    log_success "Installed: Skills"
+    # Install skills
+    if [[ -d "$SKILLS_DIR" ]]; then
+        mkdir -p "$GEMINI_EXT_DIR/skills"
+        cp -r "$SKILLS_DIR"/* "$GEMINI_EXT_DIR/skills/"
+        log_success "Installed: skills"
+    fi
 
     # Install hooks
-    if [[ -d "$SCRIPT_DIR/hooks" ]]; then
+    if [[ -d "$PROJECT_ROOT/hooks" ]]; then
         mkdir -p "$GEMINI_EXT_DIR/hooks"
-        cp -r "$SCRIPT_DIR/hooks"/* "$GEMINI_EXT_DIR/hooks/"
+        cp -r "$PROJECT_ROOT/hooks"/* "$GEMINI_EXT_DIR/hooks/"
         chmod +x "$GEMINI_EXT_DIR/hooks/session-start" "$GEMINI_EXT_DIR/hooks/run-hook.cmd" 2>/dev/null || true
-        log_success "Installed: Hooks"
+        log_success "Installed: hooks"
     fi
 
     echo ""
@@ -763,7 +596,7 @@ install_gemini() {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Google Antigravity Installation
+# Google Antigravity Installation (skill directory)
 # ─────────────────────────────────────────────────────────────────────────────
 
 install_antigravity() {
@@ -778,33 +611,26 @@ install_antigravity() {
         target_agy_dir="$GEMINI_JETSKI_DIR"
     fi
 
+    # Backup existing
+    if [[ -d "$target_agy_dir" ]]; then
+        backup_dir "$target_agy_dir"
+    fi
+
     # Create skills directory
     mkdir -p "$target_agy_dir"
 
-    # Backup existing
-    backup_dir "$target_agy_dir"
-
     # Install skills
-    local skills_src="$SKILLS_DIR"
-
-    if [[ -d "$skills_src" ]]; then
-        for skill_dir in "$skills_src"/*/; do
+    if [[ -d "$SKILLS_DIR" ]]; then
+        for skill_dir in "$SKILLS_DIR"/*/; do
             [[ -d "$skill_dir" ]] || continue
             local skill_name="$(basename "$skill_dir")"
             local skill_dst_dir="$target_agy_dir/$skill_name"
 
-            mkdir -p "$skill_dst_dir"
-
-            find "$skill_dir" -type f | while read -r skill_file; do
-                local rel_path="${skill_file#$skill_dir}"
-                local dest_file="$skill_dst_dir/$rel_path"
-
-                mkdir -p "$(dirname "$dest_file")"
-
-                merge_or_install_file "$skill_file" "$dest_file"
-            done
-            log_success "Installed skill: $skill_name"
+            # Clean and copy
+            rm -rf "$skill_dst_dir"
+            cp -r "$skill_dir" "$skill_dst_dir"
         done
+        log_success "Installed: skills ($(ls -1d "$SKILLS_DIR"/*/ 2>/dev/null | wc -l) skills)"
     fi
 
     echo ""
@@ -845,10 +671,6 @@ check_beads() {
 parse_args() {
     while [[ $# -gt 0 ]]; do
         case $1 in
-            --merge-with-llm|--llm)
-                USE_LLM_MERGE=true
-                shift
-                ;;
             --force|--overwrite)
                 FORCE_OVERWRITE=true
                 shift
@@ -857,12 +679,11 @@ parse_args() {
                 echo "Usage: install.sh [OPTIONS]"
                 echo ""
                 echo "Options:"
-                echo "  --merge-with-llm  Use Claude/Gemini CLI to intelligently merge"
-                echo "                    existing skills with new versions"
-                echo "  --force           Overwrite existing files without prompting"
-                echo "  --help            Show this help message"
+                echo "  --force    Overwrite existing plugin installations without prompting"
+                echo "  --help     Show this help message"
                 echo ""
-                echo "Without flags, shows diff preview for conflicts."
+                echo "Installs Flow as a plugin for all detected AI CLI tools."
+                echo "Legacy installations are automatically cleaned up."
                 exit 0
                 ;;
             *)
@@ -881,18 +702,11 @@ main() {
     # Parse command line arguments
     parse_args "$@"
 
-    # Show banner after parsing args (so we know the mode)
+    # Show banner after parsing args
     show_banner
 
     # Create flow data directory
     mkdir -p "$FLOW_DATA_DIR"
-
-    # Check templates exist
-    if [[ ! -d "$TEMPLATES_DIR" ]]; then
-        log_error "Templates directory not found: $TEMPLATES_DIR"
-        log_error "Please run this script from the Flow repository"
-        exit 1
-    fi
 
     # Detect CLIs
     detect_clis
@@ -901,10 +715,10 @@ main() {
     if ! $CLAUDE_INSTALLED && ! $CODEX_INSTALLED && ! $OPENCODE_INSTALLED && ! $GEMINI_INSTALLED && ! $ANTIGRAVITY_INSTALLED; then
         echo "No supported CLIs detected. Which would you like to install for?"
         echo ""
-        echo "  1) Claude Code (~/.claude/)"
-        echo "  2) Codex CLI (~/.codex/)"
-        echo "  3) OpenCode (~/.config/opencode/)"
-        echo "  4) Gemini CLI (~/.gemini/)"
+        echo "  1) Claude Code"
+        echo "  2) Codex CLI"
+        echo "  3) OpenCode"
+        echo "  4) Gemini CLI"
         echo "  5) Google Antigravity"
         echo "  6) All of the above"
         echo "  7) Exit"
@@ -969,8 +783,6 @@ main() {
     $GEMINI_INSTALLED && install_gemini
     $ANTIGRAVITY_INSTALLED && install_antigravity
 
-
-
     # Check Beads
     check_beads
 
@@ -983,12 +795,8 @@ main() {
 
     if [[ -d "$BACKUP_DIR" ]]; then
         echo "Backups saved to: $BACKUP_DIR"
+        echo ""
     fi
-
-    if [[ -f "$MERGE_HISTORY" ]] || [[ -f "${MERGE_HISTORY%.json}.log" ]]; then
-        echo "Merge history: $FLOW_DATA_DIR/"
-    fi
-    echo ""
 
     echo "Next steps:"
     echo ""
