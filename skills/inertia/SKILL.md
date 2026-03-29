@@ -1,6 +1,6 @@
 ---
 name: inertia
-description: "Expert knowledge for Inertia.js with Litestar backend. Use when building SPAs with server-side routing, handling Inertia responses, managing page components, or integrating litestar-vite with Inertia."
+description: "Auto-activate for inertia imports, createInertiaApp. Expert knowledge for Inertia.js with Litestar backend. Use when building SPAs with server-side routing, handling Inertia responses, managing page components, or integrating litestar-vite with Inertia."
 ---
 
 # Inertia.js Skill

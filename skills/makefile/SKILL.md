@@ -1,6 +1,6 @@
 ---
 name: makefile
-description: "GNU Make patterns for uv-based Python project automation: .PHONY, targets, recipes. Use when: creating or editing a Makefile, adding development targets (install, clean, test, lint), or setting up self-documenting help."
+description: "Auto-activate for Makefile, GNUmakefile. GNU Make patterns for uv-based Python project automation: .PHONY, targets, recipes. Use when: creating or editing a Makefile, adding development targets (install, clean, test, lint), or setting up self-documenting help."
 ---
 
 # Makefile Skill

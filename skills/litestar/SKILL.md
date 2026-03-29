@@ -1,6 +1,6 @@
 ---
 name: litestar
-description: "Litestar ASGI web framework: route handlers, Guards, middleware, msgspec DTOs, OpenAPI. Use when: building Litestar APIs, defining routes/controllers, configuring plugins, or working with Litestar dependency injection."
+description: "Auto-activate for litestar imports, Litestar app configuration. Litestar ASGI web framework: route handlers, Guards, middleware, msgspec DTOs, OpenAPI. Use when: building Litestar APIs, defining routes/controllers, configuring plugins, or working with Litestar dependency injection."
 ---
 
 # Litestar Framework Skill

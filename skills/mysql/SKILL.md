@@ -1,6 +1,6 @@
 ---
 name: mysql
-description: "Comprehensive MySQL/MariaDB expertise: SQL patterns, stored procedures, performance tuning, InnoDB internals, replication, connections, JSON, and administration. Use when: writing MySQL queries, optimizing slow queries, configuring InnoDB, setting up replication, using mysql CLI, or working with MySQL connectors (Python, Node, Java)."
+description: "Auto-activate for .sql files with MySQL syntax, mysql connection strings, mysqldump. Comprehensive MySQL/MariaDB expertise: SQL patterns, stored procedures, performance tuning, InnoDB internals, replication, connections, JSON, and administration. Use when: writing MySQL queries, optimizing slow queries, configuring InnoDB, setting up replication, using mysql CLI, or working with MySQL connectors (Python, Node, Java)."
 ---
 
 # MySQL / MariaDB

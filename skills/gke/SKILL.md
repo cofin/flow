@@ -1,6 +1,6 @@
 ---
 name: gke
-description: "Kubernetes on GCP expertise for GKE. Use when: running kubectl, Helm charts, pod/node pool management, workload identity, Kubernetes deployments, cluster scaling, or any GKE troubleshooting."
+description: "Auto-activate for kubectl commands, k8s/ directory, Helm charts. Kubernetes on GCP expertise for GKE. Use when: running kubectl, Helm charts, pod/node pool management, workload identity, Kubernetes deployments, cluster scaling, or any GKE troubleshooting."
 ---
 
 # Google Kubernetes Engine (GKE)
