@@ -86,11 +86,11 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
     > "Found [N] specs in legacy locations:
     >
     > Active (specs/active/):
-    >   - user-auth_20260110 (3/5 tasks complete)
-    >   - api-refactor_20260115 (complete, has learnings)
+    >   - user-auth (3/5 tasks complete)
+    >   - api-refactor (complete, has learnings)
     >
     > Archived (specs/archive/):
-    >   - initial-mvp_20260101 (archived, has learnings)
+    >   - initial-mvp (archived, has learnings)
     >
     > Options:
     > A) Migrate all to .agents/specs/ (recommended)

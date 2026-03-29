@@ -67,16 +67,16 @@ Flow Validation Report
 [x] Beads initialized
 
 === Flows ===
-[x] auth_20260124: 12 tasks, 5 complete
-[!] dark-mode_20260124: Missing spec.md
+[x] auth: 12 tasks, 5 complete
+[!] dark-mode: Missing spec.md
 
 === Issues Found ===
-1. dark-mode_20260124: Missing spec.md
-2. auth_20260124: Task 3 marked complete but no commit SHA
+1. dark-mode: Missing spec.md
+2. auth: Task 3 marked complete but no commit SHA
 
 === Recommendations ===
 - Run with --fix to auto-repair issues
-- Manually review dark-mode_20260124
+- Manually review dark-mode
 ```
 
 ---

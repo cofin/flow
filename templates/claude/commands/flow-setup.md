@@ -65,11 +65,11 @@ If outdated, suggest: `curl -fsSL https://raw.githubusercontent.com/Dicklesworth
 Found [N] specs in legacy locations:
 
 Active (specs/active/):
-  - user-auth_20260110 (3/5 tasks complete)
-  - api-refactor_20260115 (complete, has learnings)
+  - user-auth (3/5 tasks complete)
+  - api-refactor (complete, has learnings)
 
 Archived (specs/archive/):
-  - initial-mvp_20260101 (archived, has learnings)
+  - initial-mvp (archived, has learnings)
 
 Options:
 A) Migrate all to .agents/specs/ (recommended)
@@ -102,7 +102,7 @@ D) Skip migration
 2. Cross-reference with current codebase:
 
 ```
-From user-auth_20260110/learnings.md:
+From user-auth/learnings.md:
 
 ✓ VALID: "Use Zod for form validation"
   → Referenced file src/lib/validators.ts exists

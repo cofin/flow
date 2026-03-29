@@ -96,7 +96,7 @@ Validation Results
 
 Issues Found:
 1. patterns.md:45 - File 'src/old.ts' not found
-2. auth_20260124/spec.md - Task status mismatch with Beads
+2. auth/spec.md - Task status mismatch with Beads
 
 Auto-fix available for 2 issues. Apply? [Y/n]
 ```

@@ -58,26 +58,26 @@ Flow Status Dashboard
 
 === Active Flows ===
 
-[~] auth_20260124 - Add user authentication
+[~] auth - Add user authentication
     Progress: 5/12 tasks (41%)
     Current: Phase 2, Task 6
     Last Activity: 2026-01-24 14:30
     Blockers: 0
 
-[ ] dark-mode_20260124 - Add dark mode toggle
+[ ] dark-mode - Add dark mode toggle
     Progress: 0/8 tasks (0%)
     Status: Not started
 
 === Beads Ready ===
 
 Ready tasks (no blockers):
-  - auth_20260124: Task 6 - Implement login endpoint
-  - auth_20260124: Task 7 - Add session middleware
+  - auth: Task 6 - Implement login endpoint
+  - auth: Task 7 - Add session middleware
 
 === Beads Blocked ===
 
 Blocked tasks:
-  - auth_20260124: Task 8 - Waiting for API keys [!]
+  - auth: Task 8 - Waiting for API keys [!]
 
 === Quality Gates ===
 
@@ -86,9 +86,9 @@ Coverage: 82%
 
 === Recent Activity ===
 
-- 14:30 - auth_20260124: Task 5 completed [abc1234]
-- 14:15 - auth_20260124: Task 4 completed [def5678]
-- 13:45 - dark-mode_20260124: Flow created
+- 14:30 - auth: Task 5 completed [abc1234]
+- 14:15 - auth: Task 4 completed [def5678]
+- 13:45 - dark-mode: Flow created
 ```
 
 ---

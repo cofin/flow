@@ -177,7 +177,7 @@ You MAY ONLY:
 
 ### 3.4 Artifact Creation
 
-1. **Unique ID:** `slug_YYYYMMDD` (e.g., `user-auth_20260126`).
+1. **Unique ID:** `shortname` (e.g., `user-auth`).
 
 2. **Directory:** `.agents/specs/<flow_id>/`.
 
