@@ -9,5 +9,6 @@
   "homepage": "https://github.com/cofin/flow",
   "repository": "https://github.com/cofin/flow",
   "license": "MIT",
-  "keywords": ["flow", "context-driven-development", "beads", "tdd", "ai-agent", "workflow", "spec-first"]
+  "keywords": ["flow", "context-driven-development", "beads", "tdd", "ai-agent", "workflow", "spec-first"],
+  "hooks": "./hooks/hooks.json"
 }
