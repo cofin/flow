@@ -501,6 +501,21 @@ install_claude() {
         done
     fi
 
+    # Install hooks
+    local hooks_src="$PROJECT_ROOT/hooks"
+    local hooks_dst="$CLAUDE_DIR/hooks"
+
+    if [[ -d "$hooks_src" ]]; then
+        mkdir -p "$hooks_dst"
+        for hook_file in "hooks.json" "run-hook.cmd" "session-start"; do
+            if [[ -f "$hooks_src/$hook_file" ]]; then
+                merge_or_install_file "$hooks_src/$hook_file" "$hooks_dst/$hook_file"
+            fi
+        done
+        chmod +x "$hooks_dst/session-start" "$hooks_dst/run-hook.cmd" 2>/dev/null || true
+        log_success "Installed: hooks"
+    fi
+
     echo ""
     log_success "Claude Code installation complete"
 }
@@ -514,68 +529,105 @@ install_codex() {
     echo -e "${CYAN}Installing Flow for Codex CLI...${NC}"
     echo ""
 
-    # Create directories
-    mkdir -p "$CODEX_DIR/prompts"
-    mkdir -p "$CODEX_DIR/skills"
+    # ── Legacy cleanup ──────────────────────────────────────────────
+    local legacy_cleaned=false
 
-    # Backup existing
-    backup_file "$CODEX_DIR/AGENTS.md"
-    backup_dir "$CODEX_DIR/prompts"
-
-    # Install AGENTS.md (merge if exists)
-    local agents_src="$TEMPLATES_DIR/codex/AGENTS.md"
-    local agents_dst="$CODEX_DIR/AGENTS.md"
-
-    if [[ -f "$agents_dst" ]]; then
-        if grep -q "Flow Framework" "$agents_dst" 2>/dev/null; then
-            # Already has Flow - replace Flow section
-            cp "$agents_src" "$agents_dst"
-            log_success "Updated: AGENTS.md"
-        else
-            # Append Flow section
-            echo "" >> "$agents_dst"
-            echo "---" >> "$agents_dst"
-            echo "" >> "$agents_dst"
-            cat "$agents_src" >> "$agents_dst"
-            log_success "Merged: AGENTS.md (appended Flow section)"
-        fi
-    else
-        cp "$agents_src" "$agents_dst"
-        log_success "Installed: AGENTS.md"
+    # Remove old prompts
+    if ls "$CODEX_DIR/prompts/flow-"*.md &>/dev/null 2>&1; then
+        rm -f "$CODEX_DIR/prompts/flow-"*.md
+        log_success "Removed legacy prompts"
+        legacy_cleaned=true
     fi
 
-    # Install prompts
-    local prompts_src="$TEMPLATES_DIR/codex/prompts"
-    local prompts_dst="$CODEX_DIR/prompts"
-
-    if [[ -d "$prompts_src" ]]; then
-        for prompt in "$prompts_src"/*.md; do
-            [[ -f "$prompt" ]] && install_command "$prompt" "$prompts_dst/$(basename "$prompt")"
-        done
-    fi
-
-    # Install skills (beads and flow only for now) with intelligent merge
-    local skills_src="$SKILLS_DIR"
-    local skills_dst="$CODEX_DIR/skills"
-
-    for skill_name in "flow" "beads"; do
-        local skill_dir="$skills_src/$skill_name"
-        if [[ -d "$skill_dir" ]]; then
-            local skill_dst_dir="$skills_dst/$skill_name"
-            mkdir -p "$skill_dst_dir"
-
-            # Process each file in the skill directory recursively
-            find "$skill_dir" -type f | while read -r skill_file; do
-                local rel_path="${skill_file#$skill_dir/}"
-                local dest_file="$skill_dst_dir/$rel_path"
-
-                # Ensure parent directory exists in destination
-                mkdir -p "$(dirname "$dest_file")"
-
-                merge_or_install_file "$skill_file" "$dest_file"
-            done
+    # Remove old skills
+    for old_skill in "flow" "beads"; do
+        if [[ -d "$CODEX_DIR/skills/$old_skill" ]]; then
+            rm -rf "$CODEX_DIR/skills/$old_skill"
+            log_success "Removed legacy skill: $old_skill"
+            legacy_cleaned=true
         fi
     done
+
+    # Remove Flow section from old AGENTS.md
+    if [[ -f "$CODEX_DIR/AGENTS.md" ]] && grep -q "Flow Framework" "$CODEX_DIR/AGENTS.md" 2>/dev/null; then
+        backup_file "$CODEX_DIR/AGENTS.md"
+        sed -i '/^# Flow Framework/,$d' "$CODEX_DIR/AGENTS.md"
+        sed -i -e :a -e '/^\n*$/{$d;N;ba' -e '}' "$CODEX_DIR/AGENTS.md"
+        log_success "Removed legacy Flow section from AGENTS.md"
+        legacy_cleaned=true
+    fi
+
+    if $legacy_cleaned; then
+        echo ""
+        log_info "Legacy Codex installation cleaned up"
+        echo ""
+    fi
+
+    # ── New plugin installation ─────────────────────────────────────
+    local plugin_dir="$HOME/.codex/plugins/flow"
+
+    # Backup existing plugin if present
+    backup_dir "$plugin_dir"
+
+    # Create plugin directory
+    mkdir -p "$plugin_dir"
+
+    # Copy plugin manifest
+    mkdir -p "$plugin_dir/.codex-plugin"
+    cp "$PROJECT_ROOT/.codex-plugin/plugin.json" "$plugin_dir/.codex-plugin/"
+    cp "$PROJECT_ROOT/.codex-plugin/marketplace.json" "$plugin_dir/.codex-plugin/"
+    log_success "Installed: plugin manifest"
+
+    # Copy AGENTS.md context
+    cp "$PROJECT_ROOT/AGENTS.md" "$plugin_dir/"
+    log_success "Installed: AGENTS.md"
+
+    # Copy commands
+    mkdir -p "$plugin_dir/commands"
+    cp -r "$PROJECT_ROOT/commands/flow" "$plugin_dir/commands/"
+    log_success "Installed: commands"
+
+    # Copy hooks
+    mkdir -p "$plugin_dir/hooks"
+    cp "$PROJECT_ROOT/hooks/hooks-codex.json" "$plugin_dir/hooks/"
+    cp "$PROJECT_ROOT/hooks/run-hook.cmd" "$plugin_dir/hooks/"
+    cp "$PROJECT_ROOT/hooks/session-start" "$plugin_dir/hooks/"
+    chmod +x "$plugin_dir/hooks/session-start" "$plugin_dir/hooks/run-hook.cmd"
+    log_success "Installed: hooks"
+
+    # Copy skills (all of them)
+    if [[ -d "$SKILLS_DIR" ]]; then
+        cp -r "$SKILLS_DIR" "$plugin_dir/skills"
+        log_success "Installed: skills ($(ls -1d "$SKILLS_DIR"/*/ 2>/dev/null | wc -l) skills)"
+    fi
+
+    # Create or merge marketplace.json
+    local marketplace_dir="$HOME/.agents/plugins"
+    local marketplace_file="$marketplace_dir/marketplace.json"
+    mkdir -p "$marketplace_dir"
+
+    if [[ ! -f "$marketplace_file" ]]; then
+        cat > "$marketplace_file" << 'MARKETPLACE_EOF'
+{
+  "name": "personal-plugins",
+  "interface": { "displayName": "Personal Plugins" },
+  "plugins": [
+    {
+      "name": "flow",
+      "source": { "source": "local", "path": "~/.codex/plugins/flow" },
+      "policy": { "installation": "AVAILABLE" },
+      "category": "Development"
+    }
+  ]
+}
+MARKETPLACE_EOF
+        log_success "Created: marketplace.json"
+    elif ! grep -q '"flow"' "$marketplace_file" 2>/dev/null; then
+        log_warn "Existing marketplace.json found — add Flow entry manually"
+        echo "         File: $marketplace_file"
+    else
+        log_info "Flow already in marketplace.json"
+    fi
 
     echo ""
     log_success "Codex CLI installation complete"
@@ -590,50 +642,72 @@ install_opencode() {
     echo -e "${CYAN}Installing Flow for OpenCode...${NC}"
     echo ""
 
-    # Create directories
-    mkdir -p "$OPENCODE_DIR/agents"
-    mkdir -p "$OPENCODE_DIR/commands"
+    # ── Legacy cleanup ──────────────────────────────────────────────
+    local legacy_cleaned=false
 
-    # Backup existing
-    backup_file "$OPENCODE_DIR/opencode.json"
-    backup_dir "$OPENCODE_DIR/agents"
-    backup_dir "$OPENCODE_DIR/commands"
+    # Remove old agent files
+    if [[ -f "$OPENCODE_DIR/agents/flow.md" ]]; then
+        rm -f "$OPENCODE_DIR/agents/flow.md"
+        log_success "Removed legacy agents/flow.md"
+        legacy_cleaned=true
+    fi
 
-    # Install opencode.json (merge if exists)
-    local config_src="$TEMPLATES_DIR/opencode/opencode.json"
-    local config_dst="$OPENCODE_DIR/opencode.json"
+    # Remove old command files
+    if ls "$OPENCODE_DIR/commands/flow-"*.md &>/dev/null 2>&1; then
+        rm -f "$OPENCODE_DIR/commands/flow-"*.md
+        log_success "Removed legacy command files"
+        legacy_cleaned=true
+    fi
 
-    if [[ -f "$config_dst" ]]; then
-        if grep -q '"flow"' "$config_dst" 2>/dev/null; then
-            log_info "OpenCode config already has Flow - updating commands only"
+    if $legacy_cleaned; then
+        echo ""
+        log_info "Legacy OpenCode installation cleaned up"
+        echo ""
+    fi
+
+    # ── Plugin installation ─────────────────────────────────────────
+    local plugin_dir="$OPENCODE_DIR/plugins/flow"
+
+    # Backup existing plugin if present
+    backup_dir "$plugin_dir"
+
+    # Create plugin directory and copy plugin files
+    mkdir -p "$plugin_dir"
+    cp "$PROJECT_ROOT/.opencode/plugins/flow.js" "$plugin_dir/"
+    cp "$PROJECT_ROOT/package.json" "$plugin_dir/"
+    cp "$PROJECT_ROOT/AGENTS.md" "$plugin_dir/"
+    log_success "Installed: plugin files"
+
+    # Copy skills
+    if [[ -d "$SKILLS_DIR" ]]; then
+        cp -r "$SKILLS_DIR" "$plugin_dir/skills"
+        log_success "Installed: skills ($(ls -1d "$SKILLS_DIR"/*/ 2>/dev/null | wc -l) skills)"
+    fi
+
+    # Copy commands
+    mkdir -p "$plugin_dir/commands"
+    cp -r "$PROJECT_ROOT/commands/flow" "$plugin_dir/commands/"
+    log_success "Installed: commands"
+
+    # Update opencode.json config
+    local config_file="$OPENCODE_DIR/opencode.json"
+
+    if [[ -f "$config_file" ]]; then
+        if grep -q '"flow"' "$config_file" 2>/dev/null; then
+            log_info "OpenCode config already references Flow"
         else
-            log_warn "Existing opencode.json found - manual merge required"
-            echo "         Source: $config_src"
-            echo "         Target: $config_dst"
-            echo "         Add the 'commands' and 'agents' sections manually"
+            log_warn "Add Flow to your opencode.json plugin array:"
+            echo '         "plugin": ["flow"]'
+            echo "         File: $config_file"
         fi
     else
-        cp "$config_src" "$config_dst"
-        log_success "Installed: opencode.json"
-    fi
-
-    # Install agent
-    local agent_src="$TEMPLATES_DIR/opencode/agents/flow.md"
-    local agent_dst="$OPENCODE_DIR/agents/flow.md"
-
-    if [[ -f "$agent_src" ]]; then
-        cp "$agent_src" "$agent_dst"
-        log_success "Installed: agents/flow.md"
-    fi
-
-    # Install commands
-    local commands_src="$TEMPLATES_DIR/opencode/commands"
-    local commands_dst="$OPENCODE_DIR/commands"
-
-    if [[ -d "$commands_src" ]]; then
-        for cmd in "$commands_src"/*.md; do
-            [[ -f "$cmd" ]] && install_command "$cmd" "$commands_dst/$(basename "$cmd")"
-        done
+        cat > "$config_file" << 'OC_CONFIG_EOF'
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": ["flow"]
+}
+OC_CONFIG_EOF
+        log_success "Created: opencode.json with Flow plugin"
     fi
 
     echo ""
