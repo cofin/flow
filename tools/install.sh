@@ -464,7 +464,7 @@ install_codex() {
   "plugins": [
     {
       "name": "flow",
-      "source": { "source": "local", "path": "../../.codex/plugins/flow" },
+      "source": { "source": "local", "path": "./.codex/plugins/flow" },
       "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
       "category": "Development"
     }
