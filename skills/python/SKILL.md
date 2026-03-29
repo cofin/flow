@@ -1,6 +1,6 @@
 ---
 name: python
-description: "Python project conventions and tooling: pyproject.toml, uv, ruff, mypy, typing, Cython, Mypyc. Use when: configuring Python packages, linting, type-checking, building extensions, or running scripts with uv."
+description: "Auto-activate for .py files, pyproject.toml, requirements.txt, setup.py, setup.cfg. Python project conventions and tooling: uv, ruff, mypy, typing, Cython, Mypyc. Use when: configuring Python packages, linting, type-checking, building extensions, or running scripts with uv."
 ---
 
 # Python Skill

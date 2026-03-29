@@ -1,6 +1,6 @@
 ---
 name: postgres
-description: "Comprehensive PostgreSQL expertise: SQL patterns, PL/pgSQL, indexing, performance tuning, EXPLAIN analysis, JSONB, security (RLS, roles, pgAudit), extensions (PostGIS, pgvector, pg_trgm, TimescaleDB), replication & HA (Patroni, logical replication, PITR), schema migrations (Alembic, Flyway, zero-downtime DDL), connection patterns (psycopg, asyncpg, SQLAlchemy, node-postgres, sqlx), psql CLI, and administration. Use when: writing PostgreSQL queries, optimizing performance, managing security/roles/RLS, configuring replication, writing PL/pgSQL functions/triggers, working with JSONB, using extensions, planning migrations, or connecting from application code."
+description: "Auto-activate for .sql files, psql commands, postgresql.conf, psycopg/asyncpg imports. Comprehensive PostgreSQL expertise: SQL patterns, PL/pgSQL, indexing, performance tuning, EXPLAIN analysis, JSONB, security (RLS, roles, pgAudit), extensions (PostGIS, pgvector, pg_trgm, TimescaleDB), replication & HA (Patroni, logical replication, PITR), schema migrations (Alembic, Flyway, zero-downtime DDL), connection patterns (psycopg, asyncpg, SQLAlchemy, node-postgres, sqlx), psql CLI, and administration. Use when: writing PostgreSQL queries, optimizing performance, managing security/roles/RLS, configuring replication, writing PL/pgSQL functions/triggers, working with JSONB, using extensions, planning migrations, or connecting from application code."
 ---
 
 # PostgreSQL

@@ -1,6 +1,6 @@
 ---
 name: oracle
-description: "Comprehensive Oracle Database expertise: SQL patterns, PL/SQL development, JSON, OCI C/C++ integration, ORDS REST APIs, connection drivers (Python/Java/Node), 26ai container operations with Podman, AI agent database patterns, and vector search. Use when: working with Oracle databases, writing SQL/PL/SQL, building REST APIs with ORDS, configuring database connections, OCI drivers, Podman/Docker Oracle containers, or Oracle 26ai Free images."
+description: "Auto-activate for cx_Oracle imports, oracledb imports, Oracle connection strings. Comprehensive Oracle Database expertise: SQL patterns, PL/SQL development, JSON, OCI C/C++ integration, ORDS REST APIs, connection drivers (Python/Java/Node), 26ai container operations with Podman, AI agent database patterns, and vector search. Use when: working with Oracle databases, writing SQL/PL/SQL, building REST APIs with ORDS, configuring database connections, OCI drivers, Podman/Docker Oracle containers, or Oracle 26ai Free images."
 ---
 
 # Oracle Database
