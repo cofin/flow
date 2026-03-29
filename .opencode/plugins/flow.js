@@ -1,60 +1,65 @@
 /**
  * Flow Framework plugin for OpenCode.ai
  *
- * Injects Flow's context via system prompt transform.
- * Auto-registers skills and commands directories via config hook.
+ * Uses OpenCode's plugin API to inject Flow context at session start
+ * and register skills/commands directories.
  */
 
 import path from 'path';
 import fs from 'fs';
-import os from 'os';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PLUGIN_ROOT = path.resolve(__dirname, '../..');
 
-export const FlowPlugin = async ({ client, directory }) => {
-  const homeDir = os.homedir();
-  const flowSkillsDir = path.resolve(__dirname, '../../skills');
-  const flowCommandsDir = path.resolve(__dirname, '../../templates/opencode/commands');
-  const envConfigDir = process.env.OPENCODE_CONFIG_DIR ? path.resolve(process.env.OPENCODE_CONFIG_DIR) : path.join(homeDir, '.config/opencode');
+/**
+ * Load Flow's AGENTS.md context for injection.
+ */
+function getFlowContext() {
+  const contextPath = path.join(PLUGIN_ROOT, 'AGENTS.md');
+  if (!fs.existsSync(contextPath)) return null;
+  return fs.readFileSync(contextPath, 'utf8');
+}
 
-  // Helper to load Flow's global context
-  const getFlowContext = () => {
-    const contextPath = path.resolve(__dirname, '../../AGENTS.md');
-    if (!fs.existsSync(contextPath)) return null;
-    const content = fs.readFileSync(contextPath, 'utf8');
-    return `<context_context>
-You are operating within the **Flow Framework** for Context-Driven Development.
-Follow the core mandates and operational guidelines provided below:
+/**
+ * Build the session context string with auto-trigger rules.
+ */
+function buildSessionContext() {
+  const agentsContent = getFlowContext();
+  if (!agentsContent) return null;
 
-${content}
-</context_context>`;
-  };
+  return [
+    'You are operating within the **Flow Framework** for Context-Driven Development.',
+    '',
+    'Flow is installed and MUST be used for all development work in projects with a .agents/ directory.',
+    '',
+    'AUTO-TRIGGER RULES:',
+    '- When .agents/ directory exists: ALWAYS invoke the flow skill at session start',
+    '- When user says "implement", "plan", "spec", "prd", "sync", "status": invoke the matching flow command',
+    '- When editing files in .agents/specs/: invoke flow skill for context',
+    '- When user mentions "beads", "br ready", "br status": invoke flow skill',
+    '',
+    'Key commands: /flow:setup, /flow:prd, /flow:plan, /flow:implement, /flow:sync, /flow:status, /flow:refresh',
+    '',
+    'All spec/design docs go in .agents/specs/ (not docs/superpowers/specs/).',
+    '',
+    agentsContent,
+  ].join('\n');
+}
 
+export default async ({ client, directory }) => {
   return {
-    // Inject skills and commands paths into live config
-    config: async (config) => {
-      // Register Flow's skills
-      config.skills = config.skills || {};
-      config.skills.paths = config.skills.paths || [];
-      if (!config.skills.paths.includes(flowSkillsDir)) {
-        config.skills.paths.push(flowSkillsDir);
-      }
-
-      // Register Flow's commands (if OpenCode supports it via config)
-      config.commands = config.commands || {};
-      config.commands.paths = config.commands.paths || [];
-      if (!config.commands.paths.includes(flowCommandsDir)) {
-        config.commands.paths.push(flowCommandsDir);
+    'session.created': async (session) => {
+      const context = buildSessionContext();
+      if (context) {
+        (session.system ||= []).push(context);
       }
     },
 
-    // Inject Flow's context into the system prompt
-    'experimental.chat.system.transform': async (_input, output) => {
-      const flowContext = getFlowContext();
-      if (flowContext) {
-        (output.system ||= []).push(flowContext);
-      }
-    }
+    'shell.env': async () => {
+      return {
+        FLOW_PLUGIN_ROOT: PLUGIN_ROOT,
+      };
+    },
   };
 };
