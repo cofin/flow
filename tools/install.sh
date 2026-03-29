@@ -46,7 +46,7 @@ show_banner() {
     echo -e "${CYAN}"
     echo "╔══════════════════════════════════════════════════════════════╗"
     echo "║             Flow Framework - Plugin Installer                ║"
-    echo "║                       Version 0.12.1                         ║"
+    echo "║                       Version 0.12.2                         ║"
     echo "╚══════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
 
@@ -426,7 +426,6 @@ install_codex() {
     # Copy plugin manifest
     mkdir -p "$plugin_dir/.codex-plugin"
     cp "$PROJECT_ROOT/.codex-plugin/plugin.json" "$plugin_dir/.codex-plugin/"
-    cp "$PROJECT_ROOT/.codex-plugin/marketplace.json" "$plugin_dir/.codex-plugin/"
     log_success "Installed: plugin manifest"
 
     # Copy AGENTS.md context
@@ -465,8 +464,8 @@ install_codex() {
   "plugins": [
     {
       "name": "flow",
-      "source": { "source": "local", "path": "~/.codex/plugins/flow" },
-      "policy": { "installation": "AVAILABLE" },
+      "source": { "source": "local", "path": "../../.codex/plugins/flow" },
+      "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
       "category": "Development"
     }
   ]
