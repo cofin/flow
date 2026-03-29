@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # SessionStart hook for Flow plugin
 # Injects Flow context into agent conversations at startup
+# Supports: Claude Code, Codex CLI, Cursor IDE
 
 set -euo pipefail
 
@@ -8,10 +9,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PLUGIN_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-# Read the Flow skill content for bootstrap context
-flow_skill_content=$(cat "${PLUGIN_ROOT}/skills/flow/SKILL.md" 2>&1 || echo "Error reading flow skill")
-
-# Escape string for JSON embedding using bash parameter substitution
+# Escape string for JSON embedding
 escape_for_json() {
     local s="$1"
     s="${s//\\/\\\\}"
@@ -22,19 +20,40 @@ escape_for_json() {
     printf '%s' "$s"
 }
 
-flow_skill_escaped=$(escape_for_json "$flow_skill_content")
-session_context="You have the Flow framework installed.\n\nFlow provides Context-Driven Development with spec-first planning, TDD workflow, and Beads integration for cross-session memory.\n\nUse the Skill tool to invoke Flow skills. Key skills:\n- flow: Main workflow orchestrator\n- Other domain skills available in skills/ directory\n\nKey commands: /flow-setup, /flow-prd, /flow-plan, /flow-implement, /flow-sync, /flow-status\n\nFor full details, invoke the 'flow' skill."
+# Build session context with auto-trigger rules and spec dir override
+session_context="You have the Flow framework installed.
 
-# Output context injection as JSON
-# Cursor hooks expect additional_context
-# Claude Code hooks expect hookSpecificOutput.additionalContext
-# Only emit the field consumed by the current platform to avoid double injection
-if [ -n "${CURSOR_PLUGIN_ROOT:-}" ]; then
-  printf '{\n  "additional_context": "%s"\n}\n' "$session_context"
+Flow provides Context-Driven Development with spec-first planning, TDD workflow, and Beads integration for cross-session memory.
+
+Flow is installed and MUST be used for all development work in projects with a .agents/ directory.
+
+AUTO-TRIGGER RULES:
+- When .agents/ directory exists: ALWAYS invoke the 'flow' skill at session start
+- When user says \"implement\", \"plan\", \"spec\", \"prd\", \"sync\", \"status\", \"refresh\": invoke the matching flow command
+- When editing files in .agents/specs/: invoke 'flow' skill for context
+- When user mentions \"beads\", \"br ready\", \"br status\": invoke 'flow' skill
+
+Key commands: /flow-setup, /flow-prd, /flow-plan, /flow-implement, /flow-sync, /flow-status, /flow-refresh
+
+When using superpowers brainstorming or writing specs/designs, write all spec files to .agents/specs/ (not docs/superpowers/specs/). Check .agents/setup-state.json for the configured root_directory if it exists.
+
+Use the Skill tool to invoke Flow skills. Key skills:
+- flow: Main workflow orchestrator
+- Other domain skills available in skills/ directory
+
+For full details, invoke the 'flow' skill."
+
+session_context_escaped=$(escape_for_json "$session_context")
+
+# Output context injection as JSON based on detected platform
+if [ -n "${CODEX_PLUGIN_ROOT:-}" ]; then
+  printf '{\n  "additional_context": "%s"\n}\n' "$session_context_escaped"
+elif [ -n "${CURSOR_PLUGIN_ROOT:-}" ]; then
+  printf '{\n  "additional_context": "%s"\n}\n' "$session_context_escaped"
 elif [ -n "${CLAUDE_PLUGIN_ROOT:-}" ]; then
-  printf '{\n  "hookSpecificOutput": {\n    "hookEventName": "SessionStart",\n    "additionalContext": "%s"\n  }\n}\n' "$session_context"
+  printf '{\n  "hookSpecificOutput": {\n    "hookEventName": "SessionStart",\n    "additionalContext": "%s"\n  }\n}\n' "$session_context_escaped"
 else
-  printf '{\n  "additional_context": "%s"\n}\n' "$session_context"
+  printf '{\n  "additional_context": "%s"\n}\n' "$session_context_escaped"
 fi
 
 exit 0
