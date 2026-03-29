@@ -1,6 +1,6 @@
 ---
 name: dishka
-description: "Dishka dependency injection framework: Provider, Scope, Container, FromDishka, Inject. Use when: setting up DI containers, defining providers/scopes, or integrating dependency injection with Litestar or FastAPI."
+description: "Auto-activate for dishka imports. Dishka dependency injection framework: Provider, Scope, Container, FromDishka, Inject. Use when: setting up DI containers, defining providers/scopes, or integrating dependency injection with Litestar or FastAPI."
 ---
 
 # Dishka Dependency Injection Skill

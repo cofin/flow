@@ -1,6 +1,6 @@
 ---
 name: cloud-run
-description: "Google Cloud Run serverless platform: Dockerfile, containerized services, Cloud Run Jobs, cold starts, traffic splitting. Use when: deploying containers to Cloud Run, writing Dockerfiles for serverless, or tuning scaling/concurrency."
+description: "Auto-activate for Cloud Run service.yaml, gcloud run commands. Google Cloud Run serverless platform: Dockerfile, containerized services, Cloud Run Jobs, cold starts, traffic splitting. Use when: deploying containers to Cloud Run, writing Dockerfiles for serverless, or tuning scaling/concurrency."
 ---
 
 # Google Cloud Run Skill

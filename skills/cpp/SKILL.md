@@ -1,6 +1,6 @@
 ---
 name: cpp
-description: "Modern C++ development patterns for extensions and backend systems. Use when: designing C++ code, setting up CI/CD pipelines, managing builds, or working with resource ownership, APIs, error handling, and concurrency in C++ projects."
+description: "Auto-activate for .cpp, .hpp, .cc, .hh, .cxx, CMakeLists.txt. Modern C++ development patterns for extensions and backend systems. Use when: designing C++ code, setting up CI/CD pipelines, managing builds, or working with resource ownership, APIs, error handling, and concurrency in C++ projects."
 ---
 
 # C++ Development

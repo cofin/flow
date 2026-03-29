@@ -1,6 +1,6 @@
 ---
 name: advanced-alchemy
-description: "Expert knowledge for Advanced Alchemy / SQLAlchemy ORM patterns. Use when: defining models with UUIDAuditBase, building repositories and services, configuring SQLAlchemy plugins for Litestar/FastAPI/Flask/Sanic, creating DTOs, running Alembic migrations, using custom types (EncryptedString, FileObject, PasswordHash, DateTimeUTC), composing filters and pagination, choosing base classes and mixins, configuring dogpile.cache query caching, setting up read/write replica routing, or managing file storage with obstore/fsspec backends."
+description: "Auto-activate for alembic/, alembic.ini, advanced_alchemy imports. Expert knowledge for Advanced Alchemy / SQLAlchemy ORM patterns. Use when: defining models with UUIDAuditBase, building repositories and services, configuring SQLAlchemy plugins for Litestar/FastAPI/Flask/Sanic, creating DTOs, running Alembic migrations, using custom types (EncryptedString, FileObject, PasswordHash, DateTimeUTC), composing filters and pagination, choosing base classes and mixins, configuring dogpile.cache query caching, setting up read/write replica routing, or managing file storage with obstore/fsspec backends."
 ---
 
 # Advanced Alchemy

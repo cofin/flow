@@ -1,6 +1,6 @@
 ---
 name: bun
-description: "Usage of Bun as a high-performance JavaScript runtime, bundler, and test runner. Use when: running JS/TS code with Bun, using bun install, configuring Bun workspaces, or fixing low-latency node runtimes."
+description: "Auto-activate for bun.lockb, bunfig.toml. Usage of Bun as a high-performance JavaScript runtime, bundler, and test runner. Use when: running JS/TS code with Bun, using bun install, configuring Bun workspaces, or fixing low-latency node runtimes."
 ---
 
 # Bun Skill

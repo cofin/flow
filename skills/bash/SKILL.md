@@ -1,6 +1,6 @@
 ---
 name: bash
-description: "Bash scripting expertise following Google Shell Style Guide. Use when: writing shell scripts, automating tasks, processing text, or creating CLI tools. Covers error handling, variable quoting, function patterns, and portable scripting."
+description: "Auto-activate for .sh files, #!/bin/bash, #!/usr/bin/env bash. Bash scripting expertise following Google Shell Style Guide. Use when: writing shell scripts, automating tasks, processing text, or creating CLI tools. Covers error handling, variable quoting, function patterns, and portable scripting."
 ---
 
 # Bash Scripting

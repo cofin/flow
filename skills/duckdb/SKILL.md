@@ -1,6 +1,6 @@
 ---
 name: duckdb
-description: "Comprehensive DuckDB expertise: advanced analytical SQL patterns, performance tuning, data engineering (ETL, multi-source reads, cloud storage), client APIs for Python/Node/Rust/Java/R/Go/WASM, extension development, function reference, and configuration/administration. Use when: writing DuckDB queries, optimizing performance, building data pipelines, connecting from any language, developing extensions, importing/exporting CSV/Parquet/JSON/Delta/Iceberg, or configuring DuckDB for production analytics workloads."
+description: "Auto-activate for .duckdb files, duckdb imports. Comprehensive DuckDB expertise: advanced analytical SQL patterns, performance tuning, data engineering (ETL, multi-source reads, cloud storage), client APIs for Python/Node/Rust/Java/R/Go/WASM, extension development, function reference, and configuration/administration. Use when: writing DuckDB queries, optimizing performance, building data pipelines, connecting from any language, developing extensions, importing/exporting CSV/Parquet/JSON/Delta/Iceberg, or configuring DuckDB for production analytics workloads."
 ---
 
 # DuckDB

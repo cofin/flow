@@ -1,6 +1,6 @@
 ---
 name: biome
-description: "Expert knowledge for Biome toolchain (Linter, Formatter). Use when configuring workspace styles, troubleshooting linter errors, or setting up ignores/overrides for frontend projects."
+description: "Auto-activate for biome.json, biome.jsonc. Expert knowledge for Biome toolchain (Linter, Formatter). Use when configuring workspace styles, troubleshooting linter errors, or setting up ignores/overrides for frontend projects."
 ---
 
 # Biome Skill
