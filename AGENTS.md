@@ -1,6 +1,6 @@
 # Flow Context
 
-This file provides guidance to Gemini CLI when working with code in this repository.
+This file provides guidance to AI coding agents working with code in this repository.
 
 ## Overview
 
@@ -11,6 +11,10 @@ This file provides guidance to Gemini CLI when working with code in this reposit
 
 Beads is a **required dependency**. Flow will offer to install it and configures it for **local-only mode** by default.
 
+## Auto-Activation
+
+When the `.agents/` directory exists in the project root, the Flow skill MUST be activated at session start. Run `br status` and `br ready` to load context before beginning work.
+
 ## Configuration
 
 The root directory for Flow artifacts defaults to `.agents/`. This can be customized during `/flow:setup`.
@@ -20,6 +24,13 @@ To find the configured root directory:
 1. Check for `.agents/setup-state.json`
 2. Read the `root_directory` value from the found file
 3. If no file found, use `.agents/` as default
+
+## Spec & Design Documents
+
+All spec and design documents (including those created by superpowers brainstorming) MUST be written to the Flow spec directory:
+- Default: `.agents/specs/<flow_id>/`
+- Check `.agents/setup-state.json` for custom `root_directory`
+- Do NOT use `docs/superpowers/specs/` — Flow manages all specs in `.agents/`
 
 ## Universal File Resolution Protocol
 
@@ -105,6 +116,7 @@ To find a file (e.g., "**Product Definition**") within a specific context:
 | `/flow:validate` | Validate project integrity and fix issues |
 | `/flow:revise` | Update spec/plan when implementation reveals issues |
 | `/flow:archive` | Archive completed flows + elevate patterns |
+| `/flow:refresh` | **Refresher**: Sync context with codebase after external changes |
 | `/flow:task` | Create ephemeral exploration task |
 | `/flow:finish` | Complete flow: verify, review, merge/PR/keep/discard |
 | `/flow:review` | Dispatch code review with Beads-aware git range |
