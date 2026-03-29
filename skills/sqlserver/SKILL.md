@@ -1,6 +1,6 @@
 ---
 name: sqlserver
-description: "Comprehensive SQL Server expertise: T-SQL patterns, stored procedures, performance tuning, indexing, Always On, connections, JSON, and administration. Use when: writing T-SQL queries, optimizing execution plans, configuring SQL Server, setting up Always On AG, using sqlcmd/SSMS, or working with SQL Server connectors (Python, Node, .NET, JDBC)."
+description: "Auto-activate for T-SQL patterns, sqlcmd, SQL Server connection strings. Comprehensive SQL Server expertise: T-SQL patterns, stored procedures, performance tuning, indexing, Always On, connections, JSON, and administration. Use when: writing T-SQL queries, optimizing execution plans, configuring SQL Server, setting up Always On AG, using sqlcmd/SSMS, or working with SQL Server connectors (Python, Node, .NET, JDBC)."
 ---
 
 # SQL Server

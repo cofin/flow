@@ -1,6 +1,6 @@
 ---
 name: rust
-description: "Rust development patterns for high-performance systems: workspace architecture, async runtimes (tokio), platform abstraction, PyO3/maturin Python bindings, napi-rs Node/Bun bindings, C ABI/FFI, zero-copy IPC, error handling (thiserror), and testing with criterion. Use when: writing Rust code, designing cross-platform systems, building Python extensions with PyO3/maturin, building Node/Bun extensions with napi-rs, exposing C ABI, or optimizing performance-critical paths."
+description: "Auto-activate for .rs files, Cargo.toml, Cargo.lock. Rust development patterns for high-performance systems: workspace architecture, async runtimes (tokio), platform abstraction, PyO3/maturin Python bindings, napi-rs Node/Bun bindings, C ABI/FFI, zero-copy IPC, error handling (thiserror), and testing with criterion. Use when: writing Rust code, designing cross-platform systems, building Python extensions with PyO3/maturin, building Node/Bun extensions with napi-rs, exposing C ABI, or optimizing performance-critical paths."
 ---
 
 # Rust (Systems & Performance)

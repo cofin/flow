@@ -1,6 +1,6 @@
 ---
 name: shadcn
-description: "Tailwind component expertise for shadcn/ui. Use when: using cn() utility, Radix primitives, shadcn add, copy-paste components, component CLI, dialogs, forms, data tables, or command palettes."
+description: "Auto-activate for components.json (shadcn config), cn() utility. Tailwind component expertise for shadcn/ui. Use when: using cn() utility, Radix primitives, shadcn add, copy-paste components, component CLI, dialogs, forms, data tables, or command palettes."
 ---
 
 # Shadcn/ui Component Library

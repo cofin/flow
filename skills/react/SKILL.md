@@ -1,6 +1,6 @@
 ---
 name: react
-description: "Expert knowledge for modern React development with TypeScript, including client components, framework-scoped server components, and upgrade-aware best practices. Use when building React components, managing state, or integrating with backend APIs."
+description: "Auto-activate for .tsx, .jsx files, react imports. Expert knowledge for modern React development with TypeScript, including client components, framework-scoped server components, and upgrade-aware best practices. Use when building React components, managing state, or integrating with backend APIs."
 ---
 
 # React Framework Skill

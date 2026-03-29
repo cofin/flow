@@ -1,6 +1,6 @@
 ---
 name: tanstack
-description: "TanStack ecosystem expertise (Router, Query, Table, Form). Use when: using useQuery, createRouter, React Query, TanStack Table, file-based routing, data fetching, or SPA state management."
+description: "Auto-activate for @tanstack/ imports, useQuery, createRouter. TanStack ecosystem expertise (Router, Query, Table, Form). Use when: using useQuery, createRouter, React Query, TanStack Table, file-based routing, data fetching, or SPA state management."
 ---
 
 # TanStack Ecosystem

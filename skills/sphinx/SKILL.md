@@ -1,6 +1,6 @@
 ---
 name: sphinx
-description: "Sphinx/RST documentation expertise. Use when: editing conf.py, reStructuredText (.rst), autodoc, readthedocs builds, Shibuya theme, Wasm extensions, VHS terminal recordings, or any Sphinx project setup."
+description: "Auto-activate for conf.py (Sphinx), .rst files, docs/source/. Sphinx/RST documentation expertise. Use when: editing conf.py, reStructuredText (.rst), autodoc, readthedocs builds, Shibuya theme, Wasm extensions, VHS terminal recordings, or any Sphinx project setup."
 ---
 
 # Sphinx Skill

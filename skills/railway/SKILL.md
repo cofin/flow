@@ -1,6 +1,6 @@
 ---
 name: railway
-description: "Expert knowledge for Railway deployment platform. Use when deploying applications, configuring services, managing databases, or troubleshooting Railway deployments."
+description: "Auto-activate for railway.toml, railway.json, Procfile. Expert knowledge for Railway deployment platform. Use when deploying applications, configuring services, managing databases, or troubleshooting Railway deployments."
 ---
 
 # Railway Deployment Platform Skill

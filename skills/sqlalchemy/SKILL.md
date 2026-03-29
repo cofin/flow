@@ -1,6 +1,6 @@
 ---
 name: sqlalchemy
-description: "Comprehensive SQLAlchemy 2.0+ expertise: ORM mapped classes, Core expressions, async sessions, engine configuration, relationships, queries, and type annotations. Use when: defining SQLAlchemy models, writing ORM queries, configuring engines/sessions, using select() statements, managing relationships, or working with asyncio sessions."
+description: "Auto-activate for sqlalchemy imports, mapped_column, DeclarativeBase. Comprehensive SQLAlchemy 2.0+ expertise: ORM mapped classes, Core expressions, async sessions, engine configuration, relationships, queries, and type annotations. Use when: defining SQLAlchemy models, writing ORM queries, configuring engines/sessions, using select() statements, managing relationships, or working with asyncio sessions."
 ---
 
 # SQLAlchemy 2.0+ ORM & Core

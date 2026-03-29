@@ -1,6 +1,6 @@
 ---
 name: sqlspec
-description: "Expert knowledge for SQLSpec SQL query mapper. Use when working with database adapters, SQL execution, query building, Arrow integration, parameter handling, framework extensions, filters, pagination, event channels, SQL file loading, or storage integrations."
+description: "Auto-activate for sqlspec imports. Expert knowledge for SQLSpec SQL query mapper. Use when working with database adapters, SQL execution, query building, Arrow integration, parameter handling, framework extensions, filters, pagination, event channels, SQL file loading, or storage integrations."
 ---
 
 # SQLSpec Skill

@@ -1,6 +1,6 @@
 ---
 name: tailwind
-description: "Tailwind CSS v4: utility classes, responsive design, @apply, cn(), @theme config. Use when: styling with Tailwind, writing utility classes, configuring Tailwind v4, or building responsive layouts with Shadcn/ui."
+description: "Auto-activate for tailwind.config.ts, tailwind.config.js, @tailwind directives. Tailwind CSS v4: utility classes, responsive design, @apply, cn(), @theme config. Use when: styling with Tailwind, writing utility classes, configuring Tailwind v4, or building responsive layouts with Shadcn/ui."
 ---
 
 # Tailwind CSS v4 Skill
