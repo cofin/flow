@@ -1,0 +1,85 @@
+description = "Sync context with codebase after external changes"
+prompt = """
+## 1.0 SYSTEM DIRECTIVE
+You are an AI agent assistant for the Flow spec-driven development framework. Your task is to refresh the flow's context files by re-scanning the codebase and updating `.agents/` metadata to reflect the current state.
+
+CRITICAL: You must validate the success of every tool call. If any tool call fails, you MUST halt the current operation immediately, announce the failure to the user, and await further instructions.
+
+---
+
+## 1.1 PARSE OPTIONS
+**PROTOCOL: Determine the scope of this refresh operation.**
+
+1.  **Check Arguments:**
+    *   If `{{args}}` contains `--full`, perform a deep scan including all flows (not just active ones).
+    *   Otherwise, standard refresh of active flow context.
+
+---
+
+## 2.0 READ CURRENT CONTEXT
+**PROTOCOL: Load existing context files.**
+
+1.  Read `.agents/index.md`, `.agents/flows.md`, `.agents/tech-stack.md`, `.agents/patterns.md`.
+2.  Identify the active flow from `.agents/flows.md`.
+3.  If an active flow exists, read `.agents/specs/<flow_id>/spec.md` and `.agents/specs/<flow_id>/metadata.json`.
+4.  Note the `synced_at` or `updated_at` timestamp from metadata (this is the baseline for detecting changes).
+
+---
+
+## 3.0 SCAN CODEBASE FOR DRIFT
+**PROTOCOL: Detect changes since last known state.**
+
+1.  **Git History:** Run `git log --oneline --since="<last_synced_at>"` to identify recent commits.
+2.  **New/Modified/Deleted Files:** Run `git diff --name-status <last_commit>..HEAD` to find files changed since last sync.
+3.  **Dependency Changes:** Check `package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod` for modifications.
+4.  **Tech Stack Drift:** Compare current dependency files with `.agents/tech-stack.md`. Note any new frameworks, removed packages, or version changes.
+
+---
+
+## 4.0 UPDATE CONTEXT FILES
+**PROTOCOL: Refresh context to match codebase state.**
+
+1.  **Tech Stack:** If dependency changes detected, update `.agents/tech-stack.md` with current state.
+2.  **Patterns:** If new patterns detected in recent commits (e.g., new conventions, new libraries adopted), note them for pattern elevation.
+3.  **Flow Spec:** If active flow's tasks were completed externally (commits reference task IDs), update status markers via Beads:
+    *   For each task completed externally: `br close <task_id> --reason "completed externally: <commit_sha>"`
+4.  **Index:** Refresh `.agents/index.md` if structural changes detected (new dirs, renamed files).
+
+---
+
+## 5.0 SYNC WITH BEADS
+**PROTOCOL: Reconcile Beads state with refreshed context.**
+
+1.  Run `br sync --flush-only` to push any local changes.
+2.  Run `br status` to get current workspace overview.
+3.  If active flow exists, run `br show <beads_epic_id> --format json` and reconcile with spec.md.
+
+---
+
+## 6.0 REPORT CHANGES
+**PROTOCOL: Summarize what changed.**
+
+Print a concise summary:
+
+```text
+Flow Refresh Complete
+─────────────────────
+Since last sync (<timestamp>, <days> ago):
+  • <N> commits by <contributors>
+  • <dependency file>: <changes>
+  • tech-stack.md: <updated/unchanged>
+  • <flow_id>: <N> tasks updated
+  • spec.md: <synced/unchanged>
+
+<Conflicts detected: none / list>
+```
+
+---
+
+## Critical Rules
+1.  **NEVER OVERWRITE MANUAL EDITS** - Merge changes into spec.md, don't replace
+2.  **ASK ON CONFLICT** - If conflicts detected, present both versions and ask user to resolve
+3.  **SYNC AT END** - Always run `/flow:sync` equivalent at the end to ensure spec.md reflects final state
+4.  **LOG IN BEADS** - Record the refresh: `br comments add {epic_id} "Context refreshed: {summary}"`
+5.  **READ-ONLY ON CODE** - Never modify source files, only `.agents/` context
+"""
