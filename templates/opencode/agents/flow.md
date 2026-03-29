@@ -15,7 +15,7 @@ You are working in a project using the **Flow Framework** for context-driven dev
 
 ### Flows
 A flow is a logical unit of work (feature, bug fix, refactor). Each flow has:
-- **Unique ID format:** `shortname_YYYYMMDD` (e.g., `user-auth_20260124`)
+- **Unique ID format:** `shortname` (e.g., `user-auth`)
 - **Status markers:** `[ ]` pending, `[~]` in progress, `[x]` completed, `[!]` blocked, `[-]` skipped
 - **Own directory** at `.agents/specs/{flow_id}/` with unified spec, metadata, learnings
 
@@ -40,9 +40,9 @@ br show <id> --format json  # Export epic with tasks
 5. **Refactor** while green
 6. Commit with conventional format
 7. **Sync to Beads** → `br close <id> --reason "commit: <sha>"`
-8. **Sync to markdown:** run `/flow-sync` (MANDATORY — keeps spec.md readable)
+8. **Sync to markdown:** run `/flow:sync` (MANDATORY — keeps spec.md readable)
 
-**CRITICAL:** It is MANDATORY that after ANY Beads state change (close, block, skip, revert, revise), agents run `/flow-sync` to update spec.md. Never write markers (`[x]`, `[~]`, `[!]`, `[-]`) directly to spec.md.
+**CRITICAL:** It is MANDATORY that after ANY Beads state change (close, block, skip, revert, revise), agents run `/flow:sync` to update spec.md. Never write markers (`[x]`, `[~]`, `[!]`, `[-]`) directly to spec.md.
 9. Log learnings in learnings.md
 
 ### Directory Structure
@@ -64,6 +64,7 @@ br show <id> --format json  # Export epic with tasks
 - `/flow:prd` - Analyze goals and generate Master Roadmap (Sagas)
 - `/flow:plan` - Create unified spec.md for a single Flow
 - `/flow:sync` - Export Beads state to spec.md (source of truth sync)
+- `/flow:refresh` - Sync context with codebase after external changes
 - `/flow:research` - Conduct pre-PRD research
 - `/flow:docs` - Five-phase documentation workflow
 - `/flow:implement` - Execute tasks from plan (context-aware)
