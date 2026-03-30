@@ -46,7 +46,7 @@ show_banner() {
     echo -e "${CYAN}"
     echo "╔══════════════════════════════════════════════════════════════╗"
     echo "║             Flow Framework - Plugin Installer                ║"
-    echo "║                       Version 0.12.2                         ║"
+    echo "║                       Version 0.13.0                         ║"
     echo "╚══════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
 
