@@ -117,6 +117,8 @@ Create explicit research tasks with status tracking:
 - [Limitation with specific code reference]
 ```
 
+**Companion Skills:** Use `flow:tracer` for systematic dependency mapping and execution path analysis. Use dependency trace mode for import chains and execution trace mode for feature flows. Record paths with `file:line` references.
+
 ---
 
 ## Phase 3: External Documentation Research
@@ -143,6 +145,8 @@ Create explicit research tasks with status tracking:
 **Gotchas:**
 - [Pitfall to avoid]
 ```
+
+**Companion Skills:** Use `flow:apilookup` for documentation lookups — it checks local skill references first (instant), then targets known documentation URLs before falling back to broad web search.
 
 ---
 
@@ -211,6 +215,11 @@ Create explicit research tasks with status tracking:
 **Rollback Plan:** [How to revert]
 **Checkpoints:** [Where to create safe points]
 ```
+
+**Companion Skills for Risk Assessment:**
+- `flow:security-auditor` — for security risk identification and threat modeling
+- `flow:performance-analyst` — for performance risk identification and scaling concerns
+- `flow:architecture-critic` — for structural risk assessment and maintainability evaluation
 
 ---
 

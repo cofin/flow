@@ -1,6 +1,6 @@
 ---
 name: flow
-description: "REQUIRED when .agents/ directory exists. Context-driven dev workflow with Beads integration. Auto-activate when: .agents/ directory present, any /flow:* command, editing spec.md or files in .agents/, beads/br commands, TDD workflow, spec-first planning, cross-session memory."
+description: "REQUIRED when .agents/ directory exists. Context-driven dev workflow with Beads integration. Auto-activate when: .agents/ directory present; Flow workflow intents such as setup, plan, PRD, design, research, docs, implement, sync, status, refresh, validate, revise, review, finish, archive, revert, or task; any /flow:* command in hosts that support it; editing spec.md or files in .agents/; beads/br commands; TDD workflow; spec-first planning; cross-session memory."
 ---
 
 # Flow - Context-Driven Development
@@ -10,8 +10,9 @@ description: "REQUIRED when .agents/ directory exists. Context-driven dev workfl
 This skill activates when:
 
 - `.agents/` directory exists in the project root
-- User mentions "flow", "spec", "plan", or "implement"
-- User invokes `/flow:*` commands
+- User mentions "flow", "spec", "plan", "prd", "design", "research", "docs", "implement", "sync", "status", "refresh", "validate", "revise", "review", "finish", "archive", "revert", or "task"
+- User requests a Flow workflow in natural language
+- User invokes `/flow:*` commands in hosts that support them
 
 ## Core Concepts
 
@@ -60,8 +61,12 @@ Flow requires Beads for persistent cross-session memory:
 
 ## Workflow Commands
 
-| Claude Code | Gemini CLI | Purpose |
-|-------------|------------|---------|
+**Host note:** Claude Code uses `/flow-command` and Gemini CLI / OpenCode use `/flow:command`.
+Codex currently runs the same workflows via the installed Flow skill and natural-language requests such as
+`Use Flow to set up this project` or `Use Flow to create a PRD for user authentication`.
+
+| Claude Code | Gemini CLI / OpenCode | Purpose |
+|-------------|------------------------|---------|
 | `/flow-setup` | `/flow:setup` | Initialize project with context files |
 | `/flow-prd` | `/flow:prd` | Create feature/bug flow |
 | `/flow-plan` | `/flow:plan` | Plan flow with unified spec.md |
@@ -153,6 +158,42 @@ For detailed instructions and directives for specific flow commands, refer to th
 - **[Finish](references/finish.md)** - `/flow:finish`
 - **[Review](references/review.md)** - `/flow:review`
 - **[Discipline](references/discipline.md)** - TDD, debugging, and verification iron laws
+
+## Companion Skills
+
+These Flow skills enhance specific phases of development. They activate automatically based on context, but can also be invoked explicitly.
+
+### Thinking Tools
+
+- **`flow:challenge`** — Use when evaluating claims, reviewing feedback, or when agreement feels reflexive. Forces structured critical reassessment.
+- **`flow:consensus`** — Use when evaluating decisions with multiple valid approaches. Rotates through advocate/critic/neutral stances. Sequential mode for bounded decisions, subagent mode for high-stakes architectural choices.
+- **`flow:deepthink`** — Use when a problem resists quick answers or investigation is going in circles. Tracks hypothesis, evidence, and confidence level to prevent circular reasoning.
+- **`flow:perspectives`** — Shared foundation providing stance prompts and critical thinking frameworks. Loaded automatically by other companion skills.
+
+### Analysis Tools
+
+- **`flow:tracer`** — Use for systematic code exploration: execution traces, dependency mapping, and data flow analysis. Start at a known point, follow connections outward, build a map.
+- **`flow:docgen`** — Use for systematic documentation generation with progress tracking. File-by-file analysis ensuring complete coverage.
+- **`flow:apilookup`** — Use for documentation lookups. Checks local skill references first, then targets known URLs, then falls back to web search.
+
+### Reviewer Personas
+
+These can be dispatched as specialized subagents during code review or design evaluation:
+
+- **`flow:devils-advocate`** — Adversarial reviewer applying critic stance. Surfaces risks and untested assumptions.
+- **`flow:security-auditor`** — OWASP-informed security review. Checks injection, auth, data exposure, input validation, dependencies.
+- **`flow:architecture-critic`** — Evaluates structural quality: boundaries, coupling, cohesion, testability, simplicity.
+- **`flow:performance-analyst`** — Identifies bottlenecks: query patterns, memory, I/O, caching, concurrency, resource lifecycle.
+
+### When to Use During Superpowers Workflows
+
+| Superpowers Skill | Companion Skills |
+| ----------------- | ---------------- |
+| brainstorming | `consensus` for approach evaluation, `challenge` if convergence is too fast, `architecture-critic` for structural implications |
+| systematic-debugging | `tracer` for systematic exploration, `deepthink` if hypothesis testing stalls |
+| requesting-code-review | `devils-advocate`, `security-auditor`, `architecture-critic`, `performance-analyst` as specialized reviewers |
+| receiving-code-review | `challenge` to evaluate feedback before implementing |
+| writing-plans | `consensus` for architectural decisions, `architecture-critic` for structural quality |
 
 ## Official References
 

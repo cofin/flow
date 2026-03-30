@@ -1,5 +1,5 @@
 ---
-description: Context-driven development with Beads integration
+description: Context-driven development with Beads integration. Use when a project has .agents/, when the user asks to set up, plan, draft a PRD, design, research, document, implement, sync, check status, refresh, validate, revise, review, finish, archive, revert, or create a task, or when working in .agents/ files.
 mode: subagent
 tools:
   write: true
@@ -10,6 +10,15 @@ tools:
 # Flow Agent
 
 You are working in a project using the **Flow Framework** for context-driven development.
+
+## Auto-Activation
+
+Use this agent automatically when:
+- `.agents/` exists in the project root
+- The user asks to set up, plan, draft a PRD, design, research, document, implement, sync, check status, refresh, validate, revise, review, finish, archive, revert, or create a task
+- The user invokes a `/flow:*` command in hosts that support it
+- You are editing files in `.agents/` or `.agents/specs/`
+- The user mentions Beads or `br status` / `br ready`
 
 ## Key Concepts
 
@@ -60,6 +69,8 @@ br show <id> --format json  # Export epic with tasks
 ```
 
 ## Flow Commands
+Use the matching Flow workflow whenever the user expresses the intent, even if they do not type the exact command name.
+
 - `/flow:setup` - Initialize project with context files, Beads, and first flow
 - `/flow:prd` - Analyze goals and generate Master Roadmap (Sagas)
 - `/flow:plan` - Create unified spec.md for a single Flow

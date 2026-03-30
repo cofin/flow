@@ -65,6 +65,8 @@ You MAY ONLY:
     - Multiple modules (Auth + DB + UI)? -> **Saga (PRD)**.
     - Vague goal ("Make it better")? -> **Saga (Research Phase)**.
 
+**Companion Skills:** For complex decomposition decisions, use `flow:deepthink` to track analysis systematically — frame hypothesis ("single Flow" vs "Saga"), gather evidence from code analysis, track confidence as you investigate.
+
 ---
 
 ## 3.0 INTELLIGENCE INJECTION
@@ -100,6 +102,11 @@ You MAY ONLY:
 4. **Summarize Understanding:**
     - Before proposing chapters, summarize what you understood
     - Get user confirmation before proceeding
+
+**Companion Skills for Roadmapping:**
+- Use `flow:consensus` to evaluate proposed chapter breakdown from advocate/critic/neutral stances. The advocate explores why this decomposition enables parallel work; the critic probes for hidden dependencies.
+- Use `flow:architecture-critic` to evaluate cross-chapter boundaries, shared interfaces, and integration points.
+- Apply `flow:challenge` to verify assumptions about existing system constraints.
 
 5. **Constraint Check:**
     - "Based on `patterns.md`, I'll ensure X. Any concerns?"

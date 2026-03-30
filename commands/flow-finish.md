@@ -38,6 +38,16 @@ CRITICAL: You must have FRESH VERIFICATION EVIDENCE before claiming anything pas
 3.  Fix Critical issues before proceeding. Fix Important issues or confirm with user.
 4.  Log findings to `.agents/specs/<flow_id>/learnings.md`.
 
+### Specialized Reviewers
+
+For targeted analysis, consider dispatching specialized reviewer subagents alongside the general code review:
+- `flow:security-auditor` — when changes touch authentication, authorization, user input handling, secrets, or external API calls
+- `flow:architecture-critic` — when changes introduce new components, modify boundaries, or affect system structure
+- `flow:performance-analyst` — when changes affect hot paths, database queries, or latency-sensitive operations
+- `flow:devils-advocate` — when changes are large or make structural assumptions that haven't been challenged
+
+Apply `flow:challenge` when evaluating review findings before implementing fixes. Structured critical reassessment prevents both reflexive agreement and reflexive dismissal of feedback.
+
 ---
 
 ## 5.0 PRESENT OPTIONS

@@ -124,6 +124,12 @@ Install Flow as a Codex plugin:
 
 3. Restart Codex. Run `/plugins` to verify Flow appears.
 
+Current Codex plugin support does not expose plugin-defined `/flow:*` slash commands.
+Use Flow through the installed Flow skill with natural-language requests such as
+`Use Flow to set up this project` or `Use Flow to create a PRD for add user authentication`.
+Older preview-era Codex builds may have used hyphenated Flow commands such as `/flow-setup`,
+but Flow no longer assumes those preview-only aliases are available.
+
 ### Legacy Installation (bash)
 
 For manual installation or custom environments:
@@ -138,9 +144,12 @@ curl -fsSL https://raw.githubusercontent.com/cofin/flow/main/tools/install.sh | 
 # Claude Code
 /flow-setup
 
-# Gemini CLI / Codex CLI / OpenCode
+# Gemini CLI / OpenCode
 /flow:setup
 ```
+
+In Codex CLI, ask:
+`Use Flow to set up this project`
 
 Flow will:
 
@@ -156,9 +165,12 @@ Flow will:
 # Claude Code
 /flow-prd "Add user authentication"
 
-# Gemini CLI
+# Gemini CLI / OpenCode
 /flow:prd "Add user authentication"
 ```
+
+In Codex CLI, ask:
+`Use Flow to create a PRD for add user authentication`
 
 This creates:
 
@@ -174,9 +186,12 @@ This creates:
 # Claude Code
 /flow-implement auth
 
-# Gemini CLI
+# Gemini CLI / OpenCode
 /flow:implement auth
 ```
+
+In Codex CLI, ask:
+`Use Flow to implement auth`
 
 Flow follows TDD workflow (Beads-first):
 
@@ -195,8 +210,8 @@ Flow follows TDD workflow (Beads-first):
 
 ## Commands
 
-| Purpose | Claude Code | Others |
-|---------|-------------|--------|
+| Purpose | Claude Code | Gemini CLI / OpenCode |
+|---------|-------------|-----------------------|
 | Initialize project | `/flow-setup` | `/flow:setup` |
 | Create PRD (Saga) | `/flow-prd` | `/flow:prd` |
 | Plan single flow | `/flow-plan` | `/flow:plan` |
@@ -214,7 +229,7 @@ Flow follows TDD workflow (Beads-first):
 | Code review | `/flow-review` | `/flow:review` |
 | Finish flow | `/flow-finish` | `/flow:finish` |
 
-> **Note**: Claude Code uses `/flow-command` (hyphen); Gemini CLI, OpenCode, and Codex CLI use `/flow:command` (colon).
+> **Note**: Claude Code uses `/flow-command` (hyphen). Gemini CLI and OpenCode use `/flow:command` (colon). Codex CLI currently uses the installed Flow skill through plain-language requests instead of plugin-defined slash commands.
 
 ## Directory Structure
 

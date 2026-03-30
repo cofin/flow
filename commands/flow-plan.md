@@ -92,6 +92,10 @@ You MAY ONLY:
     - Note specific file paths and line numbers
     - Identify gaps in understanding that require user input
 
+**Companion Skills for Code Analysis:**
+- Use `flow:tracer` for systematic codebase exploration — start at known entry points and trace outward rather than reading files randomly. Use execution trace mode to understand features and dependency trace mode to map component relationships.
+- Use `flow:architecture-critic` to evaluate how planned changes fit existing component boundaries and structural patterns.
+
 4. **Present Code Analysis Report:**
 
     > "**Code Analysis Complete**
@@ -120,6 +124,10 @@ You MAY ONLY:
     - Ask 3-5 questions based on CODE ANALYSIS (not generic guesses)
     - Each question MUST reference specific files/code found
     - **Constraint Check:** "Based on `patterns.md` and the existing code at [path], we should use X. Do you agree?"
+
+**Companion Skills for Decision Points:**
+- When multiple valid implementation approaches exist, use `flow:consensus` to evaluate them from advocate, critic, and neutral stances before choosing.
+- Apply `flow:challenge` to verify the plan's assumptions against existing patterns. Do not assume compatibility — investigate and confirm.
 
     **Example BAD questions:**
     - "Is this service provided by DI?"

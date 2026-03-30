@@ -242,6 +242,10 @@ If implementation fails:
 3. Update `learnings.md` with issue details
 4. If blocked, run `br update {task_id} --status blocked --notes "BLOCKED: {reason}"`
 
+**Companion Skills for Debugging:**
+- Use `flow:deepthink` to track hypothesis evolution and prevent circular investigation when debugging complex issues.
+- Use `flow:tracer` to systematically trace execution paths before forming hypotheses about root causes.
+
 ---
 
 ## Final Summary
