@@ -52,6 +52,10 @@ For each document verify:
 - **Consistency:** Terminology matches, references accurate
 - **Currency:** Matches current codebase state
 
+### Documentation Quality
+
+Consider invoking `flow:challenge` on documentation claims that restate code without explaining reasoning. Documentation should explain WHY decisions were made, not just WHAT the code does.
+
 ### Generate Validation Report
 
 ```markdown
@@ -83,6 +87,10 @@ Generated: [timestamp]
 1. **Completed PRDs:** Scan for PRDs marked `[x]`
 2. **Git History:** Analyze commits for context
 3. **Research Documents:** Extract validated patterns
+
+### Documentation Generation
+
+Use `flow:docgen` for systematic documentation generation. Follow its file-by-file analysis workflow with progress tracking (`[3/12 files documented]`) to ensure complete coverage. Use its component template for structured per-component documentation.
 
 ### Generate Knowledge Summary
 

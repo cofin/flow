@@ -34,6 +34,14 @@ Dispatch code review subagent with:
 -   Git range
 -   Project conventions (from patterns.md)
 
+### Specialized Reviewers
+
+For targeted analysis, consider dispatching specialized reviewer subagents alongside the general code review:
+- `flow:security-auditor` — when changes touch authentication, authorization, user input handling, secrets, or external API calls
+- `flow:architecture-critic` — when changes introduce new components, modify boundaries, or affect system structure
+- `flow:performance-analyst` — when changes affect hot paths, database queries, or latency-sensitive operations
+- `flow:devils-advocate` — when changes are large or make structural assumptions that haven't been challenged
+
 ---
 
 ## 5.0 PRESENT RESULTS
@@ -47,6 +55,10 @@ Overall assessment: Ready to proceed or Issues need attention.
 -   Verify suggestions against codebase before implementing.
 -   Push back with reasoning if wrong. YAGNI check for unrequested features.
 -   Fix Critical immediately. Fix Important before next phase. Note Minor in learnings.md.
+
+### Feedback Evaluation
+
+Apply `flow:challenge` when evaluating review findings. Do not reflexively accept or dismiss feedback — use structured critical reassessment to determine whether each finding is valid, actionable, and correctly scoped before implementing changes.
 
 ---
 
