@@ -29,11 +29,14 @@ Flow is installed and MUST be used for all development work in projects with a .
 
 AUTO-TRIGGER RULES:
 - When .agents/ directory exists: ALWAYS invoke the 'flow' skill at session start
-- When user says \"implement\", \"plan\", \"spec\", \"prd\", \"sync\", \"status\", \"refresh\": invoke the matching flow command
+- When user asks to set up, plan, draft a PRD, design, research, document, implement, sync, check status, refresh, validate, revise, review, finish, archive, revert, or create a task: run the matching Flow workflow
 - When editing files in .agents/specs/: invoke 'flow' skill for context
 - When user mentions \"beads\", \"br ready\", \"br status\": invoke 'flow' skill
 
-Key commands: /flow-setup, /flow-prd, /flow-plan, /flow-implement, /flow-sync, /flow-status, /flow-refresh
+In Codex, plugin-defined /flow:* slash commands are not currently available. Use the installed Flow skill through natural-language requests instead, for example:
+- \"Use Flow to set up this project\"
+- \"Use Flow to create a PRD for add user authentication\"
+- \"Use Flow to implement auth\"
 
 When using superpowers brainstorming or writing specs/designs, write all spec files to .agents/specs/ (not docs/superpowers/specs/). Check .agents/setup-state.json for the configured root_directory if it exists.
 

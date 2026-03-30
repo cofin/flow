@@ -432,11 +432,6 @@ install_codex() {
     cp "$PROJECT_ROOT/AGENTS.md" "$plugin_dir/"
     log_success "Installed: AGENTS.md"
 
-    # Copy commands (Codex uses commands/flow/*.toml)
-    mkdir -p "$plugin_dir/commands"
-    cp -r "$COMMANDS_DIR/flow" "$plugin_dir/commands/"
-    log_success "Installed: commands"
-
     # Copy hooks
     mkdir -p "$plugin_dir/hooks"
     cp "$PROJECT_ROOT/hooks/hooks-codex.json" "$plugin_dir/hooks/"
@@ -804,14 +799,14 @@ main() {
     echo ""
     echo "  2. Initialize Flow:"
     $CLAUDE_INSTALLED && echo "     Claude Code: /flow-setup"
-    $CODEX_INSTALLED && echo "     Codex CLI:   /flow:setup"
+    $CODEX_INSTALLED && echo "     Codex CLI:   ask \"Use Flow to set up this project\""
     $OPENCODE_INSTALLED && echo "     OpenCode:    /flow:setup"
     $GEMINI_INSTALLED && echo "     Gemini CLI:  /flow:setup"
     $ANTIGRAVITY_INSTALLED && echo "     Google Antigravity: flow-setup (skill)"
     echo ""
     echo "  3. Create your first flow:"
     $CLAUDE_INSTALLED && echo "     Claude Code: /flow-prd \"your feature description\""
-    $CODEX_INSTALLED && echo "     Codex CLI:   /flow:prd \"your feature description\""
+    $CODEX_INSTALLED && echo "     Codex CLI:   ask \"Use Flow to create a PRD for your feature description\""
     $OPENCODE_INSTALLED && echo "     OpenCode:    /flow:prd \"your feature description\""
     $GEMINI_INSTALLED && echo "     Gemini CLI:  /flow:prd \"your feature description\""
     $ANTIGRAVITY_INSTALLED && echo "     Google Antigravity: flow-prd \"your feature description\""

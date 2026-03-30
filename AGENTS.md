@@ -102,6 +102,9 @@ To find a file (e.g., "**Product Definition**") within a specific context:
 
 ## Commands
 
+**Host note:** Gemini CLI and OpenCode expose these as `/flow:*`. Claude Code uses `/flow-*`.
+Codex currently runs the same workflows through the installed Flow skill and plain-language requests rather than plugin-defined slash commands.
+
 | Command | Purpose |
 |---------|---------|
 | `/flow:setup` | Initialize project with context files, Beads, and first flow |

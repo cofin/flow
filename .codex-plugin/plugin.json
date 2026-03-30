@@ -8,13 +8,12 @@
   "license": "MIT",
   "keywords": ["flow", "context-driven-development", "beads", "tdd", "ai-agent", "workflow"],
   "skills": "./skills/",
-  "commands": "./commands/",
   "hooks": "./hooks/hooks-codex.json",
   "interface": {
     "displayName": "Flow",
-    "shortDescription": "Context-driven development with Beads integration",
+    "shortDescription": "Context-driven development with Beads integration and skill-driven Flow workflows",
     "category": "Development",
     "capabilities": ["Read", "Write"],
-    "defaultPrompt": ["Initialize Flow for this project", "Create a new flow for user authentication"]
+    "defaultPrompt": ["Use the Flow skill to set up this project", "Use the Flow skill to create a PRD for user authentication"]
   }
 }
