@@ -52,7 +52,7 @@ def fetch_latest_version(registry: str, package: str) -> str | None:
     try:
         with urllib.request.urlopen(req, timeout=15) as response:
             data = json.loads(response.read().decode("utf-8"))
-    except urllib.error.URLError as e:
+    except urllib.error.URLError:
         return None
     except Exception:
         return None
