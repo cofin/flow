@@ -1,0 +1,158 @@
+#!/usr/bin/env python3
+import os
+import sys
+import json
+import re
+import subprocess
+from datetime import datetime
+
+def run_cmd(cmd: list[str]) -> str | None:
+    try:
+        result = subprocess.run(
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, check=True
+        )
+        return result.stdout
+    except subprocess.CalledProcessError as e:
+        print(f"Error running {' '.join(cmd)}: {e.stderr}", file=sys.stderr)
+        return None
+
+def get_active_flows() -> list[str]:
+    flows_md = ".agents/flows.md"
+    if not os.path.exists(flows_md):
+        return []
+    
+    with open(flows_md, 'r') as f:
+        content = f.read()
+
+    # Extract flow ids from the active flows section.
+    # Matches: *Link: [./specs/<flow_id>/](./specs/<flow_id>/)*
+    active_section_match = re.search(r'## Active Flows(.*?)## Archived', content, re.DOTALL | re.IGNORECASE)
+    if not active_section_match:
+        active_section_match = re.search(r'## Active Flows(.*)', content, re.DOTALL | re.IGNORECASE)
+        if not active_section_match:
+            return []
+    
+    active_section = active_section_match.group(1)
+    flow_ids = re.findall(r'\.\/specs\/([^/]+)\/', active_section)
+    return list(set(flow_ids))
+
+def sync_flow(flow_id: str) -> bool:
+    spec_path = f".agents/specs/{flow_id}/spec.md"
+    meta_path = f".agents/specs/{flow_id}/metadata.json"
+
+    if not os.path.exists(spec_path) or not os.path.exists(meta_path):
+        return False
+
+    try:
+        with open(meta_path, 'r') as f:
+            meta = json.load(f)
+    except json.JSONDecodeError:
+        return False
+
+    beads_epic_id = meta.get("beads_epic_id")
+    if not beads_epic_id:
+        return False
+
+    br_output = run_cmd(["br", "show", beads_epic_id, "--format", "json"])
+    if not br_output:
+        return False
+
+    try:
+        parsed_data = json.loads(br_output)
+        if isinstance(parsed_data, list) and len(parsed_data) > 0:
+            epic_data = parsed_data[0]
+        else:
+            epic_data = parsed_data
+    except json.JSONDecodeError:
+        return False
+
+    if not isinstance(epic_data, dict):
+        return False
+
+    # Extract tasks
+    raw_dependents = epic_data.get("dependents", [])
+    tasks = [d for d in raw_dependents if d.get("dependency_type") == "parent-child"]
+
+    status_map = {
+        "pending": "[ ]",
+        "open": "[ ]",
+        "in_progress": "[~]",
+        "completed": "[x]",
+        "closed": "[x]",
+        "blocked": "[!]",
+        "skipped": "[-]"
+    }
+
+    task_info = []
+    for t in tasks:
+        title = t.get("description", t.get("title", ""))
+        status = t.get("status", "open").lower()
+        marker = status_map.get(status, "[ ]")
+        task_info.append({"title": title, "marker": marker})
+
+    with open(spec_path, 'r') as f:
+        spec_content = f.readlines()
+
+    updated_lines = []
+    changes_made = False
+    task_regex = re.compile(r'^(\s*-\s*)\[( |x|~|!|-)\](.*)', re.IGNORECASE)
+
+    for line in spec_content:
+        match = task_regex.match(line)
+        if match:
+            prefix = match.group(1)
+            content = match.group(3)
+            matched_marker = None
+            for t in task_info:
+                if t["title"].lower() in content.lower() or content.lower().strip() in t["title"].lower():
+                    matched_marker = t["marker"]
+                    break
+            
+            if matched_marker and match.group(2) != matched_marker[1]:
+                updated_lines.append(f"{prefix}{matched_marker}{content}\n")
+                changes_made = True
+            else:
+                updated_lines.append(line)
+        else:
+            updated_lines.append(line)
+
+    if changes_made:
+        with open(spec_path, 'w') as f:
+            f.writelines(updated_lines)
+        
+        meta["synced_at"] = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
+        meta["updated_at"] = meta["synced_at"]
+        with open(meta_path, 'w') as f:
+            json.dump(meta, f, indent=2)
+            f.write("\n")
+        
+        run_cmd(["git", "add", spec_path, meta_path])
+        return True
+
+    return False
+
+def main() -> None:
+    if os.environ.get("SKIP_FLOW_SYNC") == "1":
+        sys.exit(0)
+
+    if not os.path.exists(".agents") or not os.path.exists(".beads"):
+        sys.exit(0)
+    
+    try:
+        subprocess.run(["br", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        sys.exit(0)
+
+    run_cmd(["br", "sync", "--flush-only"])
+
+    flows = get_active_flows()
+    synced_any = False
+    for f in flows:
+        if sync_flow(f):
+            synced_any = True
+    
+    if synced_any:
+        print("[Flow] Auto-synced Beads state to spec.md")
+
+if __name__ == "__main__":
+    main()

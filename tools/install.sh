@@ -46,7 +46,7 @@ show_banner() {
     echo -e "${CYAN}"
     echo "╔══════════════════════════════════════════════════════════════╗"
     echo "║             Flow Framework - Plugin Installer                ║"
-    echo "║                       Version 0.13.0                         ║"
+    echo "║                       Version 0.13.1                         ║"
     echo "╚══════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
 
@@ -413,38 +413,22 @@ install_codex() {
 
     # Step 2: Install plugin at ~/.codex/plugins/flow/
     local plugin_dir="$HOME/.codex/plugins/flow"
+    local plugin_parent=$(dirname "$plugin_dir")
 
     # Backup existing plugin if present
-    if [[ -d "$plugin_dir" ]]; then
+    if [[ -d "$plugin_dir" && ! -L "$plugin_dir" ]]; then
         backup_dir "$plugin_dir"
         rm -rf "$plugin_dir"
+    elif [[ -L "$plugin_dir" ]]; then
+        rm "$plugin_dir"
     fi
 
-    # Create plugin directory
-    mkdir -p "$plugin_dir"
+    # Create parent directory
+    mkdir -p "$plugin_parent"
 
-    # Copy plugin manifest
-    mkdir -p "$plugin_dir/.codex-plugin"
-    cp "$PROJECT_ROOT/.codex-plugin/plugin.json" "$plugin_dir/.codex-plugin/"
-    log_success "Installed: plugin manifest"
-
-    # Copy AGENTS.md context
-    cp "$PROJECT_ROOT/AGENTS.md" "$plugin_dir/"
-    log_success "Installed: AGENTS.md"
-
-    # Copy hooks
-    mkdir -p "$plugin_dir/hooks"
-    cp "$PROJECT_ROOT/hooks/hooks-codex.json" "$plugin_dir/hooks/"
-    cp "$PROJECT_ROOT/hooks/run-hook.cmd" "$plugin_dir/hooks/"
-    cp "$PROJECT_ROOT/hooks/session-start" "$plugin_dir/hooks/"
-    chmod +x "$plugin_dir/hooks/session-start" "$plugin_dir/hooks/run-hook.cmd"
-    log_success "Installed: hooks"
-
-    # Copy skills
-    if [[ -d "$SKILLS_DIR" ]]; then
-        cp -r "$SKILLS_DIR" "$plugin_dir/skills"
-        log_success "Installed: skills ($(ls -1d "$SKILLS_DIR"/*/ 2>/dev/null | wc -l) skills)"
-    fi
+    # Link project root to plugin directory (Plugin-based install)
+    ln -sf "$PROJECT_ROOT" "$plugin_dir"
+    log_success "Linked project root to $plugin_dir"
 
     # Step 3: Create or update marketplace.json
     local marketplace_dir="$HOME/.agents/plugins"
@@ -459,7 +443,7 @@ install_codex() {
   "plugins": [
     {
       "name": "flow",
-      "source": { "source": "local", "path": "./.codex/plugins/flow" },
+      "source": { "source": "local", "path": "~/.codex/plugins/flow" },
       "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
       "category": "Development"
     }
@@ -475,7 +459,7 @@ MARKETPLACE_EOF
     fi
 
     echo ""
-    log_success "Codex CLI installation complete"
+    log_success "Codex CLI installation complete (linked plugin)"
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -492,30 +476,22 @@ install_opencode() {
 
     # Step 2: Install plugin at ~/.config/opencode/plugins/flow/
     local plugin_dir="$OPENCODE_DIR/plugins/flow"
+    local plugin_parent=$(dirname "$plugin_dir")
 
     # Backup existing plugin if present
-    if [[ -d "$plugin_dir" ]]; then
+    if [[ -d "$plugin_dir" && ! -L "$plugin_dir" ]]; then
         backup_dir "$plugin_dir"
         rm -rf "$plugin_dir"
+    elif [[ -L "$plugin_dir" ]]; then
+        rm "$plugin_dir"
     fi
 
-    # Create plugin directory and copy plugin files
-    mkdir -p "$plugin_dir"
-    cp "$PROJECT_ROOT/.opencode/plugins/flow.js" "$plugin_dir/"
-    cp "$PROJECT_ROOT/package.json" "$plugin_dir/"
-    cp "$PROJECT_ROOT/AGENTS.md" "$plugin_dir/"
-    log_success "Installed: plugin files"
+    # Create parent directory
+    mkdir -p "$plugin_parent"
 
-    # Copy skills
-    if [[ -d "$SKILLS_DIR" ]]; then
-        cp -r "$SKILLS_DIR" "$plugin_dir/skills"
-        log_success "Installed: skills ($(ls -1d "$SKILLS_DIR"/*/ 2>/dev/null | wc -l) skills)"
-    fi
-
-    # Copy commands (Codex/Gemini .toml format)
-    mkdir -p "$plugin_dir/commands"
-    cp -r "$COMMANDS_DIR/flow" "$plugin_dir/commands/"
-    log_success "Installed: commands"
+    # Link project root to plugin directory (Plugin-based install)
+    ln -sf "$PROJECT_ROOT" "$plugin_dir"
+    log_success "Linked project root to $plugin_dir"
 
     # Step 3: Update opencode.json config
     local config_file="$OPENCODE_DIR/opencode.json"
@@ -539,7 +515,7 @@ OC_CONFIG_EOF
     fi
 
     echo ""
-    log_success "OpenCode installation complete"
+    log_success "OpenCode installation complete (linked plugin)"
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -551,38 +527,52 @@ install_gemini() {
     echo -e "${CYAN}Installing Flow for Gemini CLI...${NC}"
     echo ""
 
-    # Backup existing extension
-    if [[ -d "$GEMINI_EXT_DIR" ]]; then
-        backup_dir "$GEMINI_EXT_DIR"
-        rm -rf "$GEMINI_EXT_DIR"
-    fi
+    if command -v gemini &> /dev/null; then
+        log_info "Using 'gemini extensions link' for installation..."
+        gemini extensions link "$PROJECT_ROOT" --force
+        log_success "Extension linked via Gemini CLI"
+    else
+        log_info "Gemini CLI not found in PATH, performing manual installation..."
+        # Backup existing extension
+        if [[ -d "$GEMINI_EXT_DIR" ]]; then
+            backup_dir "$GEMINI_EXT_DIR"
+            rm -rf "$GEMINI_EXT_DIR"
+        fi
 
-    # Create extension directory
-    mkdir -p "$GEMINI_EXT_DIR"
+        # Create extension directory
+        mkdir -p "$GEMINI_EXT_DIR"
 
-    # Install extension manifest and context
-    cp "$PROJECT_ROOT/gemini-extension.json" "$GEMINI_EXT_DIR/"
-    cp "$PROJECT_ROOT/AGENTS.md" "$GEMINI_EXT_DIR/"
-    log_success "Installed: extension manifest and context"
+        # Install extension manifest and context
+        cp "$PROJECT_ROOT/gemini-extension.json" "$GEMINI_EXT_DIR/"
+        cp "$PROJECT_ROOT/AGENTS.md" "$GEMINI_EXT_DIR/"
+        log_success "Installed: extension manifest and context"
 
-    # Install commands (Gemini uses commands/flow/*.toml)
-    mkdir -p "$GEMINI_EXT_DIR/commands"
-    cp -r "$COMMANDS_DIR/flow" "$GEMINI_EXT_DIR/commands/"
-    log_success "Installed: commands"
+        # Install commands
+        mkdir -p "$GEMINI_EXT_DIR/commands"
+        cp -r "$COMMANDS_DIR/flow" "$GEMINI_EXT_DIR/commands/"
+        log_success "Installed: commands"
 
-    # Install skills
-    if [[ -d "$SKILLS_DIR" ]]; then
-        mkdir -p "$GEMINI_EXT_DIR/skills"
-        cp -r "$SKILLS_DIR"/* "$GEMINI_EXT_DIR/skills/"
-        log_success "Installed: skills"
-    fi
+        # Install templates
+        if [[ -d "$PROJECT_ROOT/templates" ]]; then
+            mkdir -p "$GEMINI_EXT_DIR/templates"
+            cp -r "$PROJECT_ROOT/templates"/* "$GEMINI_EXT_DIR/templates/"
+            log_success "Installed: templates"
+        fi
 
-    # Install hooks
-    if [[ -d "$PROJECT_ROOT/hooks" ]]; then
-        mkdir -p "$GEMINI_EXT_DIR/hooks"
-        cp -r "$PROJECT_ROOT/hooks"/* "$GEMINI_EXT_DIR/hooks/"
-        chmod +x "$GEMINI_EXT_DIR/hooks/session-start" "$GEMINI_EXT_DIR/hooks/run-hook.cmd" 2>/dev/null || true
-        log_success "Installed: hooks"
+        # Install skills
+        if [[ -d "$SKILLS_DIR" ]]; then
+            mkdir -p "$GEMINI_EXT_DIR/skills"
+            cp -r "$SKILLS_DIR"/* "$GEMINI_EXT_DIR/skills/"
+            log_success "Installed: skills"
+        fi
+
+        # Install hooks
+        if [[ -d "$PROJECT_ROOT/hooks" ]]; then
+            mkdir -p "$GEMINI_EXT_DIR/hooks"
+            cp -r "$PROJECT_ROOT/hooks"/* "$GEMINI_EXT_DIR/hooks/"
+            chmod +x "$GEMINI_EXT_DIR/hooks/session-start" "$GEMINI_EXT_DIR/hooks/run-hook.cmd" "$GEMINI_EXT_DIR/hooks/pre-commit" 2>/dev/null || true
+            log_success "Installed: hooks"
+        fi
     fi
 
     echo ""
@@ -799,14 +789,14 @@ main() {
     echo ""
     echo "  2. Initialize Flow:"
     $CLAUDE_INSTALLED && echo "     Claude Code: /flow-setup"
-    $CODEX_INSTALLED && echo "     Codex CLI:   ask \"Use Flow to set up this project\""
+    $CODEX_INSTALLED && echo "     Codex CLI:   /flow:setup"
     $OPENCODE_INSTALLED && echo "     OpenCode:    /flow:setup"
     $GEMINI_INSTALLED && echo "     Gemini CLI:  /flow:setup"
     $ANTIGRAVITY_INSTALLED && echo "     Google Antigravity: flow-setup (skill)"
     echo ""
     echo "  3. Create your first flow:"
     $CLAUDE_INSTALLED && echo "     Claude Code: /flow-prd \"your feature description\""
-    $CODEX_INSTALLED && echo "     Codex CLI:   ask \"Use Flow to create a PRD for your feature description\""
+    $CODEX_INSTALLED && echo "     Codex CLI:   /flow:prd \"your feature description\""
     $OPENCODE_INSTALLED && echo "     OpenCode:    /flow:prd \"your feature description\""
     $GEMINI_INSTALLED && echo "     Gemini CLI:  /flow:prd \"your feature description\""
     $ANTIGRAVITY_INSTALLED && echo "     Google Antigravity: flow-prd \"your feature description\""
