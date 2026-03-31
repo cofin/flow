@@ -396,7 +396,10 @@ install_claude() {
 
     echo ""
     log_success "Claude Code installation complete (plugin via marketplace)"
-    log_info "Claude Code will pull the latest version from GitHub on next start"
+    log_info "Flow updates are not guaranteed to auto-apply on Claude restart"
+    log_info "Run these commands to refresh Flow explicitly:"
+    echo "    claude plugins marketplace update flow-marketplace"
+    echo "    claude plugins update flow@flow-marketplace"
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
