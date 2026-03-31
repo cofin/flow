@@ -51,6 +51,16 @@ If Beads unavailable, parse `spec.md` Implementation Plan section for pending ta
 
 **See `references/discipline.md` for full TDD discipline rules, rationalization tables, and red flags.**
 
+### 3.0 Subagent Execution Preference
+
+If `superpowers:subagent-driven-development` is available in the host, invoke it before implementation and run task execution through its subagent orchestration workflow.
+
+Fallback: if unavailable, execute the same steps in single-agent mode.
+
+### 3.0.1 API Lookup Preference
+
+If implementation depends on external framework/API behavior, versions, migrations, or release changes, invoke `flow:apilookup` before making implementation decisions.
+
 ```
 IRON LAW: NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST
 ```
@@ -197,7 +207,7 @@ At end of each phase:
 
 ## Parallel Task Execution Mode
 
-When a phase has independent tasks that can be executed concurrently:
+When a phase has independent tasks that can be executed concurrently (prefer this mode when `superpowers:subagent-driven-development` is available):
 
 1. **Controller** (flow:implement) manages Beads state transitions for all tasks
 2. **Dispatch one subagent per task** — each gets fresh context with task text, spec requirements, and patterns.md

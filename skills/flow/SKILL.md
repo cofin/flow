@@ -91,6 +91,7 @@ Codex currently runs the same workflows via the installed Flow skill and natural
 2. **Mark in progress**: `br update {id} --status in_progress`
 3. **Write failing tests** (Red phase) - MUST confirm failure for right reason
 4. **Implement** minimal code to pass (Green phase) - MUST confirm all tests pass
+   - If `superpowers:subagent-driven-development` is available, use it for implementation subagent orchestration
 5. **Refactor** with test safety — must stay green
 6. **Verify coverage** (>80% target)
 7. **Commit** with format: `<type>(<scope>): <description>`
@@ -134,8 +135,11 @@ When Flow skill is active:
 - Suggest pattern elevation at phase completion
 - Warn if tech-stack changes without documentation
 - Enforce mandatory `/flow:sync` after any Beads state change
+- During `/flow:implement`, invoke `superpowers:subagent-driven-development` when available
+- Invoke `flow:apilookup` proactively for external API/docs/version/migration questions
 - Override superpowers brainstorming spec directory to `.agents/specs/` when Flow is active
 - Override superpowers writing-plans plan directory to `.agents/specs/` when Flow is active
+- Never allow Flow specs/plans in `docs/superpowers/specs/`; write to `.agents/specs/`
 
 ## References Index
 

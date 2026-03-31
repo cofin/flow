@@ -35,6 +35,17 @@ You MAY ONLY:
 
 **Implementation happens ONLY when user explicitly runs `flow-implement`.**
 
+## SUPERPOWERS INTEGRATION (MANDATORY)
+
+When Superpowers skills are available:
+
+- Prefer `superpowers:subagent-driven-development` orchestration during `flow-implement` execution.
+- If `superpowers:brainstorming` or `superpowers:writing-plans` are invoked while scoping or planning, override their default output location.
+- Write all Flow planning/spec artifacts to `.agents/specs/<flow_id>/`.
+- Never write Flow specs/plans to `docs/superpowers/specs/`.
+
+Also: if roadmap decisions depend on external framework/API docs, versions, migrations, or release notes, invoke `flow:apilookup` during analysis.
+
 ---
 
 ## 1.5 BEADS CLI CHECK

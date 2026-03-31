@@ -52,6 +52,16 @@ If Beads unavailable, parse `spec.md` Implementation Plan section for pending ta
 
 ## Phase 3: Task Execution (TDD)
 
+### 3.0 Subagent Execution Preference
+
+If `superpowers:subagent-driven-development` is available in this host, invoke it before implementation and use its implementation-subagent workflow for task execution and review checkpoints.
+
+Fallback: if the skill is unavailable, continue with the single-agent TDD workflow below.
+
+### 3.0.1 API Lookup Preference
+
+If task execution depends on external framework/API behavior, versions, migrations, or release changes, invoke `flow:apilookup` before implementation decisions.
+
 ### 3.1 Mark In Progress
 
 **If task not in Beads, create it first:**
@@ -121,6 +131,8 @@ After each task:
 1. **TDD ALWAYS** - Write tests before implementation
 2. **SMALL COMMITS** - One task = one commit
 3. **BEADS IS SOURCE OF TRUTH** - Never write markers to spec.md
-5. **LOG LEARNINGS** - Capture patterns as you go
-6. **LOCAL ONLY** - Never push automatically
-7. **USE `br ready`** - Always check Beads for next task
+4. **PREFER SUPERPOWERS SUBAGENTS** - Use `superpowers:subagent-driven-development` for implementation when available
+5. **PREFER API LOOKUP** - Use `flow:apilookup` for external API/version/doc questions before coding
+6. **LOG LEARNINGS** - Capture patterns as you go
+7. **LOCAL ONLY** - Never push automatically
+8. **USE `br ready`** - Always check Beads for next task

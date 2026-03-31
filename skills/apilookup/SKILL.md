@@ -1,6 +1,6 @@
 ---
 name: apilookup
-description: "Auto-activate when looking up API documentation, SDK references, library versions, breaking changes, migration guides, changelogs, or release notes. Use when: checking latest versions, finding official docs, researching deprecations, or comparing API changes between versions."
+description: "Use when any task depends on external API/framework behavior, SDK references, library versions, breaking changes, migration guides, changelogs, or release notes. Auto-activate for uncertainty about third-party docs, version compatibility, deprecations, or current syntax before implementation decisions."
 ---
 
 # API Lookup Skill
