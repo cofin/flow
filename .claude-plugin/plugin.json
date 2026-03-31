@@ -2,7 +2,7 @@
   "name": "flow",
   "displayName": "Flow",
   "description": "Unified toolkit for Context-Driven Development with spec-first planning, TDD workflow, and Beads integration",
-  "version": "0.13.0",
+  "version": "0.13.1",
   "author": {
     "name": "cofin"
   },
