@@ -1,6 +1,6 @@
 ---
 name: pyapp
-description: "Auto-activate for pyapp build config. Build air-gapped, multi-architecture standalone Python executables using PyApp and uv. Use when: bundling Python runtimes for network-isolated environments, patching PyApp defaults, or compiling single-binary assets."
+description: "Auto-activate for pyapp build config. Build air-gapped, multi-architecture standalone Python executables using PyApp and uv. Use when: bundling Python runtimes for network-isolated environments, patching PyApp defaults, or compiling single-binary assets. Not for PyInstaller, cx_Freeze, or other Python packaging tools."
 ---
 
 # PyApp Standalone Binaries
@@ -33,11 +33,15 @@ Instead of installing at runtime, we build a **hybrid distribution**:
 
 ---
 
+<workflow>
+
 ## Configuration
 
 ### 1. Standard Settings
 
 In your `pyproject.toml`, configure the Hatch target or custom builder to use specific variables.
+
+<example>
 
 ```toml
 [tool.hatch.build.targets.binary]
@@ -49,6 +53,8 @@ PYAPP_DISTRIBUTION_EMBED = "1"
 PYAPP_FULL_ISOLATION = "1"
 PYAPP_ALLOW_UPDATES = "1"
 ```
+
+</example>
 
 ---
 
@@ -69,6 +75,8 @@ To enable fully offline operations, follow these steps using an automation scrip
 
 By default, PyApp stores user data in standard local data folders. If you require strict isolation (e.g., `~/.myapp`), you can **patch the PyApp source code** just before `cargo build`:
 
+<example>
+
 ```python
 # Conceptual example of patching src/app.rs
 import re
@@ -78,11 +86,15 @@ replacement = "std::path::PathBuf::from(\"~/.myapp\")"
 app_rs.write_text(pattern.sub(replacement, content))
 ```
 
+</example>
+
 ### Phase 3: Compiling
 
 To maintain maximum glibc backward-compatibility (e.g., supporting RHEL 7+ / manylinux2014 baseline):
 
 * Use **Zig** as the linker trigger: `cargo zigbuild --release --target <target>.2.17`
+
+</workflow>
 
 ---
 

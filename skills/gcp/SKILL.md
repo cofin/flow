@@ -1,6 +1,6 @@
 ---
 name: gcp
-description: "Auto-activate for gcloud commands, .gcloudignore, app.yaml. Google Cloud Platform expert: gcloud CLI, IAM, service accounts, Cloud Storage, Pub/Sub, BigQuery, Vertex AI. Use when: managing GCP resources, scripting gcloud commands, or configuring any GCP service."
+description: "Auto-activate for gcloud commands, .gcloudignore, app.yaml. Google Cloud Platform expert: gcloud CLI, IAM, service accounts, Cloud Storage, Pub/Sub, BigQuery, Vertex AI. Use when: managing GCP resources, scripting gcloud commands, or configuring any GCP service. Not for AWS, Azure, or non-GCP cloud providers."
 ---
 
 # Google Cloud Platform (GCP) Skill
@@ -21,11 +21,19 @@ description: "Auto-activate for gcloud commands, .gcloudignore, app.yaml. Google
 - **AI/ML**:
   - **Vertex AI**: Unified platform for models (Gemini, PaLM), training, and deployment.
 
+<workflow>
+
 ## `gcloud` CLI & Scripting
 
 ### Configuration & Auth
 
+<guardrails>
+
 Avoid interactive prompts in scripts.
+
+</guardrails>
+
+<example>
 
 ```bash
 # Production/CI: Use Service Account Key or Workload Identity
@@ -36,11 +44,15 @@ gcloud auth login
 gcloud config set project MY_PROJECT_ID
 ```
 
+</example>
+
 ### Scripting Best Practices
 
 #### 1. Structured Output
 
 Never parse default text output. Use `--format` (json/yaml) and `--filter`.
+
+<example>
 
 ```bash
 # Bad
@@ -55,9 +67,13 @@ gcloud run services list \
   --format="value(status.url)"
 ```
 
+</example>
+
 #### 2. Deterministic Filters
 
 Flatten complex resources to find what you need.
+
+<example>
 
 ```bash
 # Find latest revision of a service
@@ -68,20 +84,28 @@ gcloud run revisions list \
   --format="value(metadata.name)"
 ```
 
+</example>
+
 #### 3. Quiet Mode
 
 Suppress "updates available" warnings and prompts.
+
+<example>
 
 ```bash
 export CLOUDSDK_CORE_DISABLE_PROMPTS=1
 gcloud ... --quiet
 ```
 
+</example>
+
 ## Automation Patterns
 
 ### 1. Cloud Run Deployment
 
 Standard pattern for deploying containers.
+
+<example>
 
 ```bash
 gcloud run deploy my-service \
@@ -92,9 +116,17 @@ gcloud run deploy my-service \
   --set-env-vars="DEBUG=true,DB_HOST=10.0.0.2"
 ```
 
+</example>
+
 ### 2. Secret Management
 
+<guardrails>
+
 Access secrets securely (requires Secret Manager API).
+
+</guardrails>
+
+<example>
 
 ```bash
 # Mount as volume in Cloud Run (Preferred)
@@ -103,6 +135,10 @@ gcloud run deploy ... --set-secrets="/secrets/db=my-db-secret:latest"
 # Access via CLI (for ops scripts)
 gcloud secrets versions access latest --secret="my-secret"
 ```
+
+</example>
+
+</workflow>
 
 ## References Index
 

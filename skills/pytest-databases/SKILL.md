@@ -1,6 +1,6 @@
 ---
 name: pytest-databases
-description: "Auto-activate for pytest_databases imports, conftest.py with database fixtures. Container-based database testing with pytest. Use when: creating PostgreSQL/MySQL/SQLite/Oracle fixtures, Docker test containers, database integration tests, or any pytest database setup."
+description: "Auto-activate for pytest_databases imports, conftest.py with database fixtures. Container-based database testing with pytest. Use when: creating PostgreSQL/MySQL/SQLite/Oracle fixtures, Docker test containers, database integration tests, or any pytest database setup. Produces container-based database test fixtures with proper lifecycle management. Not for mocking databases or non-pytest test frameworks."
 ---
 
 # pytest-databases
@@ -8,6 +8,8 @@ description: "Auto-activate for pytest_databases imports, conftest.py with datab
 A pytest plugin providing ready-made database fixtures for testing using Docker containers.
 
 ---
+
+<workflow>
 
 ## References Index
 
@@ -23,8 +25,6 @@ For detailed guides and code examples, refer to the following documents in `refe
   - Fixture overrides and environment variable support.
 - **[Troubleshooting](references/troubleshooting.md)**
   - ARM architecture tips, port conflicts, and health checks.
-
----
 
 ## Quick Start
 
@@ -43,6 +43,8 @@ def test_database(postgres_service):
     # Use postgres_service.host, .port, etc.
     pass
 ```
+
+</workflow>
 
 ---
 

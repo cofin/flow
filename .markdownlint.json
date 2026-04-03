@@ -1,0 +1,21 @@
+{
+  "MD013": false,
+  "MD060": false,
+  "MD024": {
+    "siblings_only": true
+  },
+  "MD033": {
+    "allowed_elements": [
+      "workflow",
+      "guardrails",
+      "validation",
+      "example",
+      "context",
+      "br",
+      "details",
+      "summary",
+      "sub",
+      "sup"
+    ]
+  }
+}

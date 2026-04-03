@@ -46,6 +46,7 @@ br show <id> --format json  # Export epic with tasks
 2. **Mark in progress** → `br update <id> --status in_progress`
 3. **Write failing tests** (Red)
 4. **Implement to pass** (Green)
+   - If available, invoke `superpowers:subagent-driven-development` and use implementation subagents
 5. **Refactor** while green
 6. Commit with conventional format
 7. **Sync to Beads** → `br close <id> --reason "commit: <sha>"`
@@ -94,4 +95,7 @@ Use the matching Flow workflow whenever the user expresses the intent, even if t
 2. **Log learnings** as you discover them
 3. **Use TDD** - tests first, then implementation
 4. **Beads is source of truth** - Never write markers to spec.md
-5. **Local commits** - Never push automatically
+5. **Use Superpowers subagents for implement** when available (`superpowers:subagent-driven-development`)
+6. **Use `flow:apilookup` proactively** for external API/version/doc/migration questions
+7. **Flow specs/plans live in `.agents/specs/`** - never use `docs/superpowers/specs/`
+8. **Local commits** - Never push automatically

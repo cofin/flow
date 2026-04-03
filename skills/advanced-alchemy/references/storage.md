@@ -16,7 +16,7 @@ Key components:
 
 Install:
 
-```
+```bash
 pip install advanced-alchemy[obstore]   # preferred
 pip install advanced-alchemy[fsspec]    # alternative
 ```

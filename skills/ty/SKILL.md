@@ -1,6 +1,6 @@
 ---
 name: ty
-description: "Auto-activate for ty commands, ty.toml. Usage of `ty`, a zero-config, high-performance type checker from Astral. Use when: running fast static analysis on Python codebases where `ty` is installed."
+description: "Auto-activate for ty commands, ty.toml. Usage of `ty`, a zero-config, high-performance type checker from Astral. Use when: running fast static analysis on Python codebases where `ty` is installed. Produces ty type checker configurations and integrates static analysis into Python workflows. Not for mypy (see python) or runtime type checking."
 ---
 
 # Ty Skill
@@ -10,6 +10,8 @@ description: "Auto-activate for ty commands, ty.toml. Usage of `ty`, a zero-conf
 `ty` is a new, high-performance static type checker from Astral (creators of `uv` and `ruff`). It aims to be zero-config and significantly faster than existing options.
 
 **Status**: Preview / Emerging.
+
+<workflow>
 
 ## Usage
 
@@ -45,6 +47,8 @@ uvx ty check
 >     ty check
 > fi
 > ```
+
+</workflow>
 
 ## Official References
 

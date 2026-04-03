@@ -64,17 +64,25 @@ gemini extensions update flow
 
 ### Claude Code
 
-Install Flow from its plugin marketplace:
+Install Flow via marketplace (recommended for reliability):
 
 ```bash
-/plugin marketplace add cofin/flow-marketplace
+/plugin marketplace add cofin/flow
 /plugin install flow@flow-marketplace
 ```
 
-Or directly from GitHub:
+This installs Flow at user scope (`~/.claude/plugins/...`).
+
+To update explicitly:
+
 ```bash
-/plugin install flow@git+https://github.com/cofin/flow.git
+claude plugins marketplace update flow-marketplace
+claude plugins update flow@flow-marketplace
 ```
+
+Direct GitHub install may work in some Claude builds via interactive `/plugin` commands, but
+`claude plugins install` resolves `plugin@marketplace` sources and can reject
+`flow@git+https://github.com/cofin/flow.git` in non-interactive mode.
 
 ### OpenCode
 

@@ -1,6 +1,6 @@
 ---
 name: ipc
-description: "Auto-activate for shared memory, ring buffer, SPSC/MPMC patterns. Zero-copy IPC patterns: shared memory regions, SPSC/MPMC ring buffers, platform sync primitives, notification mechanisms, and cross-process coordination. Use when implementing IPC primitives or high-performance data transfer."
+description: "Auto-activate for shared memory, ring buffer, SPSC/MPMC patterns. Zero-copy IPC patterns: shared memory regions, SPSC/MPMC ring buffers, platform sync primitives, notification mechanisms, and cross-process coordination. Use when implementing IPC primitives or high-performance data transfer. Not for network IPC (gRPC, REST) or message queues."
 ---
 
 # IPC (Inter-Process Communication)
@@ -14,9 +14,13 @@ description: "Auto-activate for shared memory, ring buffer, SPSC/MPMC patterns. 
 - Async ring integration with Tokio.
 - Buffer pools and zero-copy data transfer.
 
+<workflow>
+
 ## Shared Memory Regions
 
 ### ShmRegion Pattern
+
+<example>
 
 ```rust
 pub struct ShmRegion {
@@ -60,15 +64,23 @@ impl Drop for ShmRegion {
 }
 ```
 
+</example>
+
+<guardrails>
+
 ### Key Rules
 
 - Always unlink shared memory names immediately after mapping (prevents leaks on crash).
 - Use RAII for both the mapping and the file descriptor.
 - Align region sizes to page boundaries (`sysconf(_SC_PAGESIZE)`).
 
+</guardrails>
+
 ## Ring Buffers
 
 ### SPSC (Single-Producer, Single-Consumer)
+
+<example>
 
 ```rust
 #[repr(C, align(64))]  // Cache-line aligned
@@ -100,11 +112,15 @@ impl SpscRing {
 }
 ```
 
+</example>
+
 ### MPMC (Multi-Producer, Multi-Consumer)
 
 - Use sequence numbers per slot for lock-free coordination.
 - Each slot has an `AtomicU64` sequence tag.
 - Producers CAS the sequence to claim a slot; consumers CAS to consume.
+
+<guardrails>
 
 ### Design Rules
 
@@ -114,9 +130,13 @@ impl SpscRing {
 - Use `Ordering::Acquire` for reads, `Ordering::Release` for writes.
 - Validate bounds on every read/write — never trust offsets from shared memory.
 
+</guardrails>
+
 ## Platform Sync Primitives
 
 Implement behind a trait for portability:
+
+<example>
 
 ```rust
 pub trait Notifier: Send + Sync {
@@ -125,7 +145,11 @@ pub trait Notifier: Send + Sync {
 }
 ```
 
+</example>
+
 ### Linux: eventfd
+
+<example>
 
 ```rust
 pub struct EventFdNotifier {
@@ -149,6 +173,8 @@ impl Notifier for EventFdNotifier {
 }
 ```
 
+</example>
+
 ### macOS: pipe or kqueue
 
 - Use `pipe()` pair for simple notification (write 1 byte to wake).
@@ -161,6 +187,8 @@ impl Notifier for EventFdNotifier {
 ## Async Ring (Tokio Integration)
 
 Wrap ring buffers for async producers/consumers:
+
+<example>
 
 ```rust
 pub struct AsyncRing {
@@ -199,9 +227,13 @@ impl AsyncRing {
 }
 ```
 
+</example>
+
 ## Guard Pattern (RAII Cleanup)
 
 Use RAII guards for operations that need cleanup on scope exit:
+
+<example>
 
 ```rust
 pub struct MappedGuard<'a> {
@@ -223,6 +255,10 @@ impl<'a> Drop for MappedGuard<'a> {
     }
 }
 ```
+
+</example>
+
+</workflow>
 
 ## Testing
 

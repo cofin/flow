@@ -1,13 +1,17 @@
 ---
 name: testing
-description: "Auto-activate for test_*.py, *.test.ts, *.spec.ts, conftest.py, vitest.config.ts. Testing with pytest and vitest: fixtures, mocking, coverage, async testing, anyio. Use when: writing or refactoring tests, setting up fixtures/mocks, configuring coverage, or debugging test failures."
+description: "Auto-activate for test_*.py, *.test.ts, *.spec.ts, conftest.py, vitest.config.ts. Testing with pytest and vitest: fixtures, mocking, coverage, async testing, anyio. Use when: writing or refactoring tests, setting up fixtures/mocks, configuring coverage, or debugging test failures. Not for E2E/browser testing (Playwright/Cypress) or load testing."
 ---
 
 # Testing Skill
 
+<workflow>
+
 ## Python Testing (pytest)
 
 ### Basic Test Structure
+
+<example>
 
 ```python
 import pytest
@@ -30,7 +34,11 @@ def test_string_length(input: str, expected: int):
     assert len(input) == expected
 ```
 
+</example>
+
 ### Async Tests
+
+<example>
 
 ```python
 import pytest
@@ -43,7 +51,11 @@ async def test_async_endpoint(client: AsyncClient):
     assert isinstance(response.json(), list)
 ```
 
+</example>
+
 ### Fixtures
+
+<example>
 
 ```python
 import pytest
@@ -64,7 +76,11 @@ def client(app) -> TestClient:
     return TestClient(app)
 ```
 
+</example>
+
 ### Mocking
+
+<example>
 
 ```python
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -83,7 +99,11 @@ def mock_service():
     return service
 ```
 
+</example>
+
 ### HTTP Testing with Litestar
+
+<example>
 
 ```python
 from litestar.testing import TestClient
@@ -97,6 +117,8 @@ def test_create_item(client: TestClient):
     assert response.status_code == 201
     assert response.json()["name"] == "Test"
 ```
+
+</example>
 
 ### Coverage
 
@@ -113,6 +135,8 @@ pytest --cov=src --cov-fail-under=90
 ## TypeScript Testing (Vitest)
 
 ### Basic Test Structure
+
+<example>
 
 ```typescript
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -134,7 +158,11 @@ describe('Calculator', () => {
 });
 ```
 
+</example>
+
 ### Async Tests
+
+<example>
 
 ```typescript
 import { describe, it, expect, vi } from 'vitest';
@@ -151,7 +179,11 @@ describe('API', () => {
 });
 ```
 
+</example>
+
 ### Mocking
+
+<example>
 
 ```typescript
 import { vi, describe, it, expect, beforeEach } from 'vitest';
@@ -182,7 +214,11 @@ describe('with mocks', () => {
 const spy = vi.spyOn(console, 'log');
 ```
 
+</example>
+
 ### Testing Components (React)
+
+<example>
 
 ```typescript
 import { render, screen, fireEvent } from '@testing-library/react';
@@ -205,7 +241,11 @@ describe('Button', () => {
 });
 ```
 
+</example>
+
 ### Testing Components (Vue)
+
+<example>
 
 ```typescript
 import { mount } from '@vue/test-utils';
@@ -222,7 +262,11 @@ describe('Counter', () => {
 });
 ```
 
+</example>
+
 ### Vitest Configuration
+
+<example>
 
 ```typescript
 // vitest.config.ts
@@ -243,6 +287,12 @@ export default defineConfig({
 });
 ```
 
+</example>
+
+</workflow>
+
+<guardrails>
+
 ## Best Practices
 
 ### Python
@@ -260,6 +310,8 @@ export default defineConfig({
 - Use `vi.mock` for module mocking
 - Use Testing Library for component tests
 - Prefer user-centric queries (getByRole, getByText)
+
+</guardrails>
 
 ## References Index
 

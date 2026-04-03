@@ -6,7 +6,7 @@ Advanced Alchemy provides optional query-result caching via `dogpile.cache`. The
 
 Install the optional dependency:
 
-```
+```bash
 pip install advanced-alchemy[dogpile]
 ```
 

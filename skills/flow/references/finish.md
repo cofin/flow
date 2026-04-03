@@ -13,18 +13,22 @@ Complete a flow's development work by verifying, reviewing, and integrating.
    - `.agents/specs/{flow_id}/spec.md`
    - `.agents/specs/{flow_id}/metadata.json`
 2. **Load Beads context:**
+
    ```bash
    br show {epic_id}
    ```
+
 3. **Verify all tasks completed** — check Beads for any open tasks:
+
    ```bash
    br list --parent {epic_id} --status open
    ```
+
    If open tasks remain, warn and confirm with user before proceeding.
 
 ## Phase 2: Verification Gate
 
-```
+```text
 IRON LAW: NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
 ```
 
@@ -32,9 +36,11 @@ IRON LAW: NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
 2. **Run coverage check** — confirm target met with actual numbers
 3. **Run linter/formatter** — confirm clean output
 4. **Sync Beads to spec.md:**
+
    ```bash
    # Ensure spec.md reflects current state
    ```
+
    Run `/flow:sync` to update spec.md from Beads.
 
 **If any check fails:** Report actual results. Do NOT proceed until issues resolved.
@@ -44,6 +50,7 @@ IRON LAW: NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
 Dispatch final comprehensive code review:
 
 1. **Get git range** from Beads task completion records:
+
    ```bash
    # Base: commit before first task started
    # Head: current HEAD
@@ -123,6 +130,7 @@ Report: "Keeping branch `{branch_name}`. Flow artifacts preserved."
 ### Option 4: Discard
 
 **Confirm first:**
+
 ```text
 This will permanently delete:
 - Branch {branch_name}
@@ -132,6 +140,7 @@ Type 'discard' to confirm.
 ```
 
 Wait for exact confirmation. If confirmed:
+
 ```bash
 git checkout {base_branch}
 git branch -D {feature_branch}
@@ -140,11 +149,13 @@ git branch -D {feature_branch}
 ## Phase 6: Beads Cleanup
 
 For Options 1, 2 (successful completion):
+
 ```bash
 br close {epic_id} --reason "Flow finished: {option_chosen}"
 ```
 
 For Option 4 (discard):
+
 ```bash
 br close {epic_id} --reason "Flow discarded"
 ```

@@ -51,7 +51,17 @@ If Beads unavailable, parse `spec.md` Implementation Plan section for pending ta
 
 **See `references/discipline.md` for full TDD discipline rules, rationalization tables, and red flags.**
 
-```
+### 3.0 Subagent Execution Preference
+
+If `superpowers:subagent-driven-development` is available in the host, invoke it before implementation and run task execution through its subagent orchestration workflow.
+
+Fallback: if unavailable, execute the same steps in single-agent mode.
+
+### 3.0.1 API Lookup Preference
+
+If implementation depends on external framework/API behavior, versions, migrations, or release changes, invoke `flow:apilookup` before making implementation decisions.
+
+```text
 IRON LAW: NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST
 ```
 
@@ -115,7 +125,7 @@ Target: 80% minimum
 
 **Do NOT guess at fixes. Follow this protocol.**
 
-```
+```text
 IRON LAW: NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST
 ```
 
@@ -127,6 +137,7 @@ IRON LAW: NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST
 **If 3+ fixes have failed:** STOP. Question the architecture. Discuss with user before attempting more.
 
 **Red flags — return to step 1:**
+
 - "Quick fix for now"
 - "Just try changing X"
 - Proposing fixes before tracing data flow
@@ -170,7 +181,7 @@ Save progress to `.agents/specs/{flow_id}/implement_state.json`:
 
 ## Phase 7: Phase Checkpoint
 
-```
+```text
 IRON LAW: NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
 ```
 
@@ -191,13 +202,14 @@ At end of each phase:
 8. **Ask user to verify**
 
 **Verification red flags — STOP before claiming completion:**
+
 - Using "should", "probably", "seems to"
 - Expressing satisfaction before running verification ("Done!", "Perfect!")
 - Trusting agent reports without independent check
 
 ## Parallel Task Execution Mode
 
-When a phase has independent tasks that can be executed concurrently:
+When a phase has independent tasks that can be executed concurrently (prefer this mode when `superpowers:subagent-driven-development` is available):
 
 1. **Controller** (flow:implement) manages Beads state transitions for all tasks
 2. **Dispatch one subagent per task** — each gets fresh context with task text, spec requirements, and patterns.md
@@ -208,6 +220,7 @@ When a phase has independent tasks that can be executed concurrently:
 5. **Never dispatch implementation subagents in parallel** — they may conflict on shared files
 
 **Model selection:**
+
 - Mechanical tasks (1-2 files, clear spec) → fast model
 - Integration tasks (multi-file coordination) → standard model
 - Review/architecture → most capable model

@@ -1,13 +1,17 @@
 ---
 name: nuxt
-description: "Auto-activate for nuxt.config.ts, nuxt.config.js, .nuxt/ directory. Vue SSR framework expertise for Nuxt 3. Use when: using useFetch, useAsyncData, Nitro server routes, SSR/SSG rendering, nuxt.config.ts, or building any Nuxt application."
+description: "Auto-activate for nuxt.config.ts, nuxt.config.js, .nuxt/ directory. Vue SSR framework expertise for Nuxt 3. Use when: using useFetch, useAsyncData, Nitro server routes, SSR/SSG rendering, nuxt.config.ts, or building any Nuxt application. Not for plain Vue (see vue), React (see react), or non-Nuxt Vue SSR."
 ---
 
 # Nuxt 3 Framework Skill
 
+<workflow>
+
 ## Quick Reference
 
 ### Page Component
+
+<example>
 
 ```vue
 <!-- pages/users/[id].vue -->
@@ -34,7 +38,11 @@ useHead({
 </template>
 ```
 
+</example>
+
 ### Server API Routes
+
+<example>
 
 ```typescript
 // server/api/users/[id].get.ts
@@ -63,7 +71,11 @@ export default defineEventHandler(async (event) => {
 });
 ```
 
+</example>
+
 ### Composables
+
+<example>
 
 ```typescript
 // composables/useAuth.ts
@@ -89,7 +101,11 @@ export function useAuth() {
 }
 ```
 
+</example>
+
 ### Data Fetching
+
+<example>
 
 ```vue
 <script setup lang="ts">
@@ -114,7 +130,11 @@ const { data } = await useAsyncData('key', () => {
 </script>
 ```
 
+</example>
+
 ### Middleware
+
+<example>
 
 ```typescript
 // middleware/auth.ts
@@ -139,7 +159,11 @@ export default defineNuxtRouteMiddleware(() => {
 });
 ```
 
+</example>
+
 ### Plugins
+
+<example>
 
 ```typescript
 // plugins/api.ts
@@ -165,7 +189,11 @@ export default defineNuxtPlugin(() => {
 // Usage: const { $api } = useNuxtApp();
 ```
 
+</example>
+
 ### Hybrid Rendering
+
+<example>
 
 ```typescript
 // nuxt.config.ts
@@ -179,7 +207,11 @@ export default defineNuxtConfig({
 });
 ```
 
+</example>
+
 ### State Management
+
+<example>
 
 ```typescript
 // With useState (SSR-safe)
@@ -198,6 +230,8 @@ export const useUserStore = defineStore('user', () => {
 });
 ```
 
+</example>
+
 ## Best Practices
 
 - Use `useFetch` for data fetching (handles SSR)
@@ -206,6 +240,8 @@ export const useUserStore = defineStore('user', () => {
 - Use server routes for backend logic
 - Use middleware for route guards
 - Use `definePageMeta` for page-level config
+
+</workflow>
 
 ## References Index
 

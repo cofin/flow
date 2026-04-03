@@ -1,13 +1,17 @@
 ---
 name: tailwind
-description: "Auto-activate for tailwind.config.ts, tailwind.config.js, @tailwind directives. Tailwind CSS v4: utility classes, responsive design, @apply, cn(), @theme config. Use when: styling with Tailwind, writing utility classes, configuring Tailwind v4, or building responsive layouts with Shadcn/ui."
+description: "Auto-activate for tailwind.config.ts, tailwind.config.js, @tailwind directives. Tailwind CSS v4: utility classes, responsive design, @apply, cn(), @theme config. Use when: styling with Tailwind, writing utility classes, configuring Tailwind v4, or building responsive layouts with Shadcn/ui. Not for Bootstrap, plain CSS, or CSS-in-JS solutions."
 ---
 
 # Tailwind CSS v4 Skill
 
+<workflow>
+
 ## Quick Reference
 
 ### Tailwind v4 CSS-Based Config
+
+<example>
 
 ```css
 /* styles.css */
@@ -19,7 +23,11 @@ description: "Auto-activate for tailwind.config.ts, tailwind.config.js, @tailwin
 }
 ```
 
+</example>
+
 ### Layout
+
+<example>
 
 ```tsx
 // Flexbox
@@ -32,7 +40,11 @@ description: "Auto-activate for tailwind.config.ts, tailwind.config.js, @tailwin
 <div className="container mx-auto px-4">
 ```
 
+</example>
+
 ### Spacing
+
+<example>
 
 ```tsx
 // Padding
@@ -45,7 +57,11 @@ description: "Auto-activate for tailwind.config.ts, tailwind.config.js, @tailwin
 <div className="gap-4 gap-x-2 gap-y-4">
 ```
 
+</example>
+
 ### Typography
+
+<example>
 
 ```tsx
 <h1 className="text-4xl font-bold tracking-tight">
@@ -53,7 +69,11 @@ description: "Auto-activate for tailwind.config.ts, tailwind.config.js, @tailwin
 <span className="font-medium">
 ```
 
+</example>
+
 ### Colors (Semantic)
+
+<example>
 
 ```tsx
 // Background
@@ -66,7 +86,11 @@ description: "Auto-activate for tailwind.config.ts, tailwind.config.js, @tailwin
 <div className="border border-border border-primary">
 ```
 
+</example>
+
 ### Sizing
+
+<example>
 
 ```tsx
 // Width/Height
@@ -76,21 +100,33 @@ description: "Auto-activate for tailwind.config.ts, tailwind.config.js, @tailwin
 <div className="max-w-md min-h-screen">
 ```
 
+</example>
+
 ### Borders & Shadows
+
+<example>
 
 ```tsx
 <div className="rounded-lg border border-border shadow-sm">
 <div className="rounded-full">
 ```
 
+</example>
+
 ### Interactive States
+
+<example>
 
 ```tsx
 <button className="hover:bg-primary/90 focus:ring-2 focus:ring-primary disabled:opacity-50">
 <a className="hover:underline">
 ```
 
+</example>
+
 ### Responsive Design
+
+<example>
 
 ```tsx
 // Mobile-first breakpoints
@@ -101,7 +137,11 @@ description: "Auto-activate for tailwind.config.ts, tailwind.config.js, @tailwin
 <div className="block md:hidden">
 ```
 
+</example>
+
 ### Animation
+
+<example>
 
 ```tsx
 // Built-in
@@ -111,7 +151,11 @@ description: "Auto-activate for tailwind.config.ts, tailwind.config.js, @tailwin
 <div className="transition-colors duration-200 ease-in-out">
 ```
 
+</example>
+
 ## Shadcn/ui Components
+
+<example>
 
 ```tsx
 import { Button } from "@/components/ui/button"
@@ -141,7 +185,11 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 </Card>
 ```
 
+</example>
+
 ## Dark Mode
+
+<example>
 
 ```tsx
 // Automatic with system preference
@@ -152,7 +200,11 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
   <div className="bg-background"> {/* Uses dark theme colors */}
 ```
 
+</example>
+
 ## Custom Classes with cn()
+
+<example>
 
 ```tsx
 import { cn } from "@/lib/utils"
@@ -174,7 +226,11 @@ function Component({ className }: Props) {
 }
 ```
 
+</example>
+
 ## Form Styling
+
+<example>
 
 ```tsx
 <form className="space-y-4">
@@ -188,9 +244,13 @@ function Component({ className }: Props) {
 </form>
 ```
 
+</example>
+
 ## Common Patterns
 
 ### Card with Actions
+
+<example>
 
 ```tsx
 <Card>
@@ -204,7 +264,11 @@ function Component({ className }: Props) {
 </Card>
 ```
 
+</example>
+
 ### Responsive Grid
+
+<example>
 
 ```tsx
 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -214,7 +278,11 @@ function Component({ className }: Props) {
 </div>
 ```
 
+</example>
+
 ### Loading State
+
+<example>
 
 ```tsx
 <Button disabled={isLoading}>
@@ -228,6 +296,10 @@ function Component({ className }: Props) {
   )}
 </Button>
 ```
+
+</example>
+
+</workflow>
 
 ## Official References
 

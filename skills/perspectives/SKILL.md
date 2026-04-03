@@ -1,6 +1,6 @@
 ---
 name: perspectives
-description: "Auto-activate when analyzing trade-offs, evaluating decisions, comparing approaches, playing devil's advocate, considering pros and cons, weighing options, assessing risks, reviewing assumptions, or needing multiple viewpoints on a problem. Use when: any decision needs structured multi-angle analysis."
+description: "Auto-activate when analyzing trade-offs, evaluating decisions, comparing approaches, playing devil's advocate, considering pros and cons, weighing options, assessing risks, reviewing assumptions, or needing multiple viewpoints on a problem. Use when: any decision needs structured multi-angle analysis. Shared prompt library — produces stance prompts and critical thinking frameworks for use by other skills. Not typically invoked directly — loaded by challenge, consensus, and reviewer skills."
 ---
 
 # Perspectives

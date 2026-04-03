@@ -1,6 +1,6 @@
 ---
 name: python
-description: "Auto-activate for .py files, pyproject.toml, requirements.txt, setup.py, setup.cfg. Python project conventions and tooling: uv, ruff, mypy, typing, Cython, Mypyc. Use when: configuring Python packages, linting, type-checking, building extensions, or running scripts with uv."
+description: "Auto-activate for .py files, pyproject.toml, requirements.txt, setup.py, setup.cfg. Python project conventions and tooling: uv, ruff, mypy, typing, Cython, Mypyc. Use when: configuring Python packages, linting, type-checking, building extensions, or running scripts with uv. Produces Python project configurations with uv, ruff, mypy, and proper packaging. Not for Mojo (see mojo), Cython build details (see references), or web framework specifics (see litestar)."
 ---
 
 # Python Skill
@@ -20,6 +20,8 @@ As per workspace rules, the following are **MANDATORY**:
 5. **Comments**: Prefer docstrings and type annotations over inline comments. Use inline comments only when the logic is non-obvious and cannot be clarified through better naming or type hints.
 
 ---
+
+<workflow>
 
 ## References Index
 
@@ -43,6 +45,37 @@ For detailed guides on specific tools and sub-systems, refer to the following do
   - Compiling C extensions for performance.
 - **[Mypyc Extensions](references/mypyc.md)**
   - Mypyc-compatible classes and compilation workflows.
+
+</workflow>
+
+<example>
+
+## Example: pyproject.toml Setup
+
+```toml
+[project]
+name = "myapp"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = ["litestar>=2.0", "sqlalchemy>=2.0"]
+
+[tool.uv]
+dev-dependencies = ["pytest>=8.0", "ruff>=0.8", "mypy>=1.13"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = ["D", "ANN101"]
+
+[tool.mypy]
+strict = true
+python_version = "3.12"
+```
+
+</example>
 
 ---
 

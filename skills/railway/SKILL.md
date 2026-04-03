@@ -1,9 +1,11 @@
 ---
 name: railway
-description: "Auto-activate for railway.toml, railway.json, Procfile. Expert knowledge for Railway deployment platform. Use when deploying applications, configuring services, managing databases, or troubleshooting Railway deployments."
+description: "Auto-activate for railway.toml, railway.json, Procfile. Expert knowledge for Railway deployment platform. Use when deploying applications, configuring services, managing databases, or troubleshooting Railway deployments. Not for Heroku, Fly.io, or self-hosted deployments."
 ---
 
 # Railway Deployment Platform Skill
+
+<workflow>
 
 ## Critical Concepts
 
@@ -27,6 +29,8 @@ Railway's serverless feature puts services to sleep after 10 minutes of no **out
 
 ### Config-as-Code (railway.json)
 
+<example>
+
 ```json
 {
   "$schema": "https://railway.com/railway.schema.json",
@@ -47,6 +51,8 @@ Railway's serverless feature puts services to sleep after 10 minutes of no **out
 }
 ```
 
+</example>
+
 **Important:** A single `railway.json` in root applies globally to ALL services from the same repo. For service-specific configs:
 
 1. Create separate config files: `railway.app.json`, `railway.worker.json`
@@ -54,6 +60,8 @@ Railway's serverless feature puts services to sleep after 10 minutes of no **out
 3. Different root directories (monorepo approach)
 
 ### Environment Overrides
+
+<example>
 
 ```json
 {
@@ -75,6 +83,8 @@ Railway's serverless feature puts services to sleep after 10 minutes of no **out
   }
 }
 ```
+
+</example>
 
 ## CLI Commands
 
@@ -186,6 +196,8 @@ For applications with background task processing:
 
 **Example Config Files:**
 
+<example>
+
 Web (`railway.app.json`):
 
 ```json
@@ -222,7 +234,11 @@ Worker (`railway.worker.json`):
 }
 ```
 
+</example>
+
 **Example Dockerfiles:**
+
+<example>
 
 Web (Dockerfile):
 
@@ -235,6 +251,8 @@ Worker (Dockerfile.worker):
 ```dockerfile
 CMD ["python", "-m", "celery", "-A", "app.tasks", "worker"]
 ```
+
+</example>
 
 ### Shared Configuration
 
@@ -256,6 +274,8 @@ railway variables --set "SECRET_KEY=${SECRET}" \
     --set 'REDIS_URL=${{Redis.REDIS_URL}}' \
     --skip-deploys
 ```
+
+</workflow>
 
 ## Troubleshooting
 

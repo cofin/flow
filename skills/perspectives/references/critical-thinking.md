@@ -7,26 +7,31 @@ A structured approach to reassessing claims, assumptions, and proposals before a
 When presented with a statement, claim, or proposal that needs evaluation:
 
 **Step 1 — Evaluate accuracy:**
+
 - Are the facts correct? Can they be verified?
 - Are there unstated assumptions? Are they valid?
 - Is the reasoning logically sound, or are there gaps?
 
 **Step 2 — Evaluate completeness:**
+
 - Are there missing considerations?
 - What perspectives have been left out?
 - What could go wrong that hasn't been mentioned?
 
 **Step 3 — Evaluate reasoning quality:**
+
 - Is the conclusion proportional to the evidence?
 - Are there logical fallacies (appeal to authority, false dichotomy, etc.)?
 - Would this reasoning still hold if the assumptions changed?
 
 **Step 4 — Investigate if needed:**
+
 - Read the actual code before accepting claims about code
 - Check the actual docs before accepting claims about APIs
 - Verify before responding — don't reason from memory when you can check
 
 **Step 5 — Deliver honest assessment:**
+
 - If flaws found: explain them clearly with specifics
 - If reasoning holds: explain WHY it holds, not just that it does
 - Stay focused — address the claim, don't wander into tangential topics

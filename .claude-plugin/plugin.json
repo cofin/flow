@@ -2,13 +2,12 @@
   "name": "flow",
   "displayName": "Flow",
   "description": "Unified toolkit for Context-Driven Development with spec-first planning, TDD workflow, and Beads integration",
-  "version": "0.13.1",
+  "version": "0.14.0",
   "author": {
     "name": "cofin"
   },
   "homepage": "https://github.com/cofin/flow",
   "repository": "https://github.com/cofin/flow",
   "license": "MIT",
-  "keywords": ["flow", "context-driven-development", "beads", "tdd", "ai-agent", "workflow", "spec-first"],
-  "hooks": "./hooks/hooks.json"
+  "keywords": ["flow", "context-driven-development", "beads", "tdd", "ai-agent", "workflow", "spec-first"]
 }

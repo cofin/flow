@@ -13,6 +13,7 @@ Enumerate every file to document with its path. This is the completeness checkli
 ### 3. Analyze Each File
 
 For each file in the manifest:
+
 - Read the file fully
 - Extract: purpose, public interface, dependencies, key patterns
 - Document using the component template (see `component-template.md`)
@@ -21,6 +22,7 @@ For each file in the manifest:
 ### 4. Cross-Reference
 
 After all files are documented:
+
 - Identify dependencies between components
 - Note common patterns across the module
 - Flag any circular dependencies or unclear boundaries
@@ -28,6 +30,7 @@ After all files are documented:
 ### 5. Synthesize
 
 Produce the final documentation:
+
 - Module overview (what it does, how components relate)
 - Per-component documentation (from step 3)
 - Usage examples (how to use the module as a consumer)

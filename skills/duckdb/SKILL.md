@@ -1,6 +1,6 @@
 ---
 name: duckdb
-description: "Auto-activate for .duckdb files, duckdb imports. Comprehensive DuckDB expertise: advanced analytical SQL patterns, performance tuning, data engineering (ETL, multi-source reads, cloud storage), client APIs for Python/Node/Rust/Java/R/Go/WASM, extension development, function reference, and configuration/administration. Use when: writing DuckDB queries, optimizing performance, building data pipelines, connecting from any language, developing extensions, importing/exporting CSV/Parquet/JSON/Delta/Iceberg, or configuring DuckDB for production analytics workloads."
+description: "Auto-activate for .duckdb files, duckdb imports. Comprehensive DuckDB expertise: advanced analytical SQL patterns, performance tuning, data engineering (ETL, multi-source reads, cloud storage), client APIs for Python/Node/Rust/Java/R/Go/WASM, extension development, function reference, and configuration/administration. Use when: writing DuckDB queries, optimizing performance, building data pipelines, connecting from any language, developing extensions, importing/exporting CSV/Parquet/JSON/Delta/Iceberg, or configuring DuckDB for production analytics workloads. Not for OLTP databases (see postgres/mysql) or traditional data warehouses."
 ---
 
 # DuckDB
@@ -10,6 +10,8 @@ description: "Auto-activate for .duckdb files, duckdb imports. Comprehensive Duc
 DuckDB is an in-process analytical database with rich SQL dialect, first-class support for Parquet/CSV/JSON, and client APIs for Python, Node.js, Rust, Java, R, Go, WASM, and more. It excels at OLAP workloads, local data exploration, embedded analytics, and data engineering pipelines across local and cloud data sources.
 
 ## Quick Start
+
+<example>
 
 ```python
 import duckdb
@@ -21,6 +23,8 @@ result = con.sql("SELECT 42 AS answer").fetchall()
 # CLI
 duckdb mydb.duckdb "SELECT * FROM read_parquet('data/*.parquet')"
 ```
+
+</example>
 
 ---
 
@@ -51,6 +55,8 @@ For detailed guides and patterns, refer to the following documents in `reference
 
 ---
 
+<workflow>
+
 ## Key SQL Dialect Features
 
 - `SELECT * EXCLUDE (col)` -- select all columns except specific ones
@@ -59,6 +65,8 @@ For detailed guides and patterns, refer to the following documents in `reference
 - `LIST`, `STRUCT`, `MAP` nested types with full query support
 - `GROUP BY ALL`, `ORDER BY ALL` -- automatic grouping/ordering
 - Friendly SQL: `FROM tbl SELECT col` syntax, implicit `SELECT *`
+
+</workflow>
 
 ---
 

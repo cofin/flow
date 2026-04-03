@@ -199,7 +199,7 @@ When `schema_type` is omitted, rows are returned as dicts.
 |--------|---------|--------|
 | `select_value(sql, params)` | `Any` (scalar) | `NotFoundError` if no rows |
 | `select_one(sql, params, schema_type=)` | `T` or `dict` | `NotFoundError`, `MultipleResultsError` |
-| `select_one_or_none(sql, params, schema_type=)` | `T | None` | `MultipleResultsError` |
+| `select_one_or_none(sql, params, schema_type=)` | `T \| None` | `MultipleResultsError` |
 | `select_many(sql, params, schema_type=)` | `list[T]` or `list[dict]` | -- |
 | `select_with_total(sql, params, schema_type=)` | `tuple[list[T], int]` | -- |
 | `select_to_arrow(sql, params)` | `pyarrow.Table` | -- |

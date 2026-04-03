@@ -424,7 +424,7 @@ Scope access control mapping:
 
 Background tasks (ETL jobs, file processing) publish events to workspace channels. Connected WebSocket clients receive updates in real time.
 
-```
+```text
 [Background Worker] --publish--> [ChannelsBackend] --subscribe--> [WebSocket Handler] --> [Client]
 ```
 

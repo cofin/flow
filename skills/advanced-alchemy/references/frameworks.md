@@ -4,7 +4,7 @@
 
 Advanced Alchemy supports multiple Python web frameworks through dedicated extension modules. Each integration provides a plugin that manages engine creation, session lifecycle, and dependency injection according to the framework's conventions.
 
-```
+```text
 advanced_alchemy.extensions.litestar   → Litestar (see litestar_plugin.md)
 advanced_alchemy.extensions.fastapi    → FastAPI / Starlette
 advanced_alchemy.extensions.flask      → Flask

@@ -35,6 +35,7 @@ Do not reason from memory when you can verify:
 ### 5. No Meta-Commentary
 
 Do NOT say things like:
+
 - "Let me challenge this for you"
 - "Playing devil's advocate here..."
 - "I'll now critically evaluate this statement"
