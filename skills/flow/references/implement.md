@@ -61,7 +61,7 @@ Fallback: if unavailable, execute the same steps in single-agent mode.
 
 If implementation depends on external framework/API behavior, versions, migrations, or release changes, invoke `flow:apilookup` before making implementation decisions.
 
-```
+```text
 IRON LAW: NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST
 ```
 
@@ -125,7 +125,7 @@ Target: 80% minimum
 
 **Do NOT guess at fixes. Follow this protocol.**
 
-```
+```text
 IRON LAW: NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST
 ```
 
@@ -137,6 +137,7 @@ IRON LAW: NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST
 **If 3+ fixes have failed:** STOP. Question the architecture. Discuss with user before attempting more.
 
 **Red flags — return to step 1:**
+
 - "Quick fix for now"
 - "Just try changing X"
 - Proposing fixes before tracing data flow
@@ -180,7 +181,7 @@ Save progress to `.agents/specs/{flow_id}/implement_state.json`:
 
 ## Phase 7: Phase Checkpoint
 
-```
+```text
 IRON LAW: NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
 ```
 
@@ -201,6 +202,7 @@ At end of each phase:
 8. **Ask user to verify**
 
 **Verification red flags — STOP before claiming completion:**
+
 - Using "should", "probably", "seems to"
 - Expressing satisfaction before running verification ("Done!", "Perfect!")
 - Trusting agent reports without independent check
@@ -218,6 +220,7 @@ When a phase has independent tasks that can be executed concurrently (prefer thi
 5. **Never dispatch implementation subagents in parallel** — they may conflict on shared files
 
 **Model selection:**
+
 - Mechanical tasks (1-2 files, clear spec) → fast model
 - Integration tasks (multi-file coordination) → standard model
 - Review/architecture → most capable model

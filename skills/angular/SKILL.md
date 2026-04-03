@@ -1,13 +1,17 @@
 ---
 name: angular
-description: "Auto-activate for angular.json, *.component.ts, @Component decorator. Expert knowledge for modern Angular with signals, standalone components, control flow blocks, and current migration guidance. Use when building Angular apps with contemporary patterns and when validating version-specific API stability."
+description: "Auto-activate for angular.json, *.component.ts, @Component decorator. Expert knowledge for modern Angular with signals, standalone components, control flow blocks, and current migration guidance. Use when building Angular apps with contemporary patterns and when validating version-specific API stability. Not for React (see react), Vue (see vue), or AngularJS (v1)."
 ---
 
 # Angular Framework Skill
 
+<workflow>
+
 ## Quick Reference
 
 ### Standalone Component with Signals
+
+<example>
 
 ```typescript
 import { Component, signal, computed, effect, input, output } from '@angular/core';
@@ -52,7 +56,11 @@ export class ItemListComponent {
 }
 ```
 
+</example>
+
 ### Control Flow (Angular 17+)
+
+<example>
 
 ```html
 <!-- @if -->
@@ -86,7 +94,11 @@ export class ItemListComponent {
 }
 ```
 
+</example>
+
 ### Services with Inject
+
+<example>
 
 ```typescript
 import { Injectable, inject } from '@angular/core';
@@ -109,9 +121,17 @@ export class ItemService {
 }
 ```
 
+</example>
+
 ### Resource API (Experimental)
 
+<guardrails>
+
 `resource()` and `httpResource()` are currently marked experimental in Angular docs. Use only when the project explicitly accepts experimental APIs.
+
+</guardrails>
+
+<example>
 
 ```typescript
 import { resource, signal } from '@angular/core';
@@ -135,7 +155,11 @@ export class ItemComponent {
 }
 ```
 
+</example>
+
 ### Reactive Forms (Stable API)
+
+<example>
 
 ```typescript
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
@@ -166,6 +190,8 @@ export class ItemFormComponent {
 }
 ```
 
+</example>
+
 ## Best Practices
 
 - Prefer standalone components for new development (Angular team recommendation).
@@ -174,6 +200,8 @@ export class ItemFormComponent {
 - Use new control flow syntax (`@if`, `@for`, `@switch`)
 - Use `inject()` instead of constructor injection
 - Use `@defer` for lazy loading heavy components
+
+</workflow>
 
 ## References Index
 

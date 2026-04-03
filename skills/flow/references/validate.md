@@ -69,7 +69,7 @@ git status
 
 ## Phase 5: Verification Gate
 
-```
+```text
 IRON LAW: NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
 ```
 

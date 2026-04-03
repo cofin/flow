@@ -11,12 +11,14 @@ Choose the mode based on decision complexity:
 Use for decisions with bounded scope, clear constraints, or time pressure.
 
 The AI evaluates all three perspectives in one pass:
+
 1. Neutral analysis first
 2. Advocate reframe
 3. Critic reframe
 4. Synthesis
 
 **When to use:**
+
 - Most decisions
 - Time-constrained choices
 - Decisions with clear constraints
@@ -29,6 +31,7 @@ Use for high-stakes decisions where sequential perspectives may contaminate each
 Three independent subagents are dispatched (one per stance from `perspectives/references/stances.md`), results collected, then synthesized in the main context.
 
 **When to use:**
+
 - Decision affects more than 3 months of work
 - Choice is difficult or impossible to reverse
 - Sequential analysis produced suspiciously aligned perspectives (all three agreed too easily)
@@ -38,6 +41,7 @@ Three independent subagents are dispatched (one per stance from `perspectives/re
 ### Mode Escalation
 
 If you start in sequential mode and notice:
+
 - All three perspectives suspiciously agree
 - You can't genuinely argue the critic position
 - The advocate and neutral perspectives are nearly identical

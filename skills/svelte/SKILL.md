@@ -1,13 +1,17 @@
 ---
 name: svelte
-description: "Auto-activate for .svelte files, svelte.config.js. Expert knowledge for Svelte 5 development with Runes. Use when: building Svelte components (`.svelte` files), using runic states ($state, $derived), or working with SvelteKit."
+description: "Auto-activate for .svelte files, svelte.config.js. Expert knowledge for Svelte 5 development with Runes. Use when: building Svelte components (`.svelte` files), using runic states ($state, $derived), or working with SvelteKit. Not for React (see react), Vue (see vue), or Svelte 4 (this covers Svelte 5 with Runes)."
 ---
 
 # Svelte 5 Framework Skill
 
+<workflow>
+
 ## Quick Reference
 
 ### Svelte 5 Runes
+
+<example>
 
 ```svelte
 <script lang="ts">
@@ -44,7 +48,11 @@ description: "Auto-activate for .svelte files, svelte.config.js. Expert knowledg
 </div>
 ```
 
+</example>
+
 ### State Management with Runes
+
+<example>
 
 ```ts
 // stores/counter.svelte.ts
@@ -64,7 +72,11 @@ class Counter {
 export const counter = new Counter();
 ```
 
+</example>
+
 ### Bindable Props
+
+<example>
 
 ```svelte
 <script lang="ts">
@@ -74,7 +86,11 @@ export const counter = new Counter();
 <input bind:value />
 ```
 
+</example>
+
 ### Snippets (Svelte 5)
+
+<example>
 
 ```svelte
 <script lang="ts">
@@ -99,7 +115,11 @@ export const counter = new Counter();
 </div>
 ```
 
+</example>
+
 ### SvelteKit Load Functions
+
+<example>
 
 ```ts
 // +page.server.ts
@@ -123,7 +143,11 @@ export const actions: Actions = {
 };
 ```
 
+</example>
+
 ### Form Actions
+
+<example>
 
 ```svelte
 <script lang="ts">
@@ -142,6 +166,8 @@ export const actions: Actions = {
 </form>
 ```
 
+</example>
+
 ## Key Differences from Svelte 4
 
 | Svelte 4 | Svelte 5 |
@@ -152,6 +178,8 @@ export const actions: Actions = {
 | `<slot>` | `{@render children()}` |
 | `on:click` | `onclick` |
 | `bind:this` | Still `bind:this` |
+
+</workflow>
 
 ## Best Practices
 

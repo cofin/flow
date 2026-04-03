@@ -39,6 +39,7 @@ The invoked skill provides pre-loaded reference docs, API summaries, and known p
 ## Tier 2: Targeted Web Lookup (stale or insufficient local refs)
 
 Use when:
+
 - Local references are more than 30 days old
 - The query asks about something beyond what local refs cover (e.g., a newly added API, a version-specific behavior)
 - The user explicitly asks for the "latest" version or "current" behavior
@@ -47,19 +48,19 @@ Use when:
 
 Execute these three steps in order, stopping once the question is answered:
 
-**Step 1 — Check for version updates**
+### Step 1 — Check for version updates
 
 Try fetching the `changelog_url` from the registry entry directly using WebFetch. If that fails or is unavailable, fall back to a web search for:
 
-```
+```text
 "[display_name] [current_version] release notes [current year]"
 ```
 
-**Step 2 — Answer the specific question**
+### Step 2 — Answer the specific question
 
 Use the `docs_url` from the registry entry as the primary search domain. Prefer WebFetch on specific docs pages when the URL can be inferred from context. Use WebSearch with the docs domain scoped if needed.
 
-**Step 3 — Cross-reference if needed**
+### Step 3 — Cross-reference if needed
 
 If the `github` field is set and the question involves release-specific behavior, check GitHub releases for the project.
 

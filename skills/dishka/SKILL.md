@@ -1,6 +1,6 @@
 ---
 name: dishka
-description: "Auto-activate for dishka imports. Dishka dependency injection framework: Provider, Scope, Container, FromDishka, Inject. Use when: setting up DI containers, defining providers/scopes, or integrating dependency injection with Litestar or FastAPI."
+description: "Auto-activate for dishka imports. Dishka dependency injection framework: Provider, Scope, Container, FromDishka, Inject. Use when: setting up DI containers, defining providers/scopes, or integrating dependency injection with Litestar or FastAPI. Produces Dishka DI container configurations with providers, scopes, and framework integrations. Not for manual dependency injection or other DI frameworks."
 ---
 
 # Dishka Dependency Injection Skill
@@ -10,6 +10,8 @@ description: "Auto-activate for dishka imports. Dishka dependency injection fram
 Dishka is a Python dependency injection framework built around Providers, Scopes, and typed containers. It supports async/sync workflows and integrates with web frameworks (Litestar, FastAPI) and CLI tools (Click).
 
 ---
+
+<workflow>
 
 ## References Index
 
@@ -25,6 +27,34 @@ For detailed guides and configuration examples, refer to the following documents
   - Click with async_inject decorator for Dishka-powered CLI commands.
 - **[Testing Patterns](references/testing.md)**
   - Test containers, mock providers, and override strategies.
+
+</workflow>
+
+<example>
+
+## Example: Provider and Container Setup
+
+```python
+from dishka import Provider, Scope, make_async_container, provide
+
+class AppProvider(Provider):
+    scope = Scope.APP
+
+    @provide
+    async def get_db_engine(self) -> AsyncEngine:
+        return create_async_engine("postgresql+asyncpg://...")
+
+class RequestProvider(Provider):
+    scope = Scope.REQUEST
+
+    @provide
+    async def get_session(self, engine: AsyncEngine) -> AsyncSession:
+        return AsyncSession(engine)
+
+container = make_async_container(AppProvider(), RequestProvider())
+```
+
+</example>
 
 ---
 

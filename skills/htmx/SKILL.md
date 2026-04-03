@@ -1,13 +1,17 @@
 ---
 name: htmx
-description: "Auto-activate for hx-* attributes in HTML files. Expert knowledge for HTMX hypermedia development. Use when: building hypermedia-driven apps with partial HTML responses, using `hx-` attributes, or rendering `.html` templates."
+description: "Auto-activate for hx-* attributes in HTML files. Expert knowledge for HTMX hypermedia development. Use when: building hypermedia-driven apps with partial HTML responses, using `hx-` attributes, or rendering `.html` templates. Not for React/Vue/Angular SPAs or full client-side rendering."
 ---
 
 # HTMX Skill
 
+<workflow>
+
 ## Quick Reference
 
 ### Core Attributes
+
+<example>
 
 ```html
 <!-- Basic request types -->
@@ -32,7 +36,11 @@ description: "Auto-activate for hx-* attributes in HTML files. Expert knowledge 
 <button hx-get="/modal" hx-trigger="click once">Open once</button>
 ```
 
+</example>
+
 ### OOB (Out of Band) Swaps
+
+<example>
 
 ```html
 <!-- Server response with multiple updates -->
@@ -45,7 +53,11 @@ description: "Auto-activate for hx-* attributes in HTML files. Expert knowledge 
 <div id="counter" hx-swap-oob="innerHTML">42</div>
 ```
 
+</example>
+
 ### Forms
+
+<example>
 
 ```html
 <form hx-post="/users" hx-target="#result" hx-swap="outerHTML">
@@ -64,7 +76,11 @@ description: "Auto-activate for hx-* attributes in HTML files. Expert knowledge 
 </form>
 ```
 
+</example>
+
 ### Indicators
+
+<example>
 
 ```html
 <button hx-get="/slow" hx-indicator="#spinner">
@@ -79,7 +95,11 @@ description: "Auto-activate for hx-* attributes in HTML files. Expert knowledge 
 </style>
 ```
 
+</example>
+
 ### Boosted Links
+
+<example>
 
 ```html
 <!-- Boost all links in a section -->
@@ -92,7 +112,11 @@ description: "Auto-activate for hx-* attributes in HTML files. Expert knowledge 
 <a hx-get="/page" hx-push-url="true">Navigate</a>
 ```
 
+</example>
+
 ### Events
+
+<example>
 
 ```html
 <!-- Trigger on custom event -->
@@ -112,7 +136,11 @@ description: "Auto-activate for hx-* attributes in HTML files. Expert knowledge 
 </script>
 ```
 
+</example>
+
 ### Extensions
+
+<example>
 
 ```html
 <!-- JSON encoding extension -->
@@ -136,7 +164,11 @@ description: "Auto-activate for hx-* attributes in HTML files. Expert knowledge 
 </div>
 ```
 
+</example>
+
 ### Headers & CSRF
+
+<example>
 
 ```html
 <!-- Include CSRF token -->
@@ -150,7 +182,11 @@ description: "Auto-activate for hx-* attributes in HTML files. Expert knowledge 
 </script>
 ```
 
+</example>
+
 ### Confirm & Prompt
+
+<example>
 
 ```html
 <button hx-delete="/items/1" hx-confirm="Are you sure?">
@@ -162,7 +198,11 @@ description: "Auto-activate for hx-* attributes in HTML files. Expert knowledge 
 </button>
 ```
 
+</example>
+
 ## Server Response Headers
+
+<example>
 
 ```python
 # Python example
@@ -174,6 +214,8 @@ response.headers["HX-Reswap"] = "outerHTML"
 response.headers["HX-Retarget"] = "#new-target"
 ```
 
+</example>
+
 ## Best Practices
 
 - Return partial HTML, not full pages
@@ -182,6 +224,8 @@ response.headers["HX-Retarget"] = "#new-target"
 - Use `hx-boost` for progressive enhancement
 - Include CSRF tokens in headers
 - Use semantic HTML for accessibility
+
+</workflow>
 
 ## References Index
 

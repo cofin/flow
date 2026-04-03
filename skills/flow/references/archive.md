@@ -11,21 +11,24 @@ Archive completed flow and elevate patterns to project level.
 
 ### 1.1 Verification Gate
 
-```
+```text
 IRON LAW: NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
 ```
 
 1. **Run full test suite** — read output, confirm 0 failures
 2. **Check Beads** for completion status:
+
    ```bash
    br show {epic_id}
    ```
+
 3. **Verify** all tasks are completed or explicitly skipped — read `spec.md` Implementation Plan section
 4. If incomplete tasks or failing tests exist, warn and confirm.
 
 ### 1.2 Optional Code Review
 
 For flows being archived without prior `flow-review`:
+
 - Dispatch final code review subagent with full flow git range
 - Log findings to `learnings.md` (will be archived with flow)
 - Fix Critical issues before archiving

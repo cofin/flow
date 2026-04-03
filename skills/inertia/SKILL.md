@@ -1,6 +1,6 @@
 ---
 name: inertia
-description: "Auto-activate for inertia imports, createInertiaApp. Expert knowledge for Inertia.js with Litestar backend. Use when building SPAs with server-side routing, handling Inertia responses, managing page components, or integrating litestar-vite with Inertia."
+description: "Auto-activate for inertia imports, createInertiaApp. Expert knowledge for Inertia.js with Litestar backend. Use when building SPAs with server-side routing, handling Inertia responses, managing page components, or integrating litestar-vite with Inertia. Produces Inertia.js page components with server-side routing and Litestar backend integration. Not for traditional SPAs without server-side routing or non-Litestar backends."
 ---
 
 # Inertia.js Skill
@@ -11,6 +11,8 @@ Inertia.js bridges server-side routing with client-side SPA rendering. This skil
 
 ---
 
+<workflow>
+
 ## References Index
 
 For detailed guides and configuration examples, refer to the following documents in `references/`:
@@ -19,6 +21,8 @@ For detailed guides and configuration examples, refer to the following documents
   - Inertia protocol, React/Vue adapters, forms, shared data, partial reloads, lazy props, SSR, and best practices.
 - **[Litestar Integration](references/litestar_integration.md)**
   - Python backend setup, Inertia response helpers, Vite config, frontend setup, generated page props types, Inertia v2 features, and CLI commands.
+
+</workflow>
 
 ---
 

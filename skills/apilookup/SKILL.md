@@ -1,6 +1,6 @@
 ---
 name: apilookup
-description: "Use when any task depends on external API/framework behavior, SDK references, library versions, breaking changes, migration guides, changelogs, or release notes. Auto-activate for uncertainty about third-party docs, version compatibility, deprecations, or current syntax before implementation decisions."
+description: "Use when any task depends on external API/framework behavior, SDK references, library versions, breaking changes, migration guides, changelogs, or release notes. Auto-activate for uncertainty about third-party docs, version compatibility, deprecations, or current syntax before implementation decisions. Produces version-verified documentation references with links to official sources, staleness warnings, and version gap notes."
 ---
 
 # API Lookup Skill
@@ -26,6 +26,8 @@ Example queries this skill handles:
 - "What's the current Go module proxy API?" (arbitrary — no local skill)
 - "Check if there's a newer version of Tailwind CSS"
 
+<workflow>
+
 ## How It Works
 
 ### Version Registry
@@ -49,6 +51,10 @@ Example queries this skill handles:
 
 All web lookups are capped at **2-4 searches max**. Prefer `WebFetch` on known URLs over `WebSearch` when registry URLs are available — it is faster and more precise.
 
+</workflow>
+
+<guardrails>
+
 ## Lookup Rules
 
 See `references/lookup-strategy.md` for the full decision tree. Key principles:
@@ -58,6 +64,8 @@ See `references/lookup-strategy.md` for the full decision tree. Key principles:
 3. **Respect the budget** — 2-4 searches max, stop once you have an authoritative answer
 4. **Cite sources** — always include links to official docs or changelogs
 5. **Note version gaps** — if local refs cover version X but the current release is Y, tell the user explicitly
+
+</guardrails>
 
 ## References Index
 

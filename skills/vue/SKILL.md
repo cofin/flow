@@ -1,13 +1,17 @@
 ---
 name: vue
-description: "Auto-activate for .vue files, vue.config.js. Expert knowledge for Vue 3 development with TypeScript. Use when: building Vue components (`.vue` files), using Composition API (`<script setup>`), or managing Vue SFC state."
+description: "Auto-activate for .vue files, vue.config.js. Expert knowledge for Vue 3 development with TypeScript. Use when: building Vue components (`.vue` files), using Composition API (`<script setup>`), or managing Vue SFC state. Not for React (see react), Svelte (see svelte), or Vue 2 Options API."
 ---
 
 # Vue 3 Framework Skill
 
+<workflow>
+
 ## Quick Reference
 
 ### Composition API Component
+
+<example>
 
 ```vue
 <script setup lang="ts">
@@ -52,7 +56,11 @@ onMounted(() => {
 </template>
 ```
 
+</example>
+
 ### Composables
+
+<example>
 
 ```ts
 // composables/useFetch.ts
@@ -83,7 +91,11 @@ export function useFetch<T>(url: Ref<string> | string) {
 }
 ```
 
+</example>
+
 ### Provide/Inject Pattern
+
+<example>
 
 ```ts
 // context/theme.ts
@@ -110,7 +122,11 @@ export function useTheme() {
 }
 ```
 
+</example>
+
 ### v-model with Components
+
+<example>
 
 ```vue
 <script setup lang="ts">
@@ -125,7 +141,11 @@ const count = defineModel<number>('count', { default: 0 });
 </template>
 ```
 
+</example>
+
 ### Async Components
+
+<example>
 
 ```ts
 import { defineAsyncComponent } from 'vue';
@@ -137,6 +157,10 @@ const AsyncModal = defineAsyncComponent({
   errorComponent: ErrorDisplay,
 });
 ```
+
+</example>
+
+</workflow>
 
 ## Best Practices
 
@@ -169,6 +193,8 @@ Deploy to static runners or reverse proxies. For Inertia apps, bundle assets ins
 
 ## CI/CD Actions
 
+<example>
+
 Example GitHub Actions workflow for building:
 
 ```yaml
@@ -189,6 +215,8 @@ jobs:
       - run: npm ci
       - run: npm run build
 ```
+
+</example>
 
 ## Official References
 

@@ -1,6 +1,6 @@
 ---
 name: flow
-description: "REQUIRED when .agents/ directory exists. Context-driven dev workflow with Beads integration. Auto-activate when: .agents/ directory present; Flow workflow intents such as setup, plan, PRD, design, research, docs, implement, sync, status, refresh, validate, revise, review, finish, archive, revert, or task; any /flow:* command in hosts that support it; editing spec.md or files in .agents/; beads/br commands; TDD workflow; spec-first planning; cross-session memory."
+description: "REQUIRED when .agents/ directory exists. Context-driven dev workflow with Beads integration. Produces spec-first plans, TDD-driven implementations with cross-session memory, and structured phase completions with verification evidence. Auto-activate when: .agents/ directory present; Flow workflow intents such as setup, plan, PRD, design, research, docs, implement, sync, status, refresh, validate, revise, review, finish, archive, revert, or task; any /flow:* command in hosts that support it; editing spec.md or files in .agents/; beads/br commands; TDD workflow; spec-first planning; cross-session memory. Not for standalone code edits outside the .agents/ workflow, simple file changes that don't need spec tracking, or direct tool use that doesn't involve Flow state."
 ---
 
 # Flow - Context-Driven Development
@@ -83,6 +83,8 @@ Codex currently runs the same workflows via the installed Flow skill and natural
 | `/flow-finish` | `/flow:finish` | Complete flow: verify, review, merge/PR |
 | `/flow-review` | `/flow:review` | Dispatch code review with Beads git range |
 
+<workflow>
+
 ## Task Workflow (TDD) - Beads-First
 
 **See `references/discipline.md` for iron laws, rationalization tables, and red flags.**
@@ -99,7 +101,27 @@ Codex currently runs the same workflows via the installed Flow skill and natural
 9. **Sync to Beads**: `br close {id} --reason "commit: {sha}"`
 10. **Sync to markdown**: run `/flow:sync` to update spec.md.
 
+</workflow>
+
+<guardrails>
+
 **CRITICAL:** Never write `[x]`, `[~]`, `[!]`, or `[-]` markers to spec.md manually. Beads is the source of truth — after ANY Beads state change, you MUST run `/flow:sync` to keep spec.md in sync.
+
+</guardrails>
+
+<validation>
+
+### TDD Task Validation Checkpoint
+
+Before marking a task complete, verify:
+
+- [ ] Failing test was confirmed to fail for the RIGHT reason before implementation
+- [ ] All tests pass after implementation (not just the new one)
+- [ ] Coverage target (>80%) was checked with actual numbers
+- [ ] Beads state was synced BEFORE editing spec.md
+- [ ] Commit message follows `<type>(<scope>): <description>` format
+
+</validation>
 
 ## Knowledge Flywheel
 
@@ -108,6 +130,8 @@ Codex currently runs the same workflows via the installed Flow skill and natural
 3. **Elevate** - At phase/flow completion, move reusable patterns to `patterns.md`
 4. **Synthesize** - During sync and archive, integrate learnings directly into cohesive, logically organized knowledge base chapters in `.agents/knowledge/`.
 5. **Inherit** - New flows read `patterns.md` + scan `.agents/knowledge/` chapters.
+
+<workflow>
 
 ## Phase Completion Protocol
 
@@ -123,6 +147,21 @@ When a phase completes:
 6. Await user confirmation
 7. Record checkpoint in Beads: `br comments add {epic_id} "Phase {N} checkpoint: {sha}"`
 8. Sync to markdown: run `/flow:sync` (MANDATORY)
+
+</workflow>
+
+<validation>
+
+### Phase Completion Validation Checkpoint
+
+Before claiming a phase is complete, verify:
+
+- [ ] Full test suite was run and output was read (not assumed passing)
+- [ ] Coverage was verified with actual numbers for phase files
+- [ ] `/flow:sync` was run after Beads state change (MANDATORY)
+- [ ] No spec.md markers were written manually
+
+</validation>
 
 ## Proactive Behaviors
 
@@ -163,6 +202,8 @@ For detailed instructions and directives for specific flow commands, refer to th
 - **[Review](references/review.md)** - `/flow:review`
 - **[Discipline](references/discipline.md)** - TDD, debugging, and verification iron laws
 
+<context>
+
 ## Companion Skills
 
 These Flow skills enhance specific phases of development. They activate automatically based on context, but can also be invoked explicitly.
@@ -198,6 +239,8 @@ These can be dispatched as specialized subagents during code review or design ev
 | requesting-code-review | `devils-advocate`, `security-auditor`, `architecture-critic`, `performance-analyst` as specialized reviewers |
 | receiving-code-review | `challenge` to evaluate feedback before implementing |
 | writing-plans | `consensus` for architectural decisions, `architecture-critic` for structural quality |
+
+</context>
 
 ## Official References
 

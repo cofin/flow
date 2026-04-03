@@ -2,7 +2,7 @@
 
 ## Core Data Flow
 
-```
+```text
 Raw SQL / Builder API / SQL File
         |
         v

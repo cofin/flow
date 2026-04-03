@@ -1,9 +1,11 @@
 ---
 name: bun
-description: "Auto-activate for bun.lockb, bunfig.toml. Usage of Bun as a high-performance JavaScript runtime, bundler, and test runner. Use when: running JS/TS code with Bun, using bun install, configuring Bun workspaces, or fixing low-latency node runtimes."
+description: "Auto-activate for bun.lockb, bunfig.toml. Usage of Bun as a high-performance JavaScript runtime, bundler, and test runner. Use when: running JS/TS code with Bun, using bun install, configuring Bun workspaces, or fixing low-latency node runtimes. Not for Node.js-specific APIs that Bun doesn't support, or Deno."
 ---
 
 # Bun Skill
+
+<workflow>
 
 ## Core Capabilities
 
@@ -20,9 +22,13 @@ Bun is a drop-in replacement for Node.js, focused on speed.
 - **Run Scripts**: `bun run script.ts` replaces `ts-node`.
 - **Test**: `bun test` is a Jest-compatible, ultra-fast test runner.
 
+<example>
+
     ```bash
     bun test --watch
     ```
+
+</example>
 
 - **Package Manager**: `bun install` is significantly faster than npm/yarn.
 
@@ -34,7 +40,7 @@ This section details how to integrate Bun into high-performance, polyglot system
 
 When integrating with Rust/Python backends:
 
-- **Shared Memory (ShmRing)**: For latency < 10µs, avoid piping JSON over stdout/stdin. Use shared memory ring buffers.
+- **Shared Memory (ShmRing)**: For latency < 10us, avoid piping JSON over stdout/stdin. Use shared memory ring buffers.
   - *Pattern*: Pointers/offsets only passed over socket; data stays in shared memory.
 - **Unix Domain Sockets (UDS)**: Use `Bun.connect()` and `Bun.listen()` with abstract namespaces (Linux) or file paths (macOS) if Shm not available.
 - **Serialization**:
@@ -58,6 +64,8 @@ When integrating with Rust/Python backends:
 - **Linting**: Use **Biome** (`bunx @biomejs/biome`) for instant linting/formatting.
 - **Globals**: Use `Bun.env`, `Bun.sleep`, but generally avoid Node.js globals unless necessary for library compatibility.
 - **Lockfile**: Commit `bun.lockb` for deterministic builds.
+
+</workflow>
 
 ## Official References
 

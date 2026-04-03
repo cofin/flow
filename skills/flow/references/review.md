@@ -14,6 +14,7 @@ Dispatch a code review for a flow's implementation with Beads-aware git range de
    - `.agents/specs/{flow_id}/metadata.json`
 2. **Read Project Context:** `.agents/patterns.md`
 3. **Load Beads context:**
+
    ```bash
    br show {epic_id}
    ```
@@ -29,6 +30,7 @@ br list --parent {epic_id} --status closed
 ```
 
 Each closed task has a reason like `"commit: abc1234"`. Use:
+
 - **Base:** commit before earliest task SHA
 - **Head:** latest task SHA or current HEAD
 

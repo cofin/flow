@@ -7,6 +7,8 @@ description: "Auto-activate when evaluating architectural decisions, comparing t
 
 Structured decision evaluation through stance rotation — analyze from advocate, critic, and neutral perspectives, then synthesize into a confidence-rated recommendation with concrete next steps.
 
+<workflow>
+
 ## Workflow
 
 ### Step 1: Select Mode
@@ -39,13 +41,22 @@ Weigh all three perspectives and produce a recommendation:
 4. **Would change if** — conditions that would flip the recommendation
 5. **Next steps** — concrete actions based on the recommendation
 
+</workflow>
+
+<validation>
+
 ### Validation Checkpoint
 
 Before delivering the synthesis, verify:
+
 - [ ] Each perspective contributed at least one unique point not raised by the others
 - [ ] The critic identified at least one genuine risk (not manufactured disagreement)
 - [ ] The recommendation confidence level is justified by the degree of inter-perspective agreement
 - [ ] If all three perspectives agree too easily, escalate to subagent mode
+
+</validation>
+
+<example>
 
 ## Example
 
@@ -58,11 +69,14 @@ Before delivering the synthesis, verify:
 | Critic | Team has no GraphQL experience — 2-3 month learning curve. Caching is harder. Existing REST clients need migration path. |
 
 **Synthesis:**
+
 - Agreement: Current API has over-fetching problems worth solving.
 - Disagreement: Whether the learning curve cost is justified given timeline.
 - Recommendation: **Adopt GraphQL for new endpoints only** (confidence: **medium**).
 - Would change if: Team had prior GraphQL experience (→ high confidence, full migration) or deadline is <3 months (→ stay REST).
 - Next steps: 1) Prototype one high-traffic endpoint. 2) Measure payload reduction. 3) Decide on full migration after prototype.
+
+</example>
 
 ## References
 

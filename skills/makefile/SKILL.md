@@ -1,9 +1,11 @@
 ---
 name: makefile
-description: "Auto-activate for Makefile, GNUmakefile. GNU Make patterns for uv-based Python project automation: .PHONY, targets, recipes. Use when: creating or editing a Makefile, adding development targets (install, clean, test, lint), or setting up self-documenting help."
+description: "Auto-activate for Makefile, GNUmakefile. GNU Make patterns for uv-based Python project automation: .PHONY, targets, recipes. Use when: creating or editing a Makefile, adding development targets (install, clean, test, lint), or setting up self-documenting help. Not for CMake (see cpp), Cargo (see rust), or non-Make build systems."
 ---
 
 # Makefile Skill
+
+<workflow>
 
 ## Overview
 
@@ -17,6 +19,8 @@ All projects should use a consistent `Makefile` structure to ensure developer fa
 ## Standard Template
 
 Copy this template to the root of new projects:
+
+<example>
 
 ```makefile
 SHELL := /bin/bash
@@ -99,6 +103,8 @@ test:                                               ## Run tests
  @echo "${OK} Tests passed ✨"
 ```
 
+</example>
+
 ## Best Practices
 
 1. **Emojis**: Use emojis consistent with the tool being used:
@@ -116,6 +122,8 @@ test:                                               ## Run tests
 
 2. **Output**: Always use the `${INFO}`, `${OK}`, `${WARN}`, `${ERROR}` variables to prefix status messages.
 3. **Silence**: Use `.SILENT:` (conditioned on `VERBOSE`) to keep the output clean for the user, revealing commands only when debugging.
+
+</workflow>
 
 ## Official References
 

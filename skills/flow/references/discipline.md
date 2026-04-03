@@ -5,13 +5,14 @@ Consolidated enforcement rules for TDD, debugging, and verification. These iron 
 
 ## TDD Iron Law
 
-```
+```text
 NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST
 ```
 
 Write code before the test? Delete it. Start over.
 
 **No exceptions:**
+
 - Don't keep it as "reference"
 - Don't "adapt" it while writing tests
 - Delete means delete
@@ -50,7 +51,7 @@ Write code before the test? Delete it. Start over.
 
 ## Debugging Iron Law
 
-```
+```text
 NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST
 ```
 
@@ -90,7 +91,7 @@ If 3+ fixes have failed: **STOP**. Question the architecture. Each fix revealing
 
 ## Verification Iron Law
 
-```
+```text
 NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
 ```
 
@@ -98,7 +99,7 @@ If you haven't run the verification command in this response, you cannot claim i
 
 ### The Gate Function
 
-```
+```text
 BEFORE claiming any status:
 1. IDENTIFY — What command proves this claim?
 2. RUN — Execute the command (fresh, complete)
@@ -133,6 +134,7 @@ BEFORE claiming any status:
 ### Requesting Review
 
 At phase completion or before merge:
+
 1. Get git range (base SHA to HEAD)
 2. Dispatch code review subagent with: what was implemented, spec requirements, git range
 3. Act on feedback: fix Critical immediately, fix Important before proceeding, note Minor for later
@@ -162,6 +164,7 @@ When executing parallel tasks or dispatching implementation work:
 ### Two-Stage Review
 
 After each task completion:
+
 1. **Spec compliance review** — Does implementation match requirements? Nothing missing, nothing extra?
 2. **Code quality review** — Is implementation well-built? Clean, tested, maintainable?
 

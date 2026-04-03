@@ -1,9 +1,11 @@
 ---
 name: shadcn
-description: "Auto-activate for components.json (shadcn config), cn() utility. Tailwind component expertise for shadcn/ui. Use when: using cn() utility, Radix primitives, shadcn add, copy-paste components, component CLI, dialogs, forms, data tables, or command palettes."
+description: "Auto-activate for components.json (shadcn config), cn() utility. Tailwind component expertise for shadcn/ui. Use when: using cn() utility, Radix primitives, shadcn add, copy-paste components, component CLI, dialogs, forms, data tables, or command palettes. Not for Material UI, Chakra UI, or other component libraries."
 ---
 
 # Shadcn/ui Component Library
+
+<workflow>
 
 ## Overview
 
@@ -39,6 +41,8 @@ For detailed guides and code examples, refer to the following documents in `refe
 
 When using shadcn/ui components within a Single Page Application (SPA), ensure navigation does not cause full page reloads. Use `asChild` to pass the routing `Link` child directly.
 
+<example>
+
 ```tsx
 import { Link } from '@tanstack/react-router'
 import { Button } from "@/components/ui/button"
@@ -47,6 +51,10 @@ import { Button } from "@/components/ui/button"
   <Link to="/settings">Go to Settings</Link>
 </Button>
 ```
+
+</example>
+
+</workflow>
 
 ---
 

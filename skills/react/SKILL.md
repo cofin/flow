@@ -1,13 +1,17 @@
 ---
 name: react
-description: "Auto-activate for .tsx, .jsx files, react imports. Expert knowledge for modern React development with TypeScript, including client components, framework-scoped server components, and upgrade-aware best practices. Use when building React components, managing state, or integrating with backend APIs."
+description: "Auto-activate for .tsx, .jsx files, react imports. Expert knowledge for modern React development with TypeScript, including client components, framework-scoped server components, and upgrade-aware best practices. Use when building React components, managing state, or integrating with backend APIs. Not for Vue (see vue), Svelte (see svelte), or Angular (see angular)."
 ---
 
 # React Framework Skill
 
+<workflow>
+
 ## Quick Reference
 
 ### Functional Component Pattern
+
+<example>
 
 ```tsx
 import { useState, useEffect, useCallback } from 'react';
@@ -41,7 +45,11 @@ export function ItemList({ title, items, onSelect }: Props) {
 }
 ```
 
+</example>
+
 ### Custom Hooks
+
+<example>
 
 ```tsx
 function useFetch<T>(url: string) {
@@ -70,7 +78,11 @@ function useFetch<T>(url: string) {
 }
 ```
 
+</example>
+
 ### React 19+ Server Components (When Applicable)
+
+<example>
 
 ```tsx
 // Server Components are framework-scoped (for example Next.js App Router)
@@ -87,7 +99,11 @@ export function InteractiveButton({ onClick }: { onClick: () => void }) {
 }
 ```
 
+</example>
+
 ### Form Handling
+
+<example>
 
 ```tsx
 import { useActionState } from 'react';
@@ -113,7 +129,11 @@ function ContactForm() {
 }
 ```
 
+</example>
+
 ### Context Pattern
+
+<example>
 
 ```tsx
 import { createContext, useContext, useState, ReactNode } from 'react';
@@ -143,6 +163,12 @@ export function useTheme() {
 }
 ```
 
+</example>
+
+</workflow>
+
+<guardrails>
+
 ## Best Practices
 
 - Use TypeScript with strict mode
@@ -151,6 +177,8 @@ export function useTheme() {
 - Use `key` props correctly (stable, unique identifiers)
 - Handle cleanup in `useEffect` return function
 - Use Error Boundaries for error handling
+
+</guardrails>
 
 ## References Index
 
@@ -184,6 +212,8 @@ Align Server Actions and components to runtimes offering full Server-Side script
 
 ## CI/CD Actions
 
+<example>
+
 Example GitHub Actions workflow for static build:
 
 ```yaml
@@ -204,6 +234,8 @@ jobs:
       - run: npm ci
       - run: npm run build
 ```
+
+</example>
 
 ## Official References
 
