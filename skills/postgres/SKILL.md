@@ -175,6 +175,251 @@ SELECT calls, round(mean_exec_time::numeric, 1) AS mean_ms, query
 
 ---
 
+## Monitoring Strategy
+
+### pg_stat_statements Setup
+
+Enable in `postgresql.conf` (requires restart):
+
+```ini
+shared_preload_libraries = 'pg_stat_statements'
+pg_stat_statements.track = all
+pg_stat_statements.max = 10000
+```
+
+```sql
+CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
+```
+
+### Key pg_stat_statements Queries
+
+```sql
+-- Top queries by total execution time
+SELECT
+    round(total_exec_time::numeric, 1) AS total_ms,
+    calls,
+    round(mean_exec_time::numeric, 1)  AS mean_ms,
+    round(stddev_exec_time::numeric, 1) AS stddev_ms,
+    round((100 * total_exec_time / sum(total_exec_time) OVER ())::numeric, 1) AS pct,
+    left(query, 120) AS query
+FROM pg_stat_statements
+ORDER BY total_exec_time DESC
+LIMIT 20;
+
+-- Top queries by average latency (outliers)
+SELECT
+    calls,
+    round(mean_exec_time::numeric, 2) AS mean_ms,
+    left(query, 120) AS query
+FROM pg_stat_statements
+WHERE calls > 100
+ORDER BY mean_exec_time DESC
+LIMIT 20;
+
+-- Cache hit ratio per query
+SELECT
+    calls,
+    round(100.0 * shared_blks_hit / nullif(shared_blks_hit + shared_blks_read, 0), 1) AS cache_hit_pct,
+    left(query, 120) AS query
+FROM pg_stat_statements
+ORDER BY shared_blks_read DESC
+LIMIT 20;
+
+-- Reset stats
+SELECT pg_stat_statements_reset();
+```
+
+### Sequential Scan Detection (pg_stat_user_tables)
+
+```sql
+-- Tables with high sequential scan counts
+SELECT
+    schemaname,
+    relname AS table_name,
+    seq_scan,
+    seq_tup_read,
+    idx_scan,
+    round(100.0 * seq_scan / nullif(seq_scan + idx_scan, 0), 1) AS seq_pct,
+    n_live_tup
+FROM pg_stat_user_tables
+WHERE seq_scan > 0
+  AND n_live_tup > 10000
+ORDER BY seq_scan DESC
+LIMIT 20;
+```
+
+### Bloat Detection
+
+```sql
+-- Table bloat estimate
+SELECT
+    schemaname,
+    tablename,
+    pg_size_pretty(pg_total_relation_size(schemaname || '.' || tablename)) AS total_size,
+    n_dead_tup,
+    n_live_tup,
+    round(100.0 * n_dead_tup / nullif(n_live_tup + n_dead_tup, 0), 1) AS dead_pct,
+    last_autovacuum,
+    last_autoanalyze
+FROM pg_stat_user_tables
+WHERE n_dead_tup > 1000
+ORDER BY n_dead_tup DESC
+LIMIT 20;
+
+-- Index bloat (using pg_relation_size vs estimated used)
+SELECT
+    indexrelname,
+    pg_size_pretty(pg_relation_size(indexrelid)) AS index_size,
+    idx_scan,
+    idx_tup_read,
+    idx_tup_fetch
+FROM pg_stat_user_indexes
+ORDER BY pg_relation_size(indexrelid) DESC
+LIMIT 20;
+```
+
+### Active Query Monitoring (pg_stat_activity)
+
+```sql
+-- Long-running queries
+SELECT
+    pid,
+    now() - query_start AS duration,
+    state,
+    wait_event_type,
+    wait_event,
+    left(query, 100) AS query
+FROM pg_stat_activity
+WHERE state != 'idle'
+  AND query_start < now() - INTERVAL '30 seconds'
+ORDER BY duration DESC;
+
+-- Blocking and blocked queries
+SELECT
+    blocked.pid          AS blocked_pid,
+    blocking.pid         AS blocking_pid,
+    left(blocked.query, 80)  AS blocked_query,
+    left(blocking.query, 80) AS blocking_query
+FROM pg_stat_activity blocked
+JOIN pg_stat_activity blocking
+  ON blocking.pid = ANY(pg_blocking_pids(blocked.pid))
+WHERE cardinality(pg_blocking_pids(blocked.pid)) > 0;
+
+-- Terminate a specific pid (superuser only)
+SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE pid = <target_pid>;
+```
+
+---
+
+## Autovacuum Tuning
+
+### Per-Table Settings
+
+Override global autovacuum settings for high-churn tables:
+
+```sql
+-- High-churn table: trigger vacuum more aggressively
+ALTER TABLE orders SET (
+    autovacuum_vacuum_scale_factor     = 0.01,   -- 1% dead tuples (default 20%)
+    autovacuum_analyze_scale_factor    = 0.005,  -- 0.5% changed for analyze
+    autovacuum_vacuum_cost_delay       = 2,      -- ms; lower = faster vacuum
+    autovacuum_vacuum_threshold        = 50,     -- minimum dead tuples before trigger
+    autovacuum_analyze_threshold       = 50
+);
+
+-- Large append-only table: raise threshold to reduce noise
+ALTER TABLE events SET (
+    autovacuum_vacuum_scale_factor  = 0.001,
+    autovacuum_analyze_scale_factor = 0.001
+);
+```
+
+### Dead Tuple Threshold Formula
+
+Autovacuum triggers when:
+```
+dead_tuples > autovacuum_vacuum_threshold + autovacuum_vacuum_scale_factor * n_live_tup
+```
+
+For a 10M-row table at the default `scale_factor=0.20`:
+- Threshold = 50 + 0.20 × 10,000,000 = **2,000,050 dead tuples** before vacuum runs.
+- Reduce `scale_factor` to `0.01` for tables with frequent UPDATE/DELETE.
+
+### Global postgresql.conf Tuning
+
+```ini
+# Reduce I/O impact of autovacuum
+autovacuum_vacuum_cost_delay = 2ms          # default 2ms (pg14+); was 20ms
+autovacuum_vacuum_cost_limit = 400          # default 200; allows faster passes
+
+# Scale factor defaults (override per-table for hot tables)
+autovacuum_vacuum_scale_factor  = 0.05     # default 0.20
+autovacuum_analyze_scale_factor = 0.02     # default 0.10
+
+# Worker count
+autovacuum_max_workers = 5                  # default 3
+```
+
+---
+
+## Connection Pooling
+
+### PgBouncer vs pgpool-II
+
+| Feature | PgBouncer | pgpool-II |
+|---------|-----------|-----------|
+| Primary purpose | Connection pooling | Pooling + load balancing + HA |
+| Modes | Session, Transaction, Statement | Session, Transaction |
+| Overhead | Very low (C, single process) | Higher (more features) |
+| Read scaling | No built-in | Routes SELECTs to replicas |
+| HA / failover | No (use external) | Yes (watchdog, VIP) |
+| Complexity | Simple config | More complex |
+| Typical use | Application → single primary | Need query routing or HA middleware |
+
+### PgBouncer Configuration (pgbouncer.ini)
+
+```ini
+[databases]
+mydb = host=127.0.0.1 port=5432 dbname=mydb
+
+[pgbouncer]
+listen_port        = 6432
+listen_addr        = 0.0.0.0
+auth_type          = scram-sha-256
+auth_file          = /etc/pgbouncer/userlist.txt
+pool_mode          = transaction        ; transaction mode = best performance
+max_client_conn    = 1000
+default_pool_size  = 25
+min_pool_size      = 5
+reserve_pool_size  = 5
+reserve_pool_timeout = 3
+server_idle_timeout = 600
+log_connections    = 0
+log_disconnections = 0
+```
+
+### Transaction vs Session Mode
+
+| Mode | Behaviour | Use Case |
+|------|-----------|----------|
+| **Transaction** | Server connection held only during transaction | Stateless apps; highest concurrency |
+| **Session** | Server connection held for full client session | Requires session state (temp tables, prepared statements) |
+| **Statement** | Released after each statement | Rarely used; autocommit only |
+
+<guardrails>
+
+**Transaction mode caveats**: prepared statements and advisory locks are incompatible with transaction mode — disable `prepared_statements` at the driver level or use `DEALLOCATE ALL` at transaction end.
+
+</guardrails>
+
+---
+
+## Cross-References
+
+- **Gemini PostgreSQL extension**: `gemini extensions install https://github.com/gemini-cli-extensions/postgresql` — 24 tools for query execution, schema inspection, EXPLAIN analysis, and more.
+
+---
+
 ## References Index
 
 For detailed guides and code examples, refer to the following documents in `references/`:

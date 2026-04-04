@@ -52,16 +52,18 @@ Choose the right distroless image:
 
 Always use the `:nonroot` tag variant for non-root execution.
 
-## Python Multi-Stage
+## Python Multi-Stage with uv Cache Mount
+
+Use `--mount=type=cache` to persist uv's download cache across builds. This avoids re-downloading packages on every build when only source code changes.
 
 ```dockerfile
 FROM python:3.12-slim-bookworm AS builder
 WORKDIR /app
 RUN pip install --no-cache-dir uv
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev --no-editable
-COPY . .
-RUN uv sync --frozen --no-dev
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev --no-editable
+COPY src/ ./src/
 
 FROM gcr.io/distroless/python3-debian12:nonroot
 WORKDIR /app
@@ -90,14 +92,16 @@ CMD ["dist/server.js"]
 
 ## Non-Root User
 
+UID 65532 is the `nonroot` user in distroless images. Align custom user IDs with this value for consistency across distroless and non-distroless images.
+
 ```dockerfile
-# For non-distroless images
+# For non-distroless images — use UID 65532 to match distroless nonroot
 FROM python:3.12-slim-bookworm
-RUN groupadd --gid 1001 appuser && \
-    useradd --uid 1001 --gid 1001 --shell /bin/false --create-home appuser
-USER appuser
-WORKDIR /home/appuser/app
-COPY --chown=appuser:appuser . .
+RUN groupadd --gid 65532 nonroot \
+ && useradd --uid 65532 --gid 65532 --no-create-home --shell /bin/false nonroot
+USER nonroot
+WORKDIR /app
+COPY --chown=nonroot:nonroot src/ ./src/
 ```
 
 ## Tini Init System

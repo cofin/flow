@@ -131,6 +131,48 @@ CREATE EXTENSION IF NOT EXISTS google_ml_integration;
 
 </example>
 
+## Kubernetes Operator Lifecycle
+
+The AlloyDB Omni Kubernetes Operator manages `DBCluster` custom resources (CRD: `dbclusters.alloydbomni.dbadmin.goog/v1`). Key lifecycle operations:
+
+- **HA failover**: enable automatic standby with `availabilityOptions.standby: Enabled` in `primarySpec`; the operator promotes the standby automatically on primary failure
+- **Read replica scaling**: `kubectl patch dbcluster <name> --type=merge -p '{"spec":{"readPoolSpec":{"replicas":<N>}}}'`
+- **Rolling parameter updates**: patching `primarySpec.parameters` triggers a controlled rolling restart with no data loss
+- **Backup**: annotate the DBCluster with `alloydbomni.dbadmin.goog/backup=true` to trigger an immediate backup
+- **Upgrades**: update `databaseVersion` or the image tag; the operator orchestrates a rolling restart
+
+See [references/kubernetes-operator.md](references/kubernetes-operator.md) for the full CRD spec, HA configuration YAML, scaling examples, health monitoring, and upgrade procedures.
+
+## Performance Diagnostics
+
+Key diagnostics for AlloyDB Omni production workloads:
+
+- **Query plans**: use `EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT)` to identify sequential scans, high-cost nodes, and buffer hit ratios
+- **Invalid indexes**: query `pg_class JOIN pg_index` where `indisvalid = false` to find indexes that need rebuilding with `REINDEX CONCURRENTLY`
+- **Bloat detection**: query `pg_stat_user_tables` for `n_dead_tup` and `n_live_tup` ratios; tables with dead-tuple ratio above 20% are candidates for `VACUUM ANALYZE`
+- **Active query monitoring**: `pg_stat_activity` filtered on `state = 'active'` and `wait_event_type` to identify lock waits and long-running queries
+
+See [references/performance.md](references/performance.md) for ready-to-run diagnostic queries, autovacuum tuning, and connection lifecycle management.
+
+## Columnar Engine Tuning
+
+The columnar engine accelerates analytical queries by caching selected columns in a compressed in-memory format.
+
+- **Memory limit**: set `google_columnar_engine.memory_limit` (e.g., `ALTER SYSTEM SET google_columnar_engine.memory_limit = '4GB'`) — allocate 10–25% of total container/node memory
+- **Recommended columns**: add wide tables with high read frequency and low update frequency via `SELECT google_columnar_engine_add('<table>')` or individual column-level population
+- **Cost/benefit check**: compare `EXPLAIN` output before and after adding a table — look for `Custom Scan (columnar scan)` nodes replacing `Seq Scan`
+- **Cache inspection**: `SELECT * FROM g_columnar_memory_usage` shows per-relation memory consumption and hit rates
+
+## Gemini CLI Extension
+
+The AlloyDB Omni Gemini CLI extension provides 24 tools for managing clusters, running diagnostics, and executing administrative operations from the command line:
+
+```bash
+gemini extensions install https://github.com/gemini-cli-extensions/alloydb-omni
+```
+
+Use this extension to complement operator-based workflows with interactive diagnostics, query analysis, and cluster introspection without writing raw `psql` or `kubectl` commands.
+
 ---
 
 ## References Index
@@ -141,6 +183,10 @@ For detailed guides and code examples, refer to the following documents in `refe
   - Container deployment (Docker/Podman), Kubernetes operator, local development workflows.
 - **[Configuration](references/config.md)**
   - Memory/CPU tuning, persistence volumes, networking, PostgreSQL parameter overrides.
+- **[Kubernetes Operator](references/kubernetes-operator.md)**
+  - DBCluster CRD spec, HA failover, read replica scaling, rolling updates, backup annotations, health monitoring, upgrade procedures.
+- **[Performance Diagnostics](references/performance.md)**
+  - Query planning, invalid index detection, bloat analysis, active query monitoring, columnar engine tuning, autovacuum, connection lifecycle.
 
 ---
 

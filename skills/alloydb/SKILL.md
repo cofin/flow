@@ -82,6 +82,9 @@ Use the AlloyDB Auth Proxy for connections from outside the VPC. For application
 - **Size read pools based on read traffic** — do not use read pools as a substitute for query optimization
 - **Set `--password` at cluster creation** — there is no way to recover the initial password; store it in Secret Manager
 - **Always specify `sslmode=require`** in connection strings for security
+- **Enable Cloud Monitoring** — configure `roles/monitoring.viewer` and set alerts on CPU, connections, and replication lag before going to production
+- **Run EXPLAIN ANALYZE before promoting queries** — always validate query plans with `EXPLAIN (ANALYZE, BUFFERS)` on a representative dataset before production deployment
+- **Rotate credentials periodically** — store passwords in Secret Manager and rotate on a schedule; use exponential backoff during rolling restarts
 
 </guardrails>
 
@@ -133,6 +136,117 @@ DATABASE_URL = "postgresql+asyncpg://postgres:password@127.0.0.1:5432/mydb"
 
 ---
 
+## Observability
+
+AlloyDB metrics are available under `alloydb.googleapis.com/database/postgresql/*` in Cloud Monitoring. Enable Cloud Monitoring before production launch.
+
+**Key metrics to watch:**
+- CPU utilization — alert above 80% sustained
+- Active connections — alert above 80% of `max_connections` (200 on pg18)
+- Replication lag on read pool nodes — alert above 30 seconds
+- Dead tuple count — high values indicate autovacuum falling behind
+
+**PromQL patterns** (Cloud Monitoring / Google Managed Prometheus):
+
+```promql
+# CPU utilization
+avg_over_time(alloydb_googleapis_com:database_postgresql_cpu_utilization[5m])
+
+# Active connections vs capacity
+alloydb_googleapis_com:database_postgresql_network_connections
+
+# Replication lag
+max by (instance_id)(alloydb_googleapis_com:database_postgresql_replication_replica_lag_seconds)
+```
+
+Required role: `roles/monitoring.viewer`. See [Observability Reference](references/observability.md) for full PromQL patterns, alert policy examples, and dashboard recommendations.
+
+---
+
+## Data Plane Operations
+
+Before promoting any query to production, validate with `EXPLAIN (ANALYZE, BUFFERS)`. Monitor live workload via `pg_stat_activity`.
+
+**Quick patterns:**
+
+```sql
+-- Active queries with duration
+SELECT pid, now() - query_start AS duration, state, query
+FROM pg_stat_activity
+WHERE state != 'idle'
+ORDER BY duration DESC;
+
+-- Tables with bloat
+SELECT relname, n_dead_tup, n_live_tup, last_autovacuum
+FROM pg_stat_user_tables
+WHERE n_dead_tup > 10000
+ORDER BY n_dead_tup DESC;
+```
+
+See [Operations Reference](references/operations.md) for EXPLAIN ANALYZE interpretation, bloat detection, autovacuum tuning, invalid index detection, and security hardening.
+
+---
+
+## Production Patterns
+
+### Auth Proxy Sidecar (Kubernetes)
+
+Run `alloydb-auth-proxy` as a sidecar container alongside the application pod. The sidecar uses the pod's workload identity (requires `roles/alloydb.client`) and refreshes IAM tokens automatically. The application connects to `127.0.0.1:5432` with no credential management in the app layer.
+
+### Credential Rotation
+
+Store the database password in Secret Manager. On rotation: add a new secret version, update the AlloyDB user password via `gcloud alloydb users set-password`, perform a rolling restart with exponential backoff, then disable the old secret version.
+
+### pg18 max_connections
+
+Set `max_connections=200` for PostgreSQL 18 instances as the production baseline. For workloads exceeding 200 concurrent connections, add PgBouncer in transaction mode rather than raising the limit further.
+
+See [Operations Reference](references/operations.md) for the full Kubernetes sidecar spec, rotation runbook, and connection pooling guidance.
+
+---
+
+## Disaster Recovery
+
+### Point-in-Time Recovery (PITR)
+
+AlloyDB continuous backup enables PITR to any second within the retention window (default 14 days). Restoration creates a new cluster — the original cluster is unaffected.
+
+```bash
+gcloud alloydb clusters restore RESTORED_CLUSTER_ID \
+    --region=REGION \
+    --network=NETWORK \
+    --source-cluster=projects/PROJECT_ID/locations/REGION/clusters/CLUSTER_ID \
+    --point-in-time="2025-06-15T14:30:00Z"
+```
+
+### Cross-Region Replica Promotion
+
+When the primary region is unavailable, promote the secondary cluster with:
+
+```bash
+gcloud alloydb clusters promote SECONDARY_CLUSTER_ID --region=SECONDARY_REGION
+```
+
+After promotion, update connection strings (via Secret Manager or environment config) to the promoted cluster endpoint. See [Operations Reference](references/operations.md) for the full failover runbook and checklist.
+
+---
+
+## Gemini CLI Extensions
+
+For AlloyDB tooling in Gemini CLI (34 tools: cluster management, query analysis, IAM, backups, and more):
+
+```bash
+gemini extensions install https://github.com/gemini-cli-extensions/alloydb
+```
+
+For PromQL metric templates, alert policy generators, and dashboard scaffolding:
+
+```bash
+gemini extensions install https://github.com/gemini-cli-extensions/alloydb-observability
+```
+
+---
+
 ## References Index
 
 For detailed guides and code examples, refer to the following documents in `references/`:
@@ -143,6 +257,10 @@ For detailed guides and code examples, refer to the following documents in `refe
   - Columnar engine, adaptive caching, ML embeddings, vector search, pgvector integration.
 - **[Migration](references/migration.md)**
   - Migration from Cloud SQL or on-prem PostgreSQL, Database Migration Service patterns.
+- **[Observability](references/observability.md)**
+  - PromQL patterns, Cloud Monitoring setup, key metrics, alert policies, dashboard recommendations, Query Insights.
+- **[Operations](references/operations.md)**
+  - EXPLAIN ANALYZE, pg_stat_activity, bloat detection, autovacuum tuning, invalid indexes, security hardening, PITR, cross-region failover, credential rotation, Auth Proxy sidecar.
 
 ---
 
