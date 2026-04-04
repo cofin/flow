@@ -212,3 +212,11 @@ tmp/
 ref/
 .agent
 docs/superpowers/
+.claude/settings.local.json
+.codex/config.toml
+.vscode/mcp.json
+opencode.json
+gemini.mcp.json
+cline.mcp.json
+cursor.mcp.json
+windsurf.mcp.json
