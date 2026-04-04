@@ -68,6 +68,7 @@ Select task from `br ready` output. If multiple ready tasks, ask user which to s
 ### 2.2 Fallback: Parse spec.md
 
 If Beads unavailable or no tasks found:
+
 1. Parse `spec.md` Implementation Plan section
 2. Find first pending task (not yet in Beads or no status)
 3. Create task in Beads if missing
@@ -95,9 +96,10 @@ br update {new_task_id} --notes "Phase {N}, Task {M}. Files: {affected_files}. C
 br update {task_id} --status in_progress
 ```
 
-**CRITICAL:** 
-- Always include `--description` when creating tasks, then add `--notes` via `br update`
-- Beads is the source of truth - do NOT write `[~]` markers to spec.md
+**CRITICAL:**
+
+* Always include `--description` when creating tasks, then add `--notes` via `br update`
+* Beads is the source of truth - do NOT write `[~]` markers to spec.md
 
 ### 3.2 Write Failing Tests (Red Phase)
 
@@ -190,7 +192,7 @@ CI=true {test_command}
 
 Present step-by-step verification for user:
 
-```
+```text
 Manual Verification Steps:
 1. {Command to run}
 2. {Expected outcome}
@@ -243,14 +245,15 @@ If implementation fails:
 4. If blocked, run `br update {task_id} --status blocked --notes "BLOCKED: {reason}"`
 
 **Companion Skills for Debugging:**
-- Use `flow:deepthink` to track hypothesis evolution and prevent circular investigation when debugging complex issues.
-- Use `flow:tracer` to systematically trace execution paths before forming hypotheses about root causes.
+
+* Use `flow:deepthink` to track hypothesis evolution and prevent circular investigation when debugging complex issues.
+* Use `flow:tracer` to systematically trace execution paths before forming hypotheses about root causes.
 
 ---
 
 ## Final Summary
 
-```
+```text
 Implementation Progress: {flow_id}
 
 Tasks: {completed}/{total}
@@ -272,7 +275,7 @@ Next Task: {description}
 
 1. **TDD MANDATORY** - Write failing tests first
 2. **BEADS IS SOURCE OF TRUTH** - Never write `[x]` or `[~]` markers to spec.md
-4. **LEARNINGS CAPTURE** - Record patterns as discovered
-5. **PHASE CHECKPOINTS** - Verify and checkpoint at phase end
-6. **NO SKIP** - Use `br close {id} --reason "Skipped: {reason}"` if task must be skipped
-7. **USE `br ready`** - Always check Beads for next task
+3. **LEARNINGS CAPTURE** - Record patterns as discovered
+4. **PHASE CHECKPOINTS** - Verify and checkpoint at phase end
+5. **NO SKIP** - Use `br close {id} --reason "Skipped: {reason}"` if task must be skipped
+6. **USE `br ready`** - Always check Beads for next task

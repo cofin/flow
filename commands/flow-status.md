@@ -35,6 +35,7 @@ br show {epic_id} --format json
 ```
 
 Parse JSON to count:
+
 - `pending` tasks
 - `in_progress` tasks  
 - `completed` tasks
@@ -45,6 +46,7 @@ Calculate progress: `completed / total * 100`
 ### Fallback: Parse spec.md
 
 If Beads unavailable:
+
 1. Read `.agents/specs/{flow_id}/spec.md` (unified spec+plan)
 2. Parse Implementation Plan section
 3. Count tasks by status (from Beads export or markers)

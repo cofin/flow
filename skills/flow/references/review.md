@@ -86,13 +86,13 @@ Assessment: {Ready to proceed | Issues need attention}
 
 ### Receiving Review Results
 
-Follow code review reception discipline:
+Follow the **Critical Thinking Iron Law** for every review finding:
 
 - **No performative agreement** ("You're absolutely right!", "Great point!")
-- **Verify** suggestions against codebase before implementing
-- **Push back** with technical reasoning if reviewer is wrong
-- **YAGNI check:** If reviewer suggests features not in spec, question the need
-- **Clarify** all unclear items before implementing any
+- **Verify** suggestions against codebase before implementing. **Read the actual code.**
+- **Push back** with technical reasoning if reviewer is wrong.
+- **YAGNI check:** If reviewer suggests features not in spec, question the need.
+- **Clarify** all unclear items before implementing any.
 
 ### Acting on Feedback
 

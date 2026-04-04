@@ -11,6 +11,7 @@ Conducting research for: **$ARGUMENTS**
 ## Phase 0: Setup Check
 
 Using the **Universal File Resolution Protocol**, verify:
+
 - **Product Definition** (`.agents/product.md`)
 - **Tech Stack** (`.agents/tech-stack.md`)
 - **Workflow** (`.agents/workflow.md`)
@@ -29,6 +30,7 @@ If ANY missing: "Flow not set up. Run `/flow-setup` first." → HALT
 ### 1.2 Classify Research Type
 
 Determine type:
+
 - **New Feature:** Patterns, libraries, implementation approaches
 - **Bug Investigation:** Root cause, reproduction steps
 - **Integration:** External systems, APIs, protocols
@@ -40,6 +42,7 @@ Determine type:
 > "I will conduct research on: '[Topic]' (Type: [Type])
 >
 > My research will cover:
+>
 > 1. Codebase Analysis - Existing patterns and architecture
 > 2. Library Documentation - Relevant API docs
 > 3. Prior Art - Similar implementations
@@ -217,6 +220,7 @@ Create explicit research tasks with status tracking:
 ```
 
 **Companion Skills for Risk Assessment:**
+
 - `flow:security-auditor` — for security risk identification and threat modeling
 - `flow:performance-analyst` — for performance risk identification and scaling concerns
 - `flow:architecture-critic` — for structural risk assessment and maintainability evaluation
@@ -230,6 +234,7 @@ Create explicit research tasks with status tracking:
 1. **Generate Research ID:** `research_{shortname}`
 
 2. **Create Research Directory:**
+
    ```bash
    mkdir -p .agents/research/{research_id}
    ```
@@ -281,6 +286,7 @@ Create explicit research tasks with status tracking:
    ```
 
 4. **Create Metadata:** `.agents/research/{research_id}/metadata.json`
+
    ```json
    {
      "research_id": "{research_id}",
@@ -317,6 +323,7 @@ Create explicit research tasks with status tracking:
 ## Quality Gates
 
 Before completion, verify:
+
 - [ ] Codebase analysis covers relevant modules
 - [ ] At least 2 libraries documented (if applicable)
 - [ ] At least 3 risks identified

@@ -10,6 +10,7 @@ Validate Flow project integrity and optionally fix issues.
 ## Phase 1: Directory Structure
 
 Check required files exist:
+
 - [ ] `.agents/product.md`
 - [ ] `.agents/tech-stack.md`
 - [ ] `.agents/workflow.md`
@@ -45,6 +46,7 @@ For each flow in `.agents/flows.md`:
 ## Phase 4: Spec Integrity
 
 For each spec.md:
+
 - Task IDs are sequential
 - Status markers are valid: `[ ]`, `[~]`, `[x]`, `[!]`, `[-]`
 - Checkpoint SHAs exist in git history
@@ -84,6 +86,7 @@ Flow Validation Report
 ## Phase 7: Auto-Fix (if --fix)
 
 If `--fix` argument provided:
+
 - Create missing files from templates
 - Sync Beads task counts
 - Add missing index files

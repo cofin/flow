@@ -44,7 +44,7 @@ br status
 
 ## Phase 5: Report
 
-```
+```text
 Flow Refresh Complete
 ─────────────────────
 Since last sync ({timestamp}):

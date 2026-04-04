@@ -129,6 +129,49 @@ BEFORE claiming any status:
 
 ---
 
+## Critical Thinking Iron Law
+
+```text
+NO PROPOSALS OR CLAIMS WITHOUT CRITICAL REASSESSMENT FIRST
+```
+
+Before accepting a claim (your own or others), proposing a solution, or making a technical decision, you **MUST** run it through the **CRITICAL REASSESSMENT** pattern.
+
+**No exceptions:**
+
+- Even if it "seems obvious"
+- Even if it's "the only way"
+- Even if you've done it before
+
+### The CRITICAL REASSESSMENT Pattern
+
+1. **EVALUATE ACCURACY** — Verify facts. Identify unstated assumptions. Check for logical gaps.
+2. **EVALUATE COMPLETENESS** — Look for missing considerations, omitted perspectives, and failure modes.
+3. **EVALUATE REASONING QUALITY** — Check if conclusions are proportional to evidence. Identify logical fallacies.
+4. **INVESTIGATE IF NEEDED** — Read actual code and docs. **Never reason from memory.**
+5. **DELIVER HONEST ASSESSMENT** — Provide specific flaws or explain *why* reasoning holds. Avoid hedging and meta-commentary.
+
+### Critical Thinking Rationalizations
+
+| Excuse | Reality |
+|--------|---------|
+| "I've done this 100 times" | This codebase or context might be different. Verify. |
+| "Reviewer knows better" | Reviewers are human (or AI). They can be wrong. |
+| "It's just a simple change" | Simple changes have side effects. |
+| "Don't want to be negative" | Honesty > performance. |
+
+### Critical Thinking Red Flags — STOP
+
+- Hedging: "This might be right but could be wrong"
+- Reflexive agreement: "You're absolutely right!"
+- Proposing solutions without investigating the actual code first
+- Meta-commentary: "Let me challenge this for you" (just do the analysis)
+- Manufacture of 50/50 doubt (no artificial balance)
+
+**Full reference:** `superpowers:perspectives:critical-thinking`
+
+---
+
 ## Code Review Discipline
 
 ### Requesting Review
@@ -141,11 +184,11 @@ At phase completion or before merge:
 
 ### Receiving Review
 
-- No performative agreement ("You're absolutely right!", "Great point!")
-- Verify suggestions against codebase before implementing
-- Push back with technical reasoning if reviewer is wrong
-- YAGNI check: if reviewer suggests adding unused features, question the need
-- Clarify all unclear items BEFORE implementing any
+- **No performative agreement** ("You're absolutely right!", "Great point!")
+- **Verify** suggestions against codebase before implementing (follow **Critical Thinking Iron Law**)
+- **Push back** with technical reasoning if reviewer is wrong
+- **YAGNI check:** if reviewer suggests adding unused features, question the need
+- **Clarify** all unclear items BEFORE implementing any
 
 **Full reference:** `superpowers:requesting-code-review`, `superpowers:receiving-code-review`
 

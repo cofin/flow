@@ -18,13 +18,20 @@ Read `.agents/specs/{flow_id}/`:
 - spec.md
 - learnings.md
 
-### Phase 2: Identify Revision Type
+### Phase 2: Identify Revision Need (Critical Thinking)
 
-Ask user: Spec, Plan, or Both?
+Follow the **Critical Thinking Iron Law** to evaluate the implementation issue:
+
+- **EVALUATE ACCURACY** — What exactly is failing? Read the code/logs.
+- **EVALUATE COMPLETENESS** — What was missing in the original spec?
+- **EVALUATE REASONING QUALITY** — Why did the original plan fail?
+- **INVESTIGATE** — Confirm root cause before proposing revision.
+
+Ask user for guidance on the proposed revision.
 
 ### Phase 3: Document Reason
 
-Log why revision is needed.
+Log why revision is needed based on your investigation. **Deliver honest assessment** of the original spec's flaws.
 
 ### Phase 4: Make Changes
 

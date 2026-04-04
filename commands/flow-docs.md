@@ -11,6 +11,7 @@ Managing documentation for Flow project.
 ## Phase 0: Setup Check
 
 Using the **Universal File Resolution Protocol**, verify:
+
 - **Product Definition** (`.agents/product.md`)
 - **Tech Stack** (`.agents/tech-stack.md`)
 - **Workflow** (`.agents/workflow.md`)
@@ -40,6 +41,7 @@ If ANY missing: "Flow not set up. Run `/flow-setup` first." → HALT
 ### Scan Documentation
 
 Identify all docs:
+
 - Flow specs (`.agents/`)
 - PRD folders (`.agents/specs/*/`)
 - Research folders (`.agents/research/*/`)
@@ -47,6 +49,7 @@ Identify all docs:
 ### Quality Gate Checks
 
 For each document verify:
+
 - **Structural:** Required sections present, no empty placeholders
 - **Content:** No `[TODO]`, `[NEEDS CLARIFICATION]` tags
 - **Consistency:** Terminology matches, references accurate

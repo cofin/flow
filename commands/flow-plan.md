@@ -24,7 +24,7 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
 You are STRICTLY FORBIDDEN from:
 
 - Writing, editing, or modifying ANY source code files
-- Creating new code files (*.py, *.ts, *.js, *.rs, etc.)
+- Creating new code files (*.py,*.ts, *.js,*.rs, etc.)
 - Running implementation commands
 - Making ANY changes outside of `.agents/` directory
 
@@ -93,10 +93,11 @@ You MAY ONLY:
     - Identify gaps in understanding that require user input
 
 **Companion Skills for Code Analysis:**
+
 - Use `flow:tracer` for systematic codebase exploration — start at known entry points and trace outward rather than reading files randomly. Use execution trace mode to understand features and dependency trace mode to map component relationships.
 - Use `flow:architecture-critic` to evaluate how planned changes fit existing component boundaries and structural patterns.
 
-4. **Present Code Analysis Report:**
+1. **Present Code Analysis Report:**
 
     > "**Code Analysis Complete**
     >
@@ -126,22 +127,24 @@ You MAY ONLY:
     - **Constraint Check:** "Based on `patterns.md` and the existing code at [path], we should use X. Do you agree?"
 
 **Companion Skills for Decision Points:**
+
 - When multiple valid implementation approaches exist, use `flow:consensus` to evaluate them from advocate, critic, and neutral stances before choosing.
 - Apply `flow:challenge` to verify the plan's assumptions against existing patterns. Do not assume compatibility — investigate and confirm.
 
     **Example BAD questions:**
-    - "Is this service provided by DI?"
-    - "What database are you using?"
-    - "How should errors be handled?"
+  - "Is this service provided by DI?"
+  - "What database are you using?"
+  - "How should errors be handled?"
 
     **Example GOOD questions:**
-    - "I found `workspace_file_service` is injected in `src/services/workspace.py:45` using Dishka's `@inject` decorator. However, the CLI command at `src/cli/ingest.py:23` doesn't have the corresponding `@inject`. Should I add it there, or is there a different injection pattern for CLI commands?"
-    - "The existing error handling in `src/handlers/base.py:78` uses a custom `ServiceError` exception. Should this new feature follow the same pattern, or do you want a different approach?"
-    - "I see tests in `tests/unit/services/` use pytest fixtures from `conftest.py`. Should I follow this pattern or is there a specific test structure you prefer?"
+  - "I found `workspace_file_service` is injected in `src/services/workspace.py:45` using Dishka's `@inject` decorator. However, the CLI command at `src/cli/ingest.py:23` doesn't have the corresponding `@inject`. Should I add it there, or is there a different injection pattern for CLI commands?"
+  - "The existing error handling in `src/handlers/base.py:78` uses a custom `ServiceError` exception. Should this new feature follow the same pattern, or do you want a different approach?"
+  - "I see tests in `tests/unit/services/` use pytest fixtures from `conftest.py`. Should I follow this pattern or is there a specific test structure you prefer?"
 
-3. **Draft unified `spec.md`:**
+1. **Draft unified `spec.md`:**
     - The spec.md must contain BOTH requirements AND implementation plan in a single file
     - Structure:
+
       ```markdown
       # Flow: {flow_name}
 
@@ -170,6 +173,7 @@ You MAY ONLY:
       - [ ] 2.1 Task description
       ...
       ```
+
     - Include "Code Analysis Summary" section with files examined
     - Include "Relevant Patterns" section (extracted from `patterns.md`)
     - Include "Parent Context" section (if applicable)
@@ -179,7 +183,7 @@ You MAY ONLY:
     - **Verification:** Add "Manual Verification" task at end of Phases
     - Reference specific files identified in code analysis
 
-4. **Confirm:** Ask user to approve.
+2. **Confirm:** Ask user to approve.
 
 ---
 
@@ -250,10 +254,12 @@ Announce:
 > **NO CODE HAS BEEN MODIFIED.**
 >
 > **Code Analysis Summary:**
+>
 > - Files examined: [count]
 > - Key files: [list]
 >
 > **Artifacts:**
+>
 > - Spec: `.agents/specs/<flow_id>/spec.md` ([N] phases, [M] tasks)
 >
 > **To begin implementation, explicitly run:**

@@ -61,7 +61,7 @@ If outdated, suggest: `curl -fsSL https://raw.githubusercontent.com/Dicklesworth
 
 **For each discovered spec directory:**
 
-```
+```text
 Found [N] specs in legacy locations:
 
 Active (specs/active/):
@@ -116,9 +116,9 @@ From user-auth/learnings.md:
   → Removing from migration
 ```
 
-3. Present validated learnings for confirmation
-4. Merge confirmed patterns into `.agents/patterns.md`
-5. Archive original learnings.md with migration note
+1. Present validated learnings for confirmation
+2. Merge confirmed patterns into `.agents/patterns.md`
+3. Archive original learnings.md with migration note
 
 ### 0.1.4 Knowledge Base Check
 

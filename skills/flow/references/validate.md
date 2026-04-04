@@ -73,7 +73,7 @@ git status
 IRON LAW: NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
 ```
 
-Every validation check must produce evidence, not assertions:
+Every validation check must produce evidence, not assertions. Follow the **Critical Thinking Iron Law** for every finding:
 
 | Check | Evidence Required | Not Sufficient |
 |-------|-------------------|----------------|
@@ -82,7 +82,7 @@ Every validation check must produce evidence, not assertions:
 | Patterns valid | File refs verified on disk | Previous check |
 | Git clean | `git status` output shown | Assumed clean |
 
-Run each check fresh. Read output. Report actual results.
+Run each check fresh. Read output. Report actual results. **Deliver honest assessment** without hedging or meta-commentary.
 
 ## Phase 6: Report & Fix
 

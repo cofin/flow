@@ -11,6 +11,7 @@ Creating ephemeral exploration flow: **$ARGUMENTS**
 ## Overview
 
 A "task" is a lightweight, temporary flow for:
+
 - Proof of concept exploration
 - Quick experiments
 - Research spikes
@@ -41,6 +42,7 @@ This creates:
 ## Phase 2: Task Directory
 
 Create `.agents/tasks/{task_id}/`:
+
 - `notes.md` - Scratch notes
 - `findings.md` - What you learned
 
@@ -49,6 +51,7 @@ Create `.agents/tasks/{task_id}/`:
 ## Phase 3: Work Freely
 
 During task:
+
 - No TDD required
 - No commit conventions
 - No coverage requirements

@@ -11,6 +11,7 @@ Revising flow: **$ARGUMENTS**
 ## Phase 1: Load Current State
 
 Read:
+
 - `.agents/specs/{flow_id}/spec.md`
 - `.agents/specs/{flow_id}/learnings.md`
 
@@ -21,6 +22,7 @@ Read:
 Ask user:
 
 > **What needs to be revised?**
+>
 > - Spec - Requirements changed
 > - Plan - Tasks need adjustment
 > - Both - Significant pivot
@@ -39,11 +41,13 @@ Ask user:
 Based on revision type:
 
 ### Spec Revision
+
 1. Open spec.md in editor mode
 2. User makes changes
 3. Validate acceptance criteria still testable
 
 ### Plan Revision
+
 1. Show current task status
 2. Allow adding/removing/reordering tasks
 3. Update task numbers and dependencies
@@ -73,6 +77,7 @@ Append to `.agents/specs/{flow_id}/revisions.md`:
 ## Phase 6: Sync Beads
 
 If plan changed:
+
 ```bash
 # Update existing tasks with revision notes
 br update {affected_task_ids} --notes "Revised: {reason}"
@@ -104,4 +109,4 @@ git commit -m "chore(revise): {flow_id} - {brief description}"
 
 1. **LOG EVERYTHING** - All revisions documented
 2. **BEADS FIRST** - Update Beads before syncing markdown
-4. **PRESERVE HISTORY** - Never delete, only append
+3. **PRESERVE HISTORY** - Never delete, only append

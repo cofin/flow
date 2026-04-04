@@ -43,6 +43,12 @@ clean:                                              ## Cleanup temporary build a
 	@rm -rf dist/
 	@echo "${OK} Working directory cleaned"
 
+.PHONY: lint
+lint:                                               ## Lint and auto-fix all markdown files
+	@echo "${INFO} Linting and fixing markdown files..."
+	@npx markdownlint-cli2 --fix "skills/**/*.md" "commands/**/*.md" "docs/**/*.md"
+	@echo "${OK} Markdown linting passed"
+
 .PHONY: build
 build:                                              ## Build the package
 	@echo "${INFO} Building package... 📦"

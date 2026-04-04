@@ -24,7 +24,7 @@ CRITICAL: You must validate the success of every tool call.
 You are STRICTLY FORBIDDEN from:
 
 - Writing, editing, or modifying ANY source code files
-- Creating new code files (*.py, *.ts, *.js, *.rs, etc.)
+- Creating new code files (*.py,*.ts, *.js,*.rs, etc.)
 - Running implementation commands
 - Making ANY changes outside of `.agents/` directory
 
@@ -104,11 +104,12 @@ You MAY ONLY:
     - Get user confirmation before proceeding
 
 **Companion Skills for Roadmapping:**
+
 - Use `flow:consensus` to evaluate proposed chapter breakdown from advocate/critic/neutral stances. The advocate explores why this decomposition enables parallel work; the critic probes for hidden dependencies.
 - Use `flow:architecture-critic` to evaluate cross-chapter boundaries, shared interfaces, and integration points.
 - Apply `flow:challenge` to verify assumptions about existing system constraints.
 
-5. **Constraint Check:**
+1. **Constraint Check:**
     - "Based on `patterns.md`, I'll ensure X. Any concerns?"
 
 ---
@@ -205,6 +206,7 @@ You MAY ONLY:
     **2.4 Generate Unified Spec (`.agents/specs/` ONLY):**
     - Generate a single `spec.md` containing BOTH requirements AND implementation plan
     - The spec.md must follow this structure:
+
       ```markdown
       # Flow: {flow_name}
       ## Specification
@@ -216,6 +218,7 @@ You MAY ONLY:
       ### Phase 2: {name}
       ...
       ```
+
     - Create Beads tasks under the chapter's epic
     - **ONLY write to `.agents/specs/<flow_id>/` - NO other directories**
 

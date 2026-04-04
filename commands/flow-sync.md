@@ -62,6 +62,7 @@ Parse the JSON output. Map each task's Beads status to a markdown marker:
 ## Phase 5: Update Metadata
 
 Update `.agents/specs/{flow_id}/metadata.json`:
+
 - Set `"synced_at": "{ISO timestamp}"`
 - Set `"updated_at": "{ISO timestamp}"`
 

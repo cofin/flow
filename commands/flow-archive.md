@@ -57,6 +57,7 @@ Or read `.agents/specs/{flow_id}/spec.md` Implementation Plan section.
 1. Create `.agents/archive/` if missing.
 2. **Generate Summary:**
    Create `.agents/archive/{flow_id}/summary.md`:
+
    ```markdown
    # Archive Summary: {flow_id}
    **Archived:** {date}
@@ -64,10 +65,13 @@ Or read `.agents/specs/{flow_id}/spec.md` Implementation Plan section.
    **Elevated Patterns:**
    - {list elevated patterns}
    ```
+
 3. **Move Directory:**
+
    ```bash
    mv .agents/specs/{flow_id} .agents/archive/{flow_id}
    ```
+
 4. **Update Metadata:**
    Update `.agents/archive/{flow_id}/metadata.json`:
    - Set `"status": "archived"`
@@ -78,6 +82,7 @@ Or read `.agents/specs/{flow_id}/spec.md` Implementation Plan section.
 ## Phase 5: Registry Update
 
 Edit `.agents/flows.md`:
+
 1. Find entry for `{flow_id}`.
 2. Move from "Active" section to "Archived" section.
 3. Update link to: `[./archive/{flow_id}/](./archive/{flow_id}/)`
@@ -88,10 +93,13 @@ Edit `.agents/flows.md`:
 
 1. Get `beads_epic_id` from metadata.
 2. Close epic:
+
    ```bash
    br close {epic_id} --reason "Flow archived"
    ```
+
 3. Verify closure:
+
    ```bash
    br show {epic_id}
    ```
@@ -101,14 +109,18 @@ Edit `.agents/flows.md`:
 ## Phase 7: Git Commit
 
 1. **Check Ignore Status:**
+
    ```bash
    git check-ignore .agents/
    ```
+
 2. **Commit (if not ignored):**
+
    ```bash
    git add .agents/patterns.md .agents/flows.md .agents/knowledge/ .agents/archive/{flow_id}/
    git commit -m "chore(archive): {flow_id} complete"
    ```
+
    *If ignored, skip commit and notify user.*
 
 ---
@@ -118,6 +130,7 @@ Edit `.agents/flows.md`:
 > "Flow '{flow_id}' archived successfully.
 >
 > **Summary:**
+>
 > - ID: {flow_id}
 > - Location: .agents/archive/{flow_id}/
 > - Patterns Elevated: {count}

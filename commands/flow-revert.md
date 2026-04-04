@@ -11,6 +11,7 @@ Reverting: **$ARGUMENTS**
 ## Phase 1: Parse Target
 
 Determine revert scope:
+
 - `flow {flow_id}` - Revert entire flow
 - `phase {flow_id} {N}` - Revert phase N
 - `task {flow_id} {N}` - Revert single task
@@ -33,7 +34,7 @@ For phase/task, filter by specific markers.
 
 Show what will be reverted:
 
-```
+```text
 Revert Target: {scope}
 
 Commits to revert:
