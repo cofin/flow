@@ -234,6 +234,7 @@ gcloud container node-pools create tpu-pool \
 ```
 
 **Framework references for TPU workloads:**
+
 - **vLLM**: High-throughput LLM serving, supports TPU v4/v5e
 - **JetStream**: Google's high-performance inference framework for TPU
 - **KubeRay**: Ray cluster operator for distributed training and inference (`helm install kuberay-operator kuberay/kuberay-operator`)

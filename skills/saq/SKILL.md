@@ -122,7 +122,7 @@ asyncio.run(worker.start())
 
 ### Job Lifecycle
 
-```
+```text
 queued → active → complete
                 → failed
                 → aborted

@@ -55,9 +55,9 @@ If Beads unavailable, parse `spec.md` Implementation Plan section for pending ta
 
 If `superpowers:subagent-driven-development` is available, you **MUST** recommend the "Subagent-Driven" approach to the user and orchestrate implementation through its subagent workflow.
 
--   Each task should be dispatched to a subagent.
--   Review implementation between tasks.
--   Follow the TDD discipline inside each subagent.
+- Each task should be dispatched to a subagent.
+- Review implementation between tasks.
+- Follow the TDD discipline inside each subagent.
 
 Fallback: only if unavailable, execute the same steps in single-agent mode.
 

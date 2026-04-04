@@ -337,11 +337,13 @@ ALTER TABLE events SET (
 ### Dead Tuple Threshold Formula
 
 Autovacuum triggers when:
-```
+
+```text
 dead_tuples > autovacuum_vacuum_threshold + autovacuum_vacuum_scale_factor * n_live_tup
 ```
 
 For a 10M-row table at the default `scale_factor=0.20`:
+
 - Threshold = 50 + 0.20 × 10,000,000 = **2,000,050 dead tuples** before vacuum runs.
 - Reduce `scale_factor` to `0.01` for tables with frequent UPDATE/DELETE.
 

@@ -91,7 +91,7 @@ GPU workloads require explicit concurrency settings — Cloud Run cannot auto-sc
 
 **Formula:**
 
-```
+```text
 --concurrency = (model_instances × parallel_queries) + (model_instances × batch_size)
 ```
 

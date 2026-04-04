@@ -39,9 +39,9 @@ You MAY ONLY:
 
 When Superpowers skills are available, they MUST be used in the Planning workflow:
 
-1.  **Brainstorming Phase:** Invoke `superpowers:brainstorming` to explore the user's intent and requirements before starting code analysis.
-2.  **Redirect Output:** Force the output of `superpowers:brainstorming` and `superpowers:writing-plans` to `.agents/specs/<flow_id>/spec.md`.
-3.  **Self-Review Phase:** Invoke `code-reviewer` (via `superpowers:requesting-code-review`) once the unified `spec.md` is drafted to ensure it meets requirements and adheres to project patterns.
+1. **Brainstorming Phase:** Invoke `superpowers:brainstorming` to explore the user's intent and requirements before starting code analysis.
+2. **Redirect Output:** Force the output of `superpowers:brainstorming` and `superpowers:writing-plans` to `.agents/specs/<flow_id>/spec.md`.
+3. **Self-Review Phase:** Invoke `code-reviewer` (via `superpowers:requesting-code-review`) once the unified `spec.md` is drafted to ensure it meets requirements and adheres to project patterns.
 
 **NEVER** use `docs/superpowers/` for Flow-related planning documents.
 

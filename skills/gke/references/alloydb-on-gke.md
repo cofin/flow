@@ -6,7 +6,7 @@ Production patterns for connecting GKE workloads to AlloyDB using the Auth Proxy
 
 The AlloyDB Auth Proxy runs as a **sidecar container** in the same Pod as the application. The proxy handles authentication (via Workload Identity) and encryption, and exposes AlloyDB on `localhost:5432`. The application connects as if to a local Postgres instance.
 
-```
+```text
 Pod
 ├── app-container  →  localhost:5432  →  alloydb-auth-proxy  →  AlloyDB (private IP)
 └── alloydb-auth-proxy (sidecar)
@@ -578,7 +578,7 @@ If the metric is not yet readable, apply the HPA with CPU/Memory only first, the
 
 ## Connection String Format
 
-```
+```text
 postgresql+asyncpg://DB_USER:DB_PASSWORD@localhost:5432/DB_NAME
 ```
 

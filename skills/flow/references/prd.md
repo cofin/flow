@@ -39,9 +39,9 @@ You MAY ONLY:
 
 When Superpowers skills are available, they MUST be used in the PRD workflow:
 
-1.  **Brainstorming Phase:** Invoke `superpowers:brainstorming` to explore high-level requirements and potential saga architectures.
-2.  **Redirect Output:** Force brainstorming and plan outputs to `.agents/specs/<flow_id>/`.
-3.  **Self-Review Phase:** Invoke `code-reviewer` (via `superpowers:requesting-code-review`) once the roadmap in `prd.md` is drafted to ensure it follows standard PRD structures and project constraints.
+1. **Brainstorming Phase:** Invoke `superpowers:brainstorming` to explore high-level requirements and potential saga architectures.
+2. **Redirect Output:** Force brainstorming and plan outputs to `.agents/specs/<flow_id>/`.
+3. **Self-Review Phase:** Invoke `code-reviewer` (via `superpowers:requesting-code-review`) once the roadmap in `prd.md` is drafted to ensure it follows standard PRD structures and project constraints.
 
 **NEVER** use `docs/superpowers/` for Flow-related saga/PRD documents.
 

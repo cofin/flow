@@ -141,6 +141,7 @@ DATABASE_URL = "postgresql+asyncpg://postgres:password@127.0.0.1:5432/mydb"
 AlloyDB metrics are available under `alloydb.googleapis.com/database/postgresql/*` in Cloud Monitoring. Enable Cloud Monitoring before production launch.
 
 **Key metrics to watch:**
+
 - CPU utilization — alert above 80% sustained
 - Active connections — alert above 80% of `max_connections` (200 on pg18)
 - Replication lag on read pool nodes — alert above 30 seconds

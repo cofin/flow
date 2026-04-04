@@ -34,6 +34,7 @@ ENTRYPOINT ["python", "-m", "myapp"]
 ```
 
 Key rules:
+
 - Name every stage (`AS builder`, `AS runner`, etc.).
 - Only the final stage ends up in the shipped image.
 - Copy only what is needed from earlier stages with `COPY --from=`.

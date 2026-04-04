@@ -119,6 +119,7 @@ pip install granian
 ### Step 2: Configure Interface Based on Framework
 
 Choose the interface flag matching the framework:
+
 - `--interface asgi` for Litestar, Starlette, FastAPI
 - `--interface rsgi` for Granian-native apps (highest performance)
 - `--interface wsgi` for Flask or Django

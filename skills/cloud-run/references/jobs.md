@@ -108,7 +108,7 @@ gcloud scheduler jobs run my-job-schedule --location=us-central1
 
 ### URI Pattern
 
-```
+```text
 https://run.googleapis.com/v2/projects/PROJECT/locations/REGION/jobs/JOB:run
 ```
 

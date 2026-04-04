@@ -6,7 +6,7 @@ Production patterns for connecting GKE workloads to Cloud SQL using the Auth Pro
 
 The Cloud SQL Auth Proxy runs as a **sidecar container** in the same Pod. The proxy handles authentication (via Workload Identity) and TLS, and exposes Cloud SQL on `localhost:5432` (Postgres) or `localhost:3306` (MySQL).
 
-```
+```text
 Pod
 ├── app-container  →  localhost:5432  →  cloud-sql-proxy  →  Cloud SQL (via proxy API)
 └── cloud-sql-proxy (sidecar)
@@ -177,14 +177,14 @@ spec:
 
 **PostgreSQL (via TCP socket on localhost):**
 
-```
+```text
 postgresql+asyncpg://DB_USER:DB_PASSWORD@localhost:5432/DB_NAME
 postgresql://DB_USER:DB_PASSWORD@localhost:5432/DB_NAME
 ```
 
 **MySQL:**
 
-```
+```text
 mysql+aiomysql://DB_USER:DB_PASSWORD@localhost:3306/DB_NAME
 ```
 
@@ -214,7 +214,7 @@ args:
 
 Connection string uses the SA email (without `.gserviceaccount.com`) as the username and an empty password:
 
-```
+```text
 postgresql://app-sa@PROJECT_ID.iam@localhost:5432/DB_NAME
 ```
 

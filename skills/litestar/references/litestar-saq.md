@@ -119,6 +119,7 @@ saq = SAQPlugin(config=SAQConfig(
 ```
 
 The web UI mounts at `/saq/` and shows:
+
 - Queue stats (pending, active, failed, completed)
 - Job details and retry controls
 - Worker health via heartbeats
@@ -144,6 +145,7 @@ saq = SAQPlugin(config=SAQConfig(
 ```
 
 Each job execution creates an OTEL span with:
+
 - `saq.queue` — queue name
 - `saq.function` — task function name
 - `saq.job_id` — unique job ID
