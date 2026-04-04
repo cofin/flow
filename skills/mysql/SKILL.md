@@ -185,3 +185,10 @@ For detailed guides and code examples, refer to the following documents in `refe
 - MariaDB Knowledge Base: <https://mariadb.com/kb/en/>
 - MySQL Shell User Guide: <https://dev.mysql.com/doc/mysql-shell/8.0/en/>
 - Percona Toolkit: <https://docs.percona.com/percona-toolkit/>
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [MySQL/MariaDB](https://github.com/cofin/flow/blob/main/templates/styleguides/databases/mysql_mariadb.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

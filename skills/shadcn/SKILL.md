@@ -66,3 +66,11 @@ import { Button } from "@/components/ui/button"
 
 - **[Shadcn Docs](references/shadcn-docs.md)**
   - Official Shadcn/ui documentation reference.
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [Tailwind](https://github.com/cofin/flow/blob/main/templates/styleguides/frameworks/tailwind.md)
+- [TypeScript](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/typescript.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

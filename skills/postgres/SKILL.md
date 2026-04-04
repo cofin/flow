@@ -445,3 +445,10 @@ For detailed guides and code examples, refer to the following documents in `refe
 
 - <https://www.postgresql.org/docs/current/>
 - <https://wiki.postgresql.org/>
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [PostgreSQL](https://github.com/cofin/flow/blob/main/templates/styleguides/databases/postgres_psql.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

@@ -116,3 +116,11 @@ Ensure your GitHub Action includes:
 
 * **Bundler Template**: `scripts/bundler.py` (in this skill directory)
 * **CI Matrix Action Example**: `examples/release-action.yml` (in this skill directory)
+
+## Shared Styleguide Baseline
+
+* Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+* [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+* [Python](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/python.md)
+* [Docker](https://github.com/cofin/flow/blob/main/templates/styleguides/tools/docker.md)
+* Keep this skill focused on tool-specific workflows, edge cases, and integration details.

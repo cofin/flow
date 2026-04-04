@@ -248,3 +248,9 @@ For detailed guides and code examples, refer to the following documents in `refe
 - <https://learn.microsoft.com/en-us/sql/sql-server/>
 - <https://learn.microsoft.com/en-us/sql/t-sql/language-reference>
 - <https://learn.microsoft.com/en-us/azure-data-studio/>
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

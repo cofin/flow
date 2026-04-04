@@ -63,3 +63,10 @@ Minimal `biome.json` with workspace overrides:
 - <https://biomejs.dev/>
 - <https://biomejs.dev/linter/rules/>
 - <https://biomejs.dev/formatter/>
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [Biome](https://github.com/cofin/flow/blob/main/templates/styleguides/tools/biome.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

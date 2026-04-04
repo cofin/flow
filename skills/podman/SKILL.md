@@ -32,3 +32,10 @@ For detailed guides and code examples, refer to the following documents in `refe
 
 - <https://docs.podman.io/en/latest/>
 - <https://podman.io/>
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [Docker](https://github.com/cofin/flow/blob/main/templates/styleguides/tools/docker.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

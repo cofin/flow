@@ -14,12 +14,17 @@ styleguides/
 │   ├── rust.md             # Rust with FFI patterns
 │   ├── go.md               # Idiomatic Go
 │   ├── bash.md             # Bash/shell scripting (Google style)
+│   ├── mojo.md             # Mojo with SIMD and Python interop
 │   └── powershell.md       # PowerShell scripting
 ├── databases/              # Database scripting guides
 │   ├── postgres_psql.md    # PostgreSQL psql automation
 │   ├── mysql_mariadb.md    # MySQL/MariaDB scripting
 │   ├── oracle_sqlplus.md   # Oracle SQL*Plus scripting
 │   └── mongodb.md          # MongoDB mongosh scripting
+├── tools/                  # Build & DevOps tool guides
+│   ├── docker.md           # Dockerfile, compose, distroless
+│   ├── ci-cd.md            # GitHub Actions, uv setup, caching
+│   └── biome.md            # Biome linter/formatter for JS/TS
 ├── cloud/                  # Cloud platform automation
 │   └── gcp_scripting.md    # GCP BigQuery & Cloud Storage
 └── frameworks/             # Framework-specific guides
@@ -52,6 +57,7 @@ styleguides/
 | [Rust](languages/rust.md) | Unsafe documentation, FFI (PyO3/napi-rs) |
 | [Go](languages/go.md) | gofmt, explicit errors, channels |
 | [Bash](languages/bash.md) | Strict mode, Google style, shellcheck |
+| [Mojo](languages/mojo.md) | SIMD, Python interop, hatch-mojo builds |
 | [PowerShell](languages/powershell.md) | CmdletBinding, approved verbs, modules |
 
 ### Frontend Frameworks
@@ -93,6 +99,14 @@ styleguides/
 | [Oracle SQL*Plus](databases/oracle_sqlplus.md) | SQL*Plus scripting, bind variables, wallets |
 | [MongoDB](databases/mongodb.md) | mongosh, aggregation pipelines, upserts |
 
+### Build & DevOps Tools
+
+| Guide | Key Features |
+|-------|--------------|
+| [Docker](tools/docker.md) | Multi-stage builds, distroless, non-root, compose |
+| [CI/CD](tools/ci-cd.md) | GitHub Actions, uv caching, matrix strategies |
+| [Biome](tools/biome.md) | JS/TS linting, formatting, import sorting |
+
 ### Cloud Automation
 
 | Guide | Key Features |
@@ -113,10 +127,11 @@ From [general.md](general.md):
 
 These guides are designed for:
 
-- **AI assistants** - As context for code generation
-- **New team members** - Quick onboarding to patterns
-- **Code review** - Reference for style decisions
-- **Skill discovery** - Finding relevant patterns for a technology
+- **AI assistants** - As context for code generation. When a guide is active, also consider its associated `flow:*` skill for diagnostic patterns and expert workflows.
+- **New team members** - Quick onboarding to patterns.
+- **Code review** - Reference for style decisions.
+- **Skill discovery** - Finding relevant patterns for a technology.
+
 
 Each guide includes:
 

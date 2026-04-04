@@ -242,3 +242,9 @@ For detailed guides, refer to the following documents in `references/`:
 6. GitHub Actions security hardening: <https://docs.github.com/actions/security-guides/security-hardening-for-github-actions>
 7. Conventional Commits: <https://www.conventionalcommits.org/>
 8. SemVer: <https://semver.org/>
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

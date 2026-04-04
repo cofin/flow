@@ -193,3 +193,10 @@ For detailed guides and code examples, refer to the following documents in `refe
 
 - <https://google.github.io/styleguide/shellguide.html>
 - <https://www.gnu.org/software/bash/manual/>
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [Bash](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/bash.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

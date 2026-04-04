@@ -77,3 +77,10 @@ For detailed guides and patterns, refer to the following documents in `reference
 - Extensions: <https://duckdb.org/docs/extensions/overview>
 - CLI: <https://duckdb.org/docs/api/cli/overview>
 - Extension template: <https://github.com/duckdb/extension-template>
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [PostgreSQL](https://github.com/cofin/flow/blob/main/templates/styleguides/databases/postgres_psql.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

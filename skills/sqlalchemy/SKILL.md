@@ -242,3 +242,11 @@ For detailed guides and code examples, refer to the following documents in `refe
 - <https://docs.sqlalchemy.org/en/20/>
 - <https://docs.sqlalchemy.org/en/20/orm/quickstart.html>
 - <https://alembic.sqlalchemy.org/en/latest/>
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [ORM](https://github.com/cofin/flow/blob/main/templates/styleguides/frameworks/orm.md)
+- [Python](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/python.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

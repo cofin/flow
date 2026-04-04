@@ -293,3 +293,10 @@ For detailed guides and code examples, refer to the following documents in `refe
 - <https://cloud.google.com/sql/docs/postgres/connect-auth-proxy>
 - <https://cloud.google.com/sql/docs/postgres/instance-settings>
 - <https://cloud.google.com/sql/pricing>
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [GCP Scripting](https://github.com/cofin/flow/blob/main/templates/styleguides/cloud/gcp_scripting.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.
