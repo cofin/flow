@@ -96,7 +96,7 @@ git checkout .
 
 ## Final Output
 
-```
+```text
 Task Created
 
 ID: {task_id}

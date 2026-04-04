@@ -70,7 +70,7 @@ Update `.agents/specs/{flow_id}/metadata.json`:
 
 ## Phase 6: Summary
 
-```
+```text
 Flow Sync Complete: {flow_id}
 
 Tasks synced from Beads epic: {beads_epic_id}

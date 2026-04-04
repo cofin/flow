@@ -61,7 +61,7 @@ Verify git notes exist for completed tasks.
 
 ## Phase 6: Report
 
-```
+```text
 Flow Validation Report
 
 === Structure ===

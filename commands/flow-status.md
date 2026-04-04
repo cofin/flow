@@ -55,7 +55,7 @@ If Beads unavailable:
 
 ## Phase 4: Display Dashboard
 
-```
+```text
 Flow Status Dashboard
 
 === Active Flows ===

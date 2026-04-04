@@ -101,7 +101,7 @@ D) Skip migration
 1. Parse learnings entries
 2. Cross-reference with current codebase:
 
-```
+```text
 From user-auth/learnings.md:
 
 ✓ VALID: "Use Zod for form validation"
@@ -134,7 +134,7 @@ Check and update:
 
 ### 0.1.6 Alignment Summary
 
-```
+```text
 Alignment Complete
 
 ✓ Beads: v{version} (up to date)
@@ -396,7 +396,7 @@ Save setup state to `<root_directory>/setup-state.json`:
 
 ## Final Summary
 
-```
+```text
 Flow Setup Complete
 
 Directory: <root_directory>
