@@ -44,3 +44,10 @@ For detailed guides and code examples, refer to the following documents in `refe
 - <https://docs.modular.com/mojo/>
 - <https://docs.modular.com/llms-mojo.txt>
 - <https://docs.modular.com/mojo/manual/python/>
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [Mojo](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/mojo.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

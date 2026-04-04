@@ -304,3 +304,10 @@ litestar --app app:app run --host 0.0.0.0 --port 8000
 - <https://www.uvicorn.org/deployment/>
 - <https://github.com/encode/uvicorn>
 - <https://pypi.org/project/uvicorn/>
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [Python](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/python.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

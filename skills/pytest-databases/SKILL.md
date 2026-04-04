@@ -52,3 +52,12 @@ def test_database(postgres_service):
 
 - <https://github.com/litestar-org/pytest-databases>
 - <https://litestar-org.github.io/pytest-databases/latest/>
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [pytest-databases](https://github.com/cofin/flow/blob/main/templates/styleguides/frameworks/pytest-databases.md)
+- [Testing](https://github.com/cofin/flow/blob/main/templates/styleguides/frameworks/testing.md)
+- [Python](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/python.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

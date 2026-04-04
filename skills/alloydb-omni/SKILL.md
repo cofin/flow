@@ -193,3 +193,10 @@ For detailed guides and code examples, refer to the following documents in `refe
 ## Official References
 
 - <https://cloud.google.com/alloydb/docs/omni>
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [PostgreSQL / psql](https://github.com/cofin/flow/blob/main/templates/styleguides/databases/postgres_psql.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.

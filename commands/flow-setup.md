@@ -273,6 +273,26 @@ Based on detected languages, offer relevant styleguides:
 
 ---
 
+## Phase 4.5: Blueprint Scaffolding (Optional)
+
+**PROTOCOL: Offer to scaffold project structure based on available blueprints.**
+
+1. **List Blueprints:** List available blueprints from `templates/blueprints/`.
+2. **Ask User:**
+    > **Would you like to scaffold your project structure using a blueprint?**
+    > - **A) Python App** (uv, hatchling, ruff, mypy, pyright, pytest)
+    > - **B) Maturin** (Rust + Python polyglot with native extensions)
+    > - **C) Mojo Python** (Mojo + Python with hatch-mojo build hook)
+    > - **D) Skip** (Keep existing structure)
+
+3. **If A-D selected:**
+    - Ask for `project_name` and `project_description` if not already known.
+    - Copy template files from selected blueprint.
+    - Perform variable substitution in `.template` files and rename them (remove `.template`).
+    - **CRITICAL:** Respect `src/py` vs `src/` rules (use `src/py` only if `src/js`, `src/rs`, etc. exist).
+
+---
+
 ## Phase 5: Beads Initialization
 
 **CRITICAL: Add to .gitignore for local-only use by default.**

@@ -1,0 +1,114 @@
+[build-system]
+requires = ["hatchling", "hatch-mojo"]
+build-backend = "hatchling.build"
+
+[project]
+name = "{project_name}"
+version = "0.1.0"
+description = "{project_description}"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [
+    { name = "{author_name}", email = "{author_email}" },
+]
+dependencies = [
+    "typing-extensions",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "pytest-cov",
+    "ruff>=0.8",
+    "mypy>=1.13",
+    "pyright",
+    "pre-commit>=3.7",
+    "bump-my-version",
+]
+
+[tool.uv]
+default-groups = ["dev"]
+
+[tool.hatch.build.targets.wheel.hooks.mojo]
+bundle-libs = true
+
+[[tool.hatch.build.targets.wheel.hooks.mojo.jobs]]
+name = "core-x86_64"
+arch = ["x86_64", "amd64"]
+input = "src/mo/{project_name}/core.mojo"
+emit = "python-extension"
+module = "{project_name}._core"
+
+[[tool.hatch.build.targets.wheel.hooks.mojo.jobs]]
+name = "core-aarch64"
+arch = ["aarch64", "arm64"]
+input = "src/mo/{project_name}/core.mojo"
+emit = "python-extension"
+module = "{project_name}._core"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+src = ["src/py"]
+fix = true
+
+[tool.ruff.format]
+docstring-code-format = true
+docstring-code-line-length = 80
+
+[tool.ruff.lint]
+select = ["ALL"]
+fixable = ["ALL"]
+ignore = [
+    "A003",    # class attribute shadowing builtin
+    "ANN101",  # missing type annotation for self
+    "ANN102",  # missing type annotation for cls
+    "ANN401",  # typing.Any disallowed
+    "D100",    # missing docstring in public module
+    "D101",    # missing docstring in public class
+    "D102",    # missing docstring in public method
+    "D103",    # missing docstring in public function
+    "D104",    # missing docstring in public package
+    "D107",    # missing docstring in __init__
+    "D203",    # 1 blank line before class docstring
+    "D213",    # multi-line docstring second line
+    "E501",    # line too long (handled by formatter)
+    "ISC001",  # formatter incompatible
+    "COM812",  # missing trailing comma
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.mccabe]
+max-complexity = 12
+
+[tool.ruff.lint.isort]
+known-first-party = ["{project_name}"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+files = ["src/py"]
+
+[tool.pyright]
+include = ["src/py"]
+pythonVersion = "3.10"
+strict = ["src/py/{project_name}/**/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+filterwarnings = ["error", "ignore::DeprecationWarning:pkg_resources"]
+xfail_strict = true
+
+[tool.coverage.run]
+branch = true
+source = ["src/py/{project_name}"]
+omit = ["*/tests/*"]
+
+[tool.coverage.report]
+fail_under = 50
+exclude_lines = ["if TYPE_CHECKING:", "pragma: no cover"]

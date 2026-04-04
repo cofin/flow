@@ -333,3 +333,10 @@ For detailed guides and configuration examples, refer to the following documents
 - <https://cloud.google.com/kubernetes-engine/docs>
 - <https://cloud.google.com/kubernetes-engine/docs/best-practices>
 - <https://cloud.google.com/kubernetes-engine/docs/how-to/hardening-your-cluster>
+
+## Shared Styleguide Baseline
+
+- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
+- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
+- [GCP Scripting](https://github.com/cofin/flow/blob/main/templates/styleguides/cloud/gcp_scripting.md)
+- Keep this skill focused on tool-specific workflows, edge cases, and integration details.
