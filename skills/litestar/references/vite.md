@@ -103,10 +103,87 @@ app = Litestar(
 ## CLI Commands
 
 ```bash
-litestar assets install        # Install frontend deps
+litestar assets init           # Scaffold Vite config and package.json
+litestar assets install        # Install frontend deps (runs npm/pnpm install)
 litestar assets serve          # Start Vite dev server
 litestar assets build          # Build for production
 litestar assets generate-types # Generate TypeScript types
 litestar assets export-routes  # Export route metadata
 litestar assets status         # Check integration status
 ```
+
+---
+
+## ViteAssetLoader
+
+`ViteAssetLoader` resolves asset URLs for use in server-rendered templates, handling both dev (proxied Vite dev server) and production (hashed manifest) modes:
+
+```python
+from litestar_vite import ViteAssetLoader
+
+loader = ViteAssetLoader(config=vite_config)
+
+# In a route handler, pass loader to template context:
+@get("/")
+async def index(request: Request) -> Template:
+    return Template("index.html", context={"vite": loader})
+```
+
+In Jinja2 / Mako templates:
+
+```html
+<!-- Dev mode: proxied URL -->
+<!-- Prod mode: hashed bundle URL from manifest.json -->
+<script type="module" src="{{ vite.asset('src/main.ts') }}"></script>
+<link rel="stylesheet" href="{{ vite.asset('src/styles/app.css') }}">
+```
+
+---
+
+## Template Filters
+
+`VitePlugin` registers Jinja2 template globals/filters automatically when a Jinja2 template engine is configured:
+
+| Filter / Global | Usage | Description |
+|----------------|-------|-------------|
+| `vite_asset(path)` | `{{ vite_asset('src/main.ts') }}` | Resolve asset URL (dev or prod) |
+| `vite_hmr_client()` | `{{ vite_hmr_client() }}` | Inject HMR `<script>` tag in dev mode |
+| `vite_react_refresh()` | `{{ vite_react_refresh() }}` | Inject React Fast Refresh preamble |
+| `vite_css(path)` | `{{ vite_css('src/app.css') }}` | Render `<link rel="stylesheet">` tag |
+
+Minimal base template pattern:
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  {{ vite_hmr_client() }}
+  {{ vite_css('src/styles/app.css') }}
+</head>
+<body>
+  <div id="app"></div>
+  {{ vite_asset('src/main.ts') | safe }}
+</body>
+</html>
+```
+
+---
+
+## PathConfig Reference
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `root` | `Path.cwd()` | Project root (parent of `vite.config.*`) |
+| `resource_dir` | `"resources"` | Directory with frontend source files |
+| `bundle_dir` | `"public"` | Output directory for built assets |
+| `public_dir` | `"public"` | Static files served at `/` |
+| `vite_config` | `"vite.config.ts"` | Path to the Vite config file |
+
+## RuntimeConfig Reference
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `port` | `5173` | Vite dev server port |
+| `host` | `"localhost"` | Vite dev server host |
+| `protocol` | `"http"` | `"http"` or `"https"` |
+| `hot_reload` | `True` | Enable HMR |

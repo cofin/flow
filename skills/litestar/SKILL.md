@@ -1,6 +1,6 @@
 ---
 name: litestar
-description: "Auto-activate for litestar imports, Litestar app configuration. Litestar ASGI web framework: route handlers, Guards, middleware, msgspec DTOs, OpenAPI. Produces Litestar ASGI route handlers, middleware, guards, DTOs, and plugin configurations. Use when: building Litestar APIs, defining routes/controllers, configuring plugins, or working with Litestar dependency injection. Not for FastAPI, Django, or Flask -- Litestar has its own patterns."
+description: "Auto-activate for litestar imports, litestar_granian, litestar_saq, litestar_email, litestar_mcp, litestar_vite imports, Litestar app configuration. Litestar ASGI web framework: route handlers, Guards, middleware, msgspec DTOs, OpenAPI, ecosystem plugins. Produces Litestar ASGI route handlers, middleware, guards, DTOs, and plugin configurations. Use when: building Litestar APIs, defining routes/controllers, configuring plugins (Granian, SAQ, Email, MCP, Vite), or working with Litestar dependency injection. Not for FastAPI, Django, or Flask -- Litestar has its own patterns."
 ---
 
 # Litestar Framework Skill
@@ -78,6 +78,84 @@ class UserStruct(msgspec.Struct):
 
 class UserDTO(MsgspecDTO[UserStruct]):
     config = DTOConfig(exclude={"password_hash"})
+```
+
+## Ecosystem Plugins
+
+### Granian (preferred ASGI server)
+
+```python
+from litestar import Litestar
+from litestar_granian import GranianPlugin
+
+app = Litestar(plugins=[GranianPlugin()])
+# Zero-config: replaces uvicorn CLI, adds `litestar run` via Granian
+# See references/litestar-granian.md for logging configuration
+```
+
+### SAQ (task queue)
+
+```python
+from litestar import Litestar
+from litestar_saq import SAQPlugin, SAQConfig, QueueConfig
+
+saq = SAQPlugin(config=SAQConfig(
+    use_server_lifespan=True,
+    queue_configs=[QueueConfig(name="default", dsn="redis://localhost:6379/0")],
+))
+app = Litestar(plugins=[saq])
+# Inject queues: async def handler(queues: TaskQueues) -> ...
+# CLI: litestar workers run
+# See references/litestar-saq.md for full config
+```
+
+### Email
+
+```python
+from litestar import Litestar
+from litestar_email import EmailPlugin, EmailConfig, SMTPConfig
+
+app = Litestar(plugins=[EmailPlugin(config=EmailConfig(
+    backend=SMTPConfig(host="smtp.example.com", port=587, use_tls=True),
+    from_email="noreply@example.com",
+))])
+# Inject: async def handler(email_service: EmailService) -> ...
+# Backends: SMTP, SendGrid, Resend, Mailgun, InMemory (testing)
+# See references/litestar-email.md
+```
+
+### MCP (Model Context Protocol)
+
+```python
+from litestar import Litestar, get
+from litestar_mcp import LitestarMCP, MCPConfig
+
+@get("/users", name="list_users")
+async def get_users() -> list[dict]: ...
+
+app = Litestar(
+    route_handlers=[get_users],
+    plugins=[LitestarMCP(MCPConfig(name="My API"))],
+)
+# Mark routes: @mcp_tool("tool_name") or @mcp_resource("resource_name")
+# Endpoint: POST /mcp/ (JSON-RPC 2.0)
+# See references/litestar-mcp.md
+```
+
+### Vite (frontend integration)
+
+```python
+from litestar import Litestar
+from pathlib import Path
+from litestar_vite import VitePlugin, ViteConfig, PathConfig
+
+app = Litestar(plugins=[VitePlugin(config=ViteConfig(
+    dev_mode=True,
+    paths=PathConfig(root=Path(__file__).parent),
+))])
+# Modes: spa, template, ssr, framework
+# CLI: litestar assets init|install|build|serve|generate-types
+# See references/vite.md
 ```
 
 <workflow>
@@ -234,8 +312,12 @@ For detailed guides and configuration examples, refer to the following documents
 - **[Guards](references/guards.md)** -- Authentication and authorization guard patterns.
 - **[Pagination](references/pagination.md)** -- Pagination with SQLSpec filters and create_filter_dependencies.
 - **[Domain Auto-Discovery & CLI](references/domains.md)** -- DomainPlugin auto-discovery and CLI with async injection.
-- **[Vite & TypeGen Integration](references/vite.md)** -- VitePlugin setup, Mode selection, Type generation config.
+- **[Vite & TypeGen Integration](references/vite.md)** -- VitePlugin setup, Mode selection, Type generation config, InertiaPlugin, CLI commands, template filters.
 - **[Deployment](references/deployment.md)** -- ASGI server configuration, IAP auth, static assets, deployment checklist.
+- **[Granian Plugin](references/litestar-granian.md)** -- GranianPlugin configuration, logging, CLI replacement.
+- **[SAQ Plugin](references/litestar-saq.md)** -- SAQConfig, QueueConfig, worker lifecycle, web UI, OpenTelemetry.
+- **[Email Plugin](references/litestar-email.md)** -- EmailConfig, backends (SMTP/SendGrid/Resend/Mailgun), DI patterns.
+- **[MCP Plugin](references/litestar-mcp.md)** -- MCPConfig, route discovery, @mcp_tool/@mcp_resource, JSON-RPC 2.0.
 - **[WebSockets & Real-time Broadcasting](references/websockets.md)** -- WebSocket handlers, Channels plugin, pub/sub patterns.
 
 ---

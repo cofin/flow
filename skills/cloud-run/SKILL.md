@@ -39,6 +39,58 @@ Cloud Run is a fully managed serverless platform for running containerized appli
 | Timeout | Up to 60 minutes | Up to 24 hours |
 | Command | `gcloud run deploy` | `gcloud run jobs deploy` |
 
+### GPU (NVIDIA L4)
+
+```bash
+gcloud run deploy SERVICE \
+  --gpu=1 \
+  --gpu-type=nvidia-l4 \
+  --cpu=8 \
+  --memory=32Gi \
+  --concurrency=4
+```
+
+Minimum: 4 CPU, 16 GiB. Recommended: 8 CPU, 32 GiB. Set `--concurrency` explicitly — no GPU-based autoscaling. See [references/gpu.md](references/gpu.md) for RTX PRO 6000 Blackwell, driver details, and ML inference patterns.
+
+### Production Networking & Secrets
+
+**Direct VPC Egress** — route to AlloyDB/Cloud SQL private IPs without VPC connector overhead:
+
+```bash
+gcloud run deploy SERVICE \
+  --vpc-egress=private-ranges-only \
+  --network=NETWORK \
+  --subnet=SUBNET
+```
+
+**Secret mounting:**
+
+```bash
+--set-secrets=KEY=SECRET_NAME:latest
+```
+
+**Env var separator trick** — use `^||^` when values contain commas (e.g., JSON arrays in CORS origins):
+
+```bash
+--set-env-vars=^||^CORS_ORIGINS=["https://app.example.com","https://api.example.com"]||OTHER_KEY=value
+```
+
+**CORS origin reconciliation workflow:**
+
+1. Auto-discover Cloud Run service URL (`gcloud run services describe`)
+2. Discover GKE LB IP and Cloud Shell preview URLs
+3. Merge with existing allowed origins, deduplicate
+4. Update the secret: `gcloud secrets versions add SECRET_NAME --data-file=-`
+
+**IAP setup summary:**
+
+1. Create OAuth brand: `gcloud iap oauth-brands create --application_title=APP --support_email=EMAIL`
+2. Grant IAP service identity: `gcloud projects add-iam-policy-binding PROJECT --member=serviceAccount:service-PROJECT@gcp-sa-iap.iam.gserviceaccount.com --role=roles/run.invoker`
+3. Grant authorized users: `--member=user:EMAIL --role=roles/iap.httpsResourceAccessor`
+4. Add deployer to prevent lockout: grant deployer `roles/iap.httpsResourceAccessor` before enabling IAP
+
+See [references/iap.md](references/iap.md) for full IAP configuration.
+
 <workflow>
 
 ## Workflow
@@ -71,11 +123,15 @@ Set `--min-instances=1` in production. Enable `--cpu-boost` for faster startup. 
 
 - **Always set memory and CPU limits** — without explicit limits, Cloud Run uses defaults that may not match your workload and can cause OOM kills
 - **Handle cold starts explicitly** — set `--min-instances=1` for latency-sensitive production services; use `--cpu-boost` for faster startup
-- **Use IAP or IAM for authentication** — do not implement custom auth when Cloud Run's built-in IAM or IAP integration handles the use case
+- **Use IAP for auth (not custom middleware)** — Cloud Run's built-in IAP integration eliminates custom auth code; see [references/iap.md](references/iap.md)
 - **Never store state in the container** — Cloud Run instances are ephemeral; use Cloud Storage, Firestore, or a database for persistent state
 - **Set `--max-instances`** to prevent runaway scaling and unexpected billing spikes
 - **Use `--concurrency`** to match your application's per-instance capacity — too high causes memory pressure, too low wastes resources
 - **Always use a non-root user** in Dockerfiles — Cloud Run supports it and it reduces the blast radius of container escapes
+- **Always use Direct VPC egress (not VPC connector) for private DB access** — `--vpc-egress=private-ranges-only` gives direct routing to AlloyDB/Cloud SQL private IPs with lower latency and no connector overhead
+- **Set `--concurrency` explicitly for GPU workloads** — Cloud Run cannot auto-scale on GPU utilization; the default of 80 will OOM a GPU instance
+- **Download models from GCS, not the container image, for models >10 GB** — keeps image build fast and model updates independent of deployments
+- **Use startup probes for slow-starting containers** (GPU model loading) — hold traffic until the model is ready; see [references/volumes.md](references/volumes.md)
 
 </guardrails>
 
@@ -146,6 +202,8 @@ gcloud run deploy myapp \
 
 ---
 
+> **Note:** No Gemini CLI extension exists for Cloud Run — this skill provides unique value for Cloud Run deployments, GPU workloads, and production networking patterns not covered by other tooling.
+
 ## References Index
 
 For detailed guides and configuration examples, refer to the following documents in `references/`:
@@ -168,6 +226,10 @@ For detailed guides and configuration examples, refer to the following documents
   - Cloud Build pipelines, cache warming, multi-target builds, tag strategy, and Artifact Registry push patterns.
 - **[Identity-Aware Proxy (IAP)](references/iap.md)**
   - IAP setup for Cloud Run, JWT validation, user auto-provisioning, environment variables, gcloud commands, and Terraform configuration.
+- **[GPU Support](references/gpu.md)**
+  - NVIDIA L4 and RTX PRO 6000 Blackwell configuration, ML inference best practices, concurrency tuning, and GPU Jobs.
+- **[Volumes and Health Checks](references/volumes.md)**
+  - Cloud Storage FUSE mounts, NFS (Filestore), startup probes, and liveness probes.
 
 ---
 

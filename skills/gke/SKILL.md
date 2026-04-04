@@ -1,13 +1,63 @@
 ---
 name: gke
-description: "Auto-activate for kubectl commands, k8s/ directory, Helm charts. Kubernetes on GCP expertise for GKE. Produces Kubernetes deployments, Helm charts, and cluster configurations for GKE on GCP. Use when: running kubectl, Helm charts, pod/node pool management, workload identity, Kubernetes deployments, cluster scaling, or any GKE troubleshooting. Not for Cloud Run (see cloud-run), generic Kubernetes outside GCP, or local k8s (minikube/kind)."
+description: "Auto-activate for kubectl commands, k8s/ directory, Helm charts. Kubernetes on GCP expertise for GKE. Produces Kubernetes deployments, Helm charts, cluster configurations, GPU/TPU workloads, AlloyDB/Cloud SQL Auth Proxy sidecars, and batch job patterns for GKE on GCP. Use when: running kubectl, Helm charts, pod/node pool management, workload identity, Kubernetes deployments, cluster scaling, GPU node pools, database sidecars, or any GKE troubleshooting. Not for Cloud Run (see cloud-run), generic Kubernetes outside GCP, or local k8s (minikube/kind)."
 ---
 
 # Google Kubernetes Engine (GKE)
 
-GKE is Google Cloud's managed Kubernetes service, handling cluster management, upgrades, and scaling.
+GKE is Google Cloud's managed Kubernetes service, handling cluster management, upgrades, scaling, GPU workloads, and production database connectivity via Auth Proxy sidecars.
 
 ## Quick Reference
+
+### GPU Pod Spec (Quick)
+
+```yaml
+resources:
+  limits:
+    nvidia.com/gpu: "1"   # GPU in limits ONLY — never in requests
+```
+
+Add toleration for tainted GPU nodes:
+
+```yaml
+tolerations:
+  - key: nvidia.com/gpu
+    operator: Exists
+    effect: NoSchedule
+```
+
+### Workload Identity Binding (2-command pattern)
+
+```bash
+# 1. Annotate the KSA with the GCP SA email
+kubectl annotate serviceaccount KSA_NAME \
+  --namespace=NAMESPACE \
+  iam.gke.io/gcp-service-account=GSA_NAME@PROJECT_ID.iam.gserviceaccount.com
+
+# 2. Bind GCP SA to allow KSA impersonation
+gcloud iam service-accounts add-iam-policy-binding \
+  GSA_NAME@PROJECT_ID.iam.gserviceaccount.com \
+  --role="roles/iam.workloadIdentityUser" \
+  --member="serviceAccount:PROJECT_ID.svc.id.goog[NAMESPACE/KSA_NAME]"
+```
+
+### AlloyDB Auth Proxy Sidecar (Quick)
+
+```yaml
+- name: alloydb-auth-proxy
+  image: gcr.io/alloydb-connectors/alloydb-auth-proxy:latest
+  args:
+    - "projects/PROJECT_ID/locations/REGION/clusters/CLUSTER/instances/INSTANCE"
+    - "--port=5432"
+  securityContext:
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    runAsUser: 65532
+    capabilities:
+      drop: [ALL]
+```
+
+See [alloydb-on-gke.md](references/alloydb-on-gke.md) for the full production pattern.
 
 ### kubectl Essentials
 
@@ -47,6 +97,56 @@ chart/
 ```
 
 Structure `values.yaml` with separate sections per component (`web`, `workers`), each specifying `replicaCount`, `image`, `command`, `resources`, and `port`.
+
+## Database on GKE
+
+### AlloyDB on GKE
+
+Connect to AlloyDB via the Auth Proxy sidecar + Workload Identity. The proxy runs as a sidecar and listens on `localhost:5432`. Application connects to `postgresql://user:password@localhost:5432/dbname`.
+
+Key roles for GSA: `roles/alloydb.client`, `roles/secretmanager.secretAccessor`, `roles/storage.objectAdmin`, `roles/logging.logWriter`.
+
+See **[alloydb-on-gke.md](references/alloydb-on-gke.md)** for full deployment, HPA with queue-depth metrics, CronJob queue monitor, and Job patterns.
+
+### Cloud SQL on GKE
+
+Connect to Cloud SQL via the `cloud-sql-proxy` sidecar. Same Workload Identity pattern; GSA needs `roles/cloudsql.client`.
+
+See **[cloudsql-on-gke.md](references/cloudsql-on-gke.md)** for pod spec and connection string format.
+
+---
+
+## GPU Workloads
+
+| GPU Type | Machine Series | Notes |
+|---|---|---|
+| NVIDIA T4 | N1 | Cost-effective inference |
+| NVIDIA L4 | G2 | Efficient inference/fine-tuning |
+| NVIDIA A100 (40/80GB) | A2 | Large-scale training, MIG support |
+| NVIDIA H100 (80GB) | A3 | Highest throughput, MIG support |
+
+**Autopilot GPU**: automatic driver install, pay-per-pod billing, MIG enabled by default (v1.29.3+). Simpler operations.
+
+**Standard GPU**: manual driver install via DaemonSet or GPU Operator (`helm install gpu-operator nvidia/gpu-operator`). Full node control.
+
+```yaml
+# Minimal GPU pod spec
+spec:
+  tolerations:
+    - key: nvidia.com/gpu
+      operator: Exists
+      effect: NoSchedule
+  containers:
+    - name: trainer
+      image: nvcr.io/nvidia/pytorch:24.01-py3
+      resources:
+        limits:
+          nvidia.com/gpu: "1"  # GPU in limits only; limits == requests for GPU
+```
+
+See **[gpu.md](references/gpu.md)** for time-sharing, MIG, NAP, Spot GPU, and TPU patterns.
+
+---
 
 <workflow>
 
@@ -98,6 +198,10 @@ Run `kubectl get pods -n NAMESPACE` to confirm healthy rollout. Check logs and e
 - **Regional clusters for production** -- zonal clusters are single points of failure.
 - **Autopilot preferred** unless you need GPU node pools or custom machine types.
 - **Never expose workloads without network policies** -- restrict ingress/egress at the namespace level.
+- **GPU in limits only** -- never put `nvidia.com/gpu` in `requests`; limits implicitly equal requests for GPU resources.
+- **Taint GPU nodes** -- use `nvidia.com/gpu=present:NoSchedule` to prevent non-GPU pods from landing on expensive GPU nodes.
+- **Security context: nonroot** -- always set `runAsNonRoot: true`, `runAsUser: 65532`, `runAsGroup: 65532`, `fsGroup: 65532`, `allowPrivilegeEscalation: false`, `capabilities.drop: [ALL]`.
+- **Use Spot for fault-tolerant GPU workloads** -- 60-90% discount vs on-demand; combine with checkpointing for training jobs.
 
 </guardrails>
 
@@ -113,6 +217,10 @@ Before delivering GKE configurations, verify:
 - [ ] Cluster is regional (not zonal) for production
 - [ ] Health checks (readiness + liveness probes) are defined
 - [ ] Namespace isolation and network policies are present
+- [ ] GPU resources are in `limits` only (not `requests`)
+- [ ] GPU node pools have `nvidia.com/gpu=present:NoSchedule` taint
+- [ ] Security context sets `runAsNonRoot: true`, `runAsUser: 65532`, `capabilities.drop: [ALL]`
+- [ ] Database connections use Auth Proxy sidecar (not direct IP with credentials)
 
 </validation>
 
@@ -196,6 +304,8 @@ spec:
 
 ---
 
+> **No Gemini CLI extension exists for GKE** -- this skill provides unique value for GKE cluster management, GPU workloads, and production database connectivity patterns.
+
 ## References Index
 
 For detailed guides and configuration examples, refer to the following documents in `references/`:
@@ -211,6 +321,10 @@ For detailed guides and configuration examples, refer to the following documents
 - **[Troubleshooting](references/troubleshooting.md)** -- Debugging nodes, pods, and network issues.
 - **[Helm Deployment](references/helm_deployment.md)** -- Helm chart patterns for web + worker deployments.
 - **[SAQ Workers](references/saq_workers.md)** -- SAQ worker architecture, queue distribution, and graceful shutdown.
+- **[GPU/TPU Workloads](references/gpu.md)** -- Node pool creation, time-sharing, MIG, NAP, Spot GPU, TPU.
+- **[AlloyDB on GKE](references/alloydb-on-gke.md)** -- Auth Proxy sidecar, Workload Identity, HPA with queue-depth metrics.
+- **[Cloud SQL on GKE](references/cloudsql-on-gke.md)** -- Cloud SQL Auth Proxy sidecar and connection patterns.
+- **[Batch Workloads](references/batch-workloads.md)** -- Jobs, JobSet, ProvisioningRequest, Cloud Batch vs GKE.
 
 ---
 
