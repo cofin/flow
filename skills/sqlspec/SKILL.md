@@ -210,6 +210,62 @@ async def get_user_count() -> int:
 
 </example>
 
+## Query Builder
+
+The `sql` factory provides a fluent builder API with full method chaining. All builders terminate with `.to_statement()` and pass through sqlglot for validation and dialect conversion.
+
+| Builder | Entry Point | Key Methods |
+|---|---|---|
+| SELECT | `sql.select(*cols)` | `.from_()`, `.where()`, `.where_eq()`, `.join()`, `.order_by()`, `.limit()`, `.offset()` |
+| INSERT | `sql.insert_into(table)` | `.columns()`, `.values()`, `.returning()` |
+| UPDATE | `sql.update(table)` | `.set_()`, `.where()`, `.returning()` |
+| DELETE | `sql.delete_from(table)` | `.where()`, `.returning()` |
+| MERGE | `sql.merge_into(target)` | `.using()`, `.when_matched()`, `.when_not_matched()` |
+| CREATE TABLE | `sql.create_table(name)` | `.column()`, `.primary_key()`, `.if_not_exists()` |
+| DROP TABLE | `sql.drop_table(name)` | `.if_exists()`, `.cascade()` |
+
+## ArrowResult
+
+`select_to_arrow()` returns an Apache Arrow `Table` for bulk and analytical workloads:
+
+- **Zero-copy** on DuckDB and ADBC-native adapters — no serialization overhead
+- **Conversion path** on other adapters — rows are materialized into an Arrow schema
+- Returned tables are compatible with Polars, Pandas, and PyArrow directly
+- Use `copy_from_arrow(table, target_table)` for bulk loads back into the database
+
+## Filters
+
+SQLSpec filter objects are passed directly to driver methods alongside the SQL string. They modify the statement before execution.
+
+| Filter | Purpose | Example Use |
+|---|---|---|
+| `BeforeAfterFilter` | Date range bounds (`before`, `after`) | Audit log queries, time-range pagination |
+| `InCollectionFilter` | SQL `IN (...)` clause | Filter by a set of IDs or enum values |
+| `LimitOffsetFilter` | Page-based pagination | `limit=25, offset=50` |
+| `OrderByFilter` | Dynamic sort columns and direction | User-supplied sort fields |
+| `SearchFilter` | Text search (`ILIKE` / `LIKE`) | Full-text style search on string columns |
+
+Filters are composable — pass multiple to a single `select_many()` call and they are applied in order.
+
+## Framework Integrations
+
+| Framework | Integration | Key Feature |
+|---|---|---|
+| Litestar | `SQLSpecPlugin` | Dependency injection of typed driver; auto session lifecycle |
+| FastAPI / Starlette | Middleware | Request-scoped connection; injects driver into route dependencies |
+| Flask | Extension | `init_app()` pattern; driver available via `g` or `current_app` |
+
+`SQLSpecPlugin` for Litestar registers the driver as a DI provider — inject it into route handlers via type annotation without manual context management.
+
+## Event Channels
+
+For databases that support server-side pub/sub (e.g., PostgreSQL `LISTEN`/`NOTIFY`):
+
+- Use `AsyncEventChannel` to subscribe to named channels
+- Publish with `NOTIFY channel, payload` from SQL or from the `publish()` method
+- Handlers receive `EventMessage` objects with channel name, payload, and PID
+- Useful for real-time cache invalidation, cross-process coordination, and background job triggers
+
 ## Key Design Principles
 
 1. **Single Source of Truth**: The `SQL` object holds all state for a given statement

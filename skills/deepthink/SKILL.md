@@ -1,6 +1,6 @@
 ---
 name: deepthink
-description: "Auto-activate when a problem resists quick answers, when initial analysis feels shallow, when debugging hits a wall, when architectural reasoning needs depth, or when confidence in a conclusion is low. Produces a confidence-tracked investigation with explicit hypothesis evolution, evidence log, and a specific actionable conclusion. Use when: complex reasoning needed, hypothesis testing required, going in circles on a problem, need to track what has been explored vs what remains, or when the first answer feels too easy for a hard problem. Not for clear questions with obvious answers, simple lookups, or problems that yield to direct investigation."
+description: "Auto-activate when a problem resists quick answers, when initial analysis feels shallow, when debugging hits a wall, when architectural reasoning needs depth, when confidence in a conclusion is low, when analysis feels like it is going in circles, or when the first answer feels too easy for a hard problem. Produces a confidence-tracked investigation with explicit hypothesis evolution, evidence log, and a specific actionable conclusion. Use when: complex reasoning needed, hypothesis testing required, going in circles on a problem, need to track what has been explored vs what remains, analysis feels shallow, confidence is low, or when debugging hits a wall. Not for clear questions with obvious answers, simple lookups, or problems that yield to direct investigation."
 ---
 
 # Deepthink
@@ -26,6 +26,8 @@ Don't skip this step — even a weak hypothesis focuses investigation better tha
 ### 3. Gather Evidence
 
 Read code, check docs, run tests, trace execution. Record what you find at each step. Every piece of evidence should be evaluated against the current hypothesis.
+
+> **Note:** Sequential-thinking or similar extended reasoning tools can complement complex sub-steps within this workflow — particularly during evidence gathering (step 3) or when evaluating a hypothesis with many interdependencies. Use them to decompose a stuck sub-step without abandoning the overall hypothesis tracking structure.
 
 ### 4. Evaluate Against Hypothesis
 

@@ -1,6 +1,6 @@
 ---
 name: consensus
-description: "Auto-activate when evaluating architectural decisions, comparing technology choices, weighing design trade-offs, assessing feature proposals, making build-vs-buy decisions, choosing between competing approaches, or when a decision has significant long-term consequences. Produces a structured recommendation with confidence level (low/medium/high), pro/con analysis, risk assessment, and concrete next steps. Use when: decisions need structured multi-perspective analysis, risk assessment from multiple angles, or when the stakes are high enough to warrant deliberate evaluation. Not for routine code review, simple config choices, or styling preferences."
+description: "Auto-activate when evaluating architectural decisions, comparing technology choices, weighing design trade-offs, assessing feature proposals, making build-vs-buy decisions, choosing between competing approaches, when a decision has significant long-term consequences, when multiple teams are affected, or when the cost of reversal is high. Produces a structured recommendation with confidence level (low/medium/high), pro/con analysis, risk assessment, and concrete next steps. Use when: decisions need structured multi-perspective analysis, risk assessment from multiple angles, decisions impact more than one team, decisions span more than a few months, or when the stakes are high enough to warrant deliberate evaluation. Not for routine code review, simple config choices, or styling preferences."
 ---
 
 # Consensus
@@ -18,6 +18,8 @@ Structured decision evaluation through stance rotation — analyze from advocate
 | Bounded, reversible | **Sequential** (default) | All perspectives in one pass — fast |
 | Multi-month or irreversible | **Subagent** | Three isolated subagents prevent cross-contamination |
 | Perspectives suspiciously aligned | Escalate to **Subagent** | Lack of genuine disagreement signals contamination |
+
+**Use subagent mode when:** the decision impacts more than 3 months of work, multiple teams are affected, or sequential perspectives align too easily (suspiciously low disagreement likely signals contamination — isolated subagents are required to get genuine divergence).
 
 See `references/consensus-strategy.md` for full escalation criteria.
 

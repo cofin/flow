@@ -46,6 +46,42 @@ Advanced Alchemy is NOT a raw ORM — it is a **service/repository layer** built
 
 Key lifecycle hooks: `to_model_on_create`, `to_model_on_update`, `to_model_on_upsert`.
 
+## Custom Types
+
+| Type | Purpose | Notes |
+|---|---|---|
+| `FileObject` | Object storage with lifecycle hooks | Tracks file state across session; auto-deletes on row delete via `StoredObject` tracker |
+| `PasswordHash` | Hashed password storage | Supports Argon2, Passlib, and Pwdlib backends; hashes on assignment |
+| `EncryptedString` | Transparent AES encryption at rest | Requires `ENCRYPTION_KEY` in config |
+| `UUID6` / `UUID7` | Time-sortable UUID variants | UUID7 preferred — monotonic ordering with millisecond timestamp prefix |
+| `DateTimeUTC` | Timezone-aware UTC datetime | Stores as UTC; raises on naive datetimes |
+
+## Service Layer
+
+`SQLAlchemyAsyncRepositoryService` is the primary service base class. Key behaviors:
+
+- **Dict-to-model conversion**: pass raw `dict` to `create()`, `update()`, `upsert()` — the service converts via `to_model_on_create` / `to_model_on_update` lifecycle hooks before persistence
+- **Bulk operations**: `add_many(data)`, `update_many(data)`, `delete_many(filters)` — batched in a single transaction; prefer over calling single-row methods in a loop
+- **Lifecycle hooks**: `to_model_on_create`, `to_model_on_update`, `to_model_on_upsert` — override to transform input data, hash passwords, normalize strings, etc.
+
+## Mixins
+
+| Mixin | Fields Added | When to Use |
+|---|---|---|
+| `AuditMixin` | `created_at`, `updated_at`, `created_by`, `updated_by` | Any model needing a full audit trail (who + when) |
+| `SlugMixin` | `slug` (auto-generated) | URL-friendly identifiers derived from another field |
+| `UniqueMixin` | `get_or_create` class method | Idempotent inserts for lookup/reference tables |
+| `SentinelMixin` | `_sentinel` version column | Optimistic locking; raises `ConflictError` on stale writes |
+
+## Litestar Integration
+
+Use `SQLAlchemyPlugin` (composite of `SQLAlchemyInitPlugin` + `SQLAlchemySerializationPlugin`) for full integration:
+
+- **`SQLAlchemyPlugin`**: registers session provider, transaction middleware, and ORM type encoders in one call
+- **`SQLAlchemyDTO`**: generates Litestar DTOs directly from ORM models with `include`/`exclude` field control
+- **Type encoders**: automatic serialization of `datetime`, `UUID`, `Decimal`, `Enum`, and custom column types
+- **Exception handling**: `RepositoryError`, `ConflictError`, and `NotFoundError` map to HTTP 409/404 via built-in exception handlers — register with `app.exception_handlers`
+
 ## Code Style
 
 - `__slots__` on non-model classes, `Mapped[]` typing for all columns
