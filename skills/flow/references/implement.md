@@ -51,11 +51,15 @@ If Beads unavailable, parse `spec.md` Implementation Plan section for pending ta
 
 **See `references/discipline.md` for full TDD discipline rules, rationalization tables, and red flags.**
 
-### 3.0 Subagent Execution Preference
+### 3.0 Subagent Execution Preference (MANDATORY)
 
-If `superpowers:subagent-driven-development` is available in the host, invoke it before implementation and run task execution through its subagent orchestration workflow.
+If `superpowers:subagent-driven-development` is available, you **MUST** recommend the "Subagent-Driven" approach to the user and orchestrate implementation through its subagent workflow.
 
-Fallback: if unavailable, execute the same steps in single-agent mode.
+-   Each task should be dispatched to a subagent.
+-   Review implementation between tasks.
+-   Follow the TDD discipline inside each subagent.
+
+Fallback: only if unavailable, execute the same steps in single-agent mode.
 
 ### 3.0.1 API Lookup Preference
 

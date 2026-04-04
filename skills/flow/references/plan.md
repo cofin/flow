@@ -37,14 +37,13 @@ You MAY ONLY:
 
 ## SUPERPOWERS INTEGRATION (MANDATORY)
 
-When Superpowers skills are available:
+When Superpowers skills are available, they MUST be used in the Planning workflow:
 
-- Prefer `superpowers:subagent-driven-development` orchestration during `flow-implement` execution.
-- If `superpowers:brainstorming` or `superpowers:writing-plans` are invoked during planning, override their default output location.
-- Write all planning/spec artifacts to `.agents/specs/<flow_id>/` (single-file plan in `spec.md`).
-- Never write Flow specs/plans to `docs/superpowers/specs/`.
+1.  **Brainstorming Phase:** Invoke `superpowers:brainstorming` to explore the user's intent and requirements before starting code analysis.
+2.  **Redirect Output:** Force the output of `superpowers:brainstorming` and `superpowers:writing-plans` to `.agents/specs/<flow_id>/spec.md`.
+3.  **Self-Review Phase:** Invoke `code-reviewer` (via `superpowers:requesting-code-review`) once the unified `spec.md` is drafted to ensure it meets requirements and adheres to project patterns.
 
-Also: if requirements depend on external framework/API docs, versions, migrations, or release notes, invoke `flow:apilookup` during analysis.
+**NEVER** use `docs/superpowers/` for Flow-related planning documents.
 
 ---
 

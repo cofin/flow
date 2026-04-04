@@ -163,22 +163,42 @@ Before claiming a phase is complete, verify:
 
 </validation>
 
+## Superpowers Protocol (MANDATORY)
+
+When Superpowers skills are available, the following protocols MUST be followed:
+
+1.  **Brainstorming & Planning Overrides:**
+    -   All brainstorming sessions (`superpowers:brainstorming`) MUST write their results to `.agents/specs/<flow_id>/spec.md`.
+    -   All implementation plans (`superpowers:writing-plans`) MUST be written to `.agents/specs/<flow_id>/spec.md`.
+    -   **NEVER** use `docs/superpowers/` for Flow-related artifacts.
+    -   If a skill tries to use a default path, you MUST intercept and redirect to `.agents/specs/<flow_id>/`.
+
+2.  **Implementation Orchestration:**
+    -   When running `/flow:implement`, you MUST explicitly recommend the "Subagent-Driven" approach to the user if `superpowers:subagent-driven-development` is available.
+    -   You MUST use `superpowers:subagent-driven-development` to orchestrate the implementation of tasks.
+
+3.  **Self-Review & Quality Gate:**
+    -   Before finalizing any PRD (`/flow:prd`) or Plan (`/flow:plan`), you MUST invoke `code-reviewer` (or use the internal `Spec Review Loop`) to validate the artifacts against project patterns and requirements.
+    -   For PRDs, ensure they follow the "Master Roadmap" structure.
+    -   For Plans, ensure they are "Unified Specs" (Requirements + TDD Tasks).
+
+4.  **TDD & Verification:**
+    -   Always use `superpowers:test-driven-development` for task implementation.
+    -   Always use `superpowers:verification-before-completion` before closing a task in Beads or marking it complete.
+
 ## Proactive Behaviors
 
 When Flow skill is active:
 
-- Check for resume state at session start
-- Run `br status` and `br ready` for context
-- Scan `knowledge/index.md` for relevant past learnings when starting a new flow
-- Prompt for learnings capture after tasks
-- Suggest pattern elevation at phase completion
-- Warn if tech-stack changes without documentation
-- Enforce mandatory `/flow:sync` after any Beads state change
-- During `/flow:implement`, invoke `superpowers:subagent-driven-development` when available
-- Invoke `flow:apilookup` proactively for external API/docs/version/migration questions
-- Override superpowers brainstorming spec directory to `.agents/specs/` when Flow is active
-- Override superpowers writing-plans plan directory to `.agents/specs/` when Flow is active
-- Never allow Flow specs/plans in `docs/superpowers/specs/`; write to `.agents/specs/`
+-   Check for resume state at session start.
+-   Run `br status` and `br ready` for context.
+-   Scan `knowledge/index.md` for relevant past learnings when starting a new flow.
+-   Prompt for learnings capture after tasks.
+-   Suggest pattern elevation at phase completion.
+-   Warn if tech-stack changes without documentation.
+-   Enforce mandatory `/flow:sync` after any Beads state change.
+-   **Mandatory Superpowers Integration:** If Superpowers is detected, all workflows (PRD, Plan, Implement) MUST follow the **Superpowers Protocol** above.
+-   Invoke `flow:apilookup` proactively for external API/docs/version/migration questions.
 
 ## References Index
 

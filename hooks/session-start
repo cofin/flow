@@ -38,7 +38,13 @@ In Codex, plugin-defined /flow:* slash commands are not currently available. Use
 - \"Use Flow to create a PRD for add user authentication\"
 - \"Use Flow to implement auth\"
 
-When using superpowers brainstorming or writing specs/designs, write all spec files to .agents/specs/ (not docs/superpowers/specs/). Check .agents/setup-state.json for the configured root_directory if it exists.
+When using superpowers brainstorming or writing specs/designs, you MUST write all spec files to .agents/specs/ and NEVER to docs/superpowers/specs/. This is a HARD REQUIREMENT for project organization.
+
+MANDATORY SUPERPOWERS INTEGRATION:
+- All implementation plans MUST be written to .agents/specs/<flow_id>/spec.md.
+- When implement is requested, you MUST recommend "Subagent-Driven" approach if superpowers:subagent-driven-development is available.
+- PRDs and Plans MUST undergo a "Self-Review" using code-reviewer or similar quality gate skills before finalization.
+- TDD and Verification before completion are REQUIRED for all implementation tasks.
 
 Use the Skill tool to invoke Flow skills. Key skills:
 - flow: Main workflow orchestrator

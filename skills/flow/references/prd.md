@@ -37,14 +37,13 @@ You MAY ONLY:
 
 ## SUPERPOWERS INTEGRATION (MANDATORY)
 
-When Superpowers skills are available:
+When Superpowers skills are available, they MUST be used in the PRD workflow:
 
-- Prefer `superpowers:subagent-driven-development` orchestration during `flow-implement` execution.
-- If `superpowers:brainstorming` or `superpowers:writing-plans` are invoked while scoping or planning, override their default output location.
-- Write all Flow planning/spec artifacts to `.agents/specs/<flow_id>/`.
-- Never write Flow specs/plans to `docs/superpowers/specs/`.
+1.  **Brainstorming Phase:** Invoke `superpowers:brainstorming` to explore high-level requirements and potential saga architectures.
+2.  **Redirect Output:** Force brainstorming and plan outputs to `.agents/specs/<flow_id>/`.
+3.  **Self-Review Phase:** Invoke `code-reviewer` (via `superpowers:requesting-code-review`) once the roadmap in `prd.md` is drafted to ensure it follows standard PRD structures and project constraints.
 
-Also: if roadmap decisions depend on external framework/API docs, versions, migrations, or release notes, invoke `flow:apilookup` during analysis.
+**NEVER** use `docs/superpowers/` for Flow-related saga/PRD documents.
 
 ---
 
