@@ -19,8 +19,8 @@ You are STRICTLY FORBIDDEN from modifying or creating source files outside `.age
 ---
 
 ## 1.5 BEADS CLI CHECK
-**PROTOCOL: Ensure Beads CLI is available.**
-Check if `br` is available via `command -v br`. Stop if missing.
+**PROTOCOL: Detect the active task-memory backend.**
+Check `bd` first, then `br`, otherwise continue in markdown-only mode.
 
 ---
 
@@ -43,6 +43,7 @@ Check if `br` is available via `command -v br`. Stop if missing.
         -   **Additive:** "Which of the following DB tables should be impacted? (A, B, C, All)"
         -   **Exclusive:** "Should we use a queue block or direct API calls? (A or B)"
     -   Present these choices to the user clearly. You MUST wait for their responses.
+4.  **Research Closure:** If chapter planning depends on unresolved docs, versions, migrations, release notes, marketplaces, or host behavior, continue researching until those gaps are closed before declaring the roadmap complete.
 
 ---
 
@@ -54,7 +55,7 @@ Check if `br` is available via `command -v br`. Stop if missing.
     -   Roadmap of proposed Chapters (Flows).
     -   Global Constraints applying to all flows.
 2.  **Spec Review Loop (Automated):**
-    -   Dispatch spec-reviewer subagent with: drafted prd.md, patterns.md, review criteria (completeness, chapter ordering, dependency mapping).
+    -   Dispatch spec-reviewer subagent with: drafted prd.md, patterns.md, review criteria (completeness, chapter ordering, dependency mapping, research closure).
     -   If issues found → fix, re-dispatch (max 3 iterations). If exhausted → surface to user.
 3.  **Present Draft to User:**
     -   Show the user a summary of the Master PRD.
@@ -71,13 +72,13 @@ Check if `br` is available via `command -v br`. Stop if missing.
 
 1.  **Master Epic:**
     ```bash
-    br create "PRD: <prd_name>" -t epic -p 1 --description="<north_star_goal_and_full_context>"
-    br update <master_epic_id> --notes "Chapters: <list_of_chapter_names>. Created by /flow:prd on <date>"
+    <active_backend_create_prd_epic>
+    <active_backend_attach_prd_notes>
     ```
 2.  **Sub-Epics (Chapters):**
     ```bash
-    br create "Flow: <flow_name>" --parent <master_epic_id> -t epic --description="<chapter_purpose_and_scope>"
-    br update <chapter_epic_id> --notes "Part of PRD: <prd_name>. Chapter <N> of <total>."
+    <active_backend_create_chapter_epic>
+    <active_backend_attach_chapter_notes>
     ```
 
 ---
@@ -90,6 +91,8 @@ Check if `br` is available via `command -v br`. Stop if missing.
     -   Present 3-5 questions based specifically on the CODE ANALYSIS results (e.g. noticing specific injected services). Wait for user feedback.
 3.  **Generate `spec.md` Draft & Explicit Approval:**
     -   Draft `spec.md` containing Code Analysis Summary, Requirements, and Implementation Plan (Phase 1, Task 1.1, etc.).
+    -   Before calling the chapter plan complete, ask: "Do I have enough task information written for this PRD/flow to complete it correctly in the first pass?"
+    -   If not, refine the tasks until each one includes concrete files, dependencies, test-first steps, verification, and known risks. If still too coarse for a lightweight executor, invoke `flow-refine` before approval.
     -   Present the draft to the user for **Approval** or **Revision**.
 4.  **Save `spec.md` and `metadata.json` (Post-Approval Only):**
     -   Directory: `.agents/specs/<flow_id>/`

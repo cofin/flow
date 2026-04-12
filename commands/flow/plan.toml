@@ -22,12 +22,13 @@ You are STRICTLY FORBIDDEN from modifying or creating source files outside `.age
 1.  **Read Global Patterns:** `.agents/patterns.md`. Warn user if a direction violates an existing pattern.
 2.  **Read Parent Context:** Check active `prd.md` if existing.
 3.  **Read Research:** Check `.agents/research/`.
+4.  **Research Closure:** If important requirements still depend on unresolved docs, versions, migrations, marketplaces, or host behavior, continue researching until those gaps are closed before declaring planning complete.
 
 ---
 
 ## 3.0 NEW FLOW INITIALIZATION
 1.  **Get Description:** Parse `{{args}}` or ask: "What is the goal of this single Flow?"
-2.  **Complexity Check:** Recommend `/flow:prd` if this is a massive Saga instead of a Flow.
+2.  **Complexity Check:** If this is a massive Saga instead of a single Flow, do NOT silently descope. Explain why it appears multi-flow, then ask the user whether to split it into `/flow:prd`, narrow it into a smaller flow now, or continue with a clearly scoped first slice.
 
 ---
 
@@ -52,9 +53,13 @@ Search and read files related to the problem, map implementation paths, note con
         *   Requirements (Functional, Non-Functional, API, DB)
         *   Implementation Plan (Phases and TDD Tasks)
     -   Include "Manual Verification" step at end.
+    -   Run a task-detail sufficiency loop before calling the draft complete:
+        * Ask: "Do I have enough task information written for this PRD/flow to complete it correctly in the first pass?"
+        * If not, refine the tasks until each one names concrete files, dependencies, test-first steps, verification, and open risks.
+        * If the tasks are still too coarse for a lightweight executor, invoke `flow-refine` before approval.
 
 3.  **Spec Review Loop (Automated):**
-    -   Dispatch spec-reviewer subagent with: drafted spec.md, patterns.md, review criteria (completeness, consistency, feasibility, TDD task structure).
+    -   Dispatch spec-reviewer subagent with: drafted spec.md, patterns.md, review criteria (completeness, consistency, feasibility, TDD task structure, first-pass sufficiency, research closure).
     -   If issues found → fix, re-dispatch (max 3 iterations). If 3 iterations exhausted → surface to user.
     -   Template: `templates/agent/spec-reviewer-prompt.md`
 
@@ -72,9 +77,9 @@ Search and read files related to the problem, map implementation paths, note con
 2.  **Write Files:** `spec.md` and `metadata.json` (include `"files_analyzed": [...]`).
 3.  **Update Registry:** Append to `.agents/flows.md` marking the flow `[ ]`.
 4.  **Beads Integration:**
-    -   Create epic: `br create "Flow: <flow_id>" -t epic -p 2 --description="..."`
-    -   Add notes: `br update <epic_id> --notes "Files: ..."`
-    -   Create tasks: `br create "Phase 1..."`
+    -   Create the epic through the active backend when enabled.
+    -   Attach file/context notes through the active backend.
+    -   Create phase tasks through the active backend.
 
 ---
 

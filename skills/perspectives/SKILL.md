@@ -7,6 +7,8 @@ description: "Auto-activate when analyzing trade-offs, evaluating decisions, com
 
 Shared prompt library for structured multi-perspective analysis. Provides stance prompts (advocate, critic, neutral) and critical thinking frameworks used by other Flow skills.
 
+<context>
+
 ## Overview
 
 This skill provides the foundation that other skills build on:
@@ -20,3 +22,5 @@ Typically loaded by other skills (`challenge`, `consensus`, persona skills) rath
 
 - **[Stance Prompts](references/stances.md)** — Advocate, critic, and neutral perspective prompts with ethical guardrails
 - **[Critical Thinking Framework](references/critical-thinking.md)** — CRITICAL REASSESSMENT pattern and anti-patterns
+
+</context>

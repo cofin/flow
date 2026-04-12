@@ -19,7 +19,7 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
 ## 2.0 READ CURRENT CONTEXT
 **PROTOCOL: Load existing context files.**
 
-1.  Read `.agents/index.md`, `.agents/flows.md`, `.agents/tech-stack.md`, `.agents/patterns.md`.
+1.  Read `.agents/index.md`, `.agents/flows.md`, `.agents/tech-stack.md`, `.agents/workflow.md`, `.agents/patterns.md`.
 2.  Identify the active flow from `.agents/flows.md`.
 3.  If an active flow exists, read `.agents/specs/<flow_id>/spec.md` and `.agents/specs/<flow_id>/metadata.json`.
 4.  Note the `synced_at` or `updated_at` timestamp from metadata (this is the baseline for detecting changes).
@@ -33,6 +33,7 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
 2.  **New/Modified/Deleted Files:** Run `git diff --name-status <last_commit>..HEAD` to find files changed since last sync.
 3.  **Dependency Changes:** Check `package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod` for modifications.
 4.  **Tech Stack Drift:** Compare current dependency files with `.agents/tech-stack.md`. Note any new frameworks, removed packages, or version changes.
+5.  **Workflow Drift:** Inspect `Makefile`, `justfile`, `Taskfile.yml`, `package.json`, `pyproject.toml`, `Cargo.toml`, `.pre-commit-config.yaml`, and CI files. Compare discovered canonical commands and workflow assumptions with `.agents/workflow.md`.
 
 ---
 
@@ -41,18 +42,24 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
 
 1.  **Tech Stack:** If dependency changes detected, update `.agents/tech-stack.md` with current state.
 2.  **Patterns:** If new patterns detected in recent commits (e.g., new conventions, new libraries adopted), note them for pattern elevation.
-3.  **Flow Spec:** If active flow's tasks were completed externally (commits reference task IDs), update status markers via Beads:
-    *   For each task completed externally: `br close <task_id> --reason "completed externally: <commit_sha>"`
-4.  **Index:** Refresh `.agents/index.md` if structural changes detected (new dirs, renamed files).
+3.  **Workflow:** If workflow drift is detected, explicitly prompt the user: "Workflow settings may be stale. Revalidate `.agents/workflow.md` now?"
+    *   Refresh only the affected workflow sections instead of replacing the entire file.
+    *   Prefer repo-native aggregate commands such as `make lint`, `make test`, `make check`, `just check`, `task test`, package scripts, and pre-commit entrypoints.
+4.  **Flow Spec:** If active flow's tasks were completed externally (commits reference task IDs), update status through the active backend:
+    *   `bd`: use the official completion/note flow
+    *   `br`: `br close <task_id> --reason "completed externally: <commit_sha>"`
+    *   no-Beads: record the change in markdown/context files only
+5.  **Index:** Refresh `.agents/index.md` if structural changes detected (new dirs, renamed files).
 
 ---
 
 ## 5.0 SYNC WITH BEADS
 **PROTOCOL: Reconcile Beads state with refreshed context.**
 
-1.  Run `br sync --flush-only` to push any local changes.
-2.  Run `br status` to get current workspace overview.
-3.  If active flow exists, run `br show <beads_epic_id> --format json` and reconcile with spec.md.
+1.  Resolve the active backend first.
+2.  `bd`: run the official Beads sync/status flow.
+3.  `br`: run `br sync --flush-only`, `br status`, and `br show <beads_epic_id> --format json` when an epic ID exists.
+4.  no-Beads: skip backend sync and continue with refreshed context files.
 
 ---
 
@@ -68,6 +75,7 @@ Since last sync (<timestamp>, <days> ago):
   • <N> commits by <contributors>
   • <dependency file>: <changes>
   • tech-stack.md: <updated/unchanged>
+  • workflow.md: <revalidated/unchanged>
   • <flow_id>: <N> tasks updated
   • spec.md: <synced/unchanged>
 
@@ -80,6 +88,7 @@ Since last sync (<timestamp>, <days> ago):
 1.  **NEVER OVERWRITE MANUAL EDITS** - Merge changes into spec.md, don't replace
 2.  **ASK ON CONFLICT** - If conflicts detected, present both versions and ask user to resolve
 3.  **SYNC AT END** - Always run `/flow:sync` equivalent at the end to ensure spec.md reflects final state
-4.  **LOG IN BEADS** - Record the refresh: `br comments add {epic_id} "Context refreshed: {summary}"`
+4.  **LOG IN BACKEND** - Record the refresh through the active backend's note/comment mechanism when a backend is enabled
 5.  **READ-ONLY ON CODE** - Never modify source files, only `.agents/` context
+6.  **WORKFLOW DRIFT COUNTS** - Treat stale canonical commands, backend assumptions, and ignore policy as refresh work, not optional cleanup
 """

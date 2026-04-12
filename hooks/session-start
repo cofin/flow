@@ -29,9 +29,16 @@ Flow is installed and MUST be used for all development work in projects with a .
 
 AUTO-TRIGGER RULES:
 - When .agents/ directory exists: ALWAYS invoke the 'flow' skill at session start
-- When user asks to set up, plan, draft a PRD, design, research, document, implement, sync, check status, refresh, validate, revise, review, finish, archive, revert, or create a task: run the matching Flow workflow
+- When user asks to set up, plan, draft a PRD, design, research, document, implement, sync, check status, refresh, validate, revise, review, finish, archive, revert, or create a task: immediately map the request to the matching Flow workflow instead of staying in generic chat mode
 - When editing files in .agents/specs/: invoke 'flow' skill for context
-- When user mentions \"beads\", \"br ready\", \"br status\": invoke 'flow' skill
+- When user mentions \"beads\", \"bd\", \"br\", or backend migration: invoke 'flow' skill
+- When a spec or PRD exists but task detail is coarse: invoke 'flow-refine' before implementation or subagent dispatch
+- When PRD/planning work appears complete: run a research-closure pass and do not stop while obvious research gaps remain
+- Read `.agents/workflow.md` early and prefer the repo's canonical commands such as `make lint`, `make test`, `make check`, `just check`, `task test`, package scripts, or pre-commit wrappers when they exist
+- If an existing install is detected, offer a workflow refresh/revalidation pass instead of assuming `workflow.md` is current
+- Never silently descope when the task is larger than expected; refine the plan or ask the user how to prioritize
+- Be collaborative and constructive. Never use dismissive ownership-deflecting language such as \"not my issue\" or \"not caused by my change\"
+- Make minimal targeted changes and avoid unrelated opportunistic edits without approval
 
 In Codex, plugin-defined /flow:* slash commands are not currently available. Use the installed Flow skill through natural-language requests instead, for example:
 - \"Use Flow to set up this project\"
@@ -42,12 +49,15 @@ When using superpowers brainstorming or writing specs/designs, you MUST write al
 
 MANDATORY SUPERPOWERS INTEGRATION:
 - All implementation plans MUST be written to .agents/specs/<flow_id>/spec.md.
+- Planning and PRD work MUST use brainstorming, then refine coarse task details before implementation.
 - When implement is requested, you MUST recommend "Subagent-Driven" approach if superpowers:subagent-driven-development is available.
+- Before dispatching a subagent, preserve context by passing the relevant spec/PRD, patterns, knowledge chapters, learnings, affected files, and verification requirements.
 - PRDs and Plans MUST undergo a "Self-Review" using code-reviewer or similar quality gate skills before finalization.
 - TDD and Verification before completion are REQUIRED for all implementation tasks.
 
 Use the Skill tool to invoke Flow skills. Key skills:
 - flow: Main workflow orchestrator
+- flow-refine: expands coarse plans into first-pass-ready execution tasks
 - Other domain skills available in skills/ directory
 
 For full details, invoke the 'flow' skill."

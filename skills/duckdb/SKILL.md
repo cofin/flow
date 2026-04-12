@@ -9,25 +9,6 @@ description: "Auto-activate for .duckdb files, duckdb imports. Comprehensive Duc
 
 DuckDB is an in-process analytical database with rich SQL dialect, first-class support for Parquet/CSV/JSON, and client APIs for Python, Node.js, Rust, Java, R, Go, WASM, and more. It excels at OLAP workloads, local data exploration, embedded analytics, and data engineering pipelines across local and cloud data sources.
 
-## Quick Start
-
-<example>
-
-```python
-import duckdb
-con = duckdb.connect()  # in-memory
-result = con.sql("SELECT 42 AS answer").fetchall()
-```
-
-```bash
-# CLI
-duckdb mydb.duckdb "SELECT * FROM read_parquet('data/*.parquet')"
-```
-
-</example>
-
----
-
 ## References Index
 
 For detailed guides and patterns, refer to the following documents in `references/`:
@@ -67,6 +48,25 @@ For detailed guides and patterns, refer to the following documents in `reference
 - Friendly SQL: `FROM tbl SELECT col` syntax, implicit `SELECT *`
 
 </workflow>
+
+---
+
+## Quick Start
+
+<example>
+
+```python
+import duckdb
+con = duckdb.connect()  # in-memory
+result = con.sql("SELECT 42 AS answer").fetchall()
+```
+
+```bash
+# CLI
+duckdb mydb.duckdb "SELECT * FROM read_parquet('data/*.parquet')"
+```
+
+</example>
 
 ---
 

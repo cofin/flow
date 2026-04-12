@@ -13,7 +13,15 @@ Beads is a **required dependency**. Flow will offer to install it and configures
 
 ## Auto-Activation
 
-When the `.agents/` directory exists in the project root, the Flow skill MUST be activated at session start. Run `br status` and `br ready` to load context before beginning work.
+When the `.agents/` directory exists in the project root, the Flow skill MUST be activated at session start. Detect the active Beads backend (`bd`, `br`, or none) and load context before beginning work.
+
+## Agent Conduct
+
+Before planning or implementation, read `.agents/workflow.md` and prefer the repo's canonical commands such as `make lint`, `make test`, `make check`, `just check`, `task test`, package scripts, or pre-commit wrappers when they exist.
+
+Be collaborative and constructive. Never use dismissive ownership-deflecting language such as "not my issue" or "not caused by my change." If unrelated blockers appear, describe them factually, offer the smallest helpful next step, and ask the user whether to handle them now or separately.
+
+Make the minimum targeted changes needed for the task. Do not make opportunistic unrelated edits without approval. Do not silently descope or take shortcuts because a request is larger or messier than expected; refine the plan or ask the user how to prioritize.
 
 ## Configuration
 
@@ -70,6 +78,7 @@ To find a file (e.g., "**Product Definition**") within a specific context:
 | **Patterns** | `.agents/patterns.md` |
 | **Knowledge Base** | `.agents/knowledge/` |
 | **Knowledge Index** | `.agents/knowledge/index.md` |
+| **Project Skills** | `.agents/skills/` |
 | **Beads Config** | `.agents/beads.json` |
 | **Research Directory** | `.agents/research/` |
 | **Task Directory** | `.agents/tasks/` |
@@ -95,10 +104,10 @@ To find a file (e.g., "**Product Definition**") within a specific context:
 | Marker | Status | Beads Status | Beads Command |
 |--------|--------|-------------|---------------|
 | `[ ]` | Pending | `open` | (default) |
-| `[~]` | In Progress | `in_progress` | `br update {id} --status in_progress` |
-| `[x]` | Completed | `closed` | `br close {id} --reason "commit: {sha}"` |
-| `[!]` | Blocked | `blocked` | `br update {id} --status blocked --notes "BLOCKED: {reason}"` |
-| `[-]` | Skipped | `closed` | `br close {id} --reason "Skipped: {reason}"` |
+| `[~]` | In Progress | `in_progress` | Use the active backend's in-progress command |
+| `[x]` | Completed | `closed` | Use the active backend's completion command |
+| `[!]` | Blocked | `blocked` | Use the active backend's blocking command |
+| `[-]` | Skipped | `closed` | Use the active backend's skip/close command |
 
 ## Commands
 
@@ -126,29 +135,45 @@ Codex currently runs the same workflows through the installed Flow skill and pla
 
 ## Beads Integration
 
-**Note:** `br` is non-invasive and never executes git commands. After `br sync --flush-only`, you must manually run `git add .beads/ && git commit`.
+Flow supports three persistence modes:
 
-Beads provides persistent cross-session memory. It is **required** for Flow.
+- **Official Beads (`bd`)** - preferred default
+- **beads_rust (`br`)** - compatibility mode
+- **No Beads** - degraded mode for docs/plans/lightweight local work
+
+Use `choosing-beads-backend` for exact command mapping and migration guidance.
 
 ### Installation Check
 
 ```bash
-command -v br &> /dev/null && echo "BEADS_OK" || echo "BEADS_MISSING"
+command -v bd >/dev/null 2>&1 && echo "BD_OK" || \
+command -v br >/dev/null 2>&1 && echo "BR_OK" || \
+echo "BEADS_MISSING"
 ```
 
-If missing, Flow offers to install:
+If missing, Flow should offer a concise menu:
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash
-```
+- **A) Install official Beads (`bd`)** (recommended)
+- **B) Use beads_rust compatibility (`br`)**
+- **C) Continue without Beads**
 
 ### Initialization
 
+Official default:
+
 ```bash
-br init
+repo_slug="$(basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-//; s/-$//')"
+bd init --stealth --prefix "$repo_slug"
 ```
 
-For local-only use, add `.beads/` to `.gitignore` after initialization.
+Compatibility default:
+
+```bash
+repo_slug="$(basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-//; s/-$//')"
+br init --prefix "$repo_slug"
+```
+
+For local-only use, prefer `.git/info/exclude` instead of editing `.gitignore`.
 
 ### Configuration (`.agents/beads.json`)
 
@@ -172,21 +197,21 @@ For local-only use, add `.beads/` to `.gitignore` after initialization.
 
 | Flow Action | Beads Command |
 |-------------|---------------|
-| Create flow | `br create "Flow: {flow_id}" -t epic -p 1 --description="{purpose}"` |
-| Add context | `br update {id} --notes "{context}"` |
-| Create task | `br create "{task}" --parent {epic_id} -p 2 --description="{what_and_why}"` |
-| Start task | `br update {id} --status in_progress` |
-| Complete task | `br close {id} --reason "commit: {sha}"` |
-| Block task | `br update {id} --status blocked --notes "BLOCKED: {reason}"` |
-| Get ready tasks | `br ready` |
-| Add notes | `br update {id} --notes "{learning}"` |
-| Sync to git | `br sync --flush-only` |
-| Show blocked | `br blocked` |
+| Create flow | Use the active backend's flow/epic creation command |
+| Add context | Use the active backend's notes/comments command |
+| Create task | Use the active backend's task creation command |
+| Start task | Use the active backend's in-progress command |
+| Complete task | Use the active backend's completion command |
+| Block task | Use the active backend's blocking command |
+| Get ready tasks | Use the active backend's ready queue |
+| Add notes | Use the active backend's notes/comments command |
+| Sync to git | Use the active backend's sync/export command if enabled |
+| Show blocked | Use the active backend's blocked-view command |
 
-**CRITICAL: `br create` supports `--description` but NOT `--notes`.** Use `br update` to add notes after creation:
+**CRITICAL:** Keep purpose/description separate from context notes/comments:
 
-- `--description`: WHY this issue exists and WHAT needs to be done (set at creation)
-- `--notes`: CONTEXT - files affected, dependencies, origin command, timestamp (set via `br update`)
+- `description`: WHY this issue exists and WHAT needs to be done
+- notes/comments: CONTEXT - files affected, dependencies, origin command, timestamp
 - Priority levels: P0=critical, P1=high, P2=medium, P3=low, P4=backlog
 
 ### When to Track in Beads
@@ -202,7 +227,7 @@ For local-only use, add `.beads/` to `.gitignore` after initialization.
 **Why this matters:**
 
 - Notes survive context compaction - critical for multi-session work
-- `br ready` finds unblocked work automatically
+- The active Beads backend finds unblocked work automatically
 - If resuming in 2 weeks would be hard without context, use Beads
 
 ### Session Protocol
@@ -210,19 +235,19 @@ For local-only use, add `.beads/` to `.gitignore` after initialization.
 At session start:
 
 ```bash
-br status                          # Workspace overview
-br ready                           # List unblocked tasks
-br list --status in_progress       # Resume active work
+# Official Beads (`bd`)
+bd prime
+bd ready --json
+
+# beads_rust compatibility (`br`)
+br status
+br ready
+br list --status in_progress
 ```
 
 At session end:
 
-```bash
-br sync --flush-only
-git add .beads/
-# You can commit beads state manually or alongside your features
-# Notes survive context compaction!
-```
+Use the active backend's sync/export flow. For local-only setups, prefer `.git/info/exclude` over `.gitignore`.
 
 ## Learnings System (Ralph-style)
 
@@ -264,7 +289,11 @@ Consolidated patterns from all flows:
 3. **Synthesize** - During sync and archive, integrate learnings directly into cohesive, logically organized knowledge base chapters in `.agents/knowledge/` (e.g., `architecture.md`, `conventions.md`). Update the current state, do NOT outline history.
 4. **Inherit** - New flows read `patterns.md` + scan `.agents/knowledge/` chapters.
 
+Repeated user corrections or visible frustration are high-signal workflow gaps. Capture them in `learnings.md`, elevate them into `.agents/patterns.md`, and refine `.agents/skills/flow-memory-keeper/SKILL.md` when present so the same miss does not have to be corrected again.
+
 Knowledge chapters in `.agents/knowledge/` survive archive cleanup and serve as the expert implementation details for the codebase.
+
+If `.agents/skills/flow-memory-keeper/SKILL.md` exists, invoke it during sync, archive, finish, revise, and failure recovery so learnings, failures, and spec cleanup remain mandatory instead of ad hoc.
 
 ## Parallel Execution
 
@@ -286,14 +315,14 @@ State tracked in `parallel_state.json`. Uses the `invoke_subagent` tool to spawn
 
 ## Task Workflow (TDD)
 
-1. Select task via `br ready` (Beads is source of truth; fall back to spec.md)
-2. Mark in Beads: `br update {id} --status in_progress`
+1. Select task via the active backend's ready/queue command (Beads is source of truth; fall back to spec.md)
+2. Mark the task in progress with the active backend's claim/update command
 3. **Write failing tests** (Red)
 4. **Implement to pass** (Green)
 5. **Refactor** while green
 6. Verify >80% coverage
 7. Commit: `<type>(<scope>): <description>`
-8. Sync to Beads: `br close {id} --reason "commit: {sha}"`
+8. Record completion in the active backend with the commit reference
 9. Log learnings in `learnings.md`
 10. **Sync to markdown:** run `/flow:sync` (MANDATORY — keeps spec.md readable)
 
@@ -324,7 +353,7 @@ Skills are available in `skills/` for copying to `.gemini/skills/`:
 
 ```bash
 # Install as Gemini extension
-gemini extensions install https://github.com/cofin/flow
+gemini extensions install https://github.com/cofin/flow --auto-update
 
 # Or copy manually (Run from repo root)
 mkdir -p ~/.gemini/extensions/flow
@@ -333,6 +362,11 @@ cp -r . ~/.gemini/extensions/flow/
 # Or link
 gemini extensions link .
 
-# Install Beads (required)
+# Install official Beads (preferred)
+brew install beads
+# or
+curl -sSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash
+
+# Install beads_rust compatibility (optional fallback)
 curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash
 ```

@@ -2,35 +2,38 @@
 
 ## Guiding Principles
 
-1. **Beads is the Source of Truth:** Task status lives in Beads (`br ready`, `br close`). Use `/flow:sync` to export Beads state to spec.md when needed.
+1. **Beads backend is the Source of Truth:** Prefer official Beads (`bd`), keep `br` as compatibility mode, and use `/flow:sync` to export task state to spec.md when needed.
 2. **The Tech Stack is Deliberate:** Changes to the tech stack must be documented in `tech-stack.md` *before* implementation
 3. **Test-Driven Development:** Write unit tests before implementing functionality
 4. **High Code Coverage:** Aim for >80% code coverage for all modules
 5. **User Experience First:** Every decision should prioritize user experience
 6. **Non-Interactive & CI-Aware:** Prefer non-interactive commands. Use `CI=true` for watch-mode tools (tests, linters) to ensure single execution.
+7. **Use the Repo's Real Commands:** Prefer canonical project entrypoints such as `make lint`, `make test`, `make check`, `just check`, `task test`, package scripts, or pre-commit wrappers before inventing ad hoc commands.
+8. **Be Collaborative:** Never use blamey or ownership-deflecting language such as "not my issue" or "not caused by my change." Describe unrelated failures factually, offer the smallest useful next step, and ask the user whether to handle them now or separately.
+9. **Minimal Targeted Changes:** Make the smallest coherent change set that solves the task. Do not make opportunistic cleanup edits or random unrelated modifications without approval.
+10. **No Silent Descoping:** If the task is larger or messier than expected, refine the plan or ask the user how to prioritize. Do not quietly skip work.
 
 ## Beads Integration
 
-Beads provides persistent cross-session memory. Configured for local-only use during setup.
+Flow supports three modes:
+
+- Official Beads (`bd`) - preferred default
+- beads_rust compatibility (`br`)
+- No Beads - degraded mode for docs/plans/lightweight local work
+
+Configured for local-only use during setup unless the user explicitly asks for shared repo state.
 
 ### Session Protocol
 
 **Session Start:**
 
-```bash
-br status                          # Workspace overview
-br ready                           # List unblocked tasks (dependency-aware)
-br list --status in_progress       # Resume active work
-```
+Use the active backend's session-start commands.
 
 **Session End:**
 
-```bash
-br sync --flush-only         # Sync notes locally
-git add .beads/
-```
+For local-only ignores, prefer `.git/info/exclude` before `.gitignore`.
 
-> If `br` is unavailable, workflow degrades gracefully to git-only tracking.
+> If no supported Beads backend is available, workflow degrades gracefully to git-only tracking.
 
 ### When to Track in Beads
 
@@ -45,23 +48,19 @@ git add .beads/
 **Why this matters:**
 
 - Notes survive context compaction - critical for multi-session work
-- `br ready` finds unblocked work automatically
+- The active Beads backend finds unblocked work automatically
 - If resuming in 2 weeks would be hard without context, use Beads
 
 ### Creating Issues with Full Context
 
-**CRITICAL: Always include `--description` with `br create`, then add notes via `br update`:**
+**CRITICAL:** Always include the backend's purpose/description field at creation time, then add context notes separately.
 
 ```bash
-br create "Task name" --parent {epic_id} -p 2 \
-  --description="WHY this issue exists and WHAT needs to be done"
-
-# Then add context notes (br create does NOT support --notes):
-br update {id} --notes "CONTEXT: files affected, dependencies, origin command, timestamp"
+Use `choosing-beads-backend` for exact command mapping.
 ```
 
-- `--description`: Purpose and goal (set at creation with `br create`)
-- `--notes`: Context for future agents (set via `br update` — survives compaction!)
+- `--description`: Purpose and goal
+- notes/comments: Context for future agents
 - Priority levels: P0=critical, P1=high, P2=medium, P3=low, P4=backlog
 
 ## Task Workflow
@@ -87,10 +86,10 @@ All tasks follow a strict lifecycle:
 - **Documentation:** Use `flow:docgen` when generating API docs, module docs, or reference guides.
 - **Domain Skills:** Consult `patterns.md` Skill Associations table for language, framework, database, and cloud-specific skills.
 
-1. **Select Task:** Use `br ready` for dependency-aware selection, or fall back to parsing spec.md
+1. **Select Task:** Use the active backend's ready queue, or fall back to parsing spec.md
 
 2. **Mark In Progress:**
-   - Sync to Beads: `br update <id> --status in_progress`
+   - Sync to Beads using the active backend
    - **Do NOT edit spec.md** - Beads is source of truth
 
 3. **Write Failing Tests (Red Phase):**
@@ -127,14 +126,17 @@ All tasks follow a strict lifecycle:
 
 9. **Record Task Completion (Beads-First):**
    - **Step 9.1: Get Commit Hash:** Obtain the hash of the *just-completed commit* (`git log -1 --format="%h"`).
-   - **Step 9.2: Close in Beads:** `br close <id> --reason "commit: <sha>"`
+   - **Step 9.2: Close in Beads:** use the active backend to record completion
    - **Step 9.3 (Manual Sync):** You MUST run `/flow-sync` to update the markdown state in `spec.md` so it aligns with Beads.
    - **Do NOT manually edit spec.md markers** - they are managed by running `/flow-sync`.
 
 10. **Log Learnings:**
     - Append discoveries to track's `learnings.md`
-    - Sync to Beads: `br update <id> --notes "pattern: ..."`
+    - Sync to Beads using the active backend's note/comment command
     - Elevate reusable patterns to `.agents/patterns.md` at phase completion
+    - If the user had to repeat a correction or showed frustration, capture that as a workflow gap and elevate it into the knowledge system
+    - Capture validated repo-native commands and verification workflows so future agents reuse the same `make`, `just`, `task`, package-script, or pre-commit entrypoints
+    - If `.agents/skills/flow-memory-keeper/SKILL.md` exists, update it with durable project-specific refinements
 
 ### Knowledge Flywheel
 
@@ -142,6 +144,9 @@ All tasks follow a strict lifecycle:
 2. **Elevate** - At phase/flow completion, move reusable patterns to `.agents/patterns.md`
 3. **Synthesize** - During sync and archive, integrate learnings directly into cohesive, logically organized knowledge base chapters in `.agents/knowledge/` (e.g., `architecture.md`, `conventions.md`). Update the current state, do NOT outline history.
 4. **Inherit** - New flows read `patterns.md` + scan `.agents/knowledge/` chapters.
+
+Repeated user corrections or frustration are high-signal learning triggers. Do not leave them buried in chat history; turn them into explicit patterns or knowledge updates.
+Validated repo-native commands are also high-signal learnings. If the project already has a canonical `make lint`, `make test`, `make check`, `just check`, `task test`, or equivalent wrapper, preserve it in this workflow and elevate it when needed.
 
 **Knowledge Base:**
 
@@ -222,7 +227,7 @@ All tasks follow a strict lifecycle:
     - Perform the commit with a clear and concise message (e.g., `flow(checkpoint): Checkpoint end of Phase X`).
 
 7. **Record Verification in Beads:**
-    - Update the epic with verification summary: `br comments add <epic_id> "Phase N verified: tests passed, manual verification confirmed by user, checkpoint: <sha>"`
+    - Update the epic with verification summary using the active backend's note/comment command
 
 8. **Sync to spec.md (Manual):**
     - You MUST run `/flow-sync` to update the markdown state in `spec.md` so it aligns with Beads for human-readable status.
@@ -240,6 +245,7 @@ Before marking any task complete, verify:
 - [ ] All public functions/methods are documented (e.g., docstrings, JSDoc, GoDoc)
 - [ ] Type safety is enforced (e.g., type hints, TypeScript types, Go types)
 - [ ] No linting or static analysis errors (using the project's configured tools)
+- [ ] Canonical repo verification commands from this workflow were used when available
 - [ ] Works correctly on mobile (if applicable)
 - [ ] Documentation updated if needed
 - [ ] No security vulnerabilities introduced
@@ -259,17 +265,25 @@ Before marking any task complete, verify:
 ### Daily Development
 
 ```bash
-# Example: Commands for common daily tasks (e.g., start dev server, run tests, lint, format)
-# e.g., for a Node.js project: npm run dev, npm test, npm run lint
-# e.g., for a Go project: go run main.go, go test ./..., go fmt ./...
+# Replace these examples with the repo's actual canonical commands.
+# Prefer aggregate entrypoints like make/just/task/package scripts before raw tool invocations.
+# Examples:
+# make dev
+# make test
+# make lint
+# npm run dev
+# just check
 ```
 
 ### Before Committing
 
 ```bash
-# Example: Commands to run all pre-commit checks (e.g., format, lint, type check, run tests)
-# e.g., for a Node.js project: npm run check
-# e.g., for a Go project: make check (if a Makefile exists)
+# Prefer the single canonical verification command when the repo has one.
+# Examples:
+# make check
+# just check
+# task verify
+# npm run check
 ```
 
 ## Testing Requirements
@@ -378,8 +392,9 @@ A task is complete when:
 6. Works beautifully on mobile (if applicable)
 7. Implementation notes added to `spec.md`
 8. Changes committed with proper message
-9. Task closed in Beads with commit reference: `br close <id> --reason "commit: <sha>"`
+9. Task closed in Beads with the active backend's completion command and commit reference
 10. Markdown synced manually by running `/flow-sync`.
+11. No ignored Flow artifacts were force-added to git.
 
 ## Emergency Procedures
 
@@ -442,5 +457,6 @@ A task is complete when:
 - Review workflow weekly
 - Update based on pain points
 - Document lessons learned
+- Capture user corrections, missing defaults, and canonical repo commands so they stop being chat-only reminders
 - Optimize for user happiness
 - Keep things simple and maintainable

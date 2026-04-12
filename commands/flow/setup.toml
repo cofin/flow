@@ -9,29 +9,43 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
 
 ---
 
-## 0.1 BEADS INSTALLATION CHECK
-**PROTOCOL: Ensure Beads is installed before proceeding.**
+## 0.1 BEADS BACKEND CHECK
+**PROTOCOL: Choose the persistence backend before proceeding.**
 
-1. **Check for Beads CLI:**
+1. **Check for available Beads CLIs:**
    ```bash
-   command -v br &> /dev/null && echo "BEADS_OK" || echo "BEADS_MISSING"
+   command -v bd >/dev/null 2>&1 && echo "BD_OK" || \
+   command -v br >/dev/null 2>&1 && echo "BR_OK" || \
+   echo "BEADS_MISSING"
    ```
 
-2. **If BEADS_MISSING:**
-   > "Beads CLI is required for Flow. Would you like me to install it?
-   > A) Yes, install Beads globally (curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash)
-   > B) No, I'll install it myself"
+2. **If BEADS_MISSING, offer a concise menu:**
+   > "Flow supports three persistence modes:
+   > A) Install official Beads (`bd`) (recommended)
+   >    - brew install beads
+   >    - or curl -sSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash
+   > B) Install beads_rust compatibility (`br`)
+   >    - curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash
+   > C) Continue without Beads (docs/plans/lightweight mode)"
 
    If A selected:
+   ```bash
+   curl -sSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash
+   ```
+
+   If B selected:
    ```bash
    curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash
    ```
 
-   If installation fails, announce error and HALT.
+   If C selected, continue in no-Beads mode. Do NOT halt.
 
-3. **Note:** `br` is non-invasive and never executes git commands. After `br sync --flush-only`, you must manually run `git add .beads/`.
+3. **Default initialization rules:**
+   - Official Beads MUST use `bd init --stealth --prefix "$repo_slug"`.
+   - `br` compatibility MUST use `br init --prefix "$repo_slug"`.
+   - Prefer `.git/info/exclude` for local-only ignores instead of editing repo `.gitignore`.
 
-4. **Continue:** Once Beads is available, proceed to 1.1.
+4. **Continue:** Once the backend choice is clear, proceed to 1.1.
 
 ---
 
@@ -39,12 +53,22 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
 **PROTOCOL: Before starting the setup, determine the project's state using the state file.**
 
 1.  **Read State File:** Check for the existence of the state file:
-    - `.agents/setup-state.json`
-    - If it does not exist, this is a new project setup. Proceed directly to Step 1.2.
-    - If the state file exists, read its content.
+    - First check `.agents/setup-state.json`
+    - Then check `specs/setup-state.json`
+    - If neither exists, this is a new project setup. Proceed directly to Step 1.2.
+    - If a state file exists, read its content and treat its `root_directory` field as authoritative for subsequent paths.
 
 2.  **Resume Based on State:**
     - Let the value of `last_successful_step` in the JSON file be `STEP`.
+    - Let `SETUP_STATUS` be the value of `setup_status` if present.
+    - If `SETUP_STATUS` is `"complete"` OR `STEP` is `"complete"` OR `STEP` is `"3.3_initial_prd_generated"`, offer Alignment Mode immediately:
+      > "Existing Flow setup detected. What would you like to do?
+      > A) **Align** (recommended) - Validate and update to latest best practices
+      > B) **Re-setup** - Start fresh (preserves existing specs)
+      > C) **Exit** - Keep current setup"
+      - If A selected: Proceed to **Section 1.1.1 Alignment Mode**
+      - If B selected: Continue to **Section 1.2** (full re-setup)
+      - If C selected: Announce "Setup unchanged." and HALT
     - Based on the value of `STEP`, jump to the **next logical section**:
 
     - If `STEP` is "2.1_product_guide", announce "Resuming setup: The Product Guide (`product.md`) is already complete. Next, we will create the Product Guidelines." and proceed to **Section 2.2**.
@@ -52,15 +76,7 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
     - If `STEP` is "2.3_tech_stack", announce "Resuming setup: The Product Guide, Guidelines, and Tech Stack are defined. Next, we will select Code Styleguides." and proceed to **Section 2.4**.
     - If `STEP` is "2.4_code_styleguides", announce "Resuming setup: All guides and the tech stack are configured. Next, we will define the project workflow." and proceed to **Section 2.5**.
     - If `STEP` is "2.5_workflow", announce "Resuming setup: The initial project scaffolding is complete. Next, we will generate the first PRD." and proceed to **Phase 2 (3.0)**.
-    - If `STEP` is "3.3_initial_prd_generated":
-        - **Offer Alignment Mode:**
-          > "Existing Flow setup detected. What would you like to do?
-          > A) **Align** (recommended) - Validate and update to latest best practices
-          > B) **Re-setup** - Start fresh (preserves existing specs)
-          > C) **Exit** - Keep current setup"
-        - If A selected: Proceed to **Section 1.1.1 Alignment Mode**
-        - If B selected: Continue to **Section 1.2** (full re-setup)
-        - If C selected: Announce "Setup unchanged." and HALT
+    - If `STEP` is "3.3_initial_prd_generated", follow the completed-setup alignment prompt above.
     - If `STEP` is unrecognized, announce an error and halt.
 
 ### 1.1.1 Alignment Mode
@@ -68,11 +84,15 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
 
 1.  **Beads Validation:**
     ```bash
-    command -v br &> /dev/null && echo "BEADS_OK" || echo "BEADS_MISSING"
-    br version
+    command -v bd >/dev/null 2>&1 && echo "BD_OK" || \
+    command -v br >/dev/null 2>&1 && echo "BR_OK" || \
+    echo "BEADS_MISSING"
     ```
-    If outdated, suggest: `curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash`
-    Verify `br` is available and current.
+    - If `bd` is available, verify with `bd --version`.
+    - If `br` is available, verify with `br --version`.
+    - If neither is available, continue alignment in no-Beads mode instead of blocking the rest of setup.
+    - If official Beads should be installed or refreshed, suggest: `curl -sSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash`
+    - If `br` compatibility is needed, suggest: `curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash`
 
 2.  **Legacy Specs Migration:**
     Scan for legacy spec locations:
@@ -105,11 +125,8 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
     d. Check if referenced files still exist in codebase
     e. Copy to `.agents/specs/{flow_id}/` (Rename directory if needed)
     f. Update `.agents/flows.md` registry
-    g. Create Beads epic and add notes:
-       ```bash
-       br create "Flow: {flow_id}" -t epic -p 2 --description "{flow_description}"
-       br update {epic_id} --notes "Created by Flow during setup"
-       ```
+    g. If a Beads backend is enabled, create the migrated epic/task record using the active backend and attach migration notes.
+       If setup is running in no-Beads mode, preserve the metadata in Flow files only and continue.
 
 3.  **Learnings Ingestion with Validation:**
     For each spec with learnings.md:
@@ -122,32 +139,51 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
     d. Merge confirmed patterns into `.agents/patterns.md`
     e. Archive original learnings.md with migration note
 
-4.  **Template Update:**
-    -   **Workflow File:** Compare `.agents/workflow.md` with the latest template.
-    -   **Offer Update:**
-        > "I can update your project's Flow templates to the latest version.
-        > This will overwrite:
-        > - .agents/workflow.md (Core workflow definitions)
+4.  **Workflow Revalidation:**
+    -   **Workflow File:** Compare `<root_directory>/workflow.md` with the latest template.
+    -   **Inspect real repo command surfaces before proposing changes:**
+        - `Makefile`
+        - `justfile`
+        - `Taskfile.yml`
+        - `package.json`
+        - `pyproject.toml`
+        - `tox.ini`
+        - `noxfile.py`
+        - `Cargo.toml`
+        - `.pre-commit-config.yaml`
+        - CI files such as `.github/workflows/*`
+    -   **Offer Revalidation, not blind overwrite:**
+        > "Workflow settings may be stale. I can refresh the workflow template and preserve or update your project preferences.
         >
-        > Do you want to update templates?
-        > A) Yes (Recommended)
-        > B) No"
-    -   **If A:**
-        -   Copy `~/.gemini/extensions/flow/templates/agent/workflow.md` to `<root_directory>/workflow.md` (Overwrite).
-        -   Announce: "Updated workflow.md to latest version."
+        > Revalidate now?
+        > A) Refresh workflow template and keep current preferences (Recommended)
+        > B) Refresh template and update preferences
+        > C) Keep current workflow.md"
+    -   **If A or B:**
+        -   Preserve or re-confirm:
+            - coverage target
+            - commit cadence
+            - task-summary mechanism
+            - backend mode (`bd`, `br`, or none)
+            - local-only vs shared ignore policy
+            - canonical repo commands for setup, lint, test, typecheck, and full verification
+        -   Prefer existing repo-native aggregate commands such as `make lint`, `make test`, `make check`, `just check`, `task test`, package scripts, or pre-commit entrypoints.
+        -   Update `<root_directory>/workflow.md` selectively so user-specific commands and preferences are preserved.
+        -   Announce: "Revalidated workflow.md against the latest template and current repo commands."
 
 5.  **Knowledge Base Check:**
     -   Check for missing `.agents/knowledge/` directory. If absent, create it and write `knowledge/index.md` from template.
 
 6.  **Configuration Validation:**
-    -   Check `.agents/beads.json` for valid config
-    -   Verify `.agents/tech-stack.md` matches detected languages
+    -   Check `<root_directory>/beads.json` for valid config
+    -   Verify `<root_directory>/tech-stack.md` matches detected languages
+    -   Verify `<root_directory>/workflow.md` reflects the active backend and canonical repo commands
 
 7.  **Alignment Summary:**
     > "Alignment Complete
     >
     > ✓ Beads: v{version} (up to date)
-    > ✓ Templates: Updated to latest
+    > ✓ Workflow: Revalidated
     > ✓ Specs migrated: {N} active, {M} archived
     > ✓ Learnings merged: {X} patterns added to patterns.md
     > ✓ Configuration validated
@@ -246,7 +282,7 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
     -   **Upon receiving the user's response:**
         -   Execute `mkdir -p <root_directory>`.
         -   **Initialize State File:** Immediately after creating the directory, you MUST create `<root_directory>/setup-state.json` with the exact content:
-            `{"last_successful_step": "", "root_directory": "<root_directory>"}`
+            `{"setup_status": "in_progress", "last_successful_step": "", "root_directory": "<root_directory>", "workflow_revision": "flow-template-v1"}`
         -   Write the user's response into `<root_directory>/product.md` under a header named `# Initial Concept`.
 
 6.  **Continue:** Immediately proceed to the next section.
@@ -373,7 +409,7 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
     - **Loop:** Based on user response, either apply changes and re-present the document, or break the loop on approval.
 5.  **Write File:** Once approved, append the generated content to the existing `<root_directory>/product.md` file, preserving the `# Initial Concept` section.
 6.  **Commit State:** Upon successful creation of the file, you MUST immediately write to `<root_directory>/setup-state.json` with the exact content:
-    `{"last_successful_step": "2.1_product_guide", "root_directory": "<root_directory>"}`
+    `{"setup_status": "in_progress", "last_successful_step": "2.1_product_guide", "root_directory": "<root_directory>", "workflow_revision": "flow-template-v1"}`
 7.  **Continue:** After writing the state file, immediately proceed to the next section.
 
 ### 2.2 Generate Product Guidelines (Interactive)
@@ -423,7 +459,7 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
     - **Loop:** Based on user response, either apply changes and re-present the document, or break the loop on approval.
 5.  **Write File:** Once approved, write the generated content to the `<root_directory>/product-guidelines.md` file.
 6.  **Commit State:** Upon successful creation of the file, you MUST immediately write to `<root_directory>/setup-state.json` with the exact content:
-    `{"last_successful_step": "2.2_product_guidelines", "root_directory": "<root_directory>"}`
+    `{"setup_status": "in_progress", "last_successful_step": "2.2_product_guidelines", "root_directory": "<root_directory>", "workflow_revision": "flow-template-v1"}`
 7.  **Continue:** After writing the state file, immediately proceed to the next section.
 
 ### 2.3 Generate Tech Stack (Interactive)
@@ -480,7 +516,7 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
     - **Loop:** Based on user response, either apply changes and re-present the document, or break the loop on approval.
 6.  **Write File:** Once approved, write the generated content to the `<root_directory>/tech-stack.md` file.
 7.  **Commit State:** Upon successful creation of the file, you MUST immediately write to `<root_directory>/setup-state.json` with the exact content:
-    `{"last_successful_step": "2.3_tech_stack", "root_directory": "<root_directory>"}`
+    `{"setup_status": "in_progress", "last_successful_step": "2.3_tech_stack", "root_directory": "<root_directory>", "workflow_revision": "flow-template-v1"}`
 8.  **Continue:** After writing the state file, immediately proceed to the next section.
 
 ### 2.4 Select Guides (Interactive)
@@ -503,17 +539,28 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
                     B) No, I want to add more code style guides.
     -   **Action:** Construct and execute a command to create the directory and copy all selected files. For example: `mkdir -p .agents/code-styleguides && cp ~/.gemini/extensions/flow/templates/styleguides/languages/python.md ~/.gemini/extensions/flow/templates/styleguides/languages/javascript.md .agents/code-styleguides/`
     -   **Commit State:** Upon successful completion of the copy command, you MUST immediately write to `<root_directory>/setup-state.json` with the exact content:
-        `{"last_successful_step": "2.4_code_styleguides", "root_directory": "<root_directory>"}`
+        `{"setup_status": "in_progress", "last_successful_step": "2.4_code_styleguides", "root_directory": "<root_directory>", "workflow_revision": "flow-template-v1"}`
 
 ### 2.5 Select Workflow (Interactive)
 1.  **Copy Initial Workflow:**
     -   Copy `~/.gemini/extensions/flow/templates/agent/workflow.md` to `<root_directory>/workflow.md`.
+    -   Before asking workflow questions, inspect the repo's actual command surfaces:
+        - `Makefile`
+        - `justfile`
+        - `Taskfile.yml`
+        - `package.json`
+        - `pyproject.toml`
+        - `Cargo.toml`
+        - `.pre-commit-config.yaml`
+        - CI files
+    -   Use those findings to pre-fill canonical commands in the workflow instead of leaving generic placeholders.
 2.  **Customize Workflow:**
     -   Ask the user: "Do you want to use the default workflow or customize it?"
         The default workflow includes:
          - 80% code test coverage
          - Commit changes after every task
          - Use Git Notes for task summaries
+         - Prefer repo-native verification commands such as `make lint`, `make test`, `make check`, `just check`, `task test`, package scripts, or pre-commit entrypoints
         -   A) Default
         -   B) Customize
     -   If the user chooses to **customize** (Option B):
@@ -526,9 +573,14 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
         -   **Question 3:** "Do you want to use git notes or the commit message to record the task summary?"
             -   A) Git Notes (Recommended)
             -   B) Commit Message
-        -   **Action:** Update `<root_directory>/workflow.md` based on the user's responses.
+        -   **Question 4:** "Which commands should Flow treat as canonical for setup, lint, test, typecheck, and full verification?"
+            -   Prefer existing repo-native aggregate commands when available.
+        -   **Question 5:** "Should Flow keep artifacts local-only by default or follow a shared repo policy?"
+            -   A) Local-only (Recommended)
+            -   B) Shared repo policy
+        -   **Action:** Update `<root_directory>/workflow.md` based on the user's responses and the discovered repo-native commands.
         -   **Commit State:** After the `workflow.md` file is successfully written or updated, you MUST immediately write to `<root_directory>/setup-state.json` with the exact content:
-            `{"last_successful_step": "2.5_workflow", "root_directory": "<root_directory>"}`
+            `{"setup_status": "in_progress", "last_successful_step": "2.5_workflow", "root_directory": "<root_directory>", "workflow_revision": "flow-template-v1"}`
 
 ### 2.6 Beads Initialization
 **PROTOCOL: Initialize Beads.**
@@ -538,14 +590,30 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
     [ -d ".beads" ] && echo "BEADS_INITIALIZED" || echo "BEADS_NOT_INITIALIZED"
     ```
 
-2.  **If NOT INITIALIZED:**
-    > "Initializing Beads for persistent task tracking."
-
+2.  **Derive the repo slug for the Beads prefix:**
     ```bash
-    br init --prefix <project_name_slug>
+    repo_slug="$(basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-//; s/-$//')"
     ```
 
-3.  **Create Beads Config:**
+3.  **If NOT INITIALIZED, offer the selected backend flow:**
+    > "Initialize persistence for this project:
+    > A) Official Beads (`bd`) with stealth + repo slug prefix (recommended)
+    > B) beads_rust compatibility (`br`) with repo slug prefix
+    > C) Continue without Beads"
+
+    If A selected:
+    ```bash
+    bd init --stealth --prefix "$repo_slug"
+    ```
+
+    If B selected:
+    ```bash
+    br init --prefix "$repo_slug"
+    ```
+
+    If C selected, skip backend initialization and continue in no-Beads mode.
+
+4.  **Create Beads Config when a backend is enabled:**
     Create `.agents/beads.json`:
     ```json
     {
@@ -565,7 +633,9 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
     }
     ```
 
-4.  **Continue:** Proceed to 2.7.
+    If the user selected no-Beads mode, skip `.agents/beads.json` and continue.
+
+5.  **Continue:** Proceed to 2.7.
 
 ### 2.7 Finalization
 1.  **Generate Index File:**
@@ -592,14 +662,17 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
         - [Patterns](./patterns.md)
         - [Knowledge Base](./knowledge/)
 
+        ## Project Skills
+        - [Project Skills](./skills/)
+
         ## Persistence
         - [Beads Config](./beads.json)
         ```
     -   **Announce:** "Created `<root_directory>/index.md` to serve as the project context index."
 
 2.  **Create Additional Directories:**
-    -   Execute `mkdir -p .agents/archive .agents/templates .agents/code-styleguides .agents/research .agents/wisps .agents/knowledge`.
-    -   **Announce:** "Created directories for archives, templates, code styleguides, research, wisps, and knowledge base."
+    -   Execute `mkdir -p .agents/archive .agents/templates .agents/code-styleguides .agents/research .agents/wisps .agents/knowledge .agents/skills/flow-memory-keeper`.
+    -   **Announce:** "Created directories for archives, templates, code styleguides, research, wisps, knowledge base, and project-local skills."
 
 3.  **Create patterns.md:**
     -   Create `.agents/patterns.md` with initial structure:
@@ -663,6 +736,10 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
         ---
         ```
 
+6.  **Create project-local memory skill:**
+    -   Copy `templates/agent/skills/flow-memory-keeper/SKILL.md` into `.agents/skills/flow-memory-keeper/SKILL.md`.
+    -   **Announce:** "Seeded `.agents/skills/flow-memory-keeper/SKILL.md` so future sessions capture learnings, failures, sync cleanup, and archive refinements consistently."
+
 ### 2.8 Install Git Hooks
 1.  **Install Pre-Commit Hook:**
     -   Copy the `pre-commit` hook to the `.git/hooks/` directory to ensure Bead states remain synchronized before any commit:
@@ -675,6 +752,7 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
       chmod +x .git/hooks/pre-commit
     fi
     ```
+    -   Review official Beads git/LLM hook support before depending on Flow-specific hooks long-term. Prefer upstream Beads or host-native hooks when they already cover the lifecycle cleanly.
 
 3.  **Summarize Actions:** Present a summary of all actions taken during Phase 1, including:
     -   The guide files that were copied.
@@ -734,8 +812,21 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
 ### 3.3 Convert the Initial PRD into Artifacts (Automated)
 1.  **State Your Goal:** Once the PRD is approved, announce that you will now create the artifacts for this initial PRD.
 2.  **Git Configuration (Optional - APPEND ONLY):**
-    -   Ask the user: "Would you like to add `.agents/` to `.gitignore` to keep context local-only?"
-    -   If yes:
+    -   Ask the user:
+        > "How should Flow keep its artifacts?
+        > A) Local-only (recommended) - Append to `.git/info/exclude`
+        > B) Shared repo policy - Append to `.gitignore`
+        > C) Keep tracked"
+    -   If A selected:
+        -   **Check if already present:**
+            ```bash
+            [ -f ".git/info/exclude" ] && grep -q ".agents/" .git/info/exclude && echo "ALREADY_EXISTS" || echo "NEEDS_UPDATE"
+            ```
+        -   **If NEEDS_UPDATE, APPEND (never overwrite):**
+            ```bash
+            printf '\n# Flow specification files (local-only)\n.agents/\n.beads/\n.geminiignore\n' >> .git/info/exclude
+            ```
+    -   If B selected:
         -   **Check if already present:**
             ```bash
             [ -f ".gitignore" ] && grep -q ".agents/" .gitignore && echo "ALREADY_EXISTS" || echo "NEEDS_UPDATE"
@@ -743,8 +834,9 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
         -   **If NEEDS_UPDATE, APPEND (never overwrite):**
             ```bash
             echo "" >> .gitignore
-            echo "# Flow specification files (local-only)" >> .gitignore
+            echo "# Flow specification files" >> .gitignore
             echo ".agents/" >> .gitignore
+            echo ".beads/" >> .gitignore
             ```
 
 3.  **Initialize Flow Registry File:** Create the `<root_directory>/flows.md` file with the initial header and the first PRD:
@@ -799,7 +891,7 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
             ```
 
     d. **Commit State:** After all PRD artifacts have been successfully written, you MUST immediately write to `<root_directory>/setup-state.json` with the exact content:
-       `{"last_successful_step": "3.3_initial_prd_generated", "root_directory": "<root_directory>"}`
+       `{"setup_status": "complete", "last_successful_step": "3.3_initial_prd_generated", "root_directory": "<root_directory>", "workflow_revision": "flow-template-v1"}`
 
     e. **Announce Progress:** Announce that the PRD for "<PRD Description>" has been created.
 
@@ -813,44 +905,49 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
         ```
     -   **If EXISTS:**
         -   Read current content
-        -   Check if `!.agents/` already present
+        -   Check if the Flow allowlist block is already present (for example `!<root_directory>/` or `!AGENTS.md`)
         -   **If NOT present, APPEND (don't overwrite):**
             ```bash
-            echo "" >> .geminiignore
-            echo "# Allow Gemini to access Flow specification files" >> .geminiignore
-            echo "!.agents/" >> .geminiignore
+            printf '\n# Allow Gemini to access Flow and agent context\n!<root_directory>/\n!<root_directory>/**\n!.agents/\n!.agents/**\n!AGENTS.md\n!GEMINI.md\n!CLAUDE.md\n' >> .geminiignore
             ```
     -   **If NEW:**
-        -   Create with content:
+        -   If `.gitignore` exists, seed `.geminiignore` from it first so Gemini inherits the repo ignore baseline.
+        -   Then append the Flow allowlist block so Flow specs and agent instructions remain readable.
             ```bash
-            echo "# Allow Gemini to access Flow specification files" > .geminiignore
-            echo "!.agents/" >> .geminiignore
+            if [ -f ".gitignore" ]; then
+              cp .gitignore .geminiignore
+            else
+              : > .geminiignore
+            fi
+            printf '\n# Allow Gemini to access Flow and agent context\n!<root_directory>/\n!<root_directory>/**\n!.agents/\n!.agents/**\n!AGENTS.md\n!GEMINI.md\n!CLAUDE.md\n' >> .geminiignore
             ```
-    -   **Add `.geminiignore` to `.gitignore` (APPEND only):**
-        -   Check if `.gitignore` exists and does not already contain `.geminiignore`.
-        -   **If `.gitignore` exists and needs update:**
-            -   Ask user: "Add `.geminiignore` to `.gitignore`? (Recommended)"
-                -   **A) Yes**
-                -   **B) No**
-            -   If A: **APPEND** `.geminiignore` to `.gitignore`:
-                ```bash
-                echo "" >> .gitignore
-                echo ".geminiignore" >> .gitignore
-                ```
-        -   **If `.gitignore` does not exist:** Do nothing regarding gitignore.
+    -   **If the user wants `.geminiignore` kept local-only, prefer `.git/info/exclude`:**
+        -   Check if `.git/info/exclude` exists and does not already contain `.geminiignore`.
+        -   **If `.git/info/exclude` needs update, APPEND only:**
+            ```bash
+            printf '\n.geminiignore\n' >> .git/info/exclude
+            ```
     -   This ensures Flow files are accessible to Gemini while respecting the user's git preferences.
 
 3.  **Save Flow Files (Respect Gitignore):**
     -   **CRITICAL:** NEVER use `git add -f` to force-add gitignored files.
-    -   Check if `.agents/` is listed in `.gitignore`.
-    -   **If `.agents/` IS gitignored:**
-        -   Announce: "Flow setup complete. Note: `.agents/` is gitignored, so Flow files will not be committed. This is often intentional for keeping specs local."
-        -   Do NOT attempt to commit Flow specification files.
-    -   **If `.agents/` is NOT gitignored:**
-        -   Ask the user: "Would you like to commit the Flow setup files?"
+    -   Check whether the key setup artifacts are ignored by git:
+        ```bash
+        for path in "<root_directory>" ".geminiignore" ".beads"; do
+          [ -e "$path" ] || continue
+          git check-ignore -q "$path" && echo "$path: IGNORED" || echo "$path: TRACKED"
+        done
+        ```
+    -   **If any setup artifact is ignored:**
+        -   Leave that file or directory unstaged.
+        -   Do NOT attempt to force-add it, even if it was just created during setup.
+        -   If `<root_directory>` is ignored, announce that Flow artifacts will remain local-only and will not be committed.
+        -   If `.geminiignore` is ignored, leave it local-only and do not include it in the commit.
+    -   **For non-ignored setup artifacts only:**
+        -   Ask the user: "Would you like to commit the non-ignored Flow setup files?"
             -   A) Yes, commit them
             -   B) No, I'll handle commits myself
-        -   If user chooses A: Add and commit with message `flow(setup): Add Flow setup files`.
+        -   If user chooses A: Stage only the non-ignored setup files with normal `git add` and commit with message `flow(setup): Add Flow setup files`.
         -   If user chooses B: Skip committing and proceed.
 
 4.  **Next Steps:** Inform the user that they can now begin work by running `/flow:implement`.

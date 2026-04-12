@@ -18,7 +18,8 @@ Use this agent automatically when:
 - The user asks to set up, plan, draft a PRD, design, research, document, implement, sync, check status, refresh, validate, revise, review, finish, archive, revert, or create a task
 - The user invokes a `/flow:*` command in hosts that support it
 - You are editing files in `.agents/` or `.agents/specs/`
-- The user mentions Beads or `br status` / `br ready`
+- The user mentions Beads or backend commands such as `bd status`, `bd ready`, `br status`, or `br ready`
+- A spec or PRD exists but the task detail is too coarse for reliable first-pass implementation
 
 ## Key Concepts
 
@@ -31,25 +32,23 @@ A flow is a logical unit of work (feature, bug fix, refactor). Each flow has:
 ### Beads Integration (Source of Truth)
 Beads provides persistent cross-session memory:
 ```bash
-br init --prefix <project_name_slug> # Initialize Beads
-br status                  # Workspace overview
-br ready                   # Show tasks ready to work on
-br list --status in_progress  # Resume active work
-br blocked                 # Show blocked tasks
-br update <id> --status in_progress  # Start task
-br close <id> --reason "..." # Complete task
-br show <id> --format json  # Export epic with tasks
+bd init --stealth --prefix <project_name_slug> # Initialize official Beads
+# or: br init --prefix <project_name_slug>     # beads_rust compatibility
+bd status                  # Official Beads workspace overview
+bd ready                   # Official Beads ready queue
+br status                  # beads_rust compatibility workspace overview
+br ready                   # beads_rust compatibility ready queue
 ```
 
 ### Task Workflow (TDD) - Beads-First
-1. **Select task** from `br ready` (Beads is source of truth)
-2. **Mark in progress** → `br update <id> --status in_progress`
+1. **Select task** from the active backend's ready queue (Beads is source of truth)
+2. **Mark in progress** via the active backend
 3. **Write failing tests** (Red)
 4. **Implement to pass** (Green)
    - If available, invoke `superpowers:subagent-driven-development` and use implementation subagents
 5. **Refactor** while green
 6. Commit with conventional format
-7. **Sync to Beads** → `br close <id> --reason "commit: <sha>"`
+7. **Sync to Beads** via the active backend's completion flow
 8. **Sync to markdown:** run `/flow:sync` (MANDATORY — keeps spec.md readable)
 
 **CRITICAL:** It is MANDATORY that after ANY Beads state change (close, block, skip, revert, revise), agents run `/flow:sync` to update spec.md. Never write markers (`[x]`, `[~]`, `[!]`, `[-]`) directly to spec.md.
@@ -99,3 +98,5 @@ Use the matching Flow workflow whenever the user expresses the intent, even if t
 6. **Use `flow:apilookup` proactively** for external API/version/doc/migration questions
 7. **Flow specs/plans live in `.agents/specs/`** - never use `docs/superpowers/specs/`
 8. **Local commits** - Never push automatically
+9. **Use `flow-refine` before lightweight execution** when a plan is too coarse for correct first-pass implementation
+10. **Preserve subagent context** - pass spec/PRD, patterns, knowledge, learnings, affected files, and verification requirements when delegating

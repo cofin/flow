@@ -9,6 +9,16 @@ description: "Auto-activate for AlloyDB in GCP configs or docs. Google AlloyDB e
 
 AlloyDB is a fully managed, PostgreSQL-compatible database service on Google Cloud. It combines the familiarity of PostgreSQL with Google's storage and compute innovations for high performance and availability.
 
+## Operating Layers
+
+Use this skill in three distinct layers:
+
+1. **Provision** the managed database on GCP.
+2. **Connect** an agent or client to the database.
+3. **Operate** the database with tuning, observability, backups, and failover guidance.
+
+Keep those layers separate when giving guidance. Provisioning is not the same thing as agent connectivity.
+
 ## Quick Reference
 
 ### AlloyDB vs Standard PostgreSQL
@@ -71,6 +81,16 @@ For analytical query patterns, enable the columnar engine on tables with `SELECT
 Use the AlloyDB Auth Proxy for connections from outside the VPC. For applications within GCE/GKE on the same VPC, connect directly via private IP.
 
 </workflow>
+
+## Host Integration Order
+
+Use the lowest-admin supported path for the current host, and degrade cleanly:
+
+1. **Gemini CLI**: use the dedicated `alloydb` and `alloydb-observability` extensions.
+2. **Other agents with MCP support**: use MCP Toolbox with the official AlloyDB prebuilt config.
+3. **No extension / no MCP**: fall back to `gcloud`, Auth Proxy, `psql`, and SQL guidance from this skill's references.
+
+Do not make the skill Gemini-only. The Gemini extension path is preferred when available, but the operational guidance in this skill must still work for Claude, Codex, OpenCode, Antigravity, and plain terminal workflows.
 
 <guardrails>
 
@@ -232,19 +252,90 @@ After promotion, update connection strings (via Secret Manager or environment co
 
 ---
 
-## Gemini CLI Extensions
+## Gemini CLI and MCP Toolbox
 
-For AlloyDB tooling in Gemini CLI (34 tools: cluster management, query analysis, IAM, backups, and more):
+This section is for the **connection layer**, not for provisioning the AlloyDB cluster itself.
 
-```bash
-gemini extensions install https://github.com/gemini-cli-extensions/alloydb
-```
+Prefer the dedicated Gemini CLI extensions for managed AlloyDB. They embed the underlying MCP Toolbox flow directly, so Gemini users do not need to configure a separate MCP server first.
 
-For PromQL metric templates, alert policy generators, and dashboard scaffolding:
+Install the core AlloyDB extension:
 
 ```bash
-gemini extensions install https://github.com/gemini-cli-extensions/alloydb-observability
+gemini extensions install https://github.com/gemini-cli-extensions/alloydb --auto-update
 ```
+
+Install the observability extension when the user wants metrics, dashboards, alerts, or query-performance monitoring:
+
+```bash
+gemini extensions install https://github.com/gemini-cli-extensions/alloydb-observability --auto-update
+```
+
+Prefer workspace-scoped configuration:
+
+```bash
+gemini extensions config alloydb --scope workspace
+```
+
+Guide the user through configuration before starting Gemini:
+
+```bash
+export ALLOYDB_POSTGRES_PROJECT="<your-gcp-project-id>"
+export ALLOYDB_POSTGRES_REGION="<your-alloydb-region>"
+export ALLOYDB_POSTGRES_CLUSTER="<your-alloydb-cluster-id>"
+export ALLOYDB_POSTGRES_INSTANCE="<your-alloydb-instance-id>"
+export ALLOYDB_POSTGRES_DATABASE="<your-database-name>"
+export ALLOYDB_POSTGRES_USER="<your-database-user>"        # optional
+export ALLOYDB_POSTGRES_PASSWORD="<your-database-password>" # optional
+export ALLOYDB_POSTGRES_IP_TYPE="PRIVATE"                   # PRIVATE / PUBLIC / PSC
+```
+
+Important configuration guidance:
+
+- Gemini CLI should be `v0.6.0` or newer.
+- Application Default Credentials must be available before starting Gemini.
+- For read-only discovery, require `roles/alloydb.viewer`.
+- For SQL access, require `roles/alloydb.client`.
+- For admin actions, require `roles/alloydb.admin` plus `roles/serviceusage.serviceUsageConsumer`.
+- For observability, also require `roles/monitoring.viewer`.
+- Prefer IAM-first auth. Password prompts are fallback-only.
+- If the instance uses private IP, Gemini CLI must run in the same VPC network.
+- The extension binds connection settings at session start; if the user needs a different instance or database, save/resume chat and restart Gemini with the new environment.
+- Recent upstream changes removed broken keychain password behavior, so do not promise keychain-backed credential storage.
+
+For non-Gemini agents, or when the user explicitly wants a shared MCP server, guide them through MCP Toolbox with the AlloyDB prebuilt config instead of inventing a custom server:
+
+```json
+{
+  "mcpServers": {
+    "alloydb": {
+      "command": "./toolbox",
+      "args": ["--prebuilt", "alloydb-postgres", "--stdio"],
+      "env": {
+        "ALLOYDB_POSTGRES_PROJECT": "PROJECT_ID",
+        "ALLOYDB_POSTGRES_REGION": "REGION",
+        "ALLOYDB_POSTGRES_CLUSTER": "CLUSTER_NAME",
+        "ALLOYDB_POSTGRES_INSTANCE": "INSTANCE_NAME",
+        "ALLOYDB_POSTGRES_DATABASE": "DATABASE_NAME",
+        "ALLOYDB_POSTGRES_USER": "USERNAME",
+        "ALLOYDB_POSTGRES_PASSWORD": "PASSWORD",
+        "ALLOYDB_POSTGRES_IP_TYPE": "PRIVATE"
+      }
+    }
+  }
+}
+```
+
+For reusable project workflows, prefer generated workspace skills over one-off prompts:
+
+```bash
+toolbox --prebuilt alloydb-postgres skills-generate \
+  --name alloydb-monitor \
+  --toolset monitor \
+  --description "AlloyDB monitoring skill" \
+  --output-dir .agents/skills
+```
+
+If neither Gemini extensions nor MCP Toolbox are available, fall back to the manual `gcloud`, Auth Proxy, and SQL workflows already documented in this skill's reference files.
 
 ---
 
@@ -262,12 +353,17 @@ For detailed guides and code examples, refer to the following documents in `refe
   - PromQL patterns, Cloud Monitoring setup, key metrics, alert policies, dashboard recommendations, Query Insights.
 - **[Operations](references/operations.md)**
   - EXPLAIN ANALYZE, pg_stat_activity, bloat detection, autovacuum tuning, invalid indexes, security hardening, PITR, cross-region failover, credential rotation, Auth Proxy sidecar.
+- **[Gemini + MCP Guidance](references/gemini-mcp.md)**
+  - Extension install, IAM prerequisites, env vars, private-IP constraints, and MCP Toolbox fallback config.
 
 ---
 
 ## Official References
 
 - <https://cloud.google.com/alloydb/docs>
+- <https://docs.cloud.google.com/alloydb/docs/connect-ide-using-mcp-toolbox>
+- <https://github.com/gemini-cli-extensions/alloydb>
+- <https://github.com/gemini-cli-extensions/alloydb-observability>
 
 ## Shared Styleguide Baseline
 

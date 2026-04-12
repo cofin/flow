@@ -24,6 +24,8 @@ NC='\033[0m' # No Color
 
 # Script directory (where flow source is)
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+FLOW_GITHUB_REPO="https://github.com/cofin/flow"
+FLOW_CLAUDE_MARKETPLACE="cofin/flow"
 SKILLS_DIR="$PROJECT_ROOT/skills"
 COMMANDS_DIR="$PROJECT_ROOT/commands"
 FLOW_DATA_DIR="$HOME/.flow"
@@ -46,7 +48,7 @@ show_banner() {
     echo -e "${CYAN}"
     echo "╔══════════════════════════════════════════════════════════════╗"
     echo "║             Flow Framework - Plugin Installer                ║"
-    echo "║                       Version 0.14.1                         ║"
+    echo "║                       Version 0.15.0                         ║"
     echo "╚══════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
 
@@ -157,7 +159,7 @@ cleanup_claude_legacy() {
     # Remove legacy hooks from ~/.claude/hooks/ (only if they are flow hooks)
     if [[ -d "$CLAUDE_DIR/hooks" ]]; then
         for hook_file in "hooks.json" "run-hook.cmd" "session-start"; do
-            if [[ -f "$CLAUDE_DIR/hooks/$hook_file" ]] && grep -q -i "flow\|beads\|br sync" "$CLAUDE_DIR/hooks/$hook_file" 2>/dev/null; then
+            if [[ -f "$CLAUDE_DIR/hooks/$hook_file" ]] && grep -q -i "flow\|beads\|br sync\|bd " "$CLAUDE_DIR/hooks/$hook_file" 2>/dev/null; then
                 rm -f "$CLAUDE_DIR/hooks/$hook_file"
                 log_success "Removed legacy hook: $hook_file"
                 cleaned=true
@@ -322,7 +324,40 @@ install_claude() {
     # Step 1: Clean up ALL legacy installations
     cleanup_claude_legacy
 
-    # Step 2: Ensure settings.json has the marketplace entry
+    # Step 2: Prefer Claude's native marketplace commands when available
+    if command -v claude &>/dev/null; then
+        log_info "Using Claude Code's native marketplace flow..."
+
+        if claude plugin marketplace add "$FLOW_CLAUDE_MARKETPLACE" >/dev/null 2>&1; then
+            log_success "Added marketplace: $FLOW_CLAUDE_MARKETPLACE"
+        else
+            log_info "Marketplace add may already be configured or requires fallback config"
+        fi
+
+        if claude plugin install flow@flow-marketplace --scope user >/dev/null 2>&1; then
+            log_success "Installed flow@flow-marketplace"
+            echo ""
+            log_success "Claude Code installation complete (native marketplace install)"
+            log_info "Refresh Flow explicitly when needed:"
+            echo "    claude plugin marketplace update flow-marketplace"
+            echo "    claude plugin update flow@flow-marketplace"
+            return
+        fi
+
+        if claude plugin update flow@flow-marketplace --scope user >/dev/null 2>&1; then
+            log_success "Updated existing flow@flow-marketplace install"
+            echo ""
+            log_success "Claude Code installation complete (native marketplace update)"
+            log_info "Refresh Flow explicitly when needed:"
+            echo "    claude plugin marketplace update flow-marketplace"
+            echo "    claude plugin update flow@flow-marketplace"
+            return
+        fi
+
+        log_warn "Claude native marketplace commands did not complete cleanly; falling back to settings.json guidance"
+    fi
+
+    # Step 3: Ensure settings.json has the marketplace entry
     local settings_file="$CLAUDE_DIR/settings.json"
 
     if [[ ! -f "$settings_file" ]]; then
@@ -395,11 +430,11 @@ install_claude() {
     fi
 
     echo ""
-    log_success "Claude Code installation complete (plugin via marketplace)"
+    log_success "Claude Code installation complete (settings-based marketplace config)"
     log_info "Flow updates are not guaranteed to auto-apply on Claude restart"
     log_info "Run these commands to refresh Flow explicitly:"
-    echo "    claude plugins marketplace update flow-marketplace"
-    echo "    claude plugins update flow@flow-marketplace"
+    echo "    claude plugin marketplace update flow-marketplace"
+    echo "    claude plugin update flow@flow-marketplace"
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -477,48 +512,33 @@ install_opencode() {
     # Step 1: Clean up ALL legacy installations
     cleanup_opencode_legacy
 
-    # Step 2: Install plugin at ~/.config/opencode/plugins/flow/
-    local plugin_dir="$OPENCODE_DIR/plugins/flow"
-    local plugin_parent=$(dirname "$plugin_dir")
+    # Step 2: Link the current checkout as the backing source
+    local backing_dir="$OPENCODE_DIR/flow"
+    local plugin_dir="$OPENCODE_DIR/plugins"
+    local plugin_file="$plugin_dir/flow.js"
+    local source_plugin="$backing_dir/.opencode/plugins/flow.js"
 
-    # Backup existing plugin if present
-    if [[ -d "$plugin_dir" && ! -L "$plugin_dir" ]]; then
-        backup_dir "$plugin_dir"
-        rm -rf "$plugin_dir"
-    elif [[ -L "$plugin_dir" ]]; then
-        rm "$plugin_dir"
+    if [[ -d "$backing_dir" && ! -L "$backing_dir" ]]; then
+        backup_dir "$backing_dir"
+        rm -rf "$backing_dir"
+    elif [[ -L "$backing_dir" ]]; then
+        rm "$backing_dir"
     fi
 
-    # Create parent directory
-    mkdir -p "$plugin_parent"
+    mkdir -p "$plugin_dir"
+    ln -sf "$PROJECT_ROOT" "$backing_dir"
+    log_success "Linked Flow source to $backing_dir"
 
-    # Link project root to plugin directory (Plugin-based install)
-    ln -sf "$PROJECT_ROOT" "$plugin_dir"
-    log_success "Linked project root to $plugin_dir"
-
-    # Step 3: Update opencode.json config
-    local config_file="$OPENCODE_DIR/opencode.json"
-
-    if [[ -f "$config_file" ]]; then
-        if grep -q '"flow"' "$config_file" 2>/dev/null; then
-            log_info "OpenCode config already references Flow"
-        else
-            log_warn "Add Flow to your opencode.json plugin array:"
-            echo '         "plugin": ["flow"]'
-            echo "         File: $config_file"
-        fi
-    else
-        cat > "$config_file" << 'OC_CONFIG_EOF'
-{
-  "$schema": "https://opencode.ai/config.json",
-  "plugin": ["flow"]
-}
-OC_CONFIG_EOF
-        log_success "Created: opencode.json with Flow plugin"
+    if [[ -L "$plugin_file" || -f "$plugin_file" ]]; then
+        rm -f "$plugin_file"
     fi
+    ln -sf "$source_plugin" "$plugin_file"
+    log_success "Linked plugin entrypoint to $plugin_file"
 
     echo ""
-    log_success "OpenCode installation complete (linked plugin)"
+    log_success "OpenCode installation complete (local plugin file)"
+    log_info "OpenCode auto-loads local plugin files from ~/.config/opencode/plugins/"
+    log_info "Project-local .agents/skills/ are also discovered automatically"
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -531,55 +551,73 @@ install_gemini() {
     echo ""
 
     if command -v gemini &> /dev/null; then
-        log_info "Using 'gemini extensions link' for installation..."
-        gemini extensions link "$PROJECT_ROOT" --force
-        log_success "Extension linked via Gemini CLI"
+        log_info "Using Gemini's GitHub-backed extension lifecycle..."
+        if gemini extensions install "$FLOW_GITHUB_REPO" --auto-update >/dev/null 2>&1; then
+            log_success "Installed Flow from GitHub with auto-update enabled"
+            echo ""
+            log_success "Gemini CLI installation complete"
+            log_info "Refresh Flow explicitly when needed:"
+            echo "    gemini extensions update flow"
+            return
+        fi
+
+        if gemini extensions update flow >/dev/null 2>&1; then
+            log_success "Updated existing Flow extension"
+            echo ""
+            log_success "Gemini CLI installation complete"
+            log_info "Use 'gemini extensions link .' only for local development against a checkout"
+            return
+        fi
+
+        log_warn "Gemini CLI install/update did not complete cleanly; falling back to manual copy"
     else
         log_info "Gemini CLI not found in PATH, performing manual installation..."
-        # Backup existing extension
-        if [[ -d "$GEMINI_EXT_DIR" ]]; then
-            backup_dir "$GEMINI_EXT_DIR"
-            rm -rf "$GEMINI_EXT_DIR"
-        fi
+    fi
 
-        # Create extension directory
-        mkdir -p "$GEMINI_EXT_DIR"
+    # Backup existing extension
+    if [[ -d "$GEMINI_EXT_DIR" ]]; then
+        backup_dir "$GEMINI_EXT_DIR"
+        rm -rf "$GEMINI_EXT_DIR"
+    fi
 
-        # Install extension manifest and context
-        cp "$PROJECT_ROOT/gemini-extension.json" "$GEMINI_EXT_DIR/"
-        cp "$PROJECT_ROOT/AGENTS.md" "$GEMINI_EXT_DIR/"
-        log_success "Installed: extension manifest and context"
+    # Create extension directory
+    mkdir -p "$GEMINI_EXT_DIR"
 
-        # Install commands
-        mkdir -p "$GEMINI_EXT_DIR/commands"
-        cp -r "$COMMANDS_DIR/flow" "$GEMINI_EXT_DIR/commands/"
-        log_success "Installed: commands"
+    # Install extension manifest and context
+    cp "$PROJECT_ROOT/gemini-extension.json" "$GEMINI_EXT_DIR/"
+    cp "$PROJECT_ROOT/GEMINI.md" "$GEMINI_EXT_DIR/"
+    log_success "Installed: extension manifest and Gemini context"
 
-        # Install templates
-        if [[ -d "$PROJECT_ROOT/templates" ]]; then
-            mkdir -p "$GEMINI_EXT_DIR/templates"
-            cp -r "$PROJECT_ROOT/templates"/* "$GEMINI_EXT_DIR/templates/"
-            log_success "Installed: templates"
-        fi
+    # Install commands
+    mkdir -p "$GEMINI_EXT_DIR/commands"
+    cp -r "$COMMANDS_DIR/flow" "$GEMINI_EXT_DIR/commands/"
+    log_success "Installed: commands"
 
-        # Install skills
-        if [[ -d "$SKILLS_DIR" ]]; then
-            mkdir -p "$GEMINI_EXT_DIR/skills"
-            cp -r "$SKILLS_DIR"/* "$GEMINI_EXT_DIR/skills/"
-            log_success "Installed: skills"
-        fi
+    # Install templates
+    if [[ -d "$PROJECT_ROOT/templates" ]]; then
+        mkdir -p "$GEMINI_EXT_DIR/templates"
+        cp -r "$PROJECT_ROOT/templates"/* "$GEMINI_EXT_DIR/templates/"
+        log_success "Installed: templates"
+    fi
 
-        # Install hooks
-        if [[ -d "$PROJECT_ROOT/hooks" ]]; then
-            mkdir -p "$GEMINI_EXT_DIR/hooks"
-            cp -r "$PROJECT_ROOT/hooks"/* "$GEMINI_EXT_DIR/hooks/"
-            chmod +x "$GEMINI_EXT_DIR/hooks/session-start" "$GEMINI_EXT_DIR/hooks/run-hook.cmd" "$GEMINI_EXT_DIR/hooks/pre-commit" 2>/dev/null || true
-            log_success "Installed: hooks"
-        fi
+    # Install skills
+    if [[ -d "$SKILLS_DIR" ]]; then
+        mkdir -p "$GEMINI_EXT_DIR/skills"
+        cp -r "$SKILLS_DIR"/* "$GEMINI_EXT_DIR/skills/"
+        log_success "Installed: skills"
+    fi
+
+    # Install hooks
+    if [[ -d "$PROJECT_ROOT/hooks" ]]; then
+        mkdir -p "$GEMINI_EXT_DIR/hooks"
+        cp -r "$PROJECT_ROOT/hooks"/* "$GEMINI_EXT_DIR/hooks/"
+        chmod +x "$GEMINI_EXT_DIR/hooks/session-start" "$GEMINI_EXT_DIR/hooks/run-hook.cmd" "$GEMINI_EXT_DIR/hooks/pre-commit" 2>/dev/null || true
+        log_success "Installed: hooks"
     fi
 
     echo ""
-    log_success "Gemini CLI installation complete"
+    log_success "Gemini CLI installation complete (manual copy fallback)"
+    log_info "Use 'gemini extensions link .' only for local development against a checkout"
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -590,6 +628,7 @@ install_antigravity() {
     echo ""
     echo -e "${CYAN}Installing Flow for Google Antigravity...${NC}"
     echo ""
+    log_info "Prefer workspace-local .agents/rules and .agents/workflows when possible; this global install is a reusable fallback."
 
     local target_agy_dir="$ANTIGRAVITY_DIR"
     if [[ -d "$HOME/.jetski" ]]; then
@@ -633,21 +672,50 @@ check_beads() {
     echo -e "${CYAN}Checking Beads CLI...${NC}"
     echo ""
 
+    if command -v bd &> /dev/null; then
+        local version
+        version=$(bd --version 2>/dev/null || echo "unknown")
+        log_success "Official Beads (bd) installed: $version"
+        log_info "Flow setup will default to: bd init --stealth --prefix <repo-slug>"
+        return
+    fi
+
     if command -v br &> /dev/null; then
-        local version=$(br --version 2>/dev/null || echo "unknown")
-        log_success "Beads CLI (br) installed: $version"
-    else
-        log_warn "Beads CLI not found"
-        echo ""
-        echo "Flow requires Beads for cross-session memory."
-        echo "Install with: curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash"
-        echo ""
-        read -p "Install Beads now? [Y/n] " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]] || [[ -z $REPLY ]]; then
+        local version
+        version=$(br --version 2>/dev/null || echo "unknown")
+        log_success "beads_rust compatibility (br) installed: $version"
+        log_info "Flow setup will default to: br init --prefix <repo-slug>"
+        return
+    fi
+
+    log_warn "No Beads CLI detected"
+    echo ""
+    echo "Flow supports three persistence modes:"
+    echo "  1) Install official Beads (bd) (recommended)"
+    echo "  2) Install beads_rust compatibility (br)"
+    echo "  3) Continue without Beads"
+    echo ""
+    read -p "Select [1-3]: " -n 1 -r
+    echo
+    case $REPLY in
+        1)
+            curl -sSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash
+            log_success "Installed official Beads (bd)"
+            ;;
+        2)
             curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash
-            log_success "Beads CLI installed"
-        fi
+            log_success "Installed beads_rust compatibility (br)"
+            ;;
+        3)
+            log_info "Continuing without Beads; Flow will still support specs, plans, docs, and lightweight local workflows"
+            ;;
+        *)
+            log_info "No selection made; continuing without Beads"
+            ;;
+    esac
+
+    if [[ $REPLY == 1 || $REPLY == 2 ]]; then
+        log_info "Flow setup defaults to repo-slug prefixes and prefers .git/info/exclude for local-only artifacts"
     fi
 }
 

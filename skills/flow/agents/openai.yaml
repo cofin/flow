@@ -1,0 +1,3 @@
+interface:
+  display_name: "Flow"
+  short_description: "Spec-first planning, refined tasking, TDD implementation, and knowledge capture for `.agents/` projects"

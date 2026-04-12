@@ -34,7 +34,7 @@ You MAY ONLY:
 
 - Create/edit files in `.agents/specs/` (spec.md, metadata.json)
 - Create/edit `.agents/flows.md` registry
-- Run `br create` commands for Beads tracking
+- Run the active backend's epic/task creation flow when a backend is enabled
 - Read source code for analysis (but NEVER modify it)
 
 **Implementation happens ONLY when user explicitly runs `/flow-implement`.**
@@ -43,17 +43,22 @@ You MAY ONLY:
 
 ## 1.5 BEADS CLI CHECK
 
-**PROTOCOL: Ensure Beads CLI is available before proceeding.**
+**PROTOCOL: Detect the active task-memory backend before proceeding.**
 
-**Note:** `br` is non-invasive and never executes git commands. After `br sync --flush-only`, you must manually run `git add .beads/`.
+**Note:** `br` is non-invasive and never executes git commands. If you track `.beads/` in git and it is not ignored, run `git add .beads/` manually after `br sync --flush-only`.
 
 1. **Check Beads CLI:**
 
     ```bash
-    command -v br &> /dev/null && echo "BEADS_OK" || echo "BEADS_MISSING"
+    command -v bd >/dev/null 2>&1 && echo "BEADS_BD" || \
+    command -v br >/dev/null 2>&1 && echo "BEADS_BR" || \
+    echo "BEADS_NONE"
     ```
 
-2. **If BEADS_MISSING:** Stop and inform user to install Beads first.
+2. **Backend policy:**
+    - `BEADS_BD` -> prefer official Beads commands
+    - `BEADS_BR` -> use `br` compatibility commands
+    - `BEADS_NONE` -> continue in markdown-only mode and skip backend writes
 
 ---
 
@@ -104,6 +109,7 @@ You MAY ONLY:
 4. **Summarize Understanding:**
     - Before proposing chapters, summarize what you understood
     - Get user confirmation before proceeding
+    - Continue researching until obvious external docs, version, marketplace, migration, or host-capability gaps are closed.
 
 **Companion Skills for Roadmapping:**
 
@@ -147,9 +153,8 @@ You MAY ONLY:
 1. **Master Epic:**
 
     ```bash
-    br create "PRD: <prd_name>" -t epic -p 1 \
-      --description="<north_star_goal_and_full_context>"
-    br update {master_epic_id} --notes "Chapters: <list_of_chapter_names>. Created by /flow-prd on <date>"
+    <active_backend_create_prd_epic>
+    <active_backend_attach_prd_notes>
     ```
 
     **CRITICAL:** The `--description` must include:
@@ -162,9 +167,8 @@ You MAY ONLY:
     For each Chapter in Roadmap:
 
     ```bash
-    br create "Flow: <flow_name>" --parent <master_epic_id> -t epic \
-      --description="<chapter_purpose_and_scope>"
-    br update {chapter_epic_id} --notes "Part of PRD: <prd_name>. Chapter <N> of <total>. Dependencies: <if any>"
+    <active_backend_create_chapter_epic>
+    <active_backend_attach_chapter_notes>
     ```
 
     **CRITICAL:** The `--description` must include:
@@ -223,6 +227,10 @@ You MAY ONLY:
 
     - Create Beads tasks under the chapter's epic
     - **ONLY write to `.agents/specs/<flow_id>/` - NO other directories**
+    - Before calling the chapter plan complete, run a task-detail sufficiency pass:
+      - Ask: "Do I have enough task information written for this PRD/flow to complete it correctly in the first pass?"
+      - If not, refine the tasks until each one includes concrete files, dependencies, test-first steps, verification, and known risks.
+      - If the task detail is still too coarse for a lightweight executor, invoke `flow-refine` before final approval.
 
 3. **Summary and Continuation Prompt:**
 
@@ -241,7 +249,12 @@ You MAY ONLY:
     - If user selects B: End with final summary
     - After last chapter: Announce all chapters planned
 
-5. **Final Summary (HARD STOP):**
+5. **Research Closure Loop:**
+    - Before ending the PRD workflow, check whether any chapter still depends on unfinished research about external docs, APIs, versions, release notes, migrations, marketplaces, or host capabilities.
+    - If yes, do the missing research, update the roadmap or chapter specs, and repeat the review loop.
+    - Do NOT declare PRD or chapter planning complete while obvious research gaps remain.
+
+6. **Final Summary (HARD STOP):**
 
     > "**PLANNING COMPLETE - AWAITING IMPLEMENTATION APPROVAL**
     >
@@ -295,8 +308,8 @@ Append to `.agents/flows.md`:
 ## Critical Rules
 
 1. **NO CODE MODIFICATION** - NEVER edit source code files. Planning documents ONLY.
-2. **BEADS REQUIRED** - Check CLI is available
-3. **FULL CONTEXT** - Always use `--description` with br create, then `--notes` via br update
+2. **BACKEND AWARE** - Detect `bd`, `br`, or markdown-only mode before planning
+3. **FULL CONTEXT** - Always include a full problem/outcome description at creation time, then attach context notes through the active backend
 4. **ASK FIRST** - Clarifying questions before proposing chapters
 5. **CODE ANALYSIS (READ-ONLY)** - Read actual code before asking flow-specific questions but NEVER modify it
 6. **AUTO-PLAN** - Create unified spec.md for first flow (NOT implementation)

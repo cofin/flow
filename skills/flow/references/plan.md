@@ -30,7 +30,7 @@ You MAY ONLY:
 
 - Create/edit files in `.agents/specs/` (spec.md, metadata.json)
 - Create/edit `.agents/flows.md` registry
-- Run `br create` commands for Beads tracking
+- Run the active backend's epic/task creation flow when a backend is enabled
 - Read source code for analysis (but NEVER modify it)
 
 **Implementation happens ONLY when user explicitly runs `flow-implement`.**
@@ -44,6 +44,7 @@ When Superpowers skills are available, they MUST be used in the Planning workflo
 3. **Self-Review Phase:** Invoke `code-reviewer` (via `superpowers:requesting-code-review`) once the unified `spec.md` is drafted to ensure it meets requirements and adheres to project patterns.
 
 **NEVER** use `docs/superpowers/` for Flow-related planning documents.
+If a referenced companion skill is unavailable in the current host, perform the same protocol inline instead of skipping it.
 
 ---
 
@@ -61,6 +62,7 @@ When Superpowers skills are available, they MUST be used in the Planning workflo
 
 3. **Read Research:**
     - Check `.agents/research/`. If relevant research exists, ask to use it.
+    - If important requirements still depend on unresolved docs, versions, migrations, marketplaces, or host behavior, continue researching until those gaps are closed before declaring planning complete.
 
 ---
 
@@ -73,8 +75,11 @@ When Superpowers skills are available, they MUST be used in the Planning workflo
 1. **Input Analysis:** Use provided arguments.
 2. **No Input:** Ask: "What is the goal of this single Flow?"
 3. **Complexity Check:**
-    - If the request seems too large for one flow (e.g., "Build entire app"), STOP.
-    - Recommend running `flow-prd` (The Orchestrator) instead. (e.g., "This looks like a multi-flow Saga. Please run `flow-prd` to plan the full roadmap first.")
+    - If the request seems too large for one flow (e.g., "Build entire app"), do NOT silently descope.
+    - Explain why it appears multi-flow, then ask the user whether to:
+      - split it into a PRD/Saga with `flow-prd`
+      - narrow it into a smaller flow now
+      - continue with a clearly scoped first slice
 
 ---
 
@@ -180,6 +185,10 @@ When Superpowers skills are available, they MUST be used in the Planning workflo
     - **Recovery Checkpoints:** Add "Checkpoint" task after each Phase
     - **Verification:** Add "Manual Verification" task at end of Phases
     - Reference specific files identified in code analysis
+    - Run a task-detail sufficiency pass before calling the draft complete:
+      - Ask: "Do I have enough task information written for this PRD/flow to complete it correctly in the first pass?"
+      - If not, refine the tasks until each one names concrete files, dependencies, test-first steps, verification, and open risks.
+      - If the task detail is still too coarse for a lightweight executor, invoke `flow-refine` before human approval.
 
 4. **Confirm:** Ask user to approve.
 
@@ -207,6 +216,8 @@ When Superpowers skills are available, they MUST be used in the Planning workflo
    - TDD checkpoints are included
    - File paths are specific (not vague)
    - No gaps between spec requirements and plan tasks
+   - Task detail is sufficient for correct first-pass implementation without avoidable guesswork
+   - Obvious research gaps have been closed before approval
 
 **Template:** See `templates/agent/spec-reviewer-prompt.md`
 
@@ -240,9 +251,8 @@ When Superpowers skills are available, they MUST be used in the Planning workflo
 6. **Beads Integration:**
 
     ```bash
-    br create "Flow: <flow_id>" -t epic -p 2 \
-      --description="<flow_purpose_from_spec>"
-    br update <epic_id> --notes "Files: <key_files_from_analysis>. Created by flow-plan on <date>"
+    <active_backend_create_flow_epic>
+    <active_backend_attach_flow_notes>
     ```
 
 ---
@@ -277,4 +287,4 @@ Announce:
 3. **PATTERNS COMPLIANCE** - Check patterns.md and warn on violations
 4. **UNIFIED SPEC** - Single `spec.md` contains both requirements and plan. No separate `plan.md`.
 5. **SPECS DIRECTORY** - All artifacts go in `.agents/specs/`
-6. **BEADS CONTEXT** - Include `--description` with br create, then `br update` for `--notes`
+6. **BEADS CONTEXT** - Include a full description at creation time, then attach notes/context through the active backend
