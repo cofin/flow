@@ -123,10 +123,18 @@ Run `flow-status` to see current state.
 **CRITICAL:** Prefer official Beads, but do not force unnecessary admin work.
 
 ```bash
-command -v bd >/dev/null 2>&1 && echo "BD_OK" || \
-command -v br >/dev/null 2>&1 && echo "BR_OK" || \
-echo "BEADS_MISSING"
+if command -v bd >/dev/null 2>&1 && command -v br >/dev/null 2>&1; then
+  echo "BEADS_BOTH"
+elif command -v bd >/dev/null 2>&1; then
+  echo "BD_OK"
+elif command -v br >/dev/null 2>&1; then
+  echo "BR_OK"
+else
+  echo "BEADS_MISSING"
+fi
 ```
+
+If `BEADS_BOTH` is found, ask user to choose between `bd` and `br`.
 
 If no backend is found, ask user:
 
