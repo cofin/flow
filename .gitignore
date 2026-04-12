@@ -220,3 +220,11 @@ gemini.mcp.json
 cline.mcp.json
 cursor.mcp.json
 windsurf.mcp.json
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
+.worktrees/
+.agents/
+.beads/
