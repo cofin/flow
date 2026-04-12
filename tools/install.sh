@@ -48,7 +48,7 @@ show_banner() {
     echo -e "${CYAN}"
     echo "╔══════════════════════════════════════════════════════════════╗"
     echo "║             Flow Framework - Plugin Installer                ║"
-    echo "║                       Version 0.15.0                         ║"
+    echo "║                       Version 0.15.1                         ║"
     echo "╚══════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
 
@@ -213,8 +213,14 @@ cleanup_codex_legacy() {
     # Remove Flow section from old AGENTS.md
     if [[ -f "$CODEX_DIR/AGENTS.md" ]] && grep -q "Flow Framework" "$CODEX_DIR/AGENTS.md" 2>/dev/null; then
         backup_file "$CODEX_DIR/AGENTS.md"
-        sed -i '/^# Flow Framework/,$d' "$CODEX_DIR/AGENTS.md"
-        sed -i -e :a -e '/^\n*$/{$d;N;ba' -e '}' "$CODEX_DIR/AGENTS.md"
+        local agents_file="$CODEX_DIR/AGENTS.md"
+        local tmp_file=$(mktemp)
+        sed '/^# Flow Framework/,$d' "$agents_file" > "$tmp_file"
+        mv "$tmp_file" "$agents_file"
+        
+        tmp_file=$(mktemp)
+        sed -e :a -e '/^\n*$/{$d;N;ba' -e '}' "$agents_file" > "$tmp_file"
+        mv "$tmp_file" "$agents_file"
         log_success "Removed legacy Flow section from AGENTS.md"
         cleaned=true
     fi
@@ -672,15 +678,45 @@ check_beads() {
     echo -e "${CYAN}Checking Beads CLI...${NC}"
     echo ""
 
+    local bd_installed=false
+    local br_installed=false
+
     if command -v bd &> /dev/null; then
+        bd_installed=true
+    fi
+
+    if command -v br &> /dev/null; then
+        br_installed=true
+    fi
+
+    if $bd_installed && $br_installed; then
+        log_success "Both official Beads (bd) and beads_rust (br) detected"
+        echo ""
+        echo "Which would you like to use for Flow projects by default?"
+        echo "  1) Official Beads (bd) (recommended)"
+        echo "  2) beads_rust compatibility (br)"
+        echo ""
+        read -p "Select [1-2]: " -n 1 -r
+        echo
+        case $REPLY in
+            1) 
+                log_info "Flow setup will default to: bd init --stealth --prefix <repo-slug>"
+                ;;
+            2) 
+                log_info "Flow setup will default to: br init --prefix <repo-slug>"
+                ;;
+            *)
+                log_info "No selection made; defaulting to: bd init --stealth --prefix <repo-slug>"
+                ;;
+        esac
+        return
+    elif $bd_installed; then
         local version
         version=$(bd --version 2>/dev/null || echo "unknown")
         log_success "Official Beads (bd) installed: $version"
         log_info "Flow setup will default to: bd init --stealth --prefix <repo-slug>"
         return
-    fi
-
-    if command -v br &> /dev/null; then
+    elif $br_installed; then
         local version
         version=$(br --version 2>/dev/null || echo "unknown")
         log_success "beads_rust compatibility (br) installed: $version"

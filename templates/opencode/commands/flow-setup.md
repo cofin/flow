@@ -50,7 +50,11 @@ fi
 ### 0.1.1 Beads Validation
 
 ```bash
-if command -v bd >/dev/null 2>&1; then
+if command -v bd >/dev/null 2>&1 && command -v br >/dev/null 2>&1; then
+  echo "BEADS_BOTH"
+  bd --version
+  br version
+elif command -v bd >/dev/null 2>&1; then
   echo "BEADS_BD"
   bd --version
 elif command -v br >/dev/null 2>&1; then
@@ -60,6 +64,8 @@ else
   echo "BEADS_MISSING"
 fi
 ```
+
+If `BEADS_BOTH` is found, ask user to choose between `bd` and `br` for Flow projects.
 
 If outdated, suggest the official install first: `curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash`
 Compatibility fallback: `curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash`
@@ -133,7 +139,9 @@ Run `/flow-status` to see current state.
 **CRITICAL: Prefer official Beads, but Flow can also run with `br` compatibility mode or no-Beads mode.**
 
 ```bash
-if command -v bd >/dev/null 2>&1; then
+if command -v bd >/dev/null 2>&1 && command -v br >/dev/null 2>&1; then
+  echo "BEADS_BOTH"
+elif command -v bd >/dev/null 2>&1; then
   echo "BEADS_BD"
 elif command -v br >/dev/null 2>&1; then
   echo "BEADS_BR"
@@ -141,6 +149,8 @@ else
   echo "BEADS_MISSING"
 fi
 ```
+
+If `BEADS_BOTH` is found, ask user to choose between `bd` and `br`.
 
 If no backend is found, ask user:
 
