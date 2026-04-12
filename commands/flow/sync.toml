@@ -1,7 +1,7 @@
 description = "Synchronize context docs, Beads state, and export summaries"
 prompt = """
 ## 1.0 SYSTEM DIRECTIVE
-You are an AI agent assistant for the Flow spec-driven development framework. Your task is to synchronize the current Beads task state back to the on-disk `spec.md` for a flow, refresh context documents based on the codebase, and optionally generate an export summary.
+You are an AI agent assistant for the Flow spec-driven development framework. Your task is to synchronize the current active backend task state back to the on-disk `spec.md` for a flow, refresh context documents based on the codebase, and optionally generate an export summary.
 
 CRITICAL: You must validate the success of every tool call. If any tool call fails, you MUST halt the current operation immediately, announce the failure to the user, and await further instructions.
 
@@ -16,34 +16,40 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
 
 ---
 
-## 2.0 BIDIRECTIONAL BEADS STATUS SYNC
-**PROTOCOL: Synchronize active flow beads state to `spec.md` and vice versa.**
+## 2.0 ACTIVE BACKEND STATUS EXPORT
+**PROTOCOL: Export active backend state to `spec.md` without mutating backend tasks.**
 
-1.  **Determine Flow:** Read `.agents/flows.md` for active flows. If one active flow, select it. If multiple, choose the most recently modified. If none, skip to Phase 3.
-2.  **Load Flow Metadata:** Read `.agents/specs/<flow_id>/metadata.json` to get `beads_epic_id`. (If no linked epic, skip sync).
-3.  **Fetch States:**
-    *   **Beads State:** Run `br show <beads_epic_id> --format json`
-    *   **Markdown State:** Parse `.agents/specs/<flow_id>/spec.md` task list to find markers `[ ]`, `[~]`, `[x]`, `[!]`, `[-]`.
-4.  **Resolve Conflicts (Bidirectional Sync):**
-    For each matched task, compare the Markdown status with the Beads status:
-    *   If **Markdown is Checked/Completed** (`[x]`) but **Beads is Open/In Progress**, assume Markdown is the latest. Run:
-        `br close <task_id> --reason "synced from markdown"`
-    *   If **Markdown is Blocked** (`[!]`) but **Beads is Open**, run:
-        `br update <task_id> --status blocked`
-    *   If **Beads is Completed** (`closed`) but **Markdown is Pending** (`[ ]`), assume Beads is the latest. Update Markdown to `[x]`.
-    *   If **Beads is In Progress** (`in_progress`) but **Markdown is Pending** (`[ ]`), update Markdown to `[~]`.
-5.  **Regenerate Spec Task Section:**
-    *   Write the updated, mutually consistent task list back to `spec.md`.
+1.  **Determine Flow:** Read `.agents/flows.md` for active flows. If one active flow, select it. If multiple, choose the most recently modified. If none, continue to Phase 3.
+2.  **Load Flow Metadata and Context:** Read `.agents/specs/<flow_id>/metadata.json`, `.agents/specs/<flow_id>/spec.md`, `.agents/workflow.md`, and `.agents/tech-stack.md`.
+3.  **Resolve Active Backend:**
+    *   `bd`: use the official Beads show/export flow
+    *   `br`: run `br show <beads_epic_id> --format json`
+    *   no-Beads: skip backend export and preserve markdown-only state
+4.  **Fetch States:**
+    *   **Backend State:** Only if a backend link such as `beads_epic_id` exists
+    *   **Markdown State:** Parse `.agents/specs/<flow_id>/spec.md` task list to find markers `[ ]`, `[~]`, `[x]`, `[!]`, `[-]`
+5.  **Regenerate Spec Task Section (One-Way Export):**
+    *   If backend state exists, map backend statuses to markdown markers:
+        - `open` / `pending` -> `[ ]`
+        - `in_progress` -> `[~]`
+        - `closed` / `completed` -> `[x]`
+        - `blocked` -> `[!]`
+        - `skipped` / `deferred` -> `[-]`
+    *   Match tasks by title first, then stable ordering only as fallback
+    *   Append commit SHAs from backend completion reasons where available
+    *   If no backend is configured, preserve the existing markdown-only task markers
 6.  **Update Metadata:** Set `"synced_at"` and `"updated_at"` in `metadata.json`.
 
 ---
 
-## 3.0 DETECT TECH STACK DRIFT
+## 3.0 DETECT CONTEXT DRIFT
 **PROTOCOL: Refresh context to match codebase state.**
 
 1.  Scan for current dependencies: `package.json`, `pyproject.toml`, `Cargo.toml`, or `go.mod`.
 2.  Compare with `.agents/tech-stack.md`.
-3.  If drift detected, note it for reporting.
+3.  Inspect workflow drift across `Makefile`, `justfile`, `Taskfile.yml`, package scripts, `.pre-commit-config.yaml`, and CI files.
+4.  Compare those command surfaces with `.agents/workflow.md`.
+5.  If tech stack drift, canonical command drift, backend assumption drift, or ignore-policy drift is detected, note it for reporting.
 
 ---
 
@@ -55,8 +61,9 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
     *   Synthesize learnings directly into cohesive, logically organized knowledge base chapters in `.agents/knowledge/` (e.g., `architecture.md`, `conventions.md`).
     *   Update the current state. Do NOT outline history or create per-flow logs.
 2.  **Pattern Elevation:** Extract reusable patterns to `.agents/patterns.md`.
-3.  **File Validation:** Check file paths referenced in `spec.md` files and `patterns.md`. 
-4.  Report any broken references found.
+3.  **Workflow Learning Capture:** If the sync reveals validated repo-native commands or repeated user corrections that are missing from `.agents/workflow.md`, propose updating the workflow and knowledge base so those commands stop living only in chat memory.
+4.  **File Validation:** Check file paths referenced in `spec.md` files and `patterns.md`.
+5.  Report any broken references found.
 
 ---
 
@@ -69,6 +76,9 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
     > A) Yes - Apply update
     > B) No - Skip this change
 2.  Apply approved changes and store refresh state in `.agents/refresh_state.json`.
+3.  If workflow drift is detected, explicitly ask:
+    > "Workflow settings may be stale. Revalidate `.agents/workflow.md` now?"
+4.  Prefer repo-native aggregate commands such as `make lint`, `make test`, `make check`, `just check`, `task test`, package scripts, and pre-commit entrypoints when proposing workflow updates.
 
 ---
 
@@ -89,16 +99,20 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
 
 Report:
 "Flow Sync Complete!
+- Backend: <bd|br|none>
 - Flow synced: <flow_id>
 - Updates made: <list files updated if any>
+- workflow.md: <revalidated-needed|unchanged>
+- tech-stack.md: <drift-detected|unchanged>
 - Broken references fixed: <count>
 - Export generated: <Yes/No>"
 
 ---
 
 ## Critical Rules
-1.  **READ-ONLY ON BEADS** - Only read from Beads, never write during sync
+1.  **READ-ONLY ON BACKEND** - Only read from the active backend during sync. Do not close, block, or mutate tasks here
 2.  **PRESERVE SPEC CONTENT** - Only update task status markers, not requirements text
 3.  **DETECT DON'T ASSUME** - Verify before updating tech-stack.md or patterns.md
 4.  **ASK FIRST** - Confirm documentation changes with user
+5.  **NO HARDCODED BACKEND** - Support `bd`, `br`, and markdown-only mode gracefully
 """
