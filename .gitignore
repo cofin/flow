@@ -226,3 +226,4 @@ windsurf.mcp.json
 *.db
 .beads-credential-key
 .worktrees/
+.agents/
