@@ -15,7 +15,7 @@ Refresh the flow's context files by re-scanning the codebase and updating `.agen
 ## Workflow
 
 1. **Read current context**
-   - Load `.agents/index.md`, `.agents/flows.md`, `.agents/tech-stack.md`
+   - Load `.agents/index.md`, `.agents/flows.md`, `.agents/tech-stack.md`, `.agents/workflow.md`
    - Load active flow's `spec.md` and `metadata.json`
 
 2. **Scan codebase for drift**
@@ -23,17 +23,23 @@ Refresh the flow's context files by re-scanning the codebase and updating `.agen
    - Identify new/modified/deleted files relevant to active flows
    - Detect dependency changes (pyproject.toml, Cargo.toml, package.json)
    - Detect tech stack changes (new frameworks, removed packages)
+   - Inspect workflow drift across `Makefile`, `justfile`, `Taskfile.yml`, `package.json`, `pyproject.toml`, `Cargo.toml`, `.pre-commit-config.yaml`, and CI files
+   - Compare those command surfaces with `.agents/workflow.md`
 
 3. **Update context files**
    - Refresh `.agents/tech-stack.md` if dependencies changed
    - Update `.agents/patterns.md` if new patterns detected in recent commits
+   - Prompt to revalidate `.agents/workflow.md` when canonical commands, backend assumptions, or ignore policy drifted
+   - Prefer repo-native aggregate commands such as `make lint`, `make test`, `make check`, `just check`, `task test`, package scripts, and pre-commit entrypoints when updating workflow guidance
    - Update flow's `spec.md` task statuses from git history (commits referencing tasks)
    - Refresh `.agents/index.md` with any structural changes
 
 4. **Sync with Beads**
-   - Run `br sync --flush-only` to push any local changes
-   - Run `br status` to get current Beads state
-   - Reconcile Beads state with refreshed context
+   - Resolve the active backend first
+   - `bd`: use the official Beads sync/status commands
+   - `br`: run `br sync --flush-only` and `br status`
+   - no-Beads: skip backend sync and continue refreshing workflow/context files
+   - Reconcile backend state with refreshed context
 
 5. **Report changes**
    - Summarize what changed since last session
@@ -51,6 +57,7 @@ Since last session (abc1234, 2 days ago):
   • 3 commits by other contributors
   • pyproject.toml: added `httpx` dependency
   • tech-stack.md: updated
+  • workflow.md: revalidated
   • auth flow: 2 tasks completed externally
   • spec.md: synced with Beads
 
@@ -62,4 +69,5 @@ No conflicts detected.
 - Never overwrite manual edits to spec.md — merge changes, don't replace
 - If conflicts are detected, present both versions and ask the user to resolve
 - Always run `/flow:sync` at the end to ensure spec.md reflects final state
-- Log the refresh action in Beads: `br comments add {epic_id} "Context refreshed: {summary}"`
+- Log the refresh action through the active backend's note/comment mechanism
+- Treat workflow drift as real refresh work, not optional cleanup

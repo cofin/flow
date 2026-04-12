@@ -203,7 +203,18 @@ build
 !README.md
 ```
 
----
+<workflow>
+
+## Workflow
+
+1. **Write Dockerfile** — multi-stage, pin base tags, use cache mounts.
+2. **Write .dockerignore** — exclude `.git`, `.env`, `node_modules`, `__pycache__`.
+3. **Build locally** — `docker buildx build -t myimage:dev .`
+4. **Inspect** — `docker image inspect myimage:dev` for size; `dive myimage:dev` for layer breakdown.
+5. **Run as non-root check** — `docker run --rm myimage:dev id` should print `uid=65532`.
+6. **Compose integration** — use `compose.yml` with health checks and `depends_on` conditions.
+
+</workflow>
 
 <guardrails>
 
@@ -218,20 +229,9 @@ build
 
 </guardrails>
 
----
+<validation>
 
-<workflow>
-
-## Workflow
-
-1. **Write Dockerfile** — multi-stage, pin base tags, use cache mounts.
-2. **Write .dockerignore** — exclude `.git`, `.env`, `node_modules`, `__pycache__`.
-3. **Build locally** — `docker buildx build -t myimage:dev .`
-4. **Inspect** — `docker image inspect myimage:dev` for size; `dive myimage:dev` for layer breakdown.
-5. **Run as non-root check** — `docker run --rm myimage:dev id` should print `uid=65532`.
-6. **Compose integration** — use `compose.yml` with health checks and `depends_on` conditions.
-
-### Validation Checkpoint
+## Validation Checkpoint
 
 Before delivering Dockerfile or Compose config, verify:
 
@@ -243,7 +243,7 @@ Before delivering Dockerfile or Compose config, verify:
 - [ ] Cache mounts used for package manager steps
 - [ ] Health check defined in Compose or Dockerfile for long-running services
 
-</workflow>
+</validation>
 
 ---
 

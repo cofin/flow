@@ -7,6 +7,8 @@ description: "Auto-activate for gcloud commands, .gcloudignore, app.yaml. Google
 
 ## Service Overview
 
+Use the dedicated `terraform` skill when the question is primarily about Terraform layout, state boundaries, brownfield import/export, workspaces, or CI-driven plan/apply workflows. Keep this `gcp` skill focused on Google Cloud services and `gcloud`-centric operations.
+
 ### Core Services
 
 - **Compute**:

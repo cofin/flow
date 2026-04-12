@@ -9,6 +9,16 @@ description: "Auto-activate for alloydb-omni in compose/k8s configs. AlloyDB Omn
 
 AlloyDB Omni is the downloadable edition of AlloyDB that runs anywhere: local machines, on-premises data centers, or other cloud providers. It is distributed as a container image and includes the same query processing and columnar engine as the managed AlloyDB service.
 
+## Operating Layers
+
+Use this skill in three distinct layers:
+
+1. **Deploy** AlloyDB Omni on Docker, Podman, Kubernetes, or RPM-based hosts.
+2. **Connect** an agent or client to the running database.
+3. **Operate** the database with lifecycle, tuning, backups, diagnostics, and upgrades.
+
+Keep those layers separate when giving guidance. Deployment is not the same thing as agent connectivity.
+
 ## Quick Reference
 
 ### Deployment Methods
@@ -60,6 +70,16 @@ For non-trivial workloads, configure `shared_buffers` (25% of container memory),
 Connect via `localhost:5432`. AlloyDB Omni supports all AlloyDB features including the columnar engine, so you can test analytical queries locally.
 
 </workflow>
+
+## Host Integration Order
+
+Use the lowest-admin supported path for the current host, and degrade cleanly:
+
+1. **Gemini CLI**: use the dedicated `alloydb-omni` extension.
+2. **Other agents with MCP support**: use MCP Toolbox with the official AlloyDB Omni prebuilt config.
+3. **No extension / no MCP**: fall back to Docker/Podman/Kubernetes/RPM plus `psql` and SQL guidance from this skill's references.
+
+Do not make the skill Gemini-only. The Gemini extension path is preferred when available, but the deployment and operational guidance in this skill must still work across other agents and plain terminal workflows.
 
 <guardrails>
 
@@ -143,6 +163,21 @@ The AlloyDB Omni Kubernetes Operator manages `DBCluster` custom resources (CRD: 
 
 See [references/kubernetes-operator.md](references/kubernetes-operator.md) for the full CRD spec, HA configuration YAML, scaling examples, health monitoring, and upgrade procedures.
 
+## RPM Lifecycle
+
+RPM-based AlloyDB Omni installs are a first-class deployment path for RHEL-family hosts, VMs, and bare-metal systems where containers are not the right fit.
+
+Key lifecycle operations:
+
+- **Install repository + package**: add the AlloyDB Omni yum repo, then `yum install alloydbomni`
+- **Initialize data directory**: run `alloydb-omni init --data-dir=...` before first start
+- **Manage the service**: use `systemctl enable --now alloydb-omni`, `status`, `restart`, and `journalctl`
+- **Tune PostgreSQL settings**: change parameters with `ALTER SYSTEM SET ...` and restart the service
+- **Upgrade in place**: update the RPM package, restart the service, and verify version + extension state
+- **Back up and validate**: verify local storage, service health, and extension availability before and after upgrades
+
+See [references/rpm.md](references/rpm.md) for the full install, service-management, configuration, validation, and upgrade workflow.
+
 ## Performance Diagnostics
 
 Key diagnostics for AlloyDB Omni production workloads:
@@ -163,15 +198,48 @@ The columnar engine accelerates analytical queries by caching selected columns i
 - **Cost/benefit check**: compare `EXPLAIN` output before and after adding a table — look for `Custom Scan (columnar scan)` nodes replacing `Seq Scan`
 - **Cache inspection**: `SELECT * FROM g_columnar_memory_usage` shows per-relation memory consumption and hit rates
 
-## Gemini CLI Extension
+## Gemini CLI and MCP Toolbox
 
-The AlloyDB Omni Gemini CLI extension provides 24 tools for managing clusters, running diagnostics, and executing administrative operations from the command line:
+This section is for the **connection layer**, not for deploying AlloyDB Omni itself.
+
+For AlloyDB Omni, prefer the dedicated Gemini CLI extension when Gemini is the active host. Use the generic PostgreSQL route only as a fallback when the dedicated extension is unavailable.
 
 ```bash
-gemini extensions install https://github.com/gemini-cli-extensions/alloydb-omni
+gemini extensions install https://github.com/gemini-cli-extensions/alloydb-omni --auto-update
+gemini extensions config alloydb-omni --scope workspace
 ```
 
-Use this extension to complement operator-based workflows with interactive diagnostics, query analysis, and cluster introspection without writing raw `psql` or `kubectl` commands.
+Guide the user through the required connection variables before starting Gemini:
+
+```bash
+export ALLOYDB_OMNI_HOST="<database-host>"
+export ALLOYDB_OMNI_PORT="<database-port>"
+export ALLOYDB_OMNI_DATABASE="<database-name>"
+export ALLOYDB_OMNI_USER="<database-user>"
+export ALLOYDB_OMNI_PASSWORD="<database-password>"
+export ALLOYDB_OMNI_QUERY_PARAMS="<optional-query-string>"
+```
+
+Important configuration guidance:
+
+- Gemini CLI should be `v0.6.0` or newer.
+- Load the variables from a `.env` file when possible.
+- Connection settings are fixed at session start; restart Gemini to switch databases.
+- Treat configuration as workspace-scoped by default, not user-global.
+
+For non-Gemini agents, or when the user needs a shared MCP endpoint, guide them to MCP Toolbox using the AlloyDB Omni prebuilt config rather than inventing a custom setup.
+
+For reusable project workflows, prefer generated workspace skills:
+
+```bash
+toolbox --prebuilt alloydb-omni skills-generate \
+  --name alloydb-omni-optimize \
+  --toolset optimize \
+  --description "AlloyDB Omni optimization skill" \
+  --output-dir .agents/skills
+```
+
+If neither Gemini extensions nor MCP Toolbox are available, fall back to the manual Docker/Podman/Kubernetes/RPM workflows and `psql` diagnostics already documented in this skill's references.
 
 ---
 
@@ -185,14 +253,20 @@ For detailed guides and code examples, refer to the following documents in `refe
   - Memory/CPU tuning, persistence volumes, networking, PostgreSQL parameter overrides.
 - **[Kubernetes Operator](references/kubernetes-operator.md)**
   - DBCluster CRD spec, HA failover, read replica scaling, rolling updates, backup annotations, health monitoring, upgrade procedures.
+- **[RPM Deployment](references/rpm.md)**
+  - RHEL-family installation, `systemd` lifecycle, configuration, upgrades, and operational validation.
 - **[Performance Diagnostics](references/performance.md)**
   - Query planning, invalid index detection, bloat analysis, active query monitoring, columnar engine tuning, autovacuum, connection lifecycle.
+- **[Gemini + MCP Guidance](references/gemini-mcp.md)**
+  - PostgreSQL extension install, env vars, and MCP Toolbox fallback guidance for Omni workflows.
 
 ---
 
 ## Official References
 
 - <https://cloud.google.com/alloydb/docs/omni>
+- <https://docs.cloud.google.com/alloydb/omni/containers/17.5.0/docs/connect-ide-using-mcp-toolbox>
+- <https://github.com/gemini-cli-extensions/alloydb-omni>
 
 ## Shared Styleguide Baseline
 

@@ -408,11 +408,7 @@ log_disconnections = 0
 | **Session** | Server connection held for full client session | Requires session state (temp tables, prepared statements) |
 | **Statement** | Released after each statement | Rarely used; autocommit only |
 
-<guardrails>
-
-**Transaction mode caveats**: prepared statements and advisory locks are incompatible with transaction mode — disable `prepared_statements` at the driver level or use `DEALLOCATE ALL` at transaction end.
-
-</guardrails>
+**Transaction mode caveat:** prepared statements and advisory locks are incompatible with transaction mode. Disable `prepared_statements` at the driver level or use `DEALLOCATE ALL` at transaction end.
 
 ---
 

@@ -4,6 +4,7 @@ import sys
 import json
 import re
 import subprocess
+import shutil
 from datetime import datetime
 
 def run_cmd(cmd: list[str]) -> str | None:
@@ -137,7 +138,12 @@ def main() -> None:
 
     if not os.path.exists(".agents") or not os.path.exists(".beads"):
         sys.exit(0)
-    
+
+    if shutil.which("br") is None:
+        # Official Beads (`bd`) does not yet have a Flow-specific export path in this hook.
+        # Degrade safely so commits are not blocked when only `bd` is installed.
+        sys.exit(0)
+
     try:
         subprocess.run(["br", "--version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
     except (FileNotFoundError, subprocess.CalledProcessError):

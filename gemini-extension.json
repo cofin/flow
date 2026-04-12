@@ -1,6 +1,9 @@
 {
   "name": "flow",
   "description": "Unified toolkit for Context-Driven Development with spec-first planning, TDD workflow, and Beads integration",
-  "version": "0.14.1",
-  "contextFileName": "AGENTS.md"
+  "version": "0.15.0",
+  "contextFileName": "GEMINI.md",
+  "plan": {
+    "directory": ".agents/specs"
+  }
 }

@@ -43,9 +43,9 @@ The installer supports:
 - **Claude Code** (`~/.claude/`)
 - **Codex CLI** (`~/.codex/`)
 - **OpenCode** (`~/.config/opencode/`)
-- **Google Antigravity** (`~/.gemini/antigravity/skills/`)
+- **Google Antigravity** (workspace-local `.agents/` preferred, global fallback available)
 
-**Note:** Gemini CLI now uses native extension installation: `gemini extensions install flow`
+Flow now prefers official host-native install flows where they exist, and reserves local links/wrappers for development-oriented hosts.
 
 ## Installation
 
@@ -54,7 +54,7 @@ Flow can be installed as a native plugin or extension on supported AI CLI platfo
 ### Gemini CLI
 
 ```bash
-gemini extensions install https://github.com/cofin/flow
+gemini extensions install https://github.com/cofin/flow --auto-update
 ```
 
 To update:
@@ -62,13 +62,15 @@ To update:
 gemini extensions update flow
 ```
 
+Use `gemini extensions link .` only for local development against a checkout. Gemini copies installed extensions, so linked development and installed releases are different workflows.
+
 ### Claude Code
 
 Install Flow via marketplace (recommended for reliability):
 
 ```bash
-/plugin marketplace add cofin/flow
-/plugin install flow@flow-marketplace
+claude plugin marketplace add cofin/flow
+claude plugin install flow@flow-marketplace
 ```
 
 This installs Flow at user scope (`~/.claude/plugins/...`).
@@ -76,25 +78,25 @@ This installs Flow at user scope (`~/.claude/plugins/...`).
 To update explicitly:
 
 ```bash
-claude plugins marketplace update flow-marketplace
-claude plugins update flow@flow-marketplace
+claude plugin marketplace update flow-marketplace
+claude plugin update flow@flow-marketplace
 ```
 
-Direct GitHub install may work in some Claude builds via interactive `/plugin` commands, but
-`claude plugins install` resolves `plugin@marketplace` sources and can reject
-`flow@git+https://github.com/cofin/flow.git` in non-interactive mode.
+Claude supports git-based marketplaces directly. Prefer the marketplace flow over ad-hoc local config edits.
 
 ### OpenCode
 
-Add Flow to your global or project-level `opencode.json`:
+OpenCode's official plugin model is local-plugin-files or npm packages. Flow currently ships a local plugin entrypoint and project-local skills, so the recommended path is:
 
-```json
-{
-  "plugin": ["flow@git+https://github.com/cofin/flow.git"]
-}
+```bash
+git clone https://github.com/cofin/flow.git ~/.config/opencode/flow
+mkdir -p ~/.config/opencode/plugins
+ln -sf ~/.config/opencode/flow/.opencode/plugins/flow.js ~/.config/opencode/plugins/flow.js
 ```
 
-Restart OpenCode to auto-register all skills and commands.
+Restart OpenCode after installing or updating plugin files.
+
+OpenCode also discovers skills from `.opencode/skills/`, `.claude/skills/`, and `.agents/skills/`, so Flow-compatible project-local skills do not require a global plugin install.
 
 ### Cursor IDE
 
@@ -107,7 +109,7 @@ Or add to your `.cursor-plugin` configuration manually.
 
 ### Codex CLI
 
-Install Flow as a Codex plugin:
+Install Flow as a Codex plugin with a local linked source and a marketplace entry:
 
 1. Clone Flow:
    ```bash
@@ -132,11 +134,19 @@ Install Flow as a Codex plugin:
 
 3. Restart Codex. Run `/plugins` to verify Flow appears.
 
-Current Codex plugin support does not expose plugin-defined `/flow:*` slash commands.
-Use Flow through the installed Flow skill with natural-language requests such as
-`Use Flow to set up this project` or `Use Flow to create a PRD for add user authentication`.
-Older preview-era Codex builds may have used hyphenated Flow commands such as `/flow-setup`,
-but Flow no longer assumes those preview-only aliases are available.
+Codex plugins use `.codex-plugin/plugin.json` plus `.agents/plugins/marketplace.json`. Treat the marketplace metadata as the catalog and the installed plugin as a cached copy that may refresh independently of the source checkout.
+
+Current Codex plugin support does not expose plugin-defined `/flow:*` slash commands. Use Flow through the installed Flow skill with natural-language requests such as `Use Flow to set up this project`.
+
+### Google Antigravity
+
+Prefer workspace-local `.agents` customizations when possible:
+
+- `.agents/skills/`
+- `.agents/rules/`
+- `.agents/workflows/`
+
+Use a global skill install only as a fallback for environments that do not yet use project-local agent assets consistently.
 
 ### Legacy Installation (bash)
 
@@ -161,11 +171,12 @@ In Codex CLI, ask:
 
 Flow will:
 
-1. Check/install Beads
-2. Initialize Beads
-3. Create project context files
-4. Guide you through product, tech stack, and workflow setup
-5. Create your first flow
+1. Detect the preferred persistence mode: official Beads (`bd`), `br` compatibility, or no-Beads degraded mode
+2. Initialize the selected backend in low-admin mode
+3. Default local-only ignores to `.git/info/exclude`
+4. Create project context files
+5. Guide you through product, tech stack, and workflow setup
+6. Create your first flow
 
 ### Create a Flow
 
@@ -184,6 +195,7 @@ This creates:
 
 - `spec.md` - Unified specification (requirements AND implementation plan)
 - `learnings.md` - Pattern capture log
+- `.agents/skills/flow-memory-keeper/SKILL.md` - Project-local sync/archive/learnings/failure-refinement skill
 - Beads epic with tasks for cross-session persistence
 
 **Note:** Flow uses a unified spec.md (no separate plan.md). Beads is the source of truth for task status. Use `/flow:sync` to export Beads state to spec.md (MANDATORY after every state change).
@@ -201,18 +213,18 @@ This creates:
 In Codex CLI, ask:
 `Use Flow to implement auth`
 
-Flow follows TDD workflow (Beads-first):
+Flow follows TDD workflow with a backend adapter:
 
-1. Select task from `br ready` (Beads is source of truth)
-2. Mark in progress: `br update <id> --status in_progress`
+1. Detect the active persistence mode (`bd`, `br`, or no-Beads)
+2. Select the next task from the active backend, or fall back to spec-driven execution
 3. Write failing tests
 4. Implement to pass
 5. Refactor
 6. Verify coverage
 7. Commit with conventional format
-8. Sync to Beads: `br close <id> --reason "commit: <sha>"`
+8. Record completion in the active backend when available
 9. Capture learnings
-10. Sync to markdown: run `/flow-sync` (MANDATORY)
+10. Sync to markdown: run `/flow-sync` (MANDATORY when Beads is active)
 
 **CRITICAL:** Never write `[x]`, `[~]`, `[!]`, or `[-]` markers directly to spec.md. Beads is the source of truth. After ANY Beads state change, agents MUST run `/flow-sync` to update spec.md.
 
@@ -256,6 +268,9 @@ project/
 │   ├── knowledge/           # Persistent knowledge base
 │   │   ├── index.md          # Quick reference index
 │   │   └── {flow_id}.md      # Per-flow detailed learnings
+│   ├── skills/
+│   │   └── flow-memory-keeper/
+│   │       └── SKILL.md      # Local memory/refinement skill
 │   ├── specs/
 │   │   └── <flow_id>/       # e.g., user-auth/
 │   │       ├── spec.md       # Unified spec + plan
@@ -287,32 +302,60 @@ Examples:
 
 ## Beads Integration
 
-Beads provides persistent memory across sessions:
+Flow supports three persistence modes:
+
+- **Official Beads (`bd`)**: preferred default
+- **beads_rust (`br`)**: compatibility mode for older repos and command docs
+- **No Beads**: degraded mode for docs, planning, and lightweight local work
+
+### Default Initialization
+
+When Flow initializes official Beads, it should default to stealth mode and derive a slugged prefix from the repo name:
 
 ```bash
-# At session start
-br status                          # Workspace overview
-br ready                           # List unblocked tasks
-br list --status in_progress       # Resume active work
-
-# During work
-br ready              # Show unblocked tasks
-br update <id> --status in_progress
-br close <id> --reason "commit: abc123"
-
-# At session end
-br sync --flush-only
-git add .beads/
-# You can commit beads state manually or alongside your features
-# Notes survive context compaction!
+repo_slug="$(basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-//; s/-$//')"
+bd init --stealth --prefix "$repo_slug"
 ```
+
+When Flow initializes `br` compatibility mode, it should also derive the prefix from the repo slug:
+
+```bash
+repo_slug="$(basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-//; s/-$//')"
+br init --prefix "$repo_slug"
+```
+
+### Install Paths
+
+Official Beads (`bd`):
+
+```bash
+brew install beads
+# or
+curl -sSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash
+```
+
+`beads_rust` compatibility (`br`):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash
+```
+
+### Local-Only Ignore Policy
+
+Prefer `.git/info/exclude` for local-only artifacts:
+
+```bash
+printf '\n# Flow local-only artifacts\n.beads/\n.agents/\n' >> .git/info/exclude
+```
+
+Only update `.gitignore` when the user explicitly wants a shared repo policy.
 
 ### Session Protocol
 
-1. **Start**: `br status` + `br ready` to load context and find unblocked tasks
+1. **Start**: detect the active backend and load its current workspace state
 2. **Work**: Update task status as you progress
 3. **Learn**: Add notes for important discoveries
-4. **End**: `br sync --flush-only && git add .beads/` persists everything
+4. **End**: persist backend state when enabled, or rely on `.agents/specs/` + git history in degraded mode
 
 ## Knowledge System (Three-Tier)
 
@@ -351,6 +394,8 @@ Learnings are synthesized into cohesive, logically organized knowledge base chap
 3. **Synthesize** - During sync and archive, integrate learnings directly into cohesive, logically organized knowledge base chapters in `knowledge/` (e.g., `architecture.md`, `conventions.md`). Do NOT outline history; update the current state.
 4. **Inherit** - New flows read `patterns.md` + scan `knowledge/` chapters.
 
+If `.agents/skills/flow-memory-keeper/SKILL.md` exists, use it at sync, archive, finish, revise, and failure checkpoints so spec cleanup, learnings capture, and refinement stay mandatory.
+
 ## Skills Library
 
 Flow includes 50+ technology-specific skills in `skills/`:
@@ -374,7 +419,12 @@ Copy to your CLI's skills directory for auto-activation.
 ## Resources
 
 - [GitHub Issues](https://github.com/cofin/flow/issues) - Report bugs or request features
-- [Beads CLI](https://github.com/withzombies/beads) - Task persistence layer
+- [Beads CLI](https://github.com/steveyegge/beads) - Official `bd` task persistence layer
+- [beads_rust](https://github.com/Dicklesworthstone/beads_rust) - `br` compatibility backend
+
+## Follow-Up Note
+
+Review the current Beads git hooks and host/LLM integration hooks before finalizing deeper automation. Flow should prefer official Beads or host-native hooks when they already provide the needed sync or lifecycle behavior, and only keep Flow-specific hooks where they add real value instead of duplicating an upstream mechanism.
 
 ## License
 

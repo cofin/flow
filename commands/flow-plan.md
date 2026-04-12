@@ -34,7 +34,7 @@ You MAY ONLY:
 
 - Create/edit files in `.agents/specs/` (spec.md, metadata.json)
 - Create/edit `.agents/flows.md` registry
-- Run `br create` commands for Beads tracking
+- Run the active backend's epic/task creation flow when a backend is enabled
 - Read source code for analysis (but NEVER modify it)
 
 **Implementation happens ONLY when user explicitly runs `/flow-implement`.**
@@ -55,6 +55,7 @@ You MAY ONLY:
 
 3. **Read Research:**
     - Check `.agents/research/`. If relevant research exists, ask to use it.
+    - If important requirements still depend on unresolved docs, versions, migrations, marketplaces, or host behavior, continue researching until those gaps are closed before declaring planning complete.
 
 ---
 
@@ -67,8 +68,11 @@ You MAY ONLY:
 1. **Input Analysis:** Use `$ARGUMENTS` context.
 2. **No Input:** Ask: "What is the goal of this single Flow?"
 3. **Complexity Check:**
-    - If the request seems too large for one flow (e.g., "Build entire app"), STOP.
-    - Recommend running `/flow-prd` (The Orchestrator) instead. (e.g., "This looks like a multi-flow Saga. Please run `/flow-prd` to plan the full roadmap first.")
+    - If the request seems too large for one flow (e.g., "Build entire app"), do NOT silently descope.
+    - Explain why it appears multi-flow, then ask the user whether to:
+      - split it into a PRD/Saga with `/flow-prd`
+      - narrow it into a smaller flow now
+      - continue with a clearly scoped first slice
 
 ---
 
@@ -184,6 +188,10 @@ You MAY ONLY:
     - **Recovery Checkpoints:** Add "Checkpoint" task after each Phase
     - **Verification:** Add "Manual Verification" task at end of Phases
     - Reference specific files identified in code analysis
+    - Run a task-detail sufficiency loop before calling the draft complete:
+      - Ask: "Do I have enough task information written for this PRD/flow to complete it correctly in the first pass?"
+      - If not, refine the tasks until each one names concrete files, dependencies, test-first steps, verification, and open risks.
+      - If the tasks are still too coarse for a lightweight executor, invoke `flow-refine` before asking for approval.
 
 2. **Confirm:** Ask user to approve.
 
@@ -217,16 +225,15 @@ You MAY ONLY:
 6. **Beads Integration:**
 
     ```bash
-    br create "Flow: <flow_id>" -t epic -p 2 \
-      --description="<flow_purpose_from_spec>"
-    br update {epic_id} --notes "Files: <key_files_from_analysis>. Created by /flow-plan on <date>"
+    <active_backend_create_flow_epic>
+    <active_backend_attach_flow_notes>
     ```
 
     **CRITICAL:** The `--description` must include:
     - WHY this flow exists (the problem being solved)
     - WHAT the expected outcome is
 
-    **CRITICAL:** The `--notes` (via `br update`) must include:
+    **CRITICAL:** The backend notes/context attachment must include:
     - Key files identified in code analysis
     - Origin command (`/flow-plan`)
     - Creation timestamp
@@ -236,9 +243,8 @@ You MAY ONLY:
     For each phase/task in the plan:
 
     ```bash
-    br create "Phase {N}: {phase_name}" --parent {epic_id} -t task -p 2 \
-      --description="WHY: {purpose}. WHAT: {deliverables}"
-    br update {task_id} --notes "Phase {N}. Files: {affected_files}. Origin: /flow-plan"
+    <active_backend_create_phase_task>
+    <active_backend_attach_task_notes>
     ```
 
     **>5 Minute Rule:** If a task takes more than 5 minutes, it MUST be tracked in Beads.
@@ -279,5 +285,5 @@ Announce:
 4. **PATTERNS COMPLIANCE** - Check patterns.md and warn on violations
 5. **UNIFIED SPEC** - Single `spec.md` contains both requirements and plan. No separate `plan.md`.
 6. **SPECS DIRECTORY** - All artifacts go in `.agents/specs/`
-7. **BEADS CONTEXT** - Include description with br create, then notes via br update
+7. **BEADS CONTEXT** - Include a full description at creation time, then attach notes/context through the active backend
 8. **HARD STOP** - End with explicit instruction to run `/flow-implement`

@@ -13,7 +13,7 @@ Implementing flow: **$ARGUMENTS**
 1. Load flow from `.agents/specs/{flow_id}/`
 2. Read `spec.md` (unified spec+plan), `learnings.md`
 3. Read `.agents/patterns.md` for project patterns
-4. Read `.agents/workflow.md` for process guidelines
+4. Read `.agents/workflow.md` for process guidelines and canonical repo commands
 
 ---
 
@@ -36,19 +36,17 @@ Implementing flow: **$ARGUMENTS**
     * **Read Artifacts:** `spec.md` (unified spec+plan), `learnings.md` (create if missing).
     * **Read Project Context:** Read `.agents/patterns.md` and `.agents/workflow.md`.
     * **Read Parent Context:** If this flow is part of a PRD/Saga, read `.agents/specs/<parent_id>/prd.md`.
+    * **Read Durable Knowledge:** Load relevant `.agents/knowledge/` chapters before coding.
+    * **Extract Canonical Commands:** Prefer the repo's existing setup, lint, test, typecheck, and full verification commands from `.agents/workflow.md` before inventing raw tool commands.
 
-**CRITICAL:** Before starting, check `.gitignore`. If `.agents/` is ignored, do NOT commit changes to artifacts inside it using git. Update them on disk only.
+**CRITICAL:** Before starting, check whether `.agents/` artifacts are ignored by `.gitignore`, `.git/info/exclude`, or global git ignores. If they are ignored, do NOT commit those artifacts. Update them on disk only.
 
 ---
 
 ## Phase 1: Beads Sync
 
-```bash
-br status                   # Workspace overview
-br ready                    # List unblocked tasks
-br list --status in_progress # Resume active work
-br show {epic_id}          # View flow status
-```
+Use the active backend's workspace, ready-queue, in-progress, and flow-status commands.
+If no backend is configured, skip backend sync and rely on `spec.md`.
 
 ---
 
@@ -58,12 +56,9 @@ br show {epic_id}          # View flow status
 
 ### 2.1 Primary: Use Beads
 
-```bash
-br ready                    # List unblocked tasks ready to work
-br show {epic_id}          # View epic with all tasks
-```
+Use the active backend's ready/queue view and flow-status view.
 
-Select task from `br ready` output. If multiple ready tasks, ask user which to start.
+Select task from the active backend's ready output. If multiple ready tasks, ask user which to start.
 
 ### 2.2 Fallback: Parse spec.md
 
@@ -77,28 +72,34 @@ If Beads unavailable or no tasks found:
 
 ## Phase 3: Task Execution Loop
 
-For each task from `br ready` or spec.md:
+For each task from the active backend's ready queue or `spec.md`:
+
+### 3.0 Refinement and Delegation Gate
+
+* Ask: "Do I have enough task information written for this PRD/flow to complete it correctly in the first pass?"
+* If not, invoke `flow-refine` before implementation or subagent dispatch.
+* Before delegating to a lightweight executor, preserve context by passing the relevant spec or PRD, patterns, knowledge chapters, learnings, affected files, and verification requirements.
+* Do not silently descope if the task is larger than expected. Refine the task or ask the user how to prioritize.
 
 ### 3.1 Mark In Progress
 
 **If task not in Beads, create it first:**
 
 ```bash
-br create "{task_description}" --parent {epic_id} -p 2 \
-  --description="{what_needs_to_be_done_and_why}"
-br update {new_task_id} --status in_progress
-br update {new_task_id} --notes "Phase {N}, Task {M}. Files: {affected_files}. Created by /flow-implement"
+<active_backend_create_task>
+<active_backend_mark_in_progress>
+<active_backend_attach_notes>
 ```
 
 **If task exists in Beads:**
 
 ```bash
-br update {task_id} --status in_progress
+<active_backend_mark_in_progress>
 ```
 
 **CRITICAL:**
 
-* Always include `--description` when creating tasks, then add `--notes` via `br update`
+* Always include a clear description when creating tasks, then attach notes/context with the active backend's notes mechanism
 * Beads is the source of truth - do NOT write `[~]` markers to spec.md
 
 ### 3.2 Write Failing Tests (Red Phase)
@@ -107,7 +108,7 @@ br update {task_id} --status in_progress
 
 1. Create test file following project conventions
 2. Write tests that define expected behavior
-3. Run tests: `{test_command}`
+3. Run the canonical test command from `.agents/workflow.md` when present; otherwise use `{test_command}`
 4. **VERIFY tests fail as expected**
 
 ### 3.3 Implement (Green Phase)
@@ -115,6 +116,7 @@ br update {task_id} --status in_progress
 1. Write minimum code to pass tests
 2. Follow patterns from `patterns.md`
 3. Run tests to verify they pass
+4. Make the minimum targeted change set needed for the task. Do not add unrelated cleanup without approval.
 
 ### 3.4 Refactor
 
@@ -123,6 +125,8 @@ br update {task_id} --status in_progress
 3. Verify tests still pass
 
 ### 3.5 Verify Coverage
+
+Use the canonical verification or coverage command from `.agents/workflow.md` when present; otherwise run:
 
 ```bash
 {coverage_command}
@@ -133,14 +137,17 @@ Target: >80% coverage for new code.
 ### 3.6 Commit
 
 ```bash
-git add {files}
+git add {implementation_files} {non_ignored_context_files}
 git commit -m "{type}({scope}): {description}"
 ```
+
+Never use `git add -A` or `git add -f` for Flow work. If a file is ignored, leave it local-only.
+Never force-add ignored Flow artifacts.
 
 ### 3.7 Sync to Beads (Source of Truth)
 
 ```bash
-br close {task_id} --reason "commit: {sha}"
+<active_backend_close_task>
 ```
 
 ### Markdown Sync (Manual)
@@ -165,7 +172,7 @@ If pattern discovered, append to `learnings.md`:
 Sync to Beads:
 
 ```bash
-br update {task_id} --notes "{learning}"
+<active_backend_attach_learning_note>
 ```
 
 ---
@@ -187,6 +194,8 @@ Verify tests exist for all code files.
 ```bash
 CI=true {test_command}
 ```
+
+Prefer the repo's canonical aggregate verification command from `.agents/workflow.md` when it exists.
 
 ### 4.3 Manual Verification Plan
 
@@ -212,7 +221,7 @@ git commit --allow-empty -m "chore(checkpoint): Phase {N} complete"
 Record in Beads:
 
 ```bash
-br comments add {epic_id} "Phase {N} verified: tests passed, user confirmed, checkpoint: {sha}"
+<active_backend_record_checkpoint_note>
 ```
 
 ### Markdown Sync (Manual)
@@ -231,7 +240,7 @@ When all tasks complete:
 
 1. Run `/flow-archive {flow_id}` to archive
 2. Elevate remaining learnings to `patterns.md`
-3. Update `.agents/flows.md` status to `[x]`
+3. If a backend is enabled, finalize the flow there and run `/flow-sync` instead of editing markdown markers manually
 
 ---
 
@@ -242,7 +251,8 @@ If implementation fails:
 1. Check error message
 2. Use standard debugging tools for complex issues
 3. Update `learnings.md` with issue details
-4. If blocked, run `br update {task_id} --status blocked --notes "BLOCKED: {reason}"`
+4. If blocked, use the active backend's blocked/notes command, or record the block in markdown-only mode if no backend is configured.
+5. Describe unrelated failures factually and collaboratively. Never say the failure is "not your issue"; offer the smallest helpful next step and ask the user whether to handle it now or separately.
 
 **Companion Skills for Debugging:**
 
@@ -277,5 +287,5 @@ Next Task: {description}
 2. **BEADS IS SOURCE OF TRUTH** - Never write `[x]` or `[~]` markers to spec.md
 3. **LEARNINGS CAPTURE** - Record patterns as discovered
 4. **PHASE CHECKPOINTS** - Verify and checkpoint at phase end
-5. **NO SKIP** - Use `br close {id} --reason "Skipped: {reason}"` if task must be skipped
-6. **USE `br ready`** - Always check Beads for next task
+5. **NO SKIP** - Use the active backend's skip/close flow with a recorded reason, or document the skip in markdown-only mode
+6. **USE THE ACTIVE BACKEND'S READY QUEUE** - Always check Beads for next task when a backend is enabled

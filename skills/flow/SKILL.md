@@ -1,6 +1,6 @@
 ---
 name: flow
-description: "REQUIRED when .agents/ directory exists. Context-driven dev workflow with Beads integration. Produces spec-first plans, TDD-driven implementations with cross-session memory, and structured phase completions with verification evidence. Auto-activate when: .agents/ directory present; Flow workflow intents such as setup, plan, PRD, design, research, docs, implement, sync, status, refresh, validate, revise, review, finish, archive, revert, or task; any /flow:* command in hosts that support it; editing spec.md or files in .agents/; beads/br commands; TDD workflow; spec-first planning; cross-session memory. Not for standalone code edits outside the .agents/ workflow, simple file changes that don't need spec tracking, or direct tool use that doesn't involve Flow state."
+description: "Use when a project has `.agents/`, when the user asks to set up, plan, draft a PRD, research, refine tasks, implement, sync, review, finish, archive, or otherwise work through the Flow lifecycle. Applies to `/flow:*` intents, `.agents/specs/` edits, Beads backend work, and spec-first/TDD workflows that should automatically route into the matching Flow process."
 ---
 
 # Flow - Context-Driven Development
@@ -32,14 +32,15 @@ A flow is a logical unit of work (feature or bug fix). Each flow has:
 - `[!]` - Blocked (logged in blockers.md)
 - `[-]` - Skipped (logged in skipped.md)
 
-### Beads Integration (Required)
+### Beads Integration
 
-Flow requires Beads for persistent cross-session memory:
+Flow supports three persistence modes:
 
-- Each flow becomes a Beads epic
-- Tasks sync bidirectionally
-- Notes survive context compaction
-- Run `br status` + `br ready` at session start
+- **Official Beads (`bd`)** - preferred default
+- **Compatibility (`br`)** - for older Flow repos and existing `br`-centric workflows
+- **No Beads** - degraded mode for planning, docs, and lightweight local work
+
+Use `choosing-beads-backend` when selecting or migrating the backend.
 
 ## Universal File Resolution Protocol
 
@@ -89,8 +90,8 @@ Codex currently runs the same workflows via the installed Flow skill and natural
 
 **See `references/discipline.md` for iron laws, rationalization tables, and red flags.**
 
-1. **Select task** from `br ready` (Beads is source of truth)
-2. **Mark in progress**: `br update {id} --status in_progress`
+1. **Select task** from the active backend's ready queue
+2. **Mark in progress** using the active backend
 3. **Write failing tests** (Red phase) - MUST confirm failure for right reason
 4. **Implement** minimal code to pass (Green phase) - MUST confirm all tests pass
    - If `superpowers:subagent-driven-development` is available, use it for implementation subagent orchestration
@@ -98,7 +99,7 @@ Codex currently runs the same workflows via the installed Flow skill and natural
 6. **Verify coverage** (>80% target)
 7. **Commit** with format: `<type>(<scope>): <description>`
 8. **Attach git notes** with task summary
-9. **Sync to Beads**: `br close {id} --reason "commit: {sha}"`
+9. **Sync to Beads** using the active backend
 10. **Sync to markdown**: run `/flow:sync` to update spec.md.
 
 </workflow>
@@ -106,6 +107,12 @@ Codex currently runs the same workflows via the installed Flow skill and natural
 <guardrails>
 
 **CRITICAL:** Never write `[x]`, `[~]`, `[!]`, or `[-]` markers to spec.md manually. Beads is the source of truth — after ANY Beads state change, you MUST run `/flow:sync` to keep spec.md in sync.
+
+**CRITICAL:** Read `.agents/workflow.md` before planning or implementation and prefer the repo's canonical commands there. If the repo clearly has better aggregate commands than the workflow currently documents, refresh the workflow or capture the correction in learnings/knowledge.
+
+**CRITICAL:** Be collaborative and constructive. Never use dismissive ownership-deflecting language such as "not my issue" or "not caused by my change." If unrelated failures block progress, describe them factually, offer the smallest helpful next step, and ask the user how to prioritize.
+
+**CRITICAL:** Make minimal targeted changes. Do not silently descope, take shortcuts because the task is messy, or make unrelated opportunistic edits without approval.
 
 </guardrails>
 
@@ -131,6 +138,8 @@ Before marking a task complete, verify:
 4. **Synthesize** - During sync and archive, integrate learnings directly into cohesive, logically organized knowledge base chapters in `.agents/knowledge/`.
 5. **Inherit** - New flows read `patterns.md` + scan `.agents/knowledge/` chapters.
 
+Treat repeated user corrections, “you forgot this again” feedback, or visible frustration as high-priority workflow gaps. Capture them in `learnings.md`, elevate them into `patterns.md`, and refine `.agents/skills/flow-memory-keeper/SKILL.md` when present.
+
 <workflow>
 
 ## Phase Completion Protocol
@@ -145,7 +154,7 @@ When a phase completes:
 4. **Create checkpoint commit**
 5. Propose manual verification steps
 6. Await user confirmation
-7. Record checkpoint in Beads: `br comments add {epic_id} "Phase {N} checkpoint: {sha}"`
+7. Record checkpoint in Beads using the active backend's comment/note mechanism
 8. Sync to markdown: run `/flow:sync` (MANDATORY)
 
 </workflow>
@@ -165,17 +174,22 @@ Before claiming a phase is complete, verify:
 
 ## Superpowers Protocol (MANDATORY)
 
-When Superpowers skills are available, the following protocols MUST be followed:
+When Superpowers skills are available, the following protocols MUST be followed.
+If a referenced companion skill is unavailable in the current host, execute the same protocol inline instead of skipping it:
 
 1. **Brainstorming & Planning Overrides:**
     - All brainstorming sessions (`superpowers:brainstorming`) MUST write their results to `.agents/specs/<flow_id>/spec.md`.
     - All implementation plans (`superpowers:writing-plans`) MUST be written to `.agents/specs/<flow_id>/spec.md`.
     - **NEVER** use `docs/superpowers/` for Flow-related artifacts.
     - If a skill tries to use a default path, you MUST intercept and redirect to `.agents/specs/<flow_id>/`.
+    - Do not declare PRD or planning work complete while obvious research gaps remain.
+    - Before approving a plan for execution, ask: "Do I have enough task information written for this PRD/flow to complete it correctly in the first pass?" If not, invoke `flow-refine` or perform the equivalent refinement inline.
 
 2. **Implementation Orchestration:**
     - When running `/flow:implement`, you MUST explicitly recommend the "Subagent-Driven" approach to the user if `superpowers:subagent-driven-development` is available.
     - You MUST use `superpowers:subagent-driven-development` to orchestrate the implementation of tasks.
+    - If the subagent workflow is unavailable, execute the same TDD, review, and context-preservation protocol in single-agent mode.
+    - Before delegating, preserve context by passing the relevant spec or PRD, patterns, knowledge chapters, learnings, affected files, and verification requirements.
 
 3. **Self-Review & Quality Gate:**
     - Before finalizing any PRD (`/flow:prd`) or Plan (`/flow:plan`), you MUST invoke `code-reviewer` (or use the internal `Spec Review Loop`) to validate the artifacts against project patterns and requirements.
@@ -185,18 +199,23 @@ When Superpowers skills are available, the following protocols MUST be followed:
 4. **TDD & Verification:**
     - Always use `superpowers:test-driven-development` for task implementation.
     - Always use `superpowers:verification-before-completion` before closing a task in Beads or marking it complete.
+    - If those skills are unavailable, follow the same TDD and verification discipline inline. The process remains mandatory.
 
 ## Proactive Behaviors
 
 When Flow skill is active:
 
 - Check for resume state at session start.
-- Run `br status` and `br ready` for context.
+- Detect the active Beads backend and load its current context.
 - Scan `knowledge/index.md` for relevant past learnings when starting a new flow.
 - Prompt for learnings capture after tasks.
 - Suggest pattern elevation at phase completion.
+- If `.agents/skills/flow-memory-keeper/SKILL.md` exists, invoke it for sync, archive, finish, and failure/refinement work.
+- If the user repeats a correction or sounds frustrated about something being forgotten, treat that as mandatory knowledge capture rather than optional polish.
 - Warn if tech-stack changes without documentation.
 - Enforce mandatory `/flow:sync` after any Beads state change.
+- Prefer canonical repo commands such as `make lint`, `make test`, `make check`, `just check`, `task test`, package-script wrappers, or pre-commit entrypoints when the repo defines them.
+- Treat repeated reminders like "use make lint" or "don't forget to test" as workflow failures that must be captured and elevated.
 - **Mandatory Superpowers Integration:** If Superpowers is detected, all workflows (PRD, Plan, Implement) MUST follow the **Superpowers Protocol** above.
 - Invoke `flow:apilookup` proactively for external API/docs/version/migration questions.
 
@@ -240,6 +259,10 @@ These Flow skills enhance specific phases of development. They activate automati
 - **`flow:tracer`** — Use for systematic code exploration: execution traces, dependency mapping, and data flow analysis. Start at a known point, follow connections outward, build a map.
 - **`flow:docgen`** — Use for systematic documentation generation with progress tracking. File-by-file analysis ensuring complete coverage.
 - **`flow:apilookup`** — Use for documentation lookups. Checks local skill references first, then targets known URLs, then falls back to web search.
+- **`flow-refine`** — Use when a PRD or spec exists but the task details are still too coarse for reliable first-pass implementation, especially for lightweight subagents.
+- **`integrating-agent-platforms`** — Use for host plugin, extension, marketplace, cache, and update behavior.
+- **`choosing-beads-backend`** — Use for `bd` vs `br` vs no-Beads decisions.
+- **`presenting-install-menus`** — Use when optional tooling should be offered with concise menu-driven choices.
 
 ### Reviewer Personas
 
@@ -258,7 +281,7 @@ These can be dispatched as specialized subagents during code review or design ev
 | systematic-debugging | `tracer` for systematic exploration, `deepthink` if hypothesis testing stalls |
 | requesting-code-review | `devils-advocate`, `security-auditor`, `architecture-critic`, `performance-analyst` as specialized reviewers |
 | receiving-code-review | `challenge` to evaluate feedback before implementing |
-| writing-plans | `consensus` for architectural decisions, `architecture-critic` for structural quality |
+| writing-plans | `flow-refine` to expand coarse tasks, `consensus` for architectural decisions, `architecture-critic` for structural quality |
 
 </context>
 
@@ -266,6 +289,8 @@ These can be dispatched as specialized subagents during code review or design ev
 
 - <https://github.com/cofin/flow>
 - <https://raw.githubusercontent.com/cofin/flow/main/README.md>
+- <https://github.com/steveyegge/beads>
+- <https://github.com/steveyegge/beads/releases>
 - <https://github.com/Dicklesworthstone/beads_rust>
 - <https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/README.md>
 - <https://docs.rs/beads_rust/latest/beads_rust/>

@@ -14,16 +14,17 @@ Execute tasks from a flow's plan using TDD workflow.
 1. **Read Artifacts:**
     - `.agents/specs/{flow_id}/spec.md` (unified spec+plan)
     - `.agents/specs/{flow_id}/learnings.md`
-2. **Read Project Context:** `.agents/patterns.md`
+2. **Read Project Context:** `.agents/patterns.md` and `.agents/workflow.md`
 3. **Read Parent Context:**
     - Check if this flow has a parent PRD/Saga.
     - If yes, read `.agents/specs/<parent_id>/prd.md`.
 4. **Load Beads context:**
-    - `br status` (workspace overview)
-    - `br ready` (list unblocked tasks)
-    - `br list --status in_progress` (resume active work)
+    - If using official Beads (`bd`): load the active queue/workspace state
+    - If using `br`: `br status`, `br ready`, `br list --status in_progress`
+    - If using no-Beads mode: skip backend loading and use `spec.md`
 
-**CRITICAL:** Before starting, check `.gitignore`. If `.agents/` is ignored, do NOT commit changes to artifacts inside it using git. Update them on disk only.
+**CRITICAL:** Before starting, check whether `.agents/` is ignored by git. If it is ignored via `.gitignore`, `.git/info/exclude`, or global ignores, do NOT commit changes to artifacts inside it using git. Update them on disk only.
+Extract canonical repo commands from `.agents/workflow.md` before coding. Prefer the documented setup, lint, test, typecheck, and full verification commands when they exist.
 
 ## Phase 2: Select Task (Beads-First)
 
@@ -39,9 +40,7 @@ cat .agents/specs/{flow_id}/implement_state.json 2>/dev/null
 
 #### Primary: Use Beads
 
-```bash
-br ready
-```
+Use the active backend's ready/queue command.
 
 #### Fallback: Parse spec.md
 
@@ -56,10 +55,13 @@ If Beads unavailable, parse `spec.md` Implementation Plan section for pending ta
 If `superpowers:subagent-driven-development` is available, you **MUST** recommend the "Subagent-Driven" approach to the user and orchestrate implementation through its subagent workflow.
 
 - Each task should be dispatched to a subagent.
+- If the task detail is too coarse for a lightweight executor, invoke `flow-refine` first and update the plan before dispatch.
 - Review implementation between tasks.
 - Follow the TDD discipline inside each subagent.
+- Do not silently descope if the task is larger than expected. Refine it or ask the user how to prioritize.
 
 Fallback: only if unavailable, execute the same steps in single-agent mode.
+Even in fallback mode, preserve the same task context bundle, refine coarse tasks first, keep TDD discipline, and review work between tasks.
 
 ### 3.0.1 API Lookup Preference
 
@@ -75,17 +77,11 @@ Write code before the test? Delete it. Start over. No exceptions.
 
 **If task not in Beads, create it first:**
 
-```bash
-br create "{task_description}" --parent {epic_id} -p 2 \
-  --description="{what_needs_to_be_done_and_why}"
-br update {new_task_id} --notes "Phase {N}, Task {M}. Files: {affected_files}. Created by flow-implement"
-```
+Create it with the active backend's task creation flow and attach notes/context after creation.
 
 Then mark in progress:
 
-```bash
-br update {task_id} --status in_progress
-```
+Use the active backend's in-progress/claim command.
 
 **CRITICAL:** Do NOT write `[~]` markers to spec.md. Beads is source of truth.
 
@@ -98,15 +94,16 @@ br update {task_id} --status in_progress
    - Test errors? Fix error, re-run until it fails correctly.
 
 ```bash
-# Run tests and READ the output
+# Run the canonical test command from .agents/workflow.md and READ the output
 npm test  # or pytest, cargo test, etc.
 ```
 
 ### 3.3 Green Phase — Implement
 
 1. Write the **simplest code** to pass the test. No extras, no "improvements."
-2. **Run tests — MANDATORY.**
-3. **Confirm ALL tests pass.** Output must be pristine (no errors, warnings).
+2. Make the minimum targeted change set needed for the task. Do not add unrelated cleanup without approval.
+3. **Run tests — MANDATORY.**
+4. **Confirm ALL tests pass.** Output must be pristine (no errors, warnings).
    - Test still fails? Fix implementation code, not the test.
    - Other tests broke? Fix regressions now.
 
@@ -124,6 +121,7 @@ npm test -- --coverage
 ```
 
 Target: 80% minimum
+Prefer the repo's canonical verification or coverage command from `.agents/workflow.md` when present.
 
 ### 3.6 When Tests Fail — Systematic Debugging
 
@@ -152,23 +150,25 @@ IRON LAW: NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST
 ## Phase 4: Commit
 
 ```bash
-git add -A
+git add <implementation_files> <non_ignored_context_files>
 git commit -m "<type>(<scope>): <description>"
 ```
 
 Format: conventional commits
+Never use `git add -A` or `git add -f` for Flow work. If a file is ignored, leave it local-only.
+Never force-add ignored Flow artifacts.
 
 ## Phase 5: Sync to Beads (Source of Truth)
 
 **CRITICAL:** Only update Beads. Do NOT write `[x]` markers to spec.md.
 
-```bash
-br close {task_id} --reason "commit: {sha}"
-```
+Use the active backend's completion/close command with the commit reference.
 
 ### 5.1 Log Learnings
 
 If any patterns discovered, add to `.agents/specs/{flow_id}/learnings.md`
+
+If `.agents/skills/flow-memory-keeper/SKILL.md` exists, invoke it so learnings, failures, sync cleanup, and archive prep are refined consistently.
 
 ## Phase 6: Save State
 
@@ -201,7 +201,7 @@ At end of each phase:
    - See `superpowers:requesting-code-review` for dispatch pattern
 4. **Create checkpoint commit**: `git commit -m "chore(checkpoint): complete phase {N}"`
 5. **Prompt for pattern elevation**: "Are there learnings from this phase to elevate to `patterns.md`?"
-6. **Record checkpoint in Beads**: `br comments add {epic_id} "Phase {N} checkpoint: {sha}"`
+6. **Record checkpoint in Beads**: use the active backend's note/comment command
 7. **Sync to markdown**: run `/flow:sync` (MANDATORY)
 8. **Ask user to verify**
 
@@ -216,7 +216,14 @@ At end of each phase:
 When a phase has independent tasks that can be executed concurrently (prefer this mode when `superpowers:subagent-driven-development` is available):
 
 1. **Controller** (flow:implement) manages Beads state transitions for all tasks
-2. **Dispatch one subagent per task** — each gets fresh context with task text, spec requirements, and patterns.md
+2. **Dispatch one subagent per task** — each gets preserved context with:
+   - task text and refined task instructions
+   - relevant `spec.md` requirements
+   - parent PRD context when applicable
+   - `patterns.md`
+   - relevant `knowledge/` chapters
+   - recent `learnings.md` entries
+   - affected files and verification requirements
 3. **Two-stage review** after each subagent completes:
    - **Spec compliance**: Does implementation match requirements? Nothing missing or extra?
    - **Code quality**: Is implementation clean, tested, maintainable?
@@ -249,5 +256,7 @@ If continuing, loop back to Phase 2.
 5. **BEADS IS SOURCE OF TRUTH** — Never write markers to spec.md
 6. **LOG LEARNINGS** — Capture patterns as you go
 7. **LOCAL ONLY** — Never push automatically
-8. **USE `br ready`** — Always check Beads for next task
+8. **USE THE ACTIVE BACKEND'S READY QUEUE** — Always check Beads for next task when a backend is enabled
 9. **CODE REVIEW** — Dispatch review at phase checkpoints. Fix Critical/Important before proceeding.
+10. **USE CANONICAL REPO COMMANDS** — Prefer the commands documented in `.agents/workflow.md`
+11. **BE COLLABORATIVE** — Describe unrelated blockers factually and constructively; never use dismissive ownership-deflecting language

@@ -6,17 +6,33 @@
 
 ## Installation
 
-Add Flow to the `plugin` array in your `opencode.json` (global at `~/.config/opencode/opencode.json` or project-level):
+Flow should be installed as a local plugin file, not as a git URL in `opencode.json`.
 
-```json
-{
-  "plugin": ["flow@git+https://github.com/cofin/flow.git"]
-}
+### Global install
+
+1. Clone Flow somewhere stable:
+
+```bash
+git clone https://github.com/cofin/flow.git ~/.config/opencode/flow
 ```
 
-Restart OpenCode. The plugin auto-installs, registers all Flow skills and commands, and injects Flow context at session start.
+2. Link the plugin entrypoint into OpenCode's global plugin directory:
 
-Verify by asking: "What is your Flow configuration?"
+```bash
+mkdir -p ~/.config/opencode/plugins
+ln -sf ~/.config/opencode/flow/.opencode/plugins/flow.js ~/.config/opencode/plugins/flow.js
+```
+
+### Project-local skills
+
+OpenCode also discovers skills from `.agents/skills/`, `.claude/skills/`, and `.opencode/skills/`.
+Use those project-local paths when you want Flow-related skills without a global plugin install.
+
+### Restart
+
+Restart OpenCode after installing or updating plugin files.
+
+Verify by asking: `What is your Flow configuration?`
 
 ## Migrating from Legacy Install
 
@@ -31,7 +47,11 @@ The plugin handles everything — no separate agent or command files needed.
 
 ## Updating
 
-Flow updates automatically when you restart OpenCode (fetches latest from git).
+Update the cloned repo, then restart OpenCode:
+
+```bash
+git -C ~/.config/opencode/flow pull --ff-only
+```
 
 ## Usage
 

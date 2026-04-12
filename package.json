@@ -1,6 +1,6 @@
 {
   "name": "flow",
-  "version": "0.14.1",
+  "version": "0.15.0",
   "description": "Unified toolkit for Context-Driven Development",
   "type": "module",
   "main": ".opencode/plugins/flow.js",
@@ -15,7 +15,7 @@
     "ai-agent",
     "workflow"
   ],
-  "author": "Cofin",
+  "author": "cofin",
   "license": "MIT",
   "repository": {
     "type": "git",
