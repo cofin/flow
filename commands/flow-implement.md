@@ -76,10 +76,10 @@ For each task from the active backend's ready queue or `spec.md`:
 
 ### 3.0 Refinement and Delegation Gate
 
-- Ask: "Do I have enough task information written for this PRD/flow to complete it correctly in the first pass?"
-- If not, invoke `flow-refine` before implementation or subagent dispatch.
-- Before delegating to a lightweight executor, preserve context by passing the relevant spec or PRD, patterns, knowledge chapters, learnings, affected files, and verification requirements.
-- Do not silently descope if the task is larger than expected. Refine the task or ask the user how to prioritize.
+* Ask: "Do I have enough task information written for this PRD/flow to complete it correctly in the first pass?"
+* If not, invoke `flow-refine` before implementation or subagent dispatch.
+* Before delegating to a lightweight executor, preserve context by passing the relevant spec or PRD, patterns, knowledge chapters, learnings, affected files, and verification requirements.
+* Do not silently descope if the task is larger than expected. Refine the task or ask the user how to prioritize.
 
 ### 3.1 Mark In Progress
 

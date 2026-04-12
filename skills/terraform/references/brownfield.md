@@ -27,7 +27,7 @@ gcloud beta resource-config bulk-export \
 
 Treat exported code as discovery material or a starting scaffold, not finished production code.
 
-4. **Add import intent explicitly**
+1. **Add import intent explicitly**
 
 HashiCorp's recommended modern workflow is to use `import` blocks plus a destination resource address.
 
@@ -45,7 +45,7 @@ resource "google_compute_network" "shared" {
 }
 ```
 
-5. **Generate configuration when useful**
+1. **Generate configuration when useful**
 
 If you only wrote `import` blocks, Terraform can generate resource configuration:
 
@@ -55,7 +55,7 @@ terraform plan -generate-config-out=generated.tf
 
 Review that file carefully. Normalize naming, variables, outputs, and layout before accepting it.
 
-6. **Refactor without churn**
+1. **Refactor without churn**
 
 Once the imported resources are stable, move them into the final module structure using `moved` blocks.
 
@@ -75,7 +75,7 @@ Use `moved` blocks for:
 - moving a resource into or out of a module
 - splitting a larger module into smaller ones
 
-7. **Split only after stabilization**
+1. **Split only after stabilization**
 
 If a legacy stack is huge, import it into a temporary-but-readable root first, validate ownership, and then split it with `moved` blocks. Avoid doing initial import and multi-root decomposition in the same uncontrolled step.
 
