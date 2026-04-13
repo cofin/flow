@@ -188,7 +188,7 @@ If a referenced companion skill is unavailable in the current host, perform the 
     - Run a task-detail sufficiency pass before calling the draft complete:
       - Ask: "Do I have enough task information written for this PRD/flow to complete it correctly in the first pass?"
       - If not, refine the tasks until each one names concrete files, dependencies, test-first steps, verification, and open risks.
-      - If the task detail is still too coarse for a lightweight executor, invoke `flow-refine` before human approval.
+      - If the task detail is still too coarse for a lightweight executor, you MUST run iterative refinement (see `references/refine.md`) until the plan is implementation-ready with concrete file targets, line numbers, and code samples.
 
 4. **Confirm:** Ask user to approve.
 

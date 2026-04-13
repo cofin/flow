@@ -232,9 +232,10 @@ If a referenced companion skill is unavailable in the current host, perform the 
     - Before calling the chapter plan complete, run a task-detail sufficiency pass:
       - Ask: "Do I have enough task information written for this PRD/flow to complete it correctly in the first pass?"
       - If not, refine the tasks until each one includes concrete files, dependencies, test-first steps, verification, and known risks.
-      - If the task detail is still too coarse for a lightweight executor, invoke `flow-refine` before final approval.
+      - If the task detail is still too coarse for a lightweight executor, you MUST run iterative refinement (see `references/refine.md`) until the roadmap and child plans are implementation-ready.
 
-3. **Summary and Continuation Prompt:**
+      1. **Self-Review Loop (Automated):**
+
     > "Chapter 1 (`<first_flow_id>`) planning documents created.
     >
     > **Summary:**
@@ -245,17 +246,17 @@ If a referenced companion skill is unavailable in the current host, perform the 
     > - **A) Yes** - Continue planning next chapter
     > - **B) No** - Stop here, I'll plan remaining chapters later"
 
-4. **Loop Until Done:**
+3. **Loop Until Done:**
     - If user selects A: Plan next chapter, repeat steps 2-3
     - If user selects B: End with final summary
     - After last chapter: Announce all chapters planned
 
-5. **Research Closure Loop:**
+4. **Research Closure Loop:**
     - Before ending the PRD workflow, check whether any chapter still depends on unfinished research about external docs, APIs, versions, release notes, migrations, marketplaces, or host capabilities.
     - If yes, do the missing research, update the roadmap or chapter specs, and repeat the review loop.
     - Do NOT declare PRD or chapter planning complete while obvious research gaps remain.
 
-6. **Final Summary (HARD STOP):**
+5. **Final Summary (HARD STOP):**
     > "**PLANNING COMPLETE - AWAITING IMPLEMENTATION APPROVAL**
     >
     > All [N] chapters have planning documents created.
