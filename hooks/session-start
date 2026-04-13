@@ -21,6 +21,7 @@ escape_for_json() {
 }
 
 # Build session context with auto-trigger rules and spec dir override
+# Quoting characters are escaped with \ to be safe in double-quoted bash string
 session_context="You have the Flow framework installed.
 
 Flow provides Context-Driven Development with spec-first planning, TDD workflow, and Beads integration for cross-session memory.
@@ -34,8 +35,8 @@ AUTO-TRIGGER RULES:
 - When user mentions \"beads\", \"bd\", \"br\", or backend migration: invoke 'flow' skill
 - When a spec or PRD exists but task detail is coarse: invoke 'flow-refine' before implementation or subagent dispatch
 - When PRD/planning work appears complete: run a research-closure pass and do not stop while obvious research gaps remain
-- Read `.agents/workflow.md` early and prefer the repo's canonical commands such as `make lint`, `make test`, `make check`, `just check`, `task test`, package scripts, or pre-commit wrappers when they exist
-- If an existing install is detected, offer a workflow refresh/revalidation pass instead of assuming `workflow.md` is current
+- Read \`.agents/workflow.md\` early and prefer the repo's canonical commands such as \`make lint\`, \`make test\`, \`make check\`, \`just check\`, \`task test\`, package scripts, or pre-commit wrappers when they exist
+- If an existing install is detected, offer a workflow refresh/revalidation pass instead of assuming \`workflow.md\` is current
 - Never silently descope when the task is larger than expected; refine the plan or ask the user how to prioritize
 - Be collaborative and constructive. Never use dismissive ownership-deflecting language such as \"not my issue\" or \"not caused by my change\"
 - Make minimal targeted changes and avoid unrelated opportunistic edits without approval
@@ -50,9 +51,9 @@ When using superpowers brainstorming or writing specs/designs, you MUST write al
 MANDATORY SUPERPOWERS INTEGRATION:
 - All implementation plans MUST be written to .agents/specs/<flow_id>/spec.md.
 - Planning and PRD work MUST use brainstorming, then refine coarse task details before implementation.
-- When implement is requested, you MUST recommend "Subagent-Driven" approach if superpowers:subagent-driven-development is available.
+- When implement is requested, you MUST recommend \"Subagent-Driven\" approach if superpowers:subagent-driven-development is available.
 - Before dispatching a subagent, preserve context by passing the relevant spec/PRD, patterns, knowledge chapters, learnings, affected files, and verification requirements.
-- PRDs and Plans MUST undergo a "Self-Review" using code-reviewer or similar quality gate skills before finalization.
+- PRDs and Plans MUST undergo a \"Self-Review\" using code-reviewer or similar quality gate skills before finalization.
 - TDD and Verification before completion are REQUIRED for all implementation tasks.
 
 Use the Skill tool to invoke Flow skills. Key skills:
