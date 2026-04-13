@@ -1,3 +1,0 @@
-interface:
-  display_name: "Flow Refine"
-  short_description: "Expand coarse Flow tasks into first-pass-ready instructions for lighter-weight executors"

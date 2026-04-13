@@ -55,13 +55,13 @@ If Beads unavailable, parse `spec.md` Implementation Plan section for pending ta
 If `superpowers:subagent-driven-development` is available, you **MUST** recommend the "Subagent-Driven" approach to the user and orchestrate implementation through its subagent workflow.
 
 - Each task should be dispatched to a subagent.
-- If the task detail is too coarse for a lightweight executor, invoke `flow-refine` first and update the plan before dispatch.
+- Before delegating, you MUST ensure the task has undergone iterative refinement (see `references/refine.md`). If the task detail is too coarse for a lightweight executor, you MUST run iterative refinement and update the plan before dispatch.
 - Review implementation between tasks.
 - Follow the TDD discipline inside each subagent.
 - Do not silently descope if the task is larger than expected. Refine it or ask the user how to prioritize.
 
 Fallback: only if unavailable, execute the same steps in single-agent mode.
-Even in fallback mode, preserve the same task context bundle, refine coarse tasks first, keep TDD discipline, and review work between tasks.
+Even in fallback mode, preserve the same task context bundle, run iterative refinement on coarse tasks first, keep TDD discipline, and review work between tasks.
 
 ### 3.0.1 API Lookup Preference
 

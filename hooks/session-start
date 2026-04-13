@@ -30,10 +30,10 @@ Flow is installed and MUST be used for all development work in projects with a .
 
 AUTO-TRIGGER RULES:
 - When .agents/ directory exists: ALWAYS invoke the 'flow' skill at session start
-- When user asks to set up, plan, draft a PRD, design, research, document, implement, sync, check status, refresh, validate, revise, review, finish, archive, revert, or create a task: immediately map the request to the matching Flow workflow instead of staying in generic chat mode
+- When user asks to set up, plan, draft a PRD, design, research, document, implement, sync, check status, refresh, validate, refine, revise, review, finish, archive, revert, or create a task: immediately map the request to the matching Flow workflow instead of staying in generic chat mode
 - When editing files in .agents/specs/: invoke 'flow' skill for context
 - When user mentions \"beads\", \"bd\", \"br\", or backend migration: invoke 'flow' skill
-- When a spec or PRD exists but task detail is coarse: invoke 'flow-refine' before implementation or subagent dispatch
+- When a spec or PRD exists but task detail is coarse: you MUST run iterative refinement (following the **Iteration Iron Law**) until the plan is implementation-ready with concrete file targets, line numbers, and code samples.
 - When PRD/planning work appears complete: run a research-closure pass and do not stop while obvious research gaps remain
 - Read \`.agents/workflow.md\` early and prefer the repo's canonical commands such as \`make lint\`, \`make test\`, \`make check\`, \`just check\`, \`task test\`, package scripts, or pre-commit wrappers when they exist
 - If an existing install is detected, offer a workflow refresh/revalidation pass instead of assuming \`workflow.md\` is current
@@ -58,7 +58,6 @@ MANDATORY SUPERPOWERS INTEGRATION:
 
 Use the Skill tool to invoke Flow skills. Key skills:
 - flow: Main workflow orchestrator
-- flow-refine: expands coarse plans into first-pass-ready execution tasks
 - Other domain skills available in skills/ directory
 
 For full details, invoke the 'flow' skill."

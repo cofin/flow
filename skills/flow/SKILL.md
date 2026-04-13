@@ -72,6 +72,7 @@ Codex currently runs the same workflows via the installed Flow skill and natural
 | `/flow-prd` | `/flow:prd` | Create feature/bug flow |
 | `/flow-plan` | `/flow:plan` | Plan flow with unified spec.md |
 | `/flow-sync` | `/flow:sync` | Sync Beads state to spec.md |
+| `/flow:refine` | `/flow:refine` | Expand coarse tasks into implementation-ready plan |
 | `/flow-implement` | `/flow:implement` | Execute tasks (TDD workflow) |
 | `/flow-status` | `/flow:status` | Display progress overview |
 | `/flow-revert` | `/flow:revert` | Git-aware revert |
@@ -183,13 +184,13 @@ If a referenced companion skill is unavailable in the current host, execute the 
     - **NEVER** use `docs/superpowers/` for Flow-related artifacts.
     - If a skill tries to use a default path, you MUST intercept and redirect to `.agents/specs/<flow_id>/`.
     - Do not declare PRD or planning work complete while obvious research gaps remain.
-    - Before approving a plan for execution, ask: "Do I have enough task information written for this PRD/flow to complete it correctly in the first pass?" If not, invoke `flow-refine` or perform the equivalent refinement inline.
+    - Before approving a plan for execution, you MUST invoke the iterative refinement gate: ask "Do I have enough task information written for this PRD/flow to complete it correctly in the first pass?". If not, you MUST run `/flow:refine` (following the **Iteration Iron Law** in `references/refine.md`) until the plan is implementation-ready with concrete file targets, line numbers, and code samples.
 
 2. **Implementation Orchestration:**
     - When running `/flow:implement`, you MUST explicitly recommend the "Subagent-Driven" approach to the user if `superpowers:subagent-driven-development` is available.
     - You MUST use `superpowers:subagent-driven-development` to orchestrate the implementation of tasks.
     - If the subagent workflow is unavailable, execute the same TDD, review, and context-preservation protocol in single-agent mode.
-    - Before delegating, preserve context by passing the relevant spec or PRD, patterns, knowledge chapters, learnings, affected files, and verification requirements.
+    - Before delegating, you MUST ensure the task has undergone iterative refinement. Preserve subagent context by passing the relevant spec or PRD, patterns, knowledge chapters, learnings, affected files, and verification requirements.
 
 3. **Self-Review & Quality Gate:**
     - Before finalizing any PRD (`/flow:prd`) or Plan (`/flow:plan`), you MUST invoke `code-reviewer` (or use the internal `Spec Review Loop`) to validate the artifacts against project patterns and requirements.
@@ -226,6 +227,7 @@ For detailed instructions and directives for specific flow commands, refer to th
 - **[Setup](references/setup.md)** - `/flow:setup`
 - **[PRD](references/prd.md)** - `/flow:prd`
 - **[Plan](references/plan.md)** - `/flow:plan`
+- **[Refine](references/refine.md)** - `/flow:refine`
 - **[Implement](references/implement.md)** - `/flow:implement`
 - **[Sync](references/sync.md)** - `/flow:sync`
 - **[Status](references/status.md)** - `/flow:status`
@@ -259,7 +261,7 @@ These Flow skills enhance specific phases of development. They activate automati
 - **`flow:tracer`** — Use for systematic code exploration: execution traces, dependency mapping, and data flow analysis. Start at a known point, follow connections outward, build a map.
 - **`flow:docgen`** — Use for systematic documentation generation with progress tracking. File-by-file analysis ensuring complete coverage.
 - **`flow:apilookup`** — Use for documentation lookups. Checks local skill references first, then targets known URLs, then falls back to web search.
-- **`flow-refine`** — Use when a PRD or spec exists but the task details are still too coarse for reliable first-pass implementation, especially for lightweight subagents.
+- **`flow:refine`** — Use (via `references/refine.md`) when a PRD or spec exists but the task details are still too coarse for reliable first-pass implementation.
 - **`integrating-agent-platforms`** — Use for host plugin, extension, marketplace, cache, and update behavior.
 - **`choosing-beads-backend`** — Use for `bd` vs `br` vs no-Beads decisions.
 - **`presenting-install-menus`** — Use when optional tooling should be offered with concise menu-driven choices.
@@ -281,7 +283,7 @@ These can be dispatched as specialized subagents during code review or design ev
 | systematic-debugging | `tracer` for systematic exploration, `deepthink` if hypothesis testing stalls |
 | requesting-code-review | `devils-advocate`, `security-auditor`, `architecture-critic`, `performance-analyst` as specialized reviewers |
 | receiving-code-review | `challenge` to evaluate feedback before implementing |
-| writing-plans | `flow-refine` to expand coarse tasks, `consensus` for architectural decisions, `architecture-critic` for structural quality |
+| writing-plans | `flow:refine` to expand coarse tasks, `consensus` for architectural decisions, `architecture-critic` for structural quality |
 
 </context>
 

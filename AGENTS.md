@@ -119,6 +119,7 @@ Codex currently runs the same workflows through the installed Flow skill and pla
 | `/flow:setup` | Initialize project with context files, Beads, and first flow |
 | `/flow:prd` | **Orchestrator**: Analyze goals and generate Master Roadmap (Sagas) |
 | `/flow:plan` | **Planner**: Create unified spec.md for a single Flow |
+| `/flow:refine` | **Refiner**: Expand coarse tasks into implementation-ready plan |
 | `/flow:sync` | **Syncer**: Synchronize context docs, Beads state, and export summaries |
 | `/flow:research` | Conduct pre-PRD research |
 | `/flow:docs` | Five-phase documentation workflow |
