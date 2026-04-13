@@ -43,6 +43,7 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
 ### 3.1 Load Planning Context
 
 Read the relevant artifacts before refining:
+
 * `spec.md`
 * `.agents/patterns.md`
 * relevant `.agents/knowledge/*.md` chapters
@@ -54,6 +55,7 @@ For each phase and each task, ask:
 `Do I have enough task information written for this PRD/flow to complete it correctly in the first pass?`
 
 If no, classify the gap:
+
 * Missing file or module targets (with exact line numbers).
 * Missing dependency or execution order.
 * Missing API, schema, or data-shape detail (provide code samples).
@@ -77,6 +79,7 @@ Repeat until the task no longer depends on avoidable guesswork.
 ### 3.4 Rewrite Tasks for Implementation Success
 
 Every refined task should make these explicit:
+
 * **Objective and Why**: Clear goal and context.
 * **Exact Targets**: Files, modules, commands, or configuration surfaces with line numbers.
 * **Implementation Strategy**: Provide code snippets or architectural patterns to follow.
