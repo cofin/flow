@@ -23,6 +23,10 @@ Use Flow when the user asks to:
 When Flow planning is active:
 
 - automatically use the matching Flow workflow instead of staying in generic chat mode
+- if not already in Plan Mode, call `enter_plan_mode` before starting `/flow:prd` or `/flow:plan`
+- keep the workflow in Plan Mode while researching, questioning, drafting, and revising planning artifacts
+- call `exit_plan_mode` only after the relevant `.agents/specs/...` markdown artifact exists and the user has informally agreed on the strategy
+- keep `general.plan.enabled` and `general.plan.modelRouting` enabled so Gemini can route planning to the higher-reasoning model
 - refine coarse tasks before implementation so lighter-weight executors do not have to guess
 - do not finish PRD/planning while obvious research gaps remain
 - revalidate `workflow.md` on existing installs when workflow settings or canonical commands may be stale
@@ -41,3 +45,5 @@ When Flow implementation is active:
 - Use `gemini extensions install` / `gemini extensions update` for extension lifecycle work.
 - Restart the Gemini CLI session after extension-management operations.
 - Flow artifacts belong in `.agents/specs/`, not `docs/superpowers/`.
+- Flow's extension fallback plan directory is `.agents/specs/`, so `enter_plan_mode` / `exit_plan_mode` should target Flow's canonical planning artifacts instead of Gemini's temporary default plans directory.
+- Prefer supported Gemini settings such as `general.plan.enabled` and `general.plan.modelRouting`; do not rely on undocumented `autoEnter` behavior.
