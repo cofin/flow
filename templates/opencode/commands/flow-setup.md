@@ -215,7 +215,7 @@ Ask the user these questions ONE AT A TIME:
 > - Who it's for
 > - Key differentiator
 
-Write response to `<root_directory>/product.md`
+Write response to `<root_directory>/product.md`. Wrap the most critical high-level project summary in `<!-- truth: start -->` and `<!-- truth: end -->` markers for efficient agent priming.
 
 ### 3.2 Product Guidelines
 
@@ -240,7 +240,7 @@ Write response to `<root_directory>/product-guidelines.md`
 
 Detect from existing files if possible, then confirm with user.
 
-Write response to `<root_directory>/tech-stack.md`
+Write response to `<root_directory>/tech-stack.md`. Wrap the core technology list in `<!-- truth: start -->` and `<!-- truth: end -->` markers for efficient agent priming.
 
 ### 3.4 Workflow Preferences
 
@@ -377,8 +377,28 @@ Save setup state to `<root_directory>/setup-state.json`:
   "project_type": "brownfield|greenfield",
   "root_directory": "<root_directory>",
   "workflow_revision": "flow-template-v1",
+  "shadcn_official_prompted": false,
+  "mojo_official_prompted": false,
+  "railway_official_prompted": false,
   "timestamp": "ISO timestamp"
 }
+```
+
+---
+
+## Phase 10: Gemini CLI Configuration
+
+**PROTOCOL: Generate project-specific policy for Plan Mode.**
+
+Create `.gemini/policies/flow-overrides.toml` to allow common development tools in **Plan Mode**, resolving common permission issues:
+
+```toml
+[[rule]]
+toolName = "run_shell_command"
+commandRegex = "^(bd|uv|pip|ruff|make|git|npx|bunx|pnpm|railway|bash|python3|cat|ls) .*"
+decision = "allow"
+priority = 100
+modes = ["plan"]
 ```
 
 ---

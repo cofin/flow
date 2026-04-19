@@ -1,6 +1,6 @@
 {
   "name": "flow",
-  "version": "0.17.1",
+  "version": "0.18.0",
   "description": "Unified toolkit for Context-Driven Development",
   "type": "module",
   "main": ".opencode/plugins/flow.js",

@@ -41,6 +41,24 @@ All spec and design documents (including those created by superpowers brainstorm
 - Check `.agents/setup-state.json` for custom `root_directory`
 - Do NOT use `docs/superpowers/specs/` — Flow manages all specs in `.agents/`
 
+## Context Injection & Required Truths
+
+To maintain context efficiency, Flow uses surgical extraction for session-start priming.
+
+### Required Truths Markers
+
+Documents such as `workflow.md`, `patterns.md`, and `tech-stack.md` SHOULD use markers to identify the most critical information for AI agents.
+
+- **Start Marker:** `<!-- truth: start -->`
+- **End Marker:** `<!-- truth: end -->`
+
+The `SessionStart` hook (`detect-env.sh`) prioritized content between these markers. If missing, it falls back to basic extraction (e.g., first 10 list items).
+
+### Project Identity & Index
+
+- **Identity:** The first 5 lines of `product.md` (excluding headers) are used to prime the agent's purpose.
+- **Index:** A structured "Project Context Index" is provided at the start of every session with links to all core Flow documents.
+
 ## Universal File Resolution Protocol
 
 **PROTOCOL: How to locate files.**

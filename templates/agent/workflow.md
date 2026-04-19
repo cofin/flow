@@ -1,5 +1,21 @@
 # Project Workflow
 
+<!-- truth: start -->
+## Essential Commands
+
+### Daily Development
+```bash
+# make dev
+# make test
+# make lint
+```
+
+### Before Committing
+```bash
+# make check
+# just check
+```
+
 ## Guiding Principles
 
 1. **Beads backend is the Source of Truth:** Prefer official Beads (`bd`), keep `br` as compatibility mode, and use `/flow:sync` to export task state to spec.md when needed.
@@ -12,6 +28,7 @@
 8. **Be Collaborative:** Never use blamey or ownership-deflecting language such as "not my issue" or "not caused by my change." Describe unrelated failures factually, offer the smallest useful next step, and ask the user whether to handle them now or separately.
 9. **Minimal Targeted Changes:** Make the smallest coherent change set that solves the task. Do not make opportunistic cleanup edits or random unrelated modifications without approval.
 10. **No Silent Descoping:** If the task is larger or messier than expected, refine the plan or ask the user how to prioritize. Do not quietly skip work.
+<!-- truth: end -->
 
 ## Beads Integration
 
