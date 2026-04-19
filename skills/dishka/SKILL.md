@@ -74,3 +74,24 @@ container = make_async_container(AppProvider(), RequestProvider())
 - [Dishka](https://github.com/cofin/flow/blob/main/templates/styleguides/frameworks/dishka.md)
 - [Python](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/python.md)
 - Keep this skill focused on tool-specific workflows, edge cases, and integration details.
+
+<guardrails>
+## Guardrails
+
+- **Explicitly manage Scopes (APP, REQUEST)** -- Always use the appropriate scope to avoid resource leaks or unnecessary object creation. Objects in `Scope.APP` live as long as the container; `Scope.REQUEST` lives only for the duration of a request.
+- **Avoid global container access** -- Always use dependency injection to provide dependencies; never resolve objects from a global container instance in application logic.
+- **Ensure Providers are stateless** -- Providers should only contain factory methods; any state should be managed within the injected objects themselves.
+- **Check scope hierarchy** -- Objects in a wider scope (APP) cannot depend on objects in a narrower scope (REQUEST).
+- **Use typed providers** -- Always use type hints for provider return values to ensure the container can correctly resolve and validate dependencies.
+</guardrails>
+
+<validation>
+## Validation Checkpoint
+
+- [ ] Providers are assigned the correct `Scope` (APP, REQUEST)
+- [ ] No objects are resolved manually from a global container
+- [ ] All factory methods in providers are correctly annotated with `@provide`
+- [ ] Scope hierarchy is valid (no narrow-to-wide scope dependencies)
+- [ ] Provider return types match the types expected by the consumers
+- [ ] Async/sync providers are used consistently with the target framework
+</validation>

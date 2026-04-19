@@ -253,3 +253,9 @@ jobs:
 - [React](https://github.com/cofin/flow/blob/main/templates/styleguides/frameworks/react.md)
 - [TypeScript](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/typescript.md)
 - Keep this skill focused on tool-specific workflows, edge cases, and integration details.
+
+<validation>
+## Validation
+
+Add validation instructions here.
+</validation>

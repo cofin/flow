@@ -1,8 +1,11 @@
 {
   "name": "flow-marketplace",
-  "description": "The Flow Framework Marketplace",
+  "metadata": {
+    "description": "The Flow Framework Marketplace — context-driven development tools, skills, and agents"
+  },
   "owner": {
-    "name": "cofin"
+    "name": "cofin",
+    "url": "https://github.com/cofin"
   },
   "plugins": [
     {

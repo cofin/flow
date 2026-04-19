@@ -85,3 +85,9 @@ Before delivering the synthesis, verify:
 - **[Consensus Strategy](references/consensus-strategy.md)** — Mode selection and escalation criteria
 - **[Stance Rotation](references/stance-rotation.md)** — Detailed rotation steps, subagent dispatch, synthesis framework
 - **[Stance Prompts](../perspectives/references/stances.md)** — Advocate, critic, neutral prompts with ethical guardrails (from perspectives skill)
+
+<guardrails>
+## Guardrails
+
+Add guardrails instructions here.
+</guardrails>

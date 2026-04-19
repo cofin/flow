@@ -92,3 +92,15 @@ python_version = "3.12"
 - [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
 - [Python](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/python.md)
 - Keep this skill focused on tool-specific workflows, edge cases, and integration details.
+
+<guardrails>
+## Guardrails
+
+Add guardrails instructions here.
+</guardrails>
+
+<validation>
+## Validation
+
+Add validation instructions here.
+</validation>

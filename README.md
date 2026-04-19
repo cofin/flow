@@ -58,6 +58,7 @@ gemini extensions install https://github.com/cofin/flow --auto-update
 ```
 
 To update:
+
 ```bash
 gemini extensions update flow
 ```
@@ -101,6 +102,7 @@ OpenCode also discovers skills from `.opencode/skills/`, `.claude/skills/`, and 
 ### Cursor IDE
 
 Install Flow from the plugin system:
+
 ```
 /add-plugin flow
 ```
@@ -112,11 +114,13 @@ Or add to your `.cursor-plugin` configuration manually.
 Install Flow as a Codex plugin with a local linked source and a marketplace entry:
 
 1. Clone Flow:
+
    ```bash
    git clone https://github.com/cofin/flow.git ~/.codex/plugins/flow
    ```
 
 2. Create marketplace entry at `~/.agents/plugins/marketplace.json`:
+
    ```json
    {
      "name": "personal-plugins",

@@ -35,6 +35,21 @@ For detailed guides and code examples, refer to the following documents in `refe
 - **Memory Safety**: Leverage ownership (`owned`, `borrowed`, `inout`).
 - **Explicit Types**: Required for predictable performance.
 
+## Official Modular Skills (Highly Recommended)
+
+For comprehensive support for modern Mojo syntax, project initialization, and GPU programming, we highly recommend installing the official Modular agent skills:
+
+- **mojo-syntax**: Overcomes agent misconceptions and ensures correct modern syntax.
+- **new-modular-project**: Wizard for initializing Mojo/MAX projects with Pixi and UV.
+- **mojo-python-interop**: Expert guidance for zero-copy Python interaction.
+- **mojo-gpu-fundamentals**: Patterns for high-performance accelerator programming.
+
+**Installation:**
+
+```bash
+npx skills add modular/skills
+```
+
 </workflow>
 
 ---
@@ -51,3 +66,46 @@ For detailed guides and code examples, refer to the following documents in `refe
 - [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
 - [Mojo](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/mojo.md)
 - Keep this skill focused on tool-specific workflows, edge cases, and integration details.
+
+<guardrails>
+## Guardrails
+
+- **Always prefer `fn` over `def`** -- `fn` enforces strict typing and is required for optimal performance and safety.
+- **Explicitly define memory ownership** -- Use `owned`, `borrowed`, and `inout` to manage data flow and avoid unnecessary copies.
+- **Use `SIMD` for performance-critical logic** -- Mojo excels at vectorization; always consider SIMD when processing large arrays.
+- **Use `alias` for compile-time constants** -- These are evaluated at compile time, leading to zero runtime overhead.
+- **Verify data alignment** -- Ensure pointers are aligned for the target architecture, especially when using SIMD operations.
+</guardrails>
+
+<validation>
+## Validation Checkpoint
+
+- [ ] `fn` is used for all performance-critical functions
+- [ ] Explicit ownership markers are correctly applied to arguments
+- [ ] SIMD vectorization is implemented where applicable
+- [ ] `alias` is used for all constants and compile-time values
+- [ ] No `def` usage is present in performance-sensitive code
+- [ ] Memory safety is verified through ownership and borrowing checks
+</validation>
+
+<example>
+## Example: SIMD Vector Addition
+
+```mojo
+from algorithm import vectorize
+from memory import UnsafePointer
+
+fn vector_add[type: DType, size: Int](a: UnsafePointer[Scalar[type]], b: UnsafePointer[Scalar[type]], result: UnsafePointer[Scalar[type]], n: Int):
+    """Adds two vectors using SIMD acceleration."""
+    alias nelts = simdwidthof[type]()
+
+    @parameter
+    fn add_simd[width: Int](i: Int):
+        let va = a.load[width=width](i)
+        let vb = b.load[width=width](i)
+        result.store[width=width](i, va + vb)
+
+    vectorize[add_simd, nelts](n)
+```
+
+</example>

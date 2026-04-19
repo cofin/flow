@@ -262,3 +262,24 @@ export const useUserStore = defineStore('user', () => {
 - [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
 - [TypeScript](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/typescript.md)
 - Keep this skill focused on tool-specific workflows, edge cases, and integration details.
+
+<guardrails>
+## Guardrails
+
+- **Use `useFetch` or `useAsyncData` for data fetching** -- These composables are SSR-aware and prevent duplicate requests on the client. Never use plain `$fetch` in a component's top-level setup.
+- **Never access browser-only globals during SSR** -- Always check `import.meta.client` or use `onMounted` before accessing `window`, `document`, or `localStorage`.
+- **Use `server/` directory for sensitive operations** -- Keep database queries, API keys, and complex logic in Nitro server routes to ensure they never leak to the client.
+- **Always provide a unique key to `useAsyncData`** -- This is critical for proper hydration and preventing data mismatch between server and client.
+- **Prefer `useState` over local refs for global state** -- `useState` is SSR-safe and preserves state during hydration.
+</guardrails>
+
+<validation>
+## Validation Checkpoint
+
+- [ ] `useFetch` or `useAsyncData` is used for all top-level data fetching
+- [ ] No browser-only globals are accessed in the setup script without checks
+- [ ] Sensitive logic and API calls are moved to the `server/api/` directory
+- [ ] `useAsyncData` calls have unique and stable keys
+- [ ] `definePageMeta` is used for route-level guards and layouts
+- [ ] Components that require browser APIs are wrapped in `<ClientOnly>` or used within `onMounted`
+</validation>

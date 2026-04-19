@@ -210,3 +210,24 @@ export const actions: Actions = {
 - [Svelte](https://github.com/cofin/flow/blob/main/templates/styleguides/frameworks/svelte.md)
 - [TypeScript](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/typescript.md)
 - Keep this skill focused on tool-specific workflows, edge cases, and integration details.
+
+<guardrails>
+## Guardrails
+
+- **Always use Svelte 5 Runes for state management** -- Use `$state` for reactive variables and `$derived` for computed logic. Avoid legacy Svelte 4 store patterns for local state.
+- **Use Snippets instead of Slots** -- Svelte 5 introduces snippets for more explicit and flexible content composition. Avoid `<slot>` as it is deprecated in the new version.
+- **Prefer TypeScript for component logic** -- Use `<script lang="ts">` to ensure type safety for props and event handlers.
+- **Avoid `$effect` for simple state updates** -- Use `$derived` whenever possible to keep reactivity declarative. `$effect` should only be used for side effects (e.g., DOM interactions).
+- **Use `$bindable()` only when necessary** -- Two-way binding should be used sparingly; prefer one-way data flow via props and callbacks where possible.
+</guardrails>
+
+<validation>
+## Validation Checkpoint
+
+- [ ] Component uses Svelte 5 Runes (`$state`, `$derived`, `$props`)
+- [ ] No legacy `<slot>` tags are used; snippets rendering is verified
+- [ ] TypeScript types are defined for all props
+- [ ] `$effect` is not misused for logic that can be handled by `$derived`
+- [ ] Component uses modern event handlers (e.g., `onclick` instead of `on:click`)
+- [ ] Any two-way bindings use the `$bindable()` rune
+</validation>

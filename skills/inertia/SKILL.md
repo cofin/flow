@@ -42,3 +42,21 @@ For detailed guides and configuration examples, refer to the following documents
 - [Inertia](https://github.com/cofin/flow/blob/main/templates/styleguides/frameworks/inertia.md)
 - [TypeScript](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/typescript.md)
 - Keep this skill focused on tool-specific workflows, edge cases, and integration details.
+
+<guardrails>
+## Guardrails
+
+Add guardrails instructions here.
+</guardrails>
+
+<validation>
+## Validation
+
+Add validation instructions here.
+</validation>
+
+<example>
+## Example
+
+Add example instructions here.
+</example>

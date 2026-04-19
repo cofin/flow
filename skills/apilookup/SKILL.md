@@ -72,3 +72,37 @@ See `references/lookup-strategy.md` for the full decision tree. Key principles:
 - **[Lookup Strategy](references/lookup-strategy.md)** — Detailed three-tier resolution instructions
 - **[Version Registry](references/registry.json)** — Package metadata and staleness tracking for all skills
 - **[Registry Schema](references/registry-schema.md)** — Documents the registry JSON format and fields
+
+<validation>
+
+## Validation Checkpoint
+
+Before delivering an answer based on an API lookup, verify:
+
+- [ ] **Staleness check** was performed against `registry.json` for known skills
+- [ ] **Tier 1 (Local)** was tried first for fresh entries (< 30 days)
+- [ ] **Tier 2 (Targeted)** was used for stale entries, capping at 2-4 searches
+- [ ] **Tier 3 (Arbitrary)** used for unknown tech, anchoring on today's date
+- [ ] **Citations** are included with direct links to official docs or changelogs
+- [ ] **Version gaps** between local refs and current docs are explicitly noted
+
+</validation>
+
+<example>
+
+## Example: Looking up React Server Components
+
+**Query:** "How do I use React Server Components in Next.js?"
+
+1. **Identify Tech:** React, Next.js.
+2. **Check Registry:** Matches `react` skill. `last_checked` is 45 days ago (Tier 2).
+3. **Execute Tier 2:**
+   - **Step 1 (Version):** WebFetch `https://github.com/facebook/react/releases` -> React 19 is latest.
+   - **Step 2 (Specific):** WebSearch `site:nextjs.org react server components pattern 2026`.
+4. **Synthesize:**
+   - "Based on Next.js 15+ documentation (compatible with React 19):"
+   - Explain `use client` vs default server components.
+   - Provide code example of a Server Component fetching data.
+   - **Citations:** [Next.js RSC Docs](https://nextjs.org/docs/app/building-your-application/rendering/server-components), [React 19 Upgrade Guide](https://react.dev/blog/2024/12/05/react-19).
+
+</example>

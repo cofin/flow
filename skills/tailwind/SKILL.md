@@ -316,3 +316,15 @@ function Component({ className }: Props) {
 - [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
 - [Tailwind and Shadcn](https://github.com/cofin/flow/blob/main/templates/styleguides/frameworks/tailwind.md)
 - Keep this skill focused on tool-specific workflows, edge cases, and integration details.
+
+<guardrails>
+## Guardrails
+
+Add guardrails instructions here.
+</guardrails>
+
+<validation>
+## Validation
+
+Add validation instructions here.
+</validation>

@@ -45,3 +45,21 @@ For detailed guides and configuration examples, refer to the following documents
 - [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
 - [TypeScript](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/typescript.md)
 - Keep this skill focused on tool-specific workflows, edge cases, and integration details.
+
+<guardrails>
+## Guardrails
+
+Add guardrails instructions here.
+</guardrails>
+
+<validation>
+## Validation
+
+Add validation instructions here.
+</validation>
+
+<example>
+## Example
+
+Add example instructions here.
+</example>

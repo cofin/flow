@@ -303,3 +303,9 @@ These can be dispatched as specialized subagents during code review or design ev
 - Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
 - [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
 - Keep this skill focused on tool-specific workflows, edge cases, and integration details.
+
+<example>
+## Example
+
+Add example instructions here.
+</example>

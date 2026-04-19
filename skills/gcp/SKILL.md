@@ -382,3 +382,9 @@ gcloud batch jobs submit my-job \
 - [GCP Scripting](https://github.com/cofin/flow/blob/main/templates/styleguides/cloud/gcp_scripting.md)
 - [Bash](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/bash.md)
 - Keep this skill focused on tool-specific workflows, edge cases, and integration details.
+
+<validation>
+## Validation
+
+Add validation instructions here.
+</validation>

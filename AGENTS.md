@@ -36,6 +36,7 @@ To find the configured root directory:
 ## Spec & Design Documents
 
 All spec and design documents (including those created by superpowers brainstorming) MUST be written to the Flow spec directory:
+
 - Default: `.agents/specs/<flow_id>/`
 - Check `.agents/setup-state.json` for custom `root_directory`
 - Do NOT use `docs/superpowers/specs/` — Flow manages all specs in `.agents/`
@@ -98,6 +99,48 @@ To find a file (e.g., "**Product Definition**") within a specific context:
 - **Active Flows:** Simple slug (e.g., `dark-mode`)
   - Derived from description: lowercase, hyphens for spaces, max 3-4 words
 - **Archived Flows:** Keep same ID, moved to `.agents/archive/`
+
+## Supported Hosts
+
+Every host falls into one of three tiers:
+
+- **First-class** — the repo ships maintained host-specific manifests, agents, and install guidance; changes to the shared skills tree are verified against the host.
+- **Compatible bundle** — the host consumes the repo through standard manifests or generic skill-discovery paths; no native wrapper is promised.
+- **Free ride** — the host discovers generic Agent Skills / `AGENTS.md` content; the repo ships no dedicated integration.
+
+| Host | Tier | Entry Point | Notes |
+| --- | --- | --- | --- |
+| **Claude Code** | first-class | `.claude-plugin/plugin.json` + `.claude-plugin/marketplace.json` + `.claude-plugin/agents/*.md` | Full plugin with skills, commands, agents, hooks. |
+| **Gemini CLI** | first-class | `gemini-extension.json` + `agents/*.md`, context via `GEMINI.md` | Auto-indexed gallery (topic `gemini-cli-extension`). |
+| **Codex CLI** | first-class | `.codex-plugin/plugin.json` + `.codex/agents/*.toml` + `.codex/config.toml` | Custom agents ship as pure TOML (tools inherited from session). |
+| **OpenCode** | first-class | `.opencode/plugins/flow.js` + `.opencode/agents/*.md` + native `.claude/skills/` / `.agents/skills/` reads | JS plugin wrapper + dict-schema agents. |
+| **Cursor** | compatible bundle | `.cursor-plugin/plugin.json` | Hooks via `hooks/hooks-cursor.json`. |
+| **VS Code / Copilot** | compatible bundle | User adds path to `chat.skillsLocations` | Raw SKILL.md tree (no wrapper extension in v0.1). |
+| **Google Antigravity** | free ride | `.agent/skills/` (workspace, note **singular**) or `~/.gemini/antigravity/skills/` (global) | Symlink `.agent → .agents` in your workspace; see README install. |
+| **OpenClaw** | compatible bundle | `.agents/skills/` + `AGENTS.md` | Consumes generic Agent Skills tree without extra config. |
+
+## File Resolution
+
+| Resource | Location |
+| --- | --- |
+| Skills | `skills/<skill-name>/SKILL.md` |
+| Slash commands | `commands/<prefix>/<command>.toml` |
+| Subagents (Claude Code) | `.claude-plugin/agents/<agent-name>.md` (`tools` as comma-separated string of Claude tool names) |
+| Subagents (Codex CLI) | `.codex/agents/<agent-name>.toml` (pure TOML; `developer_instructions` holds the prompt; no top-level `tools` — inherited from session `config.toml`) |
+| Subagents (Gemini CLI) | `agents/<agent-name>.md` (`tools` as YAML list of Gemini tool names) |
+| Subagents (OpenCode) | `.opencode/agents/<agent-name>.md` (`tools` as dict mapping + `mode: subagent`) |
+| MCP servers | `mcp-servers/<server-name>/` |
+| Hooks | `hooks/*.json` + `hooks/session-start` |
+| Templates | `templates/skill-template/` |
+
+## First-Party Skill Repositories
+
+The following external repositories provide comprehensive, host-verified skills and patterns that are fully compatible with Flow:
+
+- **[litestar-skills](https://github.com/litestar-org/litestar-skills)** — Opinionated first-party skills for the Litestar framework ecosystem (advanced-alchemy, sqlspec, granian, saq, etc.).
+- **[modular-skills](https://github.com/modular/skills)** — Official AI agent skills from Modular for **Mojo** and the **MAX** platform (`mojo-syntax`, `new-modular-project`, `mojo-python-interop`, `mojo-gpu-fundamentals`).
+- **[railway-skills](https://github.com/railwayapp/railway-skills)** — Official Railway agent skills for project setup, deployment, and service management (`use-railway`).
+- **[shadcn-ui](https://github.com/shadcn-ui/ui)** — Official shadcn/ui agent skills for component discovery, CLI mastery, and pattern enforcement.
 
 ## Task Status Markers
 
