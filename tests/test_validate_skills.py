@@ -69,17 +69,19 @@ def test_claude_hook_config_rejects_cursor_placeholder(tmp_path: Path) -> None:
     _write_json(
         hooks_path,
         {
-            "SessionStart": [
-                {
-                    "matcher": "*",
-                    "hooks": [
-                        {
-                            "type": "command",
-                            "command": "${extensionPath}/hooks/session-start",
-                        }
-                    ],
-                }
-            ]
+            "hooks": {
+                "SessionStart": [
+                    {
+                        "matcher": "*",
+                        "hooks": [
+                            {
+                                "type": "command",
+                                "command": "${extensionPath}/hooks/session-start",
+                            }
+                        ],
+                    }
+                ]
+            }
         },
     )
 
@@ -103,6 +105,33 @@ def test_claude_manifest_accepts_valid_string_hooks_path(tmp_path: Path) -> None
     _write_json(
         tmp_path / "hooks" / "hooks-claude.json",
         {
+            "hooks": {
+                "SessionStart": [
+                    {
+                        "matcher": "*",
+                        "hooks": [
+                            {
+                                "type": "command",
+                                "command": "${CLAUDE_PLUGIN_ROOT}/hooks/session-start",
+                            }
+                        ],
+                    }
+                ]
+            }
+        },
+    )
+
+    violations = validate_skills.validate_manifest(tmp_path / ".claude-plugin" / "plugin.json")
+    violations.extend(validate_skills.validate_claude_hook_config(tmp_path / "hooks" / "hooks-claude.json"))
+
+    assert violations == []
+
+
+def test_hook_config_requires_top_level_hooks_record(tmp_path: Path) -> None:
+    hooks_path = tmp_path / "hooks" / "hooks-claude.json"
+    _write_json(
+        hooks_path,
+        {
             "SessionStart": [
                 {
                     "matcher": "*",
@@ -117,14 +146,64 @@ def test_claude_manifest_accepts_valid_string_hooks_path(tmp_path: Path) -> None
         },
     )
 
-    violations = validate_skills.validate_manifest(tmp_path / ".claude-plugin" / "plugin.json")
-    violations.extend(validate_skills.validate_claude_hook_config(tmp_path / "hooks" / "hooks-claude.json"))
+    violations = validate_skills.validate_claude_hook_config(hooks_path)
 
-    assert violations == []
+    assert any("top-level 'hooks' record" in violation.message for violation in violations)
+
+
+def test_gemini_hook_config_rejects_claude_placeholder(tmp_path: Path) -> None:
+    hooks_path = tmp_path / "hooks" / "hooks.json"
+    _write_json(
+        hooks_path,
+        {
+            "hooks": {
+                "SessionStart": [
+                    {
+                        "matcher": "*",
+                        "hooks": [
+                            {
+                                "type": "command",
+                                "command": "${CLAUDE_PLUGIN_ROOT}/hooks/session-start",
+                            }
+                        ],
+                    }
+                ]
+            }
+        },
+    )
+
+    violations = validate_skills.validate_gemini_hook_config(hooks_path)
+
+    assert any("${CLAUDE_PLUGIN_ROOT}" in violation.message for violation in violations)
 
 
 def test_repo_claude_hook_discovery_targets_claude_specific_config() -> None:
-    assert list(validate_skills.iter_claude_hook_configs()) == [REPO_ROOT / "hooks" / "hooks-claude.json"]
+    assert list(validate_skills.iter_claude_hook_configs()) == [REPO_ROOT / "hooks" / "hooks.json"]
+
+
+def test_shared_hook_config_allows_cross_host_fallback_command(tmp_path: Path) -> None:
+    hooks_path = tmp_path / "hooks" / "hooks.json"
+    _write_json(
+        hooks_path,
+        {
+            "hooks": {
+                "SessionStart": [
+                    {
+                        "matcher": "*",
+                        "hooks": [
+                            {
+                                "type": "command",
+                                "command": "${CLAUDE_PLUGIN_ROOT:-${extensionPath}}/hooks/session-start",
+                            }
+                        ],
+                    }
+                ]
+            }
+        },
+    )
+
+    assert validate_skills.validate_claude_hook_config(hooks_path) == []
+    assert validate_skills.validate_gemini_hook_config(hooks_path) == []
 
 
 def test_repo_cursor_and_codex_manifests_still_validate() -> None:

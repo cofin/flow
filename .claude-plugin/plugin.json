@@ -11,6 +11,5 @@
   "license": "MIT",
   "keywords": ["flow", "context-driven-development", "beads", "tdd", "ai-agent", "workflow", "spec-first", "skills", "slash-commands", "subagents"],
   "skills": ["./skills/"],
-  "commands": ["./commands/"],
-  "hooks": "./hooks/hooks-claude.json"
+  "commands": ["./commands/"]
 }
