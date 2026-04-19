@@ -8,7 +8,9 @@ Flow is a unified toolkit for **Context-Driven Development** that works with **C
 
 Control your code. By treating context as a managed artifact alongside your code, you transform your repository into a single source of truth that drives every agent interaction. Flow ensures a consistent, high-quality lifecycle for every task:
 
-**Context → Spec & Plan → Implement → Learn**
+### Lifecycle
+
+- **Context → Spec & Plan → Implement → Learn**
 
 ## Key Features
 
@@ -58,6 +60,7 @@ gemini extensions install https://github.com/cofin/flow --auto-update
 ```
 
 To update:
+
 ```bash
 gemini extensions update flow
 ```
@@ -101,7 +104,8 @@ OpenCode also discovers skills from `.opencode/skills/`, `.claude/skills/`, and 
 ### Cursor IDE
 
 Install Flow from the plugin system:
-```
+
+```text
 /add-plugin flow
 ```
 
@@ -112,11 +116,13 @@ Or add to your `.cursor-plugin` configuration manually.
 Install Flow as a Codex plugin with a local linked source and a marketplace entry:
 
 1. Clone Flow:
+
    ```bash
    git clone https://github.com/cofin/flow.git ~/.codex/plugins/flow
    ```
 
 2. Create marketplace entry at `~/.agents/plugins/marketplace.json`:
+
    ```json
    {
      "name": "personal-plugins",
@@ -253,7 +259,7 @@ Flow follows TDD workflow with a backend adapter:
 
 ## Directory Structure
 
-```
+```text
 project/
 ├── .agents/
 │   ├── product.md           # Product vision and goals

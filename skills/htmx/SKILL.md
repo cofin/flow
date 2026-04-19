@@ -277,3 +277,15 @@ jobs:
 - [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
 - [HTMX](https://github.com/cofin/flow/blob/main/templates/styleguides/frameworks/htmx.md)
 - Keep this skill focused on tool-specific workflows, edge cases, and integration details.
+
+<guardrails>
+## Guardrails
+
+Add guardrails instructions here.
+</guardrails>
+
+<validation>
+## Validation
+
+Add validation instructions here.
+</validation>

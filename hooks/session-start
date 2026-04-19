@@ -1,78 +1,48 @@
 #!/usr/bin/env bash
-# SessionStart hook for Flow plugin
-# Injects Flow context into agent conversations at startup
-# Supports: Claude Code, Codex CLI, Cursor IDE
+# Consolidated SessionStart hook for Flow framework
+# Supports: Gemini CLI, Claude Code, OpenCode, Codex CLI, Cursor IDE
+#
+# Detects host-specific environment variables to return the correct JSON schema.
 
 set -euo pipefail
 
-# Determine plugin root directory
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# Determine script and plugin root directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-# Escape string for JSON embedding
-escape_for_json() {
-    local s="$1"
-    s="${s//\\/\\\\}"
-    s="${s//\"/\\\"}"
-    s="${s//$'\n'/\\n}"
-    s="${s//$'\r'/\\r}"
-    s="${s//$'\t'/\\t}"
-    printf '%s' "$s"
+# 1. Gather Context via detect-env.sh (Cross-platform logic)
+CONTEXT=$("${SCRIPT_DIR}/detect-env.sh")
+
+# 2. Add Host-Specific Logic (Optional additions to context)
+# For now, we use the output of detect-env.sh as the primary context.
+
+# 3. Escape for JSON
+# Python is most reliable for cross-platform multi-line escaping
+ESCAPED_CONTEXT=$(echo "$CONTEXT" | python3 -c 'import json, sys; print(json.dumps(sys.stdin.read()))')
+
+# 4. Output based on detected host
+if [[ -n "${CLAUDE_PLUGIN_ROOT:-}" ]] || [[ -n "${OPENCODE_PLUGIN_ROOT:-}" ]]; then
+    # Claude Code / OpenCode
+    printf '{
+  "hookSpecificOutput": {
+    "hookEventName": "SessionStart",
+    "additionalContext": %s
+  }
 }
-
-# Build session context with auto-trigger rules and spec dir override
-# Quoting characters are escaped with \ to be safe in double-quoted bash string
-session_context="You have the Flow framework installed.
-
-Flow provides Context-Driven Development with spec-first planning, TDD workflow, and Beads integration for cross-session memory.
-
-Flow is installed and MUST be used for all development work in projects with a .agents/ directory.
-
-AUTO-TRIGGER RULES:
-- When .agents/ directory exists: ALWAYS invoke the 'flow' skill at session start
-- When user asks to set up, plan, draft a PRD, design, research, document, implement, sync, check status, refresh, validate, refine, revise, review, finish, archive, revert, or create a task: immediately map the request to the matching Flow workflow instead of staying in generic chat mode
-- When editing files in .agents/specs/: invoke 'flow' skill for context
-- When user mentions \"beads\", \"bd\", \"br\", or backend migration: invoke 'flow' skill
-- When a spec or PRD exists but task detail is coarse: you MUST run iterative refinement (following the **Iteration Iron Law**) until the plan is implementation-ready with concrete file targets, line numbers, and code samples.
-- When PRD/planning work appears complete: run a research-closure pass and do not stop while obvious research gaps remain
-- Read \`.agents/workflow.md\` early and prefer the repo's canonical commands such as \`make lint\`, \`make test\`, \`make check\`, \`just check\`, \`task test\`, package scripts, or pre-commit wrappers when they exist
-- If an existing install is detected, offer a workflow refresh/revalidation pass instead of assuming \`workflow.md\` is current
-- Never silently descope when the task is larger than expected; refine the plan or ask the user how to prioritize
-- Be collaborative and constructive. Never use dismissive ownership-deflecting language such as \"not my issue\" or \"not caused by my change\"
-- Make minimal targeted changes and avoid unrelated opportunistic edits without approval
-
-In Codex, plugin-defined /flow:* slash commands are not currently available. Use the installed Flow skill through natural-language requests instead, for example:
-- \"Use Flow to set up this project\"
-- \"Use Flow to create a PRD for add user authentication\"
-- \"Use Flow to implement auth\"
-
-When using superpowers brainstorming or writing specs/designs, you MUST write all spec files to .agents/specs/ and NEVER to docs/superpowers/specs/. This is a HARD REQUIREMENT for project organization.
-
-MANDATORY SUPERPOWERS INTEGRATION:
-- All implementation plans MUST be written to .agents/specs/<flow_id>/spec.md.
-- Planning and PRD work MUST use brainstorming, then refine coarse task details before implementation.
-- When implement is requested, you MUST recommend \"Subagent-Driven\" approach if superpowers:subagent-driven-development is available.
-- Before dispatching a subagent, preserve context by passing the relevant spec/PRD, patterns, knowledge chapters, learnings, affected files, and verification requirements.
-- PRDs and Plans MUST undergo a \"Self-Review\" using code-reviewer or similar quality gate skills before finalization.
-- TDD and Verification before completion are REQUIRED for all implementation tasks.
-
-Use the Skill tool to invoke Flow skills. Key skills:
-- flow: Main workflow orchestrator
-- Other domain skills available in skills/ directory
-
-For full details, invoke the 'flow' skill."
-
-session_context_escaped=$(escape_for_json "$session_context")
-
-# Output context injection as JSON based on detected platform
-if [ -n "${CODEX_PLUGIN_ROOT:-}" ]; then
-  printf '{\n  "additional_context": "%s"\n}\n' "$session_context_escaped"
-elif [ -n "${CURSOR_PLUGIN_ROOT:-}" ]; then
-  printf '{\n  "additional_context": "%s"\n}\n' "$session_context_escaped"
-elif [ -n "${CLAUDE_PLUGIN_ROOT:-}" ]; then
-  printf '{\n  "hookSpecificOutput": {\n    "hookEventName": "SessionStart",\n    "additionalContext": "%s"\n  }\n}\n' "$session_context_escaped"
+' "$ESCAPED_CONTEXT"
+elif [[ -n "${CODEX_PLUGIN_ROOT:-}" ]]; then
+    # Codex CLI
+    printf '{
+  "additional_context": %s
+}
+' "$ESCAPED_CONTEXT"
+elif [[ -n "${CURSOR_PLUGIN_ROOT:-}" ]]; then
+    # Cursor IDE
+    printf '{
+  "additional_context": %s
+}
+' "$ESCAPED_CONTEXT"
 else
-  printf '{\n  "additional_context": "%s"\n}\n' "$session_context_escaped"
+    # Default to Gemini CLI systemMessage schema
+    printf '{"systemMessage": %s}\n' "$ESCAPED_CONTEXT"
 fi
-
-exit 0

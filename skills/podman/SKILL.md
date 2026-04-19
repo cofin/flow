@@ -39,3 +39,21 @@ For detailed guides and code examples, refer to the following documents in `refe
 - [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
 - [Docker](https://github.com/cofin/flow/blob/main/templates/styleguides/tools/docker.md)
 - Keep this skill focused on tool-specific workflows, edge cases, and integration details.
+
+<guardrails>
+## Guardrails
+
+Add guardrails instructions here.
+</guardrails>
+
+<validation>
+## Validation
+
+Add validation instructions here.
+</validation>
+
+<example>
+## Example
+
+Add example instructions here.
+</example>

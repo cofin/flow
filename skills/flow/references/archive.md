@@ -65,12 +65,14 @@ Append selected patterns to `.agents/patterns.md`:
 - Must update barrel exports after adding files (from: {flow_id})
 ```
 
-## Phase 3: Knowledge Synthesis
+## Phase 3: Knowledge Synthesis (The Synthesis Mandate)
 
-1. Create `.agents/knowledge/` if missing.
-2. Read `learnings.md`, `spec.md` header, and `metadata.json` from the flow.
-3. Synthesize learnings directly into cohesive, logically organized knowledge base chapters in `.agents/knowledge/` (e.g., `architecture.md`, `conventions.md`).
-4. Update the current state of these documents. Do NOT outline history or create per-flow logs. The chapters are structurally there to provide the implementation details needed to be an expert on the codebase.
+You are responsible for the formal evolution of the project's knowledge base. It is NOT a manual copy-paste; it is a **Synthesis**.
+
+1. **Identify**: Read `learnings.md`, `spec.md`, and `metadata.json` from the flow. Identify which discoveries are one-off observations and which represent **Core Patterns** or **Architectural Shifts**.
+2. **Synthesize**: Integrate these discoveries directly into cohesive, logically organized knowledge base chapters in `.agents/knowledge/` (e.g., `architecture.md`, `conventions.md`).
+3. **Update the State**: Revise these chapters to reflect the *current* authoritative state of the codebase.
+4. **No History Logs**: Do NOT outline history or create per-flow logs in the knowledge base. The chapters must provide the high-definition implementation details needed for a new agent to become an instant expert on the current state.
 
 ## Phase 4: Close Beads Epic
 

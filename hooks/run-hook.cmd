@@ -1,29 +1,25 @@
-#!/usr/bin/env bash
-# Cross-platform hook runner for Flow plugin
-# Called by hooks.json with the hook name as argument
-#
-# Usage: run-hook.cmd <hook-name>
-# Example: run-hook.cmd session-start
+@echo off
+REM Windows CMD hook runner for Flow
+REM Detects if bash is available and runs the bash version, or provides a native fallback
 
-set -euo pipefail
+SET HOOK_NAME=%1
+SET SCRIPT_DIR=%~dp0
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-HOOK_NAME="${1:-}"
+IF "%HOOK_NAME%"=="" (
+    echo {"error": "No hook name provided"} >&2
+    exit /b 1
+)
 
-if [ -z "$HOOK_NAME" ]; then
-    echo '{"error": "No hook name provided"}' >&2
-    exit 1
-fi
-
-HOOK_SCRIPT="${SCRIPT_DIR}/${HOOK_NAME}"
-
-if [ ! -f "$HOOK_SCRIPT" ]; then
-    echo "{\"error\": \"Hook script not found: ${HOOK_NAME}\"}" >&2
-    exit 1
-fi
-
-if [ ! -x "$HOOK_SCRIPT" ]; then
-    chmod +x "$HOOK_SCRIPT"
-fi
-
-exec "$HOOK_SCRIPT"
+REM Check for git bash or WSL bash
+where bash >nul 2>nul
+IF %ERRORLEVEL% EQU 0 (
+    bash "%SCRIPT_DIR%run-hook.sh" %HOOK_NAME%
+) ELSE (
+    REM Native Windows fallback (limited support)
+    IF EXIST "%SCRIPT_DIR%%HOOK_NAME%.ps1" (
+        powershell -ExecutionPolicy Bypass -File "%SCRIPT_DIR%%HOOK_NAME%.ps1"
+    ) ELSE (
+        echo {"error": "No bash found and no native Windows hook for %HOOK_NAME%"} >&2
+        exit /b 1
+    )
+)

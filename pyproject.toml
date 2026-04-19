@@ -1,6 +1,6 @@
 [project]
 name = "flow"
-version = "0.16.0"
+version = "0.17.0"
 description = "Unified toolkit for Context-Driven Development"
 authors = [
   { name = "cofin" },
@@ -8,12 +8,25 @@ authors = [
 license = { text = "MIT" }
 readme = "README.md"
 requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+  "ruff>=0.7",
+  "mypy>=1.11",
+  "pyright>=1.1.380",
+  "pytest>=8.0",
+  "pytest-cov>=5.0",
+  "bump-my-version>=0.28",
+  "pyyaml>=6.0",
+  "types-pyyaml>=6.0",
+]
 
 [tool.bumpversion]
 allow_dirty = true
 commit = false
 commit_args = "--no-verify"
-current_version = "0.16.0"
+current_version = "0.17.0"
 ignore_missing_files = false
 ignore_missing_version = false
 message = "chore(release): bump to v{new_version}"

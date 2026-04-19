@@ -5,14 +5,18 @@ description: "Use when a project has `.agents/`, when the user asks to set up, p
 
 # Flow - Context-Driven Development
 
-## Auto-Activation
+Use the Flow skill for context-driven development workflows in repos that use `.agents/`. The environment (Beads backend, project root, and tooling) is **automatically detected via hooks** at the start of every session and provided in your `<hook_context>`.
 
-This skill activates when:
+## The Zero-Ambiguity Mandate
 
-- `.agents/` directory exists in the project root
-- User mentions "flow", "spec", "plan", "prd", "design", "research", "docs", "implement", "sync", "status", "refresh", "validate", "revise", "review", "finish", "archive", "revert", or "task"
-- User requests a Flow workflow in natural language
-- User invokes `/flow:*` commands in hosts that support them
+**CRITICAL:** Every specification (`spec.md`) MUST be a "High-Definition" document. It is NOT a summary; it is a **Worksheet**.
+
+- **PRDs are Sagas**: `flow:prd` acts as the **Orchestrator**, creating a "Master Roadmap" (Sagas) that groups multiple granular flows (Chapters).
+- **Deep Research First**: Do NOT defer research to implementation "chapters." ALL analysis, codebase investigation, and architectural decisions MUST be completed during the PRD and Planning phases.
+- **Refinement Gate**: You MUST run `flow:refine` autonomously and iteratively until the plan is **Zero-Ambiguity**. A "Ready" plan contains:
+  - **Worksheet Granularity**: Specific files, exact line numbers, and code samples for every logic change.
+  - **Itemized Todo List**: A step-by-step checklist that a "stateless" or "low-context" executor can follow to succeed 100% correctly without further questions.
+- **Agent Autonomy**: You (the agent) are responsible for determining when a plan is granular enough. Do NOT ask the user if refinement is done; iterate until technical completeness is achieved.
 
 ## Core Concepts
 
@@ -84,6 +88,7 @@ Codex currently runs the same workflows via the installed Flow skill and natural
 | `/flow-refresh` | `/flow:refresh` | Sync context with codebase |
 | `/flow-finish` | `/flow:finish` | Complete flow: verify, review, merge/PR |
 | `/flow-review` | `/flow:review` | Dispatch code review with Beads git range |
+| `/flow-cleanup` | `/flow:cleanup` | **Groundskeeper**: Global maintenance and optimization of .agents/ |
 
 <workflow>
 
@@ -131,15 +136,28 @@ Before marking a task complete, verify:
 
 </validation>
 
-## Knowledge Flywheel
+## Knowledge Flywheel (Synthesis Mandate)
 
-1. **Capture** - After each task, append learnings to flow's `learnings.md`
-2. **Sync** - Auto-sync to Beads notes
-3. **Elevate** - At phase/flow completion, move reusable patterns to `patterns.md`
-4. **Synthesize** - During sync and archive, integrate learnings directly into cohesive, logically organized knowledge base chapters in `.agents/knowledge/`.
-5. **Inherit** - New flows read `patterns.md` + scan `.agents/knowledge/` chapters.
+You are responsible for the entire knowledge lifecycle. It is NOT a manual copy-paste; it is a **Synthesis**.
 
-Treat repeated user corrections, “you forgot this again” feedback, or visible frustration as high-priority workflow gaps. Capture them in `learnings.md`, elevate them into `patterns.md`, and refine `.agents/skills/flow-memory-keeper/SKILL.md` when present.
+1. **Capture**: After each task, append discoveries to the flow's `learnings.md`.
+2. **Elevate**: At phase/flow completion, autonomously identify reusable patterns and move them to `.agents/patterns.md`.
+3. **Synthesize**: During sync and archive, integrate learnings directly into cohesive, logically organized knowledge base chapters in `.agents/knowledge/` (e.g., `architecture.md`, `conventions.md`).
+    - **Update the State**: Revise chapters to reflect the *current* authoritative state of the codebase.
+    - **Do NOT Outline History**: Your goal is to produce a formal, up-to-date guide for future agents, not a log of past activities.
+4. **Inherit**: New flows MUST read `patterns.md` and scan `.agents/knowledge/` chapters before planning.
+
+Treat repeated user corrections or visible frustration as high-signal workflow gaps. Capture them in `learnings.md`, elevate them into `.agents/patterns.md`, and refine `.agents/skills/flow-memory-keeper/SKILL.md` (if present) so the same miss does not recur.
+
+## The Cleanup Mandate
+
+**CRITICAL:** The `.agents/` directory must be in its most authoritative and implementation-ready state.
+
+- **Knowledge Re-synthesis**: Consolidate `.agents/knowledge/` into a single, unified, authoritative "Current State" guide. Focus on "how," not "why" or history.
+- **Spec & Beads Integrity**: Audit all flows in `.agents/specs/`. Verify task status against SOURCE CODE. Sync status with Beads (create if missing).
+- **Archive Requirement**: Every completed flow MUST be archived and moved out of the `specs/` folder following the archive policy.
+- **Artifact Consolidation**: Synthesize stale `.agents/research/` and `.agents/plans/` into active specs or knowledge chapters.
+- **Pattern Optimization**: Reorganize, index, and synthesize `.agents/patterns.md` and `learnings.md` into high-fidelity guidance.
 
 <workflow>
 
@@ -303,3 +321,9 @@ These can be dispatched as specialized subagents during code review or design ev
 - Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
 - [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
 - Keep this skill focused on tool-specific workflows, edge cases, and integration details.
+
+<example>
+## Example
+
+Add example instructions here.
+</example>

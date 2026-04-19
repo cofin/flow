@@ -7,7 +7,23 @@ description: "Auto-activate for railway.toml, railway.json, Procfile. Expert kno
 
 <workflow>
 
-## Critical Concepts
+## Official Railway Skills (Highly Recommended)
+
+For full project management, deployment automation, and service orchestration, we highly recommend installing the official Railway agent skills:
+
+- **use-railway**: Master skill for setting up projects, services, and handling deployments.
+
+**Installation:**
+
+```bash
+npx skills add railwayapp/railway-skills
+```
+
+## Supplemental Patterns
+
+The patterns below provide additional context for Flow-specific multi-service architectures and serverless constraints.
+
+### Critical Concepts
 
 ### Serverless / App Sleeping
 
@@ -388,3 +404,21 @@ railway variables --set 'LITESTAR_PORT=8080'
 - [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
 - [Bash](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/bash.md)
 - Keep this skill focused on tool-specific workflows, edge cases, and integration details.
+
+<guardrails>
+## Guardrails
+
+- **Disable Serverless for Workers:** Always set `sleepApplication: false` for background worker services (e.g., Celery, SAQ). Workers cannot be woken up by HTTP traffic.
+- **Use Variable References:** Prefer `${{Service.VARIABLE}}` syntax (e.g., `${{Postgres.DATABASE_URL}}`) instead of hardcoding connection strings or values to ensure they stay synced across environment changes.
+- **Separate Configs for Web/Worker:** Use distinct configuration files (e.g., `railway.app.json` and `railway.worker.json`) when a repository contains both web and worker services to manage their different runtime requirements.
+- **Dynamic Port Binding:** Never hardcode the port in your application or environment variables. Always reference `${{PORT}}` to ensure compatibility with Railway's dynamic port injection.
+</guardrails>
+
+<validation>
+## Validation
+
+- **Verify `sleepApplication: false` for Workers:** Ensure that any service identified as a background worker has `sleepApplication` explicitly set to `false` in its respective `railway.json` or dashboard settings.
+- **Check PORT Dynamic Reference:** Confirm that application start commands and environment variables reference the injected `PORT` variable (e.g., `--bind 0.0.0.0:${{PORT}}` or `LITESTAR_PORT=${{PORT}}`) rather than a fixed number.
+- **Confirm Health Checks for Web Services:** Verify that web-facing services have a valid `healthcheckPath` configured and that it matches an actual endpoint in the application.
+- **Audit Variable References:** Ensure all database and infrastructure URLs use Railway's internal reference syntax to prevent stale connection strings after service redeployments.
+</validation>

@@ -70,3 +70,15 @@ Minimal `biome.json` with workspace overrides:
 - [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
 - [Biome](https://github.com/cofin/flow/blob/main/templates/styleguides/tools/biome.md)
 - Keep this skill focused on tool-specific workflows, edge cases, and integration details.
+
+<guardrails>
+## Guardrails
+
+Add guardrails instructions here.
+</guardrails>
+
+<validation>
+## Validation
+
+Add validation instructions here.
+</validation>

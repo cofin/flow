@@ -124,3 +124,24 @@ Ensure your GitHub Action includes:
 * [Python](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/python.md)
 * [Docker](https://github.com/cofin/flow/blob/main/templates/styleguides/tools/docker.md)
 * Keep this skill focused on tool-specific workflows, edge cases, and integration details.
+
+<guardrails>
+## Guardrails
+
+* **Use non-root user in production images** -- When containerizing the resulting binary, ensure it runs as a non-privileged user to minimize security risks.
+* **Prefer multi-stage Docker builds** -- Separate the build environment (with Cargo and Zig) from the final runtime image to keep the production artifact small.
+* **Target specific glibc versions with Zig** -- Use `cargo zigbuild --target <arch>.2.17` to ensure compatibility with older Linux distributions (e.g., RHEL 7+).
+* **Embed all dependencies for air-gapped use** -- Set `PYAPP_DISTRIBUTION_EMBED = "1"` to ensure the binary is fully self-contained and does not require internet access on first run.
+* **Validate binary size** -- Monitor the size of the embedded distribution; strip unnecessary symbols and files (e.g., `.pyc`, `__pycache__`, tests) to keep the executable manageable.
+</guardrails>
+
+<validation>
+## Validation Checkpoint
+
+* [ ] Binary runs successfully in a network-isolated (`--network none`) environment
+* [ ] glibc compatibility is verified using `ldd --version` on the target platform
+* [ ] No root privileges are required to execute the binary
+* [ ] All required Python dependencies are included in the embedded `site-packages`
+* [ ] Binary size is within the expected range for the bundled distribution
+* [ ] Custom install paths (if patched) are correctly respected by the application
+</validation>

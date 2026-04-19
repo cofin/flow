@@ -126,140 +126,23 @@ export class ItemService {
 ### Resource API (Experimental)
 
 <guardrails>
+## Guardrails
 
-`resource()` and `httpResource()` are currently marked experimental in Angular docs. Use only when the project explicitly accepts experimental APIs.
-
+- **Always use Standalone Components** -- This is the standard for modern Angular (17+); simplifies architecture and improves tree-shaking.
+- **Prefer Signals for local and shared state** -- Signals provide a more predictable and efficient reactivity model than observables for most UI state.
+- **Use `inject()` instead of constructor injection** -- More concise, better type inference, and works seamlessly with functional-style code.
+- **Verify control flow syntax** -- Use `@if`, `@for`, and `@switch` instead of structural directives (`*ngIf`, `*ngFor`).
+- **`resource()` and `httpResource()` are experimental** -- Use only when the project explicitly accepts experimental APIs; otherwise, use `HttpClient` with `toSignal()`.
+- **Align to page boundaries with `@defer`** -- Use it to lazy load heavy or non-critical components to optimize initial bundle size.
 </guardrails>
 
-<example>
+<validation>
+## Validation Checkpoint
 
-```typescript
-import { resource, signal } from '@angular/core';
-
-@Component({ ... })
-export class ItemComponent {
-  itemId = signal<string>('');
-
-  itemResource = resource({
-    request: () => this.itemId(),
-    loader: async ({ request: id }) => {
-      const res = await fetch(`/api/items/${id}`);
-      return res.json() as Promise<Item>;
-    }
-  });
-
-  // Usage in template
-  // itemResource.value() - the data
-  // itemResource.isLoading() - loading state
-  // itemResource.error() - error state
-}
-```
-
-</example>
-
-### Reactive Forms (Stable API)
-
-<example>
-
-```typescript
-import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
-
-@Component({
-  standalone: true,
-  imports: [ReactiveFormsModule],
-  template: `
-    <form [formGroup]="form" (ngSubmit)="onSubmit()">
-      <input formControlName="name" />
-      <button type="submit" [disabled]="!form.valid">Save</button>
-    </form>
-  `
-})
-export class ItemFormComponent {
-  private fb = inject(FormBuilder);
-
-  form = this.fb.group({
-    name: ['', Validators.required],
-    description: ['']
-  });
-
-  onSubmit() {
-    if (this.form.valid) {
-      console.log(this.form.value);
-    }
-  }
-}
-```
-
-</example>
-
-## Best Practices
-
-- Prefer standalone components for new development (Angular team recommendation).
-- Prefer signals over RxJS for local state
-- Use `toSignal()` to convert observables
-- Use new control flow syntax (`@if`, `@for`, `@switch`)
-- Use `inject()` instead of constructor injection
-- Use `@defer` for lazy loading heavy components
-
-</workflow>
-
-## References Index
-
-- **[Litestar-Vite Integration](references/litestar_vite.md)** — Backend integration with Litestar-Vite plugin.
-
-## Deployment
-
-### Static Asset Bundles
-
-Angular builds compile into optimal static files:
-
-```bash
-ng build
-# or litestar assets build for integrated setups
-```
-
-### Hybrid Prerendering (SSR/SSG)
-
-Deploy to Edge nodes or node servers. Ensure triggers are optimized post-hydrate context avoiding layout shifts for deferred blocks.
-
----
-
-## CI/CD Actions
-
-Example GitHub Actions workflow for building:
-
-```yaml
-name: Angular CI
-on: [push, pull_request]
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-
-      - run: npm ci
-      - run: npm run build
-```
-
-## Official References
-
-- <https://angular.dev/reference/releases>
-- <https://angular.dev/guide/components>
-- <https://angular.dev/guide/templates/control-flow>
-- <https://angular.dev/api/core/resource>
-- <https://angular.dev/guide/forms/signals/overview>
-- <https://github.com/angular/angular/releases>
-
-## Shared Styleguide Baseline
-
-- Use shared styleguides for generic language/framework rules to reduce duplication in this skill.
-- [General Principles](https://github.com/cofin/flow/blob/main/templates/styleguides/general.md)
-- [Angular](https://github.com/cofin/flow/blob/main/templates/styleguides/frameworks/angular.md)
-- [TypeScript](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/typescript.md)
-- Keep this skill focused on tool-specific workflows, edge cases, and integration details.
+- [ ] Component is marked as `standalone: true`
+- [ ] New control flow syntax (`@if`, `@for`) is used instead of legacy structural directives
+- [ ] Signals are used for reactive state (`signal`, `computed`, `input`)
+- [ ] Dependency injection uses the `inject()` function
+- [ ] `@for` loops have a meaningful `track` expression
+- [ ] Heavy components or those below the fold use `@defer` for lazy loading
+</validation>

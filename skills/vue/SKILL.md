@@ -234,3 +234,24 @@ jobs:
 - [Vue](https://github.com/cofin/flow/blob/main/templates/styleguides/frameworks/vue.md)
 - [TypeScript](https://github.com/cofin/flow/blob/main/templates/styleguides/languages/typescript.md)
 - Keep this skill focused on tool-specific workflows, edge cases, and integration details.
+
+<guardrails>
+## Guardrails
+
+- **Always use `<script setup>` with TypeScript** -- This is the modern standard for Vue 3; provides better IDE support and less boilerplate.
+- **Never mutate props directly** -- Props are read-only; use `emit` to notify the parent of changes or use `computed` with a setter.
+- **Prefer Composables for shared logic** -- Avoid Mixins or global state; extract logic into reusable `use*` functions to keep components focused on UI.
+- **Use `defineProps` and `defineEmits` macros** -- These are compiler macros; do not import them. Use the type-based declaration for best DX.
+- **Avoid direct DOM manipulation** -- Use `ref` for DOM elements only when necessary; prefer Vue's declarative directives (`v-bind`, `v-if`, `v-for`).
+</guardrails>
+
+<validation>
+## Validation Checkpoint
+
+- [ ] Component uses `<script setup lang="ts">`
+- [ ] Props and Emits are defined using type-based declarations (`defineProps<T>()`)
+- [ ] No direct mutations of props are present
+- [ ] Reusable logic is extracted into a composable if it exceeds 30-40 lines
+- [ ] `v-for` elements have a unique and stable `:key`
+- [ ] No direct DOM manipulation (e.g., `document.querySelector`) is used where Vue directives suffice
+</validation>

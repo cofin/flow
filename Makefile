@@ -46,8 +46,24 @@ clean:                                              ## Cleanup temporary build a
 .PHONY: lint
 lint:                                               ## Lint and auto-fix all markdown files
 	@echo "${INFO} Linting and fixing markdown files..."
-	@npx markdownlint-cli2 --fix "skills/**/*.md" "commands/**/*.md" "docs/**/*.md"
+	@npx markdownlint-cli2 --fix "skills/**/*.md" "commands/**/*.md" "docs/**/*.md" "AGENTS.md" "GEMINI.md" "README.md"
 	@echo "${OK} Markdown linting passed"
+
+.PHONY: validate-skills
+validate-skills:                                   ## Validate skill / command / agent manifests
+	@echo "${INFO} Validating skill manifests..."
+	@uv run tools/validate-skills.py
+	@echo "${OK} Skill manifests valid"
+
+.PHONY: sync-manifests
+sync-manifests:                                    ## Sync version strings across all manifests
+	@echo "${INFO} Syncing version strings..."
+	@uv run tools/sync-manifests.py
+	@echo "${OK} Version strings in sync"
+
+.PHONY: check
+check: lint validate-skills sync-manifests          ## Run all quality checks (lint + validate)
+	@echo "${OK} All checks passed"
 
 .PHONY: build
 build:                                              ## Build the package
