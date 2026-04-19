@@ -12,25 +12,33 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 def test_gemini_extension_session_start_hook_uses_extension_path() -> None:
     hooks = json.loads((REPO_ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))
 
-    command = hooks["SessionStart"][0]["hooks"][0]["command"]
+    command = hooks["hooks"]["SessionStart"][0]["hooks"][0]["command"]
 
-    assert command == "${extensionPath}/hooks/session-start"
-    assert "${CLAUDE_PLUGIN_ROOT}" not in command
+    assert command == "${CLAUDE_PLUGIN_ROOT:-${extensionPath}}/hooks/session-start"
+    assert "${extensionPath}" in command
+    assert "${CLAUDE_PLUGIN_ROOT:-" in command
 
 
-def test_claude_plugin_references_claude_specific_hook_config() -> None:
+def test_claude_plugin_relies_on_auto_discovered_root_hook_config() -> None:
     plugin = json.loads((REPO_ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
 
-    assert plugin["hooks"] == "./hooks/hooks-claude.json"
+    assert "hooks" not in plugin
 
 
-def test_claude_hook_manifest_uses_claude_plugin_root() -> None:
-    hooks = json.loads((REPO_ROOT / "hooks" / "hooks-claude.json").read_text(encoding="utf-8"))
+def test_shared_hook_manifest_supports_claude_runtime_resolution() -> None:
+    hooks = json.loads((REPO_ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))
 
-    command = hooks["SessionStart"][0]["hooks"][0]["command"]
+    command = hooks["hooks"]["SessionStart"][0]["hooks"][0]["command"]
 
-    assert command == "${CLAUDE_PLUGIN_ROOT}/hooks/session-start"
-    assert "${extensionPath}" not in command
+    assert command.startswith("${CLAUDE_PLUGIN_ROOT:-")
+    assert command.endswith("}/hooks/session-start")
+
+
+def test_shared_hook_manifest_uses_top_level_hooks_record() -> None:
+    gemini_hooks = json.loads((REPO_ROOT / "hooks" / "hooks.json").read_text(encoding="utf-8"))
+
+    assert "hooks" in gemini_hooks
+    assert "SessionStart" in gemini_hooks["hooks"]
 
 
 def test_session_start_emits_claude_compatible_payload_when_claude_env_present() -> None:

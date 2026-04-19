@@ -165,6 +165,7 @@ VALID_GEMINI_TOOLS = frozenset(
 )
 _GEMINI_WILDCARD_PATTERN = re.compile(r"^(?:\*|mcp_[A-Za-z0-9_-]*\*?)$")
 _CLAUDE_HOOK_EVENT_PATTERN = re.compile(r"^[A-Z][A-Za-z0-9]*$")
+_CROSS_HOST_HOOK_FALLBACK = "${CLAUDE_PLUGIN_ROOT:-${extensionPath}}"
 
 # Codex nickname_candidates entries: ASCII letters, digits, spaces, hyphens,
 # underscores only. Per https://developers.openai.com/codex/subagents.
@@ -228,10 +229,10 @@ def _validate_manifest_path_list_field(path: Path, field: str, value: object) ->
     return violations
 
 
-def _validate_claude_inline_hooks(path: Path, hooks: object) -> list[Violation]:
+def _validate_hook_event_map(path: Path, hooks: object) -> list[Violation]:
     violations: list[Violation] = []
     if not isinstance(hooks, dict):
-        return [Violation(path, 1, "Claude manifest 'hooks' field must be a string path or inline PascalCase hook object")]
+        return [Violation(path, 1, "hook config must contain a top-level 'hooks' record")]
     for event_name, matchers in hooks.items():
         if not isinstance(event_name, str) or not _CLAUDE_HOOK_EVENT_PATTERN.match(event_name):
             violations.append(Violation(path, 1, f"Claude hooks event {event_name!r} must be PascalCase"))
@@ -279,23 +280,60 @@ def _iter_nested_strings(value: object) -> Iterator[str]:
             yield from _iter_nested_strings(nested)
 
 
-def validate_claude_hook_config(path: Path) -> list[Violation]:
-    """Validate Claude's hook config file for host-specific placeholder usage."""
+def _load_hook_event_map(path: Path) -> tuple[dict[str, object] | None, list[Violation]]:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError) as exc:
-        return [Violation(path, 1, f"JSON parse error: {exc}")]
+        return None, [Violation(path, 1, f"JSON parse error: {exc}")]
 
-    for entry in _iter_nested_strings(data):
-        if "${extensionPath}" in entry:
-            return [
+    if not isinstance(data, dict):
+        return None, [Violation(path, 1, "hook config must be a JSON object")]
+
+    hooks = data.get("hooks")
+    if not isinstance(hooks, dict):
+        return None, [Violation(path, 1, "hook config must contain a top-level 'hooks' record")]
+
+    return cast("dict[str, object]", hooks), []
+
+
+def validate_claude_hook_config(path: Path) -> list[Violation]:
+    """Validate Claude's hook config file for host-specific placeholder usage."""
+    hook_events, violations = _load_hook_event_map(path)
+    if hook_events is None:
+        return violations
+
+    violations.extend(_validate_hook_event_map(path, hook_events))
+    for entry in _iter_nested_strings(hook_events):
+        if "${extensionPath}" in entry and _CROSS_HOST_HOOK_FALLBACK not in entry:
+            violations.append(
                 Violation(
                     path,
                     1,
                     "Claude hook config must not use '${extensionPath}'; use '${CLAUDE_PLUGIN_ROOT}' instead",
                 )
-            ]
-    return []
+            )
+            break
+    return violations
+
+
+def validate_gemini_hook_config(path: Path) -> list[Violation]:
+    """Validate Gemini's hook config file for host-specific placeholder usage."""
+    hook_events, violations = _load_hook_event_map(path)
+    if hook_events is None:
+        return violations
+
+    violations.extend(_validate_hook_event_map(path, hook_events))
+    for entry in _iter_nested_strings(hook_events):
+        if "${CLAUDE_PLUGIN_ROOT}" in entry and _CROSS_HOST_HOOK_FALLBACK not in entry:
+            violations.append(
+                Violation(
+                    path,
+                    1,
+                    "Gemini hook config must not use '${CLAUDE_PLUGIN_ROOT}'; use '${extensionPath}' instead",
+                )
+            )
+            break
+    return violations
 
 
 def extract_frontmatter(text: str) -> tuple[dict[str, Any], int, str]:
@@ -543,7 +581,7 @@ def validate_manifest(path: Path) -> list[Violation]:
         if isinstance(hooks, str):
             violations.extend(_validate_manifest_path_field(path, "hooks", hooks))
         elif hooks is not None:
-            violations.extend(_validate_claude_inline_hooks(path, hooks))
+            violations.extend(_validate_hook_event_map(path, hooks))
     else:
         for field in ("skills", "commands", "hooks"):
             value = data.get(field)
@@ -720,6 +758,12 @@ def iter_manifests() -> Iterator[Path]:
 
 
 def iter_claude_hook_configs() -> Iterator[Path]:
+    default_hooks = REPO_ROOT / "hooks" / "hooks.json"
+    seen: set[Path] = set()
+    if default_hooks.is_file():
+        seen.add(default_hooks.resolve())
+        yield default_hooks
+
     manifest_path = REPO_ROOT / ".claude-plugin" / "plugin.json"
     if not manifest_path.is_file():
         return
@@ -733,8 +777,14 @@ def iter_claude_hook_configs() -> Iterator[Path]:
         return
 
     resolved, error = _resolve_plugin_path(manifest_path, hooks)
-    if error is None and resolved is not None and resolved.is_file():
+    if error is None and resolved is not None and resolved.is_file() and resolved not in seen:
         yield resolved
+
+
+def iter_gemini_hook_configs() -> Iterator[Path]:
+    candidate = REPO_ROOT / "hooks" / "hooks.json"
+    if candidate.is_file():
+        yield candidate
 
 
 def iter_all_shipped_files() -> Iterator[Path]:
@@ -787,6 +837,7 @@ def main() -> int:
     codex_agents = list(iter_codex_agents())
     manifests = list(iter_manifests())
     claude_hook_configs = list(iter_claude_hook_configs())
+    gemini_hook_configs = list(iter_gemini_hook_configs())
     for manifest_path in manifests:
         all_violations.extend(validate_manifest(manifest_path))
     for skill_path in skills:
@@ -803,6 +854,8 @@ def main() -> int:
         all_violations.extend(validate_codex_agent(agent_path))
     for hook_config_path in claude_hook_configs:
         all_violations.extend(validate_claude_hook_config(hook_config_path))
+    for hook_config_path in gemini_hook_configs:
+        all_violations.extend(validate_gemini_hook_config(hook_config_path))
     shipped = list(iter_all_shipped_files())
     all_violations.extend(check_agents_leak(shipped))
     all_violations.extend(check_forbidden_vocab(shipped))
