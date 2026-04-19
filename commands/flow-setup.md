@@ -7,6 +7,8 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion, mcp__sequen
 
 Initialize a project for context-driven development with Beads integration.
 
+> **Host boundary:** This command runs under Claude Code. Only Claude-owned files are created (e.g., `CLAUDE.md`). Do not write `.gemini/*`, `.geminiignore`, `.codex/*`, `.cursor/*`, or `.opencode/*` — each host's setup command owns its own configuration surface.
+
 ## Phase 0: Environment Detection
 
 **PROTOCOL: Before starting, check if the environment has already been detected via hooks.**
@@ -189,15 +191,16 @@ Ask the user to revalidate:
 
 Check for missing `.agents/knowledge/` directory. If absent, create it and write `knowledge/index.md` from template.
 
-### 0.1.7 Policy & Context Validation
+### 0.1.7 Context Validation
 
-**PROTOCOL: Ensure Plan Mode policies and host-specific context files are present.**
+**PROTOCOL: Ensure the Claude Code context file is present.**
 
-- **Gemini CLI:** Check for `.gemini/policies/flow-overrides.toml`. If missing or outdated, offer to create it to allow common development tools in Plan Mode.
-- **Claude Code:** Check for `CLAUDE.md` in the project root. If missing, offer to create it from the latest template to provide project context and rules.
+This setup runs under Claude Code. Only Claude-owned files are touched — Gemini/Codex/Cursor/OpenCode artifacts (`.gemini/policies/*`, `.geminiignore`, etc.) are out of scope and must not be created here.
+
+- Check for `CLAUDE.md` in the project root. If missing, offer to create it from the latest template to provide project context and rules.
 
 ```text
-Host-specific policy or context file missing or outdated. Create it now?
+CLAUDE.md missing or outdated. Create it now?
 
 A) Yes (recommended)
 B) Skip
@@ -463,7 +466,7 @@ Copy `knowledge/index.md` from the Flow templates (`templates/agent/knowledge/in
 2. **CRITICAL: APPEND only, never overwrite:**
 
     ```bash
-    printf '\n# Flow specification files (local-only)\n<root_directory>/\n.beads/\n.geminiignore\n' >> .git/info/exclude
+    printf '\n# Flow specification files (local-only)\n<root_directory>/\n.beads/\n' >> .git/info/exclude
     ```
 
 **If B selected:**
@@ -480,55 +483,22 @@ Copy `knowledge/index.md` from the Flow templates (`templates/agent/knowledge/in
     printf '\n# Flow specification files\n<root_directory>/\n.beads/\n' >> .gitignore
     ```
 
-### 7.2 Geminiignore Configuration (for Gemini CLI users)
+### 7.2 Respect Ignored Files During Commits
 
-1. Check if `.geminiignore` exists:
+Check whether `<root_directory>` or `.beads` are ignored before staging:
 
-    ```bash
-    [ -f ".geminiignore" ] && echo "EXISTS" || echo "NEW"
-    ```
+```bash
+for path in "<root_directory>" ".beads"; do
+  [ -e "$path" ] || continue
+  git check-ignore -q "$path" && echo "$path: IGNORED" || echo "$path: TRACKED"
+done
+```
 
-2. **If EXISTS:**
-    - Read current content
-    - Check if the Flow allowlist block is already present (for example `!<root_directory>/` or `!AGENTS.md`)
-    - **If NOT present, APPEND (don't overwrite):**
+- If a path is ignored, leave it unstaged.
+- Never use `git add -f` to force-add ignored Flow files.
+- Commit only the non-ignored setup artifacts.
 
-        ```bash
-        printf '\n# Allow Gemini to access Flow and agent context\n!<root_directory>/\n!<root_directory>/**\n!.agents/\n!.agents/**\n!AGENTS.md\n!GEMINI.md\n!CLAUDE.md\n' >> .geminiignore
-        ```
-
-3. **If NEW:**
-    - If `.gitignore` exists, seed `.geminiignore` from it first so Gemini inherits the repo ignore baseline.
-    - Then append the Flow allowlist block so Flow specs and agent instructions remain readable.
-
-        ```bash
-        if [ -f ".gitignore" ]; then
-          cp .gitignore .geminiignore
-        else
-          : > .geminiignore
-        fi
-        printf '\n# Allow Gemini to access Flow and agent context\n!<root_directory>/\n!<root_directory>/**\n!.agents/\n!.agents/**\n!AGENTS.md\n!GEMINI.md\n!CLAUDE.md\n' >> .geminiignore
-        ```
-
-4. **If `.geminiignore` should stay local-only, prefer `.git/info/exclude`:**
-
-    ```bash
-    [ -f ".git/info/exclude" ] && ! grep -q ".geminiignore" .git/info/exclude && printf '\n.geminiignore\n' >> .git/info/exclude
-    ```
-
-5. **Respect ignored files during commits:**
-    - Check whether `<root_directory>`, `.geminiignore`, or `.beads` are ignored before staging:
-
-    ```bash
-    for path in "<root_directory>" ".geminiignore" ".beads"; do
-      [ -e "$path" ] || continue
-      git check-ignore -q "$path" && echo "$path: IGNORED" || echo "$path: TRACKED"
-    done
-    ```
-
-    - If a path is ignored, leave it unstaged.
-    - Never use `git add -f` to force-add ignored Flow files.
-    - Commit only the non-ignored setup artifacts.
+> **Note:** Host-foreign artifacts (`.geminiignore`, `.gemini/policies/*`) are out of scope for Claude Code setup. Gemini CLI users run Gemini's own `/flow:setup` to configure those.
 
 ---
 
@@ -575,20 +545,15 @@ Save setup state to `<root_directory>/setup-state.json`:
 
 ---
 
-## Phase 10: Gemini CLI Configuration
+## Phase 10: Claude Code Context File
 
-**PROTOCOL: Generate project-specific policy for Plan Mode.**
+**PROTOCOL: Ensure `CLAUDE.md` is present at the project root.**
 
-Create `.gemini/policies/flow-overrides.toml` to allow common development tools in **Plan Mode**, resolving common permission issues:
+1. If `CLAUDE.md` already exists, skip — do not overwrite.
+2. Otherwise, create `CLAUDE.md` from the Flow template (`templates/agent/CLAUDE.md` if shipped, or a minimal stub that points at `<root_directory>/product.md` and `<root_directory>/workflow.md` as the source of truth).
+3. Announce: "Created `CLAUDE.md` so Claude Code has project context."
 
-```toml
-[[rule]]
-toolName = "run_shell_command"
-commandRegex = "^(bd|uv|pip|ruff|make|git|npx|bunx|pnpm|railway|bash|python3|cat|ls) .*"
-decision = "allow"
-priority = 100
-modes = ["plan"]
-```
+> **Host boundary:** Do not create `.gemini/*`, `.codex/*`, `.cursor/*`, or `.opencode/*` artifacts from this file. Each host's setup command owns its own configuration surface.
 
 ---
 
@@ -626,11 +591,11 @@ Next Steps:
 Copy the `pre-commit` hook to the `.git/hooks/` directory to ensure Bead states remain synchronized before any commit:
 
 ```bash
-if [ -f ~/.flow/hooks/pre-commit ]; then
-  cp ~/.flow/hooks/pre-commit .git/hooks/pre-commit
-  chmod +x .git/hooks/pre-commit
-elif [ -f ~/.gemini/extensions/flow/tools/scripts/hooks/pre-commit ]; then
-  cp ~/.gemini/extensions/flow/tools/scripts/hooks/pre-commit .git/hooks/pre-commit
+# Resolve the Flow install root for the current host. CLAUDE_PLUGIN_ROOT is
+# exported by Claude Code when this command runs from the installed plugin.
+FLOW_INSTALL_ROOT="${CLAUDE_PLUGIN_ROOT:-$HOME/.flow}"
+if [ -f "$FLOW_INSTALL_ROOT/hooks/pre-commit" ]; then
+  cp "$FLOW_INSTALL_ROOT/hooks/pre-commit" .git/hooks/pre-commit
   chmod +x .git/hooks/pre-commit
 fi
 ```
@@ -645,8 +610,9 @@ fi
 4. **LOCAL DEFAULT** - Configure Beads for local-only use
 5. **ONE QUESTION AT A TIME** - Don't overwhelm the user
 6. **DETECT FIRST** - Auto-detect tech stack before asking
-7. **APPEND ONLY** - Never overwrite .gitignore or .geminiignore
-8. **SAVE STATE** - Enable resume if interrupted
-9. **NO FORCE-ADD** - If a Flow file is ignored, leave it out of the commit
-10. **REVALIDATE EXISTING INSTALLS** - Existing installs must be offered workflow refresh/update, not just syntax checks
-11. **PREFER REPO-NATIVE COMMANDS** - Capture and reuse canonical commands like `make lint`, `make test`, `make check`, `just check`, `task test`, or equivalent wrappers
+7. **APPEND ONLY** - Never overwrite `.gitignore` or `.git/info/exclude`
+8. **HOST ISOLATION** - Only write Claude-owned files; never write `.gemini/*`, `.geminiignore`, `.codex/*`, `.cursor/*`, or `.opencode/*`
+9. **SAVE STATE** - Enable resume if interrupted
+10. **NO FORCE-ADD** - If a Flow file is ignored, leave it out of the commit
+11. **REVALIDATE EXISTING INSTALLS** - Existing installs must be offered workflow refresh/update, not just syntax checks
+12. **PREFER REPO-NATIVE COMMANDS** - Capture and reuse canonical commands like `make lint`, `make test`, `make check`, `just check`, `task test`, or equivalent wrappers

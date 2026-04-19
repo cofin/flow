@@ -28,16 +28,16 @@ function Get-FlowRoot {
         try {
             $setupState = Get-Content $setupStateFile -Raw | ConvertFrom-Json
             if ($setupState.root_directory) {
-                $rootDir = $setupState.root_directory
+                $rootDir = ([string]$setupState.root_directory).TrimEnd('/', '\')
                 Write-Host "- **Flow Root**: $rootDir"
             } else {
-                Write-Host "- **Flow Root**: .agents/ (default, missing in setup-state)"
+                Write-Host "- **Flow Root**: .agents (default, missing in setup-state)"
             }
         } catch {
-            Write-Host "- **Flow Root**: .agents/ (default, error parsing setup-state)"
+            Write-Host "- **Flow Root**: .agents (default, error parsing setup-state)"
         }
     } else {
-        Write-Host "- **Flow Root**: .agents/ (default)"
+        Write-Host "- **Flow Root**: .agents (default)"
     }
     return $rootDir
 }
@@ -81,10 +81,15 @@ function Get-ProjectIdentity($rootDir) {
     if (Test-Path $productFile) {
         Write-Host ""
         Write-Host "### Project Identity"
-        try {
-            Get-Content $productFile | Where-Object { $_ -trim() -and $_ -notmatch "^#" } | Select-Object -First 5 | ForEach-Object { Write-Host "  $_" }
-        } catch {
-            # Failed to read/process, skip
+        if (-not (Extract-Truths $productFile)) {
+            try {
+                Get-Content $productFile |
+                    Where-Object { $_.Trim() -and $_ -notmatch '^[#<]' } |
+                    Select-Object -First 5 |
+                    ForEach-Object { Write-Host "  $_" }
+            } catch {
+                # Failed to read/process, skip
+            }
         }
     }
 }
@@ -104,8 +109,8 @@ function Get-ActiveWork($backend) {
     Write-Host "### Active Work"
     if ($backend -eq "bd") {
         try {
-            # Use a short timeout if possible (not native in PS, but we can try)
-            $ready = bd ready --json | ConvertFrom-Json | Select-Object -First 3
+            # ConvertFrom-Json may return a single object; wrap in @(...) so Select-Object sees an array
+            $ready = @(bd ready --json | ConvertFrom-Json) | Select-Object -First 3
             if ($ready) {
                 $readyJson = $ready | ConvertTo-Json -Compress
                 Write-Host "- **Ready Tasks (Top 3)**: $readyJson"
@@ -141,10 +146,10 @@ function Extract-Truths($file) {
             foreach ($line in $content) {
                 if ($line -match "<!-- truth: start -->") { $inTruth = $true; continue }
                 if ($line -match "<!-- truth: end -->") { $inTruth = $false; continue }
-                if ($inTruth) { $truths += $line }
+                if ($inTruth -and $line -notmatch "<!--") { $truths += $line }
             }
             if ($truths.Count -gt 0) {
-                $truths | ForEach-Object { Write-Host "  $_" }
+                $truths | Select-Object -First 40 | ForEach-Object { Write-Host "  $_" }
                 return $true
             }
         } catch {
