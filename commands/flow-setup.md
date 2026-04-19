@@ -7,7 +7,14 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion, mcp__sequen
 
 Initialize a project for context-driven development with Beads integration.
 
-## Phase 0: Setup State Check
+## Phase 0: Environment Detection
+
+**PROTOCOL: Before starting, check if the environment has already been detected via hooks.**
+
+1. **Check Hook Context:** Look for `## Flow Environment Context` in your `<hook_context>`.
+    - If **Flow Root** is present, use that as the authoritative root directory.
+    - If **Beads Backend** is present and NOT `Missing`, note the active backend.
+2. **Manual Check (Fallback only):** Only if the hook context is missing or incomplete, perform the following:
 
 Resolve the configured Flow root first:
 
@@ -49,6 +56,8 @@ fi
 **PROTOCOL: Validate existing setup and update to latest best practices.**
 
 ### 0.1.1 Beads Validation
+
+**SKIP if Beads Backend is already detected in hook context.**
 
 ```bash
 if command -v bd >/dev/null 2>&1 && command -v br >/dev/null 2>&1; then
@@ -148,34 +157,27 @@ From user-auth/learnings.md:
 2. Merge confirmed patterns into `.agents/patterns.md`
 3. Archive original learnings.md with migration note
 
-### 0.1.4 Knowledge Base Check
+### 0.1.4 Core Artifacts Check
 
-Check for missing `.agents/knowledge/` directory. If absent, create it and write `knowledge/index.md` from template.
+Check for existence of `product.md` and `tech-stack.md`.
 
-### 0.1.5 Configuration Validation
+- If missing, offer to create them from templates.
+- If present but missing `<!-- truth: start -->` markers, offer to add them.
 
-Check and update:
+### 0.1.5 Workflow Revalidation & Sync
 
-- `<root_directory>/beads.json` - Ensure valid configuration
-- `<root_directory>/workflow.md` - Check for outdated workflow content, backend assumptions, and command syntax
-- `<root_directory>/tech-stack.md` - Verify detected languages match codebase
+**PROTOCOL: Synchronize workflow.md with the latest template while preserving local "truth" markers.**
 
-### 0.1.6 Workflow Revalidation
+Read `<root_directory>/workflow.md` and check for content between `<!-- truth: start -->` and `<!-- truth: end -->`.
 
-Read `<root_directory>/workflow.md` and compare it with the latest template plus the current repo's actual command surfaces:
+- **If markers exist:** Replace everything OUTSIDE the markers with the latest `templates/agent/workflow.md` content. Keep the local truth section intact.
+- **If markers are missing:** Propose wrapping the "Essential Commands" and "Guiding Principles" in truth markers before performing the sync.
 
-- `Makefile`
-- `justfile`
-- `Taskfile.yml`
-- `package.json`
-- `pyproject.toml`
-- `tox.ini`
-- `noxfile.py`
-- `Cargo.toml`
-- `.pre-commit-config.yaml`
-- CI files such as `.github/workflows/*`
+Compare with the current repo's real command surfaces:
 
-Ask the user to revalidate workflow behavior instead of blindly overwriting the file:
+- `Makefile`, `justfile`, `Taskfile.yml`, `package.json`, `pyproject.toml`, `Cargo.toml`, `.pre-commit-config.yaml`, CI files.
+
+Ask the user to revalidate:
 
 > **Workflow settings may be stale. Revalidate now?**
 >
@@ -183,18 +185,32 @@ Ask the user to revalidate workflow behavior instead of blindly overwriting the 
 > - **B) Refresh template and update preferences**
 > - **C) Keep current workflow.md**
 
-If A or B is selected, confirm at minimum:
+### 0.1.6 Knowledge Base Check
 
-- coverage target
-- commit cadence (per-task vs per-phase)
-- task-summary mechanism (git notes vs commit body or other host-native notes)
-- backend mode (`bd`, `br`, or no-Beads)
-- local-only vs shared ignore policy
-- canonical repo commands for setup, lint, test, typecheck, and full verification
+Check for missing `.agents/knowledge/` directory. If absent, create it and write `knowledge/index.md` from template.
 
-Prefer existing repo-native aggregate commands such as `make lint`, `make test`, `make check`, `just check`, `task test`, package-script wrappers, and pre-commit entrypoints. Merge them into `<root_directory>/workflow.md` instead of leaving placeholders.
+### 0.1.7 Policy & Context Validation
 
-### 0.1.7 Alignment Summary
+**PROTOCOL: Ensure Plan Mode policies and host-specific context files are present.**
+
+- **Gemini CLI:** Check for `.gemini/policies/flow-overrides.toml`. If missing or outdated, offer to create it to allow common development tools in Plan Mode.
+- **Claude Code:** Check for `CLAUDE.md` in the project root. If missing, offer to create it from the latest template to provide project context and rules.
+
+```text
+Host-specific policy or context file missing or outdated. Create it now?
+
+A) Yes (recommended)
+B) Skip
+```
+
+### 0.1.8 Configuration Validation
+
+Check and update:
+
+- `<root_directory>/beads.json` - Ensure valid configuration
+- `<root_directory>/setup-state.json` - Update `workflow_revision` and status
+
+### 0.1.9 Alignment Summary
 
 ```text
 Alignment Complete
@@ -203,7 +219,8 @@ Alignment Complete
 ✓ Hooks: Installed
 ✓ Specs migrated: {N} active, {M} archived
 ✓ Learnings merged: {X} patterns added to patterns.md
-✓ Workflow revalidated
+✓ Workflow revalidated and synced
+✓ Policy/Context: Host-specific overrides and context files configured
 ✓ Configuration validated
 
 No action needed / Issues found:
@@ -214,11 +231,11 @@ Run `/flow-status` to see current state.
 
 **After alignment, HALT (don't continue to full setup).**
 
----
-
 ## Phase 1: Beads Backend Check
 
 **CRITICAL: Prefer official Beads, but Flow can also run with `br` compatibility mode or no-Beads mode.**
+
+**SKIP if Beads Backend is already detected in hook context.**
 
 ```bash
 if command -v bd >/dev/null 2>&1 && command -v br >/dev/null 2>&1; then
@@ -230,6 +247,7 @@ elif command -v br >/dev/null 2>&1; then
 else
   echo "BEADS_MISSING"
 fi
+
 ```
 
 If `BEADS_BOTH` is found, ask user:

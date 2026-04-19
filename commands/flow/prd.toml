@@ -70,19 +70,18 @@ Check `bd` first, then `br`, otherwise continue in markdown-only mode.
 
 ---
 
-## 5.0 BEADS INTEGRATION (Post-Approval Only)
+## 5.0 BEADS INTEGRATION (SOURCE OF TRUTH)
 **PROTOCOL: Create Beads epics with full context.**
 
 1.  **Master Epic:**
     ```bash
     <active_backend_create_prd_epic>
-    <active_backend_attach_prd_notes>
     ```
+    **CRITICAL:** The `--description` must include the North Star goal.
 2.  **Sub-Epics (Chapters):**
-    ```bash
-    <active_backend_create_chapter_epic>
-    <active_backend_attach_chapter_notes>
-    ```
+    For each Chapter in Roadmap, create a child epic.
+3.  **Architectural Notes:**
+    Attach high-level decisions as notes to the master epic using `bd note <id> "..."`.
 
 ---
 

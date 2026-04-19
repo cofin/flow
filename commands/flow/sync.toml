@@ -17,28 +17,21 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
 ---
 
 ## 2.0 ACTIVE BACKEND STATUS EXPORT
-**PROTOCOL: Export active backend state to `spec.md` without mutating backend tasks.**
+**PROTOCOL: Export active backend state (status + notes) to disk.**
 
-1.  **Determine Flow:** Read `.agents/flows.md` for active flows. If one active flow, select it. If multiple, choose the most recently modified. If none, continue to Phase 3.
-2.  **Load Flow Metadata and Context:** Read `.agents/specs/<flow_id>/metadata.json`, `.agents/specs/<flow_id>/spec.md`, `.agents/workflow.md`, and `.agents/tech-stack.md`.
-3.  **Resolve Active Backend:**
-    *   `bd`: use the official Beads show/export flow
-    *   `br`: run `br show <beads_epic_id> --format json`
-    *   no-Beads: skip backend export and preserve markdown-only state
+1.  **Determine Flow:** Read `.agents/flows.md` for active flows.
+2.  **Load Flow Metadata:** Read `.agents/specs/<flow_id>/metadata.json`, `.agents/specs/<flow_id>/spec.md`.
+3.  **Resolve Active Backend:** `bd`, `br`, or `none`.
 4.  **Fetch States:**
-    *   **Backend State:** Only if a backend link such as `beads_epic_id` exists
-    *   **Markdown State:** Parse `.agents/specs/<flow_id>/spec.md` task list to find markers `[ ]`, `[~]`, `[x]`, `[!]`, `[-]`
-5.  **Regenerate Spec Task Section (One-Way Export):**
-    *   If backend state exists, map backend statuses to markdown markers:
-        - `open` / `pending` -> `[ ]`
-        - `in_progress` -> `[~]`
-        - `closed` / `completed` -> `[x]`
-        - `blocked` -> `[!]`
-        - `skipped` / `deferred` -> `[-]`
-    *   Match tasks by title first, then stable ordering only as fallback
-    *   Append commit SHAs from backend completion reasons where available
-    *   If no backend is configured, preserve the existing markdown-only task markers
-6.  **Update Metadata:** Set `"synced_at"` and `"updated_at"` in `metadata.json`.
+    *   **Backend State:** Pull all tasks AND notes/comments.
+5.  **Regenerate Spec Task Section:**
+    *   Map backend statuses to markdown markers.
+    *   Match tasks by title.
+    *   Append commit SHAs from backend.
+6.  **Update Learnings:**
+    *   Extract backend notes.
+    *   Append new notes to `.agents/specs/<flow_id>/learnings.md` in Ralph-style.
+7.  **Update Metadata:** Set `"synced_at"` and `"updated_at"`.
 
 ---
 

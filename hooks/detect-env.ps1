@@ -1,187 +1,245 @@
 # PowerShell environment detection for Flow
 # Mirror of detect-env.sh logic for native Windows support
 
-Write-Host "## Flow Environment Context"
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
 
-# 1. Beads Backend Detection
-$beads_bd = Get-Command bd -ErrorAction SilentlyContinue
-$beads_br = Get-Command br -ErrorAction SilentlyContinue
+function Get-BeadsBackend {
+    Write-Host "## Flow Environment Context"
+    $beads_bd = Get-Command bd -ErrorAction SilentlyContinue
+    $beads_br = Get-Command br -ErrorAction SilentlyContinue
 
-if ($beads_bd) {
-    Write-Host "- **Beads Backend**: Official (bd)"
-} elseif ($beads_br) {
-    Write-Host "- **Beads Backend**: Compatibility (br)"
-} else {
-    Write-Host "- **Beads Backend**: Missing (None)"
+    if ($beads_bd) {
+        Write-Host "- **Beads Backend**: Official (bd)"
+        return "bd"
+    } elseif ($beads_br) {
+        Write-Host "- **Beads Backend**: Compatibility (br)"
+        return "br"
+    } else {
+        Write-Host "- **Beads Backend**: Missing (None)"
+        return $null
+    }
 }
 
-# 2. Project Config Detection
-$ROOT_DIR = ".agents"
-if (Test-Path ".agents/setup-state.json") {
-    try {
-        $setup_state = Get-Content ".agents/setup-state.json" | ConvertFrom-Json
-        if ($setup_state.root_directory) {
-            $ROOT_DIR = $setup_state.root_directory
+function Get-FlowRoot {
+    $rootDir = ".agents"
+    $setupStateFile = ".agents/setup-state.json"
+    if (Test-Path $setupStateFile) {
+        try {
+            $setupState = Get-Content $setupStateFile -Raw | ConvertFrom-Json
+            if ($setupState.root_directory) {
+                $rootDir = $setupState.root_directory
+                Write-Host "- **Flow Root**: $rootDir"
+            } else {
+                Write-Host "- **Flow Root**: .agents/ (default, missing in setup-state)"
+            }
+        } catch {
+            Write-Host "- **Flow Root**: .agents/ (default, error parsing setup-state)"
         }
-        Write-Host "- **Flow Root**: $ROOT_DIR"
-    } catch {
+    } else {
         Write-Host "- **Flow Root**: .agents/ (default)"
     }
-} else {
-    Write-Host "- **Flow Root**: .agents/ (default)"
+    return $rootDir
 }
 
-# 3. Tooling Detection
-$tools = @()
-if (Get-Command uv -ErrorAction SilentlyContinue) { $tools += "uv" }
-if (Get-Command bun -ErrorAction SilentlyContinue) { $tools += "bun" }
-if (Get-Command ruff -ErrorAction SilentlyContinue) { $tools += "ruff" }
-if (Get-Command make -ErrorAction SilentlyContinue) { $tools += "make" }
-if (Get-Command railway -ErrorAction SilentlyContinue) { $tools += "railway" }
+function Get-Tooling {
+    $toolsToCheck = @("uv", "bun", "ruff", "make", "railway")
+    $availableTools = @()
+    foreach ($tool in $toolsToCheck) {
+        if (Get-Command $tool -ErrorAction SilentlyContinue) {
+            $availableTools += $tool
+        }
+    }
 
-if ($tools.Count -gt 0) {
-    Write-Host ("- **Tooling**: " + ($tools -join " "))
-} else {
-    Write-Host "- **Tooling**: None"
-}
-
-# 4. Git Context
-if (git rev-parse --is-inside-work-tree 2>$null) {
-    $branch = git symbolic-ref --short HEAD 2>$null
-    if (-not $branch) { $branch = "unborn" }
-    Write-Host "- **Git Branch**: $branch"
-    if (git check-ignore -q "$ROOT_DIR/" 2>$null) {
-        Write-Host "- **Git Visibility**: $ROOT_DIR/ is GIT-IGNORED (Use 'cat' or bypass ignore filters)"
+    if ($availableTools.Count -gt 0) {
+        Write-Host ("- **Tooling**: " + ($availableTools -join " "))
     } else {
-        Write-Host "- **Git Visibility**: $ROOT_DIR/ is Tracked"
+        Write-Host "- **Tooling**: None"
     }
 }
 
-# 5. Project Identity
-$product_file = "$ROOT_DIR/product.md"
-if (Test-Path $product_file) {
-    Write-Host ""
-    Write-Host "### Project Identity"
-    Get-Content $product_file | Where-Object { $_ -match "^[^#]" } | Select-Object -First 5 | ForEach-Object { Write-Host "  $_" }
-}
-
-# 6. Context Index
-Write-Host ""
-Write-Host "### Project Context Index"
-Write-Host "- **Product Definition**: $ROOT_DIR/product.md"
-Write-Host "- **Tech Stack**: $ROOT_DIR/tech-stack.md"
-Write-Host "- **Workflow**: $ROOT_DIR/workflow.md"
-Write-Host "- **Patterns**: $ROOT_DIR/patterns.md"
-Write-Host "- **Flow Registry**: $ROOT_DIR/flows.md"
-
-# 7. Active Work
-Write-Host ""
-Write-Host "### Active Work"
-if ($beads_bd) {
+function Get-GitContext($rootDir) {
     try {
-        $ready = bd ready --json | ConvertFrom-Json | Select-Object -First 3
-        if ($ready) {
-            $ready_json = $ready | ConvertTo-Json -Compress
-            Write-Host "- **Ready Tasks (Top 3)**: $ready_json"
-        } else {
-            Write-Host "- **Ready Tasks**: None"
+        if (git rev-parse --is-inside-work-tree 2>$null) {
+            $branch = git symbolic-ref --short HEAD 2>$null
+            if (-not $branch) { $branch = "unborn" }
+            Write-Host "- **Git Branch**: $branch"
+            
+            if (git check-ignore -q "$rootDir/" 2>$null) {
+                Write-Host "- **Git Visibility**: $rootDir/ is GIT-IGNORED (Use 'cat' or bypass ignore filters)"
+            } else {
+                Write-Host "- **Git Visibility**: $rootDir/ is Tracked"
+            }
         }
     } catch {
-        Write-Host "- **Ready Tasks**: None"
+        # Git failed or not installed, skip silently
     }
-} elseif ($beads_br) {
-    $ready = br ready | Select-Object -First 3
-    if ($ready) {
-        Write-Host "- **Ready Tasks (Top 3)**:"
-        $ready | ForEach-Object { Write-Host "  $_" }
-    } else {
-        Write-Host "- **Ready Tasks**: None"
-    }
-} else {
-    Write-Host "- **Status**: No active backend for task tracking."
 }
 
-# 8. Essential Truths (Priming)
-Write-Host ""
-Write-Host "### Core Project Truths"
+function Get-ProjectIdentity($rootDir) {
+    $productFile = Join-Path $rootDir "product.md"
+    if (Test-Path $productFile) {
+        Write-Host ""
+        Write-Host "### Project Identity"
+        try {
+            Get-Content $productFile | Where-Object { $_ -trim() -and $_ -notmatch "^#" } | Select-Object -First 5 | ForEach-Object { Write-Host "  $_" }
+        } catch {
+            # Failed to read/process, skip
+        }
+    }
+}
+
+function Get-ContextIndex($rootDir) {
+    Write-Host ""
+    Write-Host "### Project Context Index"
+    Write-Host "- **Product Definition**: $rootDir/product.md"
+    Write-Host "- **Tech Stack**: $rootDir/tech-stack.md"
+    Write-Host "- **Workflow**: $rootDir/workflow.md"
+    Write-Host "- **Patterns**: $rootDir/patterns.md"
+    Write-Host "- **Flow Registry**: $rootDir/flows.md"
+}
+
+function Get-ActiveWork($backend) {
+    Write-Host ""
+    Write-Host "### Active Work"
+    if ($backend -eq "bd") {
+        try {
+            # Use a short timeout if possible (not native in PS, but we can try)
+            $ready = bd ready --json | ConvertFrom-Json | Select-Object -First 3
+            if ($ready) {
+                $readyJson = $ready | ConvertTo-Json -Compress
+                Write-Host "- **Ready Tasks (Top 3)**: $readyJson"
+            } else {
+                Write-Host "- **Ready Tasks**: None"
+            }
+        } catch {
+            Write-Host "- **Ready Tasks**: None (error or no active session)"
+        }
+    } elseif ($backend -eq "br") {
+        try {
+            $ready = br ready | Select-Object -First 3
+            if ($ready) {
+                Write-Host "- **Ready Tasks (Top 3)**:"
+                $ready | ForEach-Object { Write-Host "  $_" }
+            } else {
+                Write-Host "- **Ready Tasks**: None"
+            }
+        } catch {
+            Write-Host "- **Ready Tasks**: None"
+        }
+    } else {
+        Write-Host "- **Status**: No active backend for task tracking."
+    }
+}
 
 function Extract-Truths($file) {
     if (Test-Path $file) {
-        $content = Get-Content $file
-        $in_truth = $false
-        $truths = @()
-        foreach ($line in $content) {
-            if ($line -match "<!-- truth: start -->") { $in_truth = $true; continue }
-            if ($line -match "<!-- truth: end -->") { $in_truth = $false; continue }
-            if ($in_truth) { $truths += $line }
-        }
-        if ($truths.Count -gt 0) {
-            $truths | ForEach-Object { Write-Host "  $_" }
-            return $true
+        try {
+            $content = Get-Content $file
+            $inTruth = $false
+            $truths = @()
+            foreach ($line in $content) {
+                if ($line -match "<!-- truth: start -->") { $inTruth = $true; continue }
+                if ($line -match "<!-- truth: end -->") { $inTruth = $false; continue }
+                if ($inTruth) { $truths += $line }
+            }
+            if ($truths.Count -gt 0) {
+                $truths | ForEach-Object { Write-Host "  $_" }
+                return $true
+            }
+        } catch {
+            return $false
         }
     }
     return $false
 }
 
-$tech_stack_file = "$ROOT_DIR/tech-stack.md"
-Write-Host "- **Tech Stack Summary**:"
-if (-not (Extract-Truths $tech_stack_file)) {
-    if (Test-Path $tech_stack_file) {
-        Get-Content $tech_stack_file | Where-Object { $_ -match "^-" } | Select-Object -First 10 | ForEach-Object { Write-Host "  $_" }
+function Get-EssentialTruths($rootDir) {
+    Write-Host ""
+    Write-Host "### Core Project Truths"
+
+    $techStackFile = Join-Path $rootDir "tech-stack.md"
+    if (Test-Path $techStackFile) {
+        Write-Host "- **Tech Stack Summary**:"
+        if (-not (Extract-Truths $techStackFile)) {
+            Get-Content $techStackFile | Where-Object { $_ -match "^-" } | Select-Object -First 10 | ForEach-Object { Write-Host "  $_" }
+        }
+    }
+
+    $workflowFile = Join-Path $rootDir "workflow.md"
+    if (Test-Path $workflowFile) {
+        Write-Host "- **Canonical Commands**:"
+        if (-not (Extract-Truths $workflowFile)) {
+            $wfContent = Get-Content $workflowFile
+            $foundSection = $false
+            $count = 0
+            foreach ($line in $wfContent) {
+                if ($line -match "## Development Commands") { $foundSection = $true; continue }
+                if ($foundSection) {
+                    if ($line -match "^##") { break }
+                    if ($line.Trim() -and $line -notmatch "^#") {
+                        Write-Host "  $line"
+                        $count++
+                        if ($count -ge 15) { break }
+                    }
+                }
+            }
+        }
+    }
+
+    $patternsFile = Join-Path $rootDir "patterns.md"
+    if (Test-Path $patternsFile) {
+        Write-Host "- **Critical Patterns**:"
+        if (-not (Extract-Truths $patternsFile)) {
+            Get-Content $patternsFile | Where-Object { $_ -match "^-" } | Select-Object -First 10 | ForEach-Object { Write-Host "  $_" }
+        }
     }
 }
 
-$workflow_file = "$ROOT_DIR/workflow.md"
-Write-Host "- **Canonical Commands**:"
-if (-not (Extract-Truths $workflow_file)) {
-    if (Test-Path $workflow_file) {
-        # Fallback to dev commands section if markers missing
-        $wf_content = Get-Content $workflow_file
-        $found_section = $false
-        $count = 0
-        foreach ($line in $wf_content) {
-            if ($line -match "## Development Commands") { $found_section = $true; continue }
-            if ($found_section) {
-                if ($line -match "^##") { break }
-                if ($line -trim() -and $line -notmatch "^#") {
-                    Write-Host "  $line"
-                    $count++
-                    if ($count -ge 15) { break }
+function Get-KnowledgeInventory($rootDir) {
+    if ((Test-Path (Join-Path $rootDir "knowledge")) -or (Test-Path (Join-Path $rootDir "patterns.md"))) {
+        Write-Host ""
+        Write-Host "### Knowledge Base"
+        if (Test-Path (Join-Path $rootDir "patterns.md")) { Write-Host "- **Consolidated Patterns**: $rootDir/patterns.md" }
+        $knowledgeDir = Join-Path $rootDir "knowledge"
+        if (Test-Path $knowledgeDir) {
+            try {
+                $chapters = Get-ChildItem "$knowledgeDir/*.md" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name
+                if ($chapters) {
+                    Write-Host ("- **Knowledge Chapters**: " + ($chapters -join " "))
                 }
+            } catch {
+                # Skip
             }
         }
     }
 }
 
-$patterns_file = "$ROOT_DIR/patterns.md"
-Write-Host "- **Critical Patterns**:"
-if (-not (Extract-Truths $patterns_file)) {
-    if (Test-Path $patterns_file) {
-        Get-Content $patterns_file | Where-Object { $_ -match "^-" } | Select-Object -First 10 | ForEach-Object { Write-Host "  $_" }
-    }
-}
-
-# 9. Knowledge Inventory
-if ((Test-Path "$ROOT_DIR/knowledge") -or (Test-Path "$ROOT_DIR/patterns.md")) {
+function Get-FlowMandate($rootDir) {
     Write-Host ""
-    Write-Host "### Knowledge Base"
-    if (Test-Path "$ROOT_DIR/patterns.md") { Write-Host "- **Consolidated Patterns**: $ROOT_DIR/patterns.md" }
-    if (Test-Path "$ROOT_DIR/knowledge") {
-        $chapters = Get-ChildItem "$ROOT_DIR/knowledge/*.md" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name
-        if ($chapters) {
-            Write-Host ("- **Knowledge Chapters**: " + ($chapters -join " "))
-        }
-    }
+    Write-Host "### Flow Mandate"
+    Write-Host "- **Zero-Ambiguity Standard**: All PRDs MUST be Master Roadmaps (Sagas). ALL child plans MUST be 'High-Definition Worksheets' with exact line numbers and code snippets."
+    Write-Host "- **Synthesis Mandate**: You are responsible for the knowledge lifecycle. Autonomously identify patterns and synthesize learnings into formal guides in `"$rootDir/knowledge/"`."
+    Write-Host "- **Cleanup Mandate**: Regularly run \"/flow:cleanup\" to re-assess, reorganize, and optimize the project context. Verify task status against SOURCE CODE."
+    Write-Host "- **Inherit First**: READ `patterns.md` and `knowledge/` chapters before planning. Adhere to current state truth."
+    Write-Host "- **Deep Research First**: Do NOT defer research to implementation. ALL analysis and architectural decisions MUST be completed upfront."
+    Write-Host "- **Stateless Executor Test**: A plan is only 'Ready' if an agent with ZERO context can implement it 100% correctly based ONLY on the worksheet."
+    Write-Host "- **TDD Discipline**: Follow the Red-Green-Refactor cycle and verify coverage as outlined in the `flow` skill."
+    Write-Host "- **Sync Requirement**: Run \"/flow:sync\" after any change to Beads state or project structure."
 }
 
-# 10. Flow Mandate
-Write-Host ""
-Write-Host "### Flow Mandate"
-Write-Host "- **Zero-Ambiguity Standard**: All PRDs MUST be Master Roadmaps (Sagas). ALL child plans MUST be 'High-Definition Worksheets' with exact line numbers and code snippets."
-Write-Host "- **Synthesis Mandate**: You are responsible for the knowledge lifecycle. Autonomously identify patterns and synthesize learnings into formal guides in `"$ROOT_DIR/knowledge/"`."
-Write-Host "- **Cleanup Mandate**: Regularly run \"/flow:cleanup\" to re-assess, reorganize, and optimize the project context. Verify task status against SOURCE CODE."
-Write-Host "- **Inherit First**: READ `patterns.md` and `knowledge/` chapters before planning. Adhere to current state truth."
-Write-Host "- **Deep Research First**: Do NOT defer research to implementation. ALL analysis and architectural decisions MUST be completed upfront."
-Write-Host "- **Stateless Executor Test**: A plan is only 'Ready' if an agent with ZERO context can implement it 100% correctly based ONLY on the worksheet."
-Write-Host "- **TDD Discipline**: Follow the Red-Green-Refactor cycle and verify coverage as outlined in the `flow` skill."
-Write-Host "- **Sync Requirement**: Run \"/flow:sync\" after any change to Beads state or project structure."
+function Main {
+    $backend = Get-BeadsBackend
+    $rootDir = Get-FlowRoot
+    Get-Tooling
+    Get-GitContext $rootDir
+    Get-ProjectIdentity $rootDir
+    Get-ContextIndex $rootDir
+    Get-ActiveWork $backend
+    Get-EssentialTruths $rootDir
+    Get-KnowledgeInventory $rootDir
+    Get-FlowMandate $rootDir
+}
+
+Main
+

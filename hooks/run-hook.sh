@@ -1,29 +1,40 @@
 #!/usr/bin/env bash
-# Cross-platform hook runner for Flow plugin
-# Called by hooks.json or run-hook.cmd
 #
-# Usage: run-hook.sh <hook-name>
-# Example: run-hook.sh session-start
-
+# run-hook.sh - Cross-platform hook runner for Flow plugin.
+#
+# Usage:
+#   run-hook.sh <hook-name>
+#
 set -euo pipefail
+IFS=$'\n\t'
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-HOOK_NAME="${1:-}"
+main() {
+    local script_dir
+    script_dir="$(cd "$(dirname "$0")" && pwd)"
+    
+    local hook_name="${1:-}"
+    if [[ -z "${hook_name}" ]]; then
+        printf '{"error": "No hook name provided"}\n' >&2
+        exit 1
+    fi
 
-if [ -z "$HOOK_NAME" ]; then
-    echo '{"error": "No hook name provided"}' >&2
-    exit 1
-fi
+    # Try both with and without .sh extension
+    local hook_script="${script_dir}/${hook_name}.sh"
+    if [[ ! -f "${hook_script}" ]]; then
+        hook_script="${script_dir}/${hook_name}"
+    fi
 
-HOOK_SCRIPT="${SCRIPT_DIR}/${HOOK_NAME}.sh"
+    if [[ ! -f "${hook_script}" ]]; then
+        printf '{"error": "Hook script not found: %s"}\n' "${hook_name}" >&2
+        exit 1
+    fi
 
-if [ ! -f "$HOOK_SCRIPT" ]; then
-    echo "{\"error\": \"Hook script not found: ${HOOK_NAME}.sh\"}" >&2
-    exit 1
-fi
+    if [[ ! -x "${hook_script}" ]]; then
+        chmod +x "${hook_script}"
+    fi
 
-if [ ! -x "$HOOK_SCRIPT" ]; then
-    chmod +x "$HOOK_SCRIPT"
-fi
+    exec "${hook_script}"
+}
 
-exec "$HOOK_SCRIPT"
+main "$@"
+

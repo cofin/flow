@@ -7,6 +7,15 @@ description: "Use when a project has `.agents/`, when the user asks to set up, p
 
 Use the Flow skill for context-driven development workflows in repos that use `.agents/`. The environment (Beads backend, project root, and tooling) is **automatically detected via hooks** at the start of every session and provided in your `<hook_context>`.
 
+## The Beads-First Mandate
+
+**CRITICAL:** Beads (`bd` or `br`) is the **Primary Source of Truth** for task state and persistent context. Markdown files (`spec.md`, `prd.md`) are **Synchronized Views** of this state.
+
+- **PRDs are Epics**: `flow:prd` creates a Master Roadmap by initializing Beads **Epics**.
+- **Plans are Task Graphs**: `flow:plan` defines the roadmap by creating Beads **Tasks** linked to the flow epic.
+- **Context is Notes**: ALL design decisions, investigation findings, and implementation notes MUST be attached to work items using `bd note <id> "..."` (or `br comment`). This ensures context survives session resets and compaction.
+- **Sync is Mandatory**: Run `/flow:sync` after any Beads mutation to update the human-readable Markdown view.
+
 ## The Zero-Ambiguity Mandate
 
 **CRITICAL:** Every specification (`spec.md`) MUST be a "High-Definition" document. It is NOT a summary; it is a **Worksheet**.
@@ -20,21 +29,21 @@ Use the Flow skill for context-driven development workflows in repos that use `.
 
 ## Core Concepts
 
-### Flows (formerly PRDs)
+### Flows
 
-A flow is a logical unit of work (feature or bug fix). Each flow has:
+A flow is a logical unit of work (feature or bug fix) backed by a Beads **Epic**. Each flow has:
 
-- **ID format**: `shortname` (e.g., `auth`)
+- **ID format**: `shortname` (e.g., `auth`) — MUST match the Beads Epic ID prefix.
 - **Location**: `.agents/specs/{flow_id}/`
-- **Files**: spec.md (unified spec+plan), metadata.json, learnings.md
+- **Files**: spec.md (synchronized view), metadata.json, learnings.md (synced from notes)
 
-### Status Markers
+### Status Markers (Markdown Sync)
 
-- `[ ]` - Pending/New
-- `[~]` - In Progress
-- `[x]` - Completed (with commit SHA: `[x] abc1234`)
-- `[!]` - Blocked (logged in blockers.md)
-- `[-]` - Skipped (logged in skipped.md)
+- `[ ]` - Pending/New (Beads: `open`)
+- `[~]` - In Progress (Beads: `in_progress`)
+- `[x]` - Completed (Beads: `closed`)
+- `[!]` - Blocked (Beads: `blocked`)
+- `[-]` - Skipped (Beads: `deferred` / `closed:skipped`)
 
 ### Beads Integration
 
@@ -66,29 +75,16 @@ Use `choosing-beads-backend` when selecting or migrating the backend.
 
 ## Workflow Commands
 
-**Host note:** Claude Code uses `/flow-command` and Gemini CLI / OpenCode use `/flow:command`.
-Codex currently runs the same workflows via the installed Flow skill and natural-language requests such as
-`Use Flow to set up this project` or `Use Flow to create a PRD for user authentication`.
-
-| Claude Code | Gemini CLI / OpenCode | Purpose |
-|-------------|------------------------|---------|
-| `/flow-setup` | `/flow:setup` | Initialize project with context files |
-| `/flow-prd` | `/flow:prd` | Create feature/bug flow |
-| `/flow-plan` | `/flow:plan` | Plan flow with unified spec.md |
-| `/flow-sync` | `/flow:sync` | Sync Beads state to spec.md |
-| `/flow:refine` | `/flow:refine` | Expand coarse tasks into implementation-ready plan |
-| `/flow-implement` | `/flow:implement` | Execute tasks (TDD workflow) |
-| `/flow-status` | `/flow:status` | Display progress overview |
-| `/flow-revert` | `/flow:revert` | Git-aware revert |
-| `/flow-validate` | `/flow:validate` | Validate project integrity |
-| `/flow-revise` | `/flow:revise` | Update spec/plan mid-work |
-| `/flow-archive` | `/flow:archive` | Archive completed flow |
-| `/flow-task` | `/flow:task` | Ephemeral exploration task |
-| `/flow-docs` | `/flow:docs` | Documentation workflow |
-| `/flow-refresh` | `/flow:refresh` | Sync context with codebase |
-| `/flow-finish` | `/flow:finish` | Complete flow: verify, review, merge/PR |
-| `/flow-review` | `/flow:review` | Dispatch code review with Beads git range |
-| `/flow-cleanup` | `/flow:cleanup` | **Groundskeeper**: Global maintenance and optimization of .agents/ |
+| Gemini CLI / OpenCode | Purpose |
+|------------------------|---------|
+| `/flow:setup` | Initialize project with context files and Beads |
+| `/flow:prd` | **Orchestrator**: Create Beads **Epics** and Master Roadmap |
+| `/flow:plan` | **Planner**: Create Beads **Tasks** and sync to spec.md |
+| `/flow:sync` | **Syncer**: Bridge Beads state (notes/status) to Markdown |
+| `/flow:refine` | **Refiner**: Expand coarse tasks into implementation worksheets |
+| `/flow:implement` | **Executor**: Execute tasks using TDD + Beads claim/note flow |
+| `/flow:status` | Display progress overview from Beads |
+| `/flow:archive` | Archive completed flow and elevate patterns |
 
 <workflow>
 
@@ -96,17 +92,15 @@ Codex currently runs the same workflows via the installed Flow skill and natural
 
 **See `references/discipline.md` for iron laws, rationalization tables, and red flags.**
 
-1. **Select task** from the active backend's ready queue
-2. **Mark in progress** using the active backend
-3. **Write failing tests** (Red phase) - MUST confirm failure for right reason
-4. **Implement** minimal code to pass (Green phase) - MUST confirm all tests pass
-   - If `superpowers:subagent-driven-development` is available, use it for implementation subagent orchestration
-5. **Refactor** with test safety — must stay green
-6. **Verify coverage** (>80% target)
-7. **Commit** with format: `<type>(<scope>): <description>`
-8. **Attach git notes** with task summary
-9. **Sync to Beads** using the active backend
-10. **Sync to markdown**: run `/flow:sync` to update spec.md.
+1. **Select task** from the active backend's ready queue (`bd ready`).
+2. **Mark in progress** and claim the task (`bd update <id> --claim`).
+3. **Investigate & Note**: Record findings/decisions with `bd note <id> "..."`.
+4. **Write failing tests** (Red phase) - MUST confirm failure for right reason.
+5. **Implement** minimal code to pass (Green phase) - MUST confirm all tests pass.
+6. **Refactor** with test safety — must stay green.
+7. **Commit** with format: `<type>(<scope>): <description>`.
+8. **Close task** in Beads with the commit reference (`bd close <id> --reason "[abc1234] Done"`).
+9. **Sync to markdown**: Run `/flow:sync` to update spec.md and learnings.md.
 
 </workflow>
 
@@ -131,7 +125,8 @@ Before marking a task complete, verify:
 - [ ] Failing test was confirmed to fail for the RIGHT reason before implementation
 - [ ] All tests pass after implementation (not just the new one)
 - [ ] Coverage target (>80%) was checked with actual numbers
-- [ ] Beads state was synced BEFORE editing spec.md
+- [ ] Task was closed in Beads with the commit SHA (`bd close <id> --reason "[abc1234]..."`)
+- [ ] `/flow:sync` was run to update spec.md
 - [ ] Commit message follows `<type>(<scope>): <description>` format
 
 </validation>
@@ -224,8 +219,9 @@ If a referenced companion skill is unavailable in the current host, execute the 
 
 When Flow skill is active:
 
-- Check for resume state at session start.
-- Detect the active Beads backend and load its current context.
+- **Check Hook Context First**: ALWAYS scan `<hook_context>` for `## Flow Environment Context`. Use the injected **Flow Root**, **Beads Backend**, and **Canonical Commands** as authoritative ground truth. Skip manual discovery steps if this information is present.
+- **Check for resume state** at session start if hook context is missing.
+- **Detect the active Beads backend** (if not in hook context) and load its current context.
 - Scan `knowledge/index.md` for relevant past learnings when starting a new flow.
 - Prompt for learnings capture after tasks.
 - Suggest pattern elevation at phase completion.
@@ -233,7 +229,7 @@ When Flow skill is active:
 - If the user repeats a correction or sounds frustrated about something being forgotten, treat that as mandatory knowledge capture rather than optional polish.
 - Warn if tech-stack changes without documentation.
 - Enforce mandatory `/flow:sync` after any Beads state change.
-- Prefer canonical repo commands such as `make lint`, `make test`, `make check`, `just check`, `task test`, package-script wrappers, or pre-commit entrypoints when the repo defines them.
+- Prefer canonical repo commands (setup, lint, test, typecheck, verify) as defined in the **Core Project Truths** section of the hook context or in `.agents/workflow.md`.
 - Treat repeated reminders like "use make lint" or "don't forget to test" as workflow failures that must be captured and elevated.
 - **Mandatory Superpowers Integration:** If Superpowers is detected, all workflows (PRD, Plan, Implement) MUST follow the **Superpowers Protocol** above.
 - Invoke `flow:apilookup` proactively for external API/docs/version/migration questions.

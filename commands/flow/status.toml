@@ -1,64 +1,38 @@
 description = "Display progress overview with Beads status"
 prompt = """
 ## 1.0 SYSTEM DIRECTIVE
-You are an AI agent assistant for the Flow spec-driven development framework. Your task is to report the status of active flows and their progress.
+You are an AI agent assistant for the Flow spec-driven development framework. Your task is to report the status of active flows using Beads as the primary source of truth.
 
-CRITICAL: You must validate the success of every tool call. If any tool call fails, you MUST halt the current operation immediately, announce the failure to the user, and await further instructions.
+CRITICAL: You must validate the success of every tool call.
 
 ---
 
 ## 1.1 INITIALIZATION
 **PROTOCOL: Load the Flow context.**
 
-1.  **Check for User Input:** First, check if the user provided a flow ID as an argument (e.g., `/flow:status <flow_id>`).
-    *   **If provided:** Report detailed status for that `flow_id`.
-    *   **If NOT provided:** Report summary status for all active flows.
-
-2.  **Load Registry:** Read the **Flow Registry** (via the **Universal File Resolution Protocol** using the project's index file).
+1.  **Check for User Input:** If `{{args}}` provided, report detailed status for that `flow_id`.
+2.  **Load Registry:** Read the Flow Registry from `.agents/flows.md`.
 
 ---
 
-## 2.0 SUMMARY STATUS (No Argument)
-**PROTOCOL: List all active flows and their high-level progress.**
+## 2.0 BEADS STATUS (SOURCE OF TRUTH)
+**PROTOCOL: Query the active backend for live state.**
 
-1.  **Scan Active Flows:** Parse the **Flow Registry** for active/in-progress flows.
-2.  **Get Beads Status (Source of Truth):**
-    ```bash
-    br ready
-    br blocked
-    br show <epic_id> --format json
-    ```
-3.  **Generate Report:**
-    For each active flow:
-    *   Get task status from Beads (`br show <epic_id> --format json`).
-    *   Count: pending, in_progress, completed, blocked.
-    *   Calculate percentage complete.
-    *   **Format:**
-        *   `[Icon] <flow_id>: <Description> (<N>% Complete)`
-        *   `      Next Task: <Next ready task from br ready>`
-        *   `      Blockers: <Count from br blocked>`
+1.  **Pull State:** Run `bd ready` and `bd status` (or `br` equivalents).
+2.  **Match:** Cross-reference Beads epics with the Flow registry.
 
 ---
 
-## 3.0 DETAILED STATUS (With Argument)
-**PROTOCOL: Report deep details for a specific flow.**
+## 3.0 DISPLAY DASHBOARD
+**PROTOCOL: Show progress, ready tasks, and recent notes.**
 
-1.  **Load Flow Context:**
-    *   **Identify Flow Folder:** `<Flow Directory>/<flow_id>/` (e.g. `.agents/specs/<flow_id>/`).
-    *   Read `spec.md` (unified spec+plan), `metadata.json`, `learnings.md`, `blockers.md`.
+1.  **Summary:** Show % completion and current phase for active flows.
+2.  **Ready Queue:** List tasks from `bd ready` that are unblocked and ready to claim.
+3.  **Recent Notes:** Display the 3-5 most recent `bd note` entries to maintain context awareness.
+4.  **Sync Check:** If Markdown markers in `spec.md` don't match Beads status, suggest running `/flow:sync`.
 
-2.  **Get Beads Details:**
-    *   Get the epic ID from `metadata.json`.
-    *   Run `br show <epic_id>` to get Beads status.
+---
 
-3.  **Generate Report:**
-    *   **Header:** Flow Title & ID
-    *   **Progress:** Visual progress bar [====....] N%
-    *   **Current Phase:** Identify the current phase from `spec.md`.
-    *   **Active Task:** The task currently marked `[~]` or the next `[ ]`.
-    *   **Recent Learnings:** Last 3 entries from `learnings.md`.
-    *   **Blockers:** List any open blockers.
-    *   **Beads Status:** Summary of linked Beads epic status.
-
-4.  **Next Actions:** Suggest the next logical command (e.g., `/flow:implement <flow_id>` or `br update {id} --status blocked --notes "BLOCKED: {reason}"`).
+## 4.0 NEXT ACTIONS
+Based on the current status, suggest the next command (e.g., `/flow:implement <flow_id>` or `/flow:sync`).
 """

@@ -63,4 +63,5 @@ The `hatch-mojo` plugin allows seamless compilation of Mojo source files during 
 dependencies = ["hatch-mojo"]
 path = "src/my_extension.mojo"
 ```
+
 </example>

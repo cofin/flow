@@ -8,99 +8,36 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, WebSearch
 
 Refining flow: **$ARGUMENTS**
 
-## 1.0 SYSTEM DIRECTIVE
+## The Refiner Mandate
 
-You are the **Flow Refiner**. Your task is to turn a coarse or mostly-correct Flow plan into an implementation-ready plan. You MUST follow the **Iteration Iron Law** defined in `skills/flow/references/refine.md`.
-
-CRITICAL: You must validate the success of every tool call. If any tool call fails, HALT and announce failure.
+**CRITICAL:** `/flow:refine` is the quality gate. Its primary role is to ensure every task in **Beads** has sufficient detail (files, lines, snippets) for a "stateless" executor.
 
 ---
 
-## 2.0 INITIALIZATION
+## 3.0 Refinement Workflow
 
-**PROTOCOL: Load the Flow context.**
+**PROTOCOL: Update Beads tasks with high-definition detail.**
 
-1. **Check for User Input:** First, check if the user provided a flow ID as an argument.
-    * **If provided:** Use that `flow_id` and proceed to step 3.
-    * **If NOT provided:** Proceed to step 2 to auto-discover the flow.
-
-2. **Auto-Discovery (No Argument Provided):**
-    * **Scan for Active Flows:** Read `.agents/flows.md` and look for flows marked as "Active" or "In Progress".
-    * **Heuristics:**
-        * If exact one active flow, select it.
-        * If multiple, choose most recent.
-        * If none, list pending and ask.
-
-3. **Load Flow Context:**
-    * **Read Artifacts:** `spec.md` (unified spec+plan), `learnings.md` (create if missing).
-    * **Read Project Context:** Read `.agents/patterns.md` and `.agents/workflow.md`.
-    * **Read Durable Knowledge:** Load relevant `.agents/knowledge/` chapters before coding.
+1. **Deep Code Dive**: Read more code until affected surfaces (file:line) are known.
+2. **Update Beads**: Use `bd note` to attach:
+    - Exact file/line targets.
+    - Implementation strategy (code snippets).
+    - Expected failure reason for TDD.
+3. **Sync Markdown**: Run `/flow:sync` to reflect these details in `spec.md`.
 
 ---
 
-## 3.0 REFINEMENT WORKFLOW (Iteration Iron Law)
+## 4.0 Completion
 
-### 3.1 Load Planning Context
+**PROTOCOL: Finalize and sync.**
 
-Read the relevant artifacts before refining:
-
-* `spec.md`
-* `.agents/patterns.md`
-* relevant `.agents/knowledge/*.md` chapters
-* The code paths, tests, migrations, config files, or external docs that the tasks depend on.
-
-### 3.2 Run the First-Pass Completeness Test
-
-For each phase and each task, ask:
-`Do I have enough task information written for this PRD/flow to complete it correctly in the first pass?`
-
-If no, classify the gap:
-
-* Missing file or module targets (with exact line numbers).
-* Missing dependency or execution order.
-* Missing API, schema, or data-shape detail (provide code samples).
-* Missing migration or rollout guidance.
-* Missing test-first instruction.
-* Missing validation or manual verification steps.
-* Missing external research.
-* Missing user decision or scope boundary.
-
-### 3.3 Research-and-Refine Loop (Iterative)
-
-**IRON LAW: Iterate until implementation-ready.**
-
-For each gap:
-
-1. Read more code until the affected surfaces are known (extract exact line numbers).
-2. Update the plan with the missing detail.
-
-Repeat until the task no longer depends on avoidable guesswork.
-
-### 3.4 Rewrite Tasks for Implementation Success
-
-Every refined task should make these explicit:
-
-* **Objective and Why**: Clear goal and context.
-* **Exact Targets**: Files, modules, commands, or configuration surfaces with line numbers.
-* **Implementation Strategy**: Provide code snippets or architectural patterns to follow.
-* **Prerequisites**: Clear dependencies or ordering.
-* **Test-First Instructions**: The first failing test to write and why it will fail.
-* **Verification**: Concrete commands and manual checks to verify success.
-* **Risks**: Known no-go conditions or edge cases to handle.
+1. **Sync**: Run `/flow:sync` to ensure `spec.md` acts as a perfect worksheet.
+2. **Hard Stop**: End with explicit instruction to run `/flow:implement`.
 
 ---
 
-## 4.0 COMPLETION (HARD STOP)
+## Critical Rules
 
-Announce:
-
-> "**REFINEMENT COMPLETE - IMPLEMENTATION READY**
->
-> Flow '<flow_id>' has been refined. All tasks now include concrete targets, line numbers, and implementation strategy.
->
-> **Artifacts updated:**
->
-> * Spec: `.agents/specs/<flow_id>/spec.md`
->
-> To begin implementation, explicitly run:
-> `/flow-implement <flow_id>`"
+1. **NO GUESSWORK** - Forbid vague instructions like "wire up".
+2. **BEADS FIRST** - Store refined detail in Beads notes/descriptions.
+3. **SYNC AFTER REFINE** - Run `/flow:sync` to generate the worksheet.

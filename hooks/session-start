@@ -1,52 +1,76 @@
 #!/usr/bin/env bash
-# Consolidated SessionStart hook for Flow framework
-# Supports: Gemini CLI, Claude Code, OpenCode, Codex CLI, Cursor IDE
 #
-# Detects host-specific environment variables to return the correct JSON schema.
-
+# session-start - Consolidated SessionStart hook for Flow framework.
+#
+# Supports: Gemini CLI, Claude Code, OpenCode, Codex CLI, Cursor IDE.
+#
 set -euo pipefail
+IFS=$'\n\t'
 
-# Determine script and plugin root directory
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PLUGIN_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+# --- Functions ---
 
-# 1. Gather Context via detect-env.sh (Cross-platform logic)
-CONTEXT=$("${SCRIPT_DIR}/detect-env.sh")
+get_script_dir() {
+    local source="${BASH_SOURCE[0]}"
+    while [[ -h "${source}" ]]; do
+        local dir
+        dir="$(cd -P "$(dirname "${source}")" && pwd)"
+        source="$(readlink "${source}")"
+        [[ "${source}" != /* ]] && source="${dir}/${source}"
+    done
+    cd -P "$(dirname "${source}")" && pwd
+}
 
-# 2. Add Host-Specific Logic (Optional additions to context)
-# For now, we use the output of detect-env.sh as the primary context.
+# Safely escape text for JSON
+# Usage: escape_json <text>
+escape_json() {
+    local input="$1"
+    if command -v python3 >/dev/null 2>&1; then
+        echo "${input}" | python3 -c 'import json, sys; print(json.dumps(sys.stdin.read()))'
+    else
+        # Fallback for systems without python3
+        echo "${input}" | sed 's/\\/\\\\/g; s/"/\\"/g; s/$/\\n/' | tr -d '\n' | sed 's/^/"/; s/$/"/'
+    fi
+}
 
-# 3. Escape for JSON
-if command -v python3 >/dev/null 2>&1; then
-    ESCAPED_CONTEXT=$(echo "$CONTEXT" | python3 -c 'import json, sys; print(json.dumps(sys.stdin.read()))')
-else
-    # Basic fallback escaping (quotes and backslashes only)
-    ESCAPED_CONTEXT="\"$(echo "$CONTEXT" | sed 's/\\/\\\\/g; s/"/\\"/g; s/$/\\n/' | tr -d '\n')\""
-fi
+main() {
+    local script_dir
+    script_dir=$(get_script_dir)
+    
+    local detect_script="${script_dir}/detect-env.sh"
+    local context=""
+    
+    if [[ -x "${detect_script}" ]]; then
+        # Capture output, allow failure of the subshell without exiting main script
+        context=$("${detect_script}" 2>/dev/null || echo "Error: Environment detection script failed.")
+    else
+        context="Error: Environment detection script not found or not executable at ${detect_script}."
+    fi
 
-# 4. Output based on detected host
-if [[ -n "${CLAUDE_PLUGIN_ROOT:-}" ]] || [[ -n "${OPENCODE_PLUGIN_ROOT:-}" ]]; then
-    # Claude Code / OpenCode
-    printf '{
+    local escaped_context
+    escaped_context=$(escape_json "${context}")
+
+    # Output based on detected host environment
+    if [[ -n "${CLAUDE_PLUGIN_ROOT:-}" ]] || [[ -n "${OPENCODE_PLUGIN_ROOT:-}" ]]; then
+        # Claude Code / OpenCode schema
+        cat <<EOF
+{
   "hookSpecificOutput": {
     "hookEventName": "SessionStart",
-    "additionalContext": %s
+    "additionalContext": ${escaped_context}
   }
 }
-' "$ESCAPED_CONTEXT"
-elif [[ -n "${CODEX_PLUGIN_ROOT:-}" ]]; then
-    # Codex CLI
-    printf '{
-  "additional_context": %s
+EOF
+    elif [[ -n "${CODEX_PLUGIN_ROOT:-}" ]]; then
+        # Codex CLI schema
+        printf '{"additional_context": %s}\n' "${escaped_context}"
+    elif [[ -n "${CURSOR_PLUGIN_ROOT:-}" ]]; then
+        # Cursor IDE schema
+        printf '{"additional_context": %s}\n' "${escaped_context}"
+    else
+        # Default to Gemini CLI systemMessage schema
+        printf '{"systemMessage": %s}\n' "${escaped_context}"
+    fi
 }
-' "$ESCAPED_CONTEXT"
-elif [[ -n "${CURSOR_PLUGIN_ROOT:-}" ]]; then
-    # Cursor IDE
-    printf '{
-  "additional_context": %s
-}
-' "$ESCAPED_CONTEXT"
-else
-    # Default to Gemini CLI systemMessage schema
-    printf '{"systemMessage": %s}\n' "$ESCAPED_CONTEXT"
-fi
+
+main "$@"
+

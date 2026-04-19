@@ -7,11 +7,22 @@ This file provides guidance to AI coding agents working with code in this reposi
 **Flow** is a unified toolkit for **Context-Driven Development** combining:
 
 - **Flow Framework**: Spec-first planning, human-readable context, TDD workflow
-- **Beads Integration**: Dependency-aware task graph, cross-session memory, agent-optimized output
+- **Beads Integration**: **Primary Source of Truth** for task state and persistent context.
 
 Beads is a **required dependency**. Flow will offer to install it and configures it for **local-only mode** by default.
 
+## The Beads-First Mandate
+
+**CRITICAL:** Every task, discovery, and decision MUST be recorded in Beads (`bd` or `br`).
+
+- **Epics**: Define Flows and Sagas.
+- **Tasks**: Define implementation steps.
+- **Notes**: Preserve context (investigation findings, architectural decisions).
+- **Markdown**: `spec.md` and `prd.md` are **Synchronized Views** of the Beads state. Run `/flow:sync` to update them.
+
 ## Auto-Activation
+
+...
 
 When the `.agents/` directory exists in the project root, the Flow skill MUST be activated at session start. Detect the active Beads backend (`bd`, `br`, or none) and load context before beginning work.
 
@@ -160,15 +171,17 @@ The following external repositories provide comprehensive, host-verified skills 
 - **[railway-skills](https://github.com/railwayapp/railway-skills)** — Official Railway agent skills for project setup, deployment, and service management (`use-railway`).
 - **[shadcn-ui](https://github.com/shadcn-ui/ui)** — Official shadcn/ui agent skills for component discovery, CLI mastery, and pattern enforcement.
 
-## Task Status Markers
+## Task Status Markers (Synchronized via /flow:sync)
 
-| Marker | Status | Beads Status | Beads Command |
-|--------|--------|-------------|---------------|
-| `[ ]` | Pending | `open` | (default) |
-| `[~]` | In Progress | `in_progress` | Use the active backend's in-progress command |
-| `[x]` | Completed | `closed` | Use the active backend's completion command |
-| `[!]` | Blocked | `blocked` | Use the active backend's blocking command |
-| `[-]` | Skipped | `closed` | Use the active backend's skip/close command |
+| Marker | Status | Beads Status | Sync Direction |
+|--------|--------|-------------|----------------|
+| `[ ]` | Pending | `open` | Beads -> MD |
+| `[~]` | In Progress | `in_progress` | Beads -> MD |
+| `[x]` | Completed | `closed` | Beads -> MD |
+| `[!]` | Blocked | `blocked` | Beads -> MD |
+| `[-]` | Skipped | `closed` | Beads -> MD |
+
+**IMPORTANT:** Agents MUST NOT edit these markers manually. Run `/flow:sync` to reflect Beads state in Markdown.
 
 ## Commands
 
@@ -384,20 +397,19 @@ Phases can annotate parallel execution:
 
 State tracked in `parallel_state.json`. Uses the `invoke_subagent` tool to spawn sub-agents.
 
-## Task Workflow (TDD)
+## Task Workflow (TDD) - Beads-First
 
-1. Select task via the active backend's ready/queue command (Beads is source of truth; fall back to spec.md)
-2. Mark the task in progress with the active backend's claim/update command
-3. **Write failing tests** (Red)
-4. **Implement to pass** (Green)
-5. **Refactor** while green
-6. Verify >80% coverage
-7. Commit: `<type>(<scope>): <description>`
-8. Record completion in the active backend with the commit reference
-9. Log learnings in `learnings.md`
-10. **Sync to markdown:** run `/flow:sync` (MANDATORY — keeps spec.md readable)
+1. **Select task** from `bd ready` (Beads is source of truth).
+2. **Claim task** with `bd update <id> --claim`.
+3. **Investigate & Note**: Record findings with `bd note <id> "..."`.
+4. **Write failing tests** (Red).
+5. **Implement to pass** (Green).
+6. **Refactor** while green.
+7. **Commit**: `<type>(<scope>): <description>`.
+8. **Close task** in Beads with the commit SHA: `bd close <id> --reason "[abc1234]..."`.
+9. **Sync to markdown**: Run `/flow:sync` (MANDATORY — keeps spec.md readable).
 
-**CRITICAL:** After ANY Beads state change (close, block, skip, revert, revise), agents MUST run `/flow:sync` to update spec.md. Never write markers (`[x]`, `[~]`, `[!]`, `[-]`) directly to spec.md.
+**CRITICAL:** After ANY Beads state change, agents MUST run `/flow:sync`. Never write markers (`[x]`, `[~]`, etc.) directly to spec.md.
 
 **Important:** All commits stay local. Flow never pushes automatically.
 

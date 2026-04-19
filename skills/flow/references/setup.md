@@ -5,7 +5,14 @@ Initialize a project for context-driven development with Beads integration.
 
 Use `choosing-beads-backend` for backend selection and `presenting-install-menus` for concise install prompts.
 
-## Phase 0: Setup State Check
+## Phase 0: Environment Detection
+
+**PROTOCOL: Before starting, check if the environment has already been detected via hooks.**
+
+1. **Check Hook Context:** Look for `## Flow Environment Context` in your `<hook_context>`.
+    - If **Flow Root** is present, use that as the authoritative root directory.
+    - If **Beads Backend** is present and NOT `Missing`, note the active backend.
+2. **Manual Check (Fallback only):** Only if the hook context is missing or incomplete, perform the following:
 
 Resolve the configured Flow root first:
 
@@ -56,63 +63,49 @@ echo "BEADS_MISSING"
 
 Prefer official Beads (`bd`). Keep `br` as compatibility mode. Allow no-Beads degraded mode when the user wants less administrative overhead.
 
-### 0.1.2 Knowledge Base Check
+### 0.1.2 Legacy Specs Migration
 
-Check for missing `.agents/knowledge/` directory. If absent, create it and write `knowledge/index.md` from template.
+Scan for legacy spec locations and offer migration to the current root. Update the registry and Beads backend accordingly.
 
-### 0.1.3 Configuration Validation
+### 0.1.3 Learnings Ingestion
+
+Validate existing `learnings.md` files against the current codebase and merge confirmed patterns into `patterns.md`.
+
+### 0.1.4 Core Artifacts Check
+
+Check for `product.md` and `tech-stack.md`. Ensure they exist and contain `<!-- truth: start -->` and `<!-- truth: end -->` markers.
+
+### 0.1.5 Workflow Revalidation & Sync
+
+**PROTOCOL: Synchronize workflow.md with the latest template while preserving local "truth" markers.**
+
+1. Read the existing `workflow.md`.
+2. Extract content between `<!-- truth: start -->` and `<!-- truth: end -->`.
+3. Replace the rest of the file with the latest `templates/agent/workflow.md`.
+4. If markers are missing, offer to add them based on existing "Essential Commands" and "Guiding Principles".
+5. Inspect the repo's real command surfaces (`Makefile`, `package.json`, etc.) to propose canonical command updates.
+
+### 0.1.6 Knowledge Base Check
+
+Check for missing `.agents/knowledge/` directory and ensure `knowledge/index.md` exists.
+
+### 0.1.7 Policy & Context Validation
+
+**PROTOCOL: Ensure Plan Mode policies and host-specific context files are present.**
+
+- **Gemini CLI:** Check for `.gemini/policies/flow-overrides.toml`. If missing or outdated, offer to create it to allow common development tools in Plan Mode.
+- **Claude Code:** Check for `CLAUDE.md` in the project root. If missing, offer to create it from the latest template to provide project context and rules.
+
+### 0.1.8 Configuration Validation
 
 Check and update:
 
 - `<root_directory>/beads.json` - Ensure valid configuration
-- `<root_directory>/workflow.md` - Check for outdated workflow content, backend assumptions, and command syntax
-- `<root_directory>/tech-stack.md` - Verify detected languages match codebase
+- `<root_directory>/setup-state.json` - Update `workflow_revision` and status
 
-### 0.1.4 Workflow Revalidation
+### 0.1.9 Alignment Summary
 
-Read `<root_directory>/workflow.md` and inspect the repo's real command surfaces before declaring setup aligned:
-
-- `Makefile`
-- `justfile`
-- `Taskfile.yml`
-- `package.json`
-- `pyproject.toml`
-- `Cargo.toml`
-- `.pre-commit-config.yaml`
-- CI files
-
-Prompt the user to refresh/update workflow behavior instead of just syntax-checking:
-
-> **Workflow settings may be stale. Revalidate now?**
->
-> - **A) Refresh workflow template and keep current preferences** (recommended)
-> - **B) Refresh template and update preferences**
-> - **C) Keep current workflow.md**
-
-If refreshing, preserve or re-confirm:
-
-- coverage target
-- commit cadence
-- task-summary mechanism
-- backend mode
-- local-only vs shared ignore policy
-- canonical repo commands for setup, lint, test, typecheck, and full verification
-
-### 0.1.5 Alignment Summary
-
-```text
-Alignment Complete
-
-- Beads: v{version} (up to date)
-- Hooks: Installed
-- Workflow: Revalidated
-- Configuration validated
-
-No action needed / Issues found:
-- {list any warnings}
-
-Run `flow-status` to see current state.
-```
+Provide a clear summary of all updates performed, including Beads version, workflow sync status, spec migration counts, policy/context updates, and configuration validation results.
 
 **After alignment, HALT (don't continue to full setup).**
 

@@ -5,285 +5,53 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion
 
 # Flow Plan
 
-## 1.0 SYSTEM DIRECTIVE
+## The Planner Mandate
 
-You are "The Planner", an AI agent assistant for the Flow framework. Your task is to create a unified Specification and Implementation Plan (`spec.md`) for a SINGLE Flow (Context Window).
-
-CRITICAL: You must validate the success of every tool call. If any tool call fails, HALT and announce failure.
+**CRITICAL:** `/flow:plan` is the entry point for single flows. Its primary role is to define the roadmap by creating **Beads Tasks** (source of truth) and syncing them to a human-readable `spec.md`.
 
 ---
 
-## PLAN MODE & WORKSPACE SAFETY
+## 1.0 Environment Detection
 
-1. **Native Plan Mode:** You MUST use the host's native plan/reasoning mode to think before answering.
-2. **Writable Check:** You MUST verify that the `.agents/` directory is writable before generating any artifacts.
-3. **Safe Tools:** Prefer read-only tools for analysis and explicitly constrained writes for state modifications.
+**PROTOCOL: Check hook context for environment metadata.**
 
-## CRITICAL CONSTRAINT: PLANNING ONLY - NO CODE MODIFICATION
-
-**THIS COMMAND CREATES PLANNING DOCUMENTS ONLY.**
-
-You are STRICTLY FORBIDDEN from:
-
-- Writing, editing, or modifying ANY source code files
-- Creating new code files (*.py,*.ts, *.js,*.rs, etc.)
-- Running implementation commands
-- Making ANY changes outside of `.agents/` directory
-
-You MAY ONLY:
-
-- Create/edit files in `.agents/specs/` (spec.md, metadata.json)
-- Create/edit `.agents/flows.md` registry
-- Run the active backend's epic/task creation flow when a backend is enabled
-- Read source code for analysis (but NEVER modify it)
-
-**Implementation happens ONLY when user explicitly runs `/flow-implement`.**
+1. **Check Hook Context:** Scan `<hook_context>` for `## Flow Environment Context`.
+2. **Verify Writable:** Ensure the flow root directory is writable.
 
 ---
 
-## 2.0 INTELLIGENCE INJECTION (The Ralph Loop)
-
-**PROTOCOL: Read global and parent context to constrain the plan.**
-
-1. **Read Global Patterns:**
-    - Resolve and read `.agents/patterns.md`.
-    - Keep these patterns in mind. If the user suggests something violating a pattern, WARN them.
-
-2. **Read Parent Context (Optional):**
-    - If a `parent_prd_id` is provided (or if you find an active PRD in `.agents/specs/`), read its `prd.md`.
-    - Ensure this Flow's spec aligns with the Master Roadmap.
-
-3. **Read Research:**
-    - Check `.agents/research/`. If relevant research exists, ask to use it.
-    - If important requirements still depend on unresolved docs, versions, migrations, marketplaces, or host behavior, continue researching until those gaps are closed before declaring planning complete.
-
----
-
-## 3.0 NEW FLOW INITIALIZATION
+## 3.0 New Flow Initialization
 
 **PROTOCOL: Define the standard Flow artifacts.**
 
-### 3.1 Get Description
-
-1. **Input Analysis:** Use `$ARGUMENTS` context.
-2. **No Input:** Ask: "What is the goal of this single Flow?"
-3. **Complexity Check:**
-    - If the request seems too large for one flow (e.g., "Build entire app"), do NOT silently descope.
-    - Explain why it appears multi-flow, then ask the user whether to:
-      - split it into a PRD/Saga with `/flow-prd`
-      - narrow it into a smaller flow now
-      - continue with a clearly scoped first slice
+1. **Code Analysis**: Deeply analyze the codebase to understand the affected surfaces.
+2. **Interactive Questions**: Ask informed questions based on the code analysis.
+3. **Draft spec.md**: Create a unified specification containing requirements and a high-level plan.
 
 ---
 
-### 3.2 Code Analysis (MANDATORY)
+## 3.4 Beads Integration (Source of Truth)
 
-**PROTOCOL: Analyze the codebase BEFORE asking clarifying questions.**
+**PROTOCOL: Create Beads tasks with full context.**
 
-1. **Search for Relevant Code:**
-    - Use Glob/Grep to find files related to the problem description
-    - Search for keywords from the user's request
-    - Identify entry points, affected modules, and dependencies
-    - Read key files to understand current implementation
-
-2. **Build Understanding:**
-    - Map the code flow related to the problem
-    - Identify existing patterns in use (DI framework, ORM, etc.)
-    - Note any dependencies or constraints
-    - Find related tests if they exist
-    - Check for similar implementations in the codebase
-
-3. **Document Findings:**
-    - Internal: Create a mental model of the affected code paths
-    - Note specific file paths and line numbers
-    - Identify gaps in understanding that require user input
-
-**Companion Skills for Code Analysis:**
-
-- Use `flow:tracer` for systematic codebase exploration — start at known entry points and trace outward rather than reading files randomly. Use execution trace mode to understand features and dependency trace mode to map component relationships.
-- Use `flow:architecture-critic` to evaluate how planned changes fit existing component boundaries and structural patterns.
-
-1. **Present Code Analysis Report:**
-
-    > "**Code Analysis Complete**
-    >
-    > **Files Examined:**
-    > - `src/path/to/file.py` - [purpose]
-    > - `src/path/to/other.py` - [purpose]
-    >
-    > **Key Findings:**
-    > - [Finding 1 with specific file:line references]
-    > - [Finding 2 with specific file:line references]
-    >
-    > **Current Understanding:**
-    > - [What you understand about the problem]
-    >
-    > **Gaps/Questions:**
-    > - [What you need clarification on]"
+1. **Epic Linkage**: Ensure the flow is backed by a Beads Epic.
+2. **Task Creation**: Create granular implementation tasks in Beads linked to the epic.
+3. **Checklist & Notes**: Include specific file targets, line numbers, and expected failure reasons in task descriptions or notes.
 
 ---
 
-### 3.3 Interactive Spec Generation
+## 3.5 Completion
 
-1. **Goal Announce:** "Drafting Specification for Flow: [Name]. I have read the Global Patterns and analyzed the codebase."
+**PROTOCOL: Finalize artifacts and sync.**
 
-2. **INFORMED Questioning Phase:**
-    - Ask 3-5 questions based on CODE ANALYSIS (not generic guesses)
-    - Each question MUST reference specific files/code found
-    - **Constraint Check:** "Based on `patterns.md` and the existing code at [path], we should use X. Do you agree?"
-
-**Companion Skills for Decision Points:**
-
-- When multiple valid implementation approaches exist, use `flow:consensus` to evaluate them from advocate, critic, and neutral stances before choosing.
-- Apply `flow:challenge` to verify the plan's assumptions against existing patterns. Do not assume compatibility — investigate and confirm.
-
-    **Example BAD questions:**
-  - "Is this service provided by DI?"
-  - "What database are you using?"
-  - "How should errors be handled?"
-
-    **Example GOOD questions:**
-  - "I found `workspace_file_service` is injected in `src/services/workspace.py:45` using Dishka's `@inject` decorator. However, the CLI command at `src/cli/ingest.py:23` doesn't have the corresponding `@inject`. Should I add it there, or is there a different injection pattern for CLI commands?"
-  - "The existing error handling in `src/handlers/base.py:78` uses a custom `ServiceError` exception. Should this new feature follow the same pattern, or do you want a different approach?"
-  - "I see tests in `tests/unit/services/` use pytest fixtures from `conftest.py`. Should I follow this pattern or is there a specific test structure you prefer?"
-
-1. **Draft unified `spec.md`:**
-    - The spec.md must contain BOTH requirements AND implementation plan in a single file
-    - Structure:
-
-      ```markdown
-      # Flow: {flow_name}
-
-      **Flow ID:** `{flow_id}`
-      **Beads Epic:** `{epic_id}`
-      **Status:** Planned
-
-      ## Specification
-
-      ### Code Analysis Summary
-      {files examined, key findings}
-
-      ### Relevant Patterns
-      {from patterns.md}
-
-      ### Requirements
-      {Functional, Non-Functional, API, DB, Risk sections as needed}
-
-      ## Implementation Plan
-
-      ### Phase 1: {name}
-      - [ ] 1.1 Task description
-      - [ ] 1.2 Task description
-
-      ### Phase 2: {name}
-      - [ ] 2.1 Task description
-      ...
-      ```
-
-    - Include "Code Analysis Summary" section with files examined
-    - Include "Relevant Patterns" section (extracted from `patterns.md`)
-    - Include "Parent Context" section (if applicable)
-    - Standard spec sections: Functional Req, Non-Functional, API, DB, Risk
-    - Implementation Plan section with Phases and TDD Tasks
-    - **Recovery Checkpoints:** Add "Checkpoint" task after each Phase
-    - **Verification:** Add "Manual Verification" task at end of Phases
-    - Reference specific files identified in code analysis
-    - Run a task-detail sufficiency loop before calling the draft complete:
-      - Ask: "Do I have enough task information written for this PRD/flow to complete it correctly in the first pass?"
-      - If not, refine the tasks until each one names concrete files, dependencies, test-first steps, verification, and open risks.
-      - If the tasks are still too coarse for a lightweight executor, invoke `flow-refine` before asking for approval.
-
-2. **Confirm:** Ask user to approve.
-
----
-
-### 3.4 Artifact Creation
-
-1. **Unique ID:** `shortname` (e.g., `user-auth`).
-
-2. **Directory:** `.agents/specs/<flow_id>/`.
-
-3. **Files:** Write `spec.md` and `metadata.json`.
-
-4. **metadata.json:**
-
-    ```json
-    {
-      "flow_id": "<flow_id>",
-      "type": "feature",
-      "status": "planned",
-      "beads_epic_id": "<epic_id>",
-      "created_at": "ISO timestamp",
-      "updated_at": "ISO timestamp",
-      "description": "<flow_description>",
-      "files_analyzed": ["<list of key files from code analysis>"]
-    }
-    ```
-
-5. **Registry:** Append to `.agents/flows.md`.
-
-6. **Beads Integration:**
-
-    ```bash
-    <active_backend_create_flow_epic>
-    <active_backend_attach_flow_notes>
-    ```
-
-    **CRITICAL:** The `--description` must include:
-    - WHY this flow exists (the problem being solved)
-    - WHAT the expected outcome is
-
-    **CRITICAL:** The backend notes/context attachment must include:
-    - Key files identified in code analysis
-    - Origin command (`/flow-plan`)
-    - Creation timestamp
-
-7. **Create Tasks in Beads:**
-
-    For each phase/task in the plan:
-
-    ```bash
-    <active_backend_create_phase_task>
-    <active_backend_attach_task_notes>
-    ```
-
-    **>5 Minute Rule:** If a task takes more than 5 minutes, it MUST be tracked in Beads.
-    This ensures context survives compaction and future sessions can resume work.
-
----
-
-### 3.5 Completion (HARD STOP)
-
-Announce:
-
-> "**PLANNING COMPLETE - AWAITING IMPLEMENTATION APPROVAL**
->
-> Flow '<flow_id>' planning documents created.
-> **NO CODE HAS BEEN MODIFIED.**
->
-> **Code Analysis Summary:**
->
-> - Files examined: [count]
-> - Key files: [list]
->
-> **Artifacts:**
->
-> - Spec: `.agents/specs/<flow_id>/spec.md` ([N] phases, [M] tasks)
->
-> **To begin implementation, explicitly run:**
-> `/flow-implement <flow_id>`
->
-> I will NOT proceed with any code changes until you run that command."
+1. **Registry**: Append to `.agents/flows.md`.
+2. **Sync**: Run `/flow:sync` to generate the `spec.md` worksheet from the new Beads tasks.
 
 ---
 
 ## Critical Rules
 
-1. **NO CODE MODIFICATION** - NEVER edit source code files. Planning documents ONLY.
-2. **CODE ANALYSIS FIRST** - Always analyze codebase before asking questions
-3. **INFORMED QUESTIONS** - Questions must reference actual files/code found
-4. **PATTERNS COMPLIANCE** - Check patterns.md and warn on violations
-5. **UNIFIED SPEC** - Single `spec.md` contains both requirements and plan. No separate `plan.md`.
-6. **SPECS DIRECTORY** - All artifacts go in `.agents/specs/`
-7. **BEADS CONTEXT** - Include a full description at creation time, then attach notes/context through the active backend
-8. **HARD STOP** - End with explicit instruction to run `/flow-implement`
+1. **BEADS FIRST** - Create tasks in the issue tracker before finalizing Markdown.
+2. **NO CODE MODIFICATION** - Planning documents only.
+3. **SYNC IS MANDATORY** - Run `/flow:sync` after planning to ensure consistency.
+4. **HARD STOP** - End with explicit instruction to run `/flow:implement`.
