@@ -44,14 +44,15 @@ detect_project_root() {
     if [[ -f ".agents/setup-state.json" ]]; then
         local found_root
         found_root=$(grep -o '"root_directory": "[^"]*"' .agents/setup-state.json | cut -d'"' -f4 || true)
+        found_root="${found_root%/}"
         if [[ -n "${found_root}" ]]; then
             root_dir="${found_root}"
             echo "- **Flow Root**: ${root_dir}"
         else
-            echo "- **Flow Root**: .agents/ (default, missing in setup-state)"
+            echo "- **Flow Root**: .agents (default, missing in setup-state)"
         fi
     else
-        echo "- **Flow Root**: .agents/ (default)"
+        echo "- **Flow Root**: .agents (default)"
     fi
     echo "${root_dir}"
 }
@@ -93,8 +94,9 @@ project_identity() {
     if [[ -f "${root_dir}/product.md" ]]; then
         echo ""
         echo "### Project Identity"
-        # Extract until first list or first 5 lines of content
-        grep -m 5 "^[^#]" "${root_dir}/product.md" | head -n 5 | sed 's/^/  /' || true
+        if ! extract_truths "${root_dir}/product.md"; then
+            grep -m 5 "^[^#<]" "${root_dir}/product.md" | head -n 5 | sed 's/^/  /' || true
+        fi
     fi
 }
 
@@ -134,7 +136,7 @@ active_work() {
         ready=$(safe_run 2s br ready | head -n 3 || true)
         if [[ -n "${ready}" ]]; then
             echo "- **Ready Tasks (Top 3)**:"
-            echo "${ready}" | sed 's/^/  /'
+            printf '%s\n' "  ${ready//$'\n'/$'\n'  }"
         else
             echo "- **Ready Tasks**: None"
         fi
@@ -147,10 +149,10 @@ extract_truths() {
     local file="$1"
     if [[ -f "${file}" ]]; then
         local truths
-        # Try to extract between truth markers first
-        truths=$(sed -n '/<!-- truth: start -->/,/<!-- truth: end -->/p' "${file}" | grep -v "<!--" || true)
+        # Extract between truth markers, capped at 40 lines so broadly-wrapped sections cannot flood session context
+        truths=$(sed -n '/<!-- truth: start -->/,/<!-- truth: end -->/p' "${file}" | grep -v "<!--" | head -n 40 || true)
         if [[ -n "${truths}" ]]; then
-            echo "${truths}" | sed 's/^/  /'
+            printf '%s\n' "  ${truths//$'\n'/$'\n'  }"
             return 0
         fi
     fi

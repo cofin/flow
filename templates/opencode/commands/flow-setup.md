@@ -6,6 +6,8 @@ description: Initialize project with context files, Beads, and first flow
 
 Initialize a project for context-driven development with Beads integration.
 
+> **Host boundary:** This command runs under OpenCode. Do not create `CLAUDE.md`, `.claude/*`, `.gemini/*`, `.geminiignore`, `.codex/*`, or `.cursor/*` — each host's setup command owns its own configuration surface.
+
 ## Phase 0: Setup State Check
 
 Resolve the configured Flow root first:
@@ -338,7 +340,7 @@ Copy `knowledge/index.md` from the Flow templates (`templates/agent/knowledge/in
 2. **CRITICAL: APPEND only, never overwrite:**
 
     ```bash
-    printf '\n# Flow specification files (local-only)\n<root_directory>/\n.beads/\n.geminiignore\n' >> .git/info/exclude
+    printf '\n# Flow specification files (local-only)\n<root_directory>/\n.beads/\n' >> .git/info/exclude
     ```
 
 **If B selected:**
@@ -386,23 +388,6 @@ Save setup state to `<root_directory>/setup-state.json`:
 
 ---
 
-## Phase 10: Gemini CLI Configuration
-
-**PROTOCOL: Generate project-specific policy for Plan Mode.**
-
-Create `.gemini/policies/flow-overrides.toml` to allow common development tools in **Plan Mode**, resolving common permission issues:
-
-```toml
-[[rule]]
-toolName = "run_shell_command"
-commandRegex = "^(bd|uv|pip|ruff|make|git|npx|bunx|pnpm|railway|bash|python3|cat|ls) .*"
-decision = "allow"
-priority = 100
-modes = ["plan"]
-```
-
----
-
 ## Final Summary
 
 ```
@@ -437,11 +422,10 @@ Next Steps:
 Copy the `pre-commit` hook to the `.git/hooks/` directory to ensure Bead states remain synchronized before any commit:
 
 ```bash
-if [ -f ~/.flow/hooks/pre-commit ]; then
-  cp ~/.flow/hooks/pre-commit .git/hooks/pre-commit
-  chmod +x .git/hooks/pre-commit
-elif [ -f ~/.gemini/extensions/flow/tools/scripts/hooks/pre-commit ]; then
-  cp ~/.gemini/extensions/flow/tools/scripts/hooks/pre-commit .git/hooks/pre-commit
+# OpenCode exposes OPENCODE_PLUGIN_ROOT when this command runs from the installed plugin.
+FLOW_INSTALL_ROOT="${OPENCODE_PLUGIN_ROOT:-$HOME/.flow}"
+if [ -f "$FLOW_INSTALL_ROOT/hooks/pre-commit" ]; then
+  cp "$FLOW_INSTALL_ROOT/hooks/pre-commit" .git/hooks/pre-commit
   chmod +x .git/hooks/pre-commit
 fi
 ```

@@ -158,7 +158,7 @@ cleanup_claude_legacy() {
 
     # Remove legacy hooks from ~/.claude/hooks/ (only if they are flow hooks)
     if [[ -d "$CLAUDE_DIR/hooks" ]]; then
-        for hook_file in "hooks.json" "run-hook.cmd" "session-start"; do
+        for hook_file in "hooks.json" "hooks-claude.json" "run-hook.cmd" "run-hook.sh" "session-start" "session-start.sh" "session-start.cmd" "session-start.ps1"; do
             if [[ -f "$CLAUDE_DIR/hooks/$hook_file" ]] && grep -q -i "flow\|beads\|br sync\|bd " "$CLAUDE_DIR/hooks/$hook_file" 2>/dev/null; then
                 rm -f "$CLAUDE_DIR/hooks/$hook_file"
                 log_success "Removed legacy hook: $hook_file"
@@ -617,7 +617,7 @@ install_gemini() {
     if [[ -d "$PROJECT_ROOT/hooks" ]]; then
         mkdir -p "$GEMINI_EXT_DIR/hooks"
         cp -r "$PROJECT_ROOT/hooks"/* "$GEMINI_EXT_DIR/hooks/"
-        chmod +x "$GEMINI_EXT_DIR/hooks/session-start" "$GEMINI_EXT_DIR/hooks/run-hook.cmd" "$GEMINI_EXT_DIR/hooks/pre-commit" 2>/dev/null || true
+        chmod +x "$GEMINI_EXT_DIR/hooks/session-start.sh" "$GEMINI_EXT_DIR/hooks/pre-commit" "$GEMINI_EXT_DIR/hooks/detect-env.sh" 2>/dev/null || true
         log_success "Installed: hooks"
     fi
 

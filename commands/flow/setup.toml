@@ -9,6 +9,23 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
 
 ---
 
+## 0.0 HOST BOUNDARY & INSTALL-ROOT RESOLUTION
+
+**PROTOCOL: This setup runs under Gemini CLI. Only Gemini-owned artifacts may be written.**
+
+- Permitted writes: `<root_directory>/*`, `.beads/*`, `.gemini/policies/*`, `.geminiignore`, `.git/info/exclude`, `.git/hooks/pre-commit`.
+- Forbidden writes: `CLAUDE.md`, `.claude/*`, `.codex/*`, `.cursor/*`, `.opencode/*`. Claude Code / Codex / Cursor / OpenCode users run their own host's `/flow-setup` (or `/flow:setup`) to configure those surfaces.
+
+Resolve the Flow extension install root as a shell variable the rest of the setup can reference:
+
+```bash
+FLOW_INSTALL_ROOT="${FLOW_INSTALL_ROOT:-$HOME/.gemini/extensions/flow}"
+```
+
+Use `${FLOW_INSTALL_ROOT}` in every command below that references shipped templates or hooks, so the setup works regardless of the Gemini install location.
+
+---
+
 ## 0.1 BEADS BACKEND CHECK
 **PROTOCOL: Choose the persistence backend before proceeding.**
 
@@ -169,13 +186,13 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
 6.  **Knowledge Base Check:**
     -   Check for missing `.agents/knowledge/` directory. If absent, create it and write `knowledge/index.md` from template.
 
-7.  **Policy & Context Validation:**
-    -   **Gemini CLI:** Check for `.gemini/policies/flow-overrides.toml`. If missing or outdated, offer to create it to allow common development tools in Plan Mode.
-    -   **Claude Code:** Check for `CLAUDE.md` in the project root. If missing, offer to create it from the latest template to provide project context and rules.
-    > "Host-specific policy or context file missing or outdated. Create it now?
+7.  **Policy Validation:**
+    -   This setup runs under Gemini CLI. Only Gemini-owned files are touched — Claude/Codex/Cursor/OpenCode artifacts (`CLAUDE.md`, `.claude/*`, etc.) are out of scope and must not be created here.
+    -   Check for `.gemini/policies/flow-overrides.toml`. If missing or outdated, offer to create it to allow common development tools in Plan Mode.
+    > "Gemini plan-mode policy file missing or outdated. Create it now?
     > A) Yes (recommended)
     > B) Skip"
-    -   If A, create or update the appropriate file(s).
+    -   If A, create or update `.gemini/policies/flow-overrides.toml`.
 
 8.  **Configuration Validation:**
     -   Check `<root_directory>/beads.json` for valid config
@@ -530,7 +547,7 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
 ### 2.4 Select Guides (Interactive)
 1.  **Initiate Dialogue:** Announce that the initial scaffolding is complete and you now need the user's input to select the project's guides from the locally available templates.
 2.  **Select Code Style Guides:**
-    -   List the available style guides by running `ls ~/.gemini/extensions/flow/templates/styleguides/languages/`.
+    -   List the available style guides by running `ls ${FLOW_INSTALL_ROOT}/templates/styleguides/languages/`.
     -   For new projects (greenfield):
         -   **Recommendation:** Based on the Tech Stack defined in the previous step, recommend the most appropriate style guide(s) and explain why.
         -   Ask the user how they would like to proceed:
@@ -545,13 +562,13 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
             - Ask the user for a simple confirmation to proceed with options like:
                     A) Yes, I want to proceed with the suggested code style guides.
                     B) No, I want to add more code style guides.
-    -   **Action:** Construct and execute a command to create the directory and copy all selected files. For example: `mkdir -p .agents/code-styleguides && cp ~/.gemini/extensions/flow/templates/styleguides/languages/python.md ~/.gemini/extensions/flow/templates/styleguides/languages/javascript.md .agents/code-styleguides/`
+    -   **Action:** Construct and execute a command to create the directory and copy all selected files. For example: `mkdir -p .agents/code-styleguides && cp ${FLOW_INSTALL_ROOT}/templates/styleguides/languages/python.md ${FLOW_INSTALL_ROOT}/templates/styleguides/languages/javascript.md .agents/code-styleguides/`
     -   **Commit State:** Upon successful completion of the copy command, you MUST immediately write to `<root_directory>/setup-state.json` with the exact content:
         `{"setup_status": "in_progress", "last_successful_step": "2.4_code_styleguides", "root_directory": "<root_directory>", "workflow_revision": "flow-template-v1", "shadcn_official_prompted": false, "mojo_official_prompted": false, "railway_official_prompted": false}`
 
 ### 2.5 Select Workflow (Interactive)
 1.  **Copy Initial Workflow:**
-    -   Copy `~/.gemini/extensions/flow/templates/agent/workflow.md` to `<root_directory>/workflow.md`.
+    -   Copy `${FLOW_INSTALL_ROOT}/templates/agent/workflow.md` to `<root_directory>/workflow.md`.
     -   Before asking workflow questions, inspect the repo's actual command surfaces:
         - `Makefile`
         - `justfile`
@@ -753,8 +770,8 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
 1.  **Install Pre-Commit Hook:**
     -   Copy the `pre-commit` hook to the `.git/hooks/` directory to ensure Bead states remain synchronized before any commit:
     ```bash
-    if [ -f ~/.gemini/extensions/flow/hooks/pre-commit ]; then
-      cp ~/.gemini/extensions/flow/hooks/pre-commit .git/hooks/pre-commit
+    if [ -f ${FLOW_INSTALL_ROOT}/hooks/pre-commit ]; then
+      cp ${FLOW_INSTALL_ROOT}/hooks/pre-commit .git/hooks/pre-commit
       chmod +x .git/hooks/pre-commit
     elif [ -f ~/.flow/hooks/pre-commit ]; then
       cp ~/.flow/hooks/pre-commit .git/hooks/pre-commit
@@ -905,6 +922,9 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
     e. **Announce Progress:** Announce that the PRD for "<PRD Description>" has been created.
 
 ### 3.4 Gemini CLI Configuration
+
+**Host boundary:** This section runs under Gemini CLI only. Do not create `CLAUDE.md`, `.claude/*`, `.codex/*`, `.cursor/*`, or `.opencode/*` from this file — each host's setup command owns its own configuration surface.
+
 1.  **Generate Plan Mode Policy:**
     -   Create `.gemini/policies/flow-overrides.toml` with the following content to allow common development tools in Plan Mode:
         ```toml

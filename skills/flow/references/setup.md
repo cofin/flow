@@ -73,7 +73,7 @@ Validate existing `learnings.md` files against the current codebase and merge co
 
 ### 0.1.4 Core Artifacts Check
 
-Check for `product.md` and `tech-stack.md`. Ensure they exist and contain `<!-- truth: start -->` and `<!-- truth: end -->` markers.
+Check for `product.md` and `tech-stack.md`. Ensure they exist and contain `<!-- truth: start -->` and `<!-- truth: end -->` markers. Keep each truth block focused (≤ 40 lines) — the session-start hook caps extracted output at 40 lines per block, so broader wraps are silently truncated.
 
 ### 0.1.5 Workflow Revalidation & Sync
 
@@ -334,14 +334,14 @@ If yes, invoke `flow-prd` with description.
 
 ## Phase 9: Save State
 
-Save setup state to `<root_directory>/setup-state.json`:
+Save setup state to `<root_directory>/setup-state.json`. Store `root_directory` **without a trailing slash** (e.g. `.agents`, not `.agents/`) — the session-start hook concatenates paths from this value, and a trailing slash produces `.agents//product.md`:
 
 ```json
 {
   "setup_status": "complete",
   "last_successful_step": "complete",
   "project_type": "brownfield|greenfield",
-  "root_directory": "<root_directory>",
+  "root_directory": ".agents",
   "workflow_revision": "flow-template-v1",
   "timestamp": "ISO timestamp"
 }
