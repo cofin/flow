@@ -5,14 +5,7 @@ description: "Use when a project has `.agents/`, when the user asks to set up, p
 
 # Flow - Context-Driven Development
 
-## Auto-Activation
-
-This skill activates when:
-
-- `.agents/` directory exists in the project root
-- User mentions "flow", "spec", "plan", "prd", "design", "research", "docs", "implement", "sync", "status", "refresh", "validate", "revise", "review", "finish", "archive", "revert", or "task"
-- User requests a Flow workflow in natural language
-- User invokes `/flow:*` commands in hosts that support them
+Use the Flow skill for context-driven development workflows in repos that use `.agents/`. The environment (Beads backend, project root, and tooling) is **automatically detected via hooks** at the start of every session and provided in your `<hook_context>`.
 
 ## Core Concepts
 

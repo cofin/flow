@@ -2,7 +2,7 @@
   "name": "flow",
   "displayName": "Flow",
   "description": "Unified toolkit for Context-Driven Development with spec-first planning, TDD workflow, and Beads integration",
-  "version": "0.16.0",
+  "version": "0.17.0",
   "author": {
     "name": "cofin"
   },
@@ -12,5 +12,8 @@
   "keywords": ["flow", "context-driven-development", "beads", "tdd", "ai-agent", "workflow", "spec-first", "skills", "slash-commands", "subagents"],
   "skills": ["./skills/"],
   "commands": ["./commands/"],
-  "agents": ["./.claude-plugin/agents/"]
+  "agents": ["./.claude-plugin/agents/"],
+  "hooks": {
+    "session-start": "./.claude-plugin/hooks/session-start.sh"
+  }
 }

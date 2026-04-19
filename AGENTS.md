@@ -283,7 +283,9 @@ For local-only use, prefer `.git/info/exclude` instead of editing `.gitignore`.
 
 ### Session Protocol
 
-At session start:
+At session start, the environment (Beads backend, project root, available tooling) is **automatically detected via hooks** and provided in your `<hook_context>`. Use this ground truth before beginning work.
+
+If manual verification is needed:
 
 ```bash
 # Official Beads (`bd`)
