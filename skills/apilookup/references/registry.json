@@ -334,7 +334,7 @@
       "automation"
     ]
   },
-  "mojo": {
+  "mojo-tools": {
     "display_name": "Mojo",
     "current_version": "n/a",
     "last_checked": "2026-03-30",
@@ -488,7 +488,7 @@
       "Mypyc"
     ]
   },
-  "railway": {
+  "railway-tools": {
     "display_name": "Railway",
     "current_version": "n/a",
     "last_checked": "2026-03-30",
@@ -540,7 +540,7 @@
       "async"
     ]
   },
-  "shadcn": {
+  "shadcn-tools": {
     "display_name": "shadcn/ui",
     "current_version": "n/a",
     "last_checked": "2026-03-30",

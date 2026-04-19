@@ -17,8 +17,12 @@ CONTEXT=$("${SCRIPT_DIR}/detect-env.sh")
 # For now, we use the output of detect-env.sh as the primary context.
 
 # 3. Escape for JSON
-# Python is most reliable for cross-platform multi-line escaping
-ESCAPED_CONTEXT=$(echo "$CONTEXT" | python3 -c 'import json, sys; print(json.dumps(sys.stdin.read()))')
+if command -v python3 >/dev/null 2>&1; then
+    ESCAPED_CONTEXT=$(echo "$CONTEXT" | python3 -c 'import json, sys; print(json.dumps(sys.stdin.read()))')
+else
+    # Basic fallback escaping (quotes and backslashes only)
+    ESCAPED_CONTEXT="\"$(echo "$CONTEXT" | sed 's/\\/\\\\/g; s/"/\\"/g; s/$/\\n/' | tr -d '\n')\""
+fi
 
 # 4. Output based on detected host
 if [[ -n "${CLAUDE_PLUGIN_ROOT:-}" ]] || [[ -n "${OPENCODE_PLUGIN_ROOT:-}" ]]; then

@@ -279,10 +279,9 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
 5.  **Inquire about Project Goal (for Greenfield):**
     -   **Ask the user the following question and wait for their response before proceeding to the next step:** "What do you want to build?"
     -   **CRITICAL: You MUST NOT execute any tool calls until the user has provided a response.**
-    -   **Upon receiving the user's response:**
-        -   Execute `mkdir -p <root_directory>`.
-        -   **Initialize State File:** Immediately after creating the directory, you MUST create `<root_directory>/setup-state.json` with the exact content:
-            `{"setup_status": "in_progress", "last_successful_step": "", "root_directory": "<root_directory>", "workflow_revision": "flow-template-v1"}`
+    -   **Initialize State File:** Immediately after creating the directory, you MUST create `<root_directory>/setup-state.json` with the exact content:
+        `{"setup_status": "in_progress", "last_successful_step": "", "root_directory": "<root_directory>", "workflow_revision": "flow-template-v1", "shadcn_official_prompted": false, "mojo_official_prompted": false, "railway_official_prompted": false}`
+
         -   Write the user's response into `<root_directory>/product.md` under a header named `# Initial Concept`.
 
 6.  **Continue:** Immediately proceed to the next section.
@@ -393,6 +392,7 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
 3.  **Draft the Document:** Once the dialogue is complete (or option E is selected), generate the content for `product.md`. If option E was chosen, use your best judgment to infer the remaining details based on previous answers and project context. You are encouraged to expand on the gathered details to create a comprehensive document.
     -   **CRITICAL:** The source of truth for generation is **only the user's selected answer(s)**. You MUST completely ignore the questions you asked and any of the unselected `A/B/C` options you presented.
         -   **Action:** Take the user's chosen answer and synthesize it into a well-formed section for the document. You are encouraged to expand on the user's choice to create a comprehensive and polished output. DO NOT include the conversational options (A, B, C, D, E) in the final file.
+        -   **Surgical Context:** Wrap the most critical high-level project summary in `<!-- truth: start -->` and `<!-- truth: end -->` markers for efficient agent priming.
 4.  **User Confirmation Loop:** Present the drafted content to the user for review and begin the confirmation loop.
     > "I've drafted the product guide. Please review the following:"
     >
@@ -408,8 +408,9 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
     > Please respond with A or B."
     - **Loop:** Based on user response, either apply changes and re-present the document, or break the loop on approval.
 5.  **Write File:** Once approved, append the generated content to the existing `<root_directory>/product.md` file, preserving the `# Initial Concept` section.
-6.  **Commit State:** Upon successful creation of the file, you MUST immediately write to `<root_directory>/setup-state.json` with the exact content:
-    `{"setup_status": "in_progress", "last_successful_step": "2.1_product_guide", "root_directory": "<root_directory>", "workflow_revision": "flow-template-v1"}`
+7.  **Commit State:** Upon successful creation of the file, you MUST immediately write to `<root_directory>/setup-state.json` with the exact content:
+    `{"setup_status": "in_progress", "last_successful_step": "2.3_tech_stack", "root_directory": "<root_directory>", "workflow_revision": "flow-template-v1", "shadcn_official_prompted": false, "mojo_official_prompted": false, "railway_official_prompted": false}`
+
 7.  **Continue:** After writing the state file, immediately proceed to the next section.
 
 ### 2.2 Generate Product Guidelines (Interactive)
@@ -459,7 +460,7 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
     - **Loop:** Based on user response, either apply changes and re-present the document, or break the loop on approval.
 5.  **Write File:** Once approved, write the generated content to the `<root_directory>/product-guidelines.md` file.
 6.  **Commit State:** Upon successful creation of the file, you MUST immediately write to `<root_directory>/setup-state.json` with the exact content:
-    `{"setup_status": "in_progress", "last_successful_step": "2.2_product_guidelines", "root_directory": "<root_directory>", "workflow_revision": "flow-template-v1"}`
+    `{"setup_status": "in_progress", "last_successful_step": "2.2_product_guidelines", "root_directory": "<root_directory>", "workflow_revision": "flow-template-v1", "shadcn_official_prompted": false, "mojo_official_prompted": false, "railway_official_prompted": false}`
 7.  **Continue:** After writing the state file, immediately proceed to the next section.
 
 ### 2.3 Generate Tech Stack (Interactive)
@@ -500,6 +501,7 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
 3.  **Draft the Document:** Once the dialogue is complete (or option E is selected), generate the content for `tech-stack.md`. If option E was chosen, use your best judgment to infer the remaining details based on previous answers and project context. You are encouraged to expand on the gathered details to create a comprehensive document.
     -   **CRITICAL:** The source of truth for generation is **only the user's selected answer(s)**. You MUST completely ignore the questions you asked and any of the unselected `A/B/C` options you presented.
     -   **Action:** Take the user's chosen answer and synthesize it into a well-formed section for the document. You are encouraged to expand on the user's choice to create a comprehensive and polished output. DO NOT include the conversational options (A, B, C, D, E) in the final file.
+    -   **Surgical Context:** Wrap the core technology list in `<!-- truth: start -->` and `<!-- truth: end -->` markers for efficient agent priming.
 4.  **User Confirmation Loop:** Present the drafted content to the user for review and begin the confirmation loop.
     > "I've drafted the tech stack document. Please review the following:"
     >
@@ -515,8 +517,10 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
     > Please respond with A or B."
     - **Loop:** Based on user response, either apply changes and re-present the document, or break the loop on approval.
 6.  **Write File:** Once approved, write the generated content to the `<root_directory>/tech-stack.md` file.
-7.  **Commit State:** Upon successful creation of the file, you MUST immediately write to `<root_directory>/setup-state.json` with the exact content:
-    `{"setup_status": "in_progress", "last_successful_step": "2.3_tech_stack", "root_directory": "<root_directory>", "workflow_revision": "flow-template-v1"}`
+6.  **Commit State:** Upon successful creation of the file, you MUST immediately write to `<root_directory>/setup-state.json` with the exact content:
+    `{"setup_status": "in_progress", "last_successful_step": "2.1_product_guide", "root_directory": "<root_directory>", "workflow_revision": "flow-template-v1", "shadcn_official_prompted": false, "mojo_official_prompted": false, "railway_official_prompted": false}`
+
+
 8.  **Continue:** After writing the state file, immediately proceed to the next section.
 
 ### 2.4 Select Guides (Interactive)
@@ -539,7 +543,7 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
                     B) No, I want to add more code style guides.
     -   **Action:** Construct and execute a command to create the directory and copy all selected files. For example: `mkdir -p .agents/code-styleguides && cp ~/.gemini/extensions/flow/templates/styleguides/languages/python.md ~/.gemini/extensions/flow/templates/styleguides/languages/javascript.md .agents/code-styleguides/`
     -   **Commit State:** Upon successful completion of the copy command, you MUST immediately write to `<root_directory>/setup-state.json` with the exact content:
-        `{"setup_status": "in_progress", "last_successful_step": "2.4_code_styleguides", "root_directory": "<root_directory>", "workflow_revision": "flow-template-v1"}`
+        `{"setup_status": "in_progress", "last_successful_step": "2.4_code_styleguides", "root_directory": "<root_directory>", "workflow_revision": "flow-template-v1", "shadcn_official_prompted": false, "mojo_official_prompted": false, "railway_official_prompted": false}`
 
 ### 2.5 Select Workflow (Interactive)
 1.  **Copy Initial Workflow:**
@@ -580,7 +584,8 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
             -   B) Shared repo policy
         -   **Action:** Update `<root_directory>/workflow.md` based on the user's responses and the discovered repo-native commands.
         -   **Commit State:** After the `workflow.md` file is successfully written or updated, you MUST immediately write to `<root_directory>/setup-state.json` with the exact content:
-            `{"setup_status": "in_progress", "last_successful_step": "2.5_workflow", "root_directory": "<root_directory>", "workflow_revision": "flow-template-v1"}`
+            `{"setup_status": "in_progress", "last_successful_step": "2.5_workflow", "root_directory": "<root_directory>", "workflow_revision": "flow-template-v1", "shadcn_official_prompted": false, "mojo_official_prompted": false, "railway_official_prompted": false}`
+
 
 ### 2.6 Beads Initialization
 **PROTOCOL: Initialize Beads.**
@@ -891,11 +896,24 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
             ```
 
     d. **Commit State:** After all PRD artifacts have been successfully written, you MUST immediately write to `<root_directory>/setup-state.json` with the exact content:
-       `{"setup_status": "complete", "last_successful_step": "3.3_initial_prd_generated", "root_directory": "<root_directory>", "workflow_revision": "flow-template-v1"}`
+       `{"setup_status": "complete", "last_successful_step": "3.3_initial_prd_generated", "root_directory": "<root_directory>", "workflow_revision": "flow-template-v1", "shadcn_official_prompted": false, "mojo_official_prompted": false, "railway_official_prompted": false}`
 
     e. **Announce Progress:** Announce that the PRD for "<PRD Description>" has been created.
 
-### 3.4 Final Announcement
+### 3.4 Gemini CLI Configuration
+1.  **Generate Plan Mode Policy:**
+    -   Create `.gemini/policies/flow-overrides.toml` with the following content to allow common development tools in Plan Mode:
+        ```toml
+        [[rule]]
+        toolName = "run_shell_command"
+        commandRegex = "^(bd|uv|pip|ruff|make|git|npx|bunx|pnpm|railway|bash|python3|cat|ls) .*"
+        decision = "allow"
+        priority = 100
+        modes = ["plan"]
+        ```
+    -   **Announce:** "Generated `.gemini/policies/flow-overrides.toml` to allow-list development tools for a smoother Plan Mode experience."
+
+### 3.5 Final Announcement
 1.  **Announce Completion:** After the PRD has been created, announce that the project setup and initial PRD generation are complete.
 
 2.  **Configure Gemini Ignore (IMPORTANT - APPEND ONLY):**
