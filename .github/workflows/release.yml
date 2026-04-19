@@ -24,6 +24,9 @@ jobs:
         with:
           enable-cache: true
 
+      - name: Validate shipped manifests
+        run: uv run tools/validate-skills.py
+
       - name: Build package
         run: make build
 

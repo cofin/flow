@@ -67,6 +67,21 @@ gemini extensions update flow
 
 Use `gemini extensions link .` only for local development against a checkout. Gemini copies installed extensions, so linked development and installed releases are different workflows.
 
+Recommended Gemini planning settings:
+
+```json
+{
+  "general": {
+    "plan": {
+      "enabled": true,
+      "modelRouting": true
+    }
+  }
+}
+```
+
+Flow's Gemini extension already sets the fallback planning directory to `.agents/specs/`, so `/flow:prd` and `/flow:plan` can use Gemini's supported `enter_plan_mode` / `exit_plan_mode` tools while writing the approval artifact to Flow's canonical spec directory. Do not rely on undocumented `autoEnter` behavior for model routing.
+
 ### Claude Code
 
 Install Flow via marketplace (recommended for reliability):
@@ -86,6 +101,8 @@ claude plugin update flow@flow-marketplace
 ```
 
 Claude supports git-based marketplaces directly. Prefer the marketplace flow over ad-hoc local config edits.
+
+The Claude plugin currently ships skills, commands, and hooks. Claude-specific subagents remain optional and are not bundled in the current release.
 
 ### OpenCode
 

@@ -164,6 +164,7 @@ VALID_GEMINI_TOOLS = frozenset(
     }
 )
 _GEMINI_WILDCARD_PATTERN = re.compile(r"^(?:\*|mcp_[A-Za-z0-9_-]*\*?)$")
+_CLAUDE_HOOK_EVENT_PATTERN = re.compile(r"^[A-Z][A-Za-z0-9]*$")
 
 # Codex nickname_candidates entries: ASCII letters, digits, spaces, hyphens,
 # underscores only. Per https://developers.openai.com/codex/subagents.
@@ -181,6 +182,120 @@ def _rel(path: Path) -> str:
         return str(path.relative_to(REPO_ROOT))
     except ValueError:
         return str(path)
+
+
+def _plugin_root(manifest_path: Path) -> Path:
+    return manifest_path.parent.parent.resolve()
+
+
+def _resolve_plugin_path(manifest_path: Path, raw_path: str) -> tuple[Path | None, str | None]:
+    plugin_root = _plugin_root(manifest_path)
+    resolved = (plugin_root / raw_path).resolve()
+    try:
+        resolved.relative_to(plugin_root)
+    except ValueError:
+        return None, f"path {raw_path!r} escapes plugin root"
+    return resolved, None
+
+
+def _validate_manifest_path_field(path: Path, field: str, value: object) -> list[Violation]:
+    if not isinstance(value, str) or not value.strip():
+        return [Violation(path, 1, f"manifest field {field!r} must be a non-empty string path")]
+    resolved, error = _resolve_plugin_path(path, value)
+    if error is not None:
+        return [Violation(path, 1, f"manifest field {field!r} {error}")]
+    assert resolved is not None
+    if not resolved.exists():
+        return [Violation(path, 1, f"manifest path for {field!r} entry {value!r} does not exist")]
+    return []
+
+
+def _validate_manifest_path_list_field(path: Path, field: str, value: object) -> list[Violation]:
+    violations: list[Violation] = []
+    if not isinstance(value, list):
+        return [Violation(path, 1, f"manifest field {field!r} must be an array of string paths")]
+    for entry in value:
+        if not isinstance(entry, str) or not entry.strip():
+            violations.append(Violation(path, 1, f"manifest field {field!r} entries must be non-empty strings"))
+            continue
+        resolved, error = _resolve_plugin_path(path, entry)
+        if error is not None:
+            violations.append(Violation(path, 1, f"manifest path for {field!r} entry {entry!r} {error}"))
+            continue
+        assert resolved is not None
+        if not resolved.exists():
+            violations.append(Violation(path, 1, f"manifest path for {field!r} entry {entry!r} does not exist"))
+    return violations
+
+
+def _validate_claude_inline_hooks(path: Path, hooks: object) -> list[Violation]:
+    violations: list[Violation] = []
+    if not isinstance(hooks, dict):
+        return [Violation(path, 1, "Claude manifest 'hooks' field must be a string path or inline PascalCase hook object")]
+    for event_name, matchers in hooks.items():
+        if not isinstance(event_name, str) or not _CLAUDE_HOOK_EVENT_PATTERN.match(event_name):
+            violations.append(Violation(path, 1, f"Claude hooks event {event_name!r} must be PascalCase"))
+        if not isinstance(matchers, list):
+            violations.append(Violation(path, 1, f"Claude hooks event {event_name!r} must map to a list"))
+            continue
+        for matcher in matchers:
+            if not isinstance(matcher, dict):
+                violations.append(Violation(path, 1, f"Claude hooks event {event_name!r} entries must be objects"))
+                continue
+            nested_hooks = matcher.get("hooks")
+            if not isinstance(nested_hooks, list) or not nested_hooks:
+                violations.append(
+                    Violation(path, 1, f"Claude hooks event {event_name!r} entries must contain a non-empty 'hooks' list")
+                )
+                continue
+            for hook in nested_hooks:
+                if not isinstance(hook, dict):
+                    violations.append(
+                        Violation(path, 1, f"Claude hooks event {event_name!r} hook entries must be objects")
+                    )
+                    continue
+                if hook.get("type") != "command":
+                    violations.append(
+                        Violation(path, 1, f"Claude hooks event {event_name!r} hook entries must use type 'command'")
+                    )
+                command = hook.get("command")
+                if not isinstance(command, str) or not command.strip():
+                    violations.append(
+                        Violation(path, 1, f"Claude hooks event {event_name!r} hook entries need a non-empty command")
+                    )
+    return violations
+
+
+def _iter_nested_strings(value: object) -> Iterator[str]:
+    if isinstance(value, str):
+        yield value
+        return
+    if isinstance(value, dict):
+        for nested in value.values():
+            yield from _iter_nested_strings(nested)
+        return
+    if isinstance(value, list):
+        for nested in value:
+            yield from _iter_nested_strings(nested)
+
+
+def validate_claude_hook_config(path: Path) -> list[Violation]:
+    """Validate Claude's hook config file for host-specific placeholder usage."""
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        return [Violation(path, 1, f"JSON parse error: {exc}")]
+
+    for entry in _iter_nested_strings(data):
+        if "${extensionPath}" in entry:
+            return [
+                Violation(
+                    path,
+                    1,
+                    "Claude hook config must not use '${extensionPath}'; use '${CLAUDE_PLUGIN_ROOT}' instead",
+                )
+            ]
+    return []
 
 
 def extract_frontmatter(text: str) -> tuple[dict[str, Any], int, str]:
@@ -421,6 +536,25 @@ def validate_manifest(path: Path) -> list[Violation]:
                         f"Claude manifest {field!r} field must be an array for maximum reliability",
                     )
                 )
+            if val is not None:
+                violations.extend(_validate_manifest_path_list_field(path, field, val))
+
+        hooks = data.get("hooks")
+        if isinstance(hooks, str):
+            violations.extend(_validate_manifest_path_field(path, "hooks", hooks))
+        elif hooks is not None:
+            violations.extend(_validate_claude_inline_hooks(path, hooks))
+    else:
+        for field in ("skills", "commands", "hooks"):
+            value = data.get(field)
+            if value is not None:
+                violations.extend(_validate_manifest_path_field(path, field, value))
+        agents = data.get("agents")
+        if agents is not None:
+            if isinstance(agents, list):
+                violations.extend(_validate_manifest_path_list_field(path, "agents", agents))
+            else:
+                violations.extend(_validate_manifest_path_field(path, "agents", agents))
 
     return violations
 
@@ -585,6 +719,24 @@ def iter_manifests() -> Iterator[Path]:
             yield candidate
 
 
+def iter_claude_hook_configs() -> Iterator[Path]:
+    manifest_path = REPO_ROOT / ".claude-plugin" / "plugin.json"
+    if not manifest_path.is_file():
+        return
+    try:
+        data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return
+
+    hooks = data.get("hooks")
+    if not isinstance(hooks, str) or not hooks.strip():
+        return
+
+    resolved, error = _resolve_plugin_path(manifest_path, hooks)
+    if error is None and resolved is not None and resolved.is_file():
+        yield resolved
+
+
 def iter_all_shipped_files() -> Iterator[Path]:
     yield from iter_manifests()
     if SKILLS_DIR.is_dir():
@@ -634,6 +786,7 @@ def main() -> int:
     claude_agents = list(iter_claude_agents())
     codex_agents = list(iter_codex_agents())
     manifests = list(iter_manifests())
+    claude_hook_configs = list(iter_claude_hook_configs())
     for manifest_path in manifests:
         all_violations.extend(validate_manifest(manifest_path))
     for skill_path in skills:
@@ -648,6 +801,8 @@ def main() -> int:
         all_violations.extend(validate_claude_agent(agent_path))
     for agent_path in codex_agents:
         all_violations.extend(validate_codex_agent(agent_path))
+    for hook_config_path in claude_hook_configs:
+        all_violations.extend(validate_claude_hook_config(hook_config_path))
     shipped = list(iter_all_shipped_files())
     all_violations.extend(check_agents_leak(shipped))
     all_violations.extend(check_forbidden_vocab(shipped))
