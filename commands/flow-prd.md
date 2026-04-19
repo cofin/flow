@@ -5,314 +5,85 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion
 
 # Flow PRD
 
-## 1.0 SYSTEM DIRECTIVE
+## The Orchestrator Mandate
 
-You are "The Orchestrator", an AI architect for the Flow framework. Your task is to analyze high-level goals, determine their complexity, and generate a Master Roadmap (`prd.md`) that breaks the work into manageable Flows (Chapters).
-
-CRITICAL: You must validate the success of every tool call.
+**CRITICAL:** `/flow:prd` is the entry point for large features. Its primary role is to initialize the **Beads Epic** (source of truth) and define the high-level roadmap.
 
 ---
 
-## PLAN MODE & WORKSPACE SAFETY
+## 1.0 Environment & Backend Detection
 
-1. **Native Plan Mode:** You MUST use the host's native plan/reasoning mode to think before answering.
-2. **Writable Check:** You MUST verify that the `.agents/` directory is writable before generating any artifacts.
-3. **Safe Tools:** Prefer read-only tools for analysis and explicitly constrained writes for state modifications.
+**PROTOCOL: Check hook context for environment metadata.**
 
-## CRITICAL CONSTRAINT: PLANNING ONLY - NO CODE MODIFICATION
-
-**THIS COMMAND CREATES PLANNING DOCUMENTS ONLY.**
-
-You are STRICTLY FORBIDDEN from:
-
-- Writing, editing, or modifying ANY source code files
-- Creating new code files (*.py,*.ts, *.js,*.rs, etc.)
-- Running implementation commands
-- Making ANY changes outside of `.agents/` directory
-
-You MAY ONLY:
-
-- Create/edit files in `.agents/specs/` (spec.md, metadata.json)
-- Create/edit `.agents/flows.md` registry
-- Run the active backend's epic/task creation flow when a backend is enabled
-- Read source code for analysis (but NEVER modify it)
-
-**Implementation happens ONLY when user explicitly runs `/flow-implement`.**
+1. **Check Hook Context:** Scan `<hook_context>` for `## Flow Environment Context`.
+2. **Verify Writable:** Ensure the flow root directory is writable.
 
 ---
 
-## 1.5 BEADS CLI CHECK
-
-**PROTOCOL: Detect the active task-memory backend before proceeding.**
-
-**Note:** `br` is non-invasive and never executes git commands. If you track `.beads/` in git and it is not ignored, run `git add .beads/` manually after `br sync --flush-only`.
-
-1. **Check Beads CLI:**
-
-    ```bash
-    command -v bd >/dev/null 2>&1 && echo "BEADS_BD" || \
-    command -v br >/dev/null 2>&1 && echo "BEADS_BR" || \
-    echo "BEADS_NONE"
-    ```
-
-2. **Backend policy:**
-    - `BEADS_BD` -> prefer official Beads commands
-    - `BEADS_BR` -> use `br` compatibility commands
-    - `BEADS_NONE` -> continue in markdown-only mode and skip backend writes
-
----
-
-## 2.0 COMPLEXITY ANALYSIS
+## 2.0 Complexity Analysis
 
 **PROTOCOL: Determine if this is a Flow or a Saga.**
 
-1. **Analyze Request:** `$ARGUMENTS`
-2. **Heuristics:**
-    - Simple feature? -> Suggest `/flow-plan`.
-    - Multiple modules (Auth + DB + UI)? -> **Saga (PRD)**.
-    - Vague goal ("Make it better")? -> **Saga (Research Phase)**.
-
-**Companion Skills:** For complex decomposition decisions, use `flow:deepthink` to track analysis systematically — frame hypothesis ("single Flow" vs "Saga"), gather evidence from code analysis, track confidence as you investigate.
+1. **Simple feature?** -> Suggest `/flow:plan`.
+2. **Multi-module/Complex?** -> **Saga (PRD)**. Initialize Beads Epic.
 
 ---
 
-## 3.0 INTELLIGENCE INJECTION
-
-1. **Read History:** Scan `.agents/archive/` and `.agents/patterns.md`.
-2. **Velocity Check:** Estimate how many tasks fit in a context window based on past flows.
-3. **Strategy:** Determine the *order* of execution to maximize context recovery.
-
----
-
-## 3.5 PROBLEM ANALYSIS (Interactive)
+## 3.5 Problem Analysis (Interactive)
 
 **PROTOCOL: Analyze the problem and ask clarifying questions BEFORE proposing chapters.**
 
-1. **Analyze Request:**
-    - Read the user's goal/request thoroughly
-    - Identify ambiguities, unknowns, and decision points
-    - Consider existing codebase patterns from `patterns.md`
-
-2. **Code Analysis (if existing project):**
-    - Search for relevant code files related to the request
-    - Understand current architecture and patterns
-    - Identify potential integration points
-
-3. **Questioning Phase:**
-    - Ask 3-5 clarifying questions about:
-        - Scope boundaries (what's in/out)
-        - Priority/sequencing preferences
-        - Technical constraints
-        - Dependencies on external systems
-    - **Format:** Present as A/B/C options with "Type your own" option
-
-4. **Summarize Understanding:**
-    - Before proposing chapters, summarize what you understood
-    - Get user confirmation before proceeding
-    - Continue researching until obvious external docs, version, marketplace, migration, or host-capability gaps are closed.
-
-**Companion Skills for Roadmapping:**
-
-- Use `flow:consensus` to evaluate proposed chapter breakdown from advocate/critic/neutral stances. The advocate explores why this decomposition enables parallel work; the critic probes for hidden dependencies.
-- Use `flow:architecture-critic` to evaluate cross-chapter boundaries, shared interfaces, and integration points.
-- Apply `flow:challenge` to verify assumptions about existing system constraints.
-
-1. **Constraint Check:**
-    - "Based on `patterns.md`, I'll ensure X. Any concerns?"
+1. **Code Analysis**: Search relevant files to understand current architecture.
+2. **Informed Questions**: Ask 3-5 specific questions about scope and constraints.
+3. **Confirm Understanding**: Summarize goals before creating the roadmap.
 
 ---
 
-## 4.0 ROADMAP GENERATION
+## 4.0 Roadmap Generation
 
-**PROTOCOL: Create the Master PRD.**
+**PROTOCOL: Create the Master Roadmap.**
 
-1. **Interactive Planning:**
-    - Propose a breakdown into **Chapters** (Flows) based on clarified requirements.
-    - Example:
-        - Chapter 1: `auth-foundation` (Backend)
-        - Chapter 2: `auth-ui` (Frontend)
-        - Chapter 3: `auth-integration` (E2E)
-
-2. **Draft `prd.md`:**
-    - **Title:** Master PRD: [Name]
-    - **Context:** Why are we doing this? (North Star goal)
-    - **Roadmap:** Ordered list of Flows with descriptions.
-    - **Global Constraints:** Rules that apply to ALL flows in this PRD.
-
-3. **Write Artifacts:**
-    - Directory: `.agents/specs/<prd_id>/`
-    - File: `prd.md`
-    - File: `progress.md` (Tracks status of chapters)
+1. **Breakdown Chapters**: Propose 3-10 granular Flows (Chapters).
+2. **Draft prd.md**: Define North Star goals and global constraints.
 
 ---
 
-## 5.0 BEADS INTEGRATION
+## 5.0 Beads Integration (Source of Truth)
 
 **PROTOCOL: Create Beads epics with full context.**
 
-1. **Master Epic:**
-
-    ```bash
-    <active_backend_create_prd_epic>
-    <active_backend_attach_prd_notes>
-    ```
-
-    **CRITICAL:** The `--description` must include:
-    - The North Star goal
-    - Why this PRD exists
-    - Key outcomes expected
-
-2. **Sub-Epics (Chapters):**
-
-    For each Chapter in Roadmap:
-
-    ```bash
-    <active_backend_create_chapter_epic>
-    <active_backend_attach_chapter_notes>
-    ```
-
-    **CRITICAL:** The `--description` must include:
-    - What this chapter accomplishes
-    - Key deliverables
-    - Any prerequisites or dependencies
+1. **Master Epic**:
+    - Run `<active_backend_create_prd_epic>`.
+    - The `--description` MUST include the North Star goal.
+2. **Sub-Epics (Chapters)**:
+    - For each chapter in the roadmap, create a child epic.
+3. **Contextual Notes**:
+    - Attach high-level architectural decisions as notes to the master epic using `bd note` (or `br comment`).
 
 ---
 
-## 6.0 AUTO-PLAN FIRST FLOW (PLANNING DOCUMENTS ONLY)
+## 6.0 Auto-Plan First Flow
 
-**PROTOCOL: Create a unified spec.md for the first chapter. NO CODE MODIFICATION.**
+**PROTOCOL: Create a unified spec.md for the first chapter.**
 
-**REMINDER: Planning = creating `.agents/specs/` files. NOT writing code.**
-
-1. **Announce Transition:**
-
-    > "PRD created with [N] chapters. Now creating planning documents for Chapter 1: `<first_flow_id>`"
-
-2. **Execute Plan Workflow for First Flow (READ-ONLY code analysis):**
-
-    **2.1 Code Analysis (READ-ONLY - DO NOT MODIFY):**
-    - Use Glob/Grep to find files related to the chapter's scope
-    - Identify entry points, affected modules, and dependencies
-    - READ key files to understand current implementation
-    - Map the code flow related to the problem
-    - Note specific file paths and line numbers
-    - **DO NOT EDIT ANY SOURCE CODE FILES**
-
-    **2.2 Code Analysis Report:**
-    - Present summary of files analyzed
-    - Share key findings about current implementation
-    - Highlight what you understand and what's unclear
-
-    **2.3 INFORMED Questioning Phase:**
-    - Ask 3-5 questions based on CODE ANALYSIS (not generic guesses)
-    - Each question MUST reference specific files/code found
-    - Example BAD: "Is this service provided by DI?"
-    - Example GOOD: "I found `workspace_file_service` is injected in `src/services/workspace.py:45` using Dishka's `@inject` decorator. However, the CLI command at `src/cli/ingest.py:23` doesn't have the corresponding `@inject`. Should I add it there?"
-
-    **2.4 Generate Unified Spec (`.agents/specs/` ONLY):**
-    - Generate a single `spec.md` containing BOTH requirements AND implementation plan
-    - The spec.md must follow this structure:
-
-      ```markdown
-      # Flow: {flow_name}
-      ## Specification
-      {Code Analysis Summary, Requirements, etc.}
-      ## Implementation Plan
-      ### Phase 1: {name}
-      - [ ] 1.1 Task description
-      - [ ] 1.2 Task description
-      ### Phase 2: {name}
-      ...
-      ```
-
-    - Create Beads tasks under the chapter's epic
-    - **ONLY write to `.agents/specs/<flow_id>/` - NO other directories**
-    - Before calling the chapter plan complete, run a task-detail sufficiency pass:
-      - Ask: "Do I have enough task information written for this PRD/flow to complete it correctly in the first pass?"
-      - If not, refine the tasks until each one includes concrete files, dependencies, test-first steps, verification, and known risks.
-      - If the task detail is still too coarse for a lightweight executor, invoke `flow-refine` before final approval.
-
-3. **Summary and Continuation Prompt:**
-
-    > "Chapter 1 (`<first_flow_id>`) planning documents created.
-    >
-    > **Summary:**
-    > - Files analyzed: [list key files]
-    > - Spec: `.agents/specs/<flow_id>/spec.md` ([N] tasks)
-    >
-    > **Next:** Create planning documents for Chapter 2 (`<second_flow_id>`)?
-    > - **A) Yes** - Continue planning next chapter
-    > - **B) No** - Stop here, I'll plan remaining chapters later"
-
-4. **Loop Until Done:**
-    - If user selects A: Plan next chapter, repeat steps 2-3
-    - If user selects B: End with final summary
-    - After last chapter: Announce all chapters planned
-
-5. **Research Closure Loop:**
-    - Before ending the PRD workflow, check whether any chapter still depends on unfinished research about external docs, APIs, versions, release notes, migrations, marketplaces, or host capabilities.
-    - If yes, do the missing research, update the roadmap or chapter specs, and repeat the review loop.
-    - Do NOT declare PRD or chapter planning complete while obvious research gaps remain.
-
-6. **Final Summary (HARD STOP):**
-
-    > "**PLANNING COMPLETE - AWAITING IMPLEMENTATION APPROVAL**
-    >
-    > All [N] chapters have planning documents created.
-    > **NO CODE HAS BEEN MODIFIED.**
-    >
-    > To begin implementation, explicitly run:
-    > `/flow-implement <first_flow_id>`
-    >
-    > I will NOT proceed with any code changes until you run that command."
+1. **Plan Workflow**: Execute read-only code analysis and draft `spec.md`.
+2. **Beads Tasks**: Create initial implementation tasks in Beads under the chapter epic.
+3. **Refine**: Ensure the first chapter is implementation-ready.
 
 ---
 
-## 7.0 ARTIFACT CREATION
+## 7.0 Artifact Creation
 
-**PROTOCOL: Create all required files for each planned flow.**
+**PROTOCOL: Create all required files.**
 
-### 7.1 Flow Directory Structure
-
-For each flow, create in `.agents/specs/<flow_id>/`:
-
-1. **metadata.json:**
-
-    ```json
-    {
-      "flow_id": "<flow_id>",
-      "type": "feature",
-      "status": "planned",
-      "parent_prd": "<prd_id>",
-      "beads_epic_id": "<epic_id>",
-      "created_at": "ISO timestamp",
-      "updated_at": "ISO timestamp",
-      "description": "<flow_description>"
-    }
-    ```
-
-2. **spec.md:** Unified specification with requirements AND implementation plan (see format in 6.0)
-
-### 7.2 Update Registry
-
-Append to `.agents/flows.md`:
-
-```markdown
-## [ ] Flow: <flow_name>
-*Link: [./specs/<flow_id>/](./specs/<flow_id>/)*
-*Beads: <epic_id>*
-```
+1. **Registry**: Append to `.agents/flows.md`.
+2. **Sync**: Run `/flow:sync` to ensure Markdown views match the new Beads state.
 
 ---
 
 ## Critical Rules
 
-1. **NO CODE MODIFICATION** - NEVER edit source code files. Planning documents ONLY.
-2. **BACKEND AWARE** - Detect `bd`, `br`, or markdown-only mode before planning
-3. **FULL CONTEXT** - Always include a full problem/outcome description at creation time, then attach context notes through the active backend
-4. **ASK FIRST** - Clarifying questions before proposing chapters
-5. **CODE ANALYSIS (READ-ONLY)** - Read actual code before asking flow-specific questions but NEVER modify it
-6. **AUTO-PLAN** - Create unified spec.md for first flow (NOT implementation)
-7. **UNIFIED SPEC** - Single `spec.md` contains both requirements and plan. No separate `plan.md`.
-8. **SPECS DIRECTORY** - All artifacts go in `.agents/specs/`
-9. **HARD STOP** - End with explicit instruction to run `/flow-implement`
+1. **BEADS FIRST** - Initialize epics and notes before finalizing Markdown.
+2. **NO CODE MODIFICATION** - Planning documents only.
+3. **SYNC AFTER CREATION** - Run `/flow:sync` to generate Markdown from Beads state.
+4. **HARD STOP** - End with explicit instruction to run `/flow:implement`.

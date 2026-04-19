@@ -31,25 +31,22 @@ CRITICAL: Check whether `.agents/` or specific artifacts are ignored by `.gitign
 ## 3.0 EXECUTION LOOP
 **PROTOCOL: Execute the plan task by task.**
 
-### 3.1 Select Task (Beads-First)
-1.  **Primary - Use Beads:** Run the active backend's ready queue to find unblocked tasks.
-2.  **Sync Beads:** If task not in the backend, create it, attach notes, and mark it in progress using the active backend's commands.
+### 3.1 Task Selection (Beads-First)
+1.  **Primary - Use Beads:** Run `bd ready` to find unblocked tasks.
+2.  **Claim:** Mark the task in progress and claim it with `bd update <id> --claim`.
+3.  **Sync Beads:** If task not in the backend, create it and mark it in progress.
 
-### 3.1.1 Subagent and Refinement Gate
-1.  If `superpowers:subagent-driven-development` is available, use it for implementation orchestration.
-2.  Before delegating, ask: "Do I have enough task information written for this PRD/flow to complete it correctly in the first pass?"
-3.  If not, invoke `flow-refine` first and update the plan before implementation.
-4.  Preserve subagent context by passing the relevant spec or PRD, patterns, knowledge chapters, learnings, affected files, and verification requirements.
-5.  If subagent orchestration is unavailable, follow the same refinement, context-preservation, TDD, and review protocol inline in single-agent mode.
-6.  Do not silently descope if the task is larger than expected. Refine it or ask the user how to prioritize.
+### 3.2 Task Execution Loop (TDD)
+**PROTOCOL: Note discoveries and sync after work.**
 
-### 3.2 TDD Workflow (Red-Green-Refactor)
-
-**IRON LAW: NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST.** Write code before the test? Delete it. Start over.
-
-1.  **Red (Write Tests):** Create/update test files. Run the canonical test command from `.agents/workflow.md` when present. **MANDATORY: Confirm test FAILS for the right reason** (feature missing, not typo). Test passes immediately? Fix the test.
-2.  **Green (Implement):** Write **simplest code** to pass. No extras. Make the minimum targeted change set needed for the task. Run tests. **MANDATORY: Confirm ALL tests pass**, output pristine.
-3.  **Refactor:** Clean up without changing behavior. Run tests. Must stay green. Don't add behavior.
+1.  **Investigate & Note:** Record findings/decisions immediately with `bd note <id> "..."`.
+2.  **TDD Workflow:** 
+    - **Red:** Write failing test. Confirm failure for right reason.
+    - **Green:** Implement minimal code. Confirm all tests pass.
+    - **Refactor:** Clean up while remaining green.
+3.  **Commit:** `git commit -m "<type>(<scope>): <description>"`
+4.  **Close Task:** Close in Beads with commit SHA: `bd close <id> --reason "[abc1234]..."`.
+5.  **Sync Markdown:** Run `/flow:sync` (MANDATORY).
 
 ### 3.3 Commit and Sync
 1.  **Git Commit:** `git add <implementation_files> <non_ignored_context_files>`, `git commit -m "<type>(<scope>): <description>"`

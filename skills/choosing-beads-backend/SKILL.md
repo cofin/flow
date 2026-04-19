@@ -7,17 +7,17 @@ description: Use when a workflow depends on Beads persistence and you need to ch
 
 ## Overview
 
-Default to official Beads (`bd`). Keep `br` as a compatibility path when a repo or user already depends on it. Support a no-Beads degraded mode for planning, docs, and lightweight local workflows.
+Default to official Beads (`bd`). Beads is the **Primary Source of Truth** for the Flow framework. All tasks, notes, and state MUST be recorded in the active backend. Markdown files are synchronized views of this state.
 
 <workflow>
 
-1. **Official Beads (`bd`)**: preferred default.
+1. **Official Beads (`bd`)**: preferred default. Hierarchical epics, rich notes.
 2. **Compatibility (`br`)**: use when the repo already depends on `br` semantics or when official Beads is unavailable.
-3. **No Beads**: use when the user wants low-friction setup or only needs spec/docs workflows.
+3. **No Beads**: DEGRADED MODE. Use only when persistence is not possible. Markdown markers must be updated manually.
 
 - If the user asks for the official Beads experience, use `bd`.
-- If the repo already contains `br`-specific commands, document `br` as compatibility mode and avoid pretending it is official Beads.
-- If persistence is optional or the user wants minimal admin overhead, offer a no-Beads path instead of forcing installation.
+- If the repo already contains `br`-specific commands, document `br` as compatibility mode.
+- If persistence is unavailable, inform the user that `/flow:sync` will be disabled and they must manage Markdown markers manually.
 
 </workflow>
 

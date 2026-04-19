@@ -77,12 +77,12 @@ Search and read files related to the problem, map implementation paths, note con
 **PROTOCOL: Write files and Beads data AFTER user approval.**
 
 1.  **Create Directory:** `.agents/specs/<flow_id>/`
-2.  **Write Files:** `spec.md` and `metadata.json` (include `"files_analyzed": [...]`).
-3.  **Update Registry:** Append to `.agents/flows.md` marking the flow `[ ]`.
-4.  **Beads Integration:**
-    -   Create the epic through the active backend when enabled.
-    -   Attach file/context notes through the active backend.
-    -   Create phase tasks through the active backend.
+2.  **Beads Integration:**
+    -   Create the epic and child tasks through the active backend.
+    -   Attach file/context notes using `bd note`.
+3.  **Sync:** Run `/flow:sync` to generate the `spec.md` worksheet from the new Beads state.
+4.  **Metadata:** Write `metadata.json`.
+5.  **Update Registry:** Append to `.agents/flows.md`.
 
 ---
 

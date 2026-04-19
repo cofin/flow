@@ -1,14 +1,32 @@
 # Gemini CLI SessionStart Hook Wrapper (PowerShell)
 # Receives JSON on stdin, returns JSON on stdout
 
-try {
-    $context = & "$PSScriptRoot/detect-env.ps1"
-} catch {
-    $context = "Error during environment detection."
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+
+function Main {
+    $detectScript = Join-Path $PSScriptRoot "detect-env.ps1"
+    $context = ""
+
+    if (Test-Path $detectScript) {
+        try {
+            # Capture output from the detection script
+            $context = & $detectScript
+        } catch {
+            $context = "Error during environment detection: $($_.Exception.Message)"
+        }
+    } else {
+        $context = "Error: Environment detection script not found at $detectScript"
+    }
+
+    # Extract the context and escape for JSON
+    # We use ConvertTo-Json which handles the escaping correctly
+    $output = @{
+        systemMessage = ($context | Out-String)
+    }
+
+    Write-Output ($output | ConvertTo-Json -Compress)
 }
 
-# Extract the context and escape for JSON
-$escaped_context = $context | Out-String | ConvertTo-Json
+Main
 
-# Return the systemMessage to Gemini CLI
-Write-Output "{`"systemMessage`": $escaped_context}"

@@ -50,9 +50,13 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
 ---
 
 ## 1.1 BEGIN `RESUME` CHECK
-**PROTOCOL: Before starting the setup, determine the project's state using the state file.**
+**PROTOCOL: Before starting the setup, check if the environment has already been detected via hooks.**
 
-1.  **Read State File:** Check for the existence of the state file:
+1.  **Check Hook Context:** Look for `## Flow Environment Context` in your `<hook_context>`.
+    - If **Flow Root** is present, use that as the authoritative root directory.
+    - If **Beads Backend** is present and NOT `Missing`, note the active backend.
+
+2.  **Manual Check (Fallback only):** Only if the hook context is missing or incomplete, perform the following:
     - First check `.agents/setup-state.json`
     - Then check `specs/setup-state.json`
     - If neither exists, this is a new project setup. Proceed directly to Step 1.2.
@@ -139,19 +143,18 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
     d. Merge confirmed patterns into `.agents/patterns.md`
     e. Archive original learnings.md with migration note
 
-4.  **Workflow Revalidation:**
-    -   **Workflow File:** Compare `<root_directory>/workflow.md` with the latest template.
+4.  **Core Artifacts Check:**
+    -   Check for existence of `product.md` and `tech-stack.md`.
+    -   If missing, offer to create them from templates.
+    -   If present but missing `<!-- truth: start -->` markers, offer to add them.
+
+5.  **Workflow Revalidation & Sync:**
+    -   **PROTOCOL: Synchronize workflow.md with the latest template while preserving local "truth" markers.**
+    -   Read `<root_directory>/workflow.md` and check for content between `<!-- truth: start -->` and `<!-- truth: end -->`.
+    -   **If markers exist:** Replace everything OUTSIDE the markers with the latest `templates/agent/workflow.md` content. Keep the local truth section intact.
+    -   **If markers are missing:** Propose wrapping the "Essential Commands" and "Guiding Principles" in truth markers before performing the sync.
     -   **Inspect real repo command surfaces before proposing changes:**
-        - `Makefile`
-        - `justfile`
-        - `Taskfile.yml`
-        - `package.json`
-        - `pyproject.toml`
-        - `tox.ini`
-        - `noxfile.py`
-        - `Cargo.toml`
-        - `.pre-commit-config.yaml`
-        - CI files such as `.github/workflows/*`
+        - `Makefile`, `justfile`, `Taskfile.yml`, `package.json`, `pyproject.toml`, `tox.ini`, `noxfile.py`, `Cargo.toml`, `.pre-commit-config.yaml`, CI files.
     -   **Offer Revalidation, not blind overwrite:**
         > "Workflow settings may be stale. I can refresh the workflow template and preserve or update your project preferences.
         >
@@ -160,30 +163,31 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
         > B) Refresh template and update preferences
         > C) Keep current workflow.md"
     -   **If A or B:**
-        -   Preserve or re-confirm:
-            - coverage target
-            - commit cadence
-            - task-summary mechanism
-            - backend mode (`bd`, `br`, or none)
-            - local-only vs shared ignore policy
-            - canonical repo commands for setup, lint, test, typecheck, and full verification
-        -   Prefer existing repo-native aggregate commands such as `make lint`, `make test`, `make check`, `just check`, `task test`, package scripts, or pre-commit entrypoints.
         -   Update `<root_directory>/workflow.md` selectively so user-specific commands and preferences are preserved.
-        -   Announce: "Revalidated workflow.md against the latest template and current repo commands."
+        -   Announce: "Revalidated and synced workflow.md against the latest template and current repo commands."
 
-5.  **Knowledge Base Check:**
+6.  **Knowledge Base Check:**
     -   Check for missing `.agents/knowledge/` directory. If absent, create it and write `knowledge/index.md` from template.
 
-6.  **Configuration Validation:**
-    -   Check `<root_directory>/beads.json` for valid config
-    -   Verify `<root_directory>/tech-stack.md` matches detected languages
-    -   Verify `<root_directory>/workflow.md` reflects the active backend and canonical repo commands
+7.  **Policy & Context Validation:**
+    -   **Gemini CLI:** Check for `.gemini/policies/flow-overrides.toml`. If missing or outdated, offer to create it to allow common development tools in Plan Mode.
+    -   **Claude Code:** Check for `CLAUDE.md` in the project root. If missing, offer to create it from the latest template to provide project context and rules.
+    > "Host-specific policy or context file missing or outdated. Create it now?
+    > A) Yes (recommended)
+    > B) Skip"
+    -   If A, create or update the appropriate file(s).
 
-7.  **Alignment Summary:**
+8.  **Configuration Validation:**
+    -   Check `<root_directory>/beads.json` for valid config
+    -   Verify `<root_directory>/tech-stack.md` reflects the active backend and canonical repo commands
+    -   Update `<root_directory>/setup-state.json` (workflow_revision, status)
+
+9.  **Alignment Summary:**
     > "Alignment Complete
     >
     > ✓ Beads: v{version} (up to date)
-    > ✓ Workflow: Revalidated
+    > ✓ Workflow: Revalidated and synced
+    > ✓ Policy/Context: Host-specific overrides and context files configured
     > ✓ Specs migrated: {N} active, {M} archived
     > ✓ Learnings merged: {X} patterns added to patterns.md
     > ✓ Configuration validated

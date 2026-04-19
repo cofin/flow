@@ -1,5 +1,5 @@
 ---
-description: Display progress overview with Beads status
+description: Display progress overview from Beads
 allowed-tools: Read, Glob, Grep, Bash
 ---
 
@@ -7,106 +7,66 @@ allowed-tools: Read, Glob, Grep, Bash
 
 Display progress overview for all active flows.
 
-## Phase 1: Load Registry
+## The Dashboard Mandate
 
-Read `.agents/flows.md` to get list of active flows.
-
----
-
-## Phase 2: Beads Status (Source of Truth)
-
-```bash
-br status                          # Workspace overview
-br ready                           # Unblocked tasks ready to work
-br list --status in_progress       # Resume active work
-br blocked                         # Blocked tasks
-```
+**CRITICAL:** `/flow:status` is the live dashboard. It pulls directly from **Beads** (source of truth). If Markdown views are out of sync, it will recommend running `/flow:sync`.
 
 ---
 
-## Phase 3: Flow Summary (Beads-First)
+## 1.0 Environment Detection
 
-For each active flow:
+**PROTOCOL: Check hook context for environment metadata.**
 
-### Primary: Get Status from Beads
-
-```bash
-br show {epic_id} --format json
-```
-
-Parse JSON to count:
-
-- `pending` tasks
-- `in_progress` tasks  
-- `completed` tasks
-- `blocked` tasks
-
-Calculate progress: `completed / total * 100`
-
-### Fallback: Parse spec.md
-
-If Beads unavailable:
-
-1. Read `.agents/specs/{flow_id}/spec.md` (unified spec+plan)
-2. Parse Implementation Plan section
-3. Count tasks by status (from Beads export or markers)
+1. **Check Hook Context:** Scan `<hook_context>` for `## Flow Environment Context`.
+2. **Verify Backend:** Use the injected Beads Backend.
 
 ---
 
-## Phase 4: Display Dashboard
+## 2.0 Beads Status (Source of Truth)
+
+1. **Pull Active State**: Run `bd ready` and `bd status` (or `br` equivalents).
+2. **Match to Flows**: Link Beads Epics to the flows registered in `.agents/flows.md`.
+
+---
+
+## 3.0 Display Dashboard
 
 ```text
-Flow Status Dashboard
+Flow Status Dashboard (Beads Source of Truth)
 
 === Active Flows ===
 
 [~] auth - Add user authentication
+    Beads Epic: flow-auth
     Progress: 5/12 tasks (41%)
-    Current: Phase 2, Task 6
-    Last Activity: 2026-01-24 14:30
-    Blockers: 0
+    Ready Tasks: 2
+    Blocked: 1 [!]
 
 [ ] dark-mode - Add dark mode toggle
+    Beads Epic: flow-dark-mode
     Progress: 0/8 tasks (0%)
-    Status: Not started
 
-=== Beads Ready ===
+=== Beads Queue ===
 
-Ready tasks (no blockers):
+Ready to claim (bd ready):
   - auth: Task 6 - Implement login endpoint
   - auth: Task 7 - Add session middleware
 
-=== Beads Blocked ===
+=== Recent Notes ===
 
-Blocked tasks:
-  - auth: Task 8 - Waiting for API keys [!]
+- auth: "Root cause found in services/auth.py:45" (10m ago)
+- auth: "Using Zod for validation" (25m ago)
 
-=== Quality Gates ===
+=== Next Steps ===
 
-Last Test Run: PASSED (2026-01-24 14:25)
-Coverage: 82%
-
-=== Recent Activity ===
-
-- 14:30 - auth: Task 5 completed [abc1234]
-- 14:15 - auth: Task 4 completed [def5678]
-- 13:45 - dark-mode: Flow created
+- Ready to code? Run `/flow:implement <flow_id>`
+- Out of sync? Run `/flow:sync`
 ```
-
----
-
-## Phase 5: Recommendations
-
-Based on status, suggest next action:
-
-- If blocked tasks exist: "Document blockers with `br update {id} --status blocked --notes \"BLOCKED: {reason}\"`"
-- If no in-progress: "Ready to continue? Run `/flow-implement {flow_id}`"
-- If flow complete: "Flow ready for archive? Run `/flow-archive {flow_id}`"
 
 ---
 
 ## Critical Rules
 
-1. **READ ONLY** - This command only displays information
-2. **BEADS IS SOURCE OF TRUTH** - Pull task status from Beads, not spec.md
-3. **ACTIONABLE** - Provide next step suggestions
+1. **BEADS FIRST** - Always prefer backend state over Markdown markers.
+2. **SHOW NOTES** - Include recent Beads notes to maintain context.
+3. **SYNC WARNING** - If Markdown and Beads differ, warn the user.

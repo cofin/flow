@@ -1,150 +1,246 @@
 #!/usr/bin/env bash
-# Core logic for environment detection
+#
+# detect-env.sh - Core logic for Flow environment detection.
+#
+# This script identifies the project context, beads backend, tooling,
+# git status, and project identity to provide priming context for AI agents.
+#
+# Usage:
+#   ./detect-env.sh
+#
+set -euo pipefail
+IFS=$'\n\t'
 
-echo "## Flow Environment Context"
+# --- Configuration ---
+readonly DEFAULT_ROOT_DIR=".agents"
 
-# 1. Beads Backend Detection
-if timeout 2s command -v bd >/dev/null 2>&1; then
-  echo "- **Beads Backend**: Official (bd)"
-elif timeout 2s command -v br >/dev/null 2>&1; then
-  echo "- **Beads Backend**: Compatibility (br)"
-else
-  echo "- **Beads Backend**: Missing (None)"
-fi
+# --- Functions ---
 
-# 2. Project Config Detection
-if [ -f ".agents/setup-state.json" ]; then
-  ROOT_DIR=$(grep -o '"root_directory": "[^"]*"' .agents/setup-state.json | cut -d'"' -f4)
-  echo "- **Flow Root**: $ROOT_DIR"
-else
-  echo "- **Flow Root**: .agents/ (default)"
-  ROOT_DIR=".agents"
-fi
-
-# 3. Tooling Check
-echo -n "- **Tooling**: "
-tools=("uv" "bun" "ruff" "make" "railway")
-available=()
-for tool in "${tools[@]}"; do
-  if command -v "$tool" >/dev/null 2>&1; then
-    available+=("$tool")
-  fi
-done
-if [ ${#available[@]} -eq 0 ]; then
-  echo "None"
-else
-  echo "${available[*]}"
-fi
-
-# 4. Git Context
-if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || echo "unborn")
-  echo "- **Git Branch**: $BRANCH"
-  if git check-ignore -q .agents/ 2>/dev/null; then
-    echo "- **Git Visibility**: .agents/ is GIT-IGNORED (Use 'cat' or bypass ignore filters)"
-  else
-    echo "- **Git Visibility**: .agents/ is Tracked"
-  fi
-fi
-
-# 5. Project Identity
-if [ -f "$ROOT_DIR/product.md" ]; then
-  echo ""
-  echo "### Project Identity"
-  # Extract until first list or first 5 lines of content
-  grep -m 5 "^[^#]" "$ROOT_DIR/product.md" | head -n 5 | sed 's/^/  /'
-fi
-
-# 6. Context Index
-echo ""
-echo "### Project Context Index"
-echo "- **Product Definition**: $ROOT_DIR/product.md"
-echo "- **Tech Stack**: $ROOT_DIR/tech-stack.md"
-echo "- **Workflow**: $ROOT_DIR/workflow.md"
-echo "- **Patterns**: $ROOT_DIR/patterns.md"
-echo "- **Flow Registry**: $ROOT_DIR/flows.md"
-
-# 7. Active Work
-echo ""
-echo "### Active Work"
-if command -v bd >/dev/null 2>&1; then
-  READY=$(timeout 2s bd ready --json 2>/dev/null | python3 -c 'import json, sys; d=json.load(sys.stdin); print(json.dumps(d[:3]))' 2>/dev/null)
-  if [ -n "$READY" ] && [ "$READY" != "[]" ]; then
-    echo "- **Ready Tasks (Top 3)**: $READY"
-  else
-    echo "- **Ready Tasks**: None"
-  fi
-elif command -v br >/dev/null 2>&1; then
-  READY=$(timeout 2s br ready 2>/dev/null | head -n 3)
-  if [ -n "$READY" ]; then
-    echo "- **Ready Tasks (Top 3)**:"
-    echo "$READY" | sed 's/^/  /'
-  else
-    echo "- **Ready Tasks**: None"
-  fi
-else
-  echo "- **Status**: No active backend for task tracking."
-fi
-
-# 8. Essential Truths (Priming)
-echo ""
-echo "### Core Project Truths"
-
-extract_truths() {
-  local file=$1
-  if [ -f "$file" ]; then
-    # Try to extract between truth markers first
-    local truths=$(sed -n '/<!-- truth: start -->/,/<!-- truth: end -->/p' "$file" | grep -v "<!--")
-    if [ -n "$truths" ]; then
-      echo "$truths" | sed 's/^/  /'
-      return 0
+# Helper to safely run a command with timeout and return its output
+# Usage: safe_run <timeout> <command> [args...]
+safe_run() {
+    local timeout_val="$1"
+    shift
+    if command -v timeout >/dev/null 2>&1; then
+        timeout "${timeout_val}" "$@" 2>/dev/null || true
+    else
+        "$@" 2>/dev/null || true
     fi
-  fi
-  return 1
 }
 
-if [ -f "$ROOT_DIR/tech-stack.md" ]; then
-  echo "- **Tech Stack Summary**:"
-  if ! extract_truths "$ROOT_DIR/tech-stack.md"; then
-    grep -m 10 "^-" "$ROOT_DIR/tech-stack.md" | sed 's/^/  /'
-  fi
-fi
+detect_beads() {
+    echo "## Flow Environment Context"
+    if command -v bd >/dev/null 2>&1; then
+        echo "- **Beads Backend**: Official (bd)"
+    elif command -v br >/dev/null 2>&1; then
+        echo "- **Beads Backend**: Compatibility (br)"
+    else
+        echo "- **Beads Backend**: Missing (None)"
+    fi
+}
 
-if [ -f "$ROOT_DIR/workflow.md" ]; then
-  echo "- **Canonical Commands**:"
-  if ! extract_truths "$ROOT_DIR/workflow.md"; then
-    grep -A 15 "## Development Commands" "$ROOT_DIR/workflow.md" | grep -v "^#" | grep -v "^$" | sed 's/^/  /'
-  fi
-fi
+detect_project_root() {
+    local root_dir="${DEFAULT_ROOT_DIR}"
+    if [[ -f ".agents/setup-state.json" ]]; then
+        local found_root
+        found_root=$(grep -o '"root_directory": "[^"]*"' .agents/setup-state.json | cut -d'"' -f4 || true)
+        if [[ -n "${found_root}" ]]; then
+            root_dir="${found_root}"
+            echo "- **Flow Root**: ${root_dir}"
+        else
+            echo "- **Flow Root**: .agents/ (default, missing in setup-state)"
+        fi
+    else
+        echo "- **Flow Root**: .agents/ (default)"
+    fi
+    echo "${root_dir}"
+}
 
-if [ -f "$ROOT_DIR/patterns.md" ]; then
-  echo "- **Critical Patterns**:"
-  if ! extract_truths "$ROOT_DIR/patterns.md"; then
-    grep -m 10 "^-" "$ROOT_DIR/patterns.md" | sed 's/^/  /'
-  fi
-fi
+check_tooling() {
+    local tools=("uv" "bun" "ruff" "make" "railway")
+    local available=()
+    for tool in "${tools[@]}"; do
+        if command -v "${tool}" >/dev/null 2>&1; then
+            available+=("${tool}")
+        fi
+    done
 
-# 9. Knowledge Inventory
-if [ -d "$ROOT_DIR/knowledge" ] || [ -f "$ROOT_DIR/patterns.md" ]; then
-  echo ""
-  echo "### Knowledge Base"
-  [ -f "$ROOT_DIR/patterns.md" ] && echo "- **Consolidated Patterns**: $ROOT_DIR/patterns.md"
-  if [ -d "$ROOT_DIR/knowledge" ]; then
-    CHAPTERS=$(find "$ROOT_DIR/knowledge" -name "*.md" -exec basename {} \; 2>/dev/null | tr '\n' ' ')
-    [ -n "$CHAPTERS" ] && echo "- **Knowledge Chapters**: $CHAPTERS"
-  fi
-fi
+    echo -n "- **Tooling**: "
+    if [[ ${#available[@]} -eq 0 ]]; then
+        echo "None"
+    else
+        (IFS=' '; echo "${available[*]}")
+    fi
 
-# 9. Flow Mandate (Context Reinforcement)
-echo ""
-echo "### Flow Mandate"
-echo "- **Zero-Ambiguity Standard**: All PRDs MUST be Master Roadmaps (Sagas). ALL child plans MUST be 'High-Definition Worksheets' with exact line numbers and code snippets."
-echo "- **Synthesis Mandate**: You are responsible for the knowledge lifecycle. Autonomously identify patterns and synthesize learnings into formal guides in \`.agents/knowledge/\`."
-echo "- **Cleanup Mandate**: Regularly run \`/flow:cleanup\` to re-assess, reorganize, and optimize the project context. Verify task status against SOURCE CODE."
-echo "- **Inherit First**: READ \`patterns.md\` and \`knowledge/\` chapters before planning. Adhere to current state truth."
-echo "- **Deep Research First**: Do NOT defer research to implementation. ALL analysis and architectural decisions MUST be completed upfront."
-echo "- **Stateless Executor Test**: A plan is only 'Ready' if an agent with ZERO context can implement it 100% correctly based ONLY on the worksheet."
-echo "- **TDD Discipline**: Follow the Red-Green-Refactor cycle and verify coverage as outlined in the \`flow\` skill."
-echo "- **Sync Requirement**: Run \`/flow:sync\` after any change to Beads state or project structure."
+}
 
-exit 0
+git_context() {
+    local root_dir="$1"
+    if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+        local branch
+        branch=$(git symbolic-ref --short HEAD 2>/dev/null || echo "unborn")
+        echo "- **Git Branch**: ${branch}"
+        if git check-ignore -q "${root_dir}/" 2>/dev/null; then
+            echo "- **Git Visibility**: ${root_dir}/ is GIT-IGNORED (Use 'cat' or bypass ignore filters)"
+        else
+            echo "- **Git Visibility**: ${root_dir}/ is Tracked"
+        fi
+    fi
+}
+
+project_identity() {
+    local root_dir="$1"
+    if [[ -f "${root_dir}/product.md" ]]; then
+        echo ""
+        echo "### Project Identity"
+        # Extract until first list or first 5 lines of content
+        grep -m 5 "^[^#]" "${root_dir}/product.md" | head -n 5 | sed 's/^/  /' || true
+    fi
+}
+
+context_index() {
+    local root_dir="$1"
+    echo ""
+    echo "### Project Context Index"
+    echo "- **Product Definition**: ${root_dir}/product.md"
+    echo "- **Tech Stack**: ${root_dir}/tech-stack.md"
+    echo "- **Workflow**: ${root_dir}/workflow.md"
+    echo "- **Patterns**: ${root_dir}/patterns.md"
+    echo "- **Flow Registry**: ${root_dir}/flows.md"
+}
+
+active_work() {
+    echo ""
+    echo "### Active Work"
+    if command -v bd >/dev/null 2>&1; then
+        local ready
+        ready=$(safe_run 2s bd ready --json)
+        if [[ -n "${ready}" ]] && [[ "${ready}" != "[]" ]]; then
+            # Attempt to parse and truncate with python if available
+            if command -v python3 >/dev/null 2>&1; then
+                local truncated
+                truncated=$(echo "${ready}" | python3 -c 'import json, sys; d=json.load(sys.stdin); print(json.dumps(d[:3]))' 2>/dev/null || true)
+                if [[ -n "${truncated}" ]]; then
+                    echo "- **Ready Tasks (Top 3)**: ${truncated}"
+                    return
+                fi
+            fi
+            echo "- **Ready Tasks**: ${ready}"
+        else
+            echo "- **Ready Tasks**: None"
+        fi
+    elif command -v br >/dev/null 2>&1; then
+        local ready
+        ready=$(safe_run 2s br ready | head -n 3 || true)
+        if [[ -n "${ready}" ]]; then
+            echo "- **Ready Tasks (Top 3)**:"
+            echo "${ready}" | sed 's/^/  /'
+        else
+            echo "- **Ready Tasks**: None"
+        fi
+    else
+        echo "- **Status**: No active backend for task tracking."
+    fi
+}
+
+extract_truths() {
+    local file="$1"
+    if [[ -f "${file}" ]]; then
+        local truths
+        # Try to extract between truth markers first
+        truths=$(sed -n '/<!-- truth: start -->/,/<!-- truth: end -->/p' "${file}" | grep -v "<!--" || true)
+        if [[ -n "${truths}" ]]; then
+            echo "${truths}" | sed 's/^/  /'
+            return 0
+        fi
+    fi
+    return 1
+}
+
+essential_truths() {
+    local root_dir="$1"
+    echo ""
+    echo "### Core Project Truths"
+
+    local tech_stack="${root_dir}/tech-stack.md"
+    if [[ -f "${tech_stack}" ]]; then
+        echo "- **Tech Stack Summary**:"
+        if ! extract_truths "${tech_stack}"; then
+            grep -m 10 "^-" "${tech_stack}" | sed 's/^/  /' || true
+        fi
+    fi
+
+    local workflow="${root_dir}/workflow.md"
+    if [[ -f "${workflow}" ]]; then
+        echo "- **Canonical Commands**:"
+        if ! extract_truths "${workflow}"; then
+            grep -A 15 "## Development Commands" "${workflow}" | grep -v "^#" | grep -v "^$" | sed 's/^/  /' || true
+        fi
+    fi
+
+    local patterns="${root_dir}/patterns.md"
+    if [[ -f "${patterns}" ]]; then
+        echo "- **Critical Patterns**:"
+        if ! extract_truths "${patterns}"; then
+            grep -m 10 "^-" "${patterns}" | sed 's/^/  /' || true
+        fi
+    fi
+}
+
+knowledge_inventory() {
+    local root_dir="$1"
+    if [[ -d "${root_dir}/knowledge" ]] || [[ -f "${root_dir}/patterns.md" ]]; then
+        echo ""
+        echo "### Knowledge Base"
+        if [[ -f "${root_dir}/patterns.md" ]]; then
+            echo "- **Consolidated Patterns**: ${root_dir}/patterns.md"
+        fi
+        if [[ -d "${root_dir}/knowledge" ]]; then
+            local chapters
+            chapters=$(find "${root_dir}/knowledge" -name "*.md" -exec basename {} \; 2>/dev/null | tr '\n' ' ' || true)
+            if [[ -n "${chapters}" ]]; then
+                echo "- **Knowledge Chapters**: ${chapters}"
+            fi
+        fi
+    fi
+}
+
+flow_mandate() {
+    local root_dir="$1"
+    echo ""
+    echo "### Flow Mandate"
+    cat <<EOF
+- **Zero-Ambiguity Standard**: All PRDs MUST be Master Roadmaps (Sagas). ALL child plans MUST be 'High-Definition Worksheets' with exact line numbers and code snippets.
+- **Synthesis Mandate**: You are responsible for the knowledge lifecycle. Autonomously identify patterns and synthesize learnings into formal guides in \`${root_dir}/knowledge/\`.
+- **Cleanup Mandate**: Regularly run \`/flow:cleanup\` to re-assess, reorganize, and optimize the project context. Verify task status against SOURCE CODE.
+- **Inherit First**: READ \`patterns.md\` and \`knowledge/\` chapters before planning. Adhere to current state truth.
+- **Deep Research First**: Do NOT defer research to implementation. ALL analysis and architectural decisions MUST be completed upfront.
+- **Stateless Executor Test**: A plan is only 'Ready' if an agent with ZERO context can implement it 100% correctly based ONLY on the worksheet.
+- **TDD Discipline**: Follow the Red-Green-Refactor cycle and verify coverage as outlined in the \`flow\` skill.
+- **Sync Requirement**: Run \`/flow:sync\` after any change to Beads state or project structure.
+EOF
+}
+
+main() {
+    detect_beads
+    local root_dir
+    # capture root_dir but suppress its output line (or keep it if it echoes something)
+    # The detect_project_root echoes a line AND returns the path.
+    # To handle both, we capture the last line as root_dir and echo the rest.
+    local root_info
+    root_info=$(detect_project_root)
+    echo "${root_info}" | head -n -1
+    root_dir=$(echo "${root_info}" | tail -n 1)
+
+    check_tooling
+    git_context "${root_dir}"
+    project_identity "${root_dir}"
+    context_index "${root_dir}"
+    active_work
+    essential_truths "${root_dir}"
+    knowledge_inventory "${root_dir}"
+    flow_mandate "${root_dir}"
+}
+
+main "$@"
+

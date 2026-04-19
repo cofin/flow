@@ -57,6 +57,14 @@ NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST
 
 If you haven't completed Phase 1, you cannot propose fixes.
 
+### The Beads-First Investigation Mandate
+
+**CRITICAL:** Every investigation finding, root cause discovery, and hypothesis test MUST be recorded in Beads as a note on the active task.
+
+1. **Investigate**: Trace data flow, read errors, reproduce.
+2. **Note**: `bd note <id> "Root cause: [Description]. Found in [file:line]."`
+3. **Commit**: Decisions stored in Beads survive context compaction and session resets. Markdown is for the final "Learnings" summary.
+
 ### Four-Phase Protocol
 
 1. **Root Cause Investigation** — Read error messages completely. Reproduce consistently. Check recent changes. Trace data flow to source.
