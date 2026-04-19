@@ -14,6 +14,6 @@
   "commands": ["./commands/"],
   "agents": ["./.claude-plugin/agents/"],
   "hooks": {
-    "session-start": "./.claude-plugin/hooks/session-start.sh"
+    "session-start": "../hooks/session-start"
   }
 }

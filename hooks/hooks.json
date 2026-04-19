@@ -6,7 +6,7 @@
         {
           "name": "flow-env-detection",
           "type": "command",
-          "command": "bash ${extensionPath}/hooks/session-start.sh",
+          "command": "${extensionPath}/hooks/session-start",
           "description": "Detects Beads backend and project root at session start."
         }
       ]

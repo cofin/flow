@@ -8,7 +8,9 @@ Flow is a unified toolkit for **Context-Driven Development** that works with **C
 
 Control your code. By treating context as a managed artifact alongside your code, you transform your repository into a single source of truth that drives every agent interaction. Flow ensures a consistent, high-quality lifecycle for every task:
 
-**Context → Spec & Plan → Implement → Learn**
+### Lifecycle
+
+- **Context → Spec & Plan → Implement → Learn**
 
 ## Key Features
 
@@ -103,7 +105,7 @@ OpenCode also discovers skills from `.opencode/skills/`, `.claude/skills/`, and 
 
 Install Flow from the plugin system:
 
-```
+```text
 /add-plugin flow
 ```
 
@@ -257,7 +259,7 @@ Flow follows TDD workflow with a backend adapter:
 
 ## Directory Structure
 
-```
+```text
 project/
 ├── .agents/
 │   ├── product.md           # Product vision and goals
