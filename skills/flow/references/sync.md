@@ -49,7 +49,13 @@ Map backend status to markdown markers:
 
 Set `"synced_at"` and `"updated_at"` in metadata.json.
 
-## Phase 6: Context Drift Check
+## Phase 6: Synthesis Check (The Synthesis Mandate)
+
+1. **Identify**: Inspect `learnings.md` and the `Implementation Plan` for new architectural patterns, conventions, or non-obvious technical discoveries.
+2. **Propose**: If a significant pattern is found, propose its immediate elevation to `.agents/patterns.md` or its synthesis into a chapter in `.agents/knowledge/`.
+3. **Execute**: If the user confirms, integrate the knowledge now. Do NOT wait for archive if the pattern is foundational for the current or upcoming flows.
+
+## Phase 7: Context Drift Check
 
 1. Compare dependency files with `.agents/tech-stack.md`
 2. Inspect workflow drift across `Makefile`, `justfile`, `Taskfile.yml`, package scripts, `.pre-commit-config.yaml`, and CI files

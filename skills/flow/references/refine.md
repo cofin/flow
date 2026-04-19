@@ -1,16 +1,17 @@
 # Flow Refine
 
-Use this process to turn a mostly-correct Flow plan into an implementation-ready plan.
+Use this process to enforce the **Zero-Ambiguity Mandate** by turning a mostly-correct Flow plan into an implementation-ready **Worksheet**.
 
 ## Overview
 
-Refinement is an iterative process that must continue until the agent can confidently implement the plan in one pass without asking for more info. Every refined task MUST include:
+Refinement is an autonomous, iterative process that MUST continue until the plan is **High-Definition**. A plan is only "Ready" when a stateless, low-context executor can complete it 100% correctly in one pass without further questions.
 
-- Concrete file targets and **line numbers** where applicable.
-- **Code samples** for complex logic, API usage, or patterns to follow.
-- Specific dependencies and execution order.
-- Test-first instructions with expected failure reasons.
-- Concrete verification commands and manual checks.
+**THE ZERO-AMBIGUITY STANDARD:**
+
+- **Exact Line Numbers**: All file targets MUST include exact line numbers for logic insertion or modification.
+- **Code Samples**: Provide idiomatic code snippets for all logic that is more complex than a standard boilerplate pattern.
+- **Itemized Todo List**: Every task MUST be broken down into a complete itemized checklist of specific changes.
+- **No Guesswork**: Forbid vague instructions like "wire up", "handle edge cases", or "integrate logic."
 
 ## Workflow
 
@@ -24,49 +25,33 @@ Read the relevant artifacts before refining:
 - relevant `.agents/knowledge/*.md` chapters
 - the code paths, tests, migrations, config files, or external docs that the tasks depend on
 
-### Step 2: Run the First-Pass Completeness Test
+### Step 2: The Zero-Ambiguity Test
 
-For each phase and each task, ask:
+For each task, apply the **Stateless Executor Test**:
+`If I handed this task to an agent with zero project context, could they implement it 100% correctly based ONLY on this text and the provided code samples?`
 
-`Do I have enough task information written for this PRD/flow to complete it correctly in the first pass?`
-
-If no, classify the gap:
-
-- missing file or module targets (with exact line numbers)
-- missing dependency or execution order
-- missing API, schema, or data-shape detail (provide code samples)
-- missing migration or rollout guidance
-- missing test-first instruction
-- missing validation or manual verification steps
-- missing external research
-- missing user decision or scope boundary
+If the answer is "No" or "Maybe," you MUST classify the gap and iterate.
 
 ### Step 3: Research-and-Refine Loop (Iterative)
 
-**IRON LAW: Iterate until implementation-ready.**
+**IRON LAW: Iterate until technical completeness is achieved.**
 
-For each gap:
+1. **Deep Code Dive**: Read more code until the affected surfaces are known (extract exact line numbers).
+2. **Pattern Matching**: Provide code samples for the expected implementation pattern based on `patterns.md` or existing code.
+3. **Dependency Analysis**: Use `flow:tracer` if the call chain is unclear.
+4. **Autonomous Completion**: You (the agent) are responsible for determining when refinement is done. Do NOT ask the user if it's granular enough; iterate until the **Zero-Ambiguity Standard** is met.
 
-1. Read more code until the affected surfaces are known (extract exact line numbers).
-2. Use `flow:tracer` for code-path tracing when the dependency chain is unclear.
-3. Use `flow:apilookup` when external library, framework, SDK, or platform behavior is involved.
-4. Provide code samples for the expected implementation pattern.
-5. Ask the user only for decisions that cannot be inferred safely.
-6. Update the plan with the missing detail.
+### Step 4: Transform Plans into Worksheets
 
-Repeat until the task no longer depends on avoidable guesswork.
+Rewrite the `Implementation Plan` section in `spec.md` into a **Worksheet**. Every task should include:
 
-### Step 4: Rewrite Tasks for Implementation Success
-
-Every refined task should make these explicit:
-
-- **Objective and Why**: Clear goal and context.
-- **Exact Targets**: Files, modules, commands, or configuration surfaces with line numbers.
-- **Implementation Strategy**: Provide code snippets or architectural patterns to follow.
-- **Prerequisites**: Clear dependencies or ordering.
-- **Test-First Instructions**: The first failing test to write and why it will fail.
-- **Verification**: Concrete commands and manual checks to verify success.
-- **Risks**: Known no-go conditions or edge cases to handle.
+- **Exact Targets**: `file_path:line_number`.
+- **Implementation Strategy**: Markdown-formatted code snippets.
+- **Itemized Checklist**:
+  - [ ] Specific change 1
+  - [ ] Specific change 2
+  - [ ] Verification step
+- **Test-First Instructions**: Exact failure reason for the initial failing test.
 
 ### Step 5: Close Research Gaps Before Approval
 
