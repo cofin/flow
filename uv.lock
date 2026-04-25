@@ -189,7 +189,7 @@ toml = [
 
 [[package]]
 name = "flow"
-version = "0.19.2"
+version = "0.19.4"
 source = { virtual = "." }
 
 [package.optional-dependencies]

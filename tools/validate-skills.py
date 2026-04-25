@@ -758,27 +758,27 @@ def iter_manifests() -> Iterator[Path]:
 
 
 def iter_claude_hook_configs() -> Iterator[Path]:
-    default_hooks = REPO_ROOT / "hooks" / "hooks.json"
-    seen: set[Path] = set()
-    if default_hooks.is_file():
-        seen.add(default_hooks.resolve())
-        yield default_hooks
-
+    """Resolve Claude's hook manifest path. If .claude-plugin/plugin.json
+    declares a `hooks` field, that is authoritative; otherwise Claude
+    auto-discovers hooks/hooks.json. Per-host manifests are needed because
+    Gemini also default-discovers hooks/hooks.json with incompatible
+    template syntax."""
     manifest_path = REPO_ROOT / ".claude-plugin" / "plugin.json"
-    if not manifest_path.is_file():
-        return
-    try:
-        data = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return
+    if manifest_path.is_file():
+        try:
+            data = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            data = {}
+        hooks = data.get("hooks") if isinstance(data, dict) else None
+        if isinstance(hooks, str) and hooks.strip():
+            resolved, error = _resolve_plugin_path(manifest_path, hooks)
+            if error is None and resolved is not None and resolved.is_file():
+                yield resolved
+                return
 
-    hooks = data.get("hooks")
-    if not isinstance(hooks, str) or not hooks.strip():
-        return
-
-    resolved, error = _resolve_plugin_path(manifest_path, hooks)
-    if error is None and resolved is not None and resolved.is_file() and resolved not in seen:
-        yield resolved
+    default_hooks = REPO_ROOT / "hooks" / "hooks.json"
+    if default_hooks.is_file():
+        yield default_hooks
 
 
 def iter_gemini_hook_configs() -> Iterator[Path]:
