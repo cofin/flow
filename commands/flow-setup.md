@@ -62,32 +62,15 @@ fi
 **SKIP if Beads Backend is already detected in hook context.**
 
 ```bash
-if command -v bd >/dev/null 2>&1 && command -v br >/dev/null 2>&1; then
-  echo "BEADS_BOTH"
-  bd --version
-  br version
-elif command -v bd >/dev/null 2>&1; then
+if command -v bd >/dev/null 2>&1; then
   echo "BEADS_BD"
   bd --version
-elif command -v br >/dev/null 2>&1; then
-  echo "BEADS_BR"
-  br version
 else
   echo "BEADS_MISSING"
 fi
 ```
 
-If `BEADS_BOTH` is found, ask user:
-
-> **Both official Beads (bd) and beads_rust (br) detected. Which would you like to use for Flow projects?**
->
-> - **A) Official Beads (bd)** (recommended)
-> - **B) beads_rust compatibility (br)**
-
-If outdated, suggest the official install first: `curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash`
-Compatibility fallback: `curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash`
-
-**Note:** `br` is non-invasive and never executes git commands. If you track `.beads/` in git and it is not ignored, run `git add .beads/` manually after `br sync --flush-only`.
+If outdated, suggest the official install: `curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash`
 
 ### 0.1.2 Legacy Specs Migration
 
@@ -128,9 +111,9 @@ D) Skip migration
 7. Create Beads epic if not exists:
 
     ```bash
-    br create "Flow: {flow_id}" -t epic -p 2 \
+    bd create "Flow: {flow_id}" -t epic -p 2 \
       --description="{flow_description}"
-    br update {epic_id} --notes "Migrated from legacy location. Created by Flow during setup"
+    bd update {epic_id} --notes "Migrated from legacy location. Created by Flow during setup"
     ```
 
 ### 0.1.3 Learnings Ingestion with Validation
@@ -236,37 +219,24 @@ Run `/flow-status` to see current state.
 
 ## Phase 1: Beads Backend Check
 
-**CRITICAL: Prefer official Beads, but Flow can also run with `br` compatibility mode or no-Beads mode.**
+**CRITICAL: Use official Beads, or run in no-Beads mode if persistence is not desired.**
 
 **SKIP if Beads Backend is already detected in hook context.**
 
 ```bash
-if command -v bd >/dev/null 2>&1 && command -v br >/dev/null 2>&1; then
-  echo "BEADS_BOTH"
-elif command -v bd >/dev/null 2>&1; then
+if command -v bd >/dev/null 2>&1; then
   echo "BEADS_BD"
-elif command -v br >/dev/null 2>&1; then
-  echo "BEADS_BR"
 else
   echo "BEADS_MISSING"
 fi
-
 ```
-
-If `BEADS_BOTH` is found, ask user:
-
-> **Both official Beads (bd) and beads_rust (br) detected. Which would you like to use?**
->
-> - **A) Official Beads (bd)** (recommended)
-> - **B) beads_rust compatibility (br)**
 
 If no backend is found, ask user:
 
 > Choose a Flow task-memory backend:
 >
 > - **A) Official Beads** (recommended) - Run `curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash`
-> - **B) beads_rust compatibility** - Run `curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash`
-> - **C) No Beads** - Continue with markdown-only Flow state (reduced memory/resume)
+> - **B) No Beads** - Continue with markdown-only Flow state (reduced memory/resume)
 
 If a backend is installed, verify version is current and remember the selected mode for Phase 5.
 
@@ -405,12 +375,6 @@ If official Beads was selected:
 bd init --stealth --prefix <project_name_slug>
 ```
 
-If `br` compatibility mode was selected:
-
-```bash
-br init --prefix <project_name_slug>
-```
-
 If no-Beads mode was selected:
 
 - Skip CLI initialization.
@@ -529,7 +493,7 @@ Save setup state to `<root_directory>/setup-state.json`:
     "coverage_target": "80%",
     "commit_cadence": "task",
     "task_summary_mode": "git-notes|commit-body|host-native",
-    "backend_mode": "bd|br|none",
+    "backend_mode": "bd|none",
     "ignore_policy": "local-only|shared",
     "canonical_commands": {
       "setup": "<command>",
@@ -577,7 +541,7 @@ Created:
 - code-styleguides/
 
 Next Steps:
-1. Load the active backend state (`bd` or `br`) or continue in no-Beads mode
+1. Load the active backend state (`bd`) or continue in no-Beads mode
 2. Run `/flow-prd "description"` to create your first flow
 3. Run `/flow-implement {flow_id}` to start coding
 ```
@@ -604,7 +568,7 @@ fi
 
 ## Critical Rules
 
-1. **BEADS MODE FIRST** - Prefer `bd`, allow `br`, allow no-Beads when admin overhead should stay low
+1. **BEADS MODE FIRST** - Use `bd`, allow no-Beads when admin overhead should stay low
 2. **CLI CHECK** - Ensure the chosen backend is installed and available
 3. **ROOT DIRECTORY PROMPT** - Ask user where to store files
 4. **LOCAL DEFAULT** - Configure Beads for local-only use

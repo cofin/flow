@@ -34,7 +34,6 @@ Refresh context files by re-scanning the codebase.
 Use the active backend:
 
 - `bd`: official Beads sync/status flow
-- `br`: `br sync --flush-only` then `br status`
 - no-Beads: skip backend sync
 
 ## Final Output

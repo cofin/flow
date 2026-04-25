@@ -15,13 +15,13 @@ Complete a flow's development work by verifying, reviewing, and integrating.
 2. **Load Beads context:**
 
    ```bash
-   br show {epic_id}
+   bd show {epic_id}
    ```
 
 3. **Verify all tasks completed** — check Beads for any open tasks:
 
    ```bash
-   br list --parent {epic_id} --status open
+   bd list --parent {epic_id} --status open
    ```
 
    If open tasks remain, warn and confirm with user before proceeding.
@@ -151,13 +151,13 @@ git branch -D {feature_branch}
 For Options 1, 2 (successful completion):
 
 ```bash
-br close {epic_id} --reason "Flow finished: {option_chosen}"
+bd close {epic_id} --reason "Flow finished: {option_chosen}"
 ```
 
 For Option 4 (discard):
 
 ```bash
-br close {epic_id} --reason "Flow discarded"
+bd close {epic_id} --reason "Flow discarded"
 ```
 
 ## Phase 7: Worktree Cleanup

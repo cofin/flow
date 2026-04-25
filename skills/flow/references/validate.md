@@ -30,7 +30,7 @@ For each flow in `.agents/flows.md`:
 ## Phase 2: Beads Validation
 
 ```bash
-br status
+bd status
 ```
 
 ### 2.1 Epic Sync
@@ -78,7 +78,7 @@ Every validation check must produce evidence, not assertions. Follow the **Criti
 | Check | Evidence Required | Not Sufficient |
 |-------|-------------------|----------------|
 | Structure OK | File existence confirmed | Assumed from last run |
-| Beads synced | `br status` output matches flows.md | "Should be synced" |
+| Beads synced | `bd status` output matches flows.md | "Should be synced" |
 | Patterns valid | File refs verified on disk | Previous check |
 | Git clean | `git status` output shown | Assumed clean |
 

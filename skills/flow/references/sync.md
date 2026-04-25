@@ -21,7 +21,6 @@ Sync active backend task state to on-disk spec.md for a flow.
 Use the active backend:
 
 - `bd`: official Beads show/export flow
-- `br`: `br show {beads_epic_id} --format json`
 - no-Beads: skip backend export and preserve markdown-only state
 
 Map backend status to markdown markers:

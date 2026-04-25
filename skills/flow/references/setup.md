@@ -3,7 +3,7 @@
 
 Initialize a project for context-driven development with Beads integration.
 
-Use `choosing-beads-backend` for backend selection and `presenting-install-menus` for concise install prompts.
+Use `presenting-install-menus` for concise install prompts.
 
 ## Phase 0: Environment Detection
 
@@ -56,12 +56,10 @@ fi
 ### 0.1.1 Beads Validation
 
 ```bash
-command -v bd >/dev/null 2>&1 && echo "BD_OK" || \
-command -v br >/dev/null 2>&1 && echo "BR_OK" || \
-echo "BEADS_MISSING"
+command -v bd >/dev/null 2>&1 && echo "BD_OK" || echo "BEADS_MISSING"
 ```
 
-Prefer official Beads (`bd`). Keep `br` as compatibility mode. Allow no-Beads degraded mode when the user wants less administrative overhead.
+Use official Beads (`bd`). Allow no-Beads degraded mode when the user wants less administrative overhead.
 
 ### 0.1.2 Legacy Specs Migration
 
@@ -120,28 +118,21 @@ Provide a clear summary of all updates performed, including Beads version, workf
 **CRITICAL:** Prefer official Beads, but do not force unnecessary admin work.
 
 ```bash
-if command -v bd >/dev/null 2>&1 && command -v br >/dev/null 2>&1; then
-  echo "BEADS_BOTH"
-elif command -v bd >/dev/null 2>&1; then
+if command -v bd >/dev/null 2>&1; then
   echo "BD_OK"
-elif command -v br >/dev/null 2>&1; then
-  echo "BR_OK"
 else
   echo "BEADS_MISSING"
 fi
 ```
-
-If `BEADS_BOTH` is found, ask user to choose between `bd` and `br`.
 
 If no backend is found, ask user:
 
 > **Beads backend**
 >
 > - **A) Install official Beads (`bd`)** (recommended)
-> - **B) Use beads_rust compatibility (`br`)**
-> - **C) Continue without Beads** (degraded mode)
+> - **B) Continue without Beads** (degraded mode)
 
-If installed, verify the chosen backend version is current.
+If installed, verify the backend version is current.
 
 ---
 
@@ -262,12 +253,6 @@ Official default:
 
 ```bash
 bd init --stealth --prefix "$repo_slug"
-```
-
-Compatibility default:
-
-```bash
-br init --prefix "$repo_slug"
 ```
 
 Or prompt user:
@@ -489,7 +474,7 @@ Created:
 - code-styleguides/
 
 Next Steps:
-1. Load the active backend state (`bd` or `br`) or continue in no-Beads mode
+1. Load the active backend state (`bd`) or continue in no-Beads mode
 2. Run `flow-prd "description"` to create your first flow
 3. Run `flow-implement {flow_id}` to start coding
 ```
@@ -518,7 +503,7 @@ Review official Beads git/LLM hook support before relying on Flow-specific hooks
 
 ## Critical Rules
 
-1. **BEADS MODE FIRST** - Prefer `bd`, allow `br`, allow no-Beads when admin overhead should stay low
+1. **BEADS MODE FIRST** - Use `bd`, allow no-Beads when admin overhead should stay low
 2. **CLI CHECK** - Ensure the chosen backend is installed and available
 3. **ROOT DIRECTORY PROMPT** - Ask user where to store files
 4. **LOCAL DEFAULT** - Configure Beads for local-only use

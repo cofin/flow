@@ -16,7 +16,7 @@ Archive completed flow and elevate patterns.
 Check Beads for completion:
 
 ```bash
-br show {epic_id}
+bd show {epic_id}
 ```
 
 Or verify all tasks completed in spec.md Implementation Plan section.
@@ -39,7 +39,7 @@ Append selected patterns to `.agents/patterns.md`
 ## Phase 4: Close Beads Epic
 
 ```bash
-br close {epic_id} --reason "Flow archived"
+bd close {epic_id} --reason "Flow archived"
 ```
 
 ## Phase 5: Move to Archive

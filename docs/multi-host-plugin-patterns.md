@@ -58,6 +58,7 @@ If `.agents/` is gitignored, use `.agents/*` (NOT `.agents/`) so git descends in
 ```
 
 **`userConfig` mechanics** ([plugins-reference](https://code.claude.com/docs/en/plugins-reference.md)):
+
 - Prompted on first `claude plugin install`.
 - Values written to `${CLAUDE_PLUGIN_ROOT}/.local.md` as YAML frontmatter.
 - Skills/hooks read them via the `.local.md` file or the hook context.
@@ -189,6 +190,7 @@ Use `${extensionPath}` (Gemini's install-root variable) and `${/}` (cross-platfo
 ```
 
 **Marketplace** ([cursor.com/marketplace](https://cursor.com/marketplace)):
+
 - Install in editor: `/add-plugin` → search.
 - Submit: PR to [github.com/cursor/plugins](https://github.com/cursor/plugins) (open-source only) OR web form at cursor.com/marketplace/publish.
 - Local dev: drop into `~/.cursor/plugins/local/<name>/` and restart.
@@ -219,6 +221,7 @@ export default async (ctx) => {
 ```
 
 **Managed-config layer** ([opencode.ai/docs/config](https://opencode.ai/docs/config/)):
+
 - Deployed via `ai.opencode.managed` PayloadType (macOS .mobileconfig — Jamf, Kandji, FleetDM).
 - Loaded last; highest precedence; cannot be overridden by user/project config.
 - Respect it. Early-return when disabled rather than fighting the policy.
@@ -268,6 +271,7 @@ Each host has knobs only the user can flip — there's no plugin-author hook for
 | Gemini | `.gemini/policies/<name>-overrides.toml` + `.geminiignore` | NO (committed) | tool allowlist, ignore allowlist |
 
 **Critical rules for the merge step**:
+
 - ALWAYS back up to `.bak` before editing.
 - ALWAYS merge — never overwrite user keys.
 - Use `jq` when available; fall back to a Python helper.

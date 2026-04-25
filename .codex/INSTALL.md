@@ -5,7 +5,7 @@ Flow ships as a native Codex plugin via marketplace.
 ## Prerequisites
 
 - Codex CLI 0.117.0+ (with marketplace support; verify with `codex --version`)
-- [Beads CLI](https://github.com/steveyegge/beads) (or [`beads_rust`](https://github.com/Dicklesworthstone/beads_rust) for compatibility)
+- [Beads CLI](https://github.com/steveyegge/beads)
 
 ## Install
 

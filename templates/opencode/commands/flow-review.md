@@ -13,7 +13,7 @@ Dispatch a code review for a Flow's implementation using Beads-aware git range d
 
 1. **Flow ID:** Use argument or auto-discover from `.agents/flows.md`.
 2. **Read Artifacts:** `.agents/specs/<flow_id>/spec.md` (requirements), `.agents/patterns.md` (conventions).
-3. **Load Beads:** `br show <epic_id>`, `br list --parent <epic_id> --status closed`
+3. **Load Beads:** `bd show <epic_id>`, `bd list --parent <epic_id> --status closed`
 
 ## Phase 2: Determine Git Range
 

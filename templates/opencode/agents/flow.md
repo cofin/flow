@@ -18,7 +18,7 @@ Use this agent automatically when:
 - The user asks to set up, plan, draft a PRD, design, research, document, implement, sync, check status, refresh, validate, revise, review, finish, archive, revert, or create a task
 - The user invokes a `/flow:*` command in hosts that support it
 - You are editing files in `.agents/` or `.agents/specs/`
-- The user mentions Beads or backend commands such as `bd status`, `bd ready`, `br status`, or `br ready`
+- The user mentions Beads or backend commands such as `bd status` or `bd ready`
 - A spec or PRD exists but the task detail is too coarse for reliable first-pass implementation
 
 ## Key Concepts
@@ -33,11 +33,8 @@ A flow is a logical unit of work (feature, bug fix, refactor). Each flow has:
 Beads provides persistent cross-session memory:
 ```bash
 bd init --stealth --prefix <project_name_slug> # Initialize official Beads
-# or: br init --prefix <project_name_slug>     # beads_rust compatibility
-bd status                  # Official Beads workspace overview
-bd ready                   # Official Beads ready queue
-br status                  # beads_rust compatibility workspace overview
-br ready                   # beads_rust compatibility ready queue
+bd status                  # Workspace overview
+bd ready                   # Ready queue
 ```
 
 ### Task Workflow (TDD) - Beads-First

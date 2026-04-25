@@ -9,11 +9,11 @@ Use the Flow skill for context-driven development workflows in repos that use `.
 
 ## The Beads-First Mandate
 
-**CRITICAL:** Beads (`bd` or `br`) is the **Primary Source of Truth** for task state and persistent context. Markdown files (`spec.md`, `prd.md`) are **Synchronized Views** of this state.
+**CRITICAL:** Beads (`bd`) is the **Primary Source of Truth** for task state and persistent context. Markdown files (`spec.md`, `prd.md`) are **Synchronized Views** of this state.
 
 - **PRDs are Epics**: `flow:prd` creates a Master Roadmap by initializing Beads **Epics**.
 - **Plans are Task Graphs**: `flow:plan` defines the roadmap by creating Beads **Tasks** linked to the flow epic.
-- **Context is Notes**: ALL design decisions, investigation findings, and implementation notes MUST be attached to work items using `bd note <id> "..."` (or `br comment`). This ensures context survives session resets and compaction.
+- **Context is Notes**: ALL design decisions, investigation findings, and implementation notes MUST be attached to work items using `bd note <id> "..."`. This ensures context survives session resets and compaction.
 - **Sync is Mandatory**: Run `/flow:sync` after any Beads mutation to update the human-readable Markdown view.
 
 ## The Zero-Ambiguity Mandate
@@ -47,13 +47,10 @@ A flow is a logical unit of work (feature or bug fix) backed by a Beads **Epic**
 
 ### Beads Integration
 
-Flow supports three persistence modes:
+Flow supports two persistence modes:
 
-- **Official Beads (`bd`)** - preferred default
-- **Compatibility (`br`)** - for older Flow repos and existing `br`-centric workflows
+- **Official Beads (`bd`)** - default
 - **No Beads** - degraded mode for planning, docs, and lightweight local work
-
-Use `choosing-beads-backend` when selecting or migrating the backend.
 
 ## Universal File Resolution Protocol
 
@@ -277,7 +274,6 @@ These Flow skills enhance specific phases of development. They activate automati
 - **`flow:apilookup`** — Use for documentation lookups. Checks local skill references first, then targets known URLs, then falls back to web search.
 - **`flow:refine`** — Use (via `references/refine.md`) when a PRD or spec exists but the task details are still too coarse for reliable first-pass implementation.
 - **`integrating-agent-platforms`** — Use for host plugin, extension, marketplace, cache, and update behavior.
-- **`choosing-beads-backend`** — Use for `bd` vs `br` vs no-Beads decisions.
 - **`presenting-install-menus`** — Use when optional tooling should be offered with concise menu-driven choices.
 
 ### Reviewer Personas
@@ -307,9 +303,6 @@ These can be dispatched as specialized subagents during code review or design ev
 - <https://raw.githubusercontent.com/cofin/flow/main/README.md>
 - <https://github.com/steveyegge/beads>
 - <https://github.com/steveyegge/beads/releases>
-- <https://github.com/Dicklesworthstone/beads_rust>
-- <https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/README.md>
-- <https://docs.rs/beads_rust/latest/beads_rust/>
 - <https://geminicli.com/docs/extensions/reference/>
 
 ## Shared Styleguide Baseline

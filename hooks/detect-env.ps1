@@ -7,16 +7,16 @@ $ErrorActionPreference = 'Stop'
 function Get-BeadsBackend {
     Write-Host "## Flow Environment Context"
     $beads_bd = Get-Command bd -ErrorAction SilentlyContinue
-    $beads_br = Get-Command br -ErrorAction SilentlyContinue
 
     if ($beads_bd) {
         Write-Host "- **Beads Backend**: Official (bd)"
         return "bd"
-    } elseif ($beads_br) {
-        Write-Host "- **Beads Backend**: Compatibility (br)"
-        return "br"
     } else {
         Write-Host "- **Beads Backend**: Missing (None)"
+        $beads_br = Get-Command br -ErrorAction SilentlyContinue
+        if ($beads_br) {
+            Write-Host "- **Migration Notice**: Detected legacy 'br' (beads_rust). Flow no longer supports br. Install official Beads: brew install beads (or https://github.com/steveyegge/beads)."
+        }
         return $null
     }
 }
@@ -119,18 +119,6 @@ function Get-ActiveWork($backend) {
             }
         } catch {
             Write-Host "- **Ready Tasks**: None (error or no active session)"
-        }
-    } elseif ($backend -eq "br") {
-        try {
-            $ready = br ready | Select-Object -First 3
-            if ($ready) {
-                Write-Host "- **Ready Tasks (Top 3)**:"
-                $ready | ForEach-Object { Write-Host "  $_" }
-            } else {
-                Write-Host "- **Ready Tasks**: None"
-            }
-        } catch {
-            Write-Host "- **Ready Tasks**: None"
         }
     } else {
         Write-Host "- **Status**: No active backend for task tracking."

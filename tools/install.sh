@@ -46,7 +46,7 @@ show_banner() {
     echo -e "${CYAN}"
     echo "╔══════════════════════════════════════════════════════════════╗"
     echo "║             Flow Framework - Plugin Installer                ║"
-    echo "║                       Version 0.19.4                         ║"
+    echo "║                       Version 0.20.0                         ║"
     echo "╚══════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
 
@@ -140,7 +140,7 @@ cleanup_claude_legacy() {
 
     if [[ -d "$CLAUDE_DIR/hooks" ]]; then
         for hook_file in "hooks.json" "hooks-claude.json" "run-hook.cmd" "run-hook.sh" "session-start" "session-start.sh" "session-start.cmd" "session-start.ps1"; do
-            if [[ -f "$CLAUDE_DIR/hooks/$hook_file" ]] && grep -q -i "flow\|beads\|br sync\|bd " "$CLAUDE_DIR/hooks/$hook_file" 2>/dev/null; then
+            if [[ -f "$CLAUDE_DIR/hooks/$hook_file" ]] && grep -q -i "flow\|beads\|bd " "$CLAUDE_DIR/hooks/$hook_file" 2>/dev/null; then
                 rm -f "$CLAUDE_DIR/hooks/$hook_file"
                 log_success "Removed legacy hook: $hook_file"
                 cleaned=true
@@ -492,64 +492,40 @@ check_beads() {
     echo -e "${CYAN}Checking Beads CLI...${NC}"
     echo ""
 
-    local bd_installed=false br_installed=false
-    command -v bd &>/dev/null && bd_installed=true
-    command -v br &>/dev/null && br_installed=true
-
-    if $bd_installed && $br_installed; then
-        log_success "Both official Beads (bd) and beads_rust (br) detected"
-        echo ""
-        echo "Which would you like to use for Flow projects by default?"
-        echo "  1) Official Beads (bd) (recommended)"
-        echo "  2) beads_rust compatibility (br)"
-        echo ""
-        read -p "Select [1-2]: " -n 1 -r
-        echo
-        case $REPLY in
-            2) log_info "Flow setup will default to: br init --prefix <repo-slug>" ;;
-            *) log_info "Flow setup will default to: bd init --stealth --prefix <repo-slug>" ;;
-        esac
-        return
-    elif $bd_installed; then
+    if command -v bd &>/dev/null; then
         local version
         version=$(bd --version 2>/dev/null || echo "unknown")
         log_success "Official Beads (bd) installed: $version"
         log_info "Flow setup will default to: bd init --stealth --prefix <repo-slug>"
-        return
-    elif $br_installed; then
-        local version
-        version=$(br --version 2>/dev/null || echo "unknown")
-        log_success "beads_rust compatibility (br) installed: $version"
-        log_info "Flow setup will default to: br init --prefix <repo-slug>"
+        if command -v br &>/dev/null; then
+            log_warn "Legacy br (beads_rust) detected alongside bd. Flow no longer uses br; you can uninstall it."
+        fi
         return
     fi
 
-    log_warn "No Beads CLI detected"
+    if command -v br &>/dev/null; then
+        log_warn "Legacy br (beads_rust) detected. Flow no longer supports br."
+        log_info "Install official Beads (bd) to enable Flow's task persistence."
+    fi
+
+    log_warn "No official Beads CLI (bd) detected"
     echo ""
-    echo "Flow supports three persistence modes:"
+    echo "Flow supports two persistence modes:"
     echo "  1) Install official Beads (bd) (recommended)"
-    echo "  2) Install beads_rust compatibility (br)"
-    echo "  3) Continue without Beads"
+    echo "  2) Continue without Beads"
     echo ""
-    read -p "Select [1-3]: " -n 1 -r
+    read -p "Select [1-2]: " -n 1 -r
     echo
     case $REPLY in
         1)
             curl -sSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash
             log_success "Installed official Beads (bd)"
-            ;;
-        2)
-            curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash
-            log_success "Installed beads_rust compatibility (br)"
+            log_info "Flow setup defaults to repo-slug prefixes and prefers .git/info/exclude for local-only artifacts"
             ;;
         *)
             log_info "Continuing without Beads; Flow will still support specs, plans, docs, and lightweight local workflows"
             ;;
     esac
-
-    if [[ $REPLY == 1 || $REPLY == 2 ]]; then
-        log_info "Flow setup defaults to repo-slug prefixes and prefers .git/info/exclude for local-only artifacts"
-    fi
 }
 
 # ─────────────────────────────────────────────────────────────────────────────

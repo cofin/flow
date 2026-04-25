@@ -254,7 +254,7 @@ In Codex CLI, ask: `Use Flow to set up this project`
 
 Flow will:
 
-1. Detect the preferred persistence mode: official Beads (`bd`), `br` compatibility, or no-Beads degraded mode
+1. Detect the preferred persistence mode: official Beads (`bd`) or no-Beads degraded mode
 2. Initialize the selected backend in low-admin mode
 3. Default local-only ignores to `.git/info/exclude`
 4. Create project context files
@@ -374,10 +374,9 @@ Flows use format `shortname` — examples: `user-auth`, `dark-mode`, `api-v2`.
 <summary>Beads integration (modes, init, ignore policy)</summary>
 <!-- markdownlint-restore -->
 
-Flow supports three persistence modes:
+Flow supports two persistence modes:
 
-- **Official Beads (`bd`)**: preferred default
-- **beads_rust (`br`)**: compatibility mode for older repos and command docs
+- **Official Beads (`bd`)**: default
 - **No Beads**: degraded mode for docs, planning, and lightweight local work
 
 **Default initialization.** Flow defaults to stealth mode and derives a slugged prefix from the repo name:
@@ -385,8 +384,6 @@ Flow supports three persistence modes:
 ```bash
 repo_slug="$(basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-//; s/-$//')"
 bd init --stealth --prefix "$repo_slug"
-# or, for br compatibility:
-br init --prefix "$repo_slug"
 ```
 
 **Install paths.**
@@ -396,9 +393,6 @@ br init --prefix "$repo_slug"
 brew install beads
 # or:
 curl -sSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash
-
-# beads_rust compatibility (br)
-curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash
 ```
 
 **Local-only ignore policy.** Prefer `.git/info/exclude`:
@@ -480,7 +474,6 @@ Copy to your CLI's skills directory for auto-activation.
 
 - [GitHub Issues](https://github.com/cofin/flow/issues) — Report bugs or request features
 - [Beads CLI](https://github.com/steveyegge/beads) — Official `bd` task persistence layer
-- [beads_rust](https://github.com/Dicklesworthstone/beads_rust) — `br` compatibility backend
 
 ## License
 

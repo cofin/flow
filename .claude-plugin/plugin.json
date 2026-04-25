@@ -2,7 +2,7 @@
   "name": "flow",
   "displayName": "Flow",
   "description": "Unified toolkit for Context-Driven Development with spec-first planning, TDD workflow, and Beads integration",
-  "version": "0.19.4",
+  "version": "0.20.0",
   "author": {
     "name": "cofin"
   },
@@ -17,8 +17,8 @@
     "beads-backend": {
       "type": "select",
       "default": "bd",
-      "description": "Beads backend for task persistence: bd (official, recommended), br (Rust compatibility), or none (degraded mode)",
-      "options": ["bd", "br", "none"]
+      "description": "Beads backend for task persistence: bd (official) or none (degraded mode)",
+      "options": ["bd", "none"]
     },
     "agents-dir": {
       "type": "string",

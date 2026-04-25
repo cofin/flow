@@ -58,7 +58,7 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion
 2. **Sub-Epics (Chapters)**:
     - For each chapter in the roadmap, create a child epic.
 3. **Contextual Notes**:
-    - Attach high-level architectural decisions as notes to the master epic using `bd note` (or `br comment`).
+    - Attach high-level architectural decisions as notes to the master epic using `bd note`.
 
 ---
 

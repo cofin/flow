@@ -16,7 +16,7 @@ Dispatch a code review for a flow's implementation with Beads-aware git range de
 3. **Load Beads context:**
 
    ```bash
-   br show {epic_id}
+   bd show {epic_id}
    ```
 
 ## Phase 2: Determine Git Range
@@ -26,7 +26,7 @@ Dispatch a code review for a flow's implementation with Beads-aware git range de
 Extract commit SHAs from Beads task close reasons:
 
 ```bash
-br list --parent {epic_id} --status closed
+bd list --parent {epic_id} --status closed
 ```
 
 Each closed task has a reason like `"commit: abc1234"`. Use:

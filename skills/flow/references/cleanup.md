@@ -22,7 +22,7 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
 
 ### Phase 1: Preparation & Inventory
 
-1. **Detect Backend**: Determine active Beads backend (`bd`, `br`, or `none`).
+1. **Detect Backend**: Determine active Beads backend (`bd` or `none`).
 2. **Scan Directory**: Map all files in:
    - `.agents/specs/`
    - `.agents/knowledge/`

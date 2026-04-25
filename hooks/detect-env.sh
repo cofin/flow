@@ -41,10 +41,11 @@ detect_beads() {
     echo "## Flow Environment Context"
     if command -v bd >/dev/null 2>&1; then
         echo "- **Beads Backend**: Official (bd)"
-    elif command -v br >/dev/null 2>&1; then
-        echo "- **Beads Backend**: Compatibility (br)"
     else
         echo "- **Beads Backend**: Missing (None)"
+        if command -v br >/dev/null 2>&1; then
+            echo "- **Migration Notice**: Detected legacy \`br\` (beads_rust). Flow no longer supports br. Install official Beads: brew install beads (or https://github.com/steveyegge/beads)."
+        fi
     fi
 }
 
@@ -156,15 +157,6 @@ active_work() {
                 fi
             fi
             echo "- **Ready Tasks**: ${ready}"
-        else
-            echo "- **Ready Tasks**: None"
-        fi
-    elif command -v br >/dev/null 2>&1; then
-        local ready
-        ready=$(safe_run 2s br ready | head -n 3 || true)
-        if [[ -n "${ready}" ]]; then
-            echo "- **Ready Tasks (Top 3)**:"
-            printf '%s\n' "  ${ready//$'\n'/$'\n'  }"
         else
             echo "- **Ready Tasks**: None"
         fi

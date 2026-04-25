@@ -34,7 +34,7 @@ Refreshing context for codebase drift: **$ARGUMENTS**
    - "Workflow settings may be stale. Revalidate `.agents/workflow.md` now?"
    - Refresh only the affected workflow sections instead of replacing the whole file.
 3. Prefer repo-native aggregate commands such as `make lint`, `make test`, `make check`, `just check`, `task test`, package scripts, and pre-commit entrypoints when updating workflow guidance.
-4. If tasks completed externally, sync them through the active backend's completion flow instead of hardcoding `br`.
+4. If tasks completed externally, sync them through the active backend's completion flow.
 5. Refresh `.agents/index.md` if structural changes detected.
 
 ---
@@ -44,7 +44,6 @@ Refreshing context for codebase drift: **$ARGUMENTS**
 Resolve the active backend first:
 
 - `bd`: use the official Beads sync/status commands
-- `br`: use `br sync --flush-only` and `br status`
 - no-Beads: skip backend sync and continue refreshing workflow/context files
 
 ---

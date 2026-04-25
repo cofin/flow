@@ -24,7 +24,7 @@ Display progress overview for all active flows.
 
 ## 2.0 Beads Status (Source of Truth)
 
-1. **Pull Active State**: Run `bd ready` and `bd status` (or `br` equivalents).
+1. **Pull Active State**: Run `bd ready` and `bd status`.
 2. **Match to Flows**: Link Beads Epics to the flows registered in `.agents/flows.md`.
 
 ---

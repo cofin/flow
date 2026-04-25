@@ -59,7 +59,7 @@ git commit -m "revert({scope}): {reason}"
 ### 3.2 Reopen Beads Tasks
 
 ```bash
-br update {task_id} --status open
+bd update {task_id} --status open
 ```
 
 ### 3.3 Clear State

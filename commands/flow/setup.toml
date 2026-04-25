@@ -38,29 +38,21 @@ Use `${FLOW_INSTALL_ROOT}` in every command below that references shipped templa
    ```
 
 2. **If BEADS_MISSING, offer a concise menu:**
-   > "Flow supports three persistence modes:
+   > "Flow supports two persistence modes:
    > A) Install official Beads (`bd`) (recommended)
    >    - brew install beads
    >    - or curl -sSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash
-   > B) Install beads_rust compatibility (`br`)
-   >    - curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash
-   > C) Continue without Beads (docs/plans/lightweight mode)"
+   > B) Continue without Beads (docs/plans/lightweight mode)"
 
    If A selected:
    ```bash
    curl -sSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash
    ```
 
-   If B selected:
-   ```bash
-   curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash
-   ```
-
-   If C selected, continue in no-Beads mode. Do NOT halt.
+   If B selected, continue in no-Beads mode. Do NOT halt.
 
 3. **Default initialization rules:**
    - Official Beads MUST use `bd init --stealth --prefix "$repo_slug"`.
-   - `br` compatibility MUST use `br init --prefix "$repo_slug"`.
    - Prefer `.git/info/exclude` for local-only ignores instead of editing repo `.gitignore`.
 
 4. **Continue:** Once the backend choice is clear, proceed to 1.1.
@@ -107,15 +99,11 @@ Use `${FLOW_INSTALL_ROOT}` in every command below that references shipped templa
 
 1.  **Beads Validation:**
     ```bash
-    command -v bd >/dev/null 2>&1 && echo "BD_OK" || \
-    command -v br >/dev/null 2>&1 && echo "BR_OK" || \
-    echo "BEADS_MISSING"
+    command -v bd >/dev/null 2>&1 && echo "BD_OK" || echo "BEADS_MISSING"
     ```
     - If `bd` is available, verify with `bd --version`.
-    - If `br` is available, verify with `br --version`.
-    - If neither is available, continue alignment in no-Beads mode instead of blocking the rest of setup.
+    - If unavailable, continue alignment in no-Beads mode instead of blocking the rest of setup.
     - If official Beads should be installed or refreshed, suggest: `curl -sSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash`
-    - If `br` compatibility is needed, suggest: `curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash`
 
 2.  **Legacy Specs Migration:**
     Scan for legacy spec locations:
@@ -636,20 +624,14 @@ Use `${FLOW_INSTALL_ROOT}` in every command below that references shipped templa
 3.  **If NOT INITIALIZED, offer the selected backend flow:**
     > "Initialize persistence for this project:
     > A) Official Beads (`bd`) with stealth + repo slug prefix (recommended)
-    > B) beads_rust compatibility (`br`) with repo slug prefix
-    > C) Continue without Beads"
+    > B) Continue without Beads"
 
     If A selected:
     ```bash
     bd init --stealth --prefix "$repo_slug"
     ```
 
-    If B selected:
-    ```bash
-    br init --prefix "$repo_slug"
-    ```
-
-    If C selected, skip backend initialization and continue in no-Beads mode.
+    If B selected, skip backend initialization and continue in no-Beads mode.
 
 4.  **Create Beads Config when a backend is enabled:**
     Create `.agents/beads.json`:

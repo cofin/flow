@@ -18,7 +18,7 @@ CRITICAL: You must validate the success of every tool call.
 ## 2.0 BEADS STATUS (SOURCE OF TRUTH)
 **PROTOCOL: Query the active backend for live state.**
 
-1.  **Pull State:** Run `bd ready` and `bd status` (or `br` equivalents).
+1.  **Pull State:** Run `bd ready` and `bd status`.
 2.  **Match:** Cross-reference Beads epics with the Flow registry.
 
 ---

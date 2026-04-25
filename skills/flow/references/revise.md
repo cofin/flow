@@ -52,12 +52,12 @@ Append to `.agents/specs/{flow_id}/revisions.md`:
 ### Phase 6: Sync Beads
 
 ```bash
-br update {affected_task_ids} --notes "Revised: {reason}"
+bd update {affected_task_ids} --notes "Revised: {reason}"
 
 # If NEW tasks added:
-br create "{new_task}" --parent {epic_id} -p 2 \
+bd create "{new_task}" --parent {epic_id} -p 2 \
   --description="{what_and_why}"
-br update {new_task_id} --notes "Added during revision. Created by flow-revise"
+bd update {new_task_id} --notes "Added during revision. Created by flow-revise"
 ```
 
 ## Critical Rules

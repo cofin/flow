@@ -24,8 +24,8 @@ Check required files exist:
 ## Phase 2: Beads Health
 
 ```bash
-br version
-br status
+bd --version
+bd status
 ```
 
 Check Beads is operational.

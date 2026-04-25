@@ -52,27 +52,15 @@ fi
 ### 0.1.1 Beads Validation
 
 ```bash
-if command -v bd >/dev/null 2>&1 && command -v br >/dev/null 2>&1; then
-  echo "BEADS_BOTH"
-  bd --version
-  br version
-elif command -v bd >/dev/null 2>&1; then
+if command -v bd >/dev/null 2>&1; then
   echo "BEADS_BD"
   bd --version
-elif command -v br >/dev/null 2>&1; then
-  echo "BEADS_BR"
-  br version
 else
   echo "BEADS_MISSING"
 fi
 ```
 
-If `BEADS_BOTH` is found, ask user to choose between `bd` and `br` for Flow projects.
-
-If outdated, suggest the official install first: `curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash`
-Compatibility fallback: `curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash`
-
-**Note:** `br` is non-invasive and never executes git commands. If you track `.beads/` in git and it is not ignored, run `git add .beads/` manually after `br sync --flush-only`.
+If outdated, suggest the official install: `curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash`
 
 ### 0.1.2 Knowledge Base Check
 
@@ -138,29 +126,22 @@ Run `/flow-status` to see current state.
 
 ## Phase 1: Beads Backend Check
 
-**CRITICAL: Prefer official Beads, but Flow can also run with `br` compatibility mode or no-Beads mode.**
+**CRITICAL: Use official Beads, or run in no-Beads mode if persistence is not desired.**
 
 ```bash
-if command -v bd >/dev/null 2>&1 && command -v br >/dev/null 2>&1; then
-  echo "BEADS_BOTH"
-elif command -v bd >/dev/null 2>&1; then
+if command -v bd >/dev/null 2>&1; then
   echo "BEADS_BD"
-elif command -v br >/dev/null 2>&1; then
-  echo "BEADS_BR"
 else
   echo "BEADS_MISSING"
 fi
 ```
-
-If `BEADS_BOTH` is found, ask user to choose between `bd` and `br`.
 
 If no backend is found, ask user:
 
 > Choose a Flow task-memory backend:
 >
 > - **A) Official Beads** (recommended) - Run `curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash`
-> - **B) beads_rust compatibility** - Run `curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash`
-> - **C) No Beads** - Continue with markdown-only Flow state (reduced memory/resume)
+> - **B) No Beads** - Continue with markdown-only Flow state (reduced memory/resume)
 
 If a backend is installed, verify version is current and remember the selected mode for Phase 5.
 
@@ -277,12 +258,6 @@ If official Beads was selected:
 
 ```bash
 bd init --stealth --prefix <project_name_slug>
-```
-
-If `br` compatibility mode was selected:
-
-```bash
-br init --prefix <project_name_slug>
 ```
 
 If no-Beads mode was selected:
@@ -408,7 +383,7 @@ Created:
 - code-styleguides/
 
 Next Steps:
-1. Load the active backend state (`bd` or `br`) or continue in no-Beads mode
+1. Load the active backend state (`bd`) or continue in no-Beads mode
 2. Run `/flow-prd "description"` to create your first flow
 3. Run `/flow-implement {flow_id}` to start coding
 ```
@@ -434,7 +409,7 @@ fi
 
 ## Critical Rules
 
-1. **BEADS MODE FIRST** - Prefer `bd`, allow `br`, allow no-Beads when admin overhead should stay low
+1. **BEADS MODE FIRST** - Use `bd`, allow no-Beads when admin overhead should stay low
 2. **CLI CHECK** - Ensure the chosen backend is installed and available
 3. **ROOT DIRECTORY PROMPT** - Ask user where to store files
 4. **LOCAL DEFAULT** - Configure Beads for local-only use
