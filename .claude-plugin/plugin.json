@@ -1,6 +1,5 @@
 {
   "name": "flow",
-  "displayName": "Flow",
   "description": "Unified toolkit for Context-Driven Development with spec-first planning, TDD workflow, and Beads integration",
   "version": "0.20.0",
   "author": {
@@ -14,14 +13,15 @@
   "commands": ["./commands/"],
   "hooks": "./hooks/hooks-claude.json",
   "userConfig": {
-    "beadsBackend": {
-      "type": "select",
-      "default": "bd",
-      "description": "Beads backend for task persistence: bd (official) or none (degraded mode)",
-      "options": ["bd", "none"]
+    "useBeads": {
+      "type": "boolean",
+      "title": "Use Beads for Task Persistence",
+      "default": true,
+      "description": "Use Beads (bd) for task persistence. Disable to run in degraded mode without bd."
     },
     "agentsDir": {
       "type": "string",
+      "title": "Agents Directory",
       "default": ".agents",
       "description": "Directory where Flow stores specs, plans, and knowledge (e.g. .agents or specs)"
     }
