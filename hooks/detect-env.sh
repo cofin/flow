@@ -251,13 +251,6 @@ flow_mandate() {
 EOF
 }
 
-verification() {
-    echo ""
-    echo "### Verification"
-    echo "- **Hooks**: Run \`bash hooks/session-start.sh\` to test hook connectivity."
-    echo "- **Subagents**: Run \`ls agents/\` to verify subagent manifests exist."
-}
-
 main() {
     detect_beads
     check_settings
@@ -280,7 +273,6 @@ main() {
     essential_truths "${root_dir}"
     knowledge_inventory "${root_dir}"
     flow_mandate "${root_dir}"
-    verification
 }
 
 main "$@"
