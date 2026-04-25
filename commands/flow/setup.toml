@@ -82,6 +82,7 @@ Use `${FLOW_INSTALL_ROOT}` in every command below that references shipped templa
 2.  **Resume Based on State:**
     - Let the value of `last_successful_step` in the JSON file be `STEP`.
     - Let `SETUP_STATUS` be the value of `setup_status` if present.
+    - **Plan Mode Check:** Run `bash ${FLOW_INSTALL_ROOT}/hooks/detect-env.sh | grep "Settings Conflict"` (if in hook context) or suggest a manual check.
     - If `SETUP_STATUS` is `"complete"` OR `STEP` is `"complete"` OR `STEP` is `"3.3_initial_prd_generated"`, offer Alignment Mode immediately:
       > "Existing Flow setup detected. What would you like to do?
       > A) **Align** (recommended) - Validate and update to latest best practices
