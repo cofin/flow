@@ -7,7 +7,7 @@
           {
             "name": "flow-env-detection",
             "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT:-${extensionPath}}/hooks/session-start.sh",
+            "command": "bun ${CLAUDE_PLUGIN_ROOT:-${extensionPath}}/hooks/session-start.js || bunx ${CLAUDE_PLUGIN_ROOT:-${extensionPath}}/hooks/session-start.js || node ${CLAUDE_PLUGIN_ROOT:-${extensionPath}}/hooks/session-start.js || npx ${CLAUDE_PLUGIN_ROOT:-${extensionPath}}/hooks/session-start.js || bash ${CLAUDE_PLUGIN_ROOT:-${extensionPath}}/hooks/session-start.sh",
             "description": "Detects Beads backend and project root at session start."
           }
         ]
