@@ -59,7 +59,7 @@ Use this only if your environment can't reach `cofin/flow` via the native market
 1. Clone Flow into your project:
 
    ```bash
-   git clone https://github.com/cofin/flow.git plugins/flow
+   git clone https://github.com/cofin/flow.git .agents/plugins/plugins/flow
    ```
 
 2. Create `.agents/plugins/marketplace.json` at the repo root:
@@ -83,13 +83,13 @@ Use this only if your environment can't reach `cofin/flow` via the native market
 
 ### Personal
 
-1. Clone Flow:
+1. Clone Flow into a dedicated plugins directory:
 
    ```bash
-   git clone https://github.com/cofin/flow.git ~/.codex/plugins/flow
+   mkdir -p ~/plugins && git clone https://github.com/cofin/flow.git ~/plugins/flow
    ```
 
-2. Create `~/.agents/plugins/marketplace.json`:
+2. Create `~/.agents/plugins/marketplace.json` (ensure `~/.agents/plugins` exists):
 
    ```json
    {
@@ -98,7 +98,7 @@ Use this only if your environment can't reach `cofin/flow` via the native market
      "plugins": [
        {
          "name": "flow",
-         "source": { "source": "local", "path": "~/.codex/plugins/flow" },
+         "source": { "source": "local", "path": "./plugins/flow" },
          "policy": { "installation": "AVAILABLE" },
          "category": "Development"
        }
