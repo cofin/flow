@@ -14,7 +14,8 @@ def test_gemini_extension_session_start_hook_uses_extension_path() -> None:
 
     command = hooks["hooks"]["SessionStart"][0]["hooks"][0]["command"]
 
-    assert command == "${CLAUDE_PLUGIN_ROOT:-${extensionPath}}/hooks/session-start"
+    assert "bun ${CLAUDE_PLUGIN_ROOT:-${extensionPath}}/hooks/session-start.js" in command
+    assert "node ${CLAUDE_PLUGIN_ROOT:-${extensionPath}}/hooks/session-start.js" in command
     assert "${extensionPath}" in command
     assert "${CLAUDE_PLUGIN_ROOT:-" in command
 
@@ -30,8 +31,8 @@ def test_shared_hook_manifest_supports_claude_runtime_resolution() -> None:
 
     command = hooks["hooks"]["SessionStart"][0]["hooks"][0]["command"]
 
-    assert command.startswith("${CLAUDE_PLUGIN_ROOT:-")
-    assert command.endswith("}/hooks/session-start")
+    assert "${CLAUDE_PLUGIN_ROOT:-" in command
+    assert "/hooks/session-start.js" in command
 
 
 def test_shared_hook_manifest_uses_top_level_hooks_record() -> None:
@@ -45,8 +46,9 @@ def test_session_start_emits_claude_compatible_payload_when_claude_env_present()
     env = os.environ.copy()
     env["CLAUDE_PLUGIN_ROOT"] = str(REPO_ROOT / ".claude-plugin")
 
+    # We can test with node directly as it's guaranteed in the test env
     result = subprocess.run(
-        [str(REPO_ROOT / "hooks" / "session-start")],
+        ["node", str(REPO_ROOT / "hooks" / "session-start.js")],
         cwd=REPO_ROOT,
         env=env,
         check=True,

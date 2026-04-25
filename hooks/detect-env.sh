@@ -66,7 +66,7 @@ check_tooling() {
         fi
     done
 
-    echo -n "- **Tooling**: "
+    printf '%s' "- **Tooling**: "
     if [[ ${#available[@]} -eq 0 ]]; then
         echo "None"
     else
@@ -226,13 +226,15 @@ EOF
 main() {
     detect_beads
     local root_dir
-    # capture root_dir but suppress its output line (or keep it if it echoes something)
-    # The detect_project_root echoes a line AND returns the path.
-    # To handle both, we capture the last line as root_dir and echo the rest.
     local root_info
     root_info=$(detect_project_root)
-    echo "${root_info}" | head -n -1
-    root_dir=$(echo "${root_info}" | tail -n 1)
+    # Use sed '$d' instead of head -n -1 for macOS portability
+    printf '%s\n' "${root_info}" | sed '$d'
+    root_dir=$(printf '%s\n' "${root_info}" | tail -n 1)
+    # Ensure root_dir is not empty
+    if [[ -z "${root_dir}" ]]; then
+        root_dir="${DEFAULT_ROOT_DIR}"
+    fi
 
     check_tooling
     git_context "${root_dir}"
