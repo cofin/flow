@@ -5,5 +5,13 @@
   "contextFileName": "GEMINI.md",
   "plan": {
     "directory": ".agents"
-  }
+  },
+  "excludeTools": [
+    "run_shell_command(sudo *)",
+    "run_shell_command(rm -rf /*)",
+    "run_shell_command(rm -rf $HOME*)",
+    "run_shell_command(rm -rf ~*)",
+    "run_shell_command(rm -rf $(*)*)",
+    "run_shell_command(:(){:|:&};:)"
+  ]
 }

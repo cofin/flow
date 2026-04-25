@@ -12,5 +12,18 @@
   "keywords": ["flow", "context-driven-development", "beads", "tdd", "ai-agent", "workflow", "spec-first", "skills", "slash-commands", "subagents"],
   "skills": ["./skills/"],
   "commands": ["./commands/"],
-  "hooks": "./hooks/hooks-claude.json"
+  "hooks": "./hooks/hooks-claude.json",
+  "userConfig": {
+    "beads-backend": {
+      "type": "select",
+      "default": "bd",
+      "description": "Beads backend for task persistence: bd (official, recommended), br (Rust compatibility), or none (degraded mode)",
+      "options": ["bd", "br", "none"]
+    },
+    "agents-dir": {
+      "type": "string",
+      "default": ".agents",
+      "description": "Directory where Flow stores specs, plans, and knowledge (e.g. .agents or specs)"
+    }
+  }
 }

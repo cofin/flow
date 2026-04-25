@@ -226,5 +226,11 @@ windsurf.mcp.json
 *.db
 .beads-credential-key
 .worktrees/
-.agents/
+.agents/*
+# Ship the Codex marketplace manifest even though .agents/ is otherwise local-only.
+# Codex requires this file at .agents/plugins/marketplace.json for `codex plugin marketplace add`.
+# Use .agents/* (not .agents/) so git descends into the directory and honors the re-includes below.
+!.agents/plugins/
+.agents/plugins/*
+!.agents/plugins/marketplace.json
 .beads/

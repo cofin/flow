@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
 #
-# Flow Framework - Plugin Installer
+# Flow Framework - Multi-host installer
 #
-# Installs Flow as a plugin for supported AI CLI tools:
-# - Claude Code (marketplace plugin via extraKnownMarketplaces)
-# - Codex CLI (~/.codex/plugins/flow/)
-# - OpenCode (~/.config/opencode/plugins/flow/)
-# - Gemini CLI (~/.gemini/extensions/flow/)
-# - Google Antigravity (~/.gemini/antigravity/skills/)
+# Thin orchestrator that runs each host's NATIVE plugin/extension command:
+#   - Claude Code:  claude plugin marketplace add + plugin install
+#   - Codex CLI:    codex plugin marketplace add
+#   - Gemini CLI:   gemini extensions install --auto-update
+#   - OpenCode:     symlink-based local plugin (no native marketplace)
+#   - Antigravity:  skill copy (no native plugin system)
 #
-# All CLIs use their native plugin/extension system.
-# No direct skill or command copying.
+# Prefer the per-host native commands documented in README.md when installing
+# into a single CLI. This script exists to install Flow across several hosts
+# in one pass, and to clean up artifacts from older symlink-based installs.
 
 set -euo pipefail
 
@@ -20,26 +21,23 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-# Script directory (where flow source is)
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FLOW_GITHUB_REPO="https://github.com/cofin/flow"
-FLOW_CLAUDE_MARKETPLACE="cofin/flow"
+FLOW_MARKETPLACE_SOURCE="cofin/flow"
+FLOW_MARKETPLACE_NAME="flow-marketplace"
 SKILLS_DIR="$PROJECT_ROOT/skills"
-COMMANDS_DIR="$PROJECT_ROOT/commands"
 FLOW_DATA_DIR="$HOME/.flow"
 BACKUP_DIR="$FLOW_DATA_DIR/backups/$(date +%Y%m%d-%H%M%S)"
 
-# Flags (parsed from command line)
 FORCE_OVERWRITE=false
 
-# CLI paths
+# Host paths
 CLAUDE_DIR="$HOME/.claude"
 CODEX_DIR="$HOME/.codex"
 OPENCODE_DIR="$HOME/.config/opencode"
 GEMINI_DIR="$HOME/.gemini"
-GEMINI_EXT_DIR="$GEMINI_DIR/extensions/flow"
 ANTIGRAVITY_DIR="$HOME/.gemini/antigravity/skills"
 JETSKI_DIR="$HOME/.jetski/skills"
 GEMINI_JETSKI_DIR="$HOME/.gemini/jetski/skills"
@@ -59,24 +57,13 @@ show_banner() {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Helper Functions
+# Helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
-log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
-}
-
-log_success() {
-    echo -e "${GREEN}[OK]${NC} $1"
-}
-
-log_warn() {
-    echo -e "${YELLOW}[WARN]${NC} $1"
-}
-
-log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
+log_info()    { echo -e "${BLUE}[INFO]${NC} $1"; }
+log_success() { echo -e "${GREEN}[OK]${NC} $1"; }
+log_warn()    { echo -e "${YELLOW}[WARN]${NC} $1"; }
+log_error()   { echo -e "${RED}[ERROR]${NC} $1"; }
 
 backup_file() {
     local file="$1"
@@ -103,10 +90,11 @@ backup_dir() {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Legacy Cleanup Functions
+# Legacy cleanup — pre-marketplace symlink installs
 # ─────────────────────────────────────────────────────────────────────────────
 
-# List of skill directory names that flow installs
+# Skill directory names from older installs that copied skills into per-host
+# global skill directories (now superseded by plugin-managed skills).
 FLOW_SKILL_DIRS=(
     advanced-alchemy alloydb alloydb-omni angular bash bd-to-br-migration
     biome bun cloud-run cpp dishka docker duckdb flow gcp gke htmx inertia
@@ -122,7 +110,6 @@ cleanup_claude_legacy() {
 
     local cleaned=false
 
-    # Remove legacy skills from ~/.claude/skills/
     if [[ -d "$CLAUDE_DIR/skills" ]]; then
         for skill in "${FLOW_SKILL_DIRS[@]}"; do
             if [[ -d "$CLAUDE_DIR/skills/$skill" ]]; then
@@ -131,15 +118,12 @@ cleanup_claude_legacy() {
                 cleaned=true
             fi
         done
-
-        # Remove the skills dir if empty
         if [[ -d "$CLAUDE_DIR/skills" ]] && [[ -z "$(ls -A "$CLAUDE_DIR/skills" 2>/dev/null)" ]]; then
             rmdir "$CLAUDE_DIR/skills"
             log_success "Removed empty ~/.claude/skills/"
         fi
     fi
 
-    # Remove legacy commands from ~/.claude/commands/
     if [[ -d "$CLAUDE_DIR/commands" ]]; then
         for cmd in "$CLAUDE_DIR/commands"/flow-*.md; do
             if [[ -f "$cmd" ]]; then
@@ -148,15 +132,12 @@ cleanup_claude_legacy() {
                 cleaned=true
             fi
         done
-
-        # Remove the commands dir if empty
         if [[ -d "$CLAUDE_DIR/commands" ]] && [[ -z "$(ls -A "$CLAUDE_DIR/commands" 2>/dev/null)" ]]; then
             rmdir "$CLAUDE_DIR/commands"
             log_success "Removed empty ~/.claude/commands/"
         fi
     fi
 
-    # Remove legacy hooks from ~/.claude/hooks/ (only if they are flow hooks)
     if [[ -d "$CLAUDE_DIR/hooks" ]]; then
         for hook_file in "hooks.json" "hooks-claude.json" "run-hook.cmd" "run-hook.sh" "session-start" "session-start.sh" "session-start.cmd" "session-start.ps1"; do
             if [[ -f "$CLAUDE_DIR/hooks/$hook_file" ]] && grep -q -i "flow\|beads\|br sync\|bd " "$CLAUDE_DIR/hooks/$hook_file" 2>/dev/null; then
@@ -165,19 +146,13 @@ cleanup_claude_legacy() {
                 cleaned=true
             fi
         done
-
-        # Remove the hooks dir if empty
         if [[ -d "$CLAUDE_DIR/hooks" ]] && [[ -z "$(ls -A "$CLAUDE_DIR/hooks" 2>/dev/null)" ]]; then
             rmdir "$CLAUDE_DIR/hooks"
             log_success "Removed empty ~/.claude/hooks/"
         fi
     fi
 
-    if $cleaned; then
-        log_success "Legacy Claude Code installation cleaned up"
-    else
-        log_info "No legacy Claude Code installation found"
-    fi
+    $cleaned && log_success "Legacy Claude Code installation cleaned up" || log_info "No legacy Claude Code installation found"
 }
 
 cleanup_codex_legacy() {
@@ -187,7 +162,7 @@ cleanup_codex_legacy() {
 
     local cleaned=false
 
-    # Remove stale git clone at ~/.codex/flow/
+    # Stale clone at ~/.codex/flow/
     if [[ -d "$CODEX_DIR/flow" ]]; then
         backup_dir "$CODEX_DIR/flow"
         rm -rf "$CODEX_DIR/flow"
@@ -195,7 +170,14 @@ cleanup_codex_legacy() {
         cleaned=true
     fi
 
-    # Remove stale skills at ~/.codex/skills/
+    # Pre-marketplace symlinked plugin at ~/.codex/plugins/flow
+    if [[ -L "$CODEX_DIR/plugins/flow" ]]; then
+        rm -f "$CODEX_DIR/plugins/flow"
+        log_success "Removed pre-marketplace symlink: ~/.codex/plugins/flow"
+        cleaned=true
+    fi
+
+    # Legacy global skills at ~/.codex/skills/
     if [[ -d "$CODEX_DIR/skills" ]]; then
         backup_dir "$CODEX_DIR/skills"
         rm -rf "$CODEX_DIR/skills"
@@ -203,33 +185,28 @@ cleanup_codex_legacy() {
         cleaned=true
     fi
 
-    # Remove old prompts
+    # Old prompt files
     if ls "$CODEX_DIR/prompts/flow-"*.md &>/dev/null 2>&1; then
         rm -f "$CODEX_DIR/prompts/flow-"*.md
         log_success "Removed legacy prompts"
         cleaned=true
     fi
 
-    # Remove Flow section from old AGENTS.md
+    # Old AGENTS.md Flow section
     if [[ -f "$CODEX_DIR/AGENTS.md" ]] && grep -q "Flow Framework" "$CODEX_DIR/AGENTS.md" 2>/dev/null; then
         backup_file "$CODEX_DIR/AGENTS.md"
-        local agents_file="$CODEX_DIR/AGENTS.md"
-        local tmp_file=$(mktemp)
-        sed '/^# Flow Framework/,$d' "$agents_file" > "$tmp_file"
-        mv "$tmp_file" "$agents_file"
-        
+        local tmp_file
         tmp_file=$(mktemp)
-        sed -e :a -e '/^\n*$/{$d;N;ba' -e '}' "$agents_file" > "$tmp_file"
-        mv "$tmp_file" "$agents_file"
+        sed '/^# Flow Framework/,$d' "$CODEX_DIR/AGENTS.md" > "$tmp_file"
+        mv "$tmp_file" "$CODEX_DIR/AGENTS.md"
+        tmp_file=$(mktemp)
+        sed -e :a -e '/^\n*$/{$d;N;ba' -e '}' "$CODEX_DIR/AGENTS.md" > "$tmp_file"
+        mv "$tmp_file" "$CODEX_DIR/AGENTS.md"
         log_success "Removed legacy Flow section from AGENTS.md"
         cleaned=true
     fi
 
-    if $cleaned; then
-        log_success "Legacy Codex installation cleaned up"
-    else
-        log_info "No legacy Codex installation found"
-    fi
+    $cleaned && log_success "Legacy Codex installation cleaned up" || log_info "No legacy Codex installation found"
 }
 
 cleanup_opencode_legacy() {
@@ -239,29 +216,23 @@ cleanup_opencode_legacy() {
 
     local cleaned=false
 
-    # Remove old agent files
     if [[ -f "$OPENCODE_DIR/agents/flow.md" ]]; then
         rm -f "$OPENCODE_DIR/agents/flow.md"
         log_success "Removed legacy agents/flow.md"
         cleaned=true
     fi
 
-    # Remove old command files
     if ls "$OPENCODE_DIR/commands/flow-"*.md &>/dev/null 2>&1; then
         rm -f "$OPENCODE_DIR/commands/flow-"*.md
         log_success "Removed legacy command files"
         cleaned=true
     fi
 
-    if $cleaned; then
-        log_success "Legacy OpenCode installation cleaned up"
-    else
-        log_info "No legacy OpenCode installation found"
-    fi
+    $cleaned && log_success "Legacy OpenCode installation cleaned up" || log_info "No legacy OpenCode installation found"
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# CLI Detection
+# Host detection
 # ─────────────────────────────────────────────────────────────────────────────
 
 detect_clis() {
@@ -275,40 +246,36 @@ detect_clis() {
     GEMINI_INSTALLED=false
     ANTIGRAVITY_INSTALLED=false
 
-    # Claude Code
-    if command -v claude &> /dev/null || [[ -d "$CLAUDE_DIR" ]]; then
+    if command -v claude &>/dev/null || [[ -d "$CLAUDE_DIR" ]]; then
         CLAUDE_INSTALLED=true
         log_success "Claude Code detected"
     else
         log_info "Claude Code not detected"
     fi
 
-    # Codex CLI
-    if command -v codex &> /dev/null || [[ -d "$CODEX_DIR" ]]; then
+    if command -v codex &>/dev/null || [[ -d "$CODEX_DIR" ]]; then
         CODEX_INSTALLED=true
         log_success "Codex CLI detected"
     else
         log_info "Codex CLI not detected"
     fi
 
-    # OpenCode
-    if command -v opencode &> /dev/null || [[ -d "$OPENCODE_DIR" ]]; then
+    if command -v opencode &>/dev/null || [[ -d "$OPENCODE_DIR" ]]; then
         OPENCODE_INSTALLED=true
         log_success "OpenCode detected"
     else
         log_info "OpenCode not detected"
     fi
 
-    # Gemini CLI
-    if command -v gemini &> /dev/null || [[ -d "$GEMINI_DIR" ]]; then
+    if command -v gemini &>/dev/null || [[ -d "$GEMINI_DIR" ]]; then
         GEMINI_INSTALLED=true
         log_success "Gemini CLI detected"
     else
         log_info "Gemini CLI not detected"
     fi
 
-    # Google Antigravity
-    if command -v agy &> /dev/null || command -v jetski &> /dev/null || [[ -d "$ANTIGRAVITY_DIR" ]] || [[ -d "$JETSKI_DIR" ]] || [[ -d "$GEMINI_JETSKI_DIR" ]]; then
+    if command -v agy &>/dev/null || command -v jetski &>/dev/null \
+       || [[ -d "$ANTIGRAVITY_DIR" ]] || [[ -d "$JETSKI_DIR" ]] || [[ -d "$GEMINI_JETSKI_DIR" ]]; then
         ANTIGRAVITY_INSTALLED=true
         log_success "Google Antigravity detected"
     else
@@ -319,7 +286,7 @@ detect_clis() {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Claude Code Installation (plugin via marketplace)
+# Claude Code — native marketplace install
 # ─────────────────────────────────────────────────────────────────────────────
 
 install_claude() {
@@ -327,124 +294,44 @@ install_claude() {
     echo -e "${CYAN}Installing Flow for Claude Code...${NC}"
     echo ""
 
-    # Step 1: Clean up ALL legacy installations
     cleanup_claude_legacy
 
-    # Step 2: Prefer Claude's native marketplace commands when available
-    if command -v claude &>/dev/null; then
-        log_info "Using Claude Code's native marketplace flow..."
-
-        if claude plugin marketplace add "$FLOW_CLAUDE_MARKETPLACE" >/dev/null 2>&1; then
-            log_success "Added marketplace: $FLOW_CLAUDE_MARKETPLACE"
-        else
-            log_info "Marketplace add may already be configured or requires fallback config"
-        fi
-
-        if claude plugin install flow@flow-marketplace --scope user >/dev/null 2>&1; then
-            log_success "Installed flow@flow-marketplace"
-            echo ""
-            log_success "Claude Code installation complete (native marketplace install)"
-            log_info "Refresh Flow explicitly when needed:"
-            echo "    claude plugin marketplace update flow-marketplace"
-            echo "    claude plugin update flow@flow-marketplace"
-            return
-        fi
-
-        if claude plugin update flow@flow-marketplace --scope user >/dev/null 2>&1; then
-            log_success "Updated existing flow@flow-marketplace install"
-            echo ""
-            log_success "Claude Code installation complete (native marketplace update)"
-            log_info "Refresh Flow explicitly when needed:"
-            echo "    claude plugin marketplace update flow-marketplace"
-            echo "    claude plugin update flow@flow-marketplace"
-            return
-        fi
-
-        log_warn "Claude native marketplace commands did not complete cleanly; falling back to settings.json guidance"
-    fi
-
-    # Step 3: Ensure settings.json has the marketplace entry
-    local settings_file="$CLAUDE_DIR/settings.json"
-
-    if [[ ! -f "$settings_file" ]]; then
-        log_warn "No settings.json found at $settings_file"
-        log_info "Create it or run: claude settings"
-        echo ""
-        log_info "Then add to settings.json:"
-        echo '    "extraKnownMarketplaces": {'
-        echo '      "flow-marketplace": {'
-        echo '        "source": { "source": "github", "repo": "cofin/flow" }'
-        echo '      }'
-        echo '    }'
-        echo ""
-        echo '    "enabledPlugins": {'
-        echo '      "flow@flow-marketplace": true'
-        echo '    }'
+    if ! command -v claude &>/dev/null; then
+        log_warn "claude binary not found in PATH"
+        log_info "Install Flow by running these commands once Claude Code is installed:"
+        echo "    claude plugin marketplace add $FLOW_MARKETPLACE_SOURCE"
+        echo "    claude plugin install flow@$FLOW_MARKETPLACE_NAME"
         return
     fi
 
-    # Check if marketplace entry exists
-    if command -v jq &>/dev/null; then
-        local has_marketplace
-        has_marketplace=$(jq -r '.extraKnownMarketplaces."flow-marketplace" // empty' "$settings_file" 2>/dev/null)
-
-        if [[ -z "$has_marketplace" ]]; then
-            log_info "Adding flow-marketplace to settings.json..."
-            backup_file "$settings_file"
-
-            local tmp_file
-            tmp_file=$(mktemp)
-            jq '.extraKnownMarketplaces."flow-marketplace" = {"source": {"source": "github", "repo": "cofin/flow"}}' \
-                "$settings_file" > "$tmp_file" && mv "$tmp_file" "$settings_file"
-            log_success "Added extraKnownMarketplaces entry"
-        else
-            log_info "flow-marketplace already configured"
-        fi
-
-        # Check if plugin is enabled
-        local is_enabled
-        is_enabled=$(jq -r '.enabledPlugins."flow@flow-marketplace" // empty' "$settings_file" 2>/dev/null)
-
-        if [[ -z "$is_enabled" ]]; then
-            log_info "Enabling flow plugin..."
-            local tmp_file
-            tmp_file=$(mktemp)
-            jq '.enabledPlugins."flow@flow-marketplace" = true' \
-                "$settings_file" > "$tmp_file" && mv "$tmp_file" "$settings_file"
-            log_success "Enabled flow@flow-marketplace"
-        else
-            log_info "flow@flow-marketplace already enabled"
-        fi
+    log_info "Adding marketplace: $FLOW_MARKETPLACE_SOURCE"
+    if ! claude plugin marketplace add "$FLOW_MARKETPLACE_SOURCE" >/dev/null 2>&1; then
+        log_info "Marketplace add returned non-zero (likely already configured); continuing"
     else
-        # No jq — check with grep
-        if ! grep -q "flow-marketplace" "$settings_file" 2>/dev/null; then
-            log_warn "jq not available for automatic config update"
-            echo ""
-            log_info "Add to $settings_file:"
-            echo '    "extraKnownMarketplaces": {'
-            echo '      "flow-marketplace": {'
-            echo '        "source": { "source": "github", "repo": "cofin/flow" }'
-            echo '      }'
-            echo '    }'
-            echo ""
-            echo '    "enabledPlugins": {'
-            echo '      "flow@flow-marketplace": true'
-            echo '    }'
-        else
-            log_info "flow-marketplace already configured"
-        fi
+        log_success "Marketplace registered"
+    fi
+
+    if claude plugin install "flow@$FLOW_MARKETPLACE_NAME" --scope user >/dev/null 2>&1; then
+        log_success "Installed flow@$FLOW_MARKETPLACE_NAME (user scope)"
+    elif claude plugin update "flow@$FLOW_MARKETPLACE_NAME" --scope user >/dev/null 2>&1; then
+        log_success "Updated existing flow@$FLOW_MARKETPLACE_NAME install"
+    else
+        log_warn "Native install/update did not complete cleanly"
+        log_info "Try manually:"
+        echo "    claude plugin marketplace add $FLOW_MARKETPLACE_SOURCE"
+        echo "    claude plugin install flow@$FLOW_MARKETPLACE_NAME"
+        return
     fi
 
     echo ""
-    log_success "Claude Code installation complete (settings-based marketplace config)"
-    log_info "Flow updates are not guaranteed to auto-apply on Claude restart"
-    log_info "Run these commands to refresh Flow explicitly:"
-    echo "    claude plugin marketplace update flow-marketplace"
-    echo "    claude plugin update flow@flow-marketplace"
+    log_success "Claude Code installation complete"
+    log_info "To refresh later:"
+    echo "    claude plugin marketplace update $FLOW_MARKETPLACE_NAME"
+    echo "    claude plugin update flow@$FLOW_MARKETPLACE_NAME"
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Codex CLI Installation (local plugin)
+# Codex CLI — native marketplace install
 # ─────────────────────────────────────────────────────────────────────────────
 
 install_codex() {
@@ -452,62 +339,40 @@ install_codex() {
     echo -e "${CYAN}Installing Flow for Codex CLI...${NC}"
     echo ""
 
-    # Step 1: Clean up ALL legacy installations
     cleanup_codex_legacy
 
-    # Step 2: Install plugin at ~/.codex/plugins/flow/
-    local plugin_dir="$HOME/.codex/plugins/flow"
-    local plugin_parent=$(dirname "$plugin_dir")
-
-    # Backup existing plugin if present
-    if [[ -d "$plugin_dir" && ! -L "$plugin_dir" ]]; then
-        backup_dir "$plugin_dir"
-        rm -rf "$plugin_dir"
-    elif [[ -L "$plugin_dir" ]]; then
-        rm "$plugin_dir"
+    if ! command -v codex &>/dev/null; then
+        log_warn "codex binary not found in PATH"
+        log_info "Install Flow by running this command once Codex CLI is installed:"
+        echo "    codex plugin marketplace add $FLOW_MARKETPLACE_SOURCE"
+        log_info "Then enable Flow in a Codex session via /plugins"
+        return
     fi
 
-    # Create parent directory
-    mkdir -p "$plugin_parent"
-
-    # Link project root to plugin directory (Plugin-based install)
-    ln -sf "$PROJECT_ROOT" "$plugin_dir"
-    log_success "Linked project root to $plugin_dir"
-
-    # Step 3: Create or update marketplace.json
-    local marketplace_dir="$HOME/.agents/plugins"
-    local marketplace_file="$marketplace_dir/marketplace.json"
-    mkdir -p "$marketplace_dir"
-
-    if [[ ! -f "$marketplace_file" ]]; then
-        cat > "$marketplace_file" << 'MARKETPLACE_EOF'
-{
-  "name": "personal-plugins",
-  "interface": { "displayName": "Personal Plugins" },
-  "plugins": [
-    {
-      "name": "flow",
-      "source": { "source": "local", "path": "~/.codex/plugins/flow" },
-      "policy": { "installation": "AVAILABLE", "authentication": "ON_INSTALL" },
-      "category": "Development"
-    }
-  ]
-}
-MARKETPLACE_EOF
-        log_success "Created: marketplace.json"
-    elif ! grep -q '"flow"' "$marketplace_file" 2>/dev/null; then
-        log_warn "Existing marketplace.json found — add Flow entry manually"
-        echo "         File: $marketplace_file"
+    log_info "Adding marketplace: $FLOW_MARKETPLACE_SOURCE"
+    if codex plugin marketplace add "$FLOW_MARKETPLACE_SOURCE" >/dev/null 2>&1; then
+        log_success "Marketplace registered"
     else
-        log_info "Flow already in marketplace.json"
+        log_info "Marketplace add returned non-zero (likely already configured); attempting upgrade"
+        if codex plugin marketplace upgrade "$FLOW_MARKETPLACE_NAME" >/dev/null 2>&1; then
+            log_success "Marketplace upgraded"
+        else
+            log_warn "codex plugin marketplace add/upgrade did not complete cleanly"
+            log_info "Codex CLI 0.117+ is required for native marketplace commands."
+            log_info "Verify with: codex --version"
+            return
+        fi
     fi
 
     echo ""
-    log_success "Codex CLI installation complete (linked plugin)"
+    log_success "Codex CLI installation complete"
+    log_info "Open Codex and run: /plugins  → enable Flow"
+    log_info "To refresh later:"
+    echo "    codex plugin marketplace upgrade $FLOW_MARKETPLACE_NAME"
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# OpenCode Installation (local plugin)
+# OpenCode — local plugin file (no native marketplace)
 # ─────────────────────────────────────────────────────────────────────────────
 
 install_opencode() {
@@ -515,10 +380,8 @@ install_opencode() {
     echo -e "${CYAN}Installing Flow for OpenCode...${NC}"
     echo ""
 
-    # Step 1: Clean up ALL legacy installations
     cleanup_opencode_legacy
 
-    # Step 2: Link the current checkout as the backing source
     local backing_dir="$OPENCODE_DIR/flow"
     local plugin_dir="$OPENCODE_DIR/plugins"
     local plugin_file="$plugin_dir/flow.js"
@@ -543,12 +406,12 @@ install_opencode() {
 
     echo ""
     log_success "OpenCode installation complete (local plugin file)"
-    log_info "OpenCode auto-loads local plugin files from ~/.config/opencode/plugins/"
+    log_info "OpenCode auto-loads plugin files from ~/.config/opencode/plugins/"
     log_info "Project-local .agents/skills/ are also discovered automatically"
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Gemini CLI Installation (extension)
+# Gemini CLI — native extension install
 # ─────────────────────────────────────────────────────────────────────────────
 
 install_gemini() {
@@ -556,78 +419,31 @@ install_gemini() {
     echo -e "${CYAN}Installing Flow for Gemini CLI...${NC}"
     echo ""
 
-    if command -v gemini &> /dev/null; then
-        log_info "Using Gemini's GitHub-backed extension lifecycle..."
-        if gemini extensions install "$FLOW_GITHUB_REPO" --auto-update >/dev/null 2>&1; then
-            log_success "Installed Flow from GitHub with auto-update enabled"
-            echo ""
-            log_success "Gemini CLI installation complete"
-            log_info "Refresh Flow explicitly when needed:"
-            echo "    gemini extensions update flow"
-            return
-        fi
+    if ! command -v gemini &>/dev/null; then
+        log_warn "gemini binary not found in PATH"
+        log_info "Install Flow by running this command once Gemini CLI is installed:"
+        echo "    gemini extensions install $FLOW_GITHUB_REPO --auto-update"
+        return
+    fi
 
-        if gemini extensions update flow >/dev/null 2>&1; then
-            log_success "Updated existing Flow extension"
-            echo ""
-            log_success "Gemini CLI installation complete"
-            log_info "Use 'gemini extensions link .' only for local development against a checkout"
-            return
-        fi
-
-        log_warn "Gemini CLI install/update did not complete cleanly; falling back to manual copy"
+    if gemini extensions install "$FLOW_GITHUB_REPO" --auto-update >/dev/null 2>&1; then
+        log_success "Installed Flow extension with auto-update"
+    elif gemini extensions update flow >/dev/null 2>&1; then
+        log_success "Updated existing Flow extension"
     else
-        log_info "Gemini CLI not found in PATH, performing manual installation..."
-    fi
-
-    # Backup existing extension
-    if [[ -d "$GEMINI_EXT_DIR" ]]; then
-        backup_dir "$GEMINI_EXT_DIR"
-        rm -rf "$GEMINI_EXT_DIR"
-    fi
-
-    # Create extension directory
-    mkdir -p "$GEMINI_EXT_DIR"
-
-    # Install extension manifest and context
-    cp "$PROJECT_ROOT/gemini-extension.json" "$GEMINI_EXT_DIR/"
-    cp "$PROJECT_ROOT/GEMINI.md" "$GEMINI_EXT_DIR/"
-    log_success "Installed: extension manifest and Gemini context"
-
-    # Install commands
-    mkdir -p "$GEMINI_EXT_DIR/commands"
-    cp -r "$COMMANDS_DIR/flow" "$GEMINI_EXT_DIR/commands/"
-    log_success "Installed: commands"
-
-    # Install templates
-    if [[ -d "$PROJECT_ROOT/templates" ]]; then
-        mkdir -p "$GEMINI_EXT_DIR/templates"
-        cp -r "$PROJECT_ROOT/templates"/* "$GEMINI_EXT_DIR/templates/"
-        log_success "Installed: templates"
-    fi
-
-    # Install skills
-    if [[ -d "$SKILLS_DIR" ]]; then
-        mkdir -p "$GEMINI_EXT_DIR/skills"
-        cp -r "$SKILLS_DIR"/* "$GEMINI_EXT_DIR/skills/"
-        log_success "Installed: skills"
-    fi
-
-    # Install hooks
-    if [[ -d "$PROJECT_ROOT/hooks" ]]; then
-        mkdir -p "$GEMINI_EXT_DIR/hooks"
-        cp -r "$PROJECT_ROOT/hooks"/* "$GEMINI_EXT_DIR/hooks/"
-        chmod +x "$GEMINI_EXT_DIR/hooks/session-start.sh" "$GEMINI_EXT_DIR/hooks/pre-commit" "$GEMINI_EXT_DIR/hooks/detect-env.sh" 2>/dev/null || true
-        log_success "Installed: hooks"
+        log_warn "Native install/update did not complete cleanly"
+        log_info "Try manually:"
+        echo "    gemini extensions install $FLOW_GITHUB_REPO --auto-update"
+        return
     fi
 
     echo ""
-    log_success "Gemini CLI installation complete (manual copy fallback)"
-    log_info "Use 'gemini extensions link .' only for local development against a checkout"
+    log_success "Gemini CLI installation complete"
+    log_info "Use 'gemini extensions link .' for local development against a checkout"
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Google Antigravity Installation (skill directory)
+# Google Antigravity — global skill copy (no native plugin system)
 # ─────────────────────────────────────────────────────────────────────────────
 
 install_antigravity() {
@@ -643,26 +459,24 @@ install_antigravity() {
         target_agy_dir="$GEMINI_JETSKI_DIR"
     fi
 
-    # Backup existing
     if [[ -d "$target_agy_dir" ]]; then
         backup_dir "$target_agy_dir"
     fi
 
-    # Create skills directory
     mkdir -p "$target_agy_dir"
 
-    # Install skills
     if [[ -d "$SKILLS_DIR" ]]; then
+        local count=0
         for skill_dir in "$SKILLS_DIR"/*/; do
             [[ -d "$skill_dir" ]] || continue
-            local skill_name="$(basename "$skill_dir")"
-            local skill_dst_dir="$target_agy_dir/$skill_name"
-
-            # Clean and copy
+            local skill_name skill_dst_dir
+            skill_name="$(basename "$skill_dir")"
+            skill_dst_dir="$target_agy_dir/$skill_name"
             rm -rf "$skill_dst_dir"
             cp -r "$skill_dir" "$skill_dst_dir"
+            count=$((count + 1))
         done
-        log_success "Installed: skills ($(ls -1d "$SKILLS_DIR"/*/ 2>/dev/null | wc -l) skills)"
+        log_success "Installed: $count skills"
     fi
 
     echo ""
@@ -670,7 +484,7 @@ install_antigravity() {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Beads Installation Check
+# Beads installation check
 # ─────────────────────────────────────────────────────────────────────────────
 
 check_beads() {
@@ -678,16 +492,9 @@ check_beads() {
     echo -e "${CYAN}Checking Beads CLI...${NC}"
     echo ""
 
-    local bd_installed=false
-    local br_installed=false
-
-    if command -v bd &> /dev/null; then
-        bd_installed=true
-    fi
-
-    if command -v br &> /dev/null; then
-        br_installed=true
-    fi
+    local bd_installed=false br_installed=false
+    command -v bd &>/dev/null && bd_installed=true
+    command -v br &>/dev/null && br_installed=true
 
     if $bd_installed && $br_installed; then
         log_success "Both official Beads (bd) and beads_rust (br) detected"
@@ -699,15 +506,8 @@ check_beads() {
         read -p "Select [1-2]: " -n 1 -r
         echo
         case $REPLY in
-            1) 
-                log_info "Flow setup will default to: bd init --stealth --prefix <repo-slug>"
-                ;;
-            2) 
-                log_info "Flow setup will default to: br init --prefix <repo-slug>"
-                ;;
-            *)
-                log_info "No selection made; defaulting to: bd init --stealth --prefix <repo-slug>"
-                ;;
+            2) log_info "Flow setup will default to: br init --prefix <repo-slug>" ;;
+            *) log_info "Flow setup will default to: bd init --stealth --prefix <repo-slug>" ;;
         esac
         return
     elif $bd_installed; then
@@ -742,11 +542,8 @@ check_beads() {
             curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash
             log_success "Installed beads_rust compatibility (br)"
             ;;
-        3)
-            log_info "Continuing without Beads; Flow will still support specs, plans, docs, and lightweight local workflows"
-            ;;
         *)
-            log_info "No selection made; continuing without Beads"
+            log_info "Continuing without Beads; Flow will still support specs, plans, docs, and lightweight local workflows"
             ;;
     esac
 
@@ -756,7 +553,7 @@ check_beads() {
 }
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Argument Parsing
+# Argument parsing
 # ─────────────────────────────────────────────────────────────────────────────
 
 parse_args() {
@@ -767,14 +564,17 @@ parse_args() {
                 shift
                 ;;
             --help|-h)
-                echo "Usage: install.sh [OPTIONS]"
-                echo ""
-                echo "Options:"
-                echo "  --force    Overwrite existing plugin installations without prompting"
-                echo "  --help     Show this help message"
-                echo ""
-                echo "Installs Flow as a plugin for all detected AI CLI tools."
-                echo "Legacy installations are automatically cleaned up."
+                cat <<EOF
+Usage: install.sh [OPTIONS]
+
+Multi-host installer for the Flow Framework. Runs each host's NATIVE plugin
+or extension command. For installing into a single host, prefer the per-host
+commands documented in README.md.
+
+Options:
+  --force    Overwrite existing plugin installations without prompting
+  --help     Show this help message
+EOF
                 exit 0
                 ;;
             *)
@@ -790,19 +590,11 @@ parse_args() {
 # ─────────────────────────────────────────────────────────────────────────────
 
 main() {
-    # Parse command line arguments
     parse_args "$@"
-
-    # Show banner after parsing args
     show_banner
-
-    # Create flow data directory
     mkdir -p "$FLOW_DATA_DIR"
-
-    # Detect CLIs
     detect_clis
 
-    # If none detected, ask which to install for
     if ! $CLAUDE_INSTALLED && ! $CODEX_INSTALLED && ! $OPENCODE_INSTALLED && ! $GEMINI_INSTALLED && ! $ANTIGRAVITY_INSTALLED; then
         echo "No supported CLIs detected. Which would you like to install for?"
         echo ""
@@ -826,7 +618,6 @@ main() {
             7) exit 0 ;;
         esac
     else
-        # Ask which detected CLIs to install for
         echo "Which CLIs would you like to install Flow for?"
         echo ""
         $CLAUDE_INSTALLED && echo "  1) Claude Code"
@@ -841,43 +632,35 @@ main() {
 
         case $SELECTION in
             q|Q) exit 0 ;;
-            a|A) ;; # Install all
+            a|A) ;; # all detected
             *)
-                # Parse selection
-                INSTALL_CLAUDE=false
-                INSTALL_CODEX=false
-                INSTALL_OPENCODE=false
-                INSTALL_GEMINI=false
-                INSTALL_ANTIGRAVITY=false
+                local install_claude=false install_codex=false install_opencode=false install_gemini=false install_antigravity=false
                 for sel in $SELECTION; do
                     case $sel in
-                        1) INSTALL_CLAUDE=true ;;
-                        2) INSTALL_CODEX=true ;;
-                        3) INSTALL_OPENCODE=true ;;
-                        4) INSTALL_GEMINI=true ;;
-                        5) INSTALL_ANTIGRAVITY=true ;;
+                        1) install_claude=true ;;
+                        2) install_codex=true ;;
+                        3) install_opencode=true ;;
+                        4) install_gemini=true ;;
+                        5) install_antigravity=true ;;
                     esac
                 done
-                $INSTALL_CLAUDE || CLAUDE_INSTALLED=false
-                $INSTALL_CODEX || CODEX_INSTALLED=false
-                $INSTALL_OPENCODE || OPENCODE_INSTALLED=false
-                $INSTALL_GEMINI || GEMINI_INSTALLED=false
-                $INSTALL_ANTIGRAVITY || ANTIGRAVITY_INSTALLED=false
+                $install_claude       || CLAUDE_INSTALLED=false
+                $install_codex        || CODEX_INSTALLED=false
+                $install_opencode     || OPENCODE_INSTALLED=false
+                $install_gemini       || GEMINI_INSTALLED=false
+                $install_antigravity  || ANTIGRAVITY_INSTALLED=false
                 ;;
         esac
     fi
 
-    # Install for selected CLIs
-    $CLAUDE_INSTALLED && install_claude
-    $CODEX_INSTALLED && install_codex
-    $OPENCODE_INSTALLED && install_opencode
-    $GEMINI_INSTALLED && install_gemini
-    $ANTIGRAVITY_INSTALLED && install_antigravity
+    $CLAUDE_INSTALLED       && install_claude
+    $CODEX_INSTALLED        && install_codex
+    $OPENCODE_INSTALLED     && install_opencode
+    $GEMINI_INSTALLED       && install_gemini
+    $ANTIGRAVITY_INSTALLED  && install_antigravity
 
-    # Check Beads
     check_beads
 
-    # Summary
     echo ""
     echo -e "${CYAN}════════════════════════════════════════════════════════════════${NC}"
     echo -e "${GREEN}Installation Complete!${NC}"
@@ -895,22 +678,21 @@ main() {
     echo "     cd /path/to/your/project"
     echo ""
     echo "  2. Initialize Flow:"
-    $CLAUDE_INSTALLED && echo "     Claude Code: /flow-setup"
-    $CODEX_INSTALLED && echo "     Codex CLI:   /flow:setup"
-    $OPENCODE_INSTALLED && echo "     OpenCode:    /flow:setup"
-    $GEMINI_INSTALLED && echo "     Gemini CLI:  /flow:setup"
-    $ANTIGRAVITY_INSTALLED && echo "     Google Antigravity: flow-setup (skill)"
+    $CLAUDE_INSTALLED       && echo "     Claude Code:        /flow-setup"
+    $CODEX_INSTALLED        && echo "     Codex CLI:          Use Flow to set up this project"
+    $OPENCODE_INSTALLED     && echo "     OpenCode:           /flow:setup"
+    $GEMINI_INSTALLED       && echo "     Gemini CLI:         /flow:setup"
+    $ANTIGRAVITY_INSTALLED  && echo "     Google Antigravity: flow-setup (skill)"
     echo ""
     echo "  3. Create your first flow:"
-    $CLAUDE_INSTALLED && echo "     Claude Code: /flow-prd \"your feature description\""
-    $CODEX_INSTALLED && echo "     Codex CLI:   /flow:prd \"your feature description\""
-    $OPENCODE_INSTALLED && echo "     OpenCode:    /flow:prd \"your feature description\""
-    $GEMINI_INSTALLED && echo "     Gemini CLI:  /flow:prd \"your feature description\""
-    $ANTIGRAVITY_INSTALLED && echo "     Google Antigravity: flow-prd \"your feature description\""
+    $CLAUDE_INSTALLED       && echo "     Claude Code:        /flow-prd \"your feature description\""
+    $CODEX_INSTALLED        && echo "     Codex CLI:          Use Flow to create a PRD for <feature>"
+    $OPENCODE_INSTALLED     && echo "     OpenCode:           /flow:prd \"your feature description\""
+    $GEMINI_INSTALLED       && echo "     Gemini CLI:         /flow:prd \"your feature description\""
+    $ANTIGRAVITY_INSTALLED  && echo "     Google Antigravity: flow-prd \"your feature description\""
     echo ""
     echo "Documentation: https://github.com/cofin/flow"
     echo ""
 }
 
-# Run
 main "$@"
