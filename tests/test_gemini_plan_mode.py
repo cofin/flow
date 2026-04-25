@@ -12,20 +12,46 @@ def _load_command_prompt(relative_path: str) -> str:
     return command["prompt"]
 
 
-def test_gemini_prd_command_explicitly_manages_plan_mode() -> None:
+def _load_agent_text(relative_path: str) -> str:
+    return (REPO_ROOT / relative_path).read_text(encoding="utf-8")
+
+
+def test_gemini_prd_command_delegates_with_plan_mode() -> None:
     prompt = _load_command_prompt("commands/flow/prd.toml")
 
     assert "enter_plan_mode" in prompt
-    assert "exit_plan_mode" in prompt
-    assert "Remain in Plan Mode" in prompt
+    assert "@flow:prd-orchestrator" in prompt
 
 
-def test_gemini_plan_command_explicitly_manages_plan_mode() -> None:
+def test_gemini_prd_orchestrator_manages_full_plan_mode_lifecycle() -> None:
+    agent = _load_agent_text("agents/prd-orchestrator.md")
+
+    assert "enter_plan_mode" in agent
+    assert "exit_plan_mode" in agent
+    assert "Stay in Plan Mode" in agent
+
+
+def test_gemini_plan_command_delegates_with_plan_mode() -> None:
     prompt = _load_command_prompt("commands/flow/plan.toml")
 
     assert "enter_plan_mode" in prompt
-    assert "exit_plan_mode" in prompt
-    assert "Remain in Plan Mode" in prompt
+    assert "@flow:plan-generator" in prompt
+
+
+def test_gemini_plan_generator_manages_full_plan_mode_lifecycle() -> None:
+    agent = _load_agent_text("agents/plan-generator.md")
+
+    assert "enter_plan_mode" in agent
+    assert "exit_plan_mode" in agent
+    assert "Stay in Plan Mode" in agent
+
+
+def test_opencode_templates_reference_native_plan_mode() -> None:
+    for relative_path in (
+        "templates/opencode/commands/flow-prd.md",
+        "templates/opencode/commands/flow-plan.md",
+    ):
+        assert "Native Plan Mode" in _load_agent_text(relative_path)
 
 
 def test_gemini_docs_reference_supported_plan_settings() -> None:
