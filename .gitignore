@@ -233,4 +233,5 @@ windsurf.mcp.json
 !.agents/plugins/
 .agents/plugins/*
 !.agents/plugins/marketplace.json
+!.agents/plugins/plugins/
 .beads/

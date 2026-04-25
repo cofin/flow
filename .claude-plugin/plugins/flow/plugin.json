@@ -14,13 +14,13 @@
   "commands": ["./commands/"],
   "hooks": "./hooks/hooks-claude.json",
   "userConfig": {
-    "beads-backend": {
+    "beadsBackend": {
       "type": "select",
       "default": "bd",
       "description": "Beads backend for task persistence: bd (official) or none (degraded mode)",
       "options": ["bd", "none"]
     },
-    "agents-dir": {
+    "agentsDir": {
       "type": "string",
       "default": ".agents",
       "description": "Directory where Flow stores specs, plans, and knowledge (e.g. .agents or specs)"
