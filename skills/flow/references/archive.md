@@ -19,7 +19,7 @@ IRON LAW: NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
 2. **Check Beads** for completion status:
 
    ```bash
-   br show {epic_id}
+   bd show {epic_id}
    ```
 
 3. **Verify** all tasks are completed or explicitly skipped — read `spec.md` Implementation Plan section
@@ -77,7 +77,7 @@ You are responsible for the formal evolution of the project's knowledge base. It
 ## Phase 4: Close Beads Epic
 
 ```bash
-br close {epic_id} --reason "Flow archived"
+bd close {epic_id} --reason "Flow archived"
 ```
 
 ## Phase 5: Move to Archive

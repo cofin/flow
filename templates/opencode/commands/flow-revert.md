@@ -36,7 +36,7 @@ git commit -m "revert({scope}): {description}"
 ### 3.1 Reopen Beads Tasks (Source of Truth)
 
 ```bash
-br update {task_id} --status open
+bd update {task_id} --status open
 ```
 
 ### Markdown Sync (Manual)

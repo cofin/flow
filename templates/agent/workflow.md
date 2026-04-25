@@ -18,7 +18,7 @@
 
 ## Guiding Principles
 
-1. **Beads backend is the Source of Truth:** Prefer official Beads (`bd`), keep `br` as compatibility mode, and use `/flow:sync` to export task state to spec.md when needed.
+1. **Beads backend is the Source of Truth:** Use official Beads (`bd`) and run `/flow:sync` to export task state to spec.md when needed.
 2. **The Tech Stack is Deliberate:** Changes to the tech stack must be documented in `tech-stack.md` *before* implementation
 3. **Test-Driven Development:** Write unit tests before implementing functionality
 4. **High Code Coverage:** Aim for >80% code coverage for all modules
@@ -32,10 +32,9 @@
 
 ## Beads Integration
 
-Flow supports three modes:
+Flow supports two modes:
 
-- Official Beads (`bd`) - preferred default
-- beads_rust compatibility (`br`)
+- Official Beads (`bd`) - default
 - No Beads - degraded mode for docs/plans/lightweight local work
 
 Configured for local-only use during setup unless the user explicitly asks for shared repo state.
@@ -73,7 +72,8 @@ For local-only ignores, prefer `.git/info/exclude` before `.gitignore`.
 **CRITICAL:** Always include the backend's purpose/description field at creation time, then add context notes separately.
 
 ```bash
-Use `choosing-beads-backend` for exact command mapping.
+bd create "<task>" -t task -p 2 --description="<purpose and goal>"
+bd note <id> "<context for future agents>"
 ```
 
 - `--description`: Purpose and goal

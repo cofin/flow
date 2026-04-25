@@ -1,5 +1,9 @@
 {
   "name": "flow-marketplace",
+  "interface": {
+    "displayName": "Flow",
+    "shortDescription": "Context-Driven Development with spec-first planning, TDD workflow, and Beads integration"
+  },
   "metadata": {
     "description": "The Flow Framework Marketplace — context-driven development tools, skills, and agents"
   },
@@ -12,10 +16,10 @@
       "name": "flow",
       "description": "Unified toolkit for Context-Driven Development with spec-first planning, TDD workflow, and Beads integration",
       "version": "0.20.0",
-      "source": "./",
-      "author": {
-        "name": "cofin"
-      }
+      "source": { "source": "local", "path": "./" },
+      "policy": { "installation": "AVAILABLE" },
+      "category": "Development",
+      "author": { "name": "cofin" }
     }
   ]
 }

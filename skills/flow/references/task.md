@@ -24,9 +24,9 @@ Tasks have NO audit trail - meant to be discarded.
 ### Phase 1: Create Task
 
 ```bash
-br create "Task: {description}" -t task -p 4 \
+bd create "Task: {description}" -t task -p 4 \
   --description="{exploration_goal}"
-br update {task_task_id} --notes "Ephemeral exploration. Created by flow-task"
+bd update {task_task_id} --notes "Ephemeral exploration. Created by flow-task"
 ```
 
 ### Phase 2: Task Directory

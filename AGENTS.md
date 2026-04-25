@@ -13,7 +13,7 @@ Beads is a **required dependency**. Flow will offer to install it and configures
 
 ## The Beads-First Mandate
 
-**CRITICAL:** Every task, discovery, and decision MUST be recorded in Beads (`bd` or `br`).
+**CRITICAL:** Every task, discovery, and decision MUST be recorded in Beads (`bd`).
 
 - **Epics**: Define Flows and Sagas.
 - **Tasks**: Define implementation steps.
@@ -24,7 +24,7 @@ Beads is a **required dependency**. Flow will offer to install it and configures
 
 ...
 
-When the `.agents/` directory exists in the project root, the Flow skill MUST be activated at session start. Detect the active Beads backend (`bd`, `br`, or none) and load context before beginning work.
+When the `.agents/` directory exists in the project root, the Flow skill MUST be activated at session start. Detect the active Beads backend (`bd` or none) and load context before beginning work.
 
 ## Agent Conduct
 
@@ -218,34 +218,25 @@ Codex currently runs the same workflows through the installed Flow skill and pla
 
 ## Beads Integration
 
-Flow supports three persistence modes:
+Flow supports two persistence modes:
 
-- **Official Beads (`bd`)** - preferred default
-- **beads_rust (`br`)** - compatibility mode
+- **Official Beads (`bd`)** - default
 - **No Beads** - degraded mode for docs/plans/lightweight local work
-
-Use `choosing-beads-backend` for exact command mapping and migration guidance.
 
 ### Installation Check
 
 ```bash
-if command -v bd >/dev/null 2>&1 && command -v br >/dev/null 2>&1; then
-  echo "BEADS_BOTH"
-elif command -v bd >/dev/null 2>&1; then
+if command -v bd >/dev/null 2>&1; then
   echo "BD_OK"
-elif command -v br >/dev/null 2>&1; then
-  echo "BR_OK"
 else
   echo "BEADS_MISSING"
 fi
 ```
 
-If `BEADS_BOTH` is found, Flow should offer a choice between `bd` and `br`.
-If missing, Flow should offer a concise menu:
+If missing, Flow should offer:
 
 - **A) Install official Beads (`bd`)** (recommended)
-- **B) Use beads_rust compatibility (`br`)**
-- **C) Continue without Beads**
+- **B) Continue without Beads**
 
 ### Initialization
 
@@ -254,13 +245,6 @@ Official default:
 ```bash
 repo_slug="$(basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-//; s/-$//')"
 bd init --stealth --prefix "$repo_slug"
-```
-
-Compatibility default:
-
-```bash
-repo_slug="$(basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-//; s/-$//')"
-br init --prefix "$repo_slug"
 ```
 
 For local-only use, prefer `.git/info/exclude` instead of editing `.gitignore`.
@@ -330,11 +314,7 @@ If manual verification is needed:
 # Official Beads (`bd`)
 bd prime
 bd ready --json
-
-# beads_rust compatibility (`br`)
-br status
-br ready
-br list --status in_progress
+bd list --status in_progress
 ```
 
 At session end:
@@ -453,11 +433,8 @@ cp -r . ~/.gemini/extensions/flow/
 # Or link
 gemini extensions link .
 
-# Install official Beads (preferred)
+# Install official Beads
 brew install beads
 # or
 curl -sSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash
-
-# Install beads_rust compatibility (optional fallback)
-curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash
 ```

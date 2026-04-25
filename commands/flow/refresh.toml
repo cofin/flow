@@ -47,7 +47,6 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
     *   Prefer repo-native aggregate commands such as `make lint`, `make test`, `make check`, `just check`, `task test`, package scripts, and pre-commit entrypoints.
 4.  **Flow Spec:** If active flow's tasks were completed externally (commits reference task IDs), update status through the active backend:
     *   `bd`: use the official completion/note flow
-    *   `br`: `br close <task_id> --reason "completed externally: <commit_sha>"`
     *   no-Beads: record the change in markdown/context files only
 5.  **Index:** Refresh `.agents/index.md` if structural changes detected (new dirs, renamed files).
 
@@ -58,8 +57,7 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
 
 1.  Resolve the active backend first.
 2.  `bd`: run the official Beads sync/status flow.
-3.  `br`: run `br sync --flush-only`, `br status`, and `br show <beads_epic_id> --format json` when an epic ID exists.
-4.  no-Beads: skip backend sync and continue with refreshed context files.
+3.  no-Beads: skip backend sync and continue with refreshed context files.
 
 ---
 

@@ -19,7 +19,7 @@ If not provided, list completed flows from `.agents/flows.md` and ask user to se
 Check Beads for completion status:
 
 ```bash
-br show {epic_id}
+bd show {epic_id}
 ```
 
 Or read `.agents/specs/{flow_id}/spec.md` Implementation Plan section.
@@ -95,13 +95,13 @@ Edit `.agents/flows.md`:
 2. Close epic:
 
    ```bash
-   br close {epic_id} --reason "Flow archived"
+   bd close {epic_id} --reason "Flow archived"
    ```
 
 3. Verify closure:
 
    ```bash
-   br show {epic_id}
+   bd show {epic_id}
    ```
 
 ---

@@ -10,7 +10,7 @@ Refresh the flow's context files by re-scanning the codebase and updating `.agen
 - After another developer merged PRs that affect the current flow
 - When `.agents/` metadata is out of sync with actual project state
 - After dependency updates or refactors outside of flow workflow
-- At the start of a new session when `br status` shows stale context
+- At the start of a new session when `bd status` shows stale context
 
 ## Workflow
 
@@ -37,7 +37,6 @@ Refresh the flow's context files by re-scanning the codebase and updating `.agen
 4. **Sync with Beads**
    - Resolve the active backend first
    - `bd`: use the official Beads sync/status commands
-   - `br`: run `br sync --flush-only` and `br status`
    - no-Beads: skip backend sync and continue refreshing workflow/context files
    - Reconcile backend state with refreshed context
 

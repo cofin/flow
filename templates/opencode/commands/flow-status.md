@@ -13,10 +13,10 @@ Read `.agents/flows.md` to get list of active flows.
 ## Phase 2: Beads Status (Source of Truth)
 
 ```bash
-br status                          # Workspace overview
-br ready                           # Unblocked tasks ready to work
-br list --status in_progress       # Active work
-br blocked                         # Blocked tasks
+bd status                          # Workspace overview
+bd ready --json                    # Unblocked tasks ready to work
+bd list --status in_progress       # Active work
+bd list --status blocked           # Blocked tasks
 ```
 
 ## Phase 3: Flow Summary (Beads-First)
@@ -26,7 +26,7 @@ For each active flow:
 ### Primary: Get Status from Beads
 
 ```bash
-br show {epic_id} --format json
+bd show {epic_id} --format json
 ```
 
 Count tasks by status: pending, in_progress, completed, blocked
@@ -72,7 +72,7 @@ Blocked tasks:
 
 Based on status, suggest next action:
 
-- If blocked: "Document blockers with `br update {id} --status blocked --notes \"BLOCKED: {reason}\"`"
+- If blocked: "Document blockers with `bd update {id} --status blocked --notes \"BLOCKED: {reason}\"`"
 - If no in-progress: "Run `/flow-implement {flow_id}`"
 - If complete: "Run `/flow-archive {flow_id}`"
 

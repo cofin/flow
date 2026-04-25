@@ -3,7 +3,7 @@
 
 Initialize a project for context-driven development with Beads integration.
 
-Use `choosing-beads-backend` for backend selection and `presenting-install-menus` for concise install prompts.
+Use `presenting-install-menus` for concise install prompts.
 
 ## Phase 0: Environment Detection
 
@@ -56,12 +56,10 @@ fi
 ### 0.1.1 Beads Validation
 
 ```bash
-command -v bd >/dev/null 2>&1 && echo "BD_OK" || \
-command -v br >/dev/null 2>&1 && echo "BR_OK" || \
-echo "BEADS_MISSING"
+command -v bd >/dev/null 2>&1 && echo "BD_OK" || echo "BEADS_MISSING"
 ```
 
-Prefer official Beads (`bd`). Keep `br` as compatibility mode. Allow no-Beads degraded mode when the user wants less administrative overhead.
+Use official Beads (`bd`). Allow no-Beads degraded mode when the user wants less administrative overhead.
 
 ### 0.1.2 Legacy Specs Migration
 
@@ -91,10 +89,14 @@ Check for missing `.agents/knowledge/` directory and ensure `knowledge/index.md`
 
 ### 0.1.7 Policy & Context Validation
 
-**PROTOCOL: Ensure Plan Mode policies and host-specific context files are present.**
+**PROTOCOL: Ensure Plan Mode policies and host-specific context/settings files are present for every detected host.**
 
 - **Gemini CLI:** Check for `.gemini/policies/flow-overrides.toml`. If missing or outdated, offer to create it to allow common development tools in Plan Mode.
-- **Claude Code:** Check for `CLAUDE.md` in the project root. If missing, offer to create it from the latest template to provide project context and rules.
+- **Claude Code:** Check for `CLAUDE.md` in the project root. If missing, offer to create it from the latest template to provide project context and rules. Also run **Phase 7.5.1** (re-merge Flow-recommended `.claude/settings.local.json` keys without clobbering user entries).
+- **OpenCode:** Run **Phase 7.5.2** (re-merge Flow-recommended `opencode.json` keys).
+- **Codex CLI:** Announce the trust-prompt recommendation from **Phase 7.5.3**. Do not write to `~/.codex/config.toml`.
+
+Each prompt remains opt-in (Yes/Skip), matching the existing Gemini pattern. Reruns are idempotent — every Phase 7.5 step deduplicates and merges.
 
 ### 0.1.8 Configuration Validation
 
@@ -116,28 +118,21 @@ Provide a clear summary of all updates performed, including Beads version, workf
 **CRITICAL:** Prefer official Beads, but do not force unnecessary admin work.
 
 ```bash
-if command -v bd >/dev/null 2>&1 && command -v br >/dev/null 2>&1; then
-  echo "BEADS_BOTH"
-elif command -v bd >/dev/null 2>&1; then
+if command -v bd >/dev/null 2>&1; then
   echo "BD_OK"
-elif command -v br >/dev/null 2>&1; then
-  echo "BR_OK"
 else
   echo "BEADS_MISSING"
 fi
 ```
-
-If `BEADS_BOTH` is found, ask user to choose between `bd` and `br`.
 
 If no backend is found, ask user:
 
 > **Beads backend**
 >
 > - **A) Install official Beads (`bd`)** (recommended)
-> - **B) Use beads_rust compatibility (`br`)**
-> - **C) Continue without Beads** (degraded mode)
+> - **B) Continue without Beads** (degraded mode)
 
-If installed, verify the chosen backend version is current.
+If installed, verify the backend version is current.
 
 ---
 
@@ -260,12 +255,6 @@ Official default:
 bd init --stealth --prefix "$repo_slug"
 ```
 
-Compatibility default:
-
-```bash
-br init --prefix "$repo_slug"
-```
-
 Or prompt user:
 
 > **Beads mode:**
@@ -323,6 +312,122 @@ Copy `templates/agent/skills/flow-memory-keeper/SKILL.md` into `<root_directory>
 
 ---
 
+## Phase 7.5: Host Policy Bootstrap (Cross-Host)
+
+**PROTOCOL: Detect installed agentic hosts and OFFER (opt-in) to merge Flow-recommended settings into each host's policy file. Mirrors what `commands/flow/setup.toml` already does for Gemini, but for Claude Code and OpenCode.**
+
+### 7.5.0 Host Detection
+
+```bash
+detected=()
+command -v claude   >/dev/null 2>&1 || [ -d "$HOME/.claude" ]                && detected+=("claude")
+command -v opencode >/dev/null 2>&1 || [ -d "$HOME/.config/opencode" ]       && detected+=("opencode")
+command -v codex    >/dev/null 2>&1 || [ -d "$HOME/.codex" ]                 && detected+=("codex")
+# Gemini is handled by commands/flow/setup.toml Phase 3.4 — do not duplicate here.
+```
+
+For each detected host, run the matching subsection. **Skip Codex auto-write** — Codex's first-session trust prompt covers this case; just announce the recommendation.
+
+### 7.5.1 Claude Code
+
+> **Configure Claude Code for this Flow project?**
+>
+> Adds `plansDirectory` (so Plan Mode artifacts land in `<root_directory>/specs/`) and a workflow-derived `permissions.allow` allowlist to `.claude/settings.local.json` (gitignored — per-developer).
+>
+> - **A) Yes** (recommended)
+> - **B) Skip**
+
+If A, MERGE into `.claude/settings.local.json` (NEVER clobber). Use `jq` when available.
+
+**Computed allow entries** = read-only base ∪ workflow-derived:
+
+- **Read-only base (always included):** `Read`, `Grep`, `Glob`, `LS`, `WebFetch`, `WebSearch`, `Bash(bd:*)`, `Bash(git status)`, `Bash(git diff:*)`, `Bash(git log:*)`, `Bash(ls:*)`, `Bash(cat:*)`, `Bash(grep:*)`, `Bash(rg:*)`, `Bash(wc:*)`, `Bash(find:*)`
+- **Workflow-derived (from `<root_directory>/workflow.md`):** parse the "Essential Commands" section. For each canonical command (e.g. `make lint`, `make test`, `make check`, `bun test`, `bun run build:*`, `uv run pytest`, `npx vitest`, `cargo test`), add `Bash(<first-token>:*)`. Deduplicate against base.
+
+**Merge recipe (jq):**
+
+```bash
+mkdir -p .claude
+[ -f .claude/settings.local.json ] || echo '{}' > .claude/settings.local.json
+cp .claude/settings.local.json .claude/settings.local.json.bak
+
+new_allow_json='[ "Read","Grep","Glob","LS","WebFetch","WebSearch","Bash(bd:*)","Bash(git status)","Bash(git diff:*)","Bash(git log:*)","Bash(ls:*)","Bash(cat:*)","Bash(grep:*)","Bash(rg:*)","Bash(wc:*)","Bash(find:*)" /* + workflow-derived entries */ ]'
+
+jq --argjson new "$new_allow_json" '
+  .plansDirectory //= "<root_directory>/specs" |
+  .permissions = ((.permissions // {}) + {
+    allow: ((((.permissions.allow) // []) + $new) | unique)
+  })
+' .claude/settings.local.json > .claude/settings.local.json.tmp \
+  && mv .claude/settings.local.json.tmp .claude/settings.local.json
+```
+
+If `jq` is unavailable, use a Python helper:
+
+```bash
+python3 - <<'PY'
+import json, pathlib
+p = pathlib.Path(".claude/settings.local.json")
+data = json.loads(p.read_text()) if p.exists() else {}
+data.setdefault("plansDirectory", "<root_directory>/specs")
+perms = data.setdefault("permissions", {})
+existing = set(perms.get("allow", []))
+new = [...]  # base + workflow-derived
+perms["allow"] = sorted(existing | set(new))
+p.write_text(json.dumps(data, indent=2) + "\n")
+PY
+```
+
+> **Critical rules**
+>
+> - Never overwrite. Always merge.
+> - Always back up to `settings.local.json.bak` before touching the file.
+> - `.claude/settings.local.json` is gitignored by Claude convention — do NOT add it to `.gitignore` again, and do NOT force-add it.
+
+**Announce:** "Merged Flow-recommended Claude settings into `.claude/settings.local.json` (backed up previous version)."
+
+### 7.5.2 OpenCode
+
+> **Configure OpenCode for this Flow project?**
+>
+> Adds a `permission` block with sensible defaults and points OpenCode's `instructions` at Flow's truth files. Merges into `opencode.json` at the project root.
+>
+> - **A) Yes** (recommended)
+> - **B) Skip**
+
+If A, MERGE into `opencode.json`:
+
+```bash
+[ -f opencode.json ] || echo '{}' > opencode.json
+cp opencode.json opencode.json.bak
+
+# Use ${root_directory} in shell expansion; below shows .agents.
+jq '
+  .permission = ((.permission // {}) + {edit: "ask", bash: "ask"}) |
+  .instructions = (((.instructions // []) + ["AGENTS.md", "<root_directory>/product.md", "<root_directory>/tech-stack.md"]) | unique)
+' opencode.json > opencode.json.tmp && mv opencode.json.tmp opencode.json
+```
+
+> **Critical rules**
+>
+> - Never overwrite existing `permission` keys (only add missing).
+> - Deduplicate `instructions` with `unique` so reruns are idempotent.
+> - `opencode.json` may be committed (team policy) or local-only (`.git/info/exclude`). Honor the user's existing ignore decision; do not change it.
+
+**Announce:** "Merged Flow-recommended OpenCode settings into `opencode.json` (backed up previous version)."
+
+### 7.5.3 Codex CLI
+
+Codex configuration lives in the global `~/.codex/config.toml` (per-user, not per-project). Codex prompts for project trust on first session, so Flow does NOT auto-write here.
+
+**Announce:** "Codex CLI detected. On your first Codex session in this project, accept the trust prompt to mark this directory `trusted`. Flow does not modify your global `~/.codex/config.toml`."
+
+### 7.5.4 Gemini CLI
+
+If running under Gemini, defer to `commands/flow/setup.toml` Phase 3.4 (writes `.gemini/policies/flow-overrides.toml` and configures `.geminiignore`). Do not duplicate Gemini writes from this skill phase.
+
+---
+
 ## Phase 8: First Flow (Optional)
 
 > **Would you like to create your first flow?**
@@ -369,7 +474,7 @@ Created:
 - code-styleguides/
 
 Next Steps:
-1. Load the active backend state (`bd` or `br`) or continue in no-Beads mode
+1. Load the active backend state (`bd`) or continue in no-Beads mode
 2. Run `flow-prd "description"` to create your first flow
 3. Run `flow-implement {flow_id}` to start coding
 ```
@@ -398,7 +503,7 @@ Review official Beads git/LLM hook support before relying on Flow-specific hooks
 
 ## Critical Rules
 
-1. **BEADS MODE FIRST** - Prefer `bd`, allow `br`, allow no-Beads when admin overhead should stay low
+1. **BEADS MODE FIRST** - Use `bd`, allow no-Beads when admin overhead should stay low
 2. **CLI CHECK** - Ensure the chosen backend is installed and available
 3. **ROOT DIRECTORY PROMPT** - Ask user where to store files
 4. **LOCAL DEFAULT** - Configure Beads for local-only use

@@ -49,7 +49,6 @@ Syncing active backend state to disk for flow: **$ARGUMENTS**
 Resolve the active backend first (check hook context or beads.json):
 
 - `bd`: use the official Beads show/export command. **CRITICAL:** Pull all `notes` for the epic and its tasks.
-- `br`: `br show {beads_epic_id} --format json`. Pull all `comments`.
 - no-Beads: skip backend export and preserve markdown-only task state.
 
 Parse the backend output. Map statuses to markdown markers:
@@ -104,7 +103,7 @@ Update `.agents/specs/{flow_id}/metadata.json`:
 ```text
 Flow Sync Complete: {flow_id}
 
-Backend: {bd|br|none}
+Backend: {bd|none}
 Tasks synced from backend record: {beads_epic_id|none}
   Pending:     {count}
   In Progress: {count}
@@ -124,4 +123,4 @@ Updated: .agents/specs/{flow_id}/spec.md
 2. **PRESERVE SPEC CONTENT** - Only update task status markers and append notes, not requirements text.
 3. **MATCH CAREFULLY** - Match tasks by title.
 4. **IDEMPOTENT** - Running sync multiple times produces the same result.
-5. **NO HARDCODED BACKEND** - Support `bd`, `br`, and markdown-only mode gracefully.
+5. **NO HARDCODED BACKEND** - Support `bd` and markdown-only mode gracefully.

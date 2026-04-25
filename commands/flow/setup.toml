@@ -11,10 +11,11 @@ CRITICAL: When determining model complexity, ALWAYS select the "flash" model, re
 
 ## 0.0 HOST BOUNDARY & INSTALL-ROOT RESOLUTION
 
-**PROTOCOL: This setup runs under Gemini CLI. Only Gemini-owned artifacts may be written.**
+**PROTOCOL: This setup runs under Gemini CLI. Gemini-owned artifacts are written directly. Cross-host policy bootstrap (Claude / OpenCode) is delegated to the Flow skill's Phase 7.5 — opt-in, never auto-written.**
 
-- Permitted writes: `<root_directory>/*`, `.beads/*`, `.gemini/policies/*`, `.geminiignore`, `.git/info/exclude`, `.git/hooks/pre-commit`.
-- Forbidden writes: `CLAUDE.md`, `.claude/*`, `.codex/*`, `.cursor/*`, `.opencode/*`. Claude Code / Codex / Cursor / OpenCode users run their own host's `/flow-setup` (or `/flow:setup`) to configure those surfaces.
+- Permitted writes (direct): `<root_directory>/*`, `.beads/*`, `.gemini/policies/*`, `.geminiignore`, `.git/info/exclude`, `.git/hooks/pre-commit`.
+- Permitted writes (opt-in via Phase 7.5 of `skills/flow/references/setup.md`): `.claude/settings.local.json`, `opencode.json`. These prompt the user before any merge and never overwrite existing keys.
+- Forbidden writes: `CLAUDE.md`, `.claude/settings.json` (the SHARED file), `.codex/*`, `.cursor/*`. Codex configuration is global (`~/.codex/config.toml`) and Cursor uses its own marketplace flow — neither is touched by Flow setup.
 
 Resolve the Flow extension install root as a shell variable the rest of the setup can reference:
 
@@ -37,29 +38,21 @@ Use `${FLOW_INSTALL_ROOT}` in every command below that references shipped templa
    ```
 
 2. **If BEADS_MISSING, offer a concise menu:**
-   > "Flow supports three persistence modes:
+   > "Flow supports two persistence modes:
    > A) Install official Beads (`bd`) (recommended)
    >    - brew install beads
    >    - or curl -sSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash
-   > B) Install beads_rust compatibility (`br`)
-   >    - curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash
-   > C) Continue without Beads (docs/plans/lightweight mode)"
+   > B) Continue without Beads (docs/plans/lightweight mode)"
 
    If A selected:
    ```bash
    curl -sSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash
    ```
 
-   If B selected:
-   ```bash
-   curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash
-   ```
-
-   If C selected, continue in no-Beads mode. Do NOT halt.
+   If B selected, continue in no-Beads mode. Do NOT halt.
 
 3. **Default initialization rules:**
    - Official Beads MUST use `bd init --stealth --prefix "$repo_slug"`.
-   - `br` compatibility MUST use `br init --prefix "$repo_slug"`.
    - Prefer `.git/info/exclude` for local-only ignores instead of editing repo `.gitignore`.
 
 4. **Continue:** Once the backend choice is clear, proceed to 1.1.
@@ -106,15 +99,11 @@ Use `${FLOW_INSTALL_ROOT}` in every command below that references shipped templa
 
 1.  **Beads Validation:**
     ```bash
-    command -v bd >/dev/null 2>&1 && echo "BD_OK" || \
-    command -v br >/dev/null 2>&1 && echo "BR_OK" || \
-    echo "BEADS_MISSING"
+    command -v bd >/dev/null 2>&1 && echo "BD_OK" || echo "BEADS_MISSING"
     ```
     - If `bd` is available, verify with `bd --version`.
-    - If `br` is available, verify with `br --version`.
-    - If neither is available, continue alignment in no-Beads mode instead of blocking the rest of setup.
+    - If unavailable, continue alignment in no-Beads mode instead of blocking the rest of setup.
     - If official Beads should be installed or refreshed, suggest: `curl -sSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash`
-    - If `br` compatibility is needed, suggest: `curl -fsSL https://raw.githubusercontent.com/Dicklesworthstone/beads_rust/main/install.sh | bash`
 
 2.  **Legacy Specs Migration:**
     Scan for legacy spec locations:
@@ -188,12 +177,22 @@ Use `${FLOW_INSTALL_ROOT}` in every command below that references shipped templa
     -   Check for missing `.agents/knowledge/` directory. If absent, create it and write `knowledge/index.md` from template.
 
 7.  **Policy Validation:**
-    -   This setup runs under Gemini CLI. Only Gemini-owned files are touched — Claude/Codex/Cursor/OpenCode artifacts (`CLAUDE.md`, `.claude/*`, etc.) are out of scope and must not be created here.
+    -   Gemini-owned files are written directly. Cross-host policy (Claude / OpenCode) is opt-in and delegated to **Phase 7.5** of `skills/flow/references/setup.md`.
     -   Check for `.gemini/policies/flow-overrides.toml`. If missing or outdated, offer to create it to allow common development tools in Plan Mode.
     > "Gemini plan-mode policy file missing or outdated. Create it now?
     > A) Yes (recommended)
     > B) Skip"
     -   If A, create or update `.gemini/policies/flow-overrides.toml`.
+    -   Detect other installed hosts:
+        ```bash
+        command -v claude   >/dev/null 2>&1 || [ -d "$HOME/.claude" ]           && echo "CLAUDE_DETECTED"
+        command -v opencode >/dev/null 2>&1 || [ -d "$HOME/.config/opencode" ]  && echo "OPENCODE_DETECTED"
+        command -v codex    >/dev/null 2>&1 || [ -d "$HOME/.codex" ]            && echo "CODEX_DETECTED"
+        ```
+    -   For each detected host, run the matching subsection of Phase 7.5 from `skills/flow/references/setup.md`:
+        - Claude → 7.5.1 (merge `.claude/settings.local.json`, gitignored — opt-in prompt).
+        - OpenCode → 7.5.2 (merge `opencode.json` — opt-in prompt).
+        - Codex → 7.5.3 (announce trust-prompt recommendation only; no write).
 
 8.  **Configuration Validation:**
     -   Check `<root_directory>/beads.json` for valid config
@@ -625,20 +624,14 @@ Use `${FLOW_INSTALL_ROOT}` in every command below that references shipped templa
 3.  **If NOT INITIALIZED, offer the selected backend flow:**
     > "Initialize persistence for this project:
     > A) Official Beads (`bd`) with stealth + repo slug prefix (recommended)
-    > B) beads_rust compatibility (`br`) with repo slug prefix
-    > C) Continue without Beads"
+    > B) Continue without Beads"
 
     If A selected:
     ```bash
     bd init --stealth --prefix "$repo_slug"
     ```
 
-    If B selected:
-    ```bash
-    br init --prefix "$repo_slug"
-    ```
-
-    If C selected, skip backend initialization and continue in no-Beads mode.
+    If B selected, skip backend initialization and continue in no-Beads mode.
 
 4.  **Create Beads Config when a backend is enabled:**
     Create `.agents/beads.json`:

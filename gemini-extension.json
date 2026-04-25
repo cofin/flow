@@ -1,9 +1,17 @@
 {
   "name": "flow",
   "description": "Unified toolkit for Context-Driven Development with spec-first planning, TDD workflow, and Beads integration",
-  "version": "0.19.4",
+  "version": "0.20.0",
   "contextFileName": "GEMINI.md",
   "plan": {
     "directory": ".agents"
-  }
+  },
+  "excludeTools": [
+    "run_shell_command(sudo *)",
+    "run_shell_command(rm -rf /*)",
+    "run_shell_command(rm -rf $HOME*)",
+    "run_shell_command(rm -rf ~*)",
+    "run_shell_command(rm -rf $(*)*)",
+    "run_shell_command(:(){:|:&};:)"
+  ]
 }

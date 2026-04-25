@@ -2,7 +2,7 @@
   "name": "flow",
   "displayName": "Flow",
   "description": "Unified toolkit for Context-Driven Development with spec-first planning, TDD workflow, and Beads integration",
-  "version": "0.19.4",
+  "version": "0.20.0",
   "author": {
     "name": "cofin"
   },
@@ -12,5 +12,18 @@
   "keywords": ["flow", "context-driven-development", "beads", "tdd", "ai-agent", "workflow", "spec-first", "skills", "slash-commands", "subagents"],
   "skills": ["./skills/"],
   "commands": ["./commands/"],
-  "hooks": "./hooks/hooks-claude.json"
+  "hooks": "./hooks/hooks-claude.json",
+  "userConfig": {
+    "beads-backend": {
+      "type": "select",
+      "default": "bd",
+      "description": "Beads backend for task persistence: bd (official) or none (degraded mode)",
+      "options": ["bd", "none"]
+    },
+    "agents-dir": {
+      "type": "string",
+      "default": ".agents",
+      "description": "Directory where Flow stores specs, plans, and knowledge (e.g. .agents or specs)"
+    }
+  }
 }

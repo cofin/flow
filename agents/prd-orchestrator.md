@@ -45,7 +45,7 @@ You MUST invoke these skills if available:
 
 ### 1.0 BEADS CLI CHECK
 
-Detect active backend: `bd` first, then `br`, otherwise markdown-only.
+Detect active backend: `bd`, otherwise markdown-only.
 
 ### 2.0 COMPLEXITY ANALYSIS
 

@@ -80,15 +80,15 @@ If plan changed:
 
 ```bash
 # Update existing tasks with revision notes
-br update {affected_task_ids} --notes "Revised: {reason}"
+bd update {affected_task_ids} --notes "Revised: {reason}"
 
 # If NEW tasks were added during revision, create with FULL CONTEXT:
-br create "{new_task}" --parent {epic_id} -p 2 \
+bd create "{new_task}" --parent {epic_id} -p 2 \
   --description="{what_changed_and_why}"
-br update {new_task_id} --notes "Added during revision. Reason: {reason}. Created by /flow-revise on {date}"
+bd update {new_task_id} --notes "Added during revision. Reason: {reason}. Created by /flow-revise on {date}"
 ```
 
-**CRITICAL:** Always include `--description` when creating tasks, then add `--notes` via `br update`.
+**CRITICAL:** Always include `--description` when creating tasks, then add `--notes` via `bd update`.
 
 ---
 

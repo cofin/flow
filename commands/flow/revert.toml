@@ -24,12 +24,12 @@ Handles non-linear Git histories (rebase, squash, merge commits).
 
 2.  **Verify Beads:**
     ```bash
-    command -v br &> /dev/null && echo "BEADS_OK" || echo "BEADS_MISSING"
+    command -v bd &> /dev/null && echo "BEADS_OK" || echo "BEADS_MISSING"
     ```
 
 3.  **Sync Beads:**
     ```bash
-    br sync --flush-only
+    bd export --format jsonl > .beads/issues.jsonl
     git add .beads/
     # You can commit beads state manually or alongside your features
     ```
@@ -149,20 +149,20 @@ Handles non-linear Git histories (rebase, squash, merge commits).
 
     **For Task Revert:**
     ```bash
-    br update {task_id} --status open --notes "Reverted: {sha}"
+    bd update {task_id} --status open --notes "Reverted: {sha}"
     ```
 
     **For Phase Revert:**
     ```bash
     # Reopen all tasks in phase
-    br update {task_id_1} --status open
-    br update {task_id_2} --status open
+    bd update {task_id_1} --status open
+    bd update {task_id_2} --status open
     # ... for each task in phase
     ```
 
     **For Flow Revert:**
     ```bash
-    br update {epic_id} --status open --notes "Flow reverted to initial state"
+    bd update {epic_id} --status open --notes "Flow reverted to initial state"
     ```
 
 5.  **Markdown Sync (Manual):**
@@ -171,10 +171,10 @@ Handles non-linear Git histories (rebase, squash, merge commits).
 
 6.  **Sync and Prime:**
     ```bash
-    br sync --flush-only
+    bd export --format jsonl > .beads/issues.jsonl
     git add .beads/
     # You can commit beads state manually or alongside your features
-    br status
+    bd status
     ```
 
 7.  **Announce Completion:**

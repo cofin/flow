@@ -24,9 +24,9 @@ Tasks have NO audit trail - they're meant to be discarded.
 ## Phase 1: Create Task
 
 ```bash
-br create "Task: {description}" -t task -p 4 \
+bd create "Task: {description}" -t task -p 4 \
   --description="{exploration_goal_and_what_youre_trying_to_learn}"
-br update {task_id} --notes "Ephemeral exploration. No audit trail. Created by /flow-task on {date}"
+bd update {task_id} --notes "Ephemeral exploration. No audit trail. Created by /flow-task on {date}"
 ```
 
 This creates:
@@ -35,7 +35,7 @@ This creates:
 - Minimal spec file
 - No git commits required
 
-**Note:** Always include `--description` with `br create`, then add `--notes` via `br update`, even for ephemeral work.
+**Note:** Always include `--description` with `bd create`, then add `--notes` via `bd update`, even for ephemeral work.
 
 ---
 
@@ -80,7 +80,7 @@ When done, choose:
 
 ```bash
 rm -rf .agents/tasks/{task_id}
-br close {task_id} --reason "Task discarded"  # if tracked in Beads
+bd close {task_id} --reason "Task discarded"  # if tracked in Beads
 git checkout .  # Discard any code changes
 ```
 

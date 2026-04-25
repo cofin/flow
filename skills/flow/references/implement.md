@@ -20,7 +20,6 @@ Execute tasks from a flow's plan using TDD workflow.
     - If yes, read `.agents/specs/<parent_id>/prd.md`.
 4. **Load Beads context:**
     - If using official Beads (`bd`): load the active queue/workspace state
-    - If using `br`: `br status`, `br ready`, `br list --status in_progress`
     - If using no-Beads mode: skip backend loading and use `spec.md`
 
 **CRITICAL:** Before starting, check whether `.agents/` is ignored by git. If it is ignored via `.gitignore`, `.git/info/exclude`, or global ignores, do NOT commit changes to artifacts inside it using git. Update them on disk only.

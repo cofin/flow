@@ -58,19 +58,14 @@ If a referenced companion skill is unavailable in the current host, perform the 
 
 **PROTOCOL: Detect the active task-memory backend before proceeding.**
 
-**Note:** `br` is non-invasive and never executes git commands. If you track `.beads/` in git and it is not ignored, run `git add .beads/` manually after `br sync --flush-only`.
-
 1. **Check Beads CLI:**
 
     ```bash
-    command -v bd >/dev/null 2>&1 && echo "BEADS_BD" || \
-    command -v br >/dev/null 2>&1 && echo "BEADS_BR" || \
-    echo "BEADS_NONE"
+    command -v bd >/dev/null 2>&1 && echo "BEADS_BD" || echo "BEADS_NONE"
     ```
 
 2. **Backend policy:**
-    - `BEADS_BD` -> prefer official Beads commands
-    - `BEADS_BR` -> use `br` compatibility commands
+    - `BEADS_BD` -> use official Beads commands
     - `BEADS_NONE` -> continue in markdown-only mode and skip backend writes
 
 ---
@@ -315,7 +310,7 @@ Append to `.agents/flows.md`:
 ## Critical Rules
 
 1. **NO CODE MODIFICATION** - NEVER edit source code files. Planning documents ONLY.
-2. **BACKEND AWARE** - Detect `bd`, `br`, or markdown-only mode before planning
+2. **BACKEND AWARE** - Detect `bd` or markdown-only mode before planning
 3. **FULL CONTEXT** - Always include a full problem/outcome description at creation time, then attach context notes through the active backend
 4. **ASK FIRST** - Clarifying questions before proposing chapters
 5. **CODE ANALYSIS (READ-ONLY)** - Read actual code before asking flow-specific questions but NEVER modify it

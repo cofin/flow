@@ -1,23 +1,60 @@
 # Installing Flow for Codex
 
-Enable Flow skills and commands in Codex via the native plugin system.
+Flow ships as a native Codex plugin via marketplace.
 
 ## Prerequisites
 
-- Codex CLI 0.117.0+ (with plugin support)
-- [Beads CLI](https://github.com/Dicklesworthstone/beads_rust)
+- Codex CLI 0.117.0+ (with marketplace support; verify with `codex --version`)
+- [Beads CLI](https://github.com/steveyegge/beads)
 
-## Installation
+## Install
 
-### Option 1: Plugin Install (Recommended)
+```bash
+codex plugin marketplace add cofin/flow
+```
 
-Tell Codex:
+In a Codex session, run `/plugins` and enable Flow.
 
-> Fetch and follow instructions from https://raw.githubusercontent.com/cofin/flow/refs/heads/main/.codex/INSTALL.md
+## Update
 
-Codex will clone the repo, register the plugin, and make all Flow skills and commands available.
+```bash
+codex plugin marketplace upgrade flow-marketplace
+```
 
-### Option 2: Repo-Scoped (Team)
+## Uninstall
+
+```bash
+codex plugin marketplace remove flow-marketplace
+```
+
+## Usage
+
+Codex plugins do not currently expose plugin-defined `/flow:*` slash commands. Use Flow through natural-language requests:
+
+```
+Use Flow to set up this project
+Use Flow to create a PRD for user authentication
+Use Flow to implement the current flow with TDD
+```
+
+The Flow skill responds to all `/flow:*` intents (`setup`, `prd`, `plan`, `implement`, `sync`, `status`, `refresh`, `research`, `docs`, etc.).
+
+## Recommended Codex settings
+
+In `~/.codex/config.toml`, set plan-mode reasoning effort high (Codex has no plugin-author hook for an artifact-directory equivalent to Gemini's `plan.directory`):
+
+```toml
+plan_mode_reasoning_effort = "high"
+```
+
+---
+
+<details>
+<summary>Manual / repo-scoped install (legacy)</summary>
+
+Use this only if your environment can't reach `cofin/flow` via the native marketplace command (private fork, air-gapped network, team policy).
+
+### Repo-scoped (team)
 
 1. Clone Flow into your project:
 
@@ -25,7 +62,7 @@ Codex will clone the repo, register the plugin, and make all Flow skills and com
    git clone https://github.com/cofin/flow.git plugins/flow
    ```
 
-2. Create marketplace entry at `.agents/plugins/marketplace.json`:
+2. Create `.agents/plugins/marketplace.json` at the repo root:
 
    ```json
    {
@@ -44,7 +81,7 @@ Codex will clone the repo, register the plugin, and make all Flow skills and com
 
 3. Restart Codex. Run `/plugins` to verify Flow appears.
 
-### Option 3: Personal
+### Personal
 
 1. Clone Flow:
 
@@ -52,7 +89,7 @@ Codex will clone the repo, register the plugin, and make all Flow skills and com
    git clone https://github.com/cofin/flow.git ~/.codex/plugins/flow
    ```
 
-2. Create marketplace entry at `~/.agents/plugins/marketplace.json`:
+2. Create `~/.agents/plugins/marketplace.json`:
 
    ```json
    {
@@ -71,41 +108,23 @@ Codex will clone the repo, register the plugin, and make all Flow skills and com
 
 3. Restart Codex. Run `/plugins` to verify Flow appears.
 
-## Migrating from Legacy Install
-
-If you previously installed Flow via symlinks (`~/.codex/prompts/`, `~/.codex/skills/`), remove the old artifacts:
-
-```bash
-rm -f ~/.codex/prompts/flow-*.md
-rm -rf ~/.codex/skills/flow ~/.codex/skills/beads
-# Remove Flow section from AGENTS.md if present
-sed -i '/^# Flow Framework/,$d' ~/.codex/AGENTS.md 2>/dev/null
-```
-
-## Updating
+### Updating a manual install
 
 ```bash
 cd ~/.codex/plugins/flow && git pull
 ```
 
-## Uninstalling
+</details>
 
-Remove the plugin directory and marketplace entry:
+<details>
+<summary>Migrating from pre-marketplace symlink installs</summary>
+
+If you previously installed Flow via symlinks under `~/.codex/prompts/` or `~/.codex/skills/`, remove the old artifacts before running the marketplace install:
 
 ```bash
-rm -rf ~/.codex/plugins/flow
+rm -f ~/.codex/prompts/flow-*.md
+rm -rf ~/.codex/skills/flow ~/.codex/skills/beads
+sed -i '/^# Flow Framework/,$d' ~/.codex/AGENTS.md 2>/dev/null
 ```
 
-## Usage
-
-Flow skills and commands are available via Codex's native skill system:
-
-```
-/flow:setup    — Initialize project
-/flow:prd      — Create feature roadmap
-/flow:plan     — Plan single flow
-/flow:implement — Execute tasks (TDD)
-/flow:sync     — Sync Beads to spec
-/flow:status   — Show progress
-/flow:refresh  — Refresh context from codebase
-```
+</details>

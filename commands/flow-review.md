@@ -18,7 +18,7 @@ You are dispatching a code review for a Flow's implementation. Your task is to d
 
 1. **Flow ID:** Use `$ARGUMENTS` or auto-discover from `.agents/flows.md`.
 2. **Read Artifacts:** `.agents/specs/<flow_id>/spec.md` (requirements), `.agents/patterns.md` (conventions).
-3. **Load Beads:** `br show <epic_id>`, `br list --parent <epic_id> --status closed`
+3. **Load Beads:** `bd show <epic_id>`, `bd list --parent <epic_id> --status closed`
 
 ---
 

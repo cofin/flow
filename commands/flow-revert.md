@@ -63,7 +63,7 @@ git commit -m "revert({scope}): Revert {description}"
 ## Phase 5: Sync Beads (Source of Truth)
 
 ```bash
-br update {task_ids} --status open
+bd update {task_ids} --status open
 ```
 
 ---

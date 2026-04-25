@@ -4,7 +4,7 @@ Use the Flow skill for context-driven development workflows in repos that use `.
 
 ## Defaults
 
-- Prefer official Beads (`bd`) when task persistence is needed.
+- Use official Beads (`bd`) when task persistence is needed.
 - Default initialization should use stealth mode and a prefix derived from the repo name.
 - Prefer `.git/info/exclude` for local-only ignores.
 - Use `.gitignore` only when the user explicitly wants a shared repo policy.

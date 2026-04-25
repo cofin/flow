@@ -10,6 +10,7 @@ Revising flow: $ARGUMENTS
 ## Phase 1: Load Current State
 
 Read `.agents/specs/{flow_id}/`:
+
 - spec.md
 - learnings.md
 
@@ -40,12 +41,12 @@ Append to `.agents/specs/{flow_id}/revisions.md`:
 ## Phase 6: Sync Beads
 
 ```bash
-br update {affected_task_ids} --notes "Revised: {reason}"
+bd update {affected_task_ids} --notes "Revised: {reason}"
 
 # If NEW tasks added:
-br create "{new_task}" --parent {epic_id} -p 2 \
+bd create "{new_task}" --parent {epic_id} -p 2 \
   --description="{what_and_why}"
-br update {new_task_id} --notes "Added during revision. Created by /flow-revise"
+bd update {new_task_id} --notes "Added during revision. Created by /flow-revise"
 ```
 
 ### Markdown Sync (Manual)
@@ -56,4 +57,4 @@ br update {new_task_id} --notes "Added during revision. Created by /flow-revise"
 
 1. **LOG EVERYTHING** - All revisions documented
 2. **BEADS FIRST** - Update Beads before syncing markdown
-4. **PRESERVE HISTORY** - Never delete, only append
+3. **PRESERVE HISTORY** - Never delete, only append

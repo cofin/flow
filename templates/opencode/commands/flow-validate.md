@@ -9,6 +9,7 @@ Validate project integrity and fix issues.
 ## Phase 1: Structure Validation
 
 Check required files:
+
 - `.agents/product.md`
 - `.agents/tech-stack.md`
 - `.agents/workflow.md`
@@ -18,7 +19,7 @@ Check required files:
 ## Phase 2: Beads Validation
 
 ```bash
-br status
+bd status
 ```
 
 Verify flow/epic sync.
