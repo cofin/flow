@@ -21,8 +21,17 @@ readonly DEFAULT_ROOT_DIR=".agents"
 safe_run() {
     local timeout_val="$1"
     shift
-    if command -v timeout >/dev/null 2>&1; then
-        timeout "${timeout_val}" "$@" 2>/dev/null || true
+    local timeout_cmd="timeout"
+    if ! command -v timeout >/dev/null 2>&1; then
+        if command -v gtimeout >/dev/null 2>&1; then
+            timeout_cmd="gtimeout"
+        else
+            timeout_cmd=""
+        fi
+    fi
+
+    if [[ -n "${timeout_cmd}" ]]; then
+        "${timeout_cmd}" "${timeout_val}" "$@" 2>/dev/null || true
     else
         "$@" 2>/dev/null || true
     fi
@@ -39,21 +48,40 @@ detect_beads() {
     fi
 }
 
+check_settings() {
+    local settings_files=(".gemini/settings.json" "${HOME}/.gemini/settings.json")
+    local conflict=0
+    for file in "${settings_files[@]}"; do
+        if [[ -f "${file}" ]]; then
+            if grep -q '"autoEnter": true' "${file}"; then
+                echo "⚠ **Settings Conflict**: 'autoEnter' is enabled in ${file}."
+                echo "  - This causes the host to 'guess' your goal and fire research tools, bypassing Flow's PRD process."
+                echo "  - **Recommendation**: Set \`\"general.plan.autoEnter\": false\`."
+                conflict=1
+            fi
+        fi
+    done
+}
+
 detect_project_root() {
     local root_dir="${DEFAULT_ROOT_DIR}"
+    local msg=""
     if [[ -f ".agents/setup-state.json" ]]; then
         local found_root
         found_root=$(grep -o '"root_directory": "[^"]*"' .agents/setup-state.json | cut -d'"' -f4 || true)
         found_root="${found_root%/}"
         if [[ -n "${found_root}" ]]; then
             root_dir="${found_root}"
-            echo "- **Flow Root**: ${root_dir}"
+            msg="- **Flow Root**: ${root_dir}"
         else
-            echo "- **Flow Root**: .agents (default, missing in setup-state)"
+            msg="- **Flow Root**: .agents (default, missing in setup-state)"
         fi
     else
-        echo "- **Flow Root**: .agents (default)"
+        msg="- **Flow Root**: .agents (default)"
     fi
+    # machine-readable path on stdout, message on stderr (or captured separately)
+    # Actually, let's just echo the msg and then the path, but ensure main parses it correctly.
+    echo "${msg}"
     echo "${root_dir}"
 }
 
@@ -223,8 +251,16 @@ flow_mandate() {
 EOF
 }
 
+verification() {
+    echo ""
+    echo "### Verification"
+    echo "- **Hooks**: Run \`bash hooks/session-start.sh\` to test hook connectivity."
+    echo "- **Subagents**: Run \`ls agents/\` to verify subagent manifests exist."
+}
+
 main() {
     detect_beads
+    check_settings
     local root_dir
     local root_info
     root_info=$(detect_project_root)
@@ -244,6 +280,7 @@ main() {
     essential_truths "${root_dir}"
     knowledge_inventory "${root_dir}"
     flow_mandate "${root_dir}"
+    verification
 }
 
 main "$@"

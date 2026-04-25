@@ -10,9 +10,13 @@ IFS=$'\n\t'
 # --- Functions ---
 
 get_script_dir() {
-    local source="${BASH_SOURCE[0]}"
+    local source="${BASH_SOURCE[0]:-}"
+    if [[ -z "${source}" ]]; then
+        # Fallback to current script name if BASH_SOURCE is empty
+        source="$0"
+    fi
+    local dir
     while [[ -h "${source}" ]]; do
-        local dir
         dir="$(cd -P "$(dirname "${source}")" && pwd)"
         source="$(readlink "${source}")"
         [[ "${source}" != /* ]] && source="${dir}/${source}"
@@ -44,17 +48,31 @@ main() {
     local script_dir
     script_dir=$(get_script_dir || pwd)
     
-    local detect_script="${script_dir}/detect-env.sh"
-    local context=""
+    # Robust resolution: search for detect-env.sh in script dir, then parent, then current
+    local detect_script=""
+    local candidates=(
+        "${script_dir}/detect-env.sh"
+        "${script_dir}/../detect-env.sh"
+        "$(pwd)/hooks/detect-env.sh"
+    )
     
-    if [[ -x "${detect_script}" ]]; then
+    for candidate in "${candidates[@]}"; do
+        if [[ -x "${candidate}" ]]; then
+            detect_script="${candidate}"
+            break
+        fi
+    done
+    
+    local context=""
+    if [[ -n "${detect_script}" ]]; then
         # Capture output, allow failure of the subshell without exiting main script
-        # We use a subshell and redirect stderr to a variable or log if we wanted to debug
-        if ! context=$("${detect_script}" 2>/dev/null); then
-             context="Error: Environment detection script failed with exit code $?."
+        if ! context=$("${detect_script}" 2>&1); then
+             context="Error: Environment detection script failed with exit code $?. Output: ${context}"
         fi
     else
-        context="Error: Environment detection script not found or not executable at ${detect_script}."
+        # Diagnostic help
+        local pwd_val=$(pwd)
+        context="Error: Environment detection script not found or not executable. Checked: ${candidates[*]}. PWD: ${pwd_val}, Script Dir: ${script_dir}"
     fi
 
     local escaped_context

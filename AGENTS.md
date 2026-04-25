@@ -44,6 +44,14 @@ To find the configured root directory:
 2. Read the `root_directory` value from the found file
 3. If no file found, use `.agents/` as default
 
+## Subagent-Driven Superpowers Protocol (MANDATORY)
+
+To ensure high-reasoning model routing and automated verification, all complex Flow operations MUST delegate to dedicated subagents when running in Gemini CLI:
+
+- **Planning Phase**: Commands `/flow:prd` and `/flow:plan` delegate to `@flow:prd-orchestrator` and `@flow:plan-generator` respectively. These agents use **Gemini 3.1 Pro** and MUST invoke `superpowers:brainstorming` or `superpowers:writing-plans`.
+- **Implementation Phase**: Command `/flow:implement` delegates to `@flow:executor`. This agent uses **Gemini 3.1 Pro** and MUST invoke `superpowers:test-driven-development` and `superpowers:verification-before-completion`.
+- **Validation**: All planning artifacts MUST be validated by `code-reviewer` (via `superpowers:requesting-code-review`) before being presented to the user.
+
 ## Spec & Design Documents
 
 All spec and design documents (including those created by superpowers brainstorming) MUST be written to the Flow spec directory:
