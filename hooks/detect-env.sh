@@ -12,7 +12,10 @@ set -euo pipefail
 IFS=$'\n\t'
 
 # --- Configuration ---
-readonly DEFAULT_ROOT_DIR=".agents"
+# CLAUDE_PLUGIN_OPTION_* are injected by the Claude Code harness from
+# plugin.json userConfig. Other hosts leave these unset, so default-fallback.
+readonly DEFAULT_ROOT_DIR="${CLAUDE_PLUGIN_OPTION_AGENTSDIR:-.agents}"
+readonly USE_BEADS="${CLAUDE_PLUGIN_OPTION_USEBEADS:-true}"
 
 # --- Functions ---
 
@@ -39,6 +42,10 @@ safe_run() {
 
 detect_beads() {
     echo "## Flow Environment Context"
+    if [[ "${USE_BEADS}" != "true" ]]; then
+        echo "- **Beads Backend**: Disabled via plugin config (useBeads=false)"
+        return
+    fi
     if command -v bd >/dev/null 2>&1; then
         echo "- **Beads Backend**: Official (bd)"
     else
@@ -75,10 +82,10 @@ detect_project_root() {
             root_dir="${found_root}"
             msg="- **Flow Root**: ${root_dir}"
         else
-            msg="- **Flow Root**: .agents (default, missing in setup-state)"
+            msg="- **Flow Root**: ${root_dir} (default, missing in setup-state)"
         fi
     else
-        msg="- **Flow Root**: .agents (default)"
+        msg="- **Flow Root**: ${root_dir} (default)"
     fi
     # machine-readable path on stdout, message on stderr (or captured separately)
     # Actually, let's just echo the msg and then the path, but ensure main parses it correctly.
@@ -143,6 +150,10 @@ context_index() {
 active_work() {
     echo ""
     echo "### Active Work"
+    if [[ "${USE_BEADS}" != "true" ]]; then
+        echo "- **Status**: Beads disabled via plugin config (useBeads=false)."
+        return
+    fi
     if command -v bd >/dev/null 2>&1; then
         local ready
         ready=$(safe_run 2s bd ready --json)

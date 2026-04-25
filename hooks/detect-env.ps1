@@ -4,8 +4,17 @@
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+# CLAUDE_PLUGIN_OPTION_* are injected by the Claude Code harness from
+# plugin.json userConfig. Other hosts leave these unset, so default-fallback.
+$script:DEFAULT_ROOT_DIR = if ($env:CLAUDE_PLUGIN_OPTION_AGENTSDIR) { $env:CLAUDE_PLUGIN_OPTION_AGENTSDIR } else { '.agents' }
+$script:USE_BEADS = if ($env:CLAUDE_PLUGIN_OPTION_USEBEADS) { $env:CLAUDE_PLUGIN_OPTION_USEBEADS } else { 'true' }
+
 function Get-BeadsBackend {
     Write-Host "## Flow Environment Context"
+    if ($script:USE_BEADS -ne 'true') {
+        Write-Host "- **Beads Backend**: Disabled via plugin config (useBeads=false)"
+        return "disabled"
+    }
     $beads_bd = Get-Command bd -ErrorAction SilentlyContinue
 
     if ($beads_bd) {
@@ -22,7 +31,7 @@ function Get-BeadsBackend {
 }
 
 function Get-FlowRoot {
-    $rootDir = ".agents"
+    $rootDir = $script:DEFAULT_ROOT_DIR
     $setupStateFile = ".agents/setup-state.json"
     if (Test-Path $setupStateFile) {
         try {
@@ -31,13 +40,13 @@ function Get-FlowRoot {
                 $rootDir = ([string]$setupState.root_directory).TrimEnd('/', '\')
                 Write-Host "- **Flow Root**: $rootDir"
             } else {
-                Write-Host "- **Flow Root**: .agents (default, missing in setup-state)"
+                Write-Host "- **Flow Root**: $rootDir (default, missing in setup-state)"
             }
         } catch {
-            Write-Host "- **Flow Root**: .agents (default, error parsing setup-state)"
+            Write-Host "- **Flow Root**: $rootDir (default, error parsing setup-state)"
         }
     } else {
-        Write-Host "- **Flow Root**: .agents (default)"
+        Write-Host "- **Flow Root**: $rootDir (default)"
     }
     return $rootDir
 }
@@ -107,6 +116,10 @@ function Get-ContextIndex($rootDir) {
 function Get-ActiveWork($backend) {
     Write-Host ""
     Write-Host "### Active Work"
+    if ($backend -eq "disabled") {
+        Write-Host "- **Status**: Beads disabled via plugin config (useBeads=false)."
+        return
+    }
     if ($backend -eq "bd") {
         try {
             # ConvertFrom-Json may return a single object; wrap in @(...) so Select-Object sees an array
