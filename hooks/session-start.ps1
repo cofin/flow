@@ -19,24 +19,43 @@ function Invoke-Detection {
 }
 
 function Write-Schema([string]$context) {
-    $claude = $env:CLAUDE_PLUGIN_ROOT
-    $opencode = $env:OPENCODE_PLUGIN_ROOT
-    $codex = $env:CODEX_PLUGIN_ROOT
-    $cursor = $env:CURSOR_PLUGIN_ROOT
+    # Mirror session-start.sh dispatch. Gemini also exports CLAUDE_PROJECT_DIR
+    # as a compat alias, so check CLAUDE_PLUGIN_ROOT (which Gemini does NOT set)
+    # to disambiguate Claude from Gemini.
+    $host = 'unknown'
+    if ($env:CLAUDE_PLUGIN_ROOT) {
+        $host = 'claude'
+    } elseif ($env:GEMINI_SESSION_ID -or $env:GEMINI_CWD -or $env:GEMINI_PROJECT_DIR) {
+        $host = 'gemini'
+    } elseif ($env:OPENCODE_PLUGIN_ROOT -or $env:FLOW_PLUGIN_ROOT) {
+        $host = 'opencode'
+    } elseif ($env:CODEX_PLUGIN_ROOT) {
+        $host = 'codex'
+    } elseif ($env:CURSOR_PLUGIN_ROOT) {
+        $host = 'cursor'
+    }
 
-    if ($claude -or $opencode) {
-        $payload = @{
-            hookSpecificOutput = @{
-                hookEventName     = "SessionStart"
-                additionalContext = $context
+    switch ($host) {
+        { $_ -in 'claude','opencode','codex' } {
+            $payload = @{
+                hookSpecificOutput = @{
+                    hookEventName     = 'SessionStart'
+                    additionalContext = $context
+                }
             }
         }
-    } elseif ($codex) {
-        $payload = @{ additional_context = $context }
-    } elseif ($cursor) {
-        $payload = @{ additional_context = $context }
-    } else {
-        $payload = @{ systemMessage = $context }
+        'gemini' {
+            $payload = @{
+                hookSpecificOutput = @{
+                    hookEventName     = 'SessionStart'
+                    additionalContext = $context
+                }
+                systemMessage      = $context
+            }
+        }
+        default {
+            $payload = @{ additional_context = $context }
+        }
     }
 
     Write-Output ($payload | ConvertTo-Json -Compress -Depth 5)

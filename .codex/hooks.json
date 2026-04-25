@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ./hooks/session-start.sh",
+            "timeout": 30,
+            "description": "Detects Beads backend and project root at session start (Codex CLI)."
+          }
+        ]
+      }
+    ]
+  }
+}

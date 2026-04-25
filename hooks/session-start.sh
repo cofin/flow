@@ -78,10 +78,29 @@ main() {
     local escaped_context
     escaped_context=$(escape_json "${context}")
 
-    # Output based on detected host environment
-    if [[ -n "${CLAUDE_PLUGIN_ROOT:-}" ]] || [[ -n "${OPENCODE_PLUGIN_ROOT:-}" ]]; then
-        # Claude Code / OpenCode schema
-        cat <<EOF
+    # Detect host. Priority: explicit plugin-root vars first, then Gemini's
+    # session marker (Gemini also exports CLAUDE_PROJECT_DIR as a compat alias,
+    # so we check CLAUDE_PLUGIN_ROOT — which Gemini does NOT set — to disambiguate).
+    local host="unknown"
+    if [[ -n "${CLAUDE_PLUGIN_ROOT:-}" ]]; then
+        host="claude"
+    elif [[ -n "${GEMINI_SESSION_ID:-}" ]] || [[ -n "${GEMINI_CWD:-}" ]] || [[ -n "${GEMINI_PROJECT_DIR:-}" ]]; then
+        host="gemini"
+    elif [[ -n "${OPENCODE_PLUGIN_ROOT:-}" ]] || [[ -n "${FLOW_PLUGIN_ROOT:-}" ]]; then
+        host="opencode"
+    elif [[ -n "${CODEX_PLUGIN_ROOT:-}" ]]; then
+        host="codex"
+    elif [[ -n "${CURSOR_PLUGIN_ROOT:-}" ]]; then
+        host="cursor"
+    fi
+
+    # Emit host-appropriate JSON. Claude, Gemini, OpenCode shell hooks, and Codex
+    # all accept the modern hookSpecificOutput shape. Gemini additionally surfaces
+    # systemMessage to the user, so we include both for that host. Cursor and the
+    # unknown fallback retain the legacy snake_case shape for safety.
+    case "${host}" in
+        claude|opencode|codex)
+            cat <<EOF
 {
   "hookSpecificOutput": {
     "hookEventName": "SessionStart",
@@ -89,16 +108,22 @@ main() {
   }
 }
 EOF
-    elif [[ -n "${CODEX_PLUGIN_ROOT:-}" ]]; then
-        # Codex CLI schema
-        printf '{"additional_context": %s}\n' "${escaped_context}"
-    elif [[ -n "${CURSOR_PLUGIN_ROOT:-}" ]]; then
-        # Cursor IDE schema
-        printf '{"additional_context": %s}\n' "${escaped_context}"
-    else
-        # Default to Gemini CLI systemMessage schema
-        printf '{"systemMessage": %s}\n' "${escaped_context}"
-    fi
+            ;;
+        gemini)
+            cat <<EOF
+{
+  "hookSpecificOutput": {
+    "hookEventName": "SessionStart",
+    "additionalContext": ${escaped_context}
+  },
+  "systemMessage": ${escaped_context}
+}
+EOF
+            ;;
+        cursor|unknown|*)
+            printf '{"additional_context": %s}\n' "${escaped_context}"
+            ;;
+    esac
 }
 
 main "$@"

@@ -178,7 +178,9 @@ def test_gemini_hook_config_rejects_claude_placeholder(tmp_path: Path) -> None:
 
 
 def test_repo_claude_hook_discovery_targets_claude_specific_config() -> None:
-    assert list(validate_skills.iter_claude_hook_configs()) == [REPO_ROOT / "hooks" / "hooks.json"]
+    """Claude's plugin.json declares hooks-claude.json explicitly; the validator
+    must follow that pointer rather than picking up the Gemini-only hooks.json."""
+    assert list(validate_skills.iter_claude_hook_configs()) == [REPO_ROOT / "hooks" / "hooks-claude.json"]
 
 
 def test_shared_hook_config_allows_cross_host_fallback_command(tmp_path: Path) -> None:

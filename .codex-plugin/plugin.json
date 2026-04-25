@@ -8,7 +8,6 @@
   "license": "MIT",
   "keywords": ["flow", "context-driven-development", "beads", "tdd", "ai-agent", "workflow"],
   "skills": "./skills/",
-  "hooks": "./hooks/hooks-codex.json",
   "interface": {
     "displayName": "Flow",
     "shortDescription": "Auto-route `.agents/` projects into Flow planning, refinement, implementation, and knowledge workflows",

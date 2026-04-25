@@ -1,8 +1,9 @@
 /**
  * Flow Framework plugin for OpenCode.ai
  *
- * Uses OpenCode's plugin API to inject Flow context at session start
- * and register skills/commands directories.
+ * Injects Flow context into the system prompt via experimental.chat.system.transform
+ * (the supported injection point as of @opencode-ai/plugin@1.3.6 — there is no
+ * SessionStart hook). Also exposes FLOW_PLUGIN_ROOT to spawned shells.
  */
 
 import path from 'path';
@@ -12,23 +13,24 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_ROOT = path.resolve(__dirname, '../..');
 
-/**
- * Load Flow's AGENTS.md context for injection.
- */
+let cachedContext = null;
+
 function getFlowContext() {
   const contextPath = path.join(PLUGIN_ROOT, 'AGENTS.md');
   if (!fs.existsSync(contextPath)) return null;
   return fs.readFileSync(contextPath, 'utf8');
 }
 
-/**
- * Build the session context string with auto-trigger rules.
- */
 function buildSessionContext() {
-  const agentsContent = getFlowContext();
-  if (!agentsContent) return null;
+  if (cachedContext !== null) return cachedContext;
 
-  return [
+  const agentsContent = getFlowContext();
+  if (!agentsContent) {
+    cachedContext = '';
+    return cachedContext;
+  }
+
+  cachedContext = [
     'You are operating within the **Flow Framework** for Context-Driven Development.',
     '',
     'Flow is installed and MUST be used for all development work in projects with a .agents/ directory.',
@@ -49,21 +51,19 @@ function buildSessionContext() {
     '',
     agentsContent,
   ].join('\n');
+
+  return cachedContext;
 }
 
-export default async ({ client, directory }) => {
+export default async () => {
   return {
-    'session.created': async (session) => {
+    'experimental.chat.system.transform': async (_input, output) => {
       const context = buildSessionContext();
-      if (context) {
-        (session.system ||= []).push(context);
-      }
+      if (context) output.system.push(context);
     },
 
-    'shell.env': async () => {
-      return {
-        FLOW_PLUGIN_ROOT: PLUGIN_ROOT,
-      };
-    },
+    'shell.env': async () => ({
+      env: { FLOW_PLUGIN_ROOT: PLUGIN_ROOT },
+    }),
   };
 };
