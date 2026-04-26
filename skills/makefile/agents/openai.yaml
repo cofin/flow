@@ -1,0 +1,3 @@
+interface:
+  display_name: "Makefile"
+  short_description: "GNU Make targets, self-documenting help, uv workflows, and recipe safety"

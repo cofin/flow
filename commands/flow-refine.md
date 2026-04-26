@@ -6,6 +6,8 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, WebSearch
 
 # Flow Refine
 
+> Lifecycle skill: use `flow-planning` through the `flow` router.
+
 Refining flow: **$ARGUMENTS**
 
 ## The Refiner Mandate

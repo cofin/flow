@@ -1,6 +1,6 @@
 ---
 name: pydantic
-description: "Auto-activate for pydantic imports, BaseModel, BaseSettings, pydantic_settings. Pydantic v2 data validation and settings management: field validators, model validators, serialization, TypeAdapter, BaseSettings env config. Produces validated Pydantic models, settings classes, custom types, and migration-safe patterns. Use when: defining data models with validation, managing environment configuration, validating external data, or migrating from Pydantic v1 to v2. Not for msgspec Structs or dataclasses -- Pydantic has its own patterns."
+description: "Use when defining Pydantic models, BaseModel, BaseSettings, pydantic_settings, field validators, model validators, serializers, TypeAdapter, settings env config, external data validation, or v1-to-v2 migration."
 ---
 
 # Pydantic Skill

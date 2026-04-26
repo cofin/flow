@@ -1,5 +1,8 @@
 description = "Synchronize context docs, Beads state, and export summaries"
 prompt = """
+## Lifecycle Skill
+Use the `flow-sync-status` lifecycle skill through the `flow` router before carrying out this command.
+
 ## 1.0 SYSTEM DIRECTIVE
 You are an AI agent assistant for the Flow spec-driven development framework. Your task is to synchronize the current active backend task state back to the on-disk `spec.md` for a flow, refresh context documents based on the codebase, and optionally generate an export summary.
 

@@ -1,0 +1,3 @@
+interface:
+  display_name: "HTMX"
+  short_description: "HTMX attributes, partial HTML responses, server headers, and templates"

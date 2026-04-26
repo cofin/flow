@@ -72,6 +72,14 @@ VSCODE_AGENTS_DIR = REPO_ROOT / ".github" / "agents"
 SHIPPED_ROOT_FILES = ("AGENTS.md", "CONTRIBUTING.md", "README.md", "GEMINI.md")
 
 MAX_DESCRIPTION_CHARS = 1024
+MAX_SKILL_DESCRIPTION_CHARS = 500
+SKILL_DESCRIPTION_PREFIX = "Use when"
+FORBIDDEN_SKILL_DESCRIPTION_TERMS = (
+    "Auto-activate",
+    "Produces",
+    "Expert knowledge",
+    "Comprehensive",
+)
 
 REQUIRED_SECTIONS = ("workflow", "guardrails", "validation", "example")
 
@@ -374,6 +382,54 @@ def _check_description(desc: object, path: Path, line: int) -> list[Violation]:
     return out
 
 
+def _check_skill_description(desc: object, path: Path, line: int) -> list[Violation]:
+    out = _check_description(desc, path, line)
+    if not isinstance(desc, str) or not desc.strip():
+        return out
+    if len(desc) > MAX_SKILL_DESCRIPTION_CHARS:
+        out.append(
+            Violation(
+                path,
+                line,
+                f"skill description length {len(desc)} > {MAX_SKILL_DESCRIPTION_CHARS}",
+            )
+        )
+    if not desc.startswith(SKILL_DESCRIPTION_PREFIX):
+        out.append(Violation(path, line, "skill description must start with 'Use when'"))
+    lowered = desc.lower()
+    for term in FORBIDDEN_SKILL_DESCRIPTION_TERMS:
+        if term.lower() in lowered:
+            out.append(
+                Violation(
+                    path,
+                    line,
+                    f"skill description contains workflow/output summary term {term!r}",
+                )
+            )
+    return out
+
+
+def _validate_openai_metadata(skill_path: Path) -> list[Violation]:
+    metadata_path = skill_path.parent / "agents" / "openai.yaml"
+    if not metadata_path.is_file():
+        return [Violation(skill_path, 1, "agents/openai.yaml missing")]
+    try:
+        data = yaml.safe_load(metadata_path.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError) as exc:
+        return [Violation(metadata_path, 1, f"YAML parse error: {exc}")]
+    if not isinstance(data, dict):
+        return [Violation(metadata_path, 1, "agents/openai.yaml must be a mapping")]
+    interface = data.get("interface")
+    if not isinstance(interface, dict):
+        return [Violation(metadata_path, 1, "agents/openai.yaml must contain interface mapping")]
+    violations: list[Violation] = []
+    for field in ("display_name", "short_description"):
+        value = interface.get(field)
+        if not isinstance(value, str) or not value.strip():
+            violations.append(Violation(metadata_path, 1, f"interface.{field} missing or empty"))
+    return violations
+
+
 def _section_present(body: str, section: str) -> bool:
     if _XML_TAG_PATTERNS[section].search(body):
         return True
@@ -391,7 +447,8 @@ def validate_skill(path: Path) -> list[Violation]:
     fm_name = fm.get("name")
     if fm_name != expected_name:
         violations.append(Violation(path, 1, f"name {fm_name!r} != parent dir {expected_name!r}"))
-    violations.extend(_check_description(fm.get("description"), path, 1))
+    violations.extend(_check_skill_description(fm.get("description"), path, 1))
+    violations.extend(_validate_openai_metadata(path))
     for section in REQUIRED_SECTIONS:
         if not _section_present(body, section):
             violations.append(

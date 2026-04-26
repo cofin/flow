@@ -1,6 +1,6 @@
 ---
 name: alloydb
-description: "Auto-activate for AlloyDB in GCP configs or docs. Google AlloyDB expertise: PostgreSQL-compatible managed database on GCP. Produces AlloyDB cluster configurations, connection patterns, and columnar engine setups on GCP. Use when: provisioning AlloyDB clusters, configuring read pools, using columnar engine, Private Service Access networking, or migrating from Cloud SQL. Not for AlloyDB Omni (see alloydb-omni) or vanilla PostgreSQL without AlloyDB features."
+description: "Use when provisioning Google AlloyDB, configuring clusters or read pools, enabling columnar engine, setting up Private Service Access, tuning managed PostgreSQL on GCP, or migrating from Cloud SQL to AlloyDB."
 ---
 
 # AlloyDB

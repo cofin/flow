@@ -1,6 +1,6 @@
 ---
 name: devils-advocate
-description: "Auto-activate when reviewing PRs, evaluating design proposals, assessing technical plans, or when a decision is being made without visible pushback. Produces a prioritized list of risks, unverified assumptions, and overlooked failure modes — each with severity, explanation, and recommended action. Use when: code review needs adversarial perspective, a design feels too consensus-driven, assumptions need stress-testing, or when everyone agrees too quickly on an approach. Not for rubber-stamping, routine style review, or agreeing with the user's direction."
+description: "Use when reviewing PRs, evaluating design proposals, assessing technical plans, stress-testing assumptions, looking for overlooked failure modes, or adding pushback before a decision."
 ---
 
 # Devil's Advocate

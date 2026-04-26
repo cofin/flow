@@ -1,5 +1,8 @@
 description = "Update spec/plan when implementation reveals issues"
 prompt = """
+## Lifecycle Skill
+Use the `flow-planning` lifecycle skill through the `flow` router before carrying out this command.
+
 ## SYSTEM DIRECTIVE
 You are revising a flow's spec or plan because implementation has revealed new information. All revisions must be documented.
 

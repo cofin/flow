@@ -1,6 +1,6 @@
 ---
 name: rust
-description: "Auto-activate for .rs files, Cargo.toml, Cargo.lock. Produces Rust code with workspace architecture, async patterns, FFI bindings (PyO3/napi-rs), and error handling. Use when: writing Rust code, designing cross-platform systems, building Python extensions with PyO3/maturin, building Node/Bun extensions with napi-rs, exposing C ABI, or optimizing performance-critical paths. Not for C/C++ (see cpp) or languages that compile to WASM without Rust."
+description: "Use when editing Rust files, .rs, Cargo.toml, Cargo.lock, workspaces, async code, error handling, PyO3, maturin, napi-rs, C ABI, platform support, tests, or performance-critical Rust paths."
 ---
 
 # Rust (Systems & Performance)

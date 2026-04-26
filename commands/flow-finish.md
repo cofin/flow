@@ -6,6 +6,8 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent
 
 # Flow Finish
 
+> Lifecycle skill: use `flow-completion` through the `flow` router.
+
 Completing flow: **$ARGUMENTS**
 
 ## The Closer Mandate

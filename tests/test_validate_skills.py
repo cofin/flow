@@ -26,6 +26,84 @@ def _write_json(path: Path, payload: object) -> None:
     path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
 
+def _write_skill(path: Path, *, name: str, description: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        f"""---
+name: {name}
+description: {description}
+---
+
+# {name}
+
+## Workflow
+
+Follow the repo-specific workflow.
+
+## Guardrails
+
+Keep changes targeted.
+
+## Validation
+
+Run the relevant validation command.
+
+## Example
+
+Use this skill when the trigger applies.
+""",
+        encoding="utf-8",
+    )
+
+
+def test_skill_description_rejects_workflow_summary_terms(tmp_path: Path) -> None:
+    skill_path = tmp_path / "postgres" / "SKILL.md"
+    _write_skill(
+        skill_path,
+        name="postgres",
+        description=(
+            "Auto-activate for .sql files. Produces PostgreSQL queries and "
+            "connection patterns. Use when writing PostgreSQL migrations."
+        ),
+    )
+    _write_json(
+        tmp_path / "postgres" / "agents" / "openai.yaml",
+        {"interface": {"display_name": "PostgreSQL", "short_description": "PostgreSQL support"}},
+    )
+
+    violations = validate_skills.validate_skill(skill_path)
+
+    assert any("must start with 'Use when'" in violation.message for violation in violations)
+    assert any("workflow/output summary term" in violation.message for violation in violations)
+
+
+def test_skill_requires_openai_metadata(tmp_path: Path) -> None:
+    skill_path = tmp_path / "python" / "SKILL.md"
+    _write_skill(
+        skill_path,
+        name="python",
+        description="Use when editing Python files, pyproject.toml, uv workflows, ruff, mypy, or pytest.",
+    )
+
+    violations = validate_skills.validate_skill(skill_path)
+
+    assert any("agents/openai.yaml missing" in violation.message for violation in violations)
+
+
+def test_repo_skills_have_trigger_only_descriptions_and_openai_metadata() -> None:
+    violations = []
+    for skill_path in validate_skills.iter_skills():
+        violations.extend(validate_skills.validate_skill(skill_path))
+
+    assert violations == []
+
+
+def test_repo_has_flow_lifecycle_skill_split() -> None:
+    expected = {"flow", "flow-setup", "flow-planning", "flow-execution", "flow-sync-status", "flow-completion"}
+
+    assert expected.issubset({path.parent.name for path in validate_skills.iter_skills()})
+
+
 def test_claude_manifest_rejects_invalid_hooks_shape(tmp_path: Path) -> None:
     _write_json(
         tmp_path / ".claude-plugin" / "plugin.json",

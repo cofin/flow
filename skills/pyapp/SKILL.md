@@ -1,6 +1,6 @@
 ---
 name: pyapp
-description: "Auto-activate for pyapp build config. Build air-gapped, multi-architecture standalone Python executables using PyApp and uv. Use when: bundling Python runtimes for network-isolated environments, patching PyApp defaults, or compiling single-binary assets. Not for PyInstaller, cx_Freeze, or other Python packaging tools."
+description: "Use when building standalone Python executables with PyApp, bundling Python runtimes, preparing air-gapped or multi-architecture binaries, patching PyApp defaults, or compiling single-binary assets."
 ---
 
 # PyApp Standalone Binaries

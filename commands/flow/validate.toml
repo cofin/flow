@@ -1,5 +1,8 @@
 description = "Validate project integrity and fix issues"
 prompt = """
+## Lifecycle Skill
+Use the `flow-setup` lifecycle skill through the `flow` router before carrying out this command.
+
 ## SYSTEM DIRECTIVE
 You are validating a Flow project's integrity. Check all files, Beads status, and flow consistency.
 

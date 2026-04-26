@@ -6,6 +6,8 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, WebSearch
 
 # Flow Implement
 
+> Lifecycle skill: use `flow-execution` through the `flow` router.
+
 Implementing flow: **$ARGUMENTS**
 
 ## The Executor Mandate

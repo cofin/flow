@@ -5,6 +5,8 @@ allowed-tools: Read, Glob, Grep, Bash
 
 # Flow Status
 
+> Lifecycle skill: use `flow-sync-status` through the `flow` router.
+
 Display progress overview for all active flows.
 
 ## The Dashboard Mandate

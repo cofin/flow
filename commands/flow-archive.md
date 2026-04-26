@@ -6,6 +6,8 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, WebSearch
 
 # Flow Archive
 
+> Lifecycle skill: use `flow-completion` through the `flow` router.
+
 Archiving flow: **$ARGUMENTS**
 
 ## Phase 1: Validation

@@ -1,0 +1,3 @@
+interface:
+  display_name: "AlloyDB"
+  short_description: "Google AlloyDB clusters, read pools, migrations, and managed PostgreSQL patterns"

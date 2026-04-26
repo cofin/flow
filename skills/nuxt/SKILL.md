@@ -1,6 +1,6 @@
 ---
 name: nuxt
-description: "Auto-activate for nuxt.config.ts, nuxt.config.js, .nuxt/ directory. Vue SSR framework expertise for Nuxt 3. Use when: using useFetch, useAsyncData, Nitro server routes, SSR/SSG rendering, nuxt.config.ts, or building any Nuxt application. Not for plain Vue (see vue), React (see react), or non-Nuxt Vue SSR."
+description: "Use when editing Nuxt apps, nuxt.config.ts, nuxt.config.js, .nuxt directories, useFetch, useAsyncData, Nitro server routes, SSR, SSG, or Vue server rendering with Nuxt."
 ---
 
 # Nuxt 3 Framework Skill

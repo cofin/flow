@@ -1,6 +1,6 @@
 ---
 name: sphinx
-description: "Auto-activate for conf.py (Sphinx), .rst files, docs/source/. Produces Sphinx documentation sites with RST, autodoc, themes (Shibuya/Immaterial), and CI/CD integration. Use when: editing conf.py, reStructuredText (.rst), autodoc, readthedocs builds, Shibuya theme, Wasm extensions, VHS terminal recordings, or any Sphinx project setup. Not for MkDocs, Docusaurus, or Mintlify documentation sites."
+description: "Use when editing Sphinx docs, conf.py, .rst files, docs/source, autodoc, Read the Docs builds, Shibuya or Immaterial themes, Wasm extensions, VHS terminal recordings, or Sphinx CI."
 ---
 
 # Sphinx Skill

@@ -6,6 +6,8 @@ allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 
 # Flow Revise
 
+> Lifecycle skill: use `flow-planning` through the `flow` router.
+
 Revising flow: **$ARGUMENTS**
 
 ## Phase 1: Load Current State

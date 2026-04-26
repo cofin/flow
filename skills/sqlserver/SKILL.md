@@ -1,6 +1,6 @@
 ---
 name: sqlserver
-description: "Auto-activate for T-SQL patterns, sqlcmd, SQL Server connection strings. Produces T-SQL queries, stored procedures, indexing strategies, and SQL Server connection patterns. Use when: writing T-SQL queries, optimizing execution plans, configuring SQL Server, setting up Always On AG, using sqlcmd/SSMS, or working with SQL Server connectors (Python, Node, .NET, JDBC). Not for PostgreSQL (see postgres), MySQL (see mysql), or Azure-specific managed services."
+description: "Use when writing T-SQL, editing SQL Server .sql files, using sqlcmd, SQL Server connection strings, stored procedures, execution plans, indexes, Always On, JSON, security, or connector code."
 ---
 
 # SQL Server

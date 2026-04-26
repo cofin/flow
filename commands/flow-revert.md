@@ -6,6 +6,8 @@ allowed-tools: Read, Write, Edit, Bash
 
 # Flow Revert
 
+> Lifecycle skill: use `flow-completion` through the `flow` router.
+
 Reverting: **$ARGUMENTS**
 
 ## Phase 1: Parse Target

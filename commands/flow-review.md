@@ -6,6 +6,8 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent
 
 # Flow Review
 
+> Lifecycle skill: use `flow-completion` through the `flow` router.
+
 Reviewing flow: **$ARGUMENTS**
 
 ## 1.0 SYSTEM DIRECTIVE

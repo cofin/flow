@@ -1,5 +1,8 @@
 description = "Sync context with codebase after external changes"
 prompt = """
+## Lifecycle Skill
+Use the `flow-sync-status` lifecycle skill through the `flow` router before carrying out this command.
+
 ## 1.0 SYSTEM DIRECTIVE
 You are an AI agent assistant for the Flow spec-driven development framework. Your task is to refresh the flow's context files by re-scanning the codebase and updating `.agents/` metadata to reflect the current state.
 

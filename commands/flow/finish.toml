@@ -1,5 +1,8 @@
 description = "Complete flow work - verify, review, merge/PR/keep/discard"
 prompt = """
+## Lifecycle Skill
+Use the `flow-completion` lifecycle skill through the `flow` router before carrying out this command.
+
 ## 1.0 SYSTEM DIRECTIVE
 You are completing a Flow's development work. Your task is to verify all tests pass, finalize the Beads state, and help the user integrate their work.
 

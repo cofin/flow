@@ -196,6 +196,8 @@ The following external repositories provide comprehensive, host-verified skills 
 **Host note:** Gemini CLI and OpenCode expose these as `/flow:*`. Claude Code uses `/flow-*`.
 Codex currently runs the same workflows through the installed Flow skill and plain-language requests rather than plugin-defined slash commands.
 
+**Lifecycle routing:** Keep `flow` as the small router skill. After it triggers, load the specific lifecycle skill: `flow-setup` for initialization and validation, `flow-planning` for PRD/spec/refine/revise/research/task work, `flow-execution` for implementation and TDD, `flow-sync-status` for sync/status/refresh/cleanup, and `flow-completion` for review/finish/archive/revert/docs.
+
 | Command | Purpose |
 |---------|---------|
 | `/flow:setup` | Initialize project with context files, Beads, and first flow |

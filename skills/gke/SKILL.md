@@ -1,6 +1,6 @@
 ---
 name: gke
-description: "Auto-activate for kubectl commands, k8s/ directory, Helm charts. Kubernetes on GCP expertise for GKE. Produces Kubernetes deployments, Helm charts, cluster configurations, GPU/TPU workloads, AlloyDB/Cloud SQL Auth Proxy sidecars, and batch job patterns for GKE on GCP. Use when: running kubectl, Helm charts, pod/node pool management, workload identity, Kubernetes deployments, cluster scaling, GPU node pools, database sidecars, or any GKE troubleshooting. Not for Cloud Run (see cloud-run), generic Kubernetes outside GCP, or local k8s (minikube/kind)."
+description: "Use when working with GKE, kubectl, Kubernetes manifests, k8s directories, Helm charts, node pools, workload identity, cluster scaling, GPU nodes, database sidecars, or GKE troubleshooting."
 ---
 
 # Google Kubernetes Engine (GKE)

@@ -5,6 +5,8 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion
 
 # Flow PRD
 
+> Lifecycle skill: use `flow-planning` through the `flow` router.
+
 ## The Orchestrator Mandate
 
 **CRITICAL:** `/flow:prd` is the entry point for large features. Its primary role is to initialize the **Beads Epic** (source of truth) and define the high-level roadmap.

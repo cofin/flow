@@ -5,6 +5,8 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion, mcp__sequen
 
 # Flow Setup
 
+> Lifecycle skill: use `flow-setup` through the `flow` router.
+
 Initialize a project for context-driven development with Beads integration.
 
 > **Host boundary:** This command runs under Claude Code. Only Claude-owned files are created (e.g., `CLAUDE.md`). Do not write `.gemini/*`, `.geminiignore`, `.codex/*`, `.cursor/*`, or `.opencode/*` — each host's setup command owns its own configuration surface.

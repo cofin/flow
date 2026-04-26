@@ -1,6 +1,6 @@
 ---
 name: oracle
-description: "Auto-activate for cx_Oracle imports, oracledb imports, Oracle connection strings. Produces Oracle Database SQL, PL/SQL, connection configurations, and ORDS REST API patterns. Use when: working with Oracle databases, writing SQL/PL/SQL, building REST APIs with ORDS, configuring database connections, OCI drivers, Podman/Docker Oracle containers, or Oracle 26ai Free images. Not for PostgreSQL (see postgres), MySQL (see mysql), or cloud-only Oracle services without database access."
+description: "Use when working with Oracle Database, Oracle SQL, PL/SQL, sqlplus, cx_Oracle, oracledb, ORDS, OCI drivers, Oracle containers, schema migrations, security, vectors, or performance tuning."
 ---
 
 # Oracle Database

@@ -1,0 +1,3 @@
+interface:
+  display_name: "SQL Server"
+  short_description: "T-SQL, SQL Server administration, sqlcmd, indexing, HA, JSON, and connections"

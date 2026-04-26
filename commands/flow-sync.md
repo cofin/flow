@@ -6,6 +6,8 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash
 
 # Flow Sync
 
+> Lifecycle skill: use `flow-sync-status` through the `flow` router.
+
 Syncing active backend state to disk for flow: **$ARGUMENTS**
 
 ## The Bridge Mandate

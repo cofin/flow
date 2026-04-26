@@ -1,6 +1,6 @@
 ---
 name: ipc
-description: "Auto-activate for shared memory, ring buffer, SPSC/MPMC patterns. Zero-copy IPC patterns: shared memory regions, SPSC/MPMC ring buffers, platform sync primitives, notification mechanisms, and cross-process coordination. Use when implementing IPC primitives or high-performance data transfer. Not for network IPC (gRPC, REST) or message queues."
+description: "Use when implementing inter-process communication, shared memory regions, SPSC or MPMC ring buffers, zero-copy data transfer, platform synchronization primitives, or process notification mechanisms."
 ---
 
 # IPC (Inter-Process Communication)

@@ -5,6 +5,8 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion
 
 # Flow Plan
 
+> Lifecycle skill: use `flow-planning` through the `flow` router.
+
 ## The Planner Mandate
 
 **CRITICAL:** `/flow:plan` is the entry point for single flows. Its primary role is to define the roadmap by creating **Beads Tasks** (source of truth) and syncing them to a human-readable `spec.md`.

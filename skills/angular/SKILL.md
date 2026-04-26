@@ -1,6 +1,6 @@
 ---
 name: angular
-description: "Auto-activate for angular.json, *.component.ts, @Component decorator. Expert knowledge for modern Angular with signals, standalone components, control flow blocks, and current migration guidance. Use when building Angular apps with contemporary patterns and when validating version-specific API stability. Not for React (see react), Vue (see vue), or AngularJS (v1)."
+description: "Use when editing Angular projects, angular.json, *.component.ts files, @Component code, signals, standalone components, control-flow blocks, Angular migrations, or Angular version-specific APIs."
 ---
 
 # Angular Framework Skill

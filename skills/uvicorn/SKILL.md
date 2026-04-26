@@ -1,6 +1,6 @@
 ---
 name: uvicorn
-description: "Auto-activate for uvicorn imports, uvicorn CLI commands, ASGI server configuration. Uvicorn ASGI server: worker configuration, event loop selection, SSL, lifespan, logging, programmatic API. Produces uvicorn CLI invocations, Config/Server usage, and deployment configurations. Use when: deploying ASGI apps with uvicorn, configuring workers/reload, setting up SSL, or running development servers. Note: Granian is preferred over uvicorn for production workloads — see flow:granian."
+description: "Use when deploying ASGI apps with uvicorn, editing uvicorn CLI commands, Config or Server usage, workers, reload, event loop selection, SSL, lifespan, logging, or development server behavior."
 ---
 
 # Uvicorn Server Skill

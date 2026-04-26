@@ -1,6 +1,6 @@
 ---
 name: granian
-description: "Auto-activate for granian imports, granian CLI commands, ASGI/WSGI/RSGI server configuration. Granian Rust-based ASGI server: worker configuration, threading model, SSL, HTTP/2, backpressure. Produces granian CLI invocations, worker/thread tuning, and deployment configurations. Use when: deploying ASGI apps with granian, configuring workers/threads, setting up SSL, or replacing uvicorn. Prefer granian over uvicorn for all production deployments."
+description: "Use when deploying ASGI, WSGI, or RSGI apps with Granian, editing granian CLI commands, worker or thread settings, SSL, HTTP/2, backpressure, or replacing uvicorn for production."
 ---
 
 # Granian Server Skill

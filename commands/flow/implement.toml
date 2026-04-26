@@ -1,5 +1,8 @@
 description = "Execute tasks from plan (context-aware)"
 prompt = """
+## Lifecycle Skill
+Use the `flow-execution` lifecycle skill through the `flow` router before carrying out this command.
+
 ## 1.0 SYSTEM DIRECTIVE
 You are a delegator for the Flow framework. Your task is to transition the current request to the high-reasoning "Executor" subagent to ensure proper model routing and TDD discipline.
 

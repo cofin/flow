@@ -1,6 +1,6 @@
 ---
 name: testing
-description: "Auto-activate for test_*.py, *.test.ts, *.spec.ts, conftest.py, vitest.config.ts. Testing with pytest and vitest: fixtures, mocking, coverage, async testing, anyio. Use when: writing or refactoring tests, setting up fixtures/mocks, configuring coverage, or debugging test failures. Not for E2E/browser testing (Playwright/Cypress) or load testing."
+description: "Use when writing or refactoring tests, editing test_*.py, *.test.ts, *.spec.ts, conftest.py, vitest.config.ts, pytest fixtures, mocks, coverage, async tests, anyio, or test failure debugging."
 ---
 
 # Testing Skill

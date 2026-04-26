@@ -1,6 +1,6 @@
 ---
 name: performance-analyst
-description: "Auto-activate when reviewing code in hot paths, evaluating database queries, assessing memory usage patterns, reviewing loop performance, checking for N+1 queries, evaluating caching strategies, or when code changes affect latency-sensitive operations. Produces bottleneck inventory with estimated impact (critical/moderate/minor), measurement recommendation for each finding, and fix priority. Use when: performance review needed, optimizing slow code, evaluating scaling bottlenecks, or assessing resource efficiency. Not for micro-optimizations on cold paths, premature optimization, or style-level concerns."
+description: "Use when reviewing hot paths, slow code, database queries, N+1 risks, memory usage, loops, I/O, caching strategy, concurrency, latency-sensitive paths, or resource efficiency."
 ---
 
 # Performance Analyst

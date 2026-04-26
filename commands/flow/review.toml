@@ -1,5 +1,8 @@
 description = "Dispatch code review with Beads-aware git range"
 prompt = """
+## Lifecycle Skill
+Use the `flow-completion` lifecycle skill through the `flow` router before carrying out this command.
+
 ## 1.0 SYSTEM DIRECTIVE
 You are dispatching a code review for a Flow's implementation. Your task is to determine the correct git range from Beads, dispatch a review subagent, and present actionable results.
 

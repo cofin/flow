@@ -1,5 +1,8 @@
 description = "Groundskeeper: Global maintenance and optimization of .agents/"
 prompt = """
+## Lifecycle Skill
+Use the `flow-sync-status` lifecycle skill through the `flow` router before carrying out this command.
+
 # Flow Cleanup
 
 Global maintenance and optimization of the `.agents/` directory.

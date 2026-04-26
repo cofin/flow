@@ -1,6 +1,6 @@
 ---
 name: vite
-description: "Auto-activate for vite.config.ts, vite.config.js. Expert knowledge for Vite build tool. Use when: configuring Vite (`vite.config.ts`), creating plugins, managing HMR (Hot Module Replacement), or asset bundling in JS/TS projects. Produces Vite build configurations, plugin setups, and HMR optimizations. Not for Webpack, Rollup, or non-Vite bundlers."
+description: "Use when editing Vite projects, vite.config.ts, vite.config.js, Vite plugins, HMR, asset bundling, frontend build settings, deployment config, or Litestar/Vite integration."
 ---
 
 # Vite Build Tool Skill

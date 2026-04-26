@@ -1,6 +1,6 @@
 ---
 name: consensus
-description: "Auto-activate when evaluating architectural decisions, comparing technology choices, weighing design trade-offs, assessing feature proposals, making build-vs-buy decisions, choosing between competing approaches, when a decision has significant long-term consequences, when multiple teams are affected, or when the cost of reversal is high. Produces a structured recommendation with confidence level (low/medium/high), pro/con analysis, risk assessment, and concrete next steps. Use when: decisions need structured multi-perspective analysis, risk assessment from multiple angles, decisions impact more than one team, decisions span more than a few months, or when the stakes are high enough to warrant deliberate evaluation. Not for routine code review, simple config choices, or styling preferences."
+description: "Use when comparing architectural choices, technology options, build-vs-buy decisions, feature proposals, high-impact tradeoffs, multi-team decisions, hard-to-reverse choices, or risk-heavy alternatives."
 ---
 
 # Consensus

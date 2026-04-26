@@ -1,6 +1,6 @@
 ---
 name: gcp
-description: "Auto-activate for gcloud commands, .gcloudignore, app.yaml. Google Cloud Platform expert: gcloud CLI, IAM, service accounts, Cloud Storage, Pub/Sub, BigQuery, Vertex AI. Use when: managing GCP resources, scripting gcloud commands, or configuring any GCP service. Not for AWS, Azure, or non-GCP cloud providers."
+description: "Use when managing Google Cloud resources, editing .gcloudignore or app.yaml, scripting gcloud commands, configuring IAM, service accounts, Cloud Storage, Pub/Sub, BigQuery, Vertex AI, or GCP services."
 ---
 
 # Google Cloud Platform (GCP) Skill

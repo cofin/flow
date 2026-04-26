@@ -1,6 +1,6 @@
 ---
 name: railway-tools
-description: "Flow-specific supplemental patterns for Railway. Auto-activate for railway.toml, railway.json, Procfile. Expert knowledge for Railway deployment platform. Use when deploying applications, configuring services, managing databases, or troubleshooting Railway deployments. Not for Heroku, Fly.io, or self-hosted deployments."
+description: "Use when deploying to Railway, editing railway.toml, railway.json, Procfile, configuring Railway services, databases, workers, environment variables, or troubleshooting Railway deployments."
 ---
 
 # Railway Deployment (Flow Tools)

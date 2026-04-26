@@ -1,6 +1,6 @@
 ---
 name: podman
-description: "Auto-activate for podman commands, Containerfile. Podman expertise: rootless containers, pod management, systemd integration, and Docker CLI compatibility. Use when: running rootless containers, managing pods, using podman-compose, configuring systemd services, or working with OCI images without Docker daemon. Produces rootless container configurations, pod management, and systemd integration patterns. Not for Docker (see docker) or Kubernetes (see gke)."
+description: "Use when running Podman, editing Containerfile, managing rootless containers, pods, podman-compose, systemd services, OCI images, secrets, or Docker-compatible workflows without a Docker daemon."
 ---
 
 # Podman

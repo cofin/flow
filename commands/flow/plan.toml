@@ -1,5 +1,8 @@
 description = "Create unified spec.md for a single Flow"
 prompt = """
+## Lifecycle Skill
+Use the `flow-planning` lifecycle skill through the `flow` router before carrying out this command.
+
 ## 1.0 SYSTEM DIRECTIVE
 You are a delegator for the Flow framework. Your task is to transition the current request to the high-reasoning "Planner" subagent to ensure proper model routing and Zero-Ambiguity worksheet generation.
 

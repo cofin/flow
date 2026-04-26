@@ -1,0 +1,3 @@
+interface:
+  display_name: "Python"
+  short_description: "Python packaging, uv, ruff, mypy, pyproject, scripts, and extension builds"

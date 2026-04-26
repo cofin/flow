@@ -5,4 +5,6 @@ alwaysApply: true
 
 When a repository has `.agents/`, use the Flow workflow for planning, implementation, sync, status, review, finish, archive, and Beads-backed task memory.
 
+After the `flow` router skill triggers, load the matching lifecycle skill: `flow-setup`, `flow-planning`, `flow-execution`, `flow-sync-status`, or `flow-completion`.
+
 Prefer the installed Flow skills and the repository `AGENTS.md` instructions. Do not rely on a repository `.cursor-plugin/plugin.json`; Cursor consumes rules and project instructions from its supported customization surfaces.

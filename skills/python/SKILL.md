@@ -1,6 +1,6 @@
 ---
 name: python
-description: "Auto-activate for .py files, pyproject.toml, requirements.txt, setup.py, setup.cfg. Python project conventions and tooling: uv, ruff, mypy, typing, Cython, Mypyc. Use when: configuring Python packages, linting, type-checking, building extensions, or running scripts with uv. Produces Python project configurations with uv, ruff, mypy, and proper packaging. Not for Mojo (see mojo), Cython build details (see references), or web framework specifics (see litestar)."
+description: "Use when editing Python files, pyproject.toml, requirements.txt, setup.py, setup.cfg, uv workflows, ruff, mypy, typing, packaging, scripts, Cython, or Mypyc extension builds."
 ---
 
 # Python Skill

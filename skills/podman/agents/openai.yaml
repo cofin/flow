@@ -1,0 +1,3 @@
+interface:
+  display_name: "Podman"
+  short_description: "Rootless containers, pods, systemd units, secrets, and Docker compatibility"

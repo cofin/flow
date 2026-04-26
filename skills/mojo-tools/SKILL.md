@@ -1,6 +1,6 @@
 ---
 name: mojo-tools
-description: "Flow-specific supplemental patterns for Mojo. Auto-activate for .mojo files, .🔥 files. Mojo development patterns for high-performance computing: SIMD, zero-copy Python interop, GIL-free parallelism, C FFI, and Hatch build integration. Use when: writing Mojo code, .mojo files, SIMD kernels, Python-Mojo hybrid projects, hatch-mojo build hooks, or packaging Mojo extensions into wheels. Produces high-performance Mojo code with SIMD kernels, Python interop, and Hatch build integration. Not for pure Python performance work or C extensions (see python/cpp)."
+description: "Use when editing Mojo code, .mojo files, fire emoji files, SIMD kernels, Python-Mojo interop, GIL-free parallelism, C FFI, hatch-mojo build hooks, or packaging Mojo extensions."
 ---
 
 # Mojo (Flow Tools)

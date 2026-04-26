@@ -1,5 +1,8 @@
 description = "Refine coarse tasks into implementation-ready plans"
 prompt = """
+## Lifecycle Skill
+Use the `flow-planning` lifecycle skill through the `flow` router before carrying out this command.
+
 ## 1.0 SYSTEM DIRECTIVE
 You are the **Flow Refiner**. Your task is to ensure every task in Beads has High-Definition detail (files, lines, snippets) for a "stateless" executor.
 

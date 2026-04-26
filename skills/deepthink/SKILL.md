@@ -1,6 +1,6 @@
 ---
 name: deepthink
-description: "Auto-activate when a problem resists quick answers, when initial analysis feels shallow, when debugging hits a wall, when architectural reasoning needs depth, when confidence in a conclusion is low, when analysis feels like it is going in circles, or when the first answer feels too easy for a hard problem. Produces a confidence-tracked investigation with explicit hypothesis evolution, evidence log, and a specific actionable conclusion. Use when: complex reasoning needed, hypothesis testing required, going in circles on a problem, need to track what has been explored vs what remains, analysis feels shallow, confidence is low, or when debugging hits a wall. Not for clear questions with obvious answers, simple lookups, or problems that yield to direct investigation."
+description: "Use when a problem resists quick answers, debugging stalls, analysis feels shallow, confidence is low, hypotheses are competing, reasoning loops repeat, or a hard problem needs evidence tracking."
 ---
 
 # Deepthink

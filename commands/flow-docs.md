@@ -6,6 +6,8 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash
 
 # Flow Docs
 
+> Lifecycle skill: use `flow-completion` through the `flow` router.
+
 Managing documentation for Flow project.
 
 ## Phase 0: Setup Check

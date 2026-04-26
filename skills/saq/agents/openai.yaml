@@ -1,0 +1,3 @@
+interface:
+  display_name: "SAQ"
+  short_description: "SAQ async tasks, queues, cron jobs, workers, enqueueing, and lifecycle patterns"

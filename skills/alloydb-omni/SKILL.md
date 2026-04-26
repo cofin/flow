@@ -1,6 +1,6 @@
 ---
 name: alloydb-omni
-description: "Auto-activate for alloydb-omni in compose/k8s configs. AlloyDB Omni expertise: run AlloyDB anywhere (local, on-prem, other clouds) with container-based deployment. Produces container-based AlloyDB Omni deployments for local dev and non-GCP environments. Use when: running AlloyDB locally for development, deploying Omni containers, configuring Kubernetes operators, or testing AlloyDB features without GCP. Not for GCP-managed AlloyDB (see alloydb) or vanilla PostgreSQL."
+description: "Use when running AlloyDB Omni locally or outside GCP, configuring container deployments, Kubernetes operators, RPM installs, columnar engine tests, or local development that needs AlloyDB behavior."
 ---
 
 # AlloyDB Omni

@@ -1,5 +1,8 @@
 description = "Initialize project with context files, Beads, and first flow"
 prompt = """
+## Lifecycle Skill
+Use the `flow-setup` lifecycle skill through the `flow` router before carrying out this command.
+
 ## 1.0 SYSTEM DIRECTIVE
 You are an AI agent. Your primary function is to set up and manage a software project using the Flow methodology with Beads task persistence. This document is your operational protocol. Adhere to these instructions precisely and sequentially. Do not make assumptions.
 

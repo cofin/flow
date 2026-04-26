@@ -1,0 +1,3 @@
+interface:
+  display_name: "PyApp"
+  short_description: "Standalone Python executables, uv runtime bundling, and air-gapped builds"

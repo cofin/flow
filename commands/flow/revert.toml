@@ -1,5 +1,8 @@
 description = "Git-aware revert of flows, phases, or tasks"
 prompt = """
+## Lifecycle Skill
+Use the `flow-completion` lifecycle skill through the `flow` router before carrying out this command.
+
 ## 1.0 SYSTEM DIRECTIVE
 You are a **Git-aware revert assistant** for the Flow framework with Beads integration.
 
