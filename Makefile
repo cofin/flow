@@ -53,19 +53,19 @@ lint:                                               ## Lint and auto-fix all mar
 .PHONY: validate-skills
 validate-skills:                                   ## Validate skill / command / agent manifests
 	@echo "${INFO} Validating skill manifests..."
-	@uv run tools/validate-skills.py
+	@uv run --extra dev tools/validate-skills.py
 	@echo "${OK} Skill manifests valid"
 
 .PHONY: validate-codex-manifest
 validate-codex-manifest:                           ## Validate Codex marketplace and plugin manifests
 	@echo "${INFO} Validating Codex manifests..."
-	@uv run tools/validate-codex-manifest.py
+	@uv run --extra dev tools/validate-codex-manifest.py
 	@echo "${OK} Codex manifests valid"
 
 .PHONY: sync-manifests
 sync-manifests:                                    ## Sync version strings across all manifests
 	@echo "${INFO} Syncing version strings..."
-	@uv run tools/sync-manifests.py
+	@uv run --extra dev tools/sync-manifests.py
 	@echo "${OK} Version strings in sync"
 
 .PHONY: check
@@ -81,7 +81,7 @@ build:                                              ## Build the package
 release:                                           ## Bump version and create release tag (e.g. make release bump=patch)
 	@echo "${INFO} Preparing for release... 📦"
 	@make clean
-	@uv run bump-my-version bump $(bump)
+	@uv run --extra dev bump-my-version bump $(bump)
 	@make build
 	@echo "${OK} Release complete 🎉"
 
@@ -89,6 +89,6 @@ release:                                           ## Bump version and create re
 pre-release:                                       ## Start/advance a pre-release (e.g. make pre-release version=1.1.0a1)
 	@echo "${INFO} Preparing pre-release $(version)... 📦"
 	@make clean
-	@uv run bump-my-version bump --new-version $(version) patch
+	@uv run --extra dev bump-my-version bump --new-version $(version) patch
 	@make build
 	@echo "${OK} Pre-release $(version) complete 🎉"
