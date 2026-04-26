@@ -1,6 +1,6 @@
 ---
 name: cloud-sql
-description: "Auto-activate for Cloud SQL gcloud commands, cloud-sql-proxy usage, or Cloud SQL connection strings. Google Cloud SQL expertise: fully managed PostgreSQL, MySQL, and SQL Server on GCP. Produces Cloud SQL instance configurations, connection patterns, backup strategies, and replication setups. Use when: provisioning Cloud SQL instances, configuring Auth Proxy connections, setting up read replicas, managing backups and PITR, or migrating to Cloud SQL. For higher performance PostgreSQL workloads see flow:alloydb. For GKE deployment patterns see flow:gke."
+description: "Use when provisioning Google Cloud SQL, configuring Cloud SQL Auth Proxy, connection strings, read replicas, backups, PITR, private IP, database migrations, or managed PostgreSQL/MySQL/SQL Server on GCP."
 ---
 
 # Cloud SQL

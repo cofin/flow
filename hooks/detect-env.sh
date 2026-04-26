@@ -51,7 +51,7 @@ detect_beads() {
     else
         echo "- **Beads Backend**: Missing (None)"
         if command -v br >/dev/null 2>&1; then
-            echo "- **Migration Notice**: Detected legacy \`br\` (beads_rust). Flow no longer supports br. Install official Beads: brew install beads (or https://github.com/steveyegge/beads)."
+            echo "- **Migration Notice**: Detected legacy \`br\` (beads_rust). Flow no longer supports br. Install official Beads: brew install beads (or https://github.com/gastownhall/beads)."
         fi
     fi
 }
@@ -250,7 +250,7 @@ flow_mandate() {
 - **Deep Research First**: Do NOT defer research to implementation. ALL analysis and architectural decisions MUST be completed upfront.
 - **Stateless Executor Test**: A plan is only 'Ready' if an agent with ZERO context can implement it 100% correctly based ONLY on the worksheet.
 - **TDD Discipline**: Follow the Red-Green-Refactor cycle and verify coverage as outlined in the \`flow\` skill.
-- **Sync Requirement**: Run \`/flow:sync\` after any change to Beads state or project structure.
+- **Sync Requirement**: Follow \`${root_dir}/beads.json\` \`syncPolicy.flowSyncAfterMutation\`; default setup runs \`/flow:sync\` after Beads changes but does not auto-export, auto-stage, or run \`bd dolt push\`.
 EOF
 }
 
@@ -279,4 +279,3 @@ main() {
 }
 
 main "$@"
-

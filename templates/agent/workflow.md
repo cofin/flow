@@ -18,7 +18,7 @@
 
 ## Guiding Principles
 
-1. **Beads backend is the Source of Truth:** Use official Beads (`bd`) and run `/flow:sync` to export task state to spec.md when needed.
+1. **Beads backend is the Source of Truth:** Use official Beads (`bd`) and run `/flow:sync` to export task state to spec.md when `syncPolicy.flowSyncAfterMutation` is enabled.
 2. **The Tech Stack is Deliberate:** Changes to the tech stack must be documented in `tech-stack.md` *before* implementation
 3. **Test-Driven Development:** Write unit tests before implementing functionality
 4. **High Code Coverage:** Aim for >80% code coverage for all modules
@@ -39,15 +39,18 @@ Flow supports two modes:
 
 Configured for local-only use during setup unless the user explicitly asks for shared repo state.
 
+Default setup writes `.agents/beads.json` with `syncPolicy.autoExport: false`, `syncPolicy.autoGitAdd: false`, and `syncPolicy.allowDoltPush: false`. It also applies `bd config set no-git-ops true`, `bd config set export.auto false`, and `bd config set export.git-add false`.
+
 ### Session Protocol
 
 **Session Start:**
 
-Use the active backend's session-start commands.
+Use the active backend's session-start commands. Prefer `bd prime --mcp` when host hooks inject MCP-aware context; otherwise use `bd prime`.
 
 **Session End:**
 
 For local-only ignores, prefer `.git/info/exclude` before `.gitignore`.
+Do not run `bd dolt push` unless the user explicitly asks or `.agents/beads.json` opts in with `syncPolicy.allowDoltPush`.
 
 > If no supported Beads backend is available, workflow degrades gracefully to git-only tracking.
 
@@ -78,6 +81,8 @@ bd note <id> "<context for future agents>"
 
 - `--description`: Purpose and goal
 - notes/comments: Context for future agents
+- durable cross-session facts: `bd remember "..." --key <repo>:<topic>`
+- structured issue context: prefer `--context`, `--design`, `--acceptance`, `--metadata`, `--skills`, and `--spec-id` when available
 - Priority levels: P0=critical, P1=high, P2=medium, P3=low, P4=backlog
 
 ## Task Workflow
@@ -86,7 +91,7 @@ All tasks follow a strict lifecycle:
 
 ### Task Workflow (TDD) - Beads-First
 
-**CRITICAL:** Beads is the source of truth. Never write `[x]`, `[~]`, `[!]`, or `[-]` markers to spec.md manually. After ANY Beads state change, agents MUST run `/flow:sync` to update spec.md.
+**CRITICAL:** Beads is the source of truth. Never write `[x]`, `[~]`, `[!]`, or `[-]` markers to spec.md manually. After Beads state changes, agents MUST follow `syncPolicy.flowSyncAfterMutation` and run `/flow:sync` when it is enabled.
 
 **Companion Skills Usage:**
 
@@ -144,7 +149,7 @@ All tasks follow a strict lifecycle:
 9. **Record Task Completion (Beads-First):**
    - **Step 9.1: Get Commit Hash:** Obtain the hash of the *just-completed commit* (`git log -1 --format="%h"`).
    - **Step 9.2: Close in Beads:** use the active backend to record completion
-   - **Step 9.3 (Manual Sync):** You MUST run `/flow-sync` to update the markdown state in `spec.md` so it aligns with Beads.
+   - **Step 9.3 (Manual Sync):** Follow `syncPolicy.flowSyncAfterMutation`; when enabled, run `/flow-sync` so `spec.md` aligns with Beads.
    - **Do NOT manually edit spec.md markers** - they are managed by running `/flow-sync`.
 
 10. **Log Learnings:**
@@ -247,7 +252,7 @@ Validated repo-native commands are also high-signal learnings. If the project al
     - Update the epic with verification summary using the active backend's note/comment command
 
 8. **Sync to spec.md (Manual):**
-    - You MUST run `/flow-sync` to update the markdown state in `spec.md` so it aligns with Beads for human-readable status.
+    - Follow `syncPolicy.flowSyncAfterMutation`; when enabled, run `/flow-sync` so `spec.md` aligns with Beads for human-readable status.
     - **Do NOT manually edit spec.md** - Beads is source of truth, and you must sync it using the command.
 
 9. **Announce Completion:** Inform the user that the phase is complete and the checkpoint has been recorded in Beads.

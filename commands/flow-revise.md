@@ -6,6 +6,8 @@ allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 
 # Flow Revise
 
+> Lifecycle skill: use `flow-planning` through the `flow` router.
+
 Revising flow: **$ARGUMENTS**
 
 ## Phase 1: Load Current State
@@ -94,7 +96,7 @@ bd update {new_task_id} --notes "Added during revision. Reason: {reason}. Create
 
 ### Markdown Sync (Manual)
 
-**CRITICAL:** Do NOT write markers directly to spec.md. It is MANDATORY that you run `/flow-sync` to update the markdown state after any task completion or status change.
+**CRITICAL:** Do NOT write markers directly to spec.md. Follow `syncPolicy.flowSyncAfterMutation`; when enabled, run `/flow-sync` to update the markdown state after task completion or status changes.
 
 ## Phase 8: Commit Revision
 

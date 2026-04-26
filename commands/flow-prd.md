@@ -5,6 +5,8 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion
 
 # Flow PRD
 
+> Lifecycle skill: use `flow-planning` through the `flow` router.
+
 ## The Orchestrator Mandate
 
 **CRITICAL:** `/flow:prd` is the entry point for large features. Its primary role is to initialize the **Beads Epic** (source of truth) and define the high-level roadmap.
@@ -77,7 +79,7 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion
 **PROTOCOL: Create all required files.**
 
 1. **Registry**: Append to `.agents/flows.md`.
-2. **Sync**: Run `/flow:sync` to ensure Markdown views match the new Beads state.
+2. **Sync**: Follow `syncPolicy.flowSyncAfterMutation`; when enabled, run `/flow:sync` so Markdown views match the new Beads state.
 
 ---
 
@@ -85,5 +87,5 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion
 
 1. **BEADS FIRST** - Initialize epics and notes before finalizing Markdown.
 2. **NO CODE MODIFICATION** - Planning documents only.
-3. **SYNC AFTER CREATION** - Run `/flow:sync` to generate Markdown from Beads state.
+3. **SYNC AFTER CREATION** - Follow `syncPolicy.flowSyncAfterMutation`; default setup runs `/flow:sync` to generate Markdown from Beads state.
 4. **HARD STOP** - End with explicit instruction to run `/flow:implement`.

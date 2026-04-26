@@ -22,6 +22,7 @@ Use Flow when the user asks to:
 
 When Flow planning is active:
 
+- route setup work through `flow-setup`, PRD/spec/refine work through `flow-planning`, implementation through `flow-execution`, sync/status through `flow-sync-status`, and review/finish/archive work through `flow-completion`
 - automatically use the matching Flow workflow instead of staying in generic chat mode
 - keep the workflow in research/planning mode while researching, questioning, drafting, and revising planning artifacts
 - refine coarse tasks before implementation so lighter-weight executors do not have to guess
@@ -30,6 +31,7 @@ When Flow planning is active:
 
 When Flow implementation is active:
 
+- load `flow-execution` after the `flow` router skill so the monolithic Flow skill does not carry implementation-only detail into unrelated requests
 - read `.agents/workflow.md` and prefer the repo's canonical commands for setup, lint, test, typecheck, and full verification
 - preserve context for subagents with `spec.md`, parent PRD context, `patterns.md`, relevant `knowledge/` chapters, `learnings.md`, affected files, and verification requirements
 - prefer refined tasks before dispatching lighter-weight agents

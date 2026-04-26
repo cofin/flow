@@ -60,7 +60,7 @@ else
 fi
 ```
 
-If outdated, suggest the official install: `curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash`
+If outdated, suggest one of the official installs: `brew install beads`, `npm install -g @beads/bd`, `go install github.com/gastownhall/beads/cmd/bd@latest`, or `curl -fsSL https://raw.githubusercontent.com/gastownhall/beads/main/scripts/install.sh | bash`
 
 ### 0.1.2 Knowledge Base Check
 
@@ -140,7 +140,7 @@ If no backend is found, ask user:
 
 > Choose a Flow task-memory backend:
 >
-> - **A) Official Beads** (recommended) - Run `curl -fsSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash`
+> - **A) Official Beads** (recommended) - Run `brew install beads`, `npm install -g @beads/bd`, `go install github.com/gastownhall/beads/cmd/bd@latest`, or `curl -fsSL https://raw.githubusercontent.com/gastownhall/beads/main/scripts/install.sh | bash`
 > - **B) No Beads** - Continue with markdown-only Flow state (reduced memory/resume)
 
 If a backend is installed, verify version is current and remember the selected mode for Phase 5.
@@ -257,8 +257,13 @@ Based on detected languages, offer relevant styleguides:
 If official Beads was selected:
 
 ```bash
-bd init --stealth --prefix <project_name_slug>
+bd init --non-interactive --stealth --prefix <project_name_slug> --skip-agents
+bd config set no-git-ops true
+bd config set export.auto false
+bd config set export.git-add false
 ```
+
+These defaults keep Beads local-only: no automatic export, no auto-staging, and no git operations in `bd prime` output. `bd dolt push` remains explicit opt-in only.
 
 If no-Beads mode was selected:
 
@@ -272,7 +277,7 @@ Or prompt user:
 > - **Local-only** (recommended) - Add local ignores to `.git/info/exclude`
 > - **Shared repo policy** - Update `.gitignore` for the whole team
 
-Create `<root_directory>/beads.json` with configuration.
+Create `<root_directory>/beads.json` with local-only configuration from `templates/agent/beads.json`, including `syncPolicy.allowDoltPush: false`.
 
 ---
 

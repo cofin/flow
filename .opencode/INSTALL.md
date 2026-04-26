@@ -36,14 +36,14 @@ Verify by asking: `What is your Flow configuration?`
 
 ## Migrating from Legacy Install
 
-If you previously installed Flow with manual agent/command files, remove them:
+If you previously installed Flow with older single-agent command files, remove them:
 
 ```bash
 rm -f ~/.config/opencode/agents/flow.md
 rm -f ~/.config/opencode/commands/flow-*.md
 ```
 
-The plugin handles everything — no separate agent or command files needed.
+The plugin handles context injection. Flow's repo-local `.opencode/agents/*.md` files provide optional native subagents for hosts that read project agent files.
 
 ## Updating
 

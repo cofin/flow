@@ -2,7 +2,7 @@
 
 **Measure twice, code once.**
 
-Flow is a unified toolkit for **Context-Driven Development** that works with **Claude Code**, **Gemini CLI**, **Codex CLI**, **OpenCode**, and **Google Antigravity**. It combines spec-first planning with **Beads** for persistent cross-session memory, enabling AI-assisted development with deep, persistent project awareness.
+Flow is a unified toolkit for **Context-Driven Development** that works with **Claude Code**, **Gemini CLI**, **Codex CLI**, **OpenCode**, **VS Code / Copilot**, **Cursor**, **Google Antigravity**, and **OpenClaw**. It combines spec-first planning with **Beads** for persistent cross-session memory, enabling AI-assisted development with deep, persistent project awareness.
 
 ## Philosophy
 
@@ -13,7 +13,7 @@ Control your code. By treating context as a managed artifact alongside your code
 ## Key Features
 
 - **Beads Integration**: Persistent task memory that survives context compaction
-- **Multi-CLI Support**: Works with Claude Code, Gemini CLI, Codex CLI, OpenCode, and Google Antigravity
+- **Multi-CLI Support**: Works with Claude Code, Gemini CLI, Codex CLI, OpenCode, VS Code / Copilot, Cursor, Google Antigravity, and OpenClaw
 - **Spec-First Development**: Create specs and plans before writing code
 - **TDD Workflow**: Red-Green-Refactor with >80% coverage requirements
 - **Knowledge Flywheel**: Capture and elevate patterns across flows (Ralph-style)
@@ -194,9 +194,24 @@ OpenCode has no plugin-author hook for a plan-artifact directory. Set sensible d
 <summary>Cursor IDE</summary>
 <!-- markdownlint-restore -->
 
-In Cursor, run `/add-plugin` and search for **flow** in the marketplace ([cursor.com/marketplace](https://cursor.com/marketplace)). Cursor's marketplace went live in 2.4+ and supports private team marketplaces on Team/Enterprise plans.
+Cursor consumes Flow through project rules and shared repository instructions:
 
-For local development against a checkout, drop the repo into `~/.cursor/plugins/local/flow/` and restart Cursor — Cursor auto-discovers `.cursor-plugin/plugin.json` from there.
+- `.cursor/rules/flow.mdc`
+- `AGENTS.md`
+- project-local skills when copied or linked into `.agents/skills/`
+
+Do not install Flow through a repository `.cursor-plugin/plugin.json`; Flow does not ship a Cursor plugin manifest until Cursor exposes a stable documented plugin API for this use case.
+
+</details>
+
+<!-- markdownlint-disable -->
+<details>
+<summary>VS Code / Copilot</summary>
+<!-- markdownlint-restore -->
+
+VS Code discovers Flow custom agents from `.github/agents/*.agent.md` and shared skills from `.agents/skills/`, `.claude/skills/`, or `.github/skills/`. Flow ships workspace agent definitions for the core lifecycle agents.
+
+Use VS Code settings such as `chat.agentSkillsLocations` only when you need additional skill directories beyond the standard project paths.
 
 </details>
 
@@ -212,6 +227,15 @@ Prefer workspace-local `.agents` customizations when possible:
 - `.agents/workflows/`
 
 Use a global skill install only as a fallback for environments that do not yet use project-local agent assets consistently.
+
+</details>
+
+<!-- markdownlint-disable -->
+<details>
+<summary>OpenClaw</summary>
+<!-- markdownlint-restore -->
+
+OpenClaw should consume Flow through runtime skill discovery and its native `sessions_spawn` subagent mechanism. Flow does not ship a static OpenClaw plugin manifest.
 
 </details>
 
@@ -275,7 +299,7 @@ In Codex CLI, ask: `Use Flow to create a PRD for add user authentication`
 
 This creates `spec.md` (unified spec + plan), `learnings.md` (pattern capture log), `.agents/skills/flow-memory-keeper/SKILL.md` (project-local sync/archive/learnings/refinement skill), and a Beads epic with tasks for cross-session persistence.
 
-> Flow uses a unified `spec.md` (no separate `plan.md`). Beads is the source of truth for task status. Use `/flow:sync` to export Beads state to `spec.md` (MANDATORY after every state change).
+> Flow uses a unified `spec.md` (no separate `plan.md`). Beads is the source of truth for task status. Use `/flow:sync` to export Beads state to `spec.md` after state changes when `.agents/beads.json` has `syncPolicy.flowSyncAfterMutation` enabled.
 
 ### Implement
 
@@ -291,7 +315,7 @@ In Codex CLI, ask: `Use Flow to implement auth`
 
 Flow follows a TDD workflow with a backend adapter: detect persistence mode, select the next task, write failing tests → implement → refactor → verify coverage → commit (conventional format) → record completion → capture learnings → `/flow-sync`.
 
-> **CRITICAL:** Never write `[x]`, `[~]`, `[!]`, or `[-]` markers directly to `spec.md`. Beads is the source of truth. After ANY Beads state change, agents MUST run `/flow-sync` to update `spec.md`.
+> **CRITICAL:** Never write `[x]`, `[~]`, `[!]`, or `[-]` markers directly to `spec.md`. Beads is the source of truth. The default `syncPolicy.flowSyncAfterMutation` setting makes agents run `/flow-sync` after Beads state changes to update `spec.md`.
 
 ## Commands
 
@@ -383,17 +407,50 @@ Flow supports two persistence modes:
 
 ```bash
 repo_slug="$(basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-//; s/-$//')"
-bd init --stealth --prefix "$repo_slug"
+bd init --non-interactive --stealth --prefix "$repo_slug" --skip-agents
+bd config set no-git-ops true
+bd config set export.auto false
+bd config set export.git-add false
 ```
+
+Flow writes `.agents/beads.json` with local-only defaults:
+
+```json
+{
+  "localOnly": true,
+  "sync": "manual",
+  "bdConfig": {
+    "no-git-ops": true,
+    "export.auto": false,
+    "export.git-add": false
+  },
+  "syncPolicy": {
+    "flowSyncAfterMutation": true,
+    "autoExport": false,
+    "autoGitAdd": false,
+    "allowDoltPush": false
+  },
+  "dolt": {
+    "push": "never"
+  }
+}
+```
+
+Do not run `bd dolt push` unless the user explicitly requests it or `.agents/beads.json` opts in with `syncPolicy.allowDoltPush: true`.
 
 **Install paths.**
 
 ```bash
 # Official Beads (bd)
 brew install beads
-# or:
-curl -sSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash
+npm install -g @beads/bd
+go install github.com/gastownhall/beads/cmd/bd@latest
+curl -fsSL https://raw.githubusercontent.com/gastownhall/beads/main/scripts/install.sh | bash
 ```
+
+**Memory policy.** Use `bd note <task-id> "..."` for task-local findings. Use `bd remember "..." --key <repo>:<topic>` for durable facts that should prime future sessions. Prefer structured task creation fields such as `--context`, `--design`, `--acceptance`, `--metadata`, `--skills`, and `--spec-id`.
+
+**Session priming.** Hooks should inject `bd prime --mcp` where the host supports MCP-aware context injection; otherwise run `bd prime` at session start or after compaction.
 
 **Local-only ignore policy.** Prefer `.git/info/exclude`:
 
@@ -473,7 +530,7 @@ Copy to your CLI's skills directory for auto-activation.
 ## Resources
 
 - [GitHub Issues](https://github.com/cofin/flow/issues) — Report bugs or request features
-- [Beads CLI](https://github.com/steveyegge/beads) — Official `bd` task persistence layer
+- [Beads CLI](https://github.com/gastownhall/beads) — Official `bd` task persistence layer
 
 ## License
 

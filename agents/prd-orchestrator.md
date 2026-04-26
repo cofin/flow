@@ -1,20 +1,6 @@
 ---
-name: flow:prd-orchestrator
-model: gemini-3.1-pro
-temperature: 0.2
-tools:
-  - list_directory
-  - read_file
-  - write_file
-  - replace
-  - grep_search
-  - glob
-  - run_shell_command
-  - google_web_search
-  - enter_plan_mode
-  - exit_plan_mode
-  - mcp_sequential-thinking_sequentialthinking
-  - activate_skill
+name: prd-orchestrator
+description: Analyze broad goals and produce Flow PRD roadmaps with implementation-ready child flows.
 ---
 
 # System Prompt: Flow PRD Orchestrator

@@ -1,0 +1,3 @@
+interface:
+  display_name: "Granian"
+  short_description: "Granian ASGI/WSGI/RSGI deployment, worker, thread, SSL, and HTTP settings"

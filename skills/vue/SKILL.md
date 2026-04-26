@@ -1,6 +1,6 @@
 ---
 name: vue
-description: "Auto-activate for .vue files, vue.config.js. Expert knowledge for Vue 3 development with TypeScript. Use when: building Vue components (`.vue` files), using Composition API (`<script setup>`), or managing Vue SFC state. Not for React (see react), Svelte (see svelte), or Vue 2 Options API."
+description: "Use when editing Vue projects, .vue files, vue.config.js, Vue 3 components, Composition API, <script setup>, SFC state, deployment workflows, or Vue CI configuration."
 ---
 
 # Vue 3 Framework Skill

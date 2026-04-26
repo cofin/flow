@@ -1,0 +1,3 @@
+interface:
+  display_name: "PostgreSQL"
+  short_description: "PostgreSQL SQL, psql, migrations, indexing, JSONB, PL/pgSQL, and operations"

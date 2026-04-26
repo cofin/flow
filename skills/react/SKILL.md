@@ -1,6 +1,6 @@
 ---
 name: react
-description: "Auto-activate for .tsx, .jsx files, react imports. Expert knowledge for modern React development with TypeScript, including client components, framework-scoped server components, and upgrade-aware best practices. Use when building React components, managing state, or integrating with backend APIs. Not for Vue (see vue), Svelte (see svelte), or Angular (see angular)."
+description: "Use when editing React code, .tsx or .jsx files, react imports, components, hooks, state, client components, framework-scoped server components, backend API integration, or React upgrades."
 ---
 
 # React Framework Skill

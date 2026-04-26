@@ -1,6 +1,6 @@
 ---
 name: tanstack
-description: "Auto-activate for @tanstack/ imports, useQuery, createRouter. Produces TanStack Router, Query, Table, and Form configurations for React applications. Use when: using useQuery, createRouter, React Query, TanStack Table, file-based routing, data fetching, or SPA state management. Not for non-React frameworks (see vue/svelte/angular) or react-router (TanStack Router is different)."
+description: "Use when editing TanStack code, @tanstack imports, useQuery, createRouter, React Query, TanStack Router, Table, Form, Store, file-based routing, data fetching, or SPA state management."
 ---
 
 # TanStack Ecosystem

@@ -1,6 +1,6 @@
 ---
 name: svelte
-description: "Auto-activate for .svelte files, svelte.config.js. Expert knowledge for Svelte 5 development with Runes. Use when: building Svelte components (`.svelte` files), using runic states ($state, $derived), or working with SvelteKit. Not for React (see react), Vue (see vue), or Svelte 4 (this covers Svelte 5 with Runes)."
+description: "Use when editing Svelte components, .svelte files, svelte.config.js, Svelte 5 runes, $state, $derived, SvelteKit, component state, or migrating away from Svelte 4 patterns."
 ---
 
 # Svelte 5 Framework Skill

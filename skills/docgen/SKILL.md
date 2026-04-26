@@ -1,6 +1,6 @@
 ---
 name: docgen
-description: "Auto-activate when generating documentation, writing API docs, documenting modules or components, creating README content, building reference guides, or systematically documenting a codebase. Produces structured per-component documentation with completeness tracking — every file in scope gets documented, progress is explicit ([3/12 files]). Use when: documenting multiple files or components, ensuring complete coverage of a module, generating structured docs from code, or when /flow-docs needs systematic file-by-file analysis. Not for ad-hoc comments in code, inline docstrings, or single-function explanations."
+description: "Use when generating documentation, writing API docs, documenting modules or components, creating README content, building reference guides, or documenting many files with explicit coverage tracking."
 ---
 
 # Docgen

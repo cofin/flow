@@ -1,0 +1,3 @@
+interface:
+  display_name: "Bun"
+  short_description: "Bun runtime, package manager, workspaces, tests, and bundling patterns"

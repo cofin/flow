@@ -1,6 +1,6 @@
 ---
 name: bun
-description: "Auto-activate for bun.lockb, bunfig.toml. Usage of Bun as a high-performance JavaScript runtime, bundler, and test runner. Use when: running JS/TS code with Bun, using bun install, configuring Bun workspaces, or fixing low-latency node runtimes. Not for Node.js-specific APIs that Bun doesn't support, or Deno."
+description: "Use when using bun.lockb, bunfig.toml, bun install, Bun workspaces, Bun test, Bun runtime APIs, JS or TS scripts run with Bun, bundling, or Node compatibility checks for Bun."
 ---
 
 # Bun Skill

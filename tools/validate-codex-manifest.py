@@ -4,13 +4,16 @@ Validate Codex marketplace and plugin manifest files for compatibility with Code
 """
 
 import json
-import os
-import sys
 import re
+import sys
+from collections.abc import Iterator
+from pathlib import Path
 
-def validate_marketplace(file_path):
+
+def validate_marketplace(file_path: str | Path):
+    file_path = Path(file_path)
     print(f"Validating marketplace: {file_path}")
-    with open(file_path, 'r') as f:
+    with file_path.open() as f:
         try:
             data = json.load(f)
         except json.JSONDecodeError as e:
@@ -22,10 +25,10 @@ def validate_marketplace(file_path):
     for plugin in plugins:
         name = plugin.get('name', 'unknown')
         source_field = plugin.get('source', {})
-        
+
         path = ""
         is_local = False
-        
+
         if isinstance(source_field, str):
             path = source_field
             is_local = True
@@ -39,7 +42,7 @@ def validate_marketplace(file_path):
             if not path.startswith('./'):
                 print(f"  ERROR [plugin {name}]: path '{path}' must start with './'")
                 errors += 1
-            
+
             # 2. Must not be empty (after stripping ./)
             normalized = path[2:] if path.startswith('./') else path
             if not normalized or normalized.strip('/') == '':
@@ -50,12 +53,14 @@ def validate_marketplace(file_path):
             if '..' in path:
                 print(f"  ERROR [plugin {name}]: path '{path}' must not contain '..'")
                 errors += 1
-                
+
     return errors == 0
 
-def validate_plugin_manifest(file_path):
+
+def validate_plugin_manifest(file_path: str | Path):
+    file_path = Path(file_path)
     print(f"Validating plugin manifest: {file_path}")
-    with open(file_path, 'r') as f:
+    with file_path.open() as f:
         try:
             data = json.load(f)
         except json.JSONDecodeError as e:
@@ -69,23 +74,39 @@ def validate_plugin_manifest(file_path):
         if not re.match(r'^[a-z][a-zA-Z0-9]*$', key):
             print(f"  ERROR [userConfig]: key '{key}' must be camelCase (no hyphens or underscores)")
             errors += 1
-            
+
     return errors == 0
+
+
+def discover_codex_marketplaces(root: str | Path = ".") -> Iterator[Path]:
+    """Yield Codex marketplace manifests only."""
+    root_path = Path(root)
+    candidate = root_path / ".agents" / "plugins" / "marketplace.json"
+    if candidate.is_file():
+        yield candidate
+
+
+def discover_codex_plugin_manifests(root: str | Path = ".") -> Iterator[Path]:
+    """Yield Codex plugin manifests, excluding other hosts' plugin.json files."""
+    root_path = Path(root)
+    root_manifest = root_path / ".codex-plugin" / "plugin.json"
+    if root_manifest.is_file():
+        yield root_manifest
+    agents_plugins = root_path / ".agents" / "plugins" / "plugins"
+    if agents_plugins.is_dir():
+        yield from sorted(agents_plugins.glob("*/.codex-plugin/plugin.json"))
+
 
 def main():
     success = True
-    
-    # Find all marketplace.json files
-    for root, _, files in os.walk('.'):
-        if 'marketplace.json' in files:
-            path = os.path.join(root, 'marketplace.json')
-            if not validate_marketplace(path):
-                success = False
-                
-        if 'plugin.json' in files:
-            path = os.path.join(root, 'plugin.json')
-            if not validate_plugin_manifest(path):
-                success = False
+
+    for path in discover_codex_marketplaces():
+        if not validate_marketplace(path):
+            success = False
+
+    for path in discover_codex_plugin_manifests():
+        if not validate_plugin_manifest(path):
+            success = False
 
     if not success:
         print("\nValidation failed!")

@@ -1,6 +1,6 @@
 ---
 name: apilookup
-description: "Use when any task depends on external API/framework behavior, SDK references, library versions, breaking changes, migration guides, changelogs, or release notes. Auto-activate for uncertainty about third-party docs, version compatibility, deprecations, or current syntax before implementation decisions. Produces version-verified documentation references with links to official sources, staleness warnings, and version gap notes."
+description: "Use when work depends on current external API behavior, SDK docs, framework versions, breaking changes, migration guides, changelogs, release notes, deprecations, or syntax that may have changed."
 ---
 
 # API Lookup Skill

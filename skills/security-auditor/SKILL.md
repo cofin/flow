@@ -1,6 +1,6 @@
 ---
 name: security-auditor
-description: "Auto-activate when reviewing code that handles authentication, authorization, user input, secrets, API keys, database queries, file uploads, session management, or external API calls. Produces vulnerability report with OWASP category, severity (Critical/High/Medium/Low), attack vector description, and recommended fix for each finding. Use when: security review needed, assessing attack surface, checking for OWASP vulnerabilities, reviewing access control logic, or auditing data handling. Not for general code quality, business logic review, or non-security concerns."
+description: "Use when reviewing authentication, authorization, user input, secrets, API keys, database queries, file uploads, session management, external API calls, OWASP risks, or data handling attack surface."
 ---
 
 # Security Auditor

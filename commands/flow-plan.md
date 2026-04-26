@@ -5,6 +5,8 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion
 
 # Flow Plan
 
+> Lifecycle skill: use `flow-planning` through the `flow` router.
+
 ## The Planner Mandate
 
 **CRITICAL:** `/flow:plan` is the entry point for single flows. Its primary role is to define the roadmap by creating **Beads Tasks** (source of truth) and syncing them to a human-readable `spec.md`.
@@ -45,7 +47,7 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion
 **PROTOCOL: Finalize artifacts and sync.**
 
 1. **Registry**: Append to `.agents/flows.md`.
-2. **Sync**: Run `/flow:sync` to generate the `spec.md` worksheet from the new Beads tasks.
+2. **Sync**: Follow `syncPolicy.flowSyncAfterMutation`; when enabled, run `/flow:sync` to generate the `spec.md` worksheet from the new Beads tasks.
 
 ---
 
@@ -53,5 +55,5 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion
 
 1. **BEADS FIRST** - Create tasks in the issue tracker before finalizing Markdown.
 2. **NO CODE MODIFICATION** - Planning documents only.
-3. **SYNC IS MANDATORY** - Run `/flow:sync` after planning to ensure consistency.
+3. **SYNC POLICY** - Follow `syncPolicy.flowSyncAfterMutation`; default setup runs `/flow:sync` after planning to ensure consistency.
 4. **HARD STOP** - End with explicit instruction to run `/flow:implement`.

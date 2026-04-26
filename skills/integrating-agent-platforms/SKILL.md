@@ -1,6 +1,6 @@
 ---
 name: integrating-agent-platforms
-description: Use when installing, updating, packaging, or troubleshooting Flow-like integrations across Claude Code, Gemini CLI, Codex CLI, OpenCode, or Google Antigravity
+description: "Use when installing, updating, packaging, or troubleshooting Flow integrations across Claude Code, Gemini CLI, Codex CLI, OpenCode, Cursor, VS Code/Copilot, OpenClaw, or Google Antigravity."
 ---
 
 # Integrating Agent Platforms

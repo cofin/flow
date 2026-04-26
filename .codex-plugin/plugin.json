@@ -1,0 +1,23 @@
+{
+  "name": "flow",
+  "version": "0.20.1",
+  "description": "Unified toolkit for Context-Driven Development with spec-first planning, TDD workflow, and Beads integration",
+  "author": { "name": "cofin" },
+  "homepage": "https://github.com/cofin/flow",
+  "repository": "https://github.com/cofin/flow",
+  "license": "MIT",
+  "keywords": ["flow", "context-driven-development", "beads", "tdd", "ai-agent", "workflow", "spec-first", "skills"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Flow",
+    "shortDescription": "Context-driven planning, TDD implementation, and Beads-backed memory",
+    "category": "Development",
+    "capabilities": ["Read", "Write"],
+    "defaultPrompt": [
+      "Use the Flow router and flow-setup to set up this project",
+      "Use the Flow router and flow-planning to create a PRD for user authentication",
+      "Use the Flow router and flow-planning to refine this spec into implementation-ready tasks",
+      "Use the Flow router and flow-execution to implement the current flow with TDD and verification"
+    ]
+  }
+}

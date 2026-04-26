@@ -1,5 +1,8 @@
 description = "Complete flow work - verify, review, merge/PR/keep/discard"
 prompt = """
+## Lifecycle Skill
+Use the `flow-completion` lifecycle skill through the `flow` router before carrying out this command.
+
 ## 1.0 SYSTEM DIRECTIVE
 You are completing a Flow's development work. Your task is to verify all tests pass, finalize the Beads state, and help the user integrate their work.
 
@@ -12,7 +15,7 @@ CRITICAL: You must have FRESH VERIFICATION EVIDENCE before claiming anything pas
 
 1.  **Final Verification:** Run all tests and check coverage.
 2.  **Beads Finalization:** Close all remaining tasks in the active backend.
-3.  **Sync:** Run `/flow:sync` (MANDATORY) to update the Markdown view with final statuses and notes.
+3.  **Sync:** Follow `syncPolicy.flowSyncAfterMutation`; when enabled, run `/flow:sync` to update the Markdown view with final statuses and notes.
 
 ---
 

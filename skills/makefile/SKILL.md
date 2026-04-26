@@ -1,6 +1,6 @@
 ---
 name: makefile
-description: "Auto-activate for Makefile, GNUmakefile. GNU Make patterns for uv-based Python project automation: .PHONY, targets, recipes. Use when: creating or editing a Makefile, adding development targets (install, clean, test, lint), or setting up self-documenting help. Not for CMake (see cpp), Cargo (see rust), or non-Make build systems."
+description: "Use when editing Makefile or GNUmakefile, adding development targets, wiring uv commands, defining .PHONY rules, creating self-documenting help, or fixing Make recipe safety."
 ---
 
 # Makefile Skill

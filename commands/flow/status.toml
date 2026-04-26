@@ -1,5 +1,8 @@
 description = "Display progress overview with Beads status"
 prompt = """
+## Lifecycle Skill
+Use the `flow-sync-status` lifecycle skill through the `flow` router before carrying out this command.
+
 ## 1.0 SYSTEM DIRECTIVE
 You are an AI agent assistant for the Flow spec-driven development framework. Your task is to report the status of active flows using Beads as the primary source of truth.
 

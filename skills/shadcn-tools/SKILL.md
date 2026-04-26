@@ -1,6 +1,6 @@
 ---
 name: shadcn-tools
-description: "Flow-specific supplemental patterns for shadcn/ui. Auto-activate for components.json (shadcn config), cn() utility. Tailwind component expertise for shadcn/ui. Use when: using cn() utility, Radix primitives, shadcn add, copy-paste components, component CLI, dialogs, forms, data tables, or command palettes. Not for Material UI, Chakra UI, or other component libraries."
+description: "Use when editing shadcn/ui code, components.json, cn() utility, Radix primitives, shadcn add workflows, dialogs, forms, data tables, command palettes, or Tailwind component composition."
 ---
 
 # shadcn/ui (Flow Tools)

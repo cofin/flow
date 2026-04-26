@@ -1,6 +1,6 @@
 ---
 name: tracer
-description: "Auto-activate when tracing execution paths, mapping dependencies, understanding unfamiliar code, following data flow through a system, investigating how a feature works end-to-end, or when debugging requires understanding call chains. Produces an execution map showing the path from entry point to result — with file paths, function names, data transformations, and dependency relationships at each node. Use when: need to understand how code flows from entry point to result, mapping what depends on what, exploring unfamiliar codebases systematically, or when reading random files isn't building understanding. Not for reading random files hoping to build understanding — every file opened must be because the previous file pointed you there."
+description: "Use when tracing execution paths, mapping dependencies, understanding unfamiliar code, following data flow, investigating end-to-end behavior, debugging call chains, or deciding which files to read next."
 ---
 
 # Tracer

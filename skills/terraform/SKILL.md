@@ -1,6 +1,6 @@
 ---
 name: terraform
-description: "Use when creating, adopting, refactoring, or operating Terraform configurations, especially on Google Cloud. Applies to `*.tf`, `.terraform.lock.hcl`, `terragrunt.hcl`, and `terraform` workflows involving repo layout, root modules, backends/state, workspaces versus directories, brownfield import/export, CI plan/apply pipelines, testing, and policy validation."
+description: "Use when creating, adopting, refactoring, or operating Terraform, *.tf files, .terraform.lock.hcl, terragrunt.hcl, root modules, backends, state, workspaces, imports, CI plan/apply, tests, or policy checks."
 ---
 
 # Terraform

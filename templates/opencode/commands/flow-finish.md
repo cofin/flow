@@ -21,7 +21,7 @@ Complete a Flow's development work: verify tests, dispatch code review, and inte
 
 1. Run full test suite. Read output. Confirm 0 failures.
 2. Run coverage check. Confirm target met with actual numbers.
-3. Run `/flow-sync` to ensure spec.md is current.
+3. Follow `syncPolicy.flowSyncAfterMutation`; when enabled, run `/flow-sync` to ensure spec.md is current.
 4. If any check fails, report actual results and STOP.
 
 ## Phase 3: Code Review

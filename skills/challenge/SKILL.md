@@ -1,6 +1,6 @@
 ---
 name: challenge
-description: "Auto-activate when critically questioning claims, pushing back on assumptions, disagreeing with an approach, sanity-checking contentious decisions, or when a response feels like reflexive agreement. Produces an honest assessment — confirms what holds up with evidence, identifies specific flaws, and delivers a direct verdict without hedging. Use when: validating claims, stress-testing ideas, preventing sycophantic agreement, questioning confident assertions, or saying 'are you sure about that?' Not for generating agreement, validating feelings, or confirming what the user wants to hear."
+description: "Use when questioning claims, pushing back on assumptions, sanity-checking decisions, evaluating confident assertions, avoiding reflexive agreement, or answering prompts like \"are you sure?\""
 ---
 
 # Challenge

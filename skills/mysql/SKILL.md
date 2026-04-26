@@ -1,6 +1,6 @@
 ---
 name: mysql
-description: "Auto-activate for .sql files with MySQL syntax, mysql connection strings, mysqldump. Produces MySQL/MariaDB queries, stored procedures, performance tuning, and connection patterns. Use when: writing MySQL queries, optimizing slow queries, configuring InnoDB, setting up replication, using mysql CLI, or working with MySQL connectors (Python, Node, Java). Not for PostgreSQL (see postgres), SQLite, or other databases."
+description: "Use when writing MySQL or MariaDB SQL, editing MySQL-flavored .sql files, using mysql CLI, mysqldump, connection strings, InnoDB settings, replication, stored procedures, JSON, or query tuning."
 ---
 
 # MySQL / MariaDB

@@ -1,6 +1,6 @@
 ---
 name: postgres
-description: "Auto-activate for .sql files, psql commands, postgresql.conf, psycopg/asyncpg imports. Produces PostgreSQL queries, PL/pgSQL functions, indexing strategies, and connection patterns. Use when: writing PostgreSQL queries, optimizing performance, managing security/roles/RLS, configuring replication, writing PL/pgSQL functions/triggers, working with JSONB, using extensions, planning migrations, or connecting from application code. Not for MySQL (see mysql), AlloyDB-specific features (see alloydb), or application ORM patterns (see sqlalchemy)."
+description: "Use when writing PostgreSQL SQL, editing .sql files, psql commands, postgresql.conf, psycopg or asyncpg code, indexes, JSONB, PL/pgSQL, extensions, roles, RLS, replication, migrations, or query tuning."
 ---
 
 # PostgreSQL

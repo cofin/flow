@@ -46,7 +46,7 @@ show_banner() {
     echo -e "${CYAN}"
     echo "╔══════════════════════════════════════════════════════════════╗"
     echo "║             Flow Framework - Plugin Installer                ║"
-    echo "║                       Version 0.20.0                         ║"
+    echo "║                       Version 0.20.1                         ║"
     echo "╚══════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
 
@@ -496,7 +496,8 @@ check_beads() {
         local version
         version=$(bd --version 2>/dev/null || echo "unknown")
         log_success "Official Beads (bd) installed: $version"
-        log_info "Flow setup will default to: bd init --stealth --prefix <repo-slug>"
+        log_info "Flow setup will default to: bd init --non-interactive --stealth --prefix <repo-slug> --skip-agents"
+        log_info "Flow setup will also set: bd config set no-git-ops true; bd config set export.auto false; bd config set export.git-add false"
         if command -v br &>/dev/null; then
             log_warn "Legacy br (beads_rust) detected alongside bd. Flow no longer uses br; you can uninstall it."
         fi
@@ -514,11 +515,14 @@ check_beads() {
     echo "  1) Install official Beads (bd) (recommended)"
     echo "  2) Continue without Beads"
     echo ""
+    echo "Official install options: brew install beads, npm install -g @beads/bd,"
+    echo "go install github.com/gastownhall/beads/cmd/bd@latest, or the installer script."
+    echo ""
     read -p "Select [1-2]: " -n 1 -r
     echo
     case $REPLY in
         1)
-            curl -sSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash
+            curl -fsSL https://raw.githubusercontent.com/gastownhall/beads/main/scripts/install.sh | bash
             log_success "Installed official Beads (bd)"
             log_info "Flow setup defaults to repo-slug prefixes and prefers .git/info/exclude for local-only artifacts"
             ;;

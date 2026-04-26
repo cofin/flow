@@ -1,6 +1,6 @@
 ---
 name: sqlalchemy
-description: "Auto-activate for sqlalchemy imports, mapped_column, DeclarativeBase. Produces SQLAlchemy 2.0+ ORM models, async sessions, engine configurations, and query patterns. Use when: defining SQLAlchemy models, writing ORM queries, configuring engines/sessions, using select() statements, managing relationships, or working with asyncio sessions. Not for raw SQL without ORM (see postgres/mysql), or Advanced Alchemy patterns (see advanced-alchemy)."
+description: "Use when editing SQLAlchemy code, sqlalchemy imports, mapped_column, DeclarativeBase, ORM models, relationships, select() queries, async sessions, engines, events, or migrations."
 ---
 
 # SQLAlchemy 2.0+ ORM & Core

@@ -6,6 +6,8 @@ allowed-tools: Read, Write, Bash
 
 # Flow Task
 
+> Lifecycle skill: use `flow-planning` through the `flow` router.
+
 Creating ephemeral exploration flow: **$ARGUMENTS**
 
 ## Overview

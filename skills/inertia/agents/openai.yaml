@@ -1,0 +1,3 @@
+interface:
+  display_name: "Inertia.js"
+  short_description: "Inertia pages, protocol responses, Litestar integration, and server-routed SPAs"

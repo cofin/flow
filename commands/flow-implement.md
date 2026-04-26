@@ -6,6 +6,8 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, WebSearch
 
 # Flow Implement
 
+> Lifecycle skill: use `flow-execution` through the `flow` router.
+
 Implementing flow: **$ARGUMENTS**
 
 ## The Executor Mandate
@@ -42,7 +44,7 @@ For each selected task:
 4. **Refactor**: Clean up while remaining green.
 5. **Commit**: `<type>(<scope>): <description>`.
 6. **Close Task**: Close in Beads with the commit SHA (`bd close <id> --reason "[abc1234]..."`).
-7. **Sync**: Run `/flow:sync` to update the Markdown view.
+7. **Sync**: Follow `syncPolicy.flowSyncAfterMutation`; when enabled, run `/flow:sync` to update the Markdown view.
 
 ---
 
@@ -50,7 +52,7 @@ For each selected task:
 
 1. **Verify**: Run full test suite and check coverage.
 2. **Note**: Record phase completion in Beads notes.
-3. **Sync**: Run `/flow:sync` to ensure Markdown is up to date.
+3. **Sync**: Follow `syncPolicy.flowSyncAfterMutation`; when enabled, run `/flow:sync` to ensure Markdown is up to date.
 
 ---
 
@@ -59,4 +61,4 @@ For each selected task:
 1. **TDD MANDATORY** - Failing test first.
 2. **BEADS IS SOURCE OF TRUTH** - No manual `[x]` edits in spec.md.
 3. **NOTE EVERYTHING** - Record discoveries in Beads notes immediately.
-4. **SYNC FREQUENTLY** - Run `/flow:sync` after every task.
+4. **SYNC POLICY** - Follow `.agents/beads.json` `syncPolicy.flowSyncAfterMutation`; default setup runs `/flow:sync` after every task.

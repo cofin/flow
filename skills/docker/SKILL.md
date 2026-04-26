@@ -1,6 +1,6 @@
 ---
 name: docker
-description: "Auto-activate for Dockerfile, docker-compose.yml, docker-compose.yaml, .dockerignore. Docker expertise: multi-stage builds, distroless images, Compose, BuildKit, and container optimization. Use when: writing Dockerfiles, optimizing image size, configuring docker-compose, using BuildKit features, or deploying containerized applications. Produces optimized Dockerfiles with multi-stage builds, Compose configurations, and BuildKit patterns. Not for Podman (see podman) or container orchestration (see gke/cloud-run)."
+description: "Use when editing Dockerfile, Containerfile-like Docker syntax, docker-compose.yml, docker-compose.yaml, .dockerignore, multi-stage builds, BuildKit cache mounts, Compose services, or image optimization."
 ---
 
 # Docker

@@ -1,0 +1,3 @@
+interface:
+  display_name: "Rust"
+  short_description: "Rust workspaces, async, FFI, errors, testing, platform, PyO3, and napi-rs"

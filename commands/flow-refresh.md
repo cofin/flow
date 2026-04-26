@@ -6,6 +6,8 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash
 
 # Flow Refresh
 
+> Lifecycle skill: use `flow-sync-status` through the `flow` router.
+
 Refreshing context for codebase drift: **$ARGUMENTS**
 
 ## Phase 1: Load Current Context

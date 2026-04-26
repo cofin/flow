@@ -1,6 +1,6 @@
 ---
 name: biome
-description: "Auto-activate for biome.json, biome.jsonc. Expert knowledge for Biome toolchain (Linter, Formatter). Use when configuring workspace styles, troubleshooting linter errors, or setting up ignores/overrides for frontend projects. Produces Biome linter/formatter configurations with workspace overrides. Not for ESLint, Prettier, or non-JS/TS toolchains."
+description: "Use when editing biome.json or biome.jsonc, configuring Biome linting or formatting, troubleshooting Biome diagnostics, setting ignores or overrides, or replacing ESLint/Prettier in JS and TS projects."
 ---
 
 # Biome Skill

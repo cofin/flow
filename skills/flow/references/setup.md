@@ -252,8 +252,14 @@ repo_slug="$(basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" | tr
 Official default:
 
 ```bash
-bd init --stealth --prefix "$repo_slug"
+bd init --non-interactive --stealth --prefix "$repo_slug" --skip-agents
+bd config set no-git-ops true
+bd config set export.auto false
+bd config set export.git-add false
 ```
+
+Flow owns the host instruction files, so Beads setup must skip its generated agent files.
+The config commands keep Beads local-only by default: no automatic export, no auto-staging, and no git operations in `bd prime` output.
 
 Or prompt user:
 
@@ -262,7 +268,7 @@ Or prompt user:
 > - **Local-only** (recommended) - Add ignores to `.git/info/exclude`
 > - **Team** - Commit to repo for team sharing
 
-Create `<root_directory>/beads.json` with configuration.
+Create `<root_directory>/beads.json` with local-only configuration from `templates/agent/beads.json`, including `syncPolicy.allowDoltPush: false`.
 
 ---
 

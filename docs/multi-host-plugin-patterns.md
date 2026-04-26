@@ -10,12 +10,15 @@ Reference for any repo that ships skills, commands, hooks, or agents across **Cl
 | `.claude-plugin/plugin.json` | Claude Code | Plugin manifest — declares skills, commands, hooks, **`userConfig`** |
 | `.agents/plugins/marketplace.json` | Codex CLI | Marketplace catalog (`codex plugin marketplace add owner/repo`) |
 | `.codex-plugin/plugin.json` | Codex CLI | Plugin manifest with `interface` block |
+| `.codex/agents/*.toml` | Codex CLI | Repo-local TOML subagents that inherit session tools |
 | `gemini-extension.json` | Gemini CLI | Extension manifest — `plan.directory`, **`excludeTools`**, `contextFileName` |
+| `agents/*.md` | Gemini CLI / Claude Code | Shared Markdown subagents with slug names and descriptions |
 | `hooks/hooks.json` | Gemini CLI | Auto-discovered hook manifest |
 | `hooks/hooks-claude.json` | Claude Code | Per-host hook manifest (referenced from `.claude-plugin/plugin.json`) |
-| `hooks/hooks-cursor.json` | Cursor | Per-host hook manifest |
-| `.cursor-plugin/plugin.json` | Cursor | Marketplace listing manifest |
+| `.cursor/rules/*.mdc` | Cursor | Workspace rules consumed by Cursor's supported customization surface |
+| `.github/agents/*.agent.md` | VS Code / Copilot | Workspace custom agents |
 | `.opencode/plugins/<name>.js` | OpenCode | Local plugin entrypoint with managed-config awareness |
+| `.opencode/agents/*.md` | OpenCode | Native subagents with `mode: subagent` |
 | `.gitignore` | All | Must `!`-include `.agents/plugins/marketplace.json` if `.agents/` is otherwise ignored |
 
 If `.agents/` is gitignored, use `.agents/*` (NOT `.agents/`) so git descends into the directory and honors re-includes. Then `!.agents/plugins/marketplace.json` works.
@@ -45,6 +48,7 @@ If `.agents/` is gitignored, use `.agents/*` (NOT `.agents/`) so git descends in
   "version": "<x.y.z>",
   "skills": ["./skills/"],
   "commands": ["./commands/"],
+  "agents": ["./agents/"],
   "hooks": "./hooks/hooks-claude.json",
   "userConfig": {
     "<field>": {
@@ -108,6 +112,8 @@ If `.agents/` is gitignored, use `.agents/*` (NOT `.agents/`) so git descends in
 }
 ```
 
+**Repo-local subagents** (`.codex/agents/<agent>.toml`) are pure TOML. Include `name`, `description`, and `developer_instructions`; do not include `tools`, because Codex inherits tools from the active session configuration.
+
 **Install command** (Codex CLI 0.117+):
 
 ```bash
@@ -170,31 +176,30 @@ Use `${extensionPath}` (Gemini's install-root variable) and `${/}` (cross-platfo
 
 **`plan.directory`** is the only first-class plugin-author hook for redirecting plan-mode artifacts. None of Claude/Codex/OpenCode have an equivalent — they're all user-side config.
 
-### Cursor (2.4+)
+### Cursor
 
-**Plugin manifest** (`.cursor-plugin/plugin.json` at repo root):
+Use Cursor rules and shared project instructions:
 
-```json
-{
-  "name": "<plugin>",
-  "displayName": "<Display>",
-  "version": "<x.y.z>",
-  "author": { "name": "<handle>" },
-  "description": "<...>",
-  "keywords": ["..."],
-  "license": "MIT",
-  "homepage": "https://github.com/<handle>/<repo>",
-  "repository": "https://github.com/<handle>/<repo>",
-  "hooks": "./hooks/hooks-cursor.json"
-}
+- `.cursor/rules/<name>.mdc`
+- `AGENTS.md`
+- copied or linked Agent Skills under `.agents/skills/` when needed
+
+Do not present `.cursor-plugin/plugin.json` as a supported Flow surface until Cursor documents a stable plugin API for repository-distributed agent plugins.
+
+### VS Code / Copilot
+
+**Workspace custom agents** live in `.github/agents/*.agent.md`:
+
+```markdown
+---
+name: planner
+description: Generate an implementation plan
+---
+
+Write a concrete plan with tests and validation commands.
 ```
 
-**Marketplace** ([cursor.com/marketplace](https://cursor.com/marketplace)):
-
-- Install in editor: `/add-plugin` → search.
-- Submit: PR to [github.com/cursor/plugins](https://github.com/cursor/plugins) (open-source only) OR web form at cursor.com/marketplace/publish.
-- Local dev: drop into `~/.cursor/plugins/local/<name>/` and restart.
-- Team/Enterprise plans support **private team marketplaces** with central governance.
+VS Code also discovers project skills from `.github/skills/`, `.claude/skills/`, and `.agents/skills/`. Use `chat.agentSkillsLocations` only for additional custom locations.
 
 ### OpenCode
 
@@ -301,7 +306,7 @@ git clone https://github.com/<owner>/<repo>.git ~/.config/opencode/<name>
 ln -sf ~/.config/opencode/<name>/.opencode/plugins/<name>.js ~/.config/opencode/plugins/<name>.js
 
 # Cursor
-# In editor: /add-plugin → search → install
+# Add `.cursor/rules/*.mdc` and shared `AGENTS.md` instructions.
 ```
 
 ## What NOT to ship
@@ -319,7 +324,7 @@ ln -sf ~/.config/opencode/<name>/.opencode/plugins/<name>.js ~/.config/opencode/
 python3 -c "import json; [json.load(open(p)) for p in [
   '.claude-plugin/marketplace.json', '.claude-plugin/plugin.json',
   '.agents/plugins/marketplace.json', '.codex-plugin/plugin.json',
-  '.cursor-plugin/plugin.json', 'gemini-extension.json',
+  'gemini-extension.json',
   'hooks/hooks.json', 'hooks/hooks-claude.json', 'hooks/hooks-cursor.json'
 ]]"
 

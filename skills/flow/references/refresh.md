@@ -67,6 +67,6 @@ No conflicts detected.
 
 - Never overwrite manual edits to spec.md — merge changes, don't replace
 - If conflicts are detected, present both versions and ask the user to resolve
-- Always run `/flow:sync` at the end to ensure spec.md reflects final state
+- Follow `syncPolicy.flowSyncAfterMutation`; default setup runs `/flow:sync` at the end to ensure spec.md reflects final state
 - Log the refresh action through the active backend's note/comment mechanism
 - Treat workflow drift as real refresh work, not optional cleanup

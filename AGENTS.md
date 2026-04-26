@@ -18,7 +18,7 @@ Beads is a **required dependency**. Flow will offer to install it and configures
 - **Epics**: Define Flows and Sagas.
 - **Tasks**: Define implementation steps.
 - **Notes**: Preserve context (investigation findings, architectural decisions).
-- **Markdown**: `spec.md` and `prd.md` are **Synchronized Views** of the Beads state. Run `/flow:sync` to update them.
+- **Markdown**: `spec.md` and `prd.md` are **Synchronized Views** of the Beads state. Run `/flow:sync` to update them when `syncPolicy.flowSyncAfterMutation` is enabled.
 
 ## Auto-Activation
 
@@ -48,8 +48,8 @@ To find the configured root directory:
 
 To ensure high-reasoning model routing and automated verification, all complex Flow operations MUST delegate to dedicated subagents when running in Gemini CLI:
 
-- **Planning Phase**: Commands `/flow:prd` and `/flow:plan` delegate to `@flow:prd-orchestrator` and `@flow:plan-generator` respectively. These agents use **Gemini 3.1 Pro** and MUST invoke `superpowers:brainstorming` or `superpowers:writing-plans`.
-- **Implementation Phase**: Command `/flow:implement` delegates to `@flow:executor`. This agent uses **Gemini 3.1 Pro** and MUST invoke `superpowers:test-driven-development` and `superpowers:verification-before-completion`.
+- **Planning Phase**: Commands `/flow:prd` and `/flow:plan` delegate to `@prd-orchestrator` and `@plan-generator` respectively. These agents inherit host model/tool settings and MUST invoke `superpowers:brainstorming` or `superpowers:writing-plans`.
+- **Implementation Phase**: Command `/flow:implement` delegates to `@executor`. This agent inherits host model/tool settings and MUST invoke `superpowers:test-driven-development` and `superpowers:verification-before-completion`.
 - **Validation**: All planning artifacts MUST be validated by `code-reviewer` (via `superpowers:requesting-code-review`) before being presented to the user.
 
 ## Spec & Design Documents
@@ -147,14 +147,14 @@ Every host falls into one of three tiers:
 
 | Host | Tier | Entry Point | Notes |
 | --- | --- | --- | --- |
-| **Claude Code** | first-class | `.claude-plugin/plugin.json` + `.claude-plugin/marketplace.json` | Full plugin with skills, commands, and hooks. Claude subagents are optional and not currently bundled. |
+| **Claude Code** | first-class | `.claude-plugin/plugin.json` + `.claude-plugin/marketplace.json` + `agents/*.md` | Full plugin with skills, commands, hooks, and shared Markdown subagents. |
 | **Gemini CLI** | first-class | `gemini-extension.json` + `agents/*.md`, context via `GEMINI.md` | Auto-indexed gallery (topic `gemini-cli-extension`). |
 | **Codex CLI** | first-class | `.codex-plugin/plugin.json` + `.codex/agents/*.toml` + `.codex/config.toml` | Custom agents ship as pure TOML (tools inherited from session). |
 | **OpenCode** | first-class | `.opencode/plugins/flow.js` + `.opencode/agents/*.md` + native `.claude/skills/` / `.agents/skills/` reads | JS plugin wrapper + dict-schema agents. |
-| **Cursor** | compatible bundle | `.cursor-plugin/plugin.json` | Hooks via `hooks/hooks-cursor.json`. |
-| **VS Code / Copilot** | compatible bundle | User adds path to `chat.skillsLocations` | Raw SKILL.md tree (no wrapper extension in v0.1). |
-| **Google Antigravity** | free ride | `.agent/skills/` (workspace, note **singular**) or `~/.gemini/antigravity/skills/` (global) | Symlink `.agent → .agents` in your workspace; see README install. |
-| **OpenClaw** | compatible bundle | `.agents/skills/` + `AGENTS.md` | Consumes generic Agent Skills tree without extra config. |
+| **Cursor** | compatible bundle | `.cursor/rules/*.mdc` + `AGENTS.md` | Rules and project instructions only; no repository Cursor plugin manifest. |
+| **VS Code / Copilot** | compatible bundle | `.github/agents/*.agent.md` + `.agents/skills/` | Workspace custom agents plus Agent Skills-compatible project skills. |
+| **Google Antigravity** | free ride | `.agent/skills/` (workspace, note **singular**) or `~/.gemini/antigravity/skills/` (global) | Skill-copy/symlink guidance only; see README install. |
+| **OpenClaw** | compatible bundle | Runtime `sessions_spawn` + skills discovery | Consumes Flow through runtime subagents and generic Agent Skills, not a static repo manifest. |
 
 ## File Resolution
 
@@ -162,10 +162,10 @@ Every host falls into one of three tiers:
 | --- | --- |
 | Skills | `skills/<skill-name>/SKILL.md` |
 | Slash commands | `commands/<prefix>/<command>.toml` |
-| Subagents (Claude Code, when shipped) | `.claude-plugin/agents/<agent-name>.md` (`tools` as comma-separated string of Claude tool names) |
 | Subagents (Codex CLI) | `.codex/agents/<agent-name>.toml` (pure TOML; `developer_instructions` holds the prompt; no top-level `tools` — inherited from session `config.toml`) |
-| Subagents (Gemini CLI) | `agents/<agent-name>.md` (`tools` as YAML list of Gemini tool names) |
+| Subagents (Gemini CLI / Claude Code plugin) | `agents/<agent-name>.md` (portable Markdown, slug `name`, required `description`, host-specific tool lists omitted) |
 | Subagents (OpenCode) | `.opencode/agents/<agent-name>.md` (`tools` as dict mapping + `mode: subagent`) |
+| Subagents (VS Code / Copilot) | `.github/agents/<agent-name>.agent.md` |
 | MCP servers | `mcp-servers/<server-name>/` |
 | Hooks | `hooks/*.json` + `hooks/session-start` |
 | Templates | `templates/skill-template/` |
@@ -189,12 +189,14 @@ The following external repositories provide comprehensive, host-verified skills 
 | `[!]` | Blocked | `blocked` | Beads -> MD |
 | `[-]` | Skipped | `closed` | Beads -> MD |
 
-**IMPORTANT:** Agents MUST NOT edit these markers manually. Run `/flow:sync` to reflect Beads state in Markdown.
+**IMPORTANT:** Agents MUST NOT edit these markers manually. Use `/flow:sync` to reflect Beads state in Markdown when `syncPolicy.flowSyncAfterMutation` is enabled.
 
 ## Commands
 
 **Host note:** Gemini CLI and OpenCode expose these as `/flow:*`. Claude Code uses `/flow-*`.
 Codex currently runs the same workflows through the installed Flow skill and plain-language requests rather than plugin-defined slash commands.
+
+**Lifecycle routing:** Keep `flow` as the small router skill. After it triggers, load the specific lifecycle skill: `flow-setup` for initialization and validation, `flow-planning` for PRD/spec/refine/revise/research/task work, `flow-execution` for implementation and TDD, `flow-sync-status` for sync/status/refresh/cleanup, and `flow-completion` for review/finish/archive/revert/docs.
 
 | Command | Purpose |
 |---------|---------|
@@ -244,20 +246,38 @@ Official default:
 
 ```bash
 repo_slug="$(basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-//; s/-$//')"
-bd init --stealth --prefix "$repo_slug"
+bd init --non-interactive --stealth --prefix "$repo_slug" --skip-agents
+bd config set no-git-ops true
+bd config set export.auto false
+bd config set export.git-add false
 ```
 
-For local-only use, prefer `.git/info/exclude` instead of editing `.gitignore`.
+For local-only use, prefer `.git/info/exclude` instead of editing `.gitignore`. Flow defaults to no automatic Beads export, no auto-staging, and no git operations in Beads priming.
 
 ### Configuration (`.agents/beads.json`)
 
 ```json
 {
   "enabled": true,
-  "sync": "bidirectional",
+  "localOnly": true,
+  "sync": "manual",
   "epicPrefix": "flow",
   "autoCreateTasks": true,
   "autoSyncOnComplete": true,
+  "bdConfig": {
+    "no-git-ops": true,
+    "export.auto": false,
+    "export.git-add": false
+  },
+  "syncPolicy": {
+    "flowSyncAfterMutation": true,
+    "autoExport": false,
+    "autoGitAdd": false,
+    "allowDoltPush": false
+  },
+  "dolt": {
+    "push": "never"
+  },
   "taskStatusMapping": {
     "open": "[ ]",
     "in_progress": "[~]",
@@ -266,6 +286,12 @@ For local-only use, prefer `.git/info/exclude` instead of editing `.gitignore`.
   }
 }
 ```
+
+### Sync and Export Policy
+
+Agents MUST read `.agents/beads.json` before running export or backend sync commands. `syncPolicy.flowSyncAfterMutation` controls whether Flow immediately runs `/flow:sync` after Beads mutations. `syncPolicy.autoExport` and `syncPolicy.autoGitAdd` map to `bd config set export.auto false` and `bd config set export.git-add false` for local-only defaults.
+
+Do not run `bd dolt push` unless the user explicitly requests it or `.agents/beads.json` sets `syncPolicy.allowDoltPush` to `true` and `dolt.push` to an opt-in value.
 
 ### Key Beads Commands
 
@@ -279,8 +305,16 @@ For local-only use, prefer `.git/info/exclude` instead of editing `.gitignore`.
 | Block task | Use the active backend's blocking command |
 | Get ready tasks | Use the active backend's ready queue |
 | Add notes | Use the active backend's notes/comments command |
-| Sync to git | Use the active backend's sync/export command if enabled |
+| Sync/export to git | Use the active backend's sync/export command only when `syncPolicy.autoExport` or explicit user instruction allows it |
+| Dolt push | Use `bd dolt push` only when `syncPolicy.allowDoltPush` is enabled or explicitly requested |
 | Show blocked | Use the active backend's blocked-view command |
+
+### Memory Policy
+
+- Durable cross-session facts: `bd remember "..." --key <repo>:<topic>`
+- Task-local findings: `bd note <id> "..."`
+- Structured tasks: prefer `bd create --context --design --acceptance --metadata --skills --spec-id`
+- Session priming: run or inject `bd prime --mcp` where host hooks support MCP-aware context injection; otherwise use `bd prime`
 
 **CRITICAL:** Keep purpose/description separate from context notes/comments:
 
@@ -395,9 +429,9 @@ State tracked in `parallel_state.json`. Uses the `invoke_subagent` tool to spawn
 6. **Refactor** while green.
 7. **Commit**: `<type>(<scope>): <description>`.
 8. **Close task** in Beads with the commit SHA: `bd close <id> --reason "[abc1234]..."`.
-9. **Sync to markdown**: Run `/flow:sync` (MANDATORY — keeps spec.md readable).
+9. **Sync to markdown**: Run `/flow:sync` when `syncPolicy.flowSyncAfterMutation` is enabled (default).
 
-**CRITICAL:** After ANY Beads state change, agents MUST run `/flow:sync`. Never write markers (`[x]`, `[~]`, etc.) directly to spec.md.
+**CRITICAL:** After Beads state changes, agents MUST follow `syncPolicy.flowSyncAfterMutation` in `.agents/beads.json`. Never write markers (`[x]`, `[~]`, etc.) directly to spec.md.
 
 **Important:** All commits stay local. Flow never pushes automatically.
 
@@ -435,6 +469,7 @@ gemini extensions link .
 
 # Install official Beads
 brew install beads
-# or
-curl -sSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash
+npm install -g @beads/bd
+go install github.com/gastownhall/beads/cmd/bd@latest
+curl -fsSL https://raw.githubusercontent.com/gastownhall/beads/main/scripts/install.sh | bash
 ```

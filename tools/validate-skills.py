@@ -13,9 +13,8 @@ enforces:
   resolves relative to the file.
 * ``commands/**/*.toml`` parses as TOML and has top-level ``description`` (str,
   <= 1024 chars) and ``prompt`` (non-empty str).
-* ``agents/*.md`` frontmatter has ``name`` matching filename, ``description``
-  (<= 1024 chars), ``mode`` in {subagent, primary}, and ``tools`` mapping with
-  whitelisted keys and bool values.
+* ``agents/*.md``, ``.codex/agents/*.toml``, ``.opencode/agents/*.md``, and
+  ``.github/agents/*.agent.md`` use host-native subagent schemas.
 * Shipped content (skills, commands, agents, and the root ``AGENTS.md`` /
   ``CONTRIBUTING.md`` / ``README.md`` / ``GEMINI.md``) contains no references
   to the framework authoring tree — except the user-install convention path
@@ -61,6 +60,7 @@ COMMANDS_DIR = REPO_ROOT / "commands"
 # `agents/` at repo root is Gemini CLI's extension subagents directory.
 # `.opencode/agents/` is OpenCode's project-scoped subagents directory.
 # `.claude-plugin/agents/` is Claude Code's plugin subagents directory.
+# `.github/agents/` is VS Code / Copilot's workspace custom agent directory.
 # All three hosts use incompatible frontmatter schemas, so each location is
 # validated by its own rules (see `validate_gemini_agent` /
 # `validate_opencode_agent` / `validate_claude_agent`).
@@ -68,9 +68,18 @@ AGENTS_DIR = REPO_ROOT / "agents"
 OPENCODE_AGENTS_DIR = REPO_ROOT / ".opencode" / "agents"
 CLAUDE_AGENTS_DIR = REPO_ROOT / ".claude-plugin" / "agents"
 CODEX_AGENTS_DIR = REPO_ROOT / ".codex" / "agents"
+VSCODE_AGENTS_DIR = REPO_ROOT / ".github" / "agents"
 SHIPPED_ROOT_FILES = ("AGENTS.md", "CONTRIBUTING.md", "README.md", "GEMINI.md")
 
 MAX_DESCRIPTION_CHARS = 1024
+MAX_SKILL_DESCRIPTION_CHARS = 500
+SKILL_DESCRIPTION_PREFIX = "Use when"
+FORBIDDEN_SKILL_DESCRIPTION_TERMS = (
+    "Auto-activate",
+    "Produces",
+    "Expert knowledge",
+    "Comprehensive",
+)
 
 REQUIRED_SECTIONS = ("workflow", "guardrails", "validation", "example")
 
@@ -170,6 +179,7 @@ _CROSS_HOST_HOOK_FALLBACK = "${CLAUDE_PLUGIN_ROOT:-${extensionPath}}"
 # Codex nickname_candidates entries: ASCII letters, digits, spaces, hyphens,
 # underscores only. Per https://developers.openai.com/codex/subagents.
 _CODEX_NICKNAME_PATTERN = re.compile(r"^[A-Za-z0-9 _-]+$")
+_AGENT_REFERENCE_PATTERN = re.compile(r"@([A-Za-z][A-Za-z0-9:_-]*)")
 
 
 class Violation(NamedTuple):
@@ -372,6 +382,54 @@ def _check_description(desc: object, path: Path, line: int) -> list[Violation]:
     return out
 
 
+def _check_skill_description(desc: object, path: Path, line: int) -> list[Violation]:
+    out = _check_description(desc, path, line)
+    if not isinstance(desc, str) or not desc.strip():
+        return out
+    if len(desc) > MAX_SKILL_DESCRIPTION_CHARS:
+        out.append(
+            Violation(
+                path,
+                line,
+                f"skill description length {len(desc)} > {MAX_SKILL_DESCRIPTION_CHARS}",
+            )
+        )
+    if not desc.startswith(SKILL_DESCRIPTION_PREFIX):
+        out.append(Violation(path, line, "skill description must start with 'Use when'"))
+    lowered = desc.lower()
+    for term in FORBIDDEN_SKILL_DESCRIPTION_TERMS:
+        if term.lower() in lowered:
+            out.append(
+                Violation(
+                    path,
+                    line,
+                    f"skill description contains workflow/output summary term {term!r}",
+                )
+            )
+    return out
+
+
+def _validate_openai_metadata(skill_path: Path) -> list[Violation]:
+    metadata_path = skill_path.parent / "agents" / "openai.yaml"
+    if not metadata_path.is_file():
+        return [Violation(skill_path, 1, "agents/openai.yaml missing")]
+    try:
+        data = yaml.safe_load(metadata_path.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError) as exc:
+        return [Violation(metadata_path, 1, f"YAML parse error: {exc}")]
+    if not isinstance(data, dict):
+        return [Violation(metadata_path, 1, "agents/openai.yaml must be a mapping")]
+    interface = data.get("interface")
+    if not isinstance(interface, dict):
+        return [Violation(metadata_path, 1, "agents/openai.yaml must contain interface mapping")]
+    violations: list[Violation] = []
+    for field in ("display_name", "short_description"):
+        value = interface.get(field)
+        if not isinstance(value, str) or not value.strip():
+            violations.append(Violation(metadata_path, 1, f"interface.{field} missing or empty"))
+    return violations
+
+
 def _section_present(body: str, section: str) -> bool:
     if _XML_TAG_PATTERNS[section].search(body):
         return True
@@ -389,7 +447,8 @@ def validate_skill(path: Path) -> list[Violation]:
     fm_name = fm.get("name")
     if fm_name != expected_name:
         violations.append(Violation(path, 1, f"name {fm_name!r} != parent dir {expected_name!r}"))
-    violations.extend(_check_description(fm.get("description"), path, 1))
+    violations.extend(_check_skill_description(fm.get("description"), path, 1))
+    violations.extend(_validate_openai_metadata(path))
     for section in REQUIRED_SECTIONS:
         if not _section_present(body, section):
             violations.append(
@@ -543,6 +602,72 @@ def validate_claude_agent(path: Path) -> list[Violation]:
             continue
         if entry not in VALID_CLAUDE_TOOLS:
             violations.append(Violation(path, 1, f"tool {entry!r} not in Claude tool registry"))
+    return violations
+
+
+def validate_vscode_agent(path: Path) -> list[Violation]:
+    """Validate a VS Code / Copilot custom agent file.
+
+    VS Code discovers workspace agents from ``.github/agents/*.agent.md``.
+    The frontmatter may be minimal; Flow requires explicit ``name`` and
+    ``description`` so the same agent identity is testable across hosts.
+    """
+    violations: list[Violation] = []
+    if not path.name.endswith(".agent.md"):
+        violations.append(Violation(path, 1, "VS Code custom agents must use the .agent.md extension"))
+    text = path.read_text(encoding="utf-8")
+    try:
+        fm, _body_start, _body = extract_frontmatter(text)
+    except ValueError as exc:
+        return [Violation(path, 1, str(exc))]
+    expected_name = path.name.removesuffix(".agent.md")
+    if fm.get("name") != expected_name:
+        violations.append(Violation(path, 1, f"name {fm.get('name')!r} != filename stem {expected_name!r}"))
+    violations.extend(_check_description(fm.get("description"), path, 1))
+    tools = fm.get("tools")
+    if tools is not None:
+        if not isinstance(tools, list):
+            violations.append(Violation(path, 1, "tools must be a list when present"))
+        else:
+            for entry in cast("list[Any]", tools):  # type: ignore[redundant-cast]
+                if not isinstance(entry, str) or not entry.strip():
+                    violations.append(Violation(path, 1, "tools entries must be non-empty strings"))
+    agents = fm.get("agents")
+    if agents is not None:
+        if agents != "*" and not isinstance(agents, list):
+            violations.append(Violation(path, 1, "agents must be '*' or a list when present"))
+        elif isinstance(agents, list):
+            for entry in cast("list[Any]", agents):  # type: ignore[redundant-cast]
+                if not isinstance(entry, str) or not entry.strip():
+                    violations.append(Violation(path, 1, "agents entries must be non-empty strings"))
+    return violations
+
+
+def validate_command_agent_references(path: Path) -> list[Violation]:
+    """Validate Flow command prompts reference shipped agents by slug.
+
+    Gemini's subagent mention syntax uses the slug from ``agents/<slug>.md``.
+    Namespaced mentions like ``@flow:executor`` are invalid for the shipped
+    root ``agents/`` bundle.
+    """
+    violations: list[Violation] = []
+    try:
+        data = _toml_loads(path.read_text(encoding="utf-8"))
+    except _TOMLDecodeError as exc:
+        return [Violation(path, 1, f"TOML parse error: {exc}")]
+    prompt = data.get("prompt")
+    if not isinstance(prompt, str):
+        return violations
+    known_agents = {agent_path.stem for agent_path in iter_gemini_agents()}
+    for match in _AGENT_REFERENCE_PATTERN.finditer(prompt):
+        mention = match.group(1)
+        if mention.startswith("flow:"):
+            violations.append(
+                Violation(path, 1, f"agent mention '@{mention}' must use the slug without the flow: namespace")
+            )
+            continue
+        if mention in {"code-reviewer", "executor", "plan-generator", "prd-orchestrator"} and mention not in known_agents:
+            violations.append(Violation(path, 1, f"agent mention '@{mention}' has no matching agents/{mention}.md"))
     return violations
 
 
@@ -741,8 +866,37 @@ def iter_opencode_agents() -> Iterator[Path]:
 
 
 def iter_claude_agents() -> Iterator[Path]:
+    seen: set[Path] = set()
     if CLAUDE_AGENTS_DIR.is_dir():
-        yield from sorted(CLAUDE_AGENTS_DIR.glob("*.md"))
+        for path in sorted(CLAUDE_AGENTS_DIR.glob("*.md")):
+            resolved = path.resolve()
+            seen.add(resolved)
+            yield path
+
+    manifest_path = REPO_ROOT / ".claude-plugin" / "plugin.json"
+    if not manifest_path.is_file():
+        return
+    try:
+        data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return
+    agents = data.get("agents") if isinstance(data, dict) else None
+    if isinstance(agents, str):
+        agent_paths: Iterable[str] = (agents,)
+    elif isinstance(agents, list):
+        agent_paths = (entry for entry in agents if isinstance(entry, str))
+    else:
+        return
+    for raw_path in agent_paths:
+        resolved, error = _resolve_plugin_path(manifest_path, raw_path)
+        if error is not None or resolved is None or not resolved.is_dir():
+            continue
+        for path in sorted(resolved.glob("*.md")):
+            real = path.resolve()
+            if real in seen:
+                continue
+            seen.add(real)
+            yield path
 
 
 def iter_codex_agents() -> Iterator[Path]:
@@ -750,8 +904,13 @@ def iter_codex_agents() -> Iterator[Path]:
         yield from sorted(CODEX_AGENTS_DIR.glob("*.toml"))
 
 
+def iter_vscode_agents() -> Iterator[Path]:
+    if VSCODE_AGENTS_DIR.is_dir():
+        yield from sorted(VSCODE_AGENTS_DIR.glob("*.agent.md"))
+
+
 def iter_manifests() -> Iterator[Path]:
-    for host in (".claude-plugin", ".codex-plugin", ".cursor-plugin"):
+    for host in (".claude-plugin", ".codex-plugin"):
         candidate = REPO_ROOT / host / "plugin.json"
         if candidate.is_file():
             yield candidate
@@ -801,6 +960,11 @@ def iter_all_shipped_files() -> Iterator[Path]:
         yield from sorted(CLAUDE_AGENTS_DIR.rglob("*.md"))
     if CODEX_AGENTS_DIR.is_dir():
         yield from sorted(CODEX_AGENTS_DIR.rglob("*.toml"))
+    if VSCODE_AGENTS_DIR.is_dir():
+        yield from sorted(VSCODE_AGENTS_DIR.rglob("*.md"))
+    cursor_rules_dir = REPO_ROOT / ".cursor" / "rules"
+    if cursor_rules_dir.is_dir():
+        yield from sorted(cursor_rules_dir.rglob("*.mdc"))
     for name in SHIPPED_ROOT_FILES:
         candidate = REPO_ROOT / name
         if candidate.is_file():
@@ -835,6 +999,7 @@ def main() -> int:
     opencode_agents = list(iter_opencode_agents())
     claude_agents = list(iter_claude_agents())
     codex_agents = list(iter_codex_agents())
+    vscode_agents = list(iter_vscode_agents())
     manifests = list(iter_manifests())
     claude_hook_configs = list(iter_claude_hook_configs())
     gemini_hook_configs = list(iter_gemini_hook_configs())
@@ -844,6 +1009,7 @@ def main() -> int:
         all_violations.extend(validate_skill(skill_path))
     for cmd_path in commands:
         all_violations.extend(validate_command(cmd_path))
+        all_violations.extend(validate_command_agent_references(cmd_path))
     for agent_path in gemini_agents:
         all_violations.extend(validate_gemini_agent(agent_path))
     for agent_path in opencode_agents:
@@ -852,6 +1018,8 @@ def main() -> int:
         all_violations.extend(validate_claude_agent(agent_path))
     for agent_path in codex_agents:
         all_violations.extend(validate_codex_agent(agent_path))
+    for agent_path in vscode_agents:
+        all_violations.extend(validate_vscode_agent(agent_path))
     for hook_config_path in claude_hook_configs:
         all_violations.extend(validate_claude_hook_config(hook_config_path))
     for hook_config_path in gemini_hook_configs:
@@ -863,7 +1031,7 @@ def main() -> int:
         _print_violations(all_violations)
         print(f"\n{len(all_violations)} violation(s)", file=sys.stderr)
         return 1
-    agent_total = len(gemini_agents) + len(opencode_agents) + len(claude_agents) + len(codex_agents)
+    agent_total = len(gemini_agents) + len(opencode_agents) + len(claude_agents) + len(codex_agents) + len(vscode_agents)
     print(f"[ OK ] validated {len(skills)} skills, {len(commands)} commands, {agent_total} agents — no violations")
     return 0
 

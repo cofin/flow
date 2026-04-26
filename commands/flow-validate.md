@@ -5,6 +5,8 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash
 
 # Flow Validate
 
+> Lifecycle skill: use `flow-setup` through the `flow` router.
+
 Validate Flow project integrity and optionally fix issues.
 
 ## Phase 1: Directory Structure

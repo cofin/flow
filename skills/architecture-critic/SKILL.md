@@ -1,6 +1,6 @@
 ---
 name: architecture-critic
-description: "Auto-activate when evaluating system architecture, reviewing component boundaries, assessing coupling between modules, planning large refactors, introducing new layers or abstractions, or when design decisions have long-term structural consequences. Produces structural assessment with boundary evaluation, coupling analysis, and time-horizon risk — what will be painful to change in 6-12 months. Use when: architecture review needed, evaluating maintainability of a design, checking for premature abstraction or missing abstraction, or assessing whether component boundaries are in the right place. Not for code style, naming conventions, or implementation details within well-bounded components."
+description: "Use when evaluating architecture, component boundaries, coupling, cohesion, abstractions, large refactors, new layers, maintainability risks, or design choices with long-term structural consequences."
 ---
 
 # Architecture Critic

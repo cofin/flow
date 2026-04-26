@@ -1,6 +1,6 @@
 ---
 name: saq
-description: "Auto-activate for saq imports, SAQ task queue configuration. SAQ (Simple Async Queue): async task queues, background jobs, cron scheduling, worker lifecycle. Produces SAQ task definitions, Worker setup, CronJob scheduling, and queue configuration. Use when: defining background tasks, enqueueing jobs, scheduling cron work, or managing worker lifecycle. Not for Celery, RQ, or Dramatiq -- SAQ has its own async-native patterns. For Litestar integration (SAQPlugin, DI, web UI, CLI), see flow:litestar."
+description: "Use when editing SAQ task queues, saq imports, background jobs, async workers, enqueueing jobs, CronJob schedules, queue configuration, worker lifecycle, or async-native task processing."
 ---
 
 # SAQ (Simple Async Queue) Skill

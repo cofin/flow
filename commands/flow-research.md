@@ -6,6 +6,8 @@ allowed-tools: Read, Glob, Grep, Bash, WebSearch
 
 # Flow Research
 
+> Lifecycle skill: use `flow-planning` through the `flow` router.
+
 Conducting research for: **$ARGUMENTS**
 
 ## Phase 0: Setup Check

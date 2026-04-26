@@ -6,11 +6,13 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash
 
 # Flow Sync
 
+> Lifecycle skill: use `flow-sync-status` through the `flow` router.
+
 Syncing active backend state to disk for flow: **$ARGUMENTS**
 
 ## The Bridge Mandate
 
-**CRITICAL:** `/flow:sync` is the primary bridge between the **Beads Source of Truth** and the **Markdown View**. It should be run after every task completion, note addition, or status change in Beads.
+**CRITICAL:** `/flow:sync` is the primary bridge between the **Beads Source of Truth** and the **Markdown View**. Default setup runs it after task completion, note addition, or status changes when `syncPolicy.flowSyncAfterMutation` is enabled.
 
 ---
 
@@ -22,6 +24,10 @@ Syncing active backend state to disk for flow: **$ARGUMENTS**
     - Use the injected **Flow Root** for all artifact paths.
     - Use the injected **Beads Backend** for sync and task management.
 2. **Fallback (if context missing):** Use `.agents/` as the default root.
+3. **Read Beads Config:** Load `<root_directory>/beads.json` if present.
+    - Respect `syncPolicy.flowSyncAfterMutation` when deciding whether a sync should run automatically.
+    - Respect `syncPolicy.autoExport` and `syncPolicy.autoGitAdd` before running any Beads export or staging command.
+    - Respect `syncPolicy.allowDoltPush` and `dolt.push` before any Dolt push operation.
 
 ---
 
@@ -50,6 +56,8 @@ Resolve the active backend first (check hook context or beads.json):
 
 - `bd`: use the official Beads show/export command. **CRITICAL:** Pull all `notes` for the epic and its tasks.
 - no-Beads: skip backend export and preserve markdown-only task state.
+
+If `syncPolicy.autoExport` is false, do not run Beads export commands as a side effect of `/flow:sync`; read from the backend and update Flow markdown views only. Do not run `bd dolt push` unless the user explicitly requests it or `.agents/beads.json` sets `syncPolicy.allowDoltPush` to `true`.
 
 Parse the backend output. Map statuses to markdown markers:
 
@@ -124,3 +132,4 @@ Updated: .agents/specs/{flow_id}/spec.md
 3. **MATCH CAREFULLY** - Match tasks by title.
 4. **IDEMPOTENT** - Running sync multiple times produces the same result.
 5. **NO HARDCODED BACKEND** - Support `bd` and markdown-only mode gracefully.
+6. **NO IMPLICIT EXPORT OR PUSH** - Do not export, auto-stage, or run `bd dolt push` unless `.agents/beads.json` explicitly allows it or the user asks for it.

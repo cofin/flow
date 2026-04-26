@@ -1,5 +1,8 @@
 description = "Update spec/plan when implementation reveals issues"
 prompt = """
+## Lifecycle Skill
+Use the `flow-planning` lifecycle skill through the `flow` router before carrying out this command.
+
 ## SYSTEM DIRECTIVE
 You are revising a flow's spec or plan because implementation has revealed new information. All revisions must be documented.
 
@@ -117,7 +120,7 @@ bd close {task_id} --reason "Removed in revision"
 
 ### Markdown Sync (Manual)
 
-**CRITICAL:** Do NOT write markers directly to spec.md. It is MANDATORY that you run `/flow:sync` to update the markdown state after any task completion or status change.
+**CRITICAL:** Do NOT write markers directly to spec.md. Follow `syncPolicy.flowSyncAfterMutation`; when enabled, run `/flow:sync` to update the markdown state after task completion or status changes.
 
 ## Phase 8: Commit Revision
 

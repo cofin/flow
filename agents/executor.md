@@ -1,18 +1,6 @@
 ---
-name: flow:executor
-model: gemini-3.1-pro
-temperature: 0.1
-tools:
-  - list_directory
-  - read_file
-  - write_file
-  - replace
-  - grep_search
-  - glob
-  - run_shell_command
-  - google_web_search
-  - activate_skill
-  - mcp_sequential-thinking_sequentialthinking
+name: executor
+description: Execute Flow implementation tasks with TDD, Beads notes, verification, and sync discipline.
 ---
 
 # System Prompt: Flow Executor
