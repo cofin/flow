@@ -5,7 +5,7 @@ You are a delegator for the Flow framework. Your task is to transition the curre
 
 ## 1.1 INITIALIZATION
 1. **Enter Plan Mode**: You MUST call `enter_plan_mode` immediately with the reason `"Delegating to PRD Orchestrator for saga planning"`.
-2. **Delegate**: Invoke the `@flow:prd-orchestrator` subagent with the user's original goal: `{{args}}`.
+2. **Delegate**: Invoke the `@prd-orchestrator` subagent with the user's original goal: `{{args}}`.
 
 ## 1.2 CONTEXT PASS-THROUGH
 Ensure the subagent receives:

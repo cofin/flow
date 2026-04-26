@@ -16,7 +16,7 @@ CRITICAL: You must validate the success of every tool call.
     - Exact file/line targets.
     - Implementation strategy (code snippets).
     - Expected failure reason for TDD.
-4.  **Sync Markdown:** Run `/flow:sync` to reflect these details in `spec.md`.
+4.  **Sync Markdown:** Follow `syncPolicy.flowSyncAfterMutation`; when enabled, run `/flow:sync` to reflect these details in `spec.md`.
 
 Repeat until the task no longer depends on avoidable guesswork.
 
@@ -25,6 +25,6 @@ Repeat until the task no longer depends on avoidable guesswork.
 ## 5.0 COMPLETION (HARD STOP)
 Announce:
 > "**REFINEMENT COMPLETE - IMPLEMENTATION READY**
-> Flow '<flow_id>' refined in Beads. Run `/flow:sync` to see the worksheet.
+> Flow '<flow_id>' refined in Beads. Run `/flow:sync` to see the worksheet when `syncPolicy.flowSyncAfterMutation` is enabled.
 > To begin implementation, run: `/flow:implement <flow_id>`"
 """

@@ -23,7 +23,7 @@ Refining flow: **$ARGUMENTS**
     - Exact file/line targets.
     - Implementation strategy (code snippets).
     - Expected failure reason for TDD.
-3. **Sync Markdown**: Run `/flow:sync` to reflect these details in `spec.md`.
+3. **Sync Markdown**: Follow `syncPolicy.flowSyncAfterMutation`; when enabled, run `/flow:sync` to reflect these details in `spec.md`.
 
 ---
 
@@ -31,7 +31,7 @@ Refining flow: **$ARGUMENTS**
 
 **PROTOCOL: Finalize and sync.**
 
-1. **Sync**: Run `/flow:sync` to ensure `spec.md` acts as a perfect worksheet.
+1. **Sync**: Follow `syncPolicy.flowSyncAfterMutation`; when enabled, run `/flow:sync` to ensure `spec.md` acts as a perfect worksheet.
 2. **Hard Stop**: End with explicit instruction to run `/flow:implement`.
 
 ---
@@ -40,4 +40,4 @@ Refining flow: **$ARGUMENTS**
 
 1. **NO GUESSWORK** - Forbid vague instructions like "wire up".
 2. **BEADS FIRST** - Store refined detail in Beads notes/descriptions.
-3. **SYNC AFTER REFINE** - Run `/flow:sync` to generate the worksheet.
+3. **SYNC AFTER REFINE** - Follow `syncPolicy.flowSyncAfterMutation`; default setup runs `/flow:sync` to generate the worksheet.

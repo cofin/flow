@@ -12,7 +12,7 @@ CRITICAL: You must have FRESH VERIFICATION EVIDENCE before claiming anything pas
 
 1.  **Final Verification:** Run all tests and check coverage.
 2.  **Beads Finalization:** Close all remaining tasks in the active backend.
-3.  **Sync:** Run `/flow:sync` (MANDATORY) to update the Markdown view with final statuses and notes.
+3.  **Sync:** Follow `syncPolicy.flowSyncAfterMutation`; when enabled, run `/flow:sync` to update the Markdown view with final statuses and notes.
 
 ---
 

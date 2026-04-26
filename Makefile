@@ -13,6 +13,7 @@
 # limitations under the License.
 
 SHELL := /bin/bash
+.SHELLFLAGS := -eu -o pipefail -c
 # =============================================================================
 # Variables
 # =============================================================================
@@ -55,6 +56,12 @@ validate-skills:                                   ## Validate skill / command /
 	@uv run tools/validate-skills.py
 	@echo "${OK} Skill manifests valid"
 
+.PHONY: validate-codex-manifest
+validate-codex-manifest:                           ## Validate Codex marketplace and plugin manifests
+	@echo "${INFO} Validating Codex manifests..."
+	@uv run tools/validate-codex-manifest.py
+	@echo "${OK} Codex manifests valid"
+
 .PHONY: sync-manifests
 sync-manifests:                                    ## Sync version strings across all manifests
 	@echo "${INFO} Syncing version strings..."
@@ -62,7 +69,7 @@ sync-manifests:                                    ## Sync version strings acros
 	@echo "${OK} Version strings in sync"
 
 .PHONY: check
-check: lint validate-skills sync-manifests          ## Run all quality checks (lint + validate)
+check: lint validate-skills validate-codex-manifest sync-manifests ## Run all quality checks (lint + validate)
 	@echo "${OK} All checks passed"
 
 .PHONY: build

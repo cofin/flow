@@ -13,6 +13,11 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
 1.  **Check Arguments:** 
     *   If `{{args}}` contains `--export`, set a flag to generate an export summary at the end.
     *   Otherwise, standard sync and refresh.
+2.  **Read Sync Policy:**
+    *   Load `.agents/beads.json` if present.
+    *   Respect `syncPolicy.flowSyncAfterMutation` when deciding whether this command should run automatically.
+    *   Respect `syncPolicy.autoExport` and `syncPolicy.autoGitAdd` before any backend export or staging command.
+    *   Respect `syncPolicy.allowDoltPush` and `dolt.push` before any Dolt push operation.
 
 ---
 
@@ -24,6 +29,7 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
 3.  **Resolve Active Backend:** `bd` or `none`.
 4.  **Fetch States:**
     *   **Backend State:** Pull all tasks AND notes/comments.
+    *   If `syncPolicy.autoExport` is false, read backend state without running Beads export as a side effect.
 5.  **Regenerate Spec Task Section:**
     *   Map backend statuses to markdown markers.
     *   Match tasks by title.
@@ -85,6 +91,7 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
     * Gather Git Stats (commits) and Test Coverage.
     * Output Markdown/JSON report to `.agents/export.[md|json]`.
     * Announce completion of export.
+2.  Do not run `bd dolt push` unless the user explicitly requested it or `.agents/beads.json` sets `syncPolicy.allowDoltPush` to `true`.
 
 ---
 
@@ -108,4 +115,5 @@ Report:
 3.  **DETECT DON'T ASSUME** - Verify before updating tech-stack.md or patterns.md
 4.  **ASK FIRST** - Confirm documentation changes with user
 5.  **NO HARDCODED BACKEND** - Support `bd` and markdown-only mode gracefully
+6.  **NO IMPLICIT EXPORT OR PUSH** - Do not export, auto-stage, or run `bd dolt push` unless `.agents/beads.json` explicitly allows it or the user asks for it
 """

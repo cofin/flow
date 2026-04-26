@@ -4,7 +4,7 @@ prompt = """
 You are a delegator for the Flow framework. Your task is to transition the current request to the high-reasoning "Executor" subagent to ensure proper model routing and TDD discipline.
 
 ## 1.1 DELEGATION
-1. **Delegate**: Invoke the `@flow:executor` subagent with the user's request: `{{args}}`.
+1. **Delegate**: Invoke the `@executor` subagent with the user's request: `{{args}}`.
 
 ## 1.2 CONTEXT PASS-THROUGH
 Ensure the subagent receives:

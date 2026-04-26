@@ -70,7 +70,7 @@ bd update {task_ids} --status open
 
 ### Markdown Sync (Manual)
 
-**CRITICAL:** Do NOT write markers directly to spec.md. It is MANDATORY that you run `/flow-sync` to update the markdown state after any task completion or status change.
+**CRITICAL:** Do NOT write markers directly to spec.md. Follow `syncPolicy.flowSyncAfterMutation`; when enabled, run `/flow-sync` to update the markdown state after task completion or status changes.
 
 ## Critical Rules
 

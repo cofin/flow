@@ -201,7 +201,7 @@ At end of each phase:
 4. **Create checkpoint commit**: `git commit -m "chore(checkpoint): complete phase {N}"`
 5. **Prompt for pattern elevation**: "Are there learnings from this phase to elevate to `patterns.md`?"
 6. **Record checkpoint in Beads**: use the active backend's note/comment command
-7. **Sync to markdown**: run `/flow:sync` (MANDATORY)
+7. **Sync to markdown**: follow `syncPolicy.flowSyncAfterMutation`; when enabled, run `/flow:sync`
 8. **Ask user to verify**
 
 **Verification red flags — STOP before claiming completion:**

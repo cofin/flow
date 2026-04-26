@@ -1,0 +1,8 @@
+---
+description: Use Flow for context-driven development workflows in repositories with .agents context.
+alwaysApply: true
+---
+
+When a repository has `.agents/`, use the Flow workflow for planning, implementation, sync, status, review, finish, archive, and Beads-backed task memory.
+
+Prefer the installed Flow skills and the repository `AGENTS.md` instructions. Do not rely on a repository `.cursor-plugin/plugin.json`; Cursor consumes rules and project instructions from its supported customization surfaces.

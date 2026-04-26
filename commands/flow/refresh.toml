@@ -85,7 +85,7 @@ Since last sync (<timestamp>, <days> ago):
 ## Critical Rules
 1.  **NEVER OVERWRITE MANUAL EDITS** - Merge changes into spec.md, don't replace
 2.  **ASK ON CONFLICT** - If conflicts detected, present both versions and ask user to resolve
-3.  **SYNC AT END** - Always run `/flow:sync` equivalent at the end to ensure spec.md reflects final state
+3.  **SYNC AT END** - Follow `syncPolicy.flowSyncAfterMutation`; default setup runs `/flow:sync` equivalent at the end to ensure spec.md reflects final state
 4.  **LOG IN BACKEND** - Record the refresh through the active backend's note/comment mechanism when a backend is enabled
 5.  **READ-ONLY ON CODE** - Never modify source files, only `.agents/` context
 6.  **WORKFLOW DRIFT COUNTS** - Treat stale canonical commands, backend assumptions, and ignore policy as refresh work, not optional cleanup

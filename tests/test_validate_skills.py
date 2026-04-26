@@ -208,9 +208,44 @@ def test_shared_hook_config_allows_cross_host_fallback_command(tmp_path: Path) -
     assert validate_skills.validate_gemini_hook_config(hooks_path) == []
 
 
-def test_repo_cursor_and_codex_manifests_still_validate() -> None:
-    cursor_violations = validate_skills.validate_manifest(REPO_ROOT / ".cursor-plugin" / "plugin.json")
+def test_makefile_recipes_fail_fast() -> None:
+    makefile = (REPO_ROOT / "Makefile").read_text(encoding="utf-8")
+
+    assert ".SHELLFLAGS" in makefile
+    assert "-e" in makefile
+    assert "-o pipefail" in makefile
+    assert "validate-codex-manifest:" in makefile
+    assert "check: lint validate-skills validate-codex-manifest sync-manifests" in makefile
+
+
+def test_repo_uses_supported_cursor_surface() -> None:
+    assert not (REPO_ROOT / ".cursor-plugin" / "plugin.json").exists()
+    assert (REPO_ROOT / ".cursor" / "rules" / "flow.mdc").is_file()
+
+
+def test_repo_host_native_agent_surfaces_validate() -> None:
+    expected = {"code-reviewer", "executor", "plan-generator", "prd-orchestrator"}
+
+    assert {path.stem for path in validate_skills.iter_gemini_agents()} == expected
+    assert {path.stem for path in validate_skills.iter_codex_agents()} == expected
+    assert {path.stem for path in validate_skills.iter_opencode_agents()} == expected
+    assert {path.stem.removesuffix(".agent") for path in validate_skills.iter_vscode_agents()} == expected
+
+    violations = []
+    for agent_path in validate_skills.iter_gemini_agents():
+        violations.extend(validate_skills.validate_gemini_agent(agent_path))
+        violations.extend(validate_skills.validate_claude_agent(agent_path))
+    for agent_path in validate_skills.iter_codex_agents():
+        violations.extend(validate_skills.validate_codex_agent(agent_path))
+    for agent_path in validate_skills.iter_opencode_agents():
+        violations.extend(validate_skills.validate_opencode_agent(agent_path))
+    for agent_path in validate_skills.iter_vscode_agents():
+        violations.extend(validate_skills.validate_vscode_agent(agent_path))
+
+    assert violations == []
+
+
+def test_repo_codex_manifest_validates() -> None:
     codex_violations = validate_skills.validate_manifest(REPO_ROOT / ".codex-plugin" / "plugin.json")
 
-    assert cursor_violations == []
     assert codex_violations == []

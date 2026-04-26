@@ -52,6 +52,20 @@ Flow supports two persistence modes:
 - **Official Beads (`bd`)** - default
 - **No Beads** - degraded mode for planning, docs, and lightweight local work
 
+### Beads Sync Policy
+
+Read `.agents/beads.json` before running backend export, git-add, or Dolt operations. Default Flow setup writes:
+
+- `bdConfig.no-git-ops: true`
+- `bdConfig.export.auto: false`
+- `bdConfig.export.git-add: false`
+- `syncPolicy.flowSyncAfterMutation: true`
+- `syncPolicy.autoExport: false`
+- `syncPolicy.autoGitAdd: false`
+- `syncPolicy.allowDoltPush: false`
+
+Do not run `bd dolt push` unless the user explicitly requests it or `.agents/beads.json` sets `syncPolicy.allowDoltPush` to `true` and opts in via `dolt.push`.
+
 ## Universal File Resolution Protocol
 
 **To locate files within Flow context:**
@@ -103,7 +117,7 @@ Flow supports two persistence modes:
 
 <guardrails>
 
-**CRITICAL:** Never write `[x]`, `[~]`, `[!]`, or `[-]` markers to spec.md manually. Beads is the source of truth — after ANY Beads state change, you MUST run `/flow:sync` to keep spec.md in sync.
+**CRITICAL:** Never write `[x]`, `[~]`, `[!]`, or `[-]` markers to spec.md manually. Beads is the source of truth. Run `/flow:sync` after Beads state changes when `syncPolicy.flowSyncAfterMutation` is enabled, and never run export, auto-stage, or Dolt push operations unless `.agents/beads.json` allows them.
 
 **CRITICAL:** Read `.agents/workflow.md` before planning or implementation and prefer the repo's canonical commands there. If the repo clearly has better aggregate commands than the workflow currently documents, refresh the workflow or capture the correction in learnings/knowledge.
 
@@ -225,7 +239,8 @@ When Flow skill is active:
 - If `.agents/skills/flow-memory-keeper/SKILL.md` exists, invoke it for sync, archive, finish, and failure/refinement work.
 - If the user repeats a correction or sounds frustrated about something being forgotten, treat that as mandatory knowledge capture rather than optional polish.
 - Warn if tech-stack changes without documentation.
-- Enforce mandatory `/flow:sync` after any Beads state change.
+- Enforce `/flow:sync` after Beads state changes when `syncPolicy.flowSyncAfterMutation` is enabled.
+- Do not run `bd dolt push` unless the user explicitly asks or `.agents/beads.json` opts in with `syncPolicy.allowDoltPush`.
 - Prefer canonical repo commands (setup, lint, test, typecheck, verify) as defined in the **Core Project Truths** section of the hook context or in `.agents/workflow.md`.
 - Treat repeated reminders like "use make lint" or "don't forget to test" as workflow failures that must be captured and elevated.
 - **Mandatory Superpowers Integration:** If Superpowers is detected, all workflows (PRD, Plan, Implement) MUST follow the **Superpowers Protocol** above.
@@ -301,8 +316,8 @@ These can be dispatched as specialized subagents during code review or design ev
 
 - <https://github.com/cofin/flow>
 - <https://raw.githubusercontent.com/cofin/flow/main/README.md>
-- <https://github.com/steveyegge/beads>
-- <https://github.com/steveyegge/beads/releases>
+- <https://github.com/gastownhall/beads>
+- <https://github.com/gastownhall/beads/releases>
 - <https://geminicli.com/docs/extensions/reference/>
 
 ## Shared Styleguide Baseline

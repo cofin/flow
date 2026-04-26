@@ -20,7 +20,8 @@ def test_gemini_prd_command_delegates_with_plan_mode() -> None:
     prompt = _load_command_prompt("commands/flow/prd.toml")
 
     assert "enter_plan_mode" in prompt
-    assert "@flow:prd-orchestrator" in prompt
+    assert "@prd-orchestrator" in prompt
+    assert "@flow:" not in prompt
 
 
 def test_gemini_prd_orchestrator_manages_full_plan_mode_lifecycle() -> None:
@@ -35,7 +36,15 @@ def test_gemini_plan_command_delegates_with_plan_mode() -> None:
     prompt = _load_command_prompt("commands/flow/plan.toml")
 
     assert "enter_plan_mode" in prompt
-    assert "@flow:plan-generator" in prompt
+    assert "@plan-generator" in prompt
+    assert "@flow:" not in prompt
+
+
+def test_gemini_implement_command_delegates_to_slug_executor() -> None:
+    prompt = _load_command_prompt("commands/flow/implement.toml")
+
+    assert "@executor" in prompt
+    assert "@flow:" not in prompt
 
 
 def test_gemini_plan_generator_manages_full_plan_mode_lifecycle() -> None:

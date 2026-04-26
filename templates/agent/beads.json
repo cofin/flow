@@ -1,10 +1,25 @@
 {
   "enabled": true,
-  "sync": "bidirectional",
+  "localOnly": true,
+  "sync": "manual",
   "epicPrefix": "flow",
   "autoCreateTasks": true,
   "autoSyncOnComplete": true,
   "compactOnArchive": false,
+  "bdConfig": {
+    "no-git-ops": true,
+    "export.auto": false,
+    "export.git-add": false
+  },
+  "syncPolicy": {
+    "flowSyncAfterMutation": true,
+    "autoExport": false,
+    "autoGitAdd": false,
+    "allowDoltPush": false
+  },
+  "dolt": {
+    "push": "never"
+  },
   "taskStatusMapping": {
     "pending": "[ ]",
     "in_progress": "[~]",

@@ -41,18 +41,20 @@ Use `${FLOW_INSTALL_ROOT}` in every command below that references shipped templa
    > "Flow supports two persistence modes:
    > A) Install official Beads (`bd`) (recommended)
    >    - brew install beads
-   >    - or curl -sSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash
+   >    - npm install -g @beads/bd
+   >    - go install github.com/gastownhall/beads/cmd/bd@latest
+   >    - or curl -fsSL https://raw.githubusercontent.com/gastownhall/beads/main/scripts/install.sh | bash
    > B) Continue without Beads (docs/plans/lightweight mode)"
 
    If A selected:
    ```bash
-   curl -sSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash
+   curl -fsSL https://raw.githubusercontent.com/gastownhall/beads/main/scripts/install.sh | bash
    ```
 
    If B selected, continue in no-Beads mode. Do NOT halt.
 
 3. **Default initialization rules:**
-   - Official Beads MUST use `bd init --stealth --prefix "$repo_slug"`.
+   - Official Beads MUST use `bd init --non-interactive --stealth --prefix "$repo_slug" --skip-agents`, then set `bd config set no-git-ops true`, `bd config set export.auto false`, and `bd config set export.git-add false`.
    - Prefer `.git/info/exclude` for local-only ignores instead of editing repo `.gitignore`.
 
 4. **Continue:** Once the backend choice is clear, proceed to 1.1.
@@ -103,7 +105,11 @@ Use `${FLOW_INSTALL_ROOT}` in every command below that references shipped templa
     ```
     - If `bd` is available, verify with `bd --version`.
     - If unavailable, continue alignment in no-Beads mode instead of blocking the rest of setup.
-    - If official Beads should be installed or refreshed, suggest: `curl -sSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash`
+    - If official Beads should be installed or refreshed, suggest one of:
+      - `brew install beads`
+      - `npm install -g @beads/bd`
+      - `go install github.com/gastownhall/beads/cmd/bd@latest`
+      - `curl -fsSL https://raw.githubusercontent.com/gastownhall/beads/main/scripts/install.sh | bash`
 
 2.  **Legacy Specs Migration:**
     Scan for legacy spec locations:
@@ -628,7 +634,10 @@ Use `${FLOW_INSTALL_ROOT}` in every command below that references shipped templa
 
     If A selected:
     ```bash
-    bd init --stealth --prefix "$repo_slug"
+    bd init --non-interactive --stealth --prefix "$repo_slug" --skip-agents
+    bd config set no-git-ops true
+    bd config set export.auto false
+    bd config set export.git-add false
     ```
 
     If B selected, skip backend initialization and continue in no-Beads mode.
@@ -638,11 +647,26 @@ Use `${FLOW_INSTALL_ROOT}` in every command below that references shipped templa
     ```json
     {
       "enabled": true,
-      "sync": "bidirectional",
+      "localOnly": true,
+      "sync": "manual",
       "epicPrefix": "flow",
       "autoCreateTasks": true,
       "autoSyncOnComplete": true,
       "compactOnArchive": false,
+      "bdConfig": {
+        "no-git-ops": true,
+        "export.auto": false,
+        "export.git-add": false
+      },
+      "syncPolicy": {
+        "flowSyncAfterMutation": true,
+        "autoExport": false,
+        "autoGitAdd": false,
+        "allowDoltPush": false
+      },
+      "dolt": {
+        "push": "never"
+      },
       "taskStatusMapping": {
         "pending": "[ ]",
         "in_progress": "[~]",

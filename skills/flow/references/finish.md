@@ -41,7 +41,7 @@ IRON LAW: NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
    # Ensure spec.md reflects current state
    ```
 
-   Run `/flow:sync` to update spec.md from Beads.
+   Follow `syncPolicy.flowSyncAfterMutation`; when enabled, run `/flow:sync` to update spec.md from Beads.
 
 **If any check fails:** Report actual results. Do NOT proceed until issues resolved.
 

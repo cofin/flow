@@ -32,10 +32,15 @@ A flow is a logical unit of work (feature, bug fix, refactor). Each flow has:
 ### Beads Integration (Source of Truth)
 Beads provides persistent cross-session memory:
 ```bash
-bd init --stealth --prefix <project_name_slug> # Initialize official Beads
+bd init --non-interactive --stealth --prefix <project_name_slug> --skip-agents # Initialize official Beads without generated host instruction files
+bd config set no-git-ops true
+bd config set export.auto false
+bd config set export.git-add false
 bd status                  # Workspace overview
 bd ready                   # Ready queue
 ```
+
+Read `.agents/beads.json` before export or backend sync. Default `syncPolicy` keeps Flow's markdown sync enabled, disables Beads auto-export/auto-stage, and sets `allowDoltPush` false. Do not run `bd dolt push` unless the user explicitly asks or the config opts in.
 
 ### Task Workflow (TDD) - Beads-First
 1. **Select task** from the active backend's ready queue (Beads is source of truth)
@@ -46,9 +51,9 @@ bd ready                   # Ready queue
 5. **Refactor** while green
 6. Commit with conventional format
 7. **Sync to Beads** via the active backend's completion flow
-8. **Sync to markdown:** run `/flow:sync` (MANDATORY — keeps spec.md readable)
+8. **Sync to markdown:** run `/flow:sync` when `syncPolicy.flowSyncAfterMutation` is true (default)
 
-**CRITICAL:** It is MANDATORY that after ANY Beads state change (close, block, skip, revert, revise), agents run `/flow:sync` to update spec.md. Never write markers (`[x]`, `[~]`, `[!]`, `[-]`) directly to spec.md.
+**CRITICAL:** Never write markers (`[x]`, `[~]`, `[!]`, `[-]`) directly to spec.md. Use `/flow:sync` for markdown status updates, and respect `.agents/beads.json` before running export, auto-stage, or Dolt push operations.
 9. Log learnings in learnings.md
 
 ### Directory Structure

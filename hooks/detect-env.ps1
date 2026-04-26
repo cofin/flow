@@ -24,7 +24,7 @@ function Get-BeadsBackend {
         Write-Host "- **Beads Backend**: Missing (None)"
         $beads_br = Get-Command br -ErrorAction SilentlyContinue
         if ($beads_br) {
-            Write-Host "- **Migration Notice**: Detected legacy 'br' (beads_rust). Flow no longer supports br. Install official Beads: brew install beads (or https://github.com/steveyegge/beads)."
+            Write-Host "- **Migration Notice**: Detected legacy 'br' (beads_rust). Flow no longer supports br. Install official Beads: brew install beads (or https://github.com/gastownhall/beads)."
         }
         return $null
     }
@@ -231,7 +231,7 @@ function Get-FlowMandate($rootDir) {
     Write-Host "- **Deep Research First**: Do NOT defer research to implementation. ALL analysis and architectural decisions MUST be completed upfront."
     Write-Host "- **Stateless Executor Test**: A plan is only 'Ready' if an agent with ZERO context can implement it 100% correctly based ONLY on the worksheet."
     Write-Host "- **TDD Discipline**: Follow the Red-Green-Refactor cycle and verify coverage as outlined in the `flow` skill."
-    Write-Host "- **Sync Requirement**: Run \"/flow:sync\" after any change to Beads state or project structure."
+    Write-Host "- **Sync Requirement**: Follow $rootDir/beads.json syncPolicy.flowSyncAfterMutation; default setup runs /flow:sync after Beads changes but does not auto-export, auto-stage, or run bd dolt push."
 }
 
 function Main {
@@ -248,4 +248,3 @@ function Main {
 }
 
 Main
-

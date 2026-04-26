@@ -5,7 +5,7 @@ Flow ships as a native Codex plugin via marketplace.
 ## Prerequisites
 
 - Codex CLI 0.117.0+ (with marketplace support; verify with `codex --version`)
-- [Beads CLI](https://github.com/steveyegge/beads)
+- [Beads CLI](https://github.com/gastownhall/beads)
 
 ## Install
 
@@ -38,6 +38,8 @@ Use Flow to implement the current flow with TDD
 ```
 
 The Flow skill responds to all `/flow:*` intents (`setup`, `prd`, `plan`, `implement`, `sync`, `status`, `refresh`, `research`, `docs`, etc.).
+
+Repo-local subagents live in `.codex/agents/*.toml`. They are pure TOML, inherit tools from the active Codex session, and do not define a per-agent `tools` allowlist.
 
 ## Recommended Codex settings
 

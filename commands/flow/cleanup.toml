@@ -78,7 +78,7 @@ For each Flow in `.agents/specs/`:
 ## 3.0 FINAL SYNC & VALIDATION
 
 1. **Registry Sync**: Update `.agents/flows.md` and ensure all links are valid.
-2. **Global Sync**: Run `/flow:sync` for all active flows to finalize Beads-to-Markdown state.
+2. **Global Sync**: Follow `syncPolicy.flowSyncAfterMutation`; when enabled, run `/flow:sync` for all active flows to finalize Beads-to-Markdown state.
 3. **Integrity Check**: Confirm no information was lost during reorganization.
 
 ---

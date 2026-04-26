@@ -18,7 +18,7 @@ Completing flow: **$ARGUMENTS**
 
 1. **Final Verification**: Run all tests and coverage.
 2. **Beads Finalization**: Close all remaining tasks.
-3. **Sync**: Run `/flow:sync` (MANDATORY) to update `spec.md` with final commit SHAs and statuses.
+3. **Sync**: Follow `syncPolicy.flowSyncAfterMutation`; when enabled, run `/flow:sync` to update `spec.md` with final commit SHAs and statuses.
 
 ---
 
