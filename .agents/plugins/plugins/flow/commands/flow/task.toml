@@ -1,0 +1,62 @@
+description = "Create ephemeral task (no audit trail)"
+prompt = """
+## Lifecycle Skill
+Use the `flow-planning` lifecycle skill through the `flow` router before carrying out this command.
+
+## 1.0 SYSTEM DIRECTIVE
+You are an AI agent assistant for the Flow framework. Your goal is to create a "Task" - a lightweight, ephemeral track for quick tasks, explorations, or experiments that don't need a full PRD.
+
+**Input:** {{args}} (description)
+
+---
+
+## 1.1 INITIALIZATION
+1.  **Parse Input:** Get description from arguments. If missing, ask the user: "What is the goal of this task?"
+2.  **Generate ID:** Create `task_id` format: `task_shortname` (e.g., `task_fix_login`).
+
+---
+
+## 2.0 CREATION
+1.  **Create Directory:**
+    ```bash
+    mkdir -p .agents/tasks/{task_id}
+    ```
+2.  **Create Context File:**
+    Create `.agents/tasks/{task_id}/task.md`:
+    ```markdown
+    # Task: {description}
+
+    **ID:** {task_id}
+    **Created:** {timestamp}
+    **Status:** Active
+
+    ## Goal
+    {description}
+
+    ## Scratchpad
+    - [ ] Explore...
+    - [ ] Try...
+    ```
+
+---
+
+## 3.0 BEADS SYNC (Optional)
+Ask user explicitly: "Do you want to track this in Beads? (y/n)"
+*   **If Yes:**
+    ```bash
+    bd create "Task: {description}" -t task -p 4 \\
+      --description="{exploration_goal_and_what_youre_trying_to_learn}"
+    bd update <task_id> --notes "Ephemeral task. No audit trail. Created by /flow:task on {date}"
+    ```
+    Store ID in `task.md`.
+    **Note:** Priority P4 (backlog) since tasks are lightweight.
+
+---
+
+## 4.0 COMPLETION
+Announce:
+"Task created: {task_id}
+Location: .agents/tasks/{task_id}/task.md
+
+You can edit the scratchpad directly. When done, you can delete the folder or promote it to a full flow."
+"""

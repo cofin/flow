@@ -1,0 +1,3 @@
+interface:
+  display_name: "Testing"
+  short_description: "pytest, vitest, fixtures, mocks, async tests, coverage, and failure debugging"

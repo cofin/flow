@@ -3,11 +3,15 @@
 Validate Codex marketplace and plugin manifest files for compatibility with Codex CLI 0.125.0+.
 """
 
+import filecmp
 import json
 import re
 import sys
 from collections.abc import Iterator
 from pathlib import Path
+
+PACKAGE_ROOT = Path(".agents/plugins/plugins/flow")
+PACKAGE_MIRRORED_DIRS = (".codex-plugin", "commands", "skills")
 
 
 def validate_marketplace(file_path: str | Path):
@@ -90,6 +94,52 @@ def validate_plugin_manifest(file_path: str | Path):
     return errors == 0
 
 
+def validate_codex_package_sync(root: str | Path = ".") -> bool:
+    """Ensure the Codex marketplace package mirrors the repo-root sources.
+
+    Codex 0.125 cannot follow symlinks out of an installed plugin package, so
+    .agents/plugins/plugins/flow/{.codex-plugin,commands,skills} must contain
+    real copies that exactly match the repo-root sources.
+    """
+    root_path = Path(root)
+    package = root_path / PACKAGE_ROOT
+    print(f"Validating Codex package sync: {package}")
+    errors = 0
+    for name in PACKAGE_MIRRORED_DIRS:
+        src = root_path / name
+        dst = package / name
+        if not src.is_dir():
+            print(f"  ERROR: source '{src}' is missing")
+            errors += 1
+            continue
+        if not dst.is_dir():
+            print(f"  ERROR: package mirror '{dst}' is missing — run 'make sync-codex-package'")
+            errors += 1
+            continue
+        diff = filecmp.dircmp(str(src), str(dst))
+        mismatches = _collect_dircmp_mismatches(diff, Path(name))
+        for label, paths in mismatches.items():
+            for p in paths:
+                print(f"  ERROR [{label}]: {p}")
+                errors += 1
+    if errors:
+        print("  HINT: run 'make sync-codex-package' and commit the result")
+    return errors == 0
+
+
+def _collect_dircmp_mismatches(diff: filecmp.dircmp, prefix: Path) -> dict[str, list[Path]]:
+    mismatches: dict[str, list[Path]] = {
+        "only-in-source": [prefix / x for x in diff.left_only],
+        "only-in-package": [prefix / x for x in diff.right_only],
+        "differs": [prefix / x for x in diff.diff_files],
+        "unreadable": [prefix / x for x in diff.funny_files],
+    }
+    for sub_name, sub_diff in diff.subdirs.items():
+        for label, paths in _collect_dircmp_mismatches(sub_diff, prefix / sub_name).items():
+            mismatches[label].extend(paths)
+    return mismatches
+
+
 def discover_codex_marketplaces(root: str | Path = ".") -> Iterator[Path]:
     """Yield Codex marketplace manifests only."""
     root_path = Path(root)
@@ -119,6 +169,9 @@ def main():
     for path in discover_codex_plugin_manifests():
         if not validate_plugin_manifest(path):
             success = False
+
+    if not validate_codex_package_sync():
+        success = False
 
     if not success:
         print("\nValidation failed!")

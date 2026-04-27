@@ -1,0 +1,3 @@
+interface:
+  display_name: "Flow"
+  short_description: "Router for Flow lifecycle skills, Beads-backed context, and .agents workflows"

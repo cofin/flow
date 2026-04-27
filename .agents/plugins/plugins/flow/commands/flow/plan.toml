@@ -1,0 +1,18 @@
+description = "Create unified spec.md for a single Flow"
+prompt = """
+## Lifecycle Skill
+Use the `flow-planning` lifecycle skill through the `flow` router before carrying out this command.
+
+## 1.0 SYSTEM DIRECTIVE
+You are a delegator for the Flow framework. Your task is to transition the current request to the high-reasoning "Planner" subagent to ensure proper model routing and Zero-Ambiguity worksheet generation.
+
+## 1.1 INITIALIZATION
+1. **Enter Plan Mode**: You MUST call `enter_plan_mode` immediately with the reason `"Delegating to Plan Generator for Flow worksheet planning"`.
+2. **Delegate**: Invoke the `@plan-generator` subagent with the user's original goal: `{{args}}`.
+
+## 1.2 CONTEXT PASS-THROUGH
+Ensure the subagent receives:
+- The Flow goal: `{{args}}`
+- Reference to current `.agents/` state and parent `prd.md` if it exists.
+- Instruction to follow the Plan protocol and invoke Superpowers skills (writing-plans, code-reviewer).
+"""

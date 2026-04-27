@@ -1,0 +1,160 @@
+description = "Update spec/plan when implementation reveals issues"
+prompt = """
+## Lifecycle Skill
+Use the `flow-planning` lifecycle skill through the `flow` router before carrying out this command.
+
+## SYSTEM DIRECTIVE
+You are revising a flow's spec or plan because implementation has revealed new information. All revisions must be documented.
+
+**Input:** $ARGUMENTS (flow_id)
+
+---
+
+## Phase 1: Load Current State
+
+Read from `.agents/specs/{flow_id}/`:
+- spec.md
+- learnings.md
+
+---
+
+## Phase 2: Identify Revision Type
+
+Ask user:
+
+> **What needs to be revised?**
+>
+> A) Spec - Requirements have changed
+> B) Plan - Tasks need adjustment
+> C) Both - Significant pivot needed
+
+---
+
+## Phase 3: Document Reason
+
+Ask user:
+
+> **Why is this revision needed?**
+> (This will be logged for future reference)
+
+---
+
+## Phase 4: Make Revisions
+
+Based on revision type:
+
+### Spec Revision
+
+1. Show current spec sections
+2. Ask which sections need changes
+3. For each section:
+   - Show current content
+   - Ask for new content
+   - Validate acceptance criteria are still testable
+
+### Plan Revision
+
+1. Show current task list with status
+2. Allow:
+   - Add new tasks
+   - Remove tasks (if not started)
+   - Reorder tasks
+   - Update task descriptions
+   - Update dependencies
+
+3. Recalculate task numbers if needed
+
+---
+
+## Phase 5: Log Revision
+
+Append to `.agents/specs/{flow_id}/revisions.md`:
+
+```markdown
+## [YYYY-MM-DD HH:MM] Revision {N}
+
+**Type:** {spec|plan|both}
+**Reason:** {user provided reason}
+
+### Changes Made
+
+**Spec Changes:**
+- {description of spec change}
+
+**Plan Changes:**
+- Added: Task {N} - {description}
+- Removed: Task {M} - {description}
+- Modified: Task {K} - {old} -> {new}
+
+### Impact Assessment
+
+- Tasks affected: {list}
+- Timeline impact: {estimate if any}
+- Dependencies updated: {list}
+```
+
+Create revisions.md if it doesn't exist.
+
+---
+
+## Phase 6: Sync Beads
+
+If plan changed:
+```bash
+bd update {affected_task_ids} --notes "Revised: {brief reason}"
+```
+
+For new tasks (**CRITICAL: Include full context**):
+```bash
+bd create "{task}" --parent {epic_id} -p 2 \\
+  --description="{what_changed_and_why_this_task_is_needed}"
+bd update <task_id> --notes "Added during revision. Reason: {revision_reason}. Created by /flow:revise on {date}"
+```
+
+For removed tasks:
+```bash
+bd close {task_id} --reason "Removed in revision"
+```
+
+---
+
+### Markdown Sync (Manual)
+
+**CRITICAL:** Do NOT write markers directly to spec.md. Follow `syncPolicy.flowSyncAfterMutation`; when enabled, run `/flow:sync` to update the markdown state after task completion or status changes.
+
+## Phase 8: Commit Revision
+
+```bash
+git add .agents/specs/{flow_id}/
+git commit -m "chore(revise): {flow_id} - {brief description}"
+```
+
+---
+
+## Final Summary
+
+```
+Flow Revised
+
+Flow: {flow_id}
+Revision: #{N}
+
+Changes:
+- Spec: {summary or "No changes"}
+- Plan: {tasks added/removed/modified}
+
+Beads synced: {yes/no}
+Committed: {sha}
+
+Logged in: revisions.md
+```
+
+---
+
+## Critical Rules
+
+1. **DOCUMENT EVERYTHING** - Log all revisions with reasons
+2. **BEADS FIRST** - Update Beads before syncing markdown
+4. **PRESERVE HISTORY** - Never delete, only append to revisions.md
+5. **VALIDATE** - Ensure acceptance criteria remain testable
+"""

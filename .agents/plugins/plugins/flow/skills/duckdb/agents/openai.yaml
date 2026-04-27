@@ -1,0 +1,3 @@
+interface:
+  display_name: "DuckDB"
+  short_description: "DuckDB SQL, analytics, ETL, extensions, clients, and performance tuning"
