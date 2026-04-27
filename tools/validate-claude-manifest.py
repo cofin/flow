@@ -1,0 +1,71 @@
+#!/usr/bin/env python3
+"""Validate Claude Code plugin and marketplace manifests using the official ``claude`` CLI.
+
+Wraps ``claude plugin validate <path>`` so CI fails on the same schema errors
+Claude Code's loader would surface at install time. Avoids hand-rolling a
+schema that drifts from the real validator.
+
+Set ``SKIP_CLAUDE_VALIDATE=1`` to skip the check (e.g. on a developer
+machine without Claude Code installed). CI installs the CLI explicitly,
+so the skip is reserved for local convenience.
+
+Exit 0 on clean or when skipped; exit 1 if any target fails or ``claude``
+is missing without the skip flag set.
+"""
+
+from __future__ import annotations
+
+import os
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
+TARGETS: tuple[Path, ...] = (
+    REPO_ROOT / ".claude-plugin" / "plugin.json",
+    REPO_ROOT / ".claude-plugin" / "marketplace.json",
+)
+
+
+def _validate(claude_cmd: str, target: Path) -> bool:
+    if not target.is_file():
+        print(f"  MISSING: {target}", file=sys.stderr)
+        return False
+    result = subprocess.run(
+        [claude_cmd, "plugin", "validate", str(target)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    sys.stdout.write(result.stdout)
+    sys.stderr.write(result.stderr)
+    return result.returncode == 0
+
+
+def main() -> int:
+    if os.environ.get("SKIP_CLAUDE_VALIDATE") == "1":
+        print("Skipping Claude manifest validation (SKIP_CLAUDE_VALIDATE=1).")
+        return 0
+
+    # Use the full resolved path from `shutil.which`, not the bare name. On
+    # Windows, `claude` resolves to `claude.cmd` via PATHEXT, but
+    # `subprocess.run` does not honor PATHEXT, so passing the bare name
+    # raises FileNotFoundError even when the CLI is installed.
+    claude_cmd = shutil.which("claude")
+    if claude_cmd is None:
+        print("ERROR: 'claude' CLI not found on PATH.", file=sys.stderr)
+        print("Install Claude Code (`npm install -g @anthropic-ai/claude-code`) or skip with `SKIP_CLAUDE_VALIDATE=1`.", file=sys.stderr)
+        return 1
+
+    failures = [t for t in TARGETS if not _validate(claude_cmd, t)]
+    if failures:
+        print(f"\n{len(failures)} manifest(s) failed Claude Code validation.", file=sys.stderr)
+        return 1
+    print(f"All {len(TARGETS)} Claude manifests valid.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -41,6 +41,9 @@ jobs:
       - name: Install markdownlint
         run: npm install -g markdownlint-cli2
 
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
       - name: Run quality checks
         run: make check
         shell: bash

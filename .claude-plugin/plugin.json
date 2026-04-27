@@ -1,7 +1,7 @@
 {
   "name": "flow",
   "description": "Unified toolkit for Context-Driven Development with spec-first planning, TDD workflow, and Beads integration",
-  "version": "0.20.1",
+  "version": "0.20.2",
   "author": {
     "name": "cofin"
   },
@@ -11,7 +11,6 @@
   "keywords": ["flow", "context-driven-development", "beads", "tdd", "ai-agent", "workflow", "spec-first", "skills", "slash-commands", "subagents"],
   "skills": ["./skills/"],
   "commands": ["./commands/"],
-  "agents": ["./agents/"],
   "hooks": "./hooks/hooks-claude.json",
   "userConfig": {
     "useBeads": {
