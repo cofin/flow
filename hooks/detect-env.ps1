@@ -32,7 +32,13 @@ function Get-BeadsBackend {
 
 function Get-FlowRoot {
     $rootDir = $script:DEFAULT_ROOT_DIR
-    $setupStateFile = ".agents/setup-state.json"
+    $setupStateFile = "$($script:DEFAULT_ROOT_DIR)/setup-state.json"
+    # Backward-compat: if the configured root has no setup-state but the
+    # default .agents/ does, read from there. Helps users who switched
+    # agentsDir after an existing setup.
+    if ((-not (Test-Path $setupStateFile)) -and (Test-Path ".agents/setup-state.json")) {
+        $setupStateFile = ".agents/setup-state.json"
+    }
     if (Test-Path $setupStateFile) {
         try {
             $setupState = Get-Content $setupStateFile -Raw | ConvertFrom-Json

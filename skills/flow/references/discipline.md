@@ -137,6 +137,26 @@ BEFORE claiming any status:
 
 ---
 
+## Beads Mode Iron Law
+
+```text
+NO `bd` INVOCATIONS WHEN BEADS IS DISABLED OR MISSING
+```
+
+The SessionStart hook (`hooks/detect-env.sh`) emits one of three Beads-backend signals into the agent context:
+
+| Hook signal | Action |
+|---|---|
+| `Beads Backend: Official (bd)` | Proceed normally — `bd` is the source of truth. |
+| `Beads Backend: Missing (None)` | Skip every `bd` invocation. Treat `spec.md` markers as fallback source of truth. |
+| `Beads Backend: Disabled via plugin config (useBeads=false)` | Skip every `bd` invocation. Treat `spec.md` markers as fallback source of truth. |
+
+**Never halt for missing Beads.** Degrade gracefully: read state from `spec.md` markers (`[ ]`, `[~]`, `[x]`, `[!]`, `[-]`), record progress by editing those markers directly, skip notes/learnings that would otherwise go into Beads, and skip `/flow:sync` (it's a no-op without a backend).
+
+**Why this exists:** The plugin manifest exposes a `useBeads` userConfig toggle and the host can also lack `bd` entirely. Before this rule, every flow command shelled out to `bd` unconditionally — toggling `useBeads=false` only suppressed SessionStart context while every command still emitted "command not found" or stored garbage.
+
+---
+
 ## Critical Thinking Iron Law
 
 ```text

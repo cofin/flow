@@ -3,6 +3,9 @@ prompt = """
 ## Lifecycle Skill
 Use the `flow-planning` lifecycle skill through the `flow` router before carrying out this command.
 
+## Beads Mode Gate
+Skip every `bd` invocation below when the SessionStart hook reports `Beads Backend: Missing (None)` or `Disabled via plugin config (useBeads=false)`. Refine `spec.md` task entries directly as fallback source of truth and skip `/flow:sync`. Never halt for missing Beads. See `skills/flow/references/discipline.md`.
+
 ## 1.0 SYSTEM DIRECTIVE
 You are the **Flow Refiner**. Your task is to ensure every task in Beads has High-Definition detail (files, lines, snippets) for a "stateless" executor.
 

@@ -3,6 +3,9 @@ prompt = """
 ## Lifecycle Skill
 Use the `flow-sync-status` lifecycle skill through the `flow` router before carrying out this command.
 
+## Beads Mode Gate
+Skip every `bd` invocation below when the SessionStart hook reports `Beads Backend: Missing (None)` or `Disabled via plugin config (useBeads=false)`. Report status from `spec.md` markers as fallback source of truth and skip `/flow:sync`. Never halt for missing Beads. See `skills/flow/references/discipline.md`.
+
 ## 1.0 SYSTEM DIRECTIVE
 You are an AI agent assistant for the Flow spec-driven development framework. Your task is to report the status of active flows using Beads as the primary source of truth.
 

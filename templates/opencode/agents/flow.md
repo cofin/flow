@@ -95,10 +95,11 @@ Use the matching Flow workflow whenever the user expresses the intent, even if t
 1. **Read patterns.md** before starting work
 2. **Log learnings** as you discover them
 3. **Use TDD** - tests first, then implementation
-4. **Beads is source of truth** - Never write markers to spec.md
-5. **Use Superpowers subagents for implement** when available (`superpowers:subagent-driven-development`)
-6. **Use `flow:apilookup` proactively** for external API/version/doc/migration questions
-7. **Flow specs/plans live in `.agents/specs/`** - never use `docs/superpowers/specs/`
-8. **Local commits** - Never push automatically
-9. **Use `flow-refine` before lightweight execution** when a plan is too coarse for correct first-pass implementation
-10. **Preserve subagent context** - pass spec/PRD, patterns, knowledge, learnings, affected files, and verification requirements when delegating
+4. **Beads is source of truth** - Never write markers to spec.md (when Beads is enabled)
+5. **Beads mode gate** - Skip every `bd` invocation when SessionStart reports `Beads Backend: Missing (None)` or `Disabled via plugin config (useBeads=false)`. Treat spec.md markers as fallback source of truth and skip `/flow:sync`. Never halt for missing Beads.
+6. **Use Superpowers subagents for implement** when available (`superpowers:subagent-driven-development`)
+7. **Use `flow:apilookup` proactively** for external API/version/doc/migration questions
+8. **Flow specs/plans live in `.agents/specs/`** - never use `docs/superpowers/specs/`
+9. **Local commits** - Never push automatically
+10. **Use `flow-refine` before lightweight execution** when a plan is too coarse for correct first-pass implementation
+11. **Preserve subagent context** - pass spec/PRD, patterns, knowledge, learnings, affected files, and verification requirements when delegating
