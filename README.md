@@ -133,13 +133,14 @@ plan_mode_reasoning_effort = "high"
 <summary>Manual / repo-scoped install (legacy)</summary>
 <!-- markdownlint-restore -->
 
-If you can't use the native marketplace command (e.g. team policy, private fork), clone Flow and register a personal or repo-scoped marketplace entry pointing at the checkout:
+If you can't use the native marketplace command (e.g. team policy, private fork), clone Flow and register a marketplace entry that points at the checkout. Codex 0.125+ requires every local marketplace `path` to start with `./`, so place the marketplace manifest *next to* the cloned repo:
 
 ```bash
+mkdir -p ~/.codex/plugins
 git clone https://github.com/cofin/flow.git ~/.codex/plugins/flow
 ```
 
-Create `~/.agents/plugins/marketplace.json`:
+Create `~/.codex/plugins/marketplace.json`:
 
 ```json
 {
@@ -148,7 +149,7 @@ Create `~/.agents/plugins/marketplace.json`:
   "plugins": [
     {
       "name": "flow",
-      "source": { "source": "local", "path": "~/.codex/plugins/flow" },
+      "source": { "source": "local", "path": "./flow" },
       "policy": { "installation": "AVAILABLE" },
       "category": "Development"
     }
@@ -156,7 +157,7 @@ Create `~/.agents/plugins/marketplace.json`:
 }
 ```
 
-Restart Codex and run `/plugins` to verify Flow appears. See `.codex/INSTALL.md` in this repo for repo-scoped variants.
+The `./flow` path resolves relative to the manifest's directory. Restart Codex and run `/plugins` to verify Flow appears. See `.codex/INSTALL.md` in this repo for repo-scoped variants.
 
 </details>
 

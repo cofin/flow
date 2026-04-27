@@ -74,9 +74,16 @@ check_settings() {
 detect_project_root() {
     local root_dir="${DEFAULT_ROOT_DIR}"
     local msg=""
-    if [[ -f ".agents/setup-state.json" ]]; then
+    local state_file="${DEFAULT_ROOT_DIR}/setup-state.json"
+    # Backward-compat: if the configured root has no setup-state but the
+    # default .agents/ does, read from there. Helps users who switched
+    # agentsDir after an existing setup.
+    if [[ ! -f "${state_file}" && -f ".agents/setup-state.json" ]]; then
+        state_file=".agents/setup-state.json"
+    fi
+    if [[ -f "${state_file}" ]]; then
         local found_root
-        found_root=$(grep -o '"root_directory": "[^"]*"' .agents/setup-state.json | cut -d'"' -f4 || true)
+        found_root=$(grep -o '"root_directory": "[^"]*"' "${state_file}" | cut -d'"' -f4 || true)
         found_root="${found_root%/}"
         if [[ -n "${found_root}" ]]; then
             root_dir="${found_root}"
