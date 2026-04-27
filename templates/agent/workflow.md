@@ -39,7 +39,7 @@ Flow supports two modes:
 
 Configured for local-only use during setup unless the user explicitly asks for shared repo state.
 
-Default setup writes `.agents/beads.json` with `syncPolicy.autoExport: false`, `syncPolicy.autoGitAdd: false`, and `syncPolicy.allowDoltPush: false`. It also applies `bd config set no-git-ops true`, `bd config set export.auto false`, and `bd config set export.git-add false`.
+Default setup writes `.agents/beads.json` with `syncPolicy.autoExport: false`, `syncPolicy.autoGitAdd: false`, and `syncPolicy.allowDoltPush: false`. It also applies `bd config set no-git-ops true`, `bd config set export.auto false`, and `bd config set export.git-add false`, and appends `json-envelope: true` to `.beads/config.yaml` to opt into the bd v2.0 JSON envelope.
 
 ### Session Protocol
 

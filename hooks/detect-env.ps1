@@ -9,6 +9,12 @@ $ErrorActionPreference = 'Stop'
 $script:DEFAULT_ROOT_DIR = if ($env:CLAUDE_PLUGIN_OPTION_AGENTSDIR) { $env:CLAUDE_PLUGIN_OPTION_AGENTSDIR } else { '.agents' }
 $script:USE_BEADS = if ($env:CLAUDE_PLUGIN_OPTION_USEBEADS) { $env:CLAUDE_PLUGIN_OPTION_USEBEADS } else { 'true' }
 
+# Opt into the bd v2.0 JSON envelope so `bd --json` stops emitting the
+# deprecation notice into the SessionStart context block. Bridges until
+# beads wires this through Viper config; flow's parsers below are
+# envelope-aware either way.
+$env:BD_JSON_ENVELOPE = '1'
+
 function Get-BeadsBackend {
     Write-Host "## Flow Environment Context"
     if ($script:USE_BEADS -ne 'true') {
@@ -128,8 +134,13 @@ function Get-ActiveWork($backend) {
     }
     if ($backend -eq "bd") {
         try {
-            # ConvertFrom-Json may return a single object; wrap in @(...) so Select-Object sees an array
-            $ready = @(bd ready --json | ConvertFrom-Json) | Select-Object -First 3
+            # ConvertFrom-Json may return a single object; wrap in @(...) so Select-Object sees an array.
+            # Unwrap the v2.0 envelope ({schema_version, data: [...]}) when present so legacy and envelope outputs both flow through.
+            $parsed = bd ready --json | ConvertFrom-Json
+            if ($parsed -is [PSCustomObject] -and $parsed.PSObject.Properties.Name -contains 'data') {
+                $parsed = $parsed.data
+            }
+            $ready = @($parsed) | Select-Object -First 3
             if ($ready) {
                 $readyJson = $ready | ConvertTo-Json -Compress
                 Write-Host "- **Ready Tasks (Top 3)**: $readyJson"

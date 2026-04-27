@@ -57,7 +57,7 @@ Use `${FLOW_INSTALL_ROOT}` in every command below that references shipped templa
    If B selected, continue in no-Beads mode. Do NOT halt.
 
 3. **Default initialization rules:**
-   - Official Beads MUST use `bd init --non-interactive --stealth --prefix "$repo_slug" --skip-agents`, then set `bd config set no-git-ops true`, `bd config set export.auto false`, and `bd config set export.git-add false`.
+   - Official Beads MUST use `bd init --non-interactive --stealth --prefix "$repo_slug" --skip-agents`, then set `bd config set no-git-ops true`, `bd config set export.auto false`, and `bd config set export.git-add false`. Append `json-envelope: true` to `.beads/config.yaml` (idempotent) to opt into the bd v2.0 envelope.
    - Prefer `.git/info/exclude` for local-only ignores instead of editing repo `.gitignore`.
 
 4. **Continue:** Once the backend choice is clear, proceed to 1.1.
@@ -641,6 +641,11 @@ Use `${FLOW_INSTALL_ROOT}` in every command below that references shipped templa
     bd config set no-git-ops true
     bd config set export.auto false
     bd config set export.git-add false
+
+    mkdir -p .beads
+    if [ ! -f .beads/config.yaml ] || ! grep -q '^json-envelope:' .beads/config.yaml; then
+      printf 'json-envelope: true\n' >> .beads/config.yaml
+    fi
     ```
 
     If B selected, skip backend initialization and continue in no-Beads mode.
