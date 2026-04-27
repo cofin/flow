@@ -11,7 +11,10 @@ from collections.abc import Iterator
 from pathlib import Path
 
 PACKAGE_ROOT = Path(".agents/plugins/plugins/flow")
-PACKAGE_MIRRORED_DIRS = (".codex-plugin", "commands", "skills")
+PACKAGE_FULL_MIRRORS = (".codex-plugin", "skills")
+# (subdir, filename glob) — Codex package gets only Codex-format command files;
+# the commands/flow/*.toml subdirectory is Gemini-CLI-only.
+PACKAGE_GLOB_MIRRORS = (("commands", "flow-*.md"),)
 
 
 def validate_marketplace(file_path: str | Path):
@@ -105,26 +108,53 @@ def validate_codex_package_sync(root: str | Path = ".") -> bool:
     package = root_path / PACKAGE_ROOT
     print(f"Validating Codex package sync: {package}")
     errors = 0
-    for name in PACKAGE_MIRRORED_DIRS:
-        src = root_path / name
-        dst = package / name
-        if not src.is_dir():
-            print(f"  ERROR: source '{src}' is missing")
-            errors += 1
-            continue
-        if not dst.is_dir():
-            print(f"  ERROR: package mirror '{dst}' is missing — run 'make sync-codex-package'")
-            errors += 1
-            continue
-        diff = filecmp.dircmp(str(src), str(dst))
-        mismatches = _collect_dircmp_mismatches(diff, Path(name))
-        for label, paths in mismatches.items():
-            for p in paths:
-                print(f"  ERROR [{label}]: {p}")
-                errors += 1
+    for name in PACKAGE_FULL_MIRRORS:
+        errors += _check_full_mirror(root_path / name, package / name, Path(name))
+    for name, pattern in PACKAGE_GLOB_MIRRORS:
+        errors += _check_glob_mirror(root_path / name, package / name, Path(name), pattern)
     if errors:
         print("  HINT: run 'make sync-codex-package' and commit the result")
     return errors == 0
+
+
+def _check_full_mirror(src: Path, dst: Path, label: Path) -> int:
+    if not src.is_dir():
+        print(f"  ERROR: source '{src}' is missing")
+        return 1
+    if not dst.is_dir():
+        print(f"  ERROR: package mirror '{dst}' is missing — run 'make sync-codex-package'")
+        return 1
+    diff = filecmp.dircmp(str(src), str(dst))
+    errors = 0
+    for kind, paths in _collect_dircmp_mismatches(diff, label).items():
+        for p in paths:
+            print(f"  ERROR [{kind}]: {p}")
+            errors += 1
+    return errors
+
+
+def _check_glob_mirror(src: Path, dst: Path, label: Path, pattern: str) -> int:
+    if not src.is_dir():
+        print(f"  ERROR: source '{src}' is missing")
+        return 1
+    if not dst.is_dir():
+        print(f"  ERROR: package mirror '{dst}' is missing — run 'make sync-codex-package'")
+        return 1
+    expected = {p.name for p in src.glob(pattern) if p.is_file()}
+    actual = {p.name for p in dst.iterdir()}
+    errors = 0
+    for name in sorted(expected - actual):
+        print(f"  ERROR [missing]: {label / name}")
+        errors += 1
+    for name in sorted(actual - expected):
+        print(f"  ERROR [stray]: {label / name}")
+        errors += 1
+    for name in sorted(expected & actual):
+        s, d = src / name, dst / name
+        if not (d.is_file() and filecmp.cmp(str(s), str(d), shallow=False)):
+            print(f"  ERROR [differs]: {label / name}")
+            errors += 1
+    return errors
 
 
 def _collect_dircmp_mismatches(diff: filecmp.dircmp, prefix: Path) -> dict[str, list[Path]]:
