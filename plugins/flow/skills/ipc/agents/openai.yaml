@@ -1,0 +1,3 @@
+interface:
+  display_name: "IPC"
+  short_description: "Zero-copy IPC, shared memory, ring buffers, sync primitives, and notifications"

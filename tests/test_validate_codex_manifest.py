@@ -28,3 +28,21 @@ def test_codex_manifest_discovery_excludes_claude_marketplace() -> None:
     assert REPO_ROOT / ".claude-plugin" / "marketplace.json" not in marketplaces
     assert REPO_ROOT / ".codex-plugin" / "plugin.json" in plugin_manifests
     assert REPO_ROOT / ".claude-plugin" / "plugin.json" not in plugin_manifests
+
+
+def test_codex_package_layout_accepts_real_package_directories(tmp_path: Path) -> None:
+    package = tmp_path / "plugins" / "flow"
+    for name in validate_codex_manifest.PACKAGE_DIRS:
+        (package / name).mkdir(parents=True)
+
+    assert validate_codex_manifest.validate_codex_package_layout(tmp_path)
+
+
+def test_codex_package_layout_rejects_symlinked_package_payload(tmp_path: Path) -> None:
+    package = tmp_path / "plugins" / "flow"
+    for name in validate_codex_manifest.PACKAGE_DIRS:
+        (package / name).mkdir(parents=True)
+    (package / "skills").rmdir()
+    (package / "skills").symlink_to(tmp_path)
+
+    assert not validate_codex_manifest.validate_codex_package_layout(tmp_path)

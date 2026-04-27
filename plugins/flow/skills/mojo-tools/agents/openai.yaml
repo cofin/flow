@@ -1,0 +1,3 @@
+interface:
+  display_name: "Mojo Tools"
+  short_description: "Flow supplemental Mojo patterns for SIMD, interop, FFI, packaging, and tests"
