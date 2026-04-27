@@ -135,7 +135,9 @@ def _check_symlink(link: Path, expected_target: str) -> int:
     if not link.is_symlink():
         print(f"  ERROR [not-a-symlink]: {link} (expected -> {expected_target})")
         return 1
-    actual = os.readlink(link)
+    # Normalize to POSIX separators so the comparison is portable across OSes
+    # (os.readlink returns backslashes on Windows even when git stored '/').
+    actual = os.readlink(link).replace("\\", "/")
     if actual != expected_target:
         print(f"  ERROR [wrong-target]: {link} -> {actual} (expected -> {expected_target})")
         return 1
