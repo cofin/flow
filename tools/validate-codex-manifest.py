@@ -53,6 +53,18 @@ def validate_marketplace(file_path: str | Path):
             if '..' in path:
                 print(f"  ERROR [plugin {name}]: path '{path}' must not contain '..'")
                 errors += 1
+            
+            # 4. Path must exist relative to marketplace file and contain a plugin manifest
+            marketplace_dir = file_path.parent
+            resolved_path = (marketplace_dir / normalized).resolve()
+            if not resolved_path.is_dir():
+                print(f"  ERROR [plugin {name}]: path '{path}' does not exist or is not a directory")
+                errors += 1
+            else:
+                plugin_manifest = resolved_path / ".codex-plugin" / "plugin.json"
+                if not plugin_manifest.is_file():
+                    print(f"  ERROR [plugin {name}]: path '{path}' is missing .codex-plugin/plugin.json")
+                    errors += 1
 
     return errors == 0
 
