@@ -1,40 +1,33 @@
 #!/usr/bin/env bash
-# Mirror repo-root sources into the Codex marketplace package at
-# .agents/plugins/plugins/flow/. Codex 0.125 cannot follow symlinks out of an
-# installed plugin package, so the package must contain real copies.
+# Assemble the Codex marketplace package at <repo-root>/plugins/flow/.
 #
-#   .codex-plugin/, skills/  -> full directory mirror
-#   commands/flow-*.md       -> Codex-format command markdowns only; the
-#                               commands/flow/*.toml subdirectory is
-#                               Gemini-CLI-only and is intentionally excluded.
+# Codex resolves marketplace `source.path` relative to the marketplace ROOT
+# (the repo), not relative to the marketplace.json file. So `./plugins/flow`
+# in .agents/plugins/marketplace.json must exist at <repo-root>/plugins/flow/.
+#
+# We use symlinks back to the repo-root sources to avoid duplication:
+#   plugins/flow/.codex-plugin -> ../../.codex-plugin   (whole-dir symlink)
+#   plugins/flow/skills        -> ../../skills          (whole-dir symlink)
+#   plugins/flow/commands/<f>  -> ../../../commands/<f> (per-file symlinks
+#                                  so the commands/flow/*.toml Gemini-CLI
+#                                  files are excluded from the Codex package)
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-package="${repo_root}/.agents/plugins/plugins/flow"
+package="${repo_root}/plugins/flow"
 
-for dir in .codex-plugin skills; do
-  src="${repo_root}/${dir}"
-  dst="${package}/${dir}"
-  if [[ ! -d "${src}" ]]; then
-    echo "error: source ${src} is missing" >&2
-    exit 1
-  fi
-  rm -rf "${dst}"
-  cp -a "${src}" "${dst}"
-done
+mkdir -p "${package}"
+rm -rf "${package}/.codex-plugin" "${package}/skills" "${package}/commands"
 
-src_cmds="${repo_root}/commands"
-dst_cmds="${package}/commands"
-if [[ ! -d "${src_cmds}" ]]; then
-  echo "error: source ${src_cmds} is missing" >&2
-  exit 1
-fi
-rm -rf "${dst_cmds}"
-mkdir -p "${dst_cmds}"
+ln -s ../../.codex-plugin "${package}/.codex-plugin"
+ln -s ../../skills "${package}/skills"
+
+mkdir -p "${package}/commands"
 shopt -s nullglob
-for f in "${src_cmds}"/flow-*.md; do
-  cp -a "${f}" "${dst_cmds}/"
+for f in "${repo_root}/commands"/flow-*.md; do
+  name="$(basename "${f}")"
+  ln -s "../../../commands/${name}" "${package}/commands/${name}"
 done
 shopt -u nullglob
 
-echo "synced .codex-plugin/, commands/flow-*.md, skills/ -> ${package}"
+echo "assembled package at ${package}"

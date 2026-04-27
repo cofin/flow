@@ -1,3 +1,0 @@
-interface:
-  display_name: "Flow Setup"
-  short_description: "Initialize Flow context, Beads, local-only policy, and setup validation"

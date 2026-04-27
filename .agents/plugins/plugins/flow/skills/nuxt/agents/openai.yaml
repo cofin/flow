@@ -1,3 +1,0 @@
-interface:
-  display_name: "Nuxt"
-  short_description: "Nuxt 3 SSR, SSG, Nitro routes, config, data fetching, and Vue integration"

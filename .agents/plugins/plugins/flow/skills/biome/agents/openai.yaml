@@ -1,3 +1,0 @@
-interface:
-  display_name: "Biome"
-  short_description: "Biome lint, format, workspace config, ignores, and overrides"

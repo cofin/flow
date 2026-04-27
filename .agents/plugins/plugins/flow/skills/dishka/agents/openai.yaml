@@ -1,3 +1,0 @@
-interface:
-  display_name: "Dishka"
-  short_description: "Dishka dependency injection providers, scopes, containers, and integrations"

@@ -1,3 +1,0 @@
-interface:
-  display_name: "Sphinx"
-  short_description: "Sphinx docs, conf.py, RST, autodoc, themes, CI, and doc builds"
