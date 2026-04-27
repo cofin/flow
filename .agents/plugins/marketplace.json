@@ -15,9 +15,12 @@
     {
       "name": "flow",
       "description": "Unified toolkit for Context-Driven Development with spec-first planning, TDD workflow, and Beads integration",
-      "version": "0.20.2",
+      "version": "0.20.3",
       "source": { "source": "local", "path": "./plugins/flow" },
-      "policy": { "installation": "AVAILABLE" },
+      "policy": { 
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
       "category": "Development",
       "author": { "name": "cofin" }
     }
