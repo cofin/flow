@@ -8,6 +8,7 @@
   "license": "MIT",
   "keywords": ["flow", "context-driven-development", "beads", "tdd", "ai-agent", "workflow", "spec-first", "skills"],
   "skills": "./skills/",
+  "commands": "./commands/",
   "interface": {
     "displayName": "Flow",
     "shortDescription": "Context-driven planning, TDD implementation, and Beads-backed memory",
