@@ -17,6 +17,12 @@ IFS=$'\n\t'
 readonly DEFAULT_ROOT_DIR="${CLAUDE_PLUGIN_OPTION_AGENTSDIR:-.agents}"
 readonly USE_BEADS="${CLAUDE_PLUGIN_OPTION_USEBEADS:-true}"
 
+# Opt into the bd v2.0 JSON envelope so `bd --json` stops emitting the
+# deprecation notice into the SessionStart context block. Bridges until
+# beads wires this through Viper config; flow's parsers below are
+# envelope-aware either way.
+export BD_JSON_ENVELOPE=1
+
 # --- Functions ---
 
 # Helper to safely run a command with timeout and return its output
@@ -74,9 +80,16 @@ check_settings() {
 detect_project_root() {
     local root_dir="${DEFAULT_ROOT_DIR}"
     local msg=""
-    if [[ -f ".agents/setup-state.json" ]]; then
+    local state_file="${DEFAULT_ROOT_DIR}/setup-state.json"
+    # Backward-compat: if the configured root has no setup-state but the
+    # default .agents/ does, read from there. Helps users who switched
+    # agentsDir after an existing setup.
+    if [[ ! -f "${state_file}" && -f ".agents/setup-state.json" ]]; then
+        state_file=".agents/setup-state.json"
+    fi
+    if [[ -f "${state_file}" ]]; then
         local found_root
-        found_root=$(grep -o '"root_directory": "[^"]*"' .agents/setup-state.json | cut -d'"' -f4 || true)
+        found_root=$(grep -o '"root_directory": "[^"]*"' "${state_file}" | cut -d'"' -f4 || true)
         found_root="${found_root%/}"
         if [[ -n "${found_root}" ]]; then
             root_dir="${found_root}"
@@ -161,7 +174,11 @@ active_work() {
             # Attempt to parse and truncate with python if available
             if command -v python3 >/dev/null 2>&1; then
                 local truncated
-                truncated=$(echo "${ready}" | python3 -c 'import json, sys; d=json.load(sys.stdin); print(json.dumps(d[:3]))' 2>/dev/null || true)
+                truncated=$(echo "${ready}" | python3 -c 'import json, sys
+d = json.load(sys.stdin)
+if isinstance(d, dict) and "data" in d:
+    d = d["data"]
+print(json.dumps(d[:3]))' 2>/dev/null || true)
                 if [[ -n "${truncated}" ]]; then
                     echo "- **Ready Tasks (Top 3)**: ${truncated}"
                     return

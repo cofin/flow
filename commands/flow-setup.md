@@ -378,9 +378,14 @@ bd init --non-interactive --stealth --prefix <project_name_slug> --skip-agents
 bd config set no-git-ops true
 bd config set export.auto false
 bd config set export.git-add false
+
+mkdir -p .beads
+if [ ! -f .beads/config.yaml ] || ! grep -q '^json-envelope:' .beads/config.yaml; then
+  printf 'json-envelope: true\n' >> .beads/config.yaml
+fi
 ```
 
-These defaults keep Beads local-only: no automatic export, no auto-staging, and no git operations in `bd prime` output. `bd dolt push` remains explicit opt-in only.
+These defaults keep Beads local-only: no automatic export, no auto-staging, and no git operations in `bd prime` output. `bd dolt push` remains explicit opt-in only. The `json-envelope: true` Viper key opts the project into the bd v2.0 JSON envelope so `bd --json` stops emitting the deprecation notice; flow's hooks export `BD_JSON_ENVELOPE=1` until beads wires this through Viper.
 
 If no-Beads mode was selected:
 
