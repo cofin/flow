@@ -62,6 +62,12 @@ validate-codex-manifest:                           ## Validate Codex marketplace
 	@uv run --extra dev tools/validate-codex-manifest.py
 	@echo "${OK} Codex manifests valid"
 
+.PHONY: validate-claude-manifest
+validate-claude-manifest:                          ## Validate Claude Code plugin/marketplace manifests
+	@echo "${INFO} Validating Claude manifests..."
+	@uv run --extra dev tools/validate-claude-manifest.py
+	@echo "${OK} Claude manifests valid"
+
 .PHONY: sync-manifests
 sync-manifests:                                    ## Sync version strings across all manifests
 	@echo "${INFO} Syncing version strings..."
@@ -69,7 +75,7 @@ sync-manifests:                                    ## Sync version strings acros
 	@echo "${OK} Version strings in sync"
 
 .PHONY: check
-check: lint validate-skills validate-codex-manifest sync-manifests ## Run all quality checks (lint + validate)
+check: lint validate-skills validate-codex-manifest validate-claude-manifest sync-manifests ## Run all quality checks (lint + validate)
 	@echo "${OK} All checks passed"
 
 .PHONY: build

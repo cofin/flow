@@ -1,3 +1,8 @@
+---
+description: Re-assess, reorganize, and optimize project context for implementation-readiness
+allowed-tools: Read, Write, Edit, Glob, Grep, Bash
+---
+
 # flow:cleanup
 
 **Role:** The Groundskeeper
