@@ -5,11 +5,17 @@ Wraps ``claude plugin validate <path>`` so CI fails on the same schema errors
 Claude Code's loader would surface at install time. Avoids hand-rolling a
 schema that drifts from the real validator.
 
-Exit 0 on clean; exit 1 if any target fails or ``claude`` is unavailable.
+Set ``SKIP_CLAUDE_VALIDATE=1`` to skip the check (e.g. on a developer
+machine without Claude Code installed). CI installs the CLI explicitly,
+so the skip is reserved for local convenience.
+
+Exit 0 on clean or when skipped; exit 1 if any target fails or ``claude``
+is missing without the skip flag set.
 """
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import sys
@@ -39,9 +45,13 @@ def _validate(target: Path) -> bool:
 
 
 def main() -> int:
+    if os.environ.get("SKIP_CLAUDE_VALIDATE") == "1":
+        print("Skipping Claude manifest validation (SKIP_CLAUDE_VALIDATE=1).")
+        return 0
+
     if shutil.which("claude") is None:
         print("ERROR: 'claude' CLI not found on PATH.", file=sys.stderr)
-        print("Install Claude Code or skip with `SKIP_CLAUDE_VALIDATE=1`.", file=sys.stderr)
+        print("Install Claude Code (`npm install -g @anthropic-ai/claude-code`) or skip with `SKIP_CLAUDE_VALIDATE=1`.", file=sys.stderr)
         return 1
 
     failures = [t for t in TARGETS if not _validate(t)]
