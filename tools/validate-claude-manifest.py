@@ -29,12 +29,12 @@ TARGETS: tuple[Path, ...] = (
 )
 
 
-def _validate(target: Path) -> bool:
+def _validate(claude_cmd: str, target: Path) -> bool:
     if not target.is_file():
         print(f"  MISSING: {target}", file=sys.stderr)
         return False
     result = subprocess.run(
-        ["claude", "plugin", "validate", str(target)],
+        [claude_cmd, "plugin", "validate", str(target)],
         capture_output=True,
         text=True,
         check=False,
@@ -49,12 +49,17 @@ def main() -> int:
         print("Skipping Claude manifest validation (SKIP_CLAUDE_VALIDATE=1).")
         return 0
 
-    if shutil.which("claude") is None:
+    # Use the full resolved path from `shutil.which`, not the bare name. On
+    # Windows, `claude` resolves to `claude.cmd` via PATHEXT, but
+    # `subprocess.run` does not honor PATHEXT, so passing the bare name
+    # raises FileNotFoundError even when the CLI is installed.
+    claude_cmd = shutil.which("claude")
+    if claude_cmd is None:
         print("ERROR: 'claude' CLI not found on PATH.", file=sys.stderr)
         print("Install Claude Code (`npm install -g @anthropic-ai/claude-code`) or skip with `SKIP_CLAUDE_VALIDATE=1`.", file=sys.stderr)
         return 1
 
-    failures = [t for t in TARGETS if not _validate(t)]
+    failures = [t for t in TARGETS if not _validate(claude_cmd, t)]
     if failures:
         print(f"\n{len(failures)} manifest(s) failed Claude Code validation.", file=sys.stderr)
         return 1
