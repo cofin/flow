@@ -1,0 +1,747 @@
+{
+  "advanced-alchemy": {
+    "display_name": "Advanced Alchemy",
+    "current_version": "1.9.1",
+    "last_checked": "2026-03-30",
+    "package_registry": "pypi",
+    "package_name": "advanced-alchemy",
+    "docs_url": "https://advanced-alchemy.litestar.dev/latest/",
+    "changelog_url": "https://advanced-alchemy.litestar.dev/latest/changelog.html",
+    "github": "litestar-org/advanced-alchemy",
+    "search_hints": [
+      "ORM",
+      "SQLAlchemy",
+      "repository",
+      "service",
+      "Alembic",
+      "DTO"
+    ]
+  },
+  "alloydb": {
+    "display_name": "AlloyDB",
+    "current_version": "n/a",
+    "last_checked": "2026-03-30",
+    "package_registry": null,
+    "package_name": null,
+    "docs_url": "https://cloud.google.com/alloydb/docs",
+    "changelog_url": null,
+    "github": null,
+    "search_hints": [
+      "GCP",
+      "PostgreSQL",
+      "managed database",
+      "Google Cloud"
+    ]
+  },
+  "alloydb-omni": {
+    "display_name": "AlloyDB Omni",
+    "current_version": "n/a",
+    "last_checked": "2026-03-30",
+    "package_registry": null,
+    "package_name": null,
+    "docs_url": "https://cloud.google.com/alloydb/docs/omni",
+    "changelog_url": null,
+    "github": null,
+    "search_hints": [
+      "AlloyDB",
+      "on-prem",
+      "container",
+      "Kubernetes"
+    ]
+  },
+  "angular": {
+    "display_name": "Angular",
+    "current_version": "21.2.6",
+    "last_checked": "2026-03-30",
+    "package_registry": "npm",
+    "package_name": "@angular/core",
+    "docs_url": "https://angular.dev/",
+    "changelog_url": "https://github.com/angular/angular/releases",
+    "github": "angular/angular",
+    "search_hints": [
+      "signals",
+      "standalone components",
+      "control flow",
+      "TypeScript",
+      "RxJS"
+    ]
+  },
+  "bash": {
+    "display_name": "Bash",
+    "current_version": "n/a",
+    "last_checked": "2026-03-30",
+    "package_registry": null,
+    "package_name": null,
+    "docs_url": "https://www.gnu.org/software/bash/manual/",
+    "changelog_url": null,
+    "github": null,
+    "search_hints": [
+      "shell",
+      "scripting",
+      "Google Shell Style Guide"
+    ]
+  },
+  "biome": {
+    "display_name": "Biome",
+    "current_version": "2.4.9",
+    "last_checked": "2026-03-30",
+    "package_registry": "npm",
+    "package_name": "@biomejs/biome",
+    "docs_url": "https://biomejs.dev/",
+    "changelog_url": "https://github.com/biomejs/biome/releases",
+    "github": "biomejs/biome",
+    "search_hints": [
+      "linter",
+      "formatter",
+      "JavaScript",
+      "TypeScript"
+    ]
+  },
+  "bun": {
+    "display_name": "Bun",
+    "current_version": "1.3.11",
+    "last_checked": "2026-03-30",
+    "package_registry": "npm",
+    "package_name": "bun",
+    "docs_url": "https://bun.sh/docs",
+    "changelog_url": "https://github.com/oven-sh/bun/releases",
+    "github": "oven-sh/bun",
+    "search_hints": [
+      "runtime",
+      "bundler",
+      "test runner",
+      "JavaScript",
+      "TypeScript"
+    ]
+  },
+  "cloud-run": {
+    "display_name": "Cloud Run",
+    "current_version": "n/a",
+    "last_checked": "2026-03-30",
+    "package_registry": null,
+    "package_name": null,
+    "docs_url": "https://cloud.google.com/run/docs",
+    "changelog_url": "https://cloud.google.com/run/docs/release-notes",
+    "github": null,
+    "search_hints": [
+      "GCP",
+      "serverless",
+      "containers",
+      "Cloud Run Jobs"
+    ]
+  },
+  "cpp": {
+    "display_name": "C++",
+    "current_version": "n/a",
+    "last_checked": "2026-03-30",
+    "package_registry": null,
+    "package_name": null,
+    "docs_url": "https://en.cppreference.com/",
+    "changelog_url": null,
+    "github": null,
+    "search_hints": [
+      "C++20",
+      "C++23",
+      "CMake",
+      "clang-tidy",
+      "modern C++"
+    ]
+  },
+  "dishka": {
+    "display_name": "Dishka",
+    "current_version": "1.9.1",
+    "last_checked": "2026-03-30",
+    "package_registry": "pypi",
+    "package_name": "dishka",
+    "docs_url": "https://dishka.readthedocs.io/en/stable/",
+    "changelog_url": "https://github.com/reagento/dishka/releases",
+    "github": "reagento/dishka",
+    "search_hints": [
+      "dependency injection",
+      "DI",
+      "Provider",
+      "Scope",
+      "Container"
+    ]
+  },
+  "docker": {
+    "display_name": "Docker",
+    "current_version": "n/a",
+    "last_checked": "2026-03-30",
+    "package_registry": null,
+    "package_name": null,
+    "docs_url": "https://docs.docker.com/",
+    "changelog_url": "https://docs.docker.com/engine/release-notes/",
+    "github": null,
+    "search_hints": [
+      "containers",
+      "Dockerfile",
+      "Compose",
+      "BuildKit",
+      "distroless"
+    ]
+  },
+  "duckdb": {
+    "display_name": "DuckDB",
+    "current_version": "1.5.1",
+    "last_checked": "2026-03-30",
+    "package_registry": "pypi",
+    "package_name": "duckdb",
+    "docs_url": "https://duckdb.org/docs/",
+    "changelog_url": "https://github.com/duckdb/duckdb/releases",
+    "github": "duckdb/duckdb",
+    "search_hints": [
+      "analytical SQL",
+      "OLAP",
+      "columnar",
+      "data engineering",
+      "Arrow"
+    ]
+  },
+  "flow": {
+    "display_name": "Flow",
+    "current_version": "n/a",
+    "last_checked": "2026-03-30",
+    "package_registry": null,
+    "package_name": null,
+    "docs_url": "https://github.com/cofin/flow",
+    "changelog_url": null,
+    "github": "cofin/flow",
+    "search_hints": [
+      "context-driven development",
+      "beads",
+      "spec-first"
+    ]
+  },
+  "gcp": {
+    "display_name": "Google Cloud Platform",
+    "current_version": "n/a",
+    "last_checked": "2026-03-30",
+    "package_registry": null,
+    "package_name": null,
+    "docs_url": "https://cloud.google.com/docs",
+    "changelog_url": null,
+    "github": null,
+    "search_hints": [
+      "gcloud",
+      "IAM",
+      "service accounts",
+      "Cloud Storage",
+      "Pub/Sub",
+      "BigQuery",
+      "Vertex AI"
+    ]
+  },
+  "gke": {
+    "display_name": "Google Kubernetes Engine",
+    "current_version": "n/a",
+    "last_checked": "2026-03-30",
+    "package_registry": null,
+    "package_name": null,
+    "docs_url": "https://cloud.google.com/kubernetes-engine/docs",
+    "changelog_url": "https://cloud.google.com/kubernetes-engine/docs/release-notes",
+    "github": null,
+    "search_hints": [
+      "Kubernetes",
+      "GKE",
+      "kubectl",
+      "Helm",
+      "node pools",
+      "workload identity"
+    ]
+  },
+  "htmx": {
+    "display_name": "HTMX",
+    "current_version": "2.0.8",
+    "last_checked": "2026-03-30",
+    "package_registry": "npm",
+    "package_name": "htmx.org",
+    "docs_url": "https://htmx.org/docs/",
+    "changelog_url": "https://github.com/bigskysoftware/htmx/releases",
+    "github": "bigskysoftware/htmx",
+    "search_hints": [
+      "hypermedia",
+      "hx-",
+      "partial HTML",
+      "AJAX"
+    ]
+  },
+  "inertia": {
+    "display_name": "Inertia.js",
+    "current_version": "3.0.0",
+    "last_checked": "2026-03-30",
+    "package_registry": "npm",
+    "package_name": "@inertiajs/core",
+    "docs_url": "https://inertiajs.com/docs/v2",
+    "changelog_url": "https://github.com/inertiajs/inertia/releases",
+    "github": "inertiajs/inertia",
+    "search_hints": [
+      "SPA",
+      "server-side routing",
+      "page components",
+      "litestar-vite"
+    ]
+  },
+  "ipc": {
+    "display_name": "Inter-Process Communication",
+    "current_version": "n/a",
+    "last_checked": "2026-03-30",
+    "package_registry": null,
+    "package_name": null,
+    "docs_url": "https://man7.org/linux/man-pages/",
+    "changelog_url": null,
+    "github": null,
+    "search_hints": [
+      "shared memory",
+      "ring buffer",
+      "SPSC",
+      "MPMC",
+      "zero-copy"
+    ]
+  },
+  "litestar": {
+    "display_name": "Litestar",
+    "current_version": "2.21.1",
+    "last_checked": "2026-03-30",
+    "package_registry": "pypi",
+    "package_name": "litestar",
+    "docs_url": "https://docs.litestar.dev/2/",
+    "changelog_url": "https://docs.litestar.dev/2/release-notes/changelog.html",
+    "github": "litestar-org/litestar",
+    "search_hints": [
+      "ASGI",
+      "web framework",
+      "msgspec",
+      "OpenAPI",
+      "Guards",
+      "middleware"
+    ]
+  },
+  "makefile": {
+    "display_name": "GNU Make",
+    "current_version": "n/a",
+    "last_checked": "2026-03-30",
+    "package_registry": null,
+    "package_name": null,
+    "docs_url": "https://www.gnu.org/software/make/manual/make.html",
+    "changelog_url": null,
+    "github": null,
+    "search_hints": [
+      ".PHONY",
+      "targets",
+      "recipes",
+      "uv",
+      "automation"
+    ]
+  },
+  "mojo-tools": {
+    "display_name": "Mojo",
+    "current_version": "n/a",
+    "last_checked": "2026-03-30",
+    "package_registry": null,
+    "package_name": null,
+    "docs_url": "https://docs.modular.com/mojo/",
+    "changelog_url": null,
+    "github": null,
+    "search_hints": [
+      "SIMD",
+      "high-performance",
+      "Python interop",
+      "Modular"
+    ]
+  },
+  "mysql": {
+    "display_name": "MySQL / MariaDB",
+    "current_version": "n/a",
+    "last_checked": "2026-03-30",
+    "package_registry": null,
+    "package_name": null,
+    "docs_url": "https://dev.mysql.com/doc/refman/8.4/en/",
+    "changelog_url": null,
+    "github": null,
+    "search_hints": [
+      "InnoDB",
+      "stored procedures",
+      "replication",
+      "MariaDB"
+    ]
+  },
+  "nuxt": {
+    "display_name": "Nuxt",
+    "current_version": "4.4.2",
+    "last_checked": "2026-03-30",
+    "package_registry": "npm",
+    "package_name": "nuxt",
+    "docs_url": "https://nuxt.com/docs/4.x/getting-started/introduction",
+    "changelog_url": "https://github.com/nuxt/nuxt/releases",
+    "github": "nuxt/nuxt",
+    "search_hints": [
+      "Vue SSR",
+      "Nitro",
+      "useFetch",
+      "useAsyncData",
+      "server routes"
+    ]
+  },
+  "oracle": {
+    "display_name": "Oracle Database",
+    "current_version": "n/a",
+    "last_checked": "2026-03-30",
+    "package_registry": null,
+    "package_name": null,
+    "docs_url": "https://docs.oracle.com/en/database/",
+    "changelog_url": null,
+    "github": null,
+    "search_hints": [
+      "PL/SQL",
+      "OCI",
+      "ORDS",
+      "26ai",
+      "vector search",
+      "JSON"
+    ]
+  },
+  "podman": {
+    "display_name": "Podman",
+    "current_version": "n/a",
+    "last_checked": "2026-03-30",
+    "package_registry": null,
+    "package_name": null,
+    "docs_url": "https://docs.podman.io/en/latest/",
+    "changelog_url": "https://github.com/containers/podman/releases",
+    "github": "containers/podman",
+    "search_hints": [
+      "rootless",
+      "containers",
+      "pods",
+      "systemd",
+      "OCI"
+    ]
+  },
+  "postgres": {
+    "display_name": "PostgreSQL",
+    "current_version": "n/a",
+    "last_checked": "2026-03-30",
+    "package_registry": null,
+    "package_name": null,
+    "docs_url": "https://www.postgresql.org/docs/current/",
+    "changelog_url": "https://www.postgresql.org/docs/current/release.html",
+    "github": null,
+    "search_hints": [
+      "PL/pgSQL",
+      "indexing",
+      "JSONB",
+      "RLS",
+      "pgvector",
+      "replication"
+    ]
+  },
+  "pyapp": {
+    "display_name": "PyApp",
+    "current_version": "n/a",
+    "last_checked": "2026-03-30",
+    "package_registry": null,
+    "package_name": null,
+    "docs_url": "https://ofek.dev/pyapp/latest/",
+    "changelog_url": "https://github.com/ofek/pyapp/releases",
+    "github": "ofek/pyapp",
+    "search_hints": [
+      "standalone binary",
+      "Python executable",
+      "air-gapped",
+      "uv"
+    ]
+  },
+  "pytest-databases": {
+    "display_name": "pytest-databases",
+    "current_version": "0.17.0",
+    "last_checked": "2026-03-30",
+    "package_registry": "pypi",
+    "package_name": "pytest-databases",
+    "docs_url": "https://litestar-org.github.io/pytest-databases/latest/",
+    "changelog_url": "https://github.com/litestar-org/pytest-databases/releases",
+    "github": "litestar-org/pytest-databases",
+    "search_hints": [
+      "fixtures",
+      "Docker",
+      "test containers",
+      "PostgreSQL",
+      "MySQL"
+    ]
+  },
+  "python": {
+    "display_name": "Python",
+    "current_version": "n/a",
+    "last_checked": "2026-03-30",
+    "package_registry": null,
+    "package_name": null,
+    "docs_url": "https://docs.python.org/3/",
+    "changelog_url": "https://docs.python.org/3/whatsnew/",
+    "github": null,
+    "search_hints": [
+      "uv",
+      "ruff",
+      "mypy",
+      "pyproject.toml",
+      "typing",
+      "Cython",
+      "Mypyc"
+    ]
+  },
+  "railway-tools": {
+    "display_name": "Railway",
+    "current_version": "n/a",
+    "last_checked": "2026-03-30",
+    "package_registry": null,
+    "package_name": null,
+    "docs_url": "https://docs.railway.com/",
+    "changelog_url": null,
+    "github": null,
+    "search_hints": [
+      "deployment",
+      "services",
+      "databases",
+      "app sleeping",
+      "config-as-code"
+    ]
+  },
+  "react": {
+    "display_name": "React",
+    "current_version": "19.2.4",
+    "last_checked": "2026-03-30",
+    "package_registry": "npm",
+    "package_name": "react",
+    "docs_url": "https://react.dev/",
+    "changelog_url": "https://github.com/facebook/react/releases",
+    "github": "facebook/react",
+    "search_hints": [
+      "hooks",
+      "server components",
+      "RSC",
+      "JSX",
+      "TypeScript"
+    ]
+  },
+  "rust": {
+    "display_name": "Rust",
+    "current_version": "n/a",
+    "last_checked": "2026-03-30",
+    "package_registry": null,
+    "package_name": null,
+    "docs_url": "https://doc.rust-lang.org/book/",
+    "changelog_url": "https://blog.rust-lang.org/releases/",
+    "github": null,
+    "search_hints": [
+      "tokio",
+      "PyO3",
+      "maturin",
+      "napi-rs",
+      "workspace",
+      "async"
+    ]
+  },
+  "shadcn-tools": {
+    "display_name": "shadcn/ui",
+    "current_version": "n/a",
+    "last_checked": "2026-03-30",
+    "package_registry": null,
+    "package_name": null,
+    "docs_url": "https://ui.shadcn.com/",
+    "changelog_url": null,
+    "github": "shadcn-ui/ui",
+    "search_hints": [
+      "Radix",
+      "Tailwind",
+      "cn()",
+      "copy-paste components",
+      "CLI"
+    ]
+  },
+  "sphinx": {
+    "display_name": "Sphinx",
+    "current_version": "9.1.0",
+    "last_checked": "2026-03-30",
+    "package_registry": "pypi",
+    "package_name": "sphinx",
+    "docs_url": "https://www.sphinx-doc.org/",
+    "changelog_url": "https://www.sphinx-doc.org/en/master/changes.html",
+    "github": "sphinx-doc/sphinx",
+    "search_hints": [
+      "reStructuredText",
+      "RST",
+      "autodoc",
+      "Read the Docs",
+      "Shibuya"
+    ]
+  },
+  "sqlalchemy": {
+    "display_name": "SQLAlchemy",
+    "current_version": "2.0.48",
+    "last_checked": "2026-03-30",
+    "package_registry": "pypi",
+    "package_name": "sqlalchemy",
+    "docs_url": "https://docs.sqlalchemy.org/en/20/",
+    "changelog_url": "https://docs.sqlalchemy.org/en/20/changelog/",
+    "github": "sqlalchemy/sqlalchemy",
+    "search_hints": [
+      "ORM",
+      "Core",
+      "async",
+      "mapped_column",
+      "DeclarativeBase",
+      "Alembic"
+    ]
+  },
+  "sqlserver": {
+    "display_name": "SQL Server",
+    "current_version": "n/a",
+    "last_checked": "2026-03-30",
+    "package_registry": null,
+    "package_name": null,
+    "docs_url": "https://learn.microsoft.com/en-us/sql/sql-server/",
+    "changelog_url": null,
+    "github": null,
+    "search_hints": [
+      "T-SQL",
+      "stored procedures",
+      "Always On",
+      "execution plans"
+    ]
+  },
+  "sqlspec": {
+    "display_name": "SQLSpec",
+    "current_version": "0.42.0",
+    "last_checked": "2026-03-30",
+    "package_registry": "pypi",
+    "package_name": "sqlspec",
+    "docs_url": "https://sqlspec.dev/",
+    "changelog_url": "https://sqlspec.dev/changelog.html",
+    "github": "litestar-org/sqlspec",
+    "search_hints": [
+      "SQL query mapper",
+      "database adapters",
+      "Arrow",
+      "filters",
+      "pagination"
+    ]
+  },
+  "svelte": {
+    "display_name": "Svelte",
+    "current_version": "5.55.1",
+    "last_checked": "2026-03-30",
+    "package_registry": "npm",
+    "package_name": "svelte",
+    "docs_url": "https://svelte.dev/docs/svelte/what-are-runes",
+    "changelog_url": "https://github.com/sveltejs/svelte/releases",
+    "github": "sveltejs/svelte",
+    "search_hints": [
+      "runes",
+      "$state",
+      "$derived",
+      "SvelteKit",
+      "Svelte 5"
+    ]
+  },
+  "tailwind": {
+    "display_name": "Tailwind CSS",
+    "current_version": "4.2.2",
+    "last_checked": "2026-03-30",
+    "package_registry": "npm",
+    "package_name": "tailwindcss",
+    "docs_url": "https://tailwindcss.com/docs",
+    "changelog_url": "https://github.com/tailwindlabs/tailwindcss/releases",
+    "github": "tailwindlabs/tailwindcss",
+    "search_hints": [
+      "utility classes",
+      "v4",
+      "@theme",
+      "responsive",
+      "@apply"
+    ]
+  },
+  "tanstack": {
+    "display_name": "TanStack",
+    "current_version": "5.95.2",
+    "last_checked": "2026-03-30",
+    "package_registry": "npm",
+    "package_name": "@tanstack/react-query",
+    "docs_url": "https://tanstack.com/query/",
+    "changelog_url": "https://github.com/TanStack/query/releases",
+    "github": "TanStack/query",
+    "search_hints": [
+      "Router",
+      "Query",
+      "Table",
+      "Form",
+      "useQuery",
+      "file-based routing"
+    ]
+  },
+  "testing": {
+    "display_name": "Testing (pytest + vitest)",
+    "current_version": "9.0.2",
+    "last_checked": "2026-03-30",
+    "package_registry": "pypi",
+    "package_name": "pytest",
+    "docs_url": "https://docs.pytest.org/en/stable/",
+    "changelog_url": "https://docs.pytest.org/en/stable/changelog.html",
+    "github": "pytest-dev/pytest",
+    "search_hints": [
+      "fixtures",
+      "mocking",
+      "coverage",
+      "anyio",
+      "vitest"
+    ]
+  },
+  "ty": {
+    "display_name": "ty",
+    "current_version": "0.0.26",
+    "last_checked": "2026-03-30",
+    "package_registry": "pypi",
+    "package_name": "ty",
+    "docs_url": "https://docs.astral.sh/ty/",
+    "changelog_url": "https://github.com/astral-sh/ty/releases",
+    "github": "astral-sh/ty",
+    "search_hints": [
+      "type checker",
+      "Astral",
+      "zero-config",
+      "static analysis"
+    ]
+  },
+  "vite": {
+    "display_name": "Vite",
+    "current_version": "8.0.3",
+    "last_checked": "2026-03-30",
+    "package_registry": "npm",
+    "package_name": "vite",
+    "docs_url": "https://vite.dev/guide/",
+    "changelog_url": "https://github.com/vitejs/vite/releases",
+    "github": "vitejs/vite",
+    "search_hints": [
+      "bundler",
+      "HMR",
+      "dev server",
+      "plugins",
+      "Rollup"
+    ]
+  },
+  "vue": {
+    "display_name": "Vue",
+    "current_version": "3.5.31",
+    "last_checked": "2026-03-30",
+    "package_registry": "npm",
+    "package_name": "vue",
+    "docs_url": "https://vuejs.org/guide/introduction.html",
+    "changelog_url": "https://github.com/vuejs/core/releases",
+    "github": "vuejs/core",
+    "search_hints": [
+      "Composition API",
+      "script setup",
+      "SFC",
+      "TypeScript",
+      "v-model"
+    ]
+  }
+}

@@ -1,0 +1,3 @@
+interface:
+  display_name: "Agent Platform Integration"
+  short_description: "Flow packaging, installation, update, marketplace, and host integration behavior"

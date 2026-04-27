@@ -1,26 +1,22 @@
 #!/usr/bin/env python3
-"""
-Validate Codex marketplace and plugin manifest files for compatibility with Codex CLI 0.125.0+.
-"""
+"""Validate Codex marketplace and plugin manifests for Codex CLI 0.125.0+."""
+
+from __future__ import annotations
 
 import json
-import os
 import re
 import sys
 from collections.abc import Iterator
 from pathlib import Path
 
 PACKAGE_ROOT = Path("plugins/flow")
-# Whole-directory symlinks back to the repo-root sources.
-PACKAGE_DIR_SYMLINKS = (
-    (".codex-plugin", "../../.codex-plugin"),
-    ("skills", "../../skills"),
+PACKAGE_DIRS = (
+    ".codex-plugin",
+    "skills",
+    "commands",
+    ".codex",
+    "hooks",
 )
-# Per-file symlinks under plugins/flow/commands/. Only Codex-format kebab-case
-# command markdowns are exposed; commands/flow/*.toml is Gemini-CLI-only.
-PACKAGE_COMMANDS_DIR = "commands"
-PACKAGE_COMMANDS_GLOB = "flow-*.md"
-PACKAGE_COMMANDS_LINK_PREFIX = "../../../commands"
 
 
 def validate_marketplace(file_path: str | Path, repo_root: Path):
@@ -94,55 +90,47 @@ def validate_plugin_manifest(file_path: str | Path):
 
 
 def validate_codex_package_layout(repo_root: Path) -> bool:
-    """Verify plugins/flow/ is assembled with the expected symlinks."""
+    """Verify plugins/flow/ is a real generated package layout."""
     package = repo_root / PACKAGE_ROOT
     print(f"Validating Codex package layout: {package}")
     errors = 0
 
+    if package.is_symlink():
+        print(f"  ERROR [symlink]: {PACKAGE_ROOT} (expected a real directory)")
+        return False
     if not package.is_dir():
         print(f"  ERROR: package directory '{package}' is missing — run 'make sync-codex-package'")
         return False
 
-    for name, expected_target in PACKAGE_DIR_SYMLINKS:
-        link = package / name
-        errors += _check_symlink(link, expected_target)
+    expected_names = set(PACKAGE_DIRS)
+    actual_names = {p.name for p in package.iterdir()}
 
-    cmds_dir = package / PACKAGE_COMMANDS_DIR
-    src_cmds_dir = repo_root / "commands"
-    if not cmds_dir.is_dir():
-        print(f"  ERROR: '{cmds_dir}' is missing — run 'make sync-codex-package'")
+    for name in PACKAGE_DIRS:
+        errors += _check_real_directory(package / name, repo_root)
+
+    for symlink in sorted(p.relative_to(repo_root) for p in package.rglob("*") if p.is_symlink()):
+        print(f"  ERROR [symlink]: {symlink} (package payload must contain real files)")
         errors += 1
-    else:
-        expected = {p.name for p in src_cmds_dir.glob(PACKAGE_COMMANDS_GLOB) if p.is_file()}
-        actual = {p.name for p in cmds_dir.iterdir()}
-        for name in sorted(expected - actual):
-            print(f"  ERROR [missing-link]: {PACKAGE_COMMANDS_DIR}/{name}")
-            errors += 1
-        for name in sorted(actual - expected):
-            print(f"  ERROR [stray]: {PACKAGE_COMMANDS_DIR}/{name}")
-            errors += 1
-        for name in sorted(expected & actual):
-            errors += _check_symlink(
-                cmds_dir / name, f"{PACKAGE_COMMANDS_LINK_PREFIX}/{name}"
-            )
+
+    for stray in sorted(actual_names - expected_names):
+        print(f"  ERROR [stray]: {PACKAGE_ROOT}/{stray} (expected only {sorted(expected_names)})")
+        errors += 1
 
     if errors:
         print("  HINT: run 'make sync-codex-package' and commit the result")
     return errors == 0
 
 
-def _check_symlink(link: Path, expected_target: str) -> int:
-    if not link.is_symlink():
-        print(f"  ERROR [not-a-symlink]: {link} (expected -> {expected_target})")
+def _check_real_directory(path: Path, repo_root: Path) -> int:
+    rel_path = path.relative_to(repo_root)
+    if path.is_symlink():
+        print(f"  ERROR [symlink]: {rel_path} (expected a real directory)")
         return 1
-    # Normalize to POSIX separators so the comparison is portable across OSes
-    # (os.readlink returns backslashes on Windows even when git stored '/').
-    actual = os.readlink(link).replace("\\", "/")
-    if actual != expected_target:
-        print(f"  ERROR [wrong-target]: {link} -> {actual} (expected -> {expected_target})")
+    if not path.exists():
+        print(f"  ERROR [missing-directory]: {rel_path}")
         return 1
-    if not link.resolve().exists():
-        print(f"  ERROR [dangling]: {link} -> {actual}")
+    if not path.is_dir():
+        print(f"  ERROR [not-a-directory]: {rel_path}")
         return 1
     return 0
 

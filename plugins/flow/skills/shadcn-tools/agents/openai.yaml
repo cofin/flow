@@ -1,0 +1,3 @@
+interface:
+  display_name: "shadcn/ui Tools"
+  short_description: "Flow supplemental shadcn/ui, Radix, Tailwind, forms, dialogs, and tables"

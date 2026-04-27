@@ -1,0 +1,3 @@
+interface:
+  display_name: "Vue"
+  short_description: "Vue 3 SFCs, Composition API, script setup, state, deployment, and CI"

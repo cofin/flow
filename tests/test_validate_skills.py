@@ -292,8 +292,14 @@ def test_makefile_recipes_fail_fast() -> None:
     assert ".SHELLFLAGS" in makefile
     assert "-e" in makefile
     assert "-o pipefail" in makefile
+    assert "lint:" in makefile
+    assert "uv run --extra dev tools/sync-codex-package.py" in makefile
     assert "validate-codex-manifest:" in makefile
-    assert "check: lint validate-skills validate-codex-manifest sync-manifests" in makefile
+    assert "codex-package-check:" in makefile
+    assert (
+        "check: lint validate-skills codex-package-check validate-codex-manifest "
+        "validate-claude-manifest sync-manifests"
+    ) in makefile
 
 
 def test_repo_uses_supported_cursor_surface() -> None:

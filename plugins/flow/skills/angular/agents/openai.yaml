@@ -1,0 +1,3 @@
+interface:
+  display_name: "Angular"
+  short_description: "Modern Angular components, signals, standalone APIs, and migration guidance"

@@ -45,9 +45,11 @@ clean:                                              ## Cleanup temporary build a
 	@echo "${OK} Working directory cleaned"
 
 .PHONY: lint
-lint:                                               ## Lint and auto-fix all markdown files
+lint:                                               ## Lint markdown and refresh generated Codex package files
 	@echo "${INFO} Linting and fixing markdown files..."
 	@npx markdownlint-cli2 --fix "skills/**/*.md" "commands/**/*.md" "docs/**/*.md" "AGENTS.md" "GEMINI.md" "README.md"
+	@echo "${INFO} Refreshing generated Codex package..."
+	@uv run --extra dev tools/sync-codex-package.py
 	@echo "${OK} Markdown linting passed"
 
 .PHONY: validate-skills
@@ -63,10 +65,16 @@ validate-codex-manifest:                           ## Validate Codex marketplace
 	@echo "${OK} Codex manifests valid"
 
 .PHONY: sync-codex-package
-sync-codex-package:                                ## Mirror repo-root .codex-plugin/, commands/, skills/ into the Codex marketplace package
+sync-codex-package:                                ## Assemble the committed Codex marketplace package at plugins/flow/
 	@echo "${INFO} Syncing Codex marketplace package..."
-	@bash tools/sync-codex-package.sh
+	@uv run --extra dev tools/sync-codex-package.py
 	@echo "${OK} Codex marketplace package synced"
+
+.PHONY: codex-package-check
+codex-package-check:                               ## Verify plugins/flow/ matches generated Codex package payload
+	@echo "${INFO} Checking Codex marketplace package..."
+	@uv run --extra dev tools/sync-codex-package.py --check
+	@echo "${OK} Codex marketplace package is current"
 
 .PHONY: validate-claude-manifest
 validate-claude-manifest:                          ## Validate Claude Code plugin/marketplace manifests
@@ -81,7 +89,7 @@ sync-manifests:                                    ## Sync version strings acros
 	@echo "${OK} Version strings in sync"
 
 .PHONY: check
-check: lint validate-skills validate-codex-manifest validate-claude-manifest sync-manifests ## Run all quality checks (lint + validate)
+check: lint validate-skills codex-package-check validate-codex-manifest validate-claude-manifest sync-manifests ## Run all quality checks (lint + validate)
 	@echo "${OK} All checks passed"
 
 .PHONY: build

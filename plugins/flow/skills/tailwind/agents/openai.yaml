@@ -1,0 +1,3 @@
+interface:
+  display_name: "Tailwind CSS"
+  short_description: "Tailwind v4 utilities, config, @theme, responsive design, dark mode, and forms"

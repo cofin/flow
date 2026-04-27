@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "name": "flow-env-detection",
+            "type": "command",
+            "command": "bun ${extensionPath}${/}hooks${/}session-start.js || node ${extensionPath}${/}hooks${/}session-start.js || bash ${extensionPath}${/}hooks${/}session-start.sh",
+            "description": "Detects Beads backend and project root at session start (Gemini CLI)."
+          }
+        ]
+      }
+    ]
+  }
+}
