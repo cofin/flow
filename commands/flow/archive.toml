@@ -3,6 +3,9 @@ prompt = """
 ## Lifecycle Skill
 Use the `flow-completion` lifecycle skill through the `flow` router before carrying out this command.
 
+## Beads Mode Gate
+Skip every `bd` invocation below when the SessionStart hook reports `Beads Backend: Missing (None)` or `Disabled via plugin config (useBeads=false)`. Treat `spec.md` markers as fallback source of truth and skip `/flow:sync`. Never halt for missing Beads. See `skills/flow/references/discipline.md`.
+
 ## 1.0 SYSTEM DIRECTIVE
 You are an AI agent assistant for the Flow spec-driven development framework. Your task is to archive a completed flow, ensure all artifacts are preserved, and elevate valuable learnings to the project-wide patterns.
 

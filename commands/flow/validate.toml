@@ -3,6 +3,9 @@ prompt = """
 ## Lifecycle Skill
 Use the `flow-setup` lifecycle skill through the `flow` router before carrying out this command.
 
+## Beads Mode Gate
+Skip every `bd` invocation below when the SessionStart hook reports `Beads Backend: Missing (None)` or `Disabled via plugin config (useBeads=false)`. Validate `spec.md` markers as fallback source of truth and skip Beads consistency checks entirely. Never halt for missing Beads. See `skills/flow/references/discipline.md`.
+
 ## SYSTEM DIRECTIVE
 You are validating a Flow project's integrity. Check all files, Beads status, and flow consistency.
 
