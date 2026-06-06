@@ -33,10 +33,14 @@ def _validate(claude_cmd: str, target: Path) -> bool:
     if not target.is_file():
         print(f"  MISSING: {target}", file=sys.stderr)
         return False
+    # Force UTF-8 decoding: the claude CLI emits Unicode (✔/❯/⚠) that the Windows
+    # default codec (cp1252) cannot decode, which otherwise crashes the reader thread.
     result = subprocess.run(
         [claude_cmd, "plugin", "validate", str(target)],
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         check=False,
     )
     sys.stdout.write(result.stdout)
@@ -44,7 +48,16 @@ def _validate(claude_cmd: str, target: Path) -> bool:
     return result.returncode == 0
 
 
+def _force_utf8_streams() -> None:
+    """Print the claude CLI's Unicode output safely on Windows (default cp1252)."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8", errors="replace")
+
+
 def main() -> int:
+    _force_utf8_streams()
     if os.environ.get("SKIP_CLAUDE_VALIDATE") == "1":
         print("Skipping Claude manifest validation (SKIP_CLAUDE_VALIDATE=1).")
         return 0
