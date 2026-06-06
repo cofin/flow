@@ -1,3 +1,0 @@
-interface:
-  display_name: "Svelte"
-  short_description: "Svelte 5 components, runes, SvelteKit, config, and migration patterns"
