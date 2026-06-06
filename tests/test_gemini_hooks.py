@@ -50,7 +50,7 @@ def test_codex_hooks_relocated_to_dot_codex_directory() -> None:
     assert codex_hooks_path.is_file()
 
     codex_hooks = json.loads(codex_hooks_path.read_text(encoding="utf-8"))
-    assert "SessionStart" in codex_hooks["hooks"], "Codex requires camelCase event names"
+    assert "SessionStart" in codex_hooks["hooks"], "Codex uses PascalCase SessionStart event names"
     assert codex_hooks["hooks"]["SessionStart"][0].get("matcher") is not None
 
 
@@ -100,6 +100,95 @@ def test_session_start_emits_gemini_payload_when_gemini_session_present() -> Non
     assert "hookSpecificOutput" in payload
     assert payload["hookSpecificOutput"]["hookEventName"] == "SessionStart"
     assert "systemMessage" in payload, "Gemini hook must emit systemMessage for user-visible context"
+
+
+def _codex_command(manifest_path: Path) -> str:
+    hooks = json.loads(manifest_path.read_text(encoding="utf-8"))
+    return hooks["hooks"]["SessionStart"][0]["hooks"][0]["command"]
+
+
+def test_codex_hook_manifest_uses_plugin_root_token() -> None:
+    """The Codex-native manifest must anchor paths to $PLUGIN_ROOT (canonical) so
+    the hook resolves once installed, and must avoid Gemini tokens that bash
+    cannot expand. Fixes flow-9qx / GH #64."""
+    command = _codex_command(REPO_ROOT / "hooks" / "hooks-codex.json")
+
+    assert "PLUGIN_ROOT" in command
+    assert "${extensionPath}" not in command, "Codex manifest must not embed Gemini template syntax"
+    assert "${/}" not in command, "Codex manifest must not embed Gemini path-separator token"
+    assert "bun " in command and "node " in command and "bash " in command, "Codex hook keeps the bun||node||bash ladder"
+
+
+def test_dot_codex_hooks_uses_plugin_root_token() -> None:
+    """The in-repo project-layer manifest (.codex/hooks.json) must use the same
+    $PLUGIN_ROOT anchoring, not a bare session-cwd-relative path."""
+    command = _codex_command(REPO_ROOT / ".codex" / "hooks.json")
+
+    assert "PLUGIN_ROOT" in command
+    assert "${extensionPath}" not in command
+    assert "${/}" not in command
+
+
+def test_session_start_emits_codex_payload_when_plugin_root_present() -> None:
+    """Codex exports PLUGIN_ROOT; the hook must detect it and emit the modern
+    hookSpecificOutput shape."""
+    env = {k: v for k, v in os.environ.items() if not k.startswith(("CLAUDE_PLUGIN_", "CODEX_PLUGIN_", "OPENCODE_PLUGIN_", "CURSOR_PLUGIN_", "GEMINI_"))}
+    env["PLUGIN_ROOT"] = str(REPO_ROOT)
+
+    result = subprocess.run(
+        ["bash", str(REPO_ROOT / "hooks" / "session-start.sh")],
+        cwd=REPO_ROOT,
+        env=env,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    payload = json.loads(result.stdout)
+    assert "hookSpecificOutput" in payload
+    assert payload["hookSpecificOutput"]["hookEventName"] == "SessionStart"
+
+
+def test_session_start_honors_flow_host_override() -> None:
+    """Codex's project-layer hook sets FLOW_HOST=codex but no PLUGIN_ROOT. The
+    hook must still emit the Codex hookSpecificOutput shape (not the legacy
+    additional_context fallback)."""
+    env = {k: v for k, v in os.environ.items() if not k.startswith(("CLAUDE_PLUGIN_", "CODEX_PLUGIN_", "OPENCODE_PLUGIN_", "CURSOR_PLUGIN_", "GEMINI_", "PLUGIN_ROOT"))}
+    env.pop("PLUGIN_ROOT", None)
+    env["FLOW_HOST"] = "codex"
+
+    result = subprocess.run(
+        ["bash", str(REPO_ROOT / "hooks" / "session-start.sh")],
+        cwd=REPO_ROOT,
+        env=env,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    payload = json.loads(result.stdout)
+    assert "hookSpecificOutput" in payload, "FLOW_HOST=codex must force the Codex payload shape"
+    assert payload["hookSpecificOutput"]["hookEventName"] == "SessionStart"
+
+
+def test_session_start_codex_works_outside_flow_repo() -> None:
+    """Regression guard for the install path: with PLUGIN_ROOT pointing at the
+    plugin install dir, the hook must work even when cwd is an unrelated dir."""
+    env = {k: v for k, v in os.environ.items() if not k.startswith(("CLAUDE_PLUGIN_", "CODEX_PLUGIN_", "OPENCODE_PLUGIN_", "CURSOR_PLUGIN_", "GEMINI_"))}
+    env["PLUGIN_ROOT"] = str(REPO_ROOT)
+
+    result = subprocess.run(
+        ["bash", str(REPO_ROOT / "hooks" / "session-start.sh")],
+        cwd="/tmp",
+        env=env,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    payload = json.loads(result.stdout)
+    assert "hookSpecificOutput" in payload
+    assert payload["hookSpecificOutput"]["hookEventName"] == "SessionStart"
 
 
 def test_session_start_works_outside_flow_repo() -> None:

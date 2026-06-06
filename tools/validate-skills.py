@@ -138,6 +138,29 @@ _FORBIDDEN_VOCAB_ALLOWLIST: frozenset[str] = frozenset(
 
 VALID_AGENT_MODES = frozenset({"subagent", "primary"})
 VALID_AGENT_TOOLS = frozenset({"read", "grep", "glob", "bash", "edit", "write", "todoWrite", "webFetch", "webSearch"})
+# OpenCode (June 2026) prefers a three-state ``permission`` object over the legacy
+# boolean ``tools`` map. Keys gate capabilities; values are allow/ask/deny (or a
+# nested glob->decision map, e.g. for bash). See https://opencode.ai/docs/agents/.
+VALID_AGENT_PERMISSIONS = frozenset(
+    {
+        "edit",
+        "bash",
+        "webfetch",
+        "read",
+        "glob",
+        "grep",
+        "list",
+        "task",
+        "websearch",
+        "lsp",
+        "skill",
+        "external_directory",
+        "todowrite",
+        "question",
+        "doom_loop",
+    }
+)
+VALID_PERMISSION_DECISIONS = frozenset({"allow", "ask", "deny"})
 
 # Claude Code subagent tool registry (canonical Claude tool names exposed to
 # subagents — see https://code.claude.com/docs/en/sub-agents).
@@ -491,8 +514,9 @@ def validate_command(path: Path) -> list[Violation]:
 def validate_opencode_agent(path: Path) -> list[Violation]:
     """Validate an OpenCode subagent file under ``.opencode/agents/``.
 
-    OpenCode schema: ``mode`` in {primary, subagent}, ``tools`` as a dict
-    mapping whitelisted tool keys to bool values.
+    OpenCode schema: ``mode`` in {primary, subagent}, and tool scoping via the
+    modern ``permission`` object (keys -> allow/ask/deny, or a nested glob map)
+    or the legacy ``tools`` mapping (keys -> bool). At least one must be present.
     """
     violations: list[Violation] = []
     text = path.read_text(encoding="utf-8")
@@ -507,10 +531,11 @@ def validate_opencode_agent(path: Path) -> list[Violation]:
     mode = fm.get("mode")
     if mode not in VALID_AGENT_MODES:
         violations.append(Violation(path, 1, f"mode {mode!r} not in {sorted(VALID_AGENT_MODES)}"))
+    permission = fm.get("permission")
     tools = fm.get("tools")
-    if not isinstance(tools, dict):
-        violations.append(Violation(path, 1, "tools missing or not a mapping"))
-    else:
+    if permission is not None:
+        violations.extend(_check_opencode_permission(permission, path))
+    elif isinstance(tools, dict):
         tools_typed = cast("dict[str, Any]", tools)
         for key, value in tools_typed.items():
             key_s = str(key)
@@ -525,6 +550,28 @@ def validate_opencode_agent(path: Path) -> list[Violation]:
                         f"tool {key_s!r} value must be bool, got {type_name}",
                     )
                 )
+    else:
+        violations.append(Violation(path, 1, "permission object or tools mapping missing"))
+    return violations
+
+
+def _check_opencode_permission(permission: Any, path: Path) -> list[Violation]:
+    """Validate the OpenCode ``permission`` object (June 2026 schema)."""
+    violations: list[Violation] = []
+    if not isinstance(permission, dict):
+        return [Violation(path, 1, "permission must be a mapping")]
+    permission_typed = cast("dict[str, Any]", permission)
+    for key, value in permission_typed.items():
+        key_s = str(key)
+        if key_s not in VALID_AGENT_PERMISSIONS:
+            violations.append(Violation(path, 1, f"permission key {key_s!r} not in whitelist"))
+        if isinstance(value, dict):
+            # Nested glob -> decision map (e.g. bash: {"git *": "ask"}).
+            for decision in cast("dict[str, Any]", value).values():
+                if decision not in VALID_PERMISSION_DECISIONS:
+                    violations.append(Violation(path, 1, f"permission {key_s!r} decision {decision!r} not in {sorted(VALID_PERMISSION_DECISIONS)}"))
+        elif value not in VALID_PERMISSION_DECISIONS:
+            violations.append(Violation(path, 1, f"permission {key_s!r} value {value!r} not in {sorted(VALID_PERMISSION_DECISIONS)}"))
     return violations
 
 

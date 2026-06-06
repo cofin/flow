@@ -17,6 +17,7 @@ $env:BD_JSON_ENVELOPE = '1'
 
 function Get-BeadsBackend {
     Write-Host "## Flow Environment Context"
+    Write-Host "- **Flow is a SKILL, not a CLI**: there is no ``flow`` executable. NEVER run ``flow``, ``flow sync``, ``flow prd``, ``flow status``, etc. as shell commands. Invoke the Flow skill, or use the ``/flow:*`` (e.g. ``/flow:sync``) slash commands where the host supports them."
     if ($script:USE_BEADS -ne 'true') {
         Write-Host "- **Beads Backend**: Disabled via plugin config (useBeads=false)"
         return "disabled"

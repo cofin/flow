@@ -1,3 +1,0 @@
-interface:
-  display_name: "AlloyDB Omni"
-  short_description: "Containerized AlloyDB Omni setup, operators, RPMs, and local database workflows"

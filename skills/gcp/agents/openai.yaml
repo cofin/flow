@@ -1,3 +1,0 @@
-interface:
-  display_name: "Google Cloud Platform"
-  short_description: "gcloud, IAM, service accounts, storage, Pub/Sub, BigQuery, and GCP setup"

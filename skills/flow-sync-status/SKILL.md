@@ -7,6 +7,8 @@ description: "Use when syncing Beads state to markdown, checking Flow status, re
 
 Use this lifecycle skill for status dashboards, sync, context refresh, cleanup checks, and drift reporting.
 
+> **Beads mode:** Skip every `bd` invocation when the SessionStart hook reports `Beads Backend: Missing (None)` or `Disabled via plugin config (useBeads=false)`. With no backend, `/flow:sync` is a no-op (announce and exit) and status falls back to `spec.md` markers. Never halt for missing Beads. See `../flow/references/discipline.md`.
+
 ## Workflow
 
 1. Read `.agents/beads.json` before any sync/export decision.
@@ -17,8 +19,10 @@ Use this lifecycle skill for status dashboards, sync, context refresh, cleanup c
 
 ## Guardrails
 
+- **`/flow:sync` ALWAYS writes the reconciled markdown to disk.** It is mandatory: regenerate **every markdown file in `.agents/specs/<flow_id>/`** (`spec.md`, `learnings.md`, and any other tracked markdown in the flow folder) — not just `spec.md` — so they all match Beads exactly, and persist them. Sync is never read-only/dry-run and must never finish without writing the markdown.
+- **"Sync"/"export" means reconciling markdown ↔ Beads to identical reality on disk — NOT Dolt.** NEVER run `bd dolt` commands (`bd dolt push`/`pull`/`export`) as part of sync. They are out of scope and only run if the user explicitly and separately asks for Dolt.
 - Sync reads backend state; do not close, block, or mutate tasks during status reporting.
-- Do not run export, auto-stage, or Dolt push unless policy or the user explicitly allows it.
+- Do not auto-stage/commit unless policy or the user explicitly allows it.
 - Preserve human-written spec content; only update synchronized task/status regions.
 - Ask before applying context-doc updates when sync detects drift.
 

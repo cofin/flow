@@ -1,5 +1,7 @@
 # /flow:refresh — Sync Context with Codebase
 
+> **Beads mode:** Skip every `bd` invocation below when the SessionStart hook reports `Beads Backend: Missing (None)` or `Disabled via plugin config (useBeads=false)`. Treat `spec.md` markers as fallback source of truth and skip `/flow:sync`. Never halt for missing Beads. See `discipline.md`.
+
 ## Purpose
 
 Refresh the flow's context files by re-scanning the codebase and updating `.agents/` metadata to reflect the current state. Use this when returning to a project after external changes (other contributors, CI, dependency updates) or when context files feel stale.

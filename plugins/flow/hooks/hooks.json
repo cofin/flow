@@ -7,8 +7,9 @@
           {
             "name": "flow-env-detection",
             "type": "command",
-            "command": "bun ${extensionPath}${/}hooks${/}session-start.js || node ${extensionPath}${/}hooks${/}session-start.js || bash ${extensionPath}${/}hooks${/}session-start.sh",
-            "description": "Detects Beads backend and project root at session start (Gemini CLI)."
+            "command": "export FLOW_HOST=codex; r=\"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-.}}\"; bun \"$r/hooks/session-start.js\" || node \"$r/hooks/session-start.js\" || bash \"$r/hooks/session-start.sh\"",
+            "timeout": 30,
+            "description": "Detects Beads backend and project root at session start (Codex CLI). Resolves the plugin root from $PLUGIN_ROOT (canonical) or $CLAUDE_PLUGIN_ROOT (alias), falling back to cwd for the in-repo project layer. FLOW_HOST=codex forces the Codex payload shape even when neither var is set."
           }
         ]
       }

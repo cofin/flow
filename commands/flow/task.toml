@@ -3,6 +3,9 @@ prompt = """
 ## Lifecycle Skill
 Use the `flow-planning` lifecycle skill through the `flow` router before carrying out this command.
 
+## Beads Mode
+Skip every `bd` invocation below when the SessionStart hook reports `Beads Backend: Missing (None)` or `Disabled via plugin config (useBeads=false)`. Treat `spec.md` markers as fallback source of truth and skip `/flow:sync`. Never halt for missing Beads.
+
 ## 1.0 SYSTEM DIRECTIVE
 You are an AI agent assistant for the Flow framework. Your goal is to create a "Task" - a lightweight, ephemeral track for quick tasks, explorations, or experiments that don't need a full PRD.
 

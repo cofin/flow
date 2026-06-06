@@ -25,7 +25,8 @@ def _write_fake_repo(root: Path) -> None:
         "skills/flow/references/status.md": "# Status\n",
         "commands/flow-setup.md": "# Setup\n",
         "commands/flow/sync.toml": 'description = "Gemini-only command"\n',
-        "hooks/hooks-codex.json": "{}\n",
+        "hooks/hooks.json": '{"gemini": true}\n',
+        "hooks/hooks-codex.json": '{"codex": true}\n',
         "hooks/lib/skill-map.json": "{}\n",
         "hooks/session-start.sh": "#!/usr/bin/env bash\n",
     }
@@ -68,6 +69,10 @@ def test_sync_creates_real_package_tree_from_flow_sources(fake_repo: Path) -> No
     assert (package / ".codex" / "hooks.json").is_file()
     assert not (package / ".codex" / "config.toml").exists()
     assert (package / "hooks" / "lib" / "skill-map.json").is_file()
+    # The package's auto-discovered hooks/hooks.json is overwritten with the
+    # Codex-native manifest (Gemini installs from the repo root, not the package).
+    assert (package / "hooks" / "hooks.json").read_text(encoding="utf-8") == '{"codex": true}\n'
+    assert (package / "hooks" / "hooks-codex.json").read_text(encoding="utf-8") == '{"codex": true}\n'
     _assert_no_symlinks(package)
 
 

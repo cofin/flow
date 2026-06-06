@@ -1,6 +1,8 @@
 
 # Flow Revert
 
+> **Beads mode:** Skip every `bd` invocation below when the SessionStart hook reports `Beads Backend: Missing (None)` or `Disabled via plugin config (useBeads=false)`. Treat `spec.md` markers as fallback source of truth and skip `/flow:sync`. Never halt for missing Beads. See `discipline.md`.
+
 Git-aware revert of flows, phases, or tasks.
 
 ## Usage

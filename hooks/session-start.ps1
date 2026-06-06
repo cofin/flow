@@ -19,18 +19,23 @@ function Invoke-Detection {
 }
 
 function Write-Schema([string]$context) {
-    # Mirror session-start.sh dispatch. Gemini also exports CLAUDE_PROJECT_DIR
-    # as a compat alias, so check CLAUDE_PLUGIN_ROOT (which Gemini does NOT set)
-    # to disambiguate Claude from Gemini.
+    # Mirror session-start.sh dispatch. Codex exports PLUGIN_ROOT (canonical) and
+    # CLAUDE_PLUGIN_ROOT (compat alias), so check the Codex-specific markers BEFORE
+    # the Claude branch. Gemini exports CLAUDE_PROJECT_DIR as a compat alias but
+    # never CLAUDE_PLUGIN_ROOT, so the Claude branch stays unambiguous.
     $host = 'unknown'
-    if ($env:CLAUDE_PLUGIN_ROOT) {
+    if ($env:FLOW_HOST) {
+        # Explicit override set by a host's hook command (e.g. Codex sets
+        # FLOW_HOST=codex) — authoritative when the host exports no plugin-root var.
+        $host = $env:FLOW_HOST
+    } elseif ($env:CODEX_PLUGIN_ROOT -or $env:PLUGIN_ROOT) {
+        $host = 'codex'
+    } elseif ($env:CLAUDE_PLUGIN_ROOT) {
         $host = 'claude'
     } elseif ($env:GEMINI_SESSION_ID -or $env:GEMINI_CWD -or $env:GEMINI_PROJECT_DIR) {
         $host = 'gemini'
     } elseif ($env:OPENCODE_PLUGIN_ROOT -or $env:FLOW_PLUGIN_ROOT) {
         $host = 'opencode'
-    } elseif ($env:CODEX_PLUGIN_ROOT) {
-        $host = 'codex'
     } elseif ($env:CURSOR_PLUGIN_ROOT) {
         $host = 'cursor'
     }
