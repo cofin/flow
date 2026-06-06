@@ -7,6 +7,10 @@ description: "Use when a repository has .agents, when the user asks for Flow lif
 
 Flow coordinates Context-Driven Development in `.agents/` repositories. Keep this skill small: use it to identify the active lifecycle phase, enforce the Beads-first invariants, and load the matching lifecycle skill.
 
+> **Flow is a skill, not a CLI.** There is no `flow` executable. Never run `flow`, `flow sync`, `flow prd`, etc. as shell commands. Invoke this skill (or the matching lifecycle skill), or use the `/flow:*` slash commands where the host supports them.
+>
+> **Beads mode:** Skip every `bd` invocation when the SessionStart hook reports `Beads Backend: Missing (None)` or `Disabled via plugin config (useBeads=false)`. Treat `spec.md` markers as fallback source of truth and skip `/flow:sync`. Never halt for missing Beads. See `references/discipline.md`.
+
 ## Workflow
 
 1. Check hook-provided Flow context first; otherwise detect `.agents/`, Beads (`bd`), git branch, and repo-native commands.

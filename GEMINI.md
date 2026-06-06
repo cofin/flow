@@ -2,6 +2,8 @@
 
 Use the Flow skill for context-driven development workflows in repos that use `.agents/`.
 
+> **Flow is a skill, not a CLI.** There is no `flow` executable. Never run `flow`, `flow sync`, `flow prd`, `flow status`, etc. as shell commands — they will fail. Invoke the Flow skill, or use the `/flow:*` slash commands (e.g. `/flow:sync`, `/flow:prd`).
+
 ## Defaults
 
 - Prefer official Beads (`bd`) when task persistence is needed.

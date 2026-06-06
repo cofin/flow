@@ -1,6 +1,8 @@
 
 # Flow Review
 
+> **Beads mode:** Skip every `bd` invocation below when the SessionStart hook reports `Beads Backend: Missing (None)` or `Disabled via plugin config (useBeads=false)`. Treat `spec.md` markers as fallback source of truth and skip `/flow:sync`. Never halt for missing Beads. See `discipline.md`.
+
 Dispatch a code review for a flow's implementation with Beads-aware git range detection.
 
 ## Usage

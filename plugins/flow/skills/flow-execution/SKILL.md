@@ -7,6 +7,8 @@ description: "Use when implementing Flow tasks from Beads or spec.md, claiming r
 
 Use this lifecycle skill when implementation starts after a Flow plan or ready Beads task exists.
 
+> **Beads mode:** Skip every `bd` invocation when the SessionStart hook reports `Beads Backend: Missing (None)` or `Disabled via plugin config (useBeads=false)`. Treat `spec.md` markers as fallback source of truth and skip `/flow:sync`. Never halt for missing Beads. See `../flow/references/discipline.md`.
+
 ## Workflow
 
 1. Select ready work from `bd ready` and claim it before editing.

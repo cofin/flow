@@ -48,6 +48,7 @@ safe_run() {
 
 detect_beads() {
     echo "## Flow Environment Context"
+    echo "- **Flow is a SKILL, not a CLI**: there is no \`flow\` executable. NEVER run \`flow\`, \`flow sync\`, \`flow prd\`, \`flow status\`, etc. as shell commands. Invoke the Flow skill, or use the \`/flow:*\` (e.g. \`/flow:sync\`) slash commands where the host supports them."
     if [[ "${USE_BEADS}" != "true" ]]; then
         echo "- **Beads Backend**: Disabled via plugin config (useBeads=false)"
         return

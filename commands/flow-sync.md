@@ -14,6 +14,12 @@ Syncing active backend state to disk for flow: **$ARGUMENTS**
 
 **CRITICAL:** `/flow:sync` is the primary bridge between the **Beads Source of Truth** and the **Markdown View**. Default setup runs it after task completion, note addition, or status changes when `syncPolicy.flowSyncAfterMutation` is enabled.
 
+**What sync means here (and what it does NOT):**
+
+- `/flow:sync` **ALWAYS writes the reconciled markdown to disk** — updating **every markdown file in `.agents/specs/<flow_id>/`** (`spec.md`, `learnings.md`, and any other tracked markdown in the flow folder), not just `spec.md`, so they all match Beads exactly. This write is **mandatory**; sync is never read-only/dry-run and must never finish without persisting the markdown.
+- "Sync" / "export" in Flow means **making the markdown files and Beads reflect identical reality on disk** — nothing more.
+- It does **NOT** mean Dolt. **NEVER run `bd dolt` commands** (`bd dolt push`/`pull`/`export`) as part of sync, regardless of phrasing. Those are out of scope for `/flow:sync` and only run if the user explicitly and separately asks for Dolt operations.
+
 ---
 
 ## Phase 0: Environment Detection

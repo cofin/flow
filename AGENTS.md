@@ -2,6 +2,8 @@
 
 This file provides guidance to AI coding agents working with code in this repository.
 
+> **Flow is a skill, not a CLI.** There is no `flow` executable. Never run `flow`, `flow sync`, `flow prd`, `flow status`, etc. as shell commands — they will fail. Invoke the Flow skill, or use the `/flow:*` slash commands (e.g. `/flow:sync`, `/flow:prd`).
+
 ## Overview
 
 **Flow** is a unified toolkit for **Context-Driven Development** combining:

@@ -15,6 +15,18 @@ Use this lifecycle skill for PRDs, research, single-flow planning, refinement, r
 4. Refine until tasks include concrete files, behavior, tests, commands, and acceptance criteria.
 5. Create Beads epics/tasks and sync markdown views according to policy.
 
+## Interrogate Before Finalizing (Grill)
+
+Before locking a PRD, spec, or refined worksheet, interrogate the plan until every decision branch is resolved. This is how Flow meets the Zero-Ambiguity Standard and the Stateless Executor Test — apply it in `flow-prd`, `flow-plan`, and especially `flow-refine`.
+
+- Ask **one question at a time** and wait for the answer before the next. Walk the decision tree top-down, resolving dependencies between decisions in order.
+- For **every** question, give your **recommended answer** and the trade-off, so the user confirms rather than composes from scratch.
+- If a question is answerable from the repo, **explore the codebase / `patterns.md` / `knowledge/` / `tech-stack.md` instead of asking**. Only ask product or trade-off questions a human must decide.
+- Challenge the plan against the project's **domain language**: reuse the terminology already in `patterns.md` and `knowledge/` chapters, and flag/resolve term conflicts before finalizing.
+- Record decisions that are **hard to reverse, surprising, and a real trade-off** into `knowledge/` (or `learnings.md`); skip low-value notes.
+- Stop only when no open branch remains and a zero-context executor could implement from the artifact alone.
+- The finished spec/worksheet doubles as a **handoff**: reference existing artifacts (PRD, patterns, knowledge, affected files) rather than duplicating them, and name the next skill to invoke. (If the host exposes `grill-me` / `grill-with-docs` / `handoff` skills, you may invoke them to drive these steps; otherwise apply the discipline directly.)
+
 ## Guardrails
 
 - Planning must be decision-complete; do not defer obvious research to implementation.

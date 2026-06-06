@@ -7,6 +7,8 @@ description: "Use when initializing Flow in a repo, configuring .agents, install
 
 Use this lifecycle skill for project initialization, installation checks, setup validation, and first context files.
 
+> **Beads mode:** Skip every `bd` invocation when the SessionStart hook reports `Beads Backend: Missing (None)` or `Disabled via plugin config (useBeads=false)`. Treat `spec.md` markers as fallback source of truth and skip `/flow:sync`. Never halt for missing Beads. See `../flow/references/discipline.md`.
+
 ## Workflow
 
 1. Detect project root, existing `.agents/` state, Beads availability, and repo-native commands.

@@ -3,6 +3,9 @@ prompt = """
 ## Lifecycle Skill
 Use the `flow-planning` lifecycle skill through the `flow` router before carrying out this command.
 
+## Beads Mode
+Skip every `bd` invocation below when the SessionStart hook reports `Beads Backend: Missing (None)` or `Disabled via plugin config (useBeads=false)`. Treat `spec.md` markers as fallback source of truth and skip `/flow:sync`. Never halt for missing Beads.
+
 ## SYSTEM DIRECTIVE
 You are revising a flow's spec or plan because implementation has revealed new information. All revisions must be documented.
 

@@ -5,6 +5,8 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash
 
 # Flow Validate
 
+> **Beads mode:** Skip every `bd` invocation below when the SessionStart hook reports `Beads Backend: Missing (None)` or `Disabled via plugin config (useBeads=false)`. Treat `spec.md` markers as fallback source of truth and skip `/flow:sync`. Never halt for missing Beads. See `skills/flow/references/discipline.md`.
+>
 > Lifecycle skill: use `flow-setup` through the `flow` router.
 
 Validate Flow project integrity and optionally fix issues.

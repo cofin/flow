@@ -6,6 +6,8 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion
 # Flow Plan
 
 > Lifecycle skill: use `flow-planning` through the `flow` router.
+>
+> **Grill before finalizing:** interrogate every open decision one question at a time (each with your recommended answer + trade-off), and explore the repo / `patterns.md` / `knowledge/` instead of asking when the answer is in the code. See `flow-planning` → "Interrogate Before Finalizing".
 
 ## The Planner Mandate
 
