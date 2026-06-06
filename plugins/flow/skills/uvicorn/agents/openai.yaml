@@ -1,3 +1,0 @@
-interface:
-  display_name: "Uvicorn"
-  short_description: "Uvicorn ASGI deployment, workers, reload, SSL, lifespan, logging, and config"

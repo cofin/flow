@@ -1,3 +1,0 @@
-interface:
-  display_name: "Cloud SQL"
-  short_description: "Google Cloud SQL instances, Auth Proxy, replicas, backups, and migrations"

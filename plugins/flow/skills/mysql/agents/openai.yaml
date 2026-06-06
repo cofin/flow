@@ -1,3 +1,0 @@
-interface:
-  display_name: "MySQL"
-  short_description: "MySQL and MariaDB SQL, CLI, InnoDB, replication, security, and performance"

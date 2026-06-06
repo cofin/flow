@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 
 
@@ -46,3 +47,28 @@ def test_codex_package_layout_rejects_symlinked_package_payload(tmp_path: Path) 
     (package / "skills").symlink_to(tmp_path)
 
     assert not validate_codex_manifest.validate_codex_package_layout(tmp_path)
+
+
+def _write_codex_hooks(root: Path, command: str) -> None:
+    path = root / ".codex" / "hooks.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    manifest = {"hooks": {"SessionStart": [{"matcher": "*", "hooks": [{"type": "command", "command": command}]}]}}
+    path.write_text(json.dumps(manifest), encoding="utf-8")
+
+
+def test_codex_hook_command_validation_rejects_gemini_tokens(tmp_path: Path) -> None:
+    _write_codex_hooks(tmp_path, "bash ${extensionPath}${/}hooks${/}session-start.sh")
+
+    assert not validate_codex_manifest.validate_codex_hook_commands(tmp_path)
+
+
+def test_codex_hook_command_validation_rejects_relative_path(tmp_path: Path) -> None:
+    _write_codex_hooks(tmp_path, "bash ./hooks/session-start.sh")
+
+    assert not validate_codex_manifest.validate_codex_hook_commands(tmp_path)
+
+
+def test_codex_hook_command_validation_accepts_plugin_root(tmp_path: Path) -> None:
+    _write_codex_hooks(tmp_path, 'bash "${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-.}}/hooks/session-start.sh"')
+
+    assert validate_codex_manifest.validate_codex_hook_commands(tmp_path)

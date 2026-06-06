@@ -18,6 +18,17 @@ PACKAGE_DIRS = (
     "hooks",
 )
 
+# Hooks manifests that Codex runs through a shell. The repo-root hooks/hooks.json
+# is Gemini's and is intentionally excluded — it must keep ${extensionPath}/${/}.
+CODEX_HOOK_MANIFESTS = (
+    Path(".codex/hooks.json"),
+    Path("hooks/hooks-codex.json"),
+    PACKAGE_ROOT / ".codex" / "hooks.json",
+    PACKAGE_ROOT / "hooks" / "hooks.json",
+)
+# Gemini template tokens that bash cannot expand (cause 'bad substitution').
+GEMINI_ONLY_TOKENS = ("${extensionPath}", "${/}")
+
 
 def validate_marketplace(file_path: str | Path, repo_root: Path):
     file_path = Path(file_path)
@@ -135,6 +146,40 @@ def _check_real_directory(path: Path, repo_root: Path) -> int:
     return 0
 
 
+def validate_codex_hook_commands(repo_root: Path) -> bool:
+    """Ensure Codex-consumed hooks manifests are shell-safe.
+
+    Codex runs SessionStart command hooks through a shell, so the command must
+    not contain Gemini template tokens (${extensionPath}/${/}) and must anchor
+    paths to the plugin root via $PLUGIN_ROOT (or the $CLAUDE_PLUGIN_ROOT alias)
+    rather than a session-cwd-relative path that breaks once installed.
+    """
+    print("Validating Codex hook manifests")
+    errors = 0
+    for rel in CODEX_HOOK_MANIFESTS:
+        path = repo_root / rel
+        if not path.is_file():
+            # Package copies may be absent before sync; layout validation covers presence.
+            continue
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as e:
+            print(f"  ERROR [{rel}]: invalid JSON: {e}")
+            errors += 1
+            continue
+        for group in data.get("hooks", {}).get("SessionStart", []):
+            for hook in group.get("hooks", []):
+                command = hook.get("command", "")
+                for token in GEMINI_ONLY_TOKENS:
+                    if token in command:
+                        print(f"  ERROR [{rel}]: Gemini token '{token}' in Codex hook command (bash cannot expand it)")
+                        errors += 1
+                if "PLUGIN_ROOT" not in command:
+                    print(f"  ERROR [{rel}]: Codex hook command must anchor to $PLUGIN_ROOT or $CLAUDE_PLUGIN_ROOT: {command!r}")
+                    errors += 1
+    return errors == 0
+
+
 def discover_codex_marketplaces(root: Path) -> Iterator[Path]:
     candidate = root / ".agents" / "plugins" / "marketplace.json"
     if candidate.is_file():
@@ -163,6 +208,9 @@ def main():
             success = False
 
     if not validate_codex_package_layout(repo_root):
+        success = False
+
+    if not validate_codex_hook_commands(repo_root):
         success = False
 
     if not success:

@@ -1,10 +1,9 @@
 ---
 description: Context-driven development with Beads integration. Use when a project has .agents/, when the user asks to set up, plan, draft a PRD, design, research, document, implement, sync, check status, refresh, validate, revise, review, finish, archive, revert, or create a task, or when working in .agents/ files.
 mode: subagent
-tools:
-  write: true
-  edit: true
-  bash: true
+permission:
+  edit: allow
+  bash: allow
 ---
 
 # Flow Agent

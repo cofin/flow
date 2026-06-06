@@ -1,6 +1,8 @@
-# Multi-Host Plugin Patterns (April 2026)
+# Multi-Host Plugin Patterns (June 2026)
 
-Reference for any repo that ships skills, commands, hooks, or agents across **Claude Code**, **Gemini CLI**, **Codex CLI**, **OpenCode**, and **Cursor**. Captures the exact manifest paths, schema keys, and adoption status verified against official docs in this Flow session. Paste into your own project's `docs/` and trim to what applies.
+Reference for any repo that ships skills, commands, hooks, or agents across **Claude Code**, **Gemini CLI** / **Antigravity CLI**, **Codex CLI**, **OpenCode**, and **Cursor**. Captures the exact manifest paths, schema keys, and adoption status verified against official docs. Paste into your own project's `docs/` and trim to what applies.
+
+> For the tight per-host conformance contract (tokens, events, invariants enforced by validators/tests), see [host-conformance-matrix.md](./host-conformance-matrix.md). For the Gemini → Antigravity transition (consumer cutover **June 18, 2026**), see [antigravity.md](./antigravity.md).
 
 ## TL;DR — what every multi-host repo should ship
 
@@ -13,8 +15,10 @@ Reference for any repo that ships skills, commands, hooks, or agents across **Cl
 | `.codex/agents/*.toml` | Codex CLI | Repo-local TOML subagents that inherit session tools |
 | `gemini-extension.json` | Gemini CLI | Extension manifest — `plan.directory`, **`excludeTools`**, `contextFileName` |
 | `agents/*.md` | Gemini CLI / Claude Code | Shared Markdown subagents with slug names and descriptions |
-| `hooks/hooks.json` | Gemini CLI | Auto-discovered hook manifest |
+| `hooks/hooks.json` | Gemini CLI / Antigravity | Auto-discovered hook manifest (`${extensionPath}`/`${/}` tokens) |
 | `hooks/hooks-claude.json` | Claude Code | Per-host hook manifest (referenced from `.claude-plugin/plugin.json`) |
+| `hooks/hooks-codex.json` | Codex CLI | Codex-native hook manifest (`${PLUGIN_ROOT}` token); package build overwrites the package's `hooks/hooks.json` with it |
+| `.codex/hooks.json` | Codex CLI | Project-layer hook manifest (same `${PLUGIN_ROOT}` command) |
 | `.cursor/rules/*.mdc` | Cursor | Workspace rules consumed by Cursor's supported customization surface |
 | `.github/agents/*.agent.md` | VS Code / Copilot | Workspace custom agents |
 | `.opencode/plugins/<name>.js` | OpenCode | Local plugin entrypoint with managed-config awareness |
@@ -129,7 +133,34 @@ In a Codex session, `/plugins` enables/disables installed plugins.
 
 **`storefront` interface block**: claimed in some sources but unverified in current Codex docs. Skip until you can read the schema directly from the openai/codex repo.
 
+**Codex hooks** (`.codex/hooks.json` for the project layer; `hooks/hooks.json` auto-discovered for an installed plugin): Codex runs `SessionStart` command hooks **through a shell with the session cwd** (the user's project), NOT the plugin root. A bare `./hooks/...` path therefore breaks once installed. Anchor to the plugin root with a defensive expansion:
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "name": "<hook-name>",
+            "type": "command",
+            "command": "bun \"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-.}}/hooks/session-start.js\" || node \"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-.}}/hooks/session-start.js\" || bash \"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-.}}/hooks/session-start.sh\"",
+            "timeout": 30,
+            "description": "<purpose>"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+`${PLUGIN_ROOT}` is the canonical Codex var; `${CLAUDE_PLUGIN_ROOT}` is its compat alias; `.` is the cwd fallback for the in-repo project layer. Do **NOT** use Gemini's `${extensionPath}`/`${/}` tokens here — bash cannot expand them and Codex errors with `bad substitution` (this was GH #64). Because Gemini and Codex both auto-discover `hooks/hooks.json`, keep two source files — `hooks/hooks.json` (Gemini) and `hooks/hooks-codex.json` (Codex) — and have the package build overwrite the **package** copy of `hooks/hooks.json` with the Codex manifest (Gemini installs from the repo root, Codex from the package).
+
 ### Gemini CLI
+
+> **Sunset:** consumer Gemini CLI tiers stop serving requests **June 18, 2026** and become **Antigravity CLI** ("extensions" → "plugins"; Skills/Hooks/Subagents preserved). Enterprise Gemini Code Assist tiers keep full support. The extension format carries forward — see [antigravity.md](./antigravity.md).
 
 **Extension manifest** (`gemini-extension.json` at repo root):
 
@@ -175,6 +206,10 @@ Use `${extensionPath}` (Gemini's install-root variable) and `${/}` (cross-platfo
 **`excludeTools` caveat**: works for tools the user manually configured, but does NOT apply to MCP servers bundled with the extension itself ([known limitation, GH #8481](https://github.com/google-gemini/gemini-cli/issues/8481)). Treat it as belt-and-suspenders, not a hard guarantee.
 
 **`plan.directory`** is the only first-class plugin-author hook for redirecting plan-mode artifacts. None of Claude/Codex/OpenCode have an equivalent — they're all user-side config.
+
+### Antigravity CLI
+
+The successor to Gemini CLI. Reuse the **Gemini assets verbatim** — `gemini-extension.json`, `hooks/hooks.json` (`${extensionPath}`/`${/}`), `agents/*.md`, `commands/flow/*.toml`, `GEMINI.md`/`AGENTS.md`, and `skills/**/SKILL.md` (`.agents/skills/` recognized). Config hub is `~/.gemini`. No Codex `${PLUGIN_ROOT}` tokens here — Antigravity uses the Gemini token set. Verify the plugin manifest filename against live docs at release time (Google's transition docs were still landing as of June 2026). Full guide: [antigravity.md](./antigravity.md).
 
 ### Cursor
 
@@ -325,7 +360,8 @@ python3 -c "import json; [json.load(open(p)) for p in [
   '.claude-plugin/marketplace.json', '.claude-plugin/plugin.json',
   '.agents/plugins/marketplace.json', '.codex-plugin/plugin.json',
   'gemini-extension.json',
-  'hooks/hooks.json', 'hooks/hooks-claude.json', 'hooks/hooks-cursor.json'
+  'hooks/hooks.json', 'hooks/hooks-claude.json', 'hooks/hooks-codex.json',
+  'hooks/hooks-cursor.json', '.codex/hooks.json'
 ]]"
 
 # OpenCode plugin

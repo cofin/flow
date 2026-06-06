@@ -81,6 +81,24 @@ def _build_package(repo_root: Path, package_root: Path) -> None:
         shutil.copytree(source, destination, ignore=_ignore_names)
     _copy_codex_directory(repo_root, package_root)
     _copy_codex_commands(repo_root, package_root)
+    _emit_codex_hooks_manifest(repo_root, package_root)
+
+
+def _emit_codex_hooks_manifest(repo_root: Path, package_root: Path) -> None:
+    """Make the package's auto-discovered hooks manifest Codex-native.
+
+    Codex auto-discovers ``<plugin>/hooks/hooks.json`` and runs the command
+    through a shell. The repo-root ``hooks/hooks.json`` is Gemini's — it uses
+    ``${extensionPath}${/}`` template tokens that bash cannot expand (Codex would
+    error with 'bad substitution'). ``plugins/flow`` is the Codex/marketplace
+    artifact (Gemini installs from the repo root, not here), so overwrite the
+    package copy with the Codex-native manifest (``hooks/hooks-codex.json``,
+    which uses ``${PLUGIN_ROOT}``). This does not affect Gemini.
+    """
+    codex_source = repo_root / "hooks" / "hooks-codex.json"
+    if not codex_source.is_file():
+        raise RuntimeError(f"Missing canonical Codex hooks manifest: {codex_source}")
+    shutil.copy2(codex_source, package_root / "hooks" / "hooks.json")
 
 
 def _copy_codex_directory(repo_root: Path, package_root: Path) -> None:
