@@ -48,10 +48,10 @@ To find the configured root directory:
 
 ## Subagent-Driven Superpowers Protocol (MANDATORY)
 
-To ensure high-reasoning model routing and automated verification, all complex Flow operations MUST delegate to dedicated subagents when running in Gemini CLI:
+To ensure high-reasoning model routing and automated verification, all complex Flow operations MUST delegate to dedicated subagents when the active harness exposes the shipped Flow agents:
 
-- **Planning Phase**: Commands `/flow:prd` and `/flow:plan` delegate to `@prd-orchestrator` and `@plan-generator` respectively. These agents inherit host model/tool settings and MUST invoke `superpowers:brainstorming` or `superpowers:writing-plans`.
-- **Implementation Phase**: Command `/flow:implement` delegates to `@executor`. This agent inherits host model/tool settings and MUST invoke `superpowers:test-driven-development` and `superpowers:verification-before-completion`.
+- **Planning Phase**: Commands `/flow:prd` and `/flow:plan` delegate to `@prd-orchestrator` and `@plan-generator` respectively. These agents inherit harness model/tool settings and MUST invoke `superpowers:brainstorming` or `superpowers:writing-plans`.
+- **Implementation Phase**: Command `/flow:implement` delegates to `@executor`. This agent inherits harness model/tool settings and MUST invoke `superpowers:test-driven-development` and `superpowers:verification-before-completion`.
 - **Validation**: All planning artifacts MUST be validated by `code-reviewer` (via `superpowers:requesting-code-review`) before being presented to the user.
 
 ## Spec & Design Documents
@@ -139,23 +139,22 @@ To find a file (e.g., "**Product Definition**") within a specific context:
   - Derived from description: lowercase, hyphens for spaces, max 3-4 words
 - **Archived Flows:** Keep same ID, moved to `.agents/archive/`
 
-## Supported Hosts
+## Supported Harnesses
 
-Every host falls into one of three tiers:
+Every harness falls into one of three tiers:
 
-- **First-class** — the repo ships maintained host-specific manifests, agents, and install guidance; changes to the shared skills tree are verified against the host.
-- **Compatible bundle** — the host consumes the repo through standard manifests or generic skill-discovery paths; no native wrapper is promised.
-- **Free ride** — the host discovers generic Agent Skills / `AGENTS.md` content; the repo ships no dedicated integration.
+- **First-class** — the repo ships maintained harness-specific manifests, agents, and install guidance; changes to the shared skills tree are verified against the harness.
+- **Compatible bundle** — the harness consumes the repo through standard manifests or generic skill-discovery paths; no native wrapper is promised.
+- **Free ride** — the harness discovers generic Agent Skills / `AGENTS.md` content; the repo ships no dedicated integration.
 
-| Host | Tier | Entry Point | Notes |
+| Harness | Tier | Entry Point | Notes |
 | --- | --- | --- | --- |
+| **Antigravity** | first-class | `plugin.json` + `hooks.json` + `agents/*.md` + `skills/` | Primary plugin surface with skills, hooks, and shared Markdown subagents. |
 | **Claude Code** | first-class | `.claude-plugin/plugin.json` + `.claude-plugin/marketplace.json` + `agents/*.md` | Full plugin with skills, commands, hooks, and shared Markdown subagents. |
-| **Gemini CLI** | first-class | `gemini-extension.json` + `agents/*.md`, context via `GEMINI.md` | Auto-indexed gallery (topic `gemini-cli-extension`). |
 | **Codex CLI** | first-class | `.codex-plugin/plugin.json` + `.codex/agents/*.toml` + `.codex/config.toml` | Custom agents ship as pure TOML (tools inherited from session). |
-| **OpenCode** | first-class | `.opencode/plugins/flow.js` + `.opencode/agents/*.md` + native `.claude/skills/` / `.agents/skills/` reads | JS plugin wrapper + dict-schema agents. |
+| **OpenCode** | compatible bundle | `.opencode/plugins/flow.js` + `.opencode/agents/*.md` + native `.claude/skills/` / `.agents/skills/` reads | Project files and skills; no global install is advertised until an npm plugin is published. |
 | **Cursor** | compatible bundle | `.cursor/rules/*.mdc` + `AGENTS.md` | Rules and project instructions only; no repository Cursor plugin manifest. |
 | **VS Code / Copilot** | compatible bundle | `.github/agents/*.agent.md` + `.agents/skills/` | Workspace custom agents plus Agent Skills-compatible project skills. |
-| **Google Antigravity** | free ride | `.agent/skills/` (workspace, note **singular**) or `~/.gemini/antigravity/skills/` (global) | Skill-copy/symlink guidance only; see README install. |
 | **OpenClaw** | compatible bundle | Runtime `sessions_spawn` + skills discovery | Consumes Flow through runtime subagents and generic Agent Skills, not a static repo manifest. |
 
 ## File Resolution
@@ -165,7 +164,7 @@ Every host falls into one of three tiers:
 | Skills | `skills/<skill-name>/SKILL.md` |
 | Slash commands | `commands/<prefix>/<command>.toml` |
 | Subagents (Codex CLI) | `.codex/agents/<agent-name>.toml` (pure TOML; `developer_instructions` holds the prompt; no top-level `tools` — inherited from session `config.toml`) |
-| Subagents (Gemini CLI / Claude Code plugin) | `agents/<agent-name>.md` (portable Markdown, slug `name`, required `description`, host-specific tool lists omitted) |
+| Subagents (Antigravity / Claude Code plugin) | `agents/<agent-name>.md` (portable Markdown, slug `name`, required `description`, harness-specific tool lists omitted) |
 | Subagents (OpenCode) | `.opencode/agents/<agent-name>.md` (`tools` as dict mapping + `mode: subagent`) |
 | Subagents (VS Code / Copilot) | `.github/agents/<agent-name>.agent.md` |
 | MCP servers | `mcp-servers/<server-name>/` |
@@ -174,7 +173,7 @@ Every host falls into one of three tiers:
 
 ## First-Party Skill Repositories
 
-The following external repositories provide comprehensive, host-verified skills and patterns that are fully compatible with Flow:
+The following external repositories provide comprehensive, harness-verified skills and patterns that are fully compatible with Flow:
 
 - **[litestar-skills](https://github.com/litestar-org/litestar-skills)** — Opinionated first-party skills for the Litestar framework ecosystem (advanced-alchemy, sqlspec, granian, saq, etc.).
 - **[modular-skills](https://github.com/modular/skills)** — Official AI agent skills from Modular for **Mojo** and the **MAX** platform (`mojo-syntax`, `new-modular-project`, `mojo-python-interop`, `mojo-gpu-fundamentals`).
@@ -195,7 +194,7 @@ The following external repositories provide comprehensive, host-verified skills 
 
 ## Commands
 
-**Host note:** Gemini CLI and OpenCode expose these as `/flow:*`. Claude Code uses `/flow-*`.
+**Harness note:** Antigravity and OpenCode expose these as `/flow:*`. Claude Code uses `/flow-*`.
 Codex currently runs the same workflows through the installed Flow skill and plain-language requests rather than plugin-defined slash commands.
 
 **Lifecycle routing:** Keep `flow` as the small router skill. After it triggers, load the specific lifecycle skill: `flow-setup` for initialization and validation, `flow-planning` for PRD/spec/refine/revise/research/task work, `flow-execution` for implementation and TDD, `flow-sync-status` for sync/status/refresh/cleanup, and `flow-completion` for review/finish/archive/revert/docs.
@@ -316,7 +315,7 @@ Do not run `bd dolt push` unless the user explicitly requests it or `.agents/bea
 - Durable cross-session facts: `bd remember "..." --key <repo>:<topic>`
 - Task-local findings: `bd note <id> "..."`
 - Structured tasks: prefer `bd create --context --design --acceptance --metadata --skills --spec-id`
-- Session priming: run or inject `bd prime --mcp` where host hooks support MCP-aware context injection; otherwise use `bd prime`
+- Session priming: run or inject `bd prime --mcp` where harness hooks support MCP-aware context injection; otherwise use `bd prime`
 
 **CRITICAL:** Keep purpose/description separate from context notes/comments:
 
@@ -449,7 +448,7 @@ At phase completion:
 
 ## Skills
 
-Skills are available in `skills/` for copying to `.gemini/skills/`:
+Skills are available in `skills/` for harnesses that consume Agent Skills:
 
 | Skill | Purpose |
 |-------|---------|
@@ -459,15 +458,12 @@ Skills are available in `skills/` for copying to `.gemini/skills/`:
 ## Installation
 
 ```bash
-# Install as Gemini extension
-gemini extensions install https://github.com/cofin/flow --auto-update
+# Claude Code
+claude plugin marketplace add cofin/flow
+claude plugin install flow@flow-marketplace
 
-# Or copy manually (Run from repo root)
-mkdir -p ~/.gemini/extensions/flow
-cp -r . ~/.gemini/extensions/flow/
-
-# Or link
-gemini extensions link .
+# Codex CLI
+codex plugin marketplace add cofin/flow
 
 # Install official Beads
 brew install beads

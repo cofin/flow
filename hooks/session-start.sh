@@ -2,7 +2,7 @@
 #
 # session-start - Consolidated SessionStart hook for Flow framework.
 #
-# Supports: Gemini CLI, Claude Code, OpenCode, Codex CLI, Cursor IDE.
+# Supports: Antigravity, Claude Code, OpenCode, Codex CLI, Cursor IDE.
 #
 set -euo pipefail
 IFS=$'\n\t'
@@ -78,51 +78,38 @@ main() {
     local escaped_context
     escaped_context=$(escape_json "${context}")
 
-    # Detect host. Priority: Codex's plugin-root vars first, then Claude.
+    # Detect harness. Priority: explicit overrides, then harness-specific plugin-root vars.
     # Codex exports PLUGIN_ROOT (canonical) and CLAUDE_PLUGIN_ROOT (compat alias),
     # so we must check the Codex-specific markers BEFORE the Claude branch to avoid
-    # misdetecting Codex as Claude. Gemini exports CLAUDE_PROJECT_DIR as a compat
-    # alias but never CLAUDE_PLUGIN_ROOT, so the Claude branch stays unambiguous.
-    local host="unknown"
-    if [[ -n "${FLOW_HOST:-}" ]]; then
-        # Explicit override set by a host's hook command (e.g. Codex sets
-        # FLOW_HOST=codex) — authoritative when the host exports no plugin-root var.
-        host="${FLOW_HOST}"
+    # misdetecting Codex as Claude.
+    local harness="unknown"
+    if [[ -n "${FLOW_HARNESS:-}" ]]; then
+        # Explicit override set by a harness hook command (e.g. Codex sets
+        # FLOW_HARNESS=codex) is authoritative when the harness exports no plugin-root var.
+        harness="${FLOW_HARNESS}"
+    elif [[ -n "${ANTIGRAVITY_PLUGIN_ROOT:-}" ]] || [[ -n "${AGY_PLUGIN_ROOT:-}" ]]; then
+        harness="antigravity"
     elif [[ -n "${CODEX_PLUGIN_ROOT:-}" ]] || [[ -n "${PLUGIN_ROOT:-}" ]]; then
-        host="codex"
+        harness="codex"
     elif [[ -n "${CLAUDE_PLUGIN_ROOT:-}" ]]; then
-        host="claude"
-    elif [[ -n "${GEMINI_SESSION_ID:-}" ]] || [[ -n "${GEMINI_CWD:-}" ]] || [[ -n "${GEMINI_PROJECT_DIR:-}" ]]; then
-        host="gemini"
+        harness="claude"
     elif [[ -n "${OPENCODE_PLUGIN_ROOT:-}" ]] || [[ -n "${FLOW_PLUGIN_ROOT:-}" ]]; then
-        host="opencode"
+        harness="opencode"
     elif [[ -n "${CURSOR_PLUGIN_ROOT:-}" ]]; then
-        host="cursor"
+        harness="cursor"
     fi
 
-    # Emit host-appropriate JSON. Claude, Gemini, OpenCode shell hooks, and Codex
-    # all accept the modern hookSpecificOutput shape. Gemini additionally surfaces
-    # systemMessage to the user, so we include both for that host. Cursor and the
-    # unknown fallback retain the legacy snake_case shape for safety.
-    case "${host}" in
-        claude|opencode|codex)
+    # Emit harness-appropriate JSON. Antigravity, Claude, OpenCode shell hooks, and
+    # Codex all accept the modern hookSpecificOutput shape. Cursor and the unknown
+    # fallback retain the legacy snake_case shape for safety.
+    case "${harness}" in
+        antigravity|claude|opencode|codex)
             cat <<EOF
 {
   "hookSpecificOutput": {
     "hookEventName": "SessionStart",
     "additionalContext": ${escaped_context}
   }
-}
-EOF
-            ;;
-        gemini)
-            cat <<EOF
-{
-  "hookSpecificOutput": {
-    "hookEventName": "SessionStart",
-    "additionalContext": ${escaped_context}
-  },
-  "systemMessage": ${escaped_context}
 }
 EOF
             ;;
@@ -133,4 +120,3 @@ EOF
 }
 
 main "$@"
-

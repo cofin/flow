@@ -12,7 +12,7 @@ CRITICAL: You must validate the success of every tool call.
 
 ## PLAN MODE & WORKSPACE SAFETY
 
-1. **Native Plan Mode:** You MUST use the host's native plan/reasoning mode to think before answering.
+1. **Native Plan Mode:** You MUST use the harness's native plan/reasoning mode to think before answering.
 2. **Writable Check:** You MUST verify that the `.agents/` directory is writable before generating any artifacts.
 3. **Safe Tools:** Prefer read-only tools for analysis and explicitly constrained writes for state modifications.
 
@@ -46,7 +46,7 @@ When Superpowers skills are available:
 - Never write Flow specs/plans to `docs/superpowers/specs/`.
 
 Also: if roadmap decisions depend on external framework/API docs, versions, migrations, or release notes, invoke `flow:apilookup` during analysis.
-If a referenced companion skill is unavailable in the current host, perform the same protocol inline instead of skipping it.
+If a referenced companion skill is unavailable in the current harness, perform the same protocol inline instead of skipping it.
 
 ---
 
@@ -111,7 +111,7 @@ If a referenced companion skill is unavailable in the current host, perform the 
 4. **Summarize Understanding:**
     - Before proposing chapters, summarize what you understood
     - Get user confirmation before proceeding
-    - Continue researching until obvious external docs, version, marketplace, migration, or host-capability gaps are closed.
+    - Continue researching until obvious external docs, version, marketplace, migration, or harness-capability gaps are closed.
 
 5. **Constraint Check:**
     - "Based on `patterns.md`, I'll ensure X. Any concerns?"
@@ -252,7 +252,7 @@ If a referenced companion skill is unavailable in the current host, perform the 
     - After last chapter: Announce all chapters planned
 
 5. **Research Closure Loop:**
-    - Before ending the PRD workflow, check whether any chapter still depends on unfinished research about external docs, APIs, versions, release notes, migrations, marketplaces, or host capabilities.
+    - Before ending the PRD workflow, check whether any chapter still depends on unfinished research about external docs, APIs, versions, release notes, migrations, marketplaces, or harness capabilities.
     - If yes, do the missing research, update the roadmap or chapter specs, and repeat the review loop.
     - Do NOT declare PRD or chapter planning complete while obvious research gaps remain.
 

@@ -45,7 +45,7 @@ Default setup writes `.agents/beads.json` with `syncPolicy.autoExport: false`, `
 
 **Session Start:**
 
-Use the active backend's session-start commands. Prefer `bd prime --mcp` when host hooks inject MCP-aware context; otherwise use `bd prime`.
+Use the active backend's session-start commands. Prefer `bd prime --mcp` when harness hooks inject MCP-aware context; otherwise use `bd prime`.
 
 **Session End:**
 

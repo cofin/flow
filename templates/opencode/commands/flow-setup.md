@@ -6,7 +6,7 @@ description: Initialize project with context files, Beads, and first flow
 
 Initialize a project for context-driven development with Beads integration.
 
-> **Host boundary:** This command runs under OpenCode. Do not create `CLAUDE.md`, `.claude/*`, `.gemini/*`, `.geminiignore`, `.codex/*`, or `.cursor/*` — each host's setup command owns its own configuration surface.
+> **Harness boundary:** This command runs under OpenCode. Do not create `CLAUDE.md`, `.claude/*`, `.codex/*`, or `.cursor/*` — each harness's setup command owns its own configuration surface.
 
 ## Phase 0: Setup State Check
 

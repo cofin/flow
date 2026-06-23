@@ -19,7 +19,7 @@ CRITICAL: You must validate the success of every tool call.
 
 ## PLAN MODE & WORKSPACE SAFETY
 
-1. **Native Plan Mode:** You MUST use the host's native plan/reasoning mode to think before answering.
+1. **Native Plan Mode:** You MUST use the harness's native plan/reasoning mode to think before answering.
 2. **Writable Check:** You MUST verify that the `.agents/` directory is writable before generating any artifacts.
 3. **Safe Tools:** Prefer read-only tools for analysis and explicitly constrained writes for state modifications.
 
@@ -52,7 +52,7 @@ When Superpowers skills are available, they MUST be used in the PRD workflow:
 3. **Self-Review Phase:** Invoke `code-reviewer` (via `superpowers:requesting-code-review`) once the roadmap in `prd.md` is drafted to ensure it follows standard PRD structures and project constraints.
 
 **NEVER** use `docs/superpowers/` for Flow-related saga/PRD documents.
-If a referenced companion skill is unavailable in the current host, perform the same protocol inline instead of skipping it.
+If a referenced companion skill is unavailable in the current harness, perform the same protocol inline instead of skipping it.
 
 ---
 
@@ -255,7 +255,7 @@ If a referenced companion skill is unavailable in the current host, perform the 
     - After last chapter: Announce all chapters planned
 
 4. **Research Closure Loop:**
-    - Before ending the PRD workflow, check whether any chapter still depends on unfinished research about external docs, APIs, versions, release notes, migrations, marketplaces, or host capabilities.
+    - Before ending the PRD workflow, check whether any chapter still depends on unfinished research about external docs, APIs, versions, release notes, migrations, marketplaces, or harness capabilities.
     - If yes, do the missing research, update the roadmap or chapter specs, and repeat the review loop.
     - Do NOT declare PRD or chapter planning complete while obvious research gaps remain.
 

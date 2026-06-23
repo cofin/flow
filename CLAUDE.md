@@ -41,7 +41,7 @@ When Flow implementation is active:
 - make minimal targeted changes, avoid opportunistic unrelated edits, and never silently descope
 - be collaborative when blockers appear; describe them factually and avoid blamey ownership-deflecting language
 
-## Host Notes
+## Harness Notes
 
 - Use `claude plugin marketplace add` and `claude plugin install` for extension lifecycle work.
 - Restart the Claude Code session after plugin management operations.

@@ -153,7 +153,7 @@ The SessionStart hook (`hooks/detect-env.sh`) emits one of three Beads-backend s
 
 **Never halt for missing Beads.** Degrade gracefully: read state from `spec.md` markers (`[ ]`, `[~]`, `[x]`, `[!]`, `[-]`), record progress by editing those markers directly, skip notes/learnings that would otherwise go into Beads, and skip `/flow:sync` (it's a no-op without a backend).
 
-**Why this exists:** The plugin manifest exposes a `useBeads` userConfig toggle and the host can also lack `bd` entirely. Before this rule, every flow command shelled out to `bd` unconditionally — toggling `useBeads=false` only suppressed SessionStart context while every command still emitted "command not found" or stored garbage.
+**Why this exists:** The plugin manifest exposes a `useBeads` userConfig toggle and the harness can also lack `bd` entirely. Before this rule, every flow command shelled out to `bd` unconditionally — toggling `useBeads=false` only suppressed SessionStart context while every command still emitted "command not found" or stored garbage.
 
 ---
 

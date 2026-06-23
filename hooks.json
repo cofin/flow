@@ -1,0 +1,18 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "name": "flow-session-start",
+            "type": "command",
+            "command": "r=\"${ANTIGRAVITY_PLUGIN_ROOT:-${PLUGIN_ROOT:-${AGY_PLUGIN_ROOT:-}}}\"; h=\"${HOME:-}\"; if [ -n \"$r\" ] && [ ! -f \"${r%/}/hooks/session-start.sh\" ]; then r=\"\"; fi; if [ -z \"$r\" ] && [ -n \"$h\" ] && [ -f \"${h%/}/.gemini/antigravity-cli/plugins/flow/hooks/session-start.sh\" ]; then r=\"${h%/}/.gemini/antigravity-cli/plugins/flow\"; fi; if [ -z \"$r\" ] && [ -f ./hooks/session-start.sh ]; then r=\".\"; fi; [ -n \"$r\" ] || exit 0; ANTIGRAVITY_PLUGIN_ROOT=\"${r%/}\" FLOW_HARNESS=antigravity PLUGIN_ROOT=\"${r%/}\" bash \"${r%/}/hooks/session-start.sh\"",
+            "timeout": 30,
+            "description": "Inject Flow project context into Antigravity sessions."
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -51,7 +51,7 @@ If Beads unavailable, parse `spec.md` Implementation Plan section for pending ta
 
 ### 3.0 Subagent Execution Preference
 
-If `superpowers:subagent-driven-development` is available in this host, invoke it before implementation and use its implementation-subagent workflow for task execution and review checkpoints.
+If `superpowers:subagent-driven-development` is available in this harness, invoke it before implementation and use its implementation-subagent workflow for task execution and review checkpoints.
 
 - Before delegating, ask: "Do I have enough task information written for this PRD/flow to complete it correctly in the first pass?"
 - If not, invoke `flow-refine` first and update the plan before dispatch.

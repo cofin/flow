@@ -15,7 +15,7 @@ You are working in a project using the **Flow Framework** for context-driven dev
 Use this agent automatically when:
 - `.agents/` exists in the project root
 - The user asks to set up, plan, draft a PRD, design, research, document, implement, sync, check status, refresh, validate, revise, review, finish, archive, revert, or create a task
-- The user invokes a `/flow:*` command in hosts that support it
+- The user invokes a `/flow:*` command in harnesses that support it
 - You are editing files in `.agents/` or `.agents/specs/`
 - The user mentions Beads or backend commands such as `bd status` or `bd ready`
 - A spec or PRD exists but the task detail is too coarse for reliable first-pass implementation
@@ -31,7 +31,7 @@ A flow is a logical unit of work (feature, bug fix, refactor). Each flow has:
 ### Beads Integration (Source of Truth)
 Beads provides persistent cross-session memory:
 ```bash
-bd init --non-interactive --stealth --prefix <project_name_slug> --skip-agents # Initialize official Beads without generated host instruction files
+bd init --non-interactive --stealth --prefix <project_name_slug> --skip-agents # Initialize official Beads without generated harness instruction files
 bd config set no-git-ops true
 bd config set export.auto false
 bd config set export.git-add false

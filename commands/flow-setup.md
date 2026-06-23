@@ -9,7 +9,7 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion, mcp__sequen
 
 Initialize a project for context-driven development with Beads integration.
 
-> **Host boundary:** This command runs under Claude Code. Only Claude-owned files are created (e.g., `CLAUDE.md`). Do not write `.gemini/*`, `.geminiignore`, `.codex/*`, `.cursor/*`, or `.opencode/*` — each host's setup command owns its own configuration surface.
+> **Harness boundary:** This command runs under Claude Code. Only Claude-owned files are created (e.g., `CLAUDE.md`). Do not write `.codex/*`, `.cursor/*`, or `.opencode/*` — each harness's setup command owns its own configuration surface.
 
 ## Phase 0: Environment Detection
 
@@ -180,7 +180,7 @@ Check for missing `.agents/knowledge/` directory. If absent, create it and write
 
 **PROTOCOL: Ensure the Claude Code context file is present.**
 
-This setup runs under Claude Code. Only Claude-owned files are touched — Gemini/Codex/Cursor/OpenCode artifacts (`.gemini/policies/*`, `.geminiignore`, etc.) are out of scope and must not be created here.
+This setup runs under Claude Code. Only Claude-owned files are touched. Antigravity/Codex/Cursor/OpenCode artifacts are out of scope and must not be created here.
 
 - Check for `CLAUDE.md` in the project root. If missing, offer to create it from the latest template to provide project context and rules.
 
@@ -208,7 +208,7 @@ Alignment Complete
 ✓ Specs migrated: {N} active, {M} archived
 ✓ Learnings merged: {X} patterns added to patterns.md
 ✓ Workflow revalidated and synced
-✓ Policy/Context: Host-specific overrides and context files configured
+✓ Policy/Context: Harness-specific overrides and context files configured
 ✓ Configuration validated
 
 No action needed / Issues found:
@@ -474,7 +474,7 @@ done
 - Never use `git add -f` to force-add ignored Flow files.
 - Commit only the non-ignored setup artifacts.
 
-> **Note:** Host-foreign artifacts (`.geminiignore`, `.gemini/policies/*`) are out of scope for Claude Code setup. Gemini CLI users run Gemini's own `/flow:setup` to configure those.
+> **Note:** Harness-foreign artifacts are out of scope for Claude Code setup. Other harnesses own their own configuration surfaces.
 
 ---
 
@@ -504,7 +504,7 @@ Save setup state to `<root_directory>/setup-state.json`:
   "workflow_preferences": {
     "coverage_target": "80%",
     "commit_cadence": "task",
-    "task_summary_mode": "git-notes|commit-body|host-native",
+    "task_summary_mode": "git-notes|commit-body|harness-native",
     "backend_mode": "bd|none",
     "ignore_policy": "local-only|shared",
     "canonical_commands": {
@@ -529,7 +529,7 @@ Save setup state to `<root_directory>/setup-state.json`:
 2. Otherwise, create `CLAUDE.md` from the Flow template (`templates/agent/CLAUDE.md` if shipped, or a minimal stub that points at `<root_directory>/product.md` and `<root_directory>/workflow.md` as the source of truth).
 3. Announce: "Created `CLAUDE.md` so Claude Code has project context."
 
-> **Host boundary:** Do not create `.gemini/*`, `.codex/*`, `.cursor/*`, or `.opencode/*` artifacts from this file. Each host's setup command owns its own configuration surface.
+> **Harness boundary:** Do not create `.codex/*`, `.cursor/*`, or `.opencode/*` artifacts from this file. Each harness's setup command owns its own configuration surface.
 
 ---
 
@@ -567,7 +567,7 @@ Next Steps:
 Copy the `pre-commit` hook to the `.git/hooks/` directory to ensure Bead states remain synchronized before any commit:
 
 ```bash
-# Resolve the Flow install root for the current host. CLAUDE_PLUGIN_ROOT is
+# Resolve the Flow install root for the current harness. CLAUDE_PLUGIN_ROOT is
 # exported by Claude Code when this command runs from the installed plugin.
 FLOW_INSTALL_ROOT="${CLAUDE_PLUGIN_ROOT:-$HOME/.flow}"
 if [ -f "$FLOW_INSTALL_ROOT/hooks/pre-commit" ]; then
@@ -587,7 +587,7 @@ fi
 5. **ONE QUESTION AT A TIME** - Don't overwhelm the user
 6. **DETECT FIRST** - Auto-detect tech stack before asking
 7. **APPEND ONLY** - Never overwrite `.gitignore` or `.git/info/exclude`
-8. **HOST ISOLATION** - Only write Claude-owned files; never write `.gemini/*`, `.geminiignore`, `.codex/*`, `.cursor/*`, or `.opencode/*`
+8. **HARNESS ISOLATION** - Only write Claude-owned files; never write Antigravity, Codex, Cursor, or OpenCode artifacts
 9. **SAVE STATE** - Enable resume if interrupted
 10. **NO FORCE-ADD** - If a Flow file is ignored, leave it out of the commit
 11. **REVALIDATE EXISTING INSTALLS** - Existing installs must be offered workflow refresh/update, not just syntax checks

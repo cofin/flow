@@ -5,7 +5,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 # CLAUDE_PLUGIN_OPTION_* are injected by the Claude Code harness from
-# plugin.json userConfig. Other hosts leave these unset, so default-fallback.
+# plugin.json userConfig. Other harnesses leave these unset, so default-fallback.
 $script:DEFAULT_ROOT_DIR = if ($env:CLAUDE_PLUGIN_OPTION_AGENTSDIR) { $env:CLAUDE_PLUGIN_OPTION_AGENTSDIR } else { '.agents' }
 $script:USE_BEADS = if ($env:CLAUDE_PLUGIN_OPTION_USEBEADS) { $env:CLAUDE_PLUGIN_OPTION_USEBEADS } else { 'true' }
 
@@ -17,7 +17,7 @@ $env:BD_JSON_ENVELOPE = '1'
 
 function Get-BeadsBackend {
     Write-Host "## Flow Environment Context"
-    Write-Host "- **Flow is a SKILL, not a CLI**: there is no ``flow`` executable. NEVER run ``flow``, ``flow sync``, ``flow prd``, ``flow status``, etc. as shell commands. Invoke the Flow skill, or use the ``/flow:*`` (e.g. ``/flow:sync``) slash commands where the host supports them."
+    Write-Host "- **Flow is a SKILL, not a CLI**: there is no ``flow`` executable. NEVER run ``flow``, ``flow sync``, ``flow prd``, ``flow status``, etc. as shell commands. Invoke the Flow skill, or use the ``/flow:*`` (e.g. ``/flow:sync``) slash commands where the harness supports them."
     if ($script:USE_BEADS -ne 'true') {
         Write-Host "- **Beads Backend**: Disabled via plugin config (useBeads=false)"
         return "disabled"

@@ -89,14 +89,14 @@ Check for missing `.agents/knowledge/` directory and ensure `knowledge/index.md`
 
 ### 0.1.7 Policy & Context Validation
 
-**PROTOCOL: Ensure Plan Mode policies and host-specific context/settings files are present for every detected host.**
+**PROTOCOL: Ensure planning policies and harness-specific context/settings files are present for every detected harness.**
 
-- **Gemini CLI:** Check for `.gemini/policies/flow-overrides.toml`. If missing or outdated, offer to create it to allow common development tools in Plan Mode.
+- **Antigravity:** Confirm Flow is installed through Antigravity's native plugin and skills surfaces. Do not create project-local legacy extension files.
 - **Claude Code:** Check for `CLAUDE.md` in the project root. If missing, offer to create it from the latest template to provide project context and rules. Also run **Phase 7.5.1** (re-merge Flow-recommended `.claude/settings.local.json` keys without clobbering user entries).
 - **OpenCode:** Run **Phase 7.5.2** (re-merge Flow-recommended `opencode.json` keys).
 - **Codex CLI:** Announce the trust-prompt recommendation from **Phase 7.5.3**. Do not write to `~/.codex/config.toml`.
 
-Each prompt remains opt-in (Yes/Skip), matching the existing Gemini pattern. Reruns are idempotent — every Phase 7.5 step deduplicates and merges.
+Each prompt remains opt-in (Yes/Skip). Reruns are idempotent - every Phase 7.5 step deduplicates and merges.
 
 ### 0.1.8 Configuration Validation
 
@@ -258,7 +258,7 @@ bd config set export.auto false
 bd config set export.git-add false
 ```
 
-Flow owns the host instruction files, so Beads setup must skip its generated agent files.
+Flow owns the harness instruction files, so Beads setup must skip its generated agent files.
 The config commands keep Beads local-only by default: no automatic export, no auto-staging, and no git operations in `bd prime` output.
 
 Opt the project into the bd v2.0 JSON envelope so `bd --json` stops printing the deprecation notice on every command. Append the Viper key idempotently to `.beads/config.yaml`:
@@ -329,21 +329,21 @@ Copy `templates/agent/skills/flow-memory-keeper/SKILL.md` into `<root_directory>
 
 ---
 
-## Phase 7.5: Host Policy Bootstrap (Cross-Host)
+## Phase 7.5: Harness Policy Bootstrap (Cross-Harness)
 
-**PROTOCOL: Detect installed agentic hosts and OFFER (opt-in) to merge Flow-recommended settings into each host's policy file. Mirrors what `commands/flow/setup.toml` already does for Gemini, but for Claude Code and OpenCode.**
+**PROTOCOL: Detect installed agentic harnesses and OFFER (opt-in) to merge Flow-recommended settings into each harness's policy file.**
 
-### 7.5.0 Host Detection
+### 7.5.0 Harness Detection
 
 ```bash
 detected=()
 command -v claude   >/dev/null 2>&1 || [ -d "$HOME/.claude" ]                && detected+=("claude")
 command -v opencode >/dev/null 2>&1 || [ -d "$HOME/.config/opencode" ]       && detected+=("opencode")
 command -v codex    >/dev/null 2>&1 || [ -d "$HOME/.codex" ]                 && detected+=("codex")
-# Gemini is handled by commands/flow/setup.toml Phase 3.4 — do not duplicate here.
+command -v antigravity >/dev/null 2>&1 || [ -d "$HOME/.gemini/antigravity-cli" ] && detected+=("antigravity")
 ```
 
-For each detected host, run the matching subsection. **Skip Codex auto-write** — Codex's first-session trust prompt covers this case; just announce the recommendation.
+For each detected harness, run the matching subsection. **Skip Codex auto-write** — Codex's first-session trust prompt covers this case; just announce the recommendation.
 
 ### 7.5.1 Claude Code
 
@@ -439,9 +439,9 @@ Codex configuration lives in the global `~/.codex/config.toml` (per-user, not pe
 
 **Announce:** "Codex CLI detected. On your first Codex session in this project, accept the trust prompt to mark this directory `trusted`. Flow does not modify your global `~/.codex/config.toml`."
 
-### 7.5.4 Gemini CLI
+### 7.5.4 Antigravity
 
-If running under Gemini, defer to `commands/flow/setup.toml` Phase 3.4 (writes `.gemini/policies/flow-overrides.toml` and configures `.geminiignore`). Do not duplicate Gemini writes from this skill phase.
+If running under Antigravity, prefer the native plugin and skills install flow. Flow should not write legacy extension policy files or project-local ignore files for Antigravity.
 
 ---
 
@@ -508,13 +508,10 @@ Copy the `pre-commit` hook to the `.git/hooks/` directory to ensure Bead states 
 if [ -f ~/.flow/hooks/pre-commit ]; then
   cp ~/.flow/hooks/pre-commit .git/hooks/pre-commit
   chmod +x .git/hooks/pre-commit
-elif [ -f ~/.gemini/extensions/flow/tools/scripts/hooks/pre-commit ]; then
-  cp ~/.gemini/extensions/flow/tools/scripts/hooks/pre-commit .git/hooks/pre-commit
-  chmod +x .git/hooks/pre-commit
 fi
 ```
 
-Review official Beads git/LLM hook support before relying on Flow-specific hooks long-term. Prefer upstream Beads or host-native hooks when they already cover the lifecycle cleanly.
+Review official Beads git/LLM hook support before relying on Flow-specific hooks long-term. Prefer upstream Beads or harness-native hooks when they already cover the lifecycle cleanly.
 
 ---
 

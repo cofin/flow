@@ -88,12 +88,9 @@ def _emit_codex_hooks_manifest(repo_root: Path, package_root: Path) -> None:
     """Make the package's auto-discovered hooks manifest Codex-native.
 
     Codex auto-discovers ``<plugin>/hooks/hooks.json`` and runs the command
-    through a shell. The repo-root ``hooks/hooks.json`` is Gemini's — it uses
-    ``${extensionPath}${/}`` template tokens that bash cannot expand (Codex would
-    error with 'bad substitution'). ``plugins/flow`` is the Codex/marketplace
-    artifact (Gemini installs from the repo root, not here), so overwrite the
-    package copy with the Codex-native manifest (``hooks/hooks-codex.json``,
-    which uses ``${PLUGIN_ROOT}``). This does not affect Gemini.
+    through a shell. ``plugins/flow`` is the Codex/marketplace artifact, so
+    overwrite the package copy with the Codex-native manifest
+    (``hooks/hooks-codex.json``), which uses ``${PLUGIN_ROOT}``.
     """
     codex_source = repo_root / "hooks" / "hooks-codex.json"
     if not codex_source.is_file():
