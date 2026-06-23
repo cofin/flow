@@ -18,7 +18,7 @@ Syncing active backend state to disk for flow: **$ARGUMENTS**
 
 - `/flow:sync` **ALWAYS writes the reconciled markdown to disk** — updating **every markdown file in `.agents/specs/<flow_id>/`** (`spec.md`, `learnings.md`, and any other tracked markdown in the flow folder), not just `spec.md`, so they all match Beads exactly. This write is **mandatory**; sync is never read-only/dry-run and must never finish without persisting the markdown.
 - "Sync" / "export" in Flow means **making the markdown files and Beads reflect identical reality on disk** — nothing more.
-- It does **NOT** mean Dolt. **NEVER run `bd dolt` commands** (`bd dolt push`/`pull`/`export`) as part of sync, regardless of phrasing. Those are out of scope for `/flow:sync` and only run if the user explicitly and separately asks for Dolt operations.
+- It does **NOT** mean Dolt. **NEVER run `bd dolt push` or `bd dolt pull`** (Beads' Dolt remote sync) as part of sync, and never run `bd export` (the optional `.beads/issues.jsonl` snapshot), regardless of phrasing. Those are out of scope for `/flow:sync` and only run if the user explicitly and separately asks for Dolt operations.
 
 ---
 
@@ -60,8 +60,8 @@ Syncing active backend state to disk for flow: **$ARGUMENTS**
 
 Resolve the active backend first (check hook context or beads.json):
 
-- `bd`: use the official Beads show/export command. **CRITICAL:** Pull all `notes` for the epic and its tasks.
-- no-Beads: skip backend export and preserve markdown-only task state.
+- `bd`: read state with the official Beads query commands (`bd show <id> --json`, `bd list`). **CRITICAL:** Pull all `notes` for the epic and its tasks.
+- no-Beads: skip the backend read and preserve markdown-only task state.
 
 If `syncPolicy.autoExport` is false, do not run Beads export commands as a side effect of `/flow:sync`; read from the backend and update Flow markdown views only. Do not run `bd dolt push` unless the user explicitly requests it or `.agents/beads.json` sets `syncPolicy.allowDoltPush` to `true`.
 

@@ -261,16 +261,7 @@ bd config set export.git-add false
 Flow owns the harness instruction files, so Beads setup must skip its generated agent files.
 The config commands keep Beads local-only by default: no automatic export, no auto-staging, and no git operations in `bd prime` output.
 
-Opt the project into the bd v2.0 JSON envelope so `bd --json` stops printing the deprecation notice on every command. Append the Viper key idempotently to `.beads/config.yaml`:
-
-```bash
-mkdir -p .beads
-if [ ! -f .beads/config.yaml ] || ! grep -q '^json-envelope:' .beads/config.yaml; then
-  printf 'json-envelope: true\n' >> .beads/config.yaml
-fi
-```
-
-bd 1.x reads the toggle only from `BD_JSON_ENVELOPE`; flow's hooks export that during sessions. Writing the YAML key now records the intent in version-controllable form so the project is ready when beads wires the toggle through Viper.
+Flow's hooks export `BD_JSON_ENVELOPE=1`, which wraps `bd --json` output in the v2.0 `{schema_version, data}` envelope (the hooks read `.data`). Beads has no config-file key for the envelope — the environment variable is the only supported switch.
 
 Or prompt user:
 

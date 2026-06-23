@@ -21,7 +21,7 @@ Use this lifecycle skill for project initialization, installation checks, setup 
 
 - Prefer `.git/info/exclude` for local-only ignores.
 - Do not edit `.gitignore` unless the user wants shared repository policy.
-- Do not run `bd dolt push`, export, or auto-stage unless policy explicitly allows it.
+- Do not run `bd dolt push`, `bd export`, or auto-stage unless policy explicitly allows it.
 - Keep setup idempotent; preserve existing user context files and merge rather than overwrite.
 
 ## Validation

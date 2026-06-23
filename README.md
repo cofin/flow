@@ -219,26 +219,15 @@ Flow follows a TDD workflow with a backend adapter: detect persistence mode, sel
 
 ## Commands
 
-| Purpose | Claude Code | Antigravity / OpenCode |
-|---------|-------------|-----------------------|
-| Initialize project | `/flow-setup` | `/flow:setup` |
-| Create PRD (Saga) | `/flow-prd` | `/flow:prd` |
-| Plan single flow | `/flow-plan` | `/flow:plan` |
-| Sync Beads to spec | `/flow-sync` | `/flow:sync` |
-| Pre-PRD research | `/flow-research` | `/flow:research` |
-| Documentation workflow | `/flow-docs` | `/flow:docs` |
-| Implement tasks | `/flow-implement` | `/flow:implement` |
-| Check status | `/flow-status` | `/flow:status` |
-| Refresh context | `/flow-refresh` | `/flow:refresh` |
-| Revert changes | `/flow-revert` | `/flow:revert` |
-| Validate integrity | `/flow-validate` | `/flow:validate` |
-| Revise spec/plan | `/flow-revise` | `/flow:revise` |
-| Archive completed | `/flow-archive` | `/flow:archive` |
-| Ephemeral task | `/flow-task` | `/flow:task` |
-| Code review | `/flow-review` | `/flow:review` |
-| Finish flow | `/flow-finish` | `/flow:finish` |
+Flow keeps command behavior aligned, but each harness exposes a different command surface.
 
-> Claude Code uses `/flow-command` (hyphen). Antigravity and OpenCode use `/flow:command` (colon). Codex CLI currently uses the installed Flow skill through plain-language requests instead of plugin-defined slash commands.
+| Purpose | Claude Code | Antigravity | OpenCode | Codex CLI |
+|---------|-------------|-------------|----------|-----------|
+| Lifecycle commands | `/flow-setup`, `/flow-prd`, `/flow-plan`, etc. from `commands/flow-*.md` | Skill-derived slash commands from `skills/` such as `/flow`, `/flow-setup`, and lifecycle skills | Project/native command files when configured; otherwise use the Flow skill/plugin context | Natural-language Flow skill requests |
+| Canonical prompt source | `commands/flow-*.md` | `skills/*/SKILL.md` plus `commands/flow/*.toml` as shared prompt source material | `templates/opencode/commands/*.md` for project command installs | `skills/*/SKILL.md` in the generated plugin package |
+| Subagents | `agents/*.md` | `agents/*.md` | `.opencode/agents/*.md` | `.codex/agents/*.toml` |
+
+Codex plugins do not currently expose plugin-defined `/flow:*` slash commands. OpenCode command names depend on whether the user installs project command files or uses the plugin context.
 
 ## Reference
 

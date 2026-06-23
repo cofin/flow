@@ -26,7 +26,7 @@ Flow coordinates Context-Driven Development in `.agents/` repositories. Keep thi
 ## Guardrails
 
 - Never edit task markers (`[ ]`, `[~]`, `[x]`, `[!]`, `[-]`) manually in `spec.md`.
-- Do not run backend export, auto-stage, Dolt push, or git operations through Beads unless `.agents/beads.json` allows it or the user asks.
+- Do not run `bd export`, auto-stage, `bd dolt push`, or git operations through Beads unless `.agents/beads.json` allows it or the user asks.
 - Store Flow specs and planning artifacts under `.agents/specs/<flow_id>/`.
 - Make minimal targeted changes and record findings with `bd note <id> "..."` when work exceeds a quick fix.
 

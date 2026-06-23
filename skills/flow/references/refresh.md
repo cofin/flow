@@ -38,8 +38,8 @@ Refresh the flow's context files by re-scanning the codebase and updating `.agen
 
 4. **Sync with Beads**
    - Resolve the active backend first
-   - `bd`: use the official Beads sync/status commands
-   - no-Beads: skip backend sync and continue refreshing workflow/context files
+   - `bd`: read backend state with `bd status`/`bd list`/`bd ready`, then reconcile via `/flow:sync` (Flow's markdown↔Beads reconciliation — not `bd export` or `bd dolt`)
+   - no-Beads: skip backend reads and continue refreshing workflow/context files
    - Reconcile backend state with refreshed context
 
 5. **Report changes**

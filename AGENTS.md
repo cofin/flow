@@ -162,7 +162,9 @@ Every harness falls into one of three tiers:
 | Resource | Location |
 | --- | --- |
 | Skills | `skills/<skill-name>/SKILL.md` |
-| Slash commands | `commands/<prefix>/<command>.toml` |
+| Shared slash-command prompt sources | `commands/flow/<command>.toml` |
+| Claude Code slash commands | `commands/flow-<command>.md` |
+| OpenCode command templates | `templates/opencode/commands/flow-<command>.md` |
 | Subagents (Codex CLI) | `.codex/agents/<agent-name>.toml` (pure TOML; `developer_instructions` holds the prompt; no top-level `tools` — inherited from session `config.toml`) |
 | Subagents (Antigravity / Claude Code plugin) | `agents/<agent-name>.md` (portable Markdown, slug `name`, required `description`, harness-specific tool lists omitted) |
 | Subagents (OpenCode) | `.opencode/agents/<agent-name>.md` (`tools` as dict mapping + `mode: subagent`) |
@@ -194,30 +196,29 @@ The following external repositories provide comprehensive, harness-verified skil
 
 ## Commands
 
-**Harness note:** Antigravity and OpenCode expose these as `/flow:*`. Claude Code uses `/flow-*`.
-Codex currently runs the same workflows through the installed Flow skill and plain-language requests rather than plugin-defined slash commands.
+**Harness note:** Claude Code exposes `commands/flow-*.md` as `/flow-*`. Antigravity derives slash commands from installed skills. Harnesses that consume `commands/flow/*.toml` use `/flow:<command>` semantics. OpenCode uses project command files or config-defined commands when installed, and otherwise receives Flow through the plugin context and skills. Codex currently runs the same workflows through the installed Flow skill and plain-language requests rather than plugin-defined slash commands.
 
 **Lifecycle routing:** Keep `flow` as the small router skill. After it triggers, load the specific lifecycle skill: `flow-setup` for initialization and validation, `flow-planning` for PRD/spec/refine/revise/research/task work, `flow-execution` for implementation and TDD, `flow-sync-status` for sync/status/refresh/cleanup, and `flow-completion` for review/finish/archive/revert/docs.
 
-| Command | Purpose |
-|---------|---------|
-| `/flow:setup` | Initialize project with context files, Beads, and first flow |
-| `/flow:prd` | **Orchestrator**: Analyze goals and generate Master Roadmap (Sagas) |
-| `/flow:plan` | **Planner**: Create unified spec.md for a single Flow |
-| `/flow:refine` | **Refiner**: Expand coarse tasks into implementation-ready plan |
-| `/flow:sync` | **Syncer**: Synchronize context docs, Beads state, and export summaries |
-| `/flow:research` | Conduct pre-PRD research |
-| `/flow:docs` | Five-phase documentation workflow |
-| `/flow:implement` | **Executor**: Execute tasks from plan (context-aware) |
-| `/flow:status` | Display progress overview with Beads status |
-| `/flow:revert` | Git-aware revert of flows, phases, or tasks |
-| `/flow:validate` | Validate project integrity and fix issues |
-| `/flow:revise` | Update spec/plan when implementation reveals issues |
-| `/flow:archive` | Archive completed flows + elevate patterns |
-| `/flow:refresh` | **Refresher**: Sync context with codebase after external changes |
-| `/flow:task` | Create ephemeral exploration task |
-| `/flow:finish` | Complete flow: verify, review, merge/PR/keep/discard |
-| `/flow:review` | Dispatch code review with Beads-aware git range |
+| Lifecycle | Claude command | Shared command key | Purpose |
+|---------|---------|---------|---------|
+| Setup | `/flow-setup` | `flow/setup` | Initialize project with context files, Beads, and first flow |
+| PRD | `/flow-prd` | `flow/prd` | Analyze goals and generate Master Roadmap (Sagas) |
+| Plan | `/flow-plan` | `flow/plan` | Create unified spec.md for a single Flow |
+| Refine | `/flow-refine` | `flow/refine` | Expand coarse tasks into implementation-ready plan |
+| Sync | `/flow-sync` | `flow/sync` | Synchronize context docs, Beads state, and export summaries |
+| Research | `/flow-research` | `flow/research` | Conduct pre-PRD research |
+| Docs | `/flow-docs` | `flow/docs` | Five-phase documentation workflow |
+| Implement | `/flow-implement` | `flow/implement` | Execute tasks from plan (context-aware) |
+| Status | `/flow-status` | `flow/status` | Display progress overview with Beads status |
+| Revert | `/flow-revert` | `flow/revert` | Git-aware revert of flows, phases, or tasks |
+| Validate | `/flow-validate` | `flow/validate` | Validate project integrity and fix issues |
+| Revise | `/flow-revise` | `flow/revise` | Update spec/plan when implementation reveals issues |
+| Archive | `/flow-archive` | `flow/archive` | Archive completed flows + elevate patterns |
+| Refresh | `/flow-refresh` | `flow/refresh` | Sync context with codebase after external changes |
+| Task | `/flow-task` | `flow/task` | Create ephemeral exploration task |
+| Finish | `/flow-finish` | `flow/finish` | Complete flow: verify, review, merge/PR/keep/discard |
+| Review | `/flow-review` | `flow/review` | Dispatch code review with Beads-aware git range |
 
 ## Beads Integration
 
@@ -292,23 +293,32 @@ For local-only use, prefer `.git/info/exclude` instead of editing `.gitignore`. 
 
 Agents MUST read `.agents/beads.json` before running export or backend sync commands. `syncPolicy.flowSyncAfterMutation` controls whether Flow immediately runs `/flow:sync` after Beads mutations. `syncPolicy.autoExport` and `syncPolicy.autoGitAdd` map to `bd config set export.auto false` and `bd config set export.git-add false` for local-only defaults.
 
+Three operations get loosely called "sync" — keep them distinct:
+
+- **`bd export`** — writes an optional `.beads/issues.jsonl` snapshot (for viewing, interchange, or backup). Off by default (`export.auto false`). It is **not** sync.
+- **`bd dolt push` / `bd dolt pull`** — Beads' real remote sync over its Dolt remote (`refs/dolt/data`). Opt-in only via `syncPolicy.allowDoltPush`.
+- **`/flow:sync`** — Flow's reconciliation of `.agents/specs/**` markdown with Beads state. This is the only "sync" Flow runs by default; it never writes JSONL or pushes Dolt.
+
 Do not run `bd dolt push` unless the user explicitly requests it or `.agents/beads.json` sets `syncPolicy.allowDoltPush` to `true` and `dolt.push` to an opt-in value.
 
 ### Key Beads Commands
 
 | Flow Action | Beads Command |
 |-------------|---------------|
-| Create flow | Use the active backend's flow/epic creation command |
-| Add context | Use the active backend's notes/comments command |
-| Create task | Use the active backend's task creation command |
-| Start task | Use the active backend's in-progress command |
-| Complete task | Use the active backend's completion command |
-| Block task | Use the active backend's blocking command |
-| Get ready tasks | Use the active backend's ready queue |
-| Add notes | Use the active backend's notes/comments command |
-| Sync/export to git | Use the active backend's sync/export command only when `syncPolicy.autoExport` or explicit user instruction allows it |
-| Dolt push | Use `bd dolt push` only when `syncPolicy.allowDoltPush` is enabled or explicitly requested |
-| Show blocked | Use the active backend's blocked-view command |
+| Create flow (epic) | `bd create "Flow: <flow_id>" -t epic -p 2` |
+| Create task | `bd create "<title>" -t task -p <0-4>` |
+| Add context/notes | `bd note <id> "..."` |
+| Start task | `bd update <id> --claim` |
+| Complete task | `bd close <id> --reason "[<sha>] ..."` |
+| Block task | `bd update <id> --status blocked` |
+| Get ready tasks | `bd ready --json` |
+| List in progress | `bd list --status in_progress` |
+| Show issue | `bd show <id> --json` |
+| Show blocked | `bd blocked` |
+| Export JSONL snapshot | `bd export -o .beads/issues.jsonl` — only when `syncPolicy.autoExport` or the user asks |
+| Remote sync (Dolt) | `bd dolt push` / `bd dolt pull` — only when `syncPolicy.allowDoltPush` or the user asks |
+
+In no-Beads mode, skip these commands and use markdown-only task state.
 
 ### Memory Policy
 
@@ -354,7 +364,7 @@ bd list --status in_progress
 
 At session end:
 
-Use the active backend's sync/export flow. For local-only setups, prefer `.git/info/exclude` over `.gitignore`.
+Run `/flow:sync` to reconcile markdown with Beads state when `syncPolicy.flowSyncAfterMutation` is enabled; run `bd export -o .beads/issues.jsonl` or `bd dolt push` only when their respective `syncPolicy` flags allow it or the user asks. For local-only setups, prefer `.git/info/exclude` over `.gitignore`.
 
 ## Learnings System (Ralph-style)
 

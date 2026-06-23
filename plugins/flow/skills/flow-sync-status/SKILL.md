@@ -20,7 +20,7 @@ Use this lifecycle skill for status dashboards, sync, context refresh, cleanup c
 ## Guardrails
 
 - **`/flow:sync` ALWAYS writes the reconciled markdown to disk.** It is mandatory: regenerate **every markdown file in `.agents/specs/<flow_id>/`** (`spec.md`, `learnings.md`, and any other tracked markdown in the flow folder) — not just `spec.md` — so they all match Beads exactly, and persist them. Sync is never read-only/dry-run and must never finish without writing the markdown.
-- **"Sync"/"export" means reconciling markdown ↔ Beads to identical reality on disk — NOT Dolt.** NEVER run `bd dolt` commands (`bd dolt push`/`pull`/`export`) as part of sync. They are out of scope and only run if the user explicitly and separately asks for Dolt.
+- **"Sync"/"export" means reconciling markdown ↔ Beads to identical reality on disk — NOT Dolt.** NEVER run `bd dolt push`/`bd dolt pull` (Dolt remote sync) or `bd export` (the optional JSONL snapshot) as part of sync. They are out of scope and only run if the user explicitly and separately asks for them.
 - Sync reads backend state; do not close, block, or mutate tasks during status reporting.
 - Do not auto-stage/commit unless policy or the user explicitly allows it.
 - Preserve human-written spec content; only update synchronized task/status regions.

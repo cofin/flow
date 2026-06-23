@@ -1,15 +1,12 @@
----
-description: Initialize project with context files, Beads, and first flow
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, AskUserQuestion, mcp__sequential-thinking__sequentialthinking
----
-
+description = "Initialize project with context files, Beads, and first flow"
+prompt = """
 # Flow Setup
 
 > Lifecycle skill: use `flow-setup` through the `flow` router.
 
 Initialize a project for context-driven development with Beads integration.
 
-> **Harness boundary:** This command runs under Claude Code. Only Claude-owned files are created (e.g., `CLAUDE.md`). Do not write `.codex/*`, `.cursor/*`, or `.opencode/*` — each harness's setup command owns its own configuration surface.
+> **Harness boundary:** This command runs under the active harness command surface. Create only Flow project artifacts and harness-owned context for the current surface; do not create retired legacy CLI files or unrelated harness configuration.
 
 ## Phase 0: Environment Detection
 
@@ -378,9 +375,14 @@ bd init --non-interactive --stealth --prefix <project_name_slug> --skip-agents
 bd config set no-git-ops true
 bd config set export.auto false
 bd config set export.git-add false
+
+mkdir -p .beads
+if [ ! -f .beads/config.yaml ] || ! grep -q '^json-envelope:' .beads/config.yaml; then
+  printf 'json-envelope: true\n' >> .beads/config.yaml
+fi
 ```
 
-These defaults keep Beads local-only: no automatic export, no auto-staging, and no git operations in `bd prime` output. `bd dolt push` remains explicit opt-in only. Flow's hooks export `BD_JSON_ENVELOPE=1`, which wraps `bd --json` output in the v2.0 `{schema_version, data}` envelope (the hooks read `.data`). Beads has no config-file key for the envelope — the environment variable is the only supported switch.
+These defaults keep Beads local-only: no automatic export, no auto-staging, and no git operations in `bd prime` output. `bd dolt push` remains explicit opt-in only. The `json-envelope: true` Viper key opts the project into the bd v2.0 JSON envelope so `bd --json` stops emitting the deprecation notice; flow's hooks export `BD_JSON_ENVELOPE=1` until beads wires this through Viper.
 
 If no-Beads mode was selected:
 
@@ -524,7 +526,7 @@ Save setup state to `<root_directory>/setup-state.json`:
 2. Otherwise, create `CLAUDE.md` from the Flow template (`templates/agent/CLAUDE.md` if shipped, or a minimal stub that points at `<root_directory>/product.md` and `<root_directory>/workflow.md` as the source of truth).
 3. Announce: "Created `CLAUDE.md` so Claude Code has project context."
 
-> **Harness boundary:** Do not create `.codex/*`, `.cursor/*`, or `.opencode/*` artifacts from this file. Each harness's setup command owns its own configuration surface.
+> **Harness boundary:** Do not create retired legacy CLI files or unrelated harness configuration from this command. Each harness owns its own configuration surface.
 
 ---
 
@@ -587,3 +589,4 @@ fi
 10. **NO FORCE-ADD** - If a Flow file is ignored, leave it out of the commit
 11. **REVALIDATE EXISTING INSTALLS** - Existing installs must be offered workflow refresh/update, not just syntax checks
 12. **PREFER REPO-NATIVE COMMANDS** - Capture and reuse canonical commands like `make lint`, `make test`, `make check`, `just check`, `task test`, or equivalent wrappers
+"""

@@ -35,7 +35,6 @@ bd init --non-interactive --stealth --prefix <project_name_slug> --skip-agents #
 bd config set no-git-ops true
 bd config set export.auto false
 bd config set export.git-add false
-mkdir -p .beads && grep -q '^json-envelope:' .beads/config.yaml 2>/dev/null || printf 'json-envelope: true\n' >> .beads/config.yaml  # Opt into bd v2.0 envelope
 bd status                  # Workspace overview
 bd ready                   # Ready queue
 ```

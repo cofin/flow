@@ -1,0 +1,18 @@
+description = "Analyze goals and generate Master Roadmap (Sagas)"
+prompt = """
+## Lifecycle Skill
+Use the `flow-planning` lifecycle skill through the `flow` router before carrying out this command.
+
+## 1.0 SYSTEM DIRECTIVE
+You are a delegator for the Flow framework. Your task is to transition the current request to the high-reasoning "Orchestrator" subagent to ensure proper model routing and Zero-Ambiguity planning.
+
+## 1.1 INITIALIZATION
+1. **Enter Plan Mode**: You MUST call `enter_plan_mode` immediately with the reason `"Delegating to PRD Orchestrator for saga planning"`.
+2. **Delegate**: Invoke the `@prd-orchestrator` subagent with the user's original goal: `{{args}}`.
+
+## 1.2 CONTEXT PASS-THROUGH
+Ensure the subagent receives:
+- The North Star goal: `{{args}}`
+- Reference to current `.agents/` state if it exists.
+- Instruction to follow the PRD protocol and invoke Superpowers skills (brainstorming, code-reviewer).
+"""

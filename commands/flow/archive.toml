@@ -1,0 +1,103 @@
+description = "Archive completed flows + elevate patterns"
+prompt = """
+## Lifecycle Skill
+Use the `flow-completion` lifecycle skill through the `flow` router before carrying out this command.
+
+## Beads Mode Gate
+Skip every `bd` invocation below when the SessionStart hook reports `Beads Backend: Missing (None)` or `Disabled via plugin config (useBeads=false)`. Treat `spec.md` markers as fallback source of truth and skip `/flow:sync`. Never halt for missing Beads. See `skills/flow/references/discipline.md`.
+
+## 1.0 SYSTEM DIRECTIVE
+You are an AI agent assistant for the Flow spec-driven development framework. Your task is to archive a completed flow, ensure all artifacts are preserved, and elevate valuable learnings to the project-wide patterns.
+
+**Input:** $ARGUMENTS (flow_id)
+
+---
+
+## 1.1 VALIDATION
+
+1.  **Check Input:** Ensure `flow_id` is provided. If not, list completed flows from the registry and ask user to select.
+3.  **Verify Completion:** Check Beads epic status with `bd show <epic_id>` or read spec.md Implementation Plan section.
+    *   If tasks are incomplete, warn the user: "Flow '<flow_id>' has incomplete tasks. Archive anyway? (y/n)"
+
+---
+
+## 2.0 PATTERN ELEVATION
+**PROTOCOL: Extract and merge knowledge.**
+
+1.  **Read Learnings:** Read `.agents/specs/<flow_id>/learnings.md`.
+2.  **Read Patterns:** Read `.agents/patterns.md`.
+3.  **Analysis:**
+    *   Identify new patterns, gotchas, or conventions in `learnings.md` that are NOT yet in `patterns.md`.
+    *   Filter out flow-specific trivialities.
+4.  **Proposal:**
+    *   Present a list of "Candidates for Pattern Elevation" to the user.
+    *   Ask: "Which of these should be added to the global patterns?"
+5.  **Merge:**
+    *   Append selected patterns to `.agents/patterns.md` under appropriate sections.
+    *   Format: `- {Pattern} (derived from <flow_id>)`
+
+---
+
+## 3.0 KNOWLEDGE SYNTHESIS
+**PROTOCOL: Persist synthesized learnings.**
+
+1.  **Create Directory:** Create `.agents/knowledge/` if missing.
+2.  **Read Sources:** Read `learnings.md`, `spec.md` header, and `metadata.json` from the flow.
+3.  **Synthesize Knowledge:**
+    *   Synthesize learnings directly into cohesive, logically organized knowledge base chapters in `.agents/knowledge/` (e.g., `architecture.md`, `conventions.md`).
+    *   Update the current state of these documents. Do NOT outline history or create per-flow logs.
+    *   The chapters are structurally there to provide the implementation details needed to be an expert on the codebase.
+
+---
+
+## 4.0 ARCHIVAL PROCESS
+**PROTOCOL: Move and update records.**
+
+1.  **Move Directory:**
+    *   Create `.agents/archive/` if missing.
+    *   Move `.agents/specs/<flow_id>/` to `.agents/archive/<flow_id>/`.
+2.  **Update Registry:**
+    *   Edit **Flow Registry** (`.agents/flows.md`).
+    *   Move the flow entry from "Active" to "Archived".
+    *   Update the link to point to the new archive location: `./archive/<flow_id>/`.
+3.  **Update Metadata:**
+    *   Edit `.agents/archive/<flow_id>/metadata.json`.
+    *   Set `"status": "archived"`.
+    *   Set `"archived_at": "{timestamp}"`.
+
+---
+
+## 5.0 BEADS CLEANUP
+1.  **Find Epic:** Get Beads epic ID from metadata.
+2.  **Close Epic:**
+    ```bash
+    bd close <epic_id> --reason "Flow archived"
+    ```
+    (This automatically archives child tasks if Beads is configured to do so).
+
+---
+
+## 6.0 GIT COMMIT
+1.  **Check Ignore Status:**
+    ```bash
+    git check-ignore .agents/
+    ```
+    *   If output is non-empty (ignored), **SKIP COMMIT** and warn user: "Note: .agents/ is ignored. Archival changes are local only."
+    *   If output is empty (not ignored), proceed to commit.
+
+2.  **Commit Changes (if not ignored):**
+    ```bash
+    git add .agents/patterns.md .agents/flows.md .agents/knowledge/ .agents/archive/<flow_id>/ .agents/specs/<flow_id>
+    git commit -m "chore(archive): Archive <flow_id> and elevate patterns"
+    ```
+
+---
+
+## 7.0 COMPLETION
+Announce:
+"Flow '<flow_id>' successfully archived.
+- Patterns updated: [Count]
+- Artifacts moved to: .agents/archive/<flow_id>/
+- Registry updated
+- Beads epic closed"
+"""

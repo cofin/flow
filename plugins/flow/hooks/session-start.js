@@ -53,7 +53,7 @@ function main() {
     process.stdout.write(result.stdout);
   }
 
-  // Relay stderr to the console (Gemini CLI handles this based on debug settings)
+  // Relay stderr to the console for harness-specific debug handling.
   if (result.stderr) {
     process.stderr.write(result.stderr);
   }

@@ -28,7 +28,7 @@ rm -f ~/.config/opencode/agents/flow.md
 rm -f ~/.config/opencode/commands/flow-*.md
 ```
 
-The plugin handles context injection. Flow's repo-local `.opencode/agents/*.md` files provide optional native subagents for hosts that read project agent files.
+The plugin handles context injection. Flow's repo-local `.opencode/agents/*.md` files provide optional native subagents for harnesses that read project agent files.
 
 ## Usage
 
