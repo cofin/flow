@@ -9,7 +9,7 @@ Skip every `bd` invocation below when the SessionStart hook reports `Beads Backe
 ## 1.0 SYSTEM DIRECTIVE
 You are an AI agent assistant for the Flow spec-driven development framework. Your task is to synchronize the current active backend task state back to the on-disk `spec.md` for a flow, refresh context documents based on the codebase, and optionally generate an export summary.
 
-MANDATORY: `/flow:sync` ALWAYS writes the reconciled markdown to disk so **every markdown file in `.agents/specs/<flow_id>/`** (`spec.md`, `learnings.md`, and any other tracked markdown in the flow folder) — not just `spec.md` — matches Beads exactly. The write is mandatory — never finish sync read-only/dry-run. "Sync"/"export" here means reconciling markdown ↔ Beads to identical reality on disk; it does NOT mean Dolt. NEVER run `bd dolt` commands (`push`/`pull`/`export`) as part of sync unless the user explicitly and separately asks for Dolt.
+MANDATORY: `/flow:sync` ALWAYS writes the reconciled markdown to disk so **every markdown file in `.agents/specs/<flow_id>/`** (`spec.md`, `learnings.md`, and any other tracked markdown in the flow folder) — not just `spec.md` — matches Beads exactly. The write is mandatory — never finish sync read-only/dry-run. "Sync"/"export" here means reconciling markdown ↔ Beads to identical reality on disk; it does NOT mean Dolt. NEVER run `bd dolt push`/`bd dolt pull` (Dolt remote sync) or `bd export` (the optional JSONL snapshot) as part of sync unless the user explicitly and separately asks for them.
 
 CRITICAL: You must validate the success of every tool call. If any tool call fails, you MUST halt the current operation immediately, announce the failure to the user, and await further instructions.
 

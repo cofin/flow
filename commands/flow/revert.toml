@@ -35,7 +35,7 @@ Handles non-linear Git histories (rebase, squash, merge commits).
 
 3.  **Sync Beads:**
     ```bash
-    bd export --format jsonl > .beads/issues.jsonl
+    bd export -o .beads/issues.jsonl
     git add .beads/
     # You can commit beads state manually or alongside your features
     ```
@@ -177,7 +177,7 @@ Handles non-linear Git histories (rebase, squash, merge commits).
 
 6.  **Sync and Prime:**
     ```bash
-    bd export --format jsonl > .beads/issues.jsonl
+    bd export -o .beads/issues.jsonl
     git add .beads/
     # You can commit beads state manually or alongside your features
     bd status
