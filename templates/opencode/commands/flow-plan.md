@@ -12,7 +12,7 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
 
 ## PLAN MODE & WORKSPACE SAFETY
 
-1. **Native Plan Mode:** You MUST use the host's native plan/reasoning mode to think before answering.
+1. **Native Plan Mode:** You MUST use the harness's native plan/reasoning mode to think before answering.
 2. **Writable Check:** You MUST verify that the `.agents/` directory is writable before generating any artifacts.
 3. **Safe Tools:** Prefer read-only tools for analysis and explicitly constrained writes for state modifications.
 
@@ -46,7 +46,7 @@ When Superpowers skills are available:
 - Never write Flow specs/plans to `docs/superpowers/specs/`.
 
 Also: if requirements depend on external framework/API docs, versions, migrations, or release notes, invoke `flow:apilookup` during analysis.
-If a referenced companion skill is unavailable in the current host, perform the same protocol inline instead of skipping it.
+If a referenced companion skill is unavailable in the current harness, perform the same protocol inline instead of skipping it.
 
 ---
 
@@ -64,7 +64,7 @@ If a referenced companion skill is unavailable in the current host, perform the 
 
 3. **Read Research:**
     - Check `.agents/research/`. If relevant research exists, ask to use it.
-    - If important requirements still depend on unresolved docs, versions, migrations, marketplaces, or host behavior, continue researching until those gaps are closed before declaring planning complete.
+    - If important requirements still depend on unresolved docs, versions, migrations, marketplaces, or harness behavior, continue researching until those gaps are closed before declaring planning complete.
 
 ---
 

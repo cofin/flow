@@ -48,10 +48,10 @@ To find the configured root directory:
 
 ## Subagent-Driven Superpowers Protocol (MANDATORY)
 
-To ensure high-reasoning model routing and automated verification, all complex Flow operations MUST delegate to dedicated subagents when running in Gemini CLI:
+To ensure high-reasoning model routing and automated verification, all complex Flow operations MUST delegate to dedicated subagents when the active harness exposes the shipped Flow agents:
 
-- **Planning Phase**: Commands `/flow:prd` and `/flow:plan` delegate to `@prd-orchestrator` and `@plan-generator` respectively. These agents inherit host model/tool settings and MUST invoke `superpowers:brainstorming` or `superpowers:writing-plans`.
-- **Implementation Phase**: Command `/flow:implement` delegates to `@executor`. This agent inherits host model/tool settings and MUST invoke `superpowers:test-driven-development` and `superpowers:verification-before-completion`.
+- **Planning Phase**: Commands `/flow:prd` and `/flow:plan` delegate to `@prd-orchestrator` and `@plan-generator` respectively. These agents inherit harness model/tool settings and MUST invoke `superpowers:brainstorming` or `superpowers:writing-plans`.
+- **Implementation Phase**: Command `/flow:implement` delegates to `@executor`. This agent inherits harness model/tool settings and MUST invoke `superpowers:test-driven-development` and `superpowers:verification-before-completion`.
 - **Validation**: All planning artifacts MUST be validated by `code-reviewer` (via `superpowers:requesting-code-review`) before being presented to the user.
 
 ## Spec & Design Documents
@@ -139,23 +139,22 @@ To find a file (e.g., "**Product Definition**") within a specific context:
   - Derived from description: lowercase, hyphens for spaces, max 3-4 words
 - **Archived Flows:** Keep same ID, moved to `.agents/archive/`
 
-## Supported Hosts
+## Supported Harnesses
 
-Every host falls into one of three tiers:
+Every harness falls into one of three tiers:
 
-- **First-class** — the repo ships maintained host-specific manifests, agents, and install guidance; changes to the shared skills tree are verified against the host.
-- **Compatible bundle** — the host consumes the repo through standard manifests or generic skill-discovery paths; no native wrapper is promised.
-- **Free ride** — the host discovers generic Agent Skills / `AGENTS.md` content; the repo ships no dedicated integration.
+- **First-class** — the repo ships maintained harness-specific manifests, agents, and install guidance; changes to the shared skills tree are verified against the harness.
+- **Compatible bundle** — the harness consumes the repo through standard manifests or generic skill-discovery paths; no native wrapper is promised.
+- **Free ride** — the harness discovers generic Agent Skills / `AGENTS.md` content; the repo ships no dedicated integration.
 
-| Host | Tier | Entry Point | Notes |
+| Harness | Tier | Entry Point | Notes |
 | --- | --- | --- | --- |
+| **Antigravity** | first-class | `plugin.json` + `hooks.json` + `agents/*.md` + `skills/` | Primary plugin surface with skills, hooks, and shared Markdown subagents. |
 | **Claude Code** | first-class | `.claude-plugin/plugin.json` + `.claude-plugin/marketplace.json` + `agents/*.md` | Full plugin with skills, commands, hooks, and shared Markdown subagents. |
-| **Gemini CLI** | first-class | `gemini-extension.json` + `agents/*.md`, context via `GEMINI.md` | Auto-indexed gallery (topic `gemini-cli-extension`). |
 | **Codex CLI** | first-class | `.codex-plugin/plugin.json` + `.codex/agents/*.toml` + `.codex/config.toml` | Custom agents ship as pure TOML (tools inherited from session). |
-| **OpenCode** | first-class | `.opencode/plugins/flow.js` + `.opencode/agents/*.md` + native `.claude/skills/` / `.agents/skills/` reads | JS plugin wrapper + dict-schema agents. |
+| **OpenCode** | compatible bundle | `.opencode/plugins/flow.js` + `.opencode/agents/*.md` + native `.claude/skills/` / `.agents/skills/` reads | Project files and skills; no global install is advertised until an npm plugin is published. |
 | **Cursor** | compatible bundle | `.cursor/rules/*.mdc` + `AGENTS.md` | Rules and project instructions only; no repository Cursor plugin manifest. |
 | **VS Code / Copilot** | compatible bundle | `.github/agents/*.agent.md` + `.agents/skills/` | Workspace custom agents plus Agent Skills-compatible project skills. |
-| **Google Antigravity** | free ride | `.agent/skills/` (workspace, note **singular**) or `~/.gemini/antigravity/skills/` (global) | Skill-copy/symlink guidance only; see README install. |
 | **OpenClaw** | compatible bundle | Runtime `sessions_spawn` + skills discovery | Consumes Flow through runtime subagents and generic Agent Skills, not a static repo manifest. |
 
 ## File Resolution
@@ -163,9 +162,11 @@ Every host falls into one of three tiers:
 | Resource | Location |
 | --- | --- |
 | Skills | `skills/<skill-name>/SKILL.md` |
-| Slash commands | `commands/<prefix>/<command>.toml` |
+| Shared slash-command prompt sources | `commands/flow/<command>.toml` |
+| Claude Code slash commands | `commands/flow-<command>.md` |
+| OpenCode command templates | `templates/opencode/commands/flow-<command>.md` |
 | Subagents (Codex CLI) | `.codex/agents/<agent-name>.toml` (pure TOML; `developer_instructions` holds the prompt; no top-level `tools` — inherited from session `config.toml`) |
-| Subagents (Gemini CLI / Claude Code plugin) | `agents/<agent-name>.md` (portable Markdown, slug `name`, required `description`, host-specific tool lists omitted) |
+| Subagents (Antigravity / Claude Code plugin) | `agents/<agent-name>.md` (portable Markdown, slug `name`, required `description`, harness-specific tool lists omitted) |
 | Subagents (OpenCode) | `.opencode/agents/<agent-name>.md` (`tools` as dict mapping + `mode: subagent`) |
 | Subagents (VS Code / Copilot) | `.github/agents/<agent-name>.agent.md` |
 | MCP servers | `mcp-servers/<server-name>/` |
@@ -174,7 +175,7 @@ Every host falls into one of three tiers:
 
 ## First-Party Skill Repositories
 
-The following external repositories provide comprehensive, host-verified skills and patterns that are fully compatible with Flow:
+The following external repositories provide comprehensive, harness-verified skills and patterns that are fully compatible with Flow:
 
 - **[litestar-skills](https://github.com/litestar-org/litestar-skills)** — Opinionated first-party skills for the Litestar framework ecosystem (advanced-alchemy, sqlspec, granian, saq, etc.).
 - **[modular-skills](https://github.com/modular/skills)** — Official AI agent skills from Modular for **Mojo** and the **MAX** platform (`mojo-syntax`, `new-modular-project`, `mojo-python-interop`, `mojo-gpu-fundamentals`).
@@ -195,30 +196,29 @@ The following external repositories provide comprehensive, host-verified skills 
 
 ## Commands
 
-**Host note:** Gemini CLI and OpenCode expose these as `/flow:*`. Claude Code uses `/flow-*`.
-Codex currently runs the same workflows through the installed Flow skill and plain-language requests rather than plugin-defined slash commands.
+**Harness note:** Claude Code exposes `commands/flow-*.md` as `/flow-*`. Antigravity derives slash commands from installed skills. Harnesses that consume `commands/flow/*.toml` use `/flow:<command>` semantics. OpenCode uses project command files or config-defined commands when installed, and otherwise receives Flow through the plugin context and skills. Codex currently runs the same workflows through the installed Flow skill and plain-language requests rather than plugin-defined slash commands.
 
 **Lifecycle routing:** Keep `flow` as the small router skill. After it triggers, load the specific lifecycle skill: `flow-setup` for initialization and validation, `flow-planning` for PRD/spec/refine/revise/research/task work, `flow-execution` for implementation and TDD, `flow-sync-status` for sync/status/refresh/cleanup, and `flow-completion` for review/finish/archive/revert/docs.
 
-| Command | Purpose |
-|---------|---------|
-| `/flow:setup` | Initialize project with context files, Beads, and first flow |
-| `/flow:prd` | **Orchestrator**: Analyze goals and generate Master Roadmap (Sagas) |
-| `/flow:plan` | **Planner**: Create unified spec.md for a single Flow |
-| `/flow:refine` | **Refiner**: Expand coarse tasks into implementation-ready plan |
-| `/flow:sync` | **Syncer**: Synchronize context docs, Beads state, and export summaries |
-| `/flow:research` | Conduct pre-PRD research |
-| `/flow:docs` | Five-phase documentation workflow |
-| `/flow:implement` | **Executor**: Execute tasks from plan (context-aware) |
-| `/flow:status` | Display progress overview with Beads status |
-| `/flow:revert` | Git-aware revert of flows, phases, or tasks |
-| `/flow:validate` | Validate project integrity and fix issues |
-| `/flow:revise` | Update spec/plan when implementation reveals issues |
-| `/flow:archive` | Archive completed flows + elevate patterns |
-| `/flow:refresh` | **Refresher**: Sync context with codebase after external changes |
-| `/flow:task` | Create ephemeral exploration task |
-| `/flow:finish` | Complete flow: verify, review, merge/PR/keep/discard |
-| `/flow:review` | Dispatch code review with Beads-aware git range |
+| Lifecycle | Claude command | Shared command key | Purpose |
+|---------|---------|---------|---------|
+| Setup | `/flow-setup` | `flow/setup` | Initialize project with context files, Beads, and first flow |
+| PRD | `/flow-prd` | `flow/prd` | Analyze goals and generate Master Roadmap (Sagas) |
+| Plan | `/flow-plan` | `flow/plan` | Create unified spec.md for a single Flow |
+| Refine | `/flow-refine` | `flow/refine` | Expand coarse tasks into implementation-ready plan |
+| Sync | `/flow-sync` | `flow/sync` | Synchronize context docs, Beads state, and export summaries |
+| Research | `/flow-research` | `flow/research` | Conduct pre-PRD research |
+| Docs | `/flow-docs` | `flow/docs` | Five-phase documentation workflow |
+| Implement | `/flow-implement` | `flow/implement` | Execute tasks from plan (context-aware) |
+| Status | `/flow-status` | `flow/status` | Display progress overview with Beads status |
+| Revert | `/flow-revert` | `flow/revert` | Git-aware revert of flows, phases, or tasks |
+| Validate | `/flow-validate` | `flow/validate` | Validate project integrity and fix issues |
+| Revise | `/flow-revise` | `flow/revise` | Update spec/plan when implementation reveals issues |
+| Archive | `/flow-archive` | `flow/archive` | Archive completed flows + elevate patterns |
+| Refresh | `/flow-refresh` | `flow/refresh` | Sync context with codebase after external changes |
+| Task | `/flow-task` | `flow/task` | Create ephemeral exploration task |
+| Finish | `/flow-finish` | `flow/finish` | Complete flow: verify, review, merge/PR/keep/discard |
+| Review | `/flow-review` | `flow/review` | Dispatch code review with Beads-aware git range |
 
 ## Beads Integration
 
@@ -293,30 +293,39 @@ For local-only use, prefer `.git/info/exclude` instead of editing `.gitignore`. 
 
 Agents MUST read `.agents/beads.json` before running export or backend sync commands. `syncPolicy.flowSyncAfterMutation` controls whether Flow immediately runs `/flow:sync` after Beads mutations. `syncPolicy.autoExport` and `syncPolicy.autoGitAdd` map to `bd config set export.auto false` and `bd config set export.git-add false` for local-only defaults.
 
+Three operations get loosely called "sync" — keep them distinct:
+
+- **`bd export`** — writes an optional `.beads/issues.jsonl` snapshot (for viewing, interchange, or backup). Off by default (`export.auto false`). It is **not** sync.
+- **`bd dolt push` / `bd dolt pull`** — Beads' real remote sync over its Dolt remote (`refs/dolt/data`). Opt-in only via `syncPolicy.allowDoltPush`.
+- **`/flow:sync`** — Flow's reconciliation of `.agents/specs/**` markdown with Beads state. This is the only "sync" Flow runs by default; it never writes JSONL or pushes Dolt.
+
 Do not run `bd dolt push` unless the user explicitly requests it or `.agents/beads.json` sets `syncPolicy.allowDoltPush` to `true` and `dolt.push` to an opt-in value.
 
 ### Key Beads Commands
 
 | Flow Action | Beads Command |
 |-------------|---------------|
-| Create flow | Use the active backend's flow/epic creation command |
-| Add context | Use the active backend's notes/comments command |
-| Create task | Use the active backend's task creation command |
-| Start task | Use the active backend's in-progress command |
-| Complete task | Use the active backend's completion command |
-| Block task | Use the active backend's blocking command |
-| Get ready tasks | Use the active backend's ready queue |
-| Add notes | Use the active backend's notes/comments command |
-| Sync/export to git | Use the active backend's sync/export command only when `syncPolicy.autoExport` or explicit user instruction allows it |
-| Dolt push | Use `bd dolt push` only when `syncPolicy.allowDoltPush` is enabled or explicitly requested |
-| Show blocked | Use the active backend's blocked-view command |
+| Create flow (epic) | `bd create "Flow: <flow_id>" -t epic -p 2` |
+| Create task | `bd create "<title>" -t task -p <0-4>` |
+| Add context/notes | `bd note <id> "..."` |
+| Start task | `bd update <id> --claim` |
+| Complete task | `bd close <id> --reason "[<sha>] ..."` |
+| Block task | `bd update <id> --status blocked` |
+| Get ready tasks | `bd ready --json` |
+| List in progress | `bd list --status in_progress` |
+| Show issue | `bd show <id> --json` |
+| Show blocked | `bd blocked` |
+| Export JSONL snapshot | `bd export -o .beads/issues.jsonl` — only when `syncPolicy.autoExport` or the user asks |
+| Remote sync (Dolt) | `bd dolt push` / `bd dolt pull` — only when `syncPolicy.allowDoltPush` or the user asks |
+
+In no-Beads mode, skip these commands and use markdown-only task state.
 
 ### Memory Policy
 
 - Durable cross-session facts: `bd remember "..." --key <repo>:<topic>`
 - Task-local findings: `bd note <id> "..."`
 - Structured tasks: prefer `bd create --context --design --acceptance --metadata --skills --spec-id`
-- Session priming: run or inject `bd prime --mcp` where host hooks support MCP-aware context injection; otherwise use `bd prime`
+- Session priming: run or inject `bd prime --mcp` where harness hooks support MCP-aware context injection; otherwise use `bd prime`
 
 **CRITICAL:** Keep purpose/description separate from context notes/comments:
 
@@ -355,7 +364,7 @@ bd list --status in_progress
 
 At session end:
 
-Use the active backend's sync/export flow. For local-only setups, prefer `.git/info/exclude` over `.gitignore`.
+Run `/flow:sync` to reconcile markdown with Beads state when `syncPolicy.flowSyncAfterMutation` is enabled; run `bd export -o .beads/issues.jsonl` or `bd dolt push` only when their respective `syncPolicy` flags allow it or the user asks. For local-only setups, prefer `.git/info/exclude` over `.gitignore`.
 
 ## Learnings System (Ralph-style)
 
@@ -449,7 +458,7 @@ At phase completion:
 
 ## Skills
 
-Skills are available in `skills/` for copying to `.gemini/skills/`:
+Skills are available in `skills/` for harnesses that consume Agent Skills:
 
 | Skill | Purpose |
 |-------|---------|
@@ -459,19 +468,13 @@ Skills are available in `skills/` for copying to `.gemini/skills/`:
 ## Installation
 
 ```bash
-# Install as Gemini extension
-gemini extensions install https://github.com/cofin/flow --auto-update
+# Claude Code
+claude plugin marketplace add cofin/flow
+claude plugin install flow@flow-marketplace
 
-# Or copy manually (Run from repo root)
-mkdir -p ~/.gemini/extensions/flow
-cp -r . ~/.gemini/extensions/flow/
-
-# Or link
-gemini extensions link .
+# Codex CLI
+codex plugin marketplace add cofin/flow
 
 # Install official Beads
-brew install beads
-npm install -g @beads/bd
-go install github.com/gastownhall/beads/cmd/bd@latest
 curl -fsSL https://raw.githubusercontent.com/gastownhall/beads/main/scripts/install.sh | bash
 ```

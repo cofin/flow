@@ -49,7 +49,7 @@ Capture failure notes whenever one of these happened:
 
 - a hypothesis was wrong
 - a command or tool failed in a non-obvious way
-- a host integration behaved differently than expected
+- a harness integration behaved differently than expected
 - a backend migration exposed a hidden assumption
 - a repeated reminder from the user revealed a workflow gap
 - the user seemed frustrated that something obvious was forgotten again
@@ -79,7 +79,7 @@ When you discover a repeated project nuance, add or revise a short rule below in
 Only keep:
 
 - durable project-specific rules
-- recurring host quirks
+- recurring harness quirks
 - recurring workflow misses
 - validated project-native command wrappers that should become defaults
 - user corrections or frustration that clearly indicate a missing default or checklist item

@@ -229,8 +229,8 @@ def test_hook_config_requires_top_level_hooks_record(tmp_path: Path) -> None:
     assert any("top-level 'hooks' record" in violation.message for violation in violations)
 
 
-def test_gemini_hook_config_rejects_claude_placeholder(tmp_path: Path) -> None:
-    hooks_path = tmp_path / "hooks" / "hooks.json"
+def test_antigravity_hook_config_rejects_legacy_extension_tokens(tmp_path: Path) -> None:
+    hooks_path = tmp_path / "hooks.json"
     _write_json(
         hooks_path,
         {
@@ -241,7 +241,7 @@ def test_gemini_hook_config_rejects_claude_placeholder(tmp_path: Path) -> None:
                         "hooks": [
                             {
                                 "type": "command",
-                                "command": "${CLAUDE_PLUGIN_ROOT}/hooks/session-start",
+                                "command": "bash ${extensionPath}${/}hooks${/}session-start.sh",
                             }
                         ],
                     }
@@ -250,19 +250,18 @@ def test_gemini_hook_config_rejects_claude_placeholder(tmp_path: Path) -> None:
         },
     )
 
-    violations = validate_skills.validate_gemini_hook_config(hooks_path)
+    violations = validate_skills.validate_antigravity_hook_config(hooks_path)
 
-    assert any("${CLAUDE_PLUGIN_ROOT}" in violation.message for violation in violations)
+    assert any("legacy extension template tokens" in violation.message for violation in violations)
 
 
 def test_repo_claude_hook_discovery_targets_claude_specific_config() -> None:
-    """Claude's plugin.json declares hooks-claude.json explicitly; the validator
-    must follow that pointer rather than picking up the Gemini-only hooks.json."""
+    """Claude's plugin.json declares hooks-claude.json explicitly."""
     assert list(validate_skills.iter_claude_hook_configs()) == [REPO_ROOT / "hooks" / "hooks-claude.json"]
 
 
-def test_shared_hook_config_allows_cross_host_fallback_command(tmp_path: Path) -> None:
-    hooks_path = tmp_path / "hooks" / "hooks.json"
+def test_antigravity_hook_config_accepts_plugin_root_command(tmp_path: Path) -> None:
+    hooks_path = tmp_path / "hooks.json"
     _write_json(
         hooks_path,
         {
@@ -273,7 +272,7 @@ def test_shared_hook_config_allows_cross_host_fallback_command(tmp_path: Path) -
                         "hooks": [
                             {
                                 "type": "command",
-                                "command": "${CLAUDE_PLUGIN_ROOT:-${extensionPath}}/hooks/session-start",
+                                "command": 'r="${ANTIGRAVITY_PLUGIN_ROOT:-${PLUGIN_ROOT:-${AGY_PLUGIN_ROOT:-}}}"; bash "$r/hooks/session-start.sh"',
                             }
                         ],
                     }
@@ -282,8 +281,7 @@ def test_shared_hook_config_allows_cross_host_fallback_command(tmp_path: Path) -
         },
     )
 
-    assert validate_skills.validate_claude_hook_config(hooks_path) == []
-    assert validate_skills.validate_gemini_hook_config(hooks_path) == []
+    assert validate_skills.validate_antigravity_hook_config(hooks_path) == []
 
 
 def test_makefile_recipes_fail_fast() -> None:
@@ -296,9 +294,10 @@ def test_makefile_recipes_fail_fast() -> None:
     assert "uv run --extra dev tools/sync-codex-package.py" in makefile
     assert "validate-codex-manifest:" in makefile
     assert "codex-package-check:" in makefile
+    assert "validate-antigravity-manifest:" in makefile
     assert (
         "check: lint validate-skills codex-package-check validate-codex-manifest "
-        "validate-claude-manifest sync-manifests"
+        "validate-claude-manifest validate-antigravity-manifest sync-manifests"
     ) in makefile
 
 
@@ -307,17 +306,17 @@ def test_repo_uses_supported_cursor_surface() -> None:
     assert (REPO_ROOT / ".cursor" / "rules" / "flow.mdc").is_file()
 
 
-def test_repo_host_native_agent_surfaces_validate() -> None:
+def test_repo_harness_native_agent_surfaces_validate() -> None:
     expected = {"code-reviewer", "executor", "plan-generator", "prd-orchestrator"}
 
-    assert {path.stem for path in validate_skills.iter_gemini_agents()} == expected
+    assert {path.stem for path in validate_skills.iter_antigravity_agents()} == expected
     assert {path.stem for path in validate_skills.iter_codex_agents()} == expected
     assert {path.stem for path in validate_skills.iter_opencode_agents()} == expected
     assert {path.stem.removesuffix(".agent") for path in validate_skills.iter_vscode_agents()} == expected
 
     violations = []
-    for agent_path in validate_skills.iter_gemini_agents():
-        violations.extend(validate_skills.validate_gemini_agent(agent_path))
+    for agent_path in validate_skills.iter_antigravity_agents():
+        violations.extend(validate_skills.validate_antigravity_agent(agent_path))
         violations.extend(validate_skills.validate_claude_agent(agent_path))
     for agent_path in validate_skills.iter_codex_agents():
         violations.extend(validate_skills.validate_codex_agent(agent_path))

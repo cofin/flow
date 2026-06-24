@@ -39,13 +39,13 @@ Flow supports two modes:
 
 Configured for local-only use during setup unless the user explicitly asks for shared repo state.
 
-Default setup writes `.agents/beads.json` with `syncPolicy.autoExport: false`, `syncPolicy.autoGitAdd: false`, and `syncPolicy.allowDoltPush: false`. It also applies `bd config set no-git-ops true`, `bd config set export.auto false`, and `bd config set export.git-add false`, and appends `json-envelope: true` to `.beads/config.yaml` to opt into the bd v2.0 JSON envelope.
+Default setup writes `.agents/beads.json` with `syncPolicy.autoExport: false`, `syncPolicy.autoGitAdd: false`, and `syncPolicy.allowDoltPush: false`. It also applies `bd config set no-git-ops true`, `bd config set export.auto false`, and `bd config set export.git-add false`. Flow's hooks export `BD_JSON_ENVELOPE=1` to opt into the bd v2.0 JSON envelope (Beads has no config-file key for it).
 
 ### Session Protocol
 
 **Session Start:**
 
-Use the active backend's session-start commands. Prefer `bd prime --mcp` when host hooks inject MCP-aware context; otherwise use `bd prime`.
+Use the active backend's session-start commands. Prefer `bd prime --mcp` when harness hooks inject MCP-aware context; otherwise use `bd prime`.
 
 **Session End:**
 

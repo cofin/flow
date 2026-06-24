@@ -6,7 +6,7 @@ description: Initialize project with context files, Beads, and first flow
 
 Initialize a project for context-driven development with Beads integration.
 
-> **Host boundary:** This command runs under OpenCode. Do not create `CLAUDE.md`, `.claude/*`, `.gemini/*`, `.geminiignore`, `.codex/*`, or `.cursor/*` — each host's setup command owns its own configuration surface.
+> **Harness boundary:** This command runs under OpenCode. Do not create `CLAUDE.md`, `.claude/*`, `.codex/*`, or `.cursor/*` — each harness's setup command owns its own configuration surface.
 
 ## Phase 0: Setup State Check
 
@@ -60,7 +60,7 @@ else
 fi
 ```
 
-If outdated, suggest one of the official installs: `brew install beads`, `npm install -g @beads/bd`, `go install github.com/gastownhall/beads/cmd/bd@latest`, or `curl -fsSL https://raw.githubusercontent.com/gastownhall/beads/main/scripts/install.sh | bash`
+If outdated, suggest the official install: `curl -fsSL https://raw.githubusercontent.com/gastownhall/beads/main/scripts/install.sh | bash`
 
 ### 0.1.2 Knowledge Base Check
 
@@ -140,7 +140,7 @@ If no backend is found, ask user:
 
 > Choose a Flow task-memory backend:
 >
-> - **A) Official Beads** (recommended) - Run `brew install beads`, `npm install -g @beads/bd`, `go install github.com/gastownhall/beads/cmd/bd@latest`, or `curl -fsSL https://raw.githubusercontent.com/gastownhall/beads/main/scripts/install.sh | bash`
+> - **A) Official Beads** (recommended) - Run `curl -fsSL https://raw.githubusercontent.com/gastownhall/beads/main/scripts/install.sh | bash`
 > - **B) No Beads** - Continue with markdown-only Flow state (reduced memory/resume)
 
 If a backend is installed, verify version is current and remember the selected mode for Phase 5.
@@ -261,14 +261,9 @@ bd init --non-interactive --stealth --prefix <project_name_slug> --skip-agents
 bd config set no-git-ops true
 bd config set export.auto false
 bd config set export.git-add false
-
-mkdir -p .beads
-if [ ! -f .beads/config.yaml ] || ! grep -q '^json-envelope:' .beads/config.yaml; then
-  printf 'json-envelope: true\n' >> .beads/config.yaml
-fi
 ```
 
-These defaults keep Beads local-only: no automatic export, no auto-staging, and no git operations in `bd prime` output. `bd dolt push` remains explicit opt-in only. The `json-envelope: true` Viper key opts the project into the bd v2.0 JSON envelope so `bd --json` stops emitting the deprecation notice; flow's hooks export `BD_JSON_ENVELOPE=1` until beads wires this through Viper.
+These defaults keep Beads local-only: no automatic export, no auto-staging, and no git operations in `bd prime` output. `bd dolt push` remains explicit opt-in only. Flow's hooks export `BD_JSON_ENVELOPE=1`, which wraps `bd --json` output in the v2.0 `{schema_version, data}` envelope (the hooks read `.data`). Beads has no config-file key for the envelope — the environment variable is the only supported switch.
 
 If no-Beads mode was selected:
 

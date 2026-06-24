@@ -56,7 +56,7 @@ def _write_codex_hooks(root: Path, command: str) -> None:
     path.write_text(json.dumps(manifest), encoding="utf-8")
 
 
-def test_codex_hook_command_validation_rejects_gemini_tokens(tmp_path: Path) -> None:
+def test_codex_hook_command_validation_rejects_legacy_extension_tokens(tmp_path: Path) -> None:
     _write_codex_hooks(tmp_path, "bash ${extensionPath}${/}hooks${/}session-start.sh")
 
     assert not validate_codex_manifest.validate_codex_hook_commands(tmp_path)

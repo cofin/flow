@@ -2,7 +2,7 @@
 
 **Measure twice, code once.**
 
-Flow is a unified toolkit for **Context-Driven Development** that works with **Claude Code**, **Gemini CLI**, **Codex CLI**, **OpenCode**, **VS Code / Copilot**, **Cursor**, **Google Antigravity**, and **OpenClaw**. It combines spec-first planning with **Beads** for persistent cross-session memory, enabling AI-assisted development with deep, persistent project awareness.
+Flow is a unified toolkit for **Context-Driven Development** that works with **Antigravity**, **Codex CLI**, **Claude Code**, **OpenCode**, **VS Code / Copilot**, **Cursor**, and **OpenClaw**. It combines spec-first planning with **Beads** for persistent cross-session memory, enabling AI-assisted development with deep, persistent project awareness.
 
 ## Philosophy
 
@@ -13,7 +13,7 @@ Control your code. By treating context as a managed artifact alongside your code
 ## Key Features
 
 - **Beads Integration**: Persistent task memory that survives context compaction
-- **Multi-CLI Support**: Works with Claude Code, Gemini CLI, Codex CLI, OpenCode, VS Code / Copilot, Cursor, Google Antigravity, and OpenClaw
+- **Multi-Harness Support**: Works with Antigravity, Codex CLI, Claude Code, OpenCode, VS Code / Copilot, Cursor, and OpenClaw
 - **Spec-First Development**: Create specs and plans before writing code
 - **TDD Workflow**: Red-Green-Refactor with >80% coverage requirements
 - **Knowledge Flywheel**: Capture and elevate patterns across flows (Ralph-style)
@@ -23,37 +23,13 @@ Control your code. By treating context as a managed artifact alongside your code
 
 ## Install
 
-Each host has a native plugin/extension system. Use it. The `tools/install.sh` script is a multi-host orchestrator for users who want to install Flow across several CLIs at once — it just runs the same native commands for you.
+Use each harness's native plugin, marketplace, rules, or skills mechanism. Flow no longer ships a multi-harness installer or symlink-based install path.
 
-### Gemini CLI
+### Antigravity
 
-```bash
-gemini extensions install https://github.com/cofin/flow --auto-update
-```
+Install Flow through Antigravity's native Plugins & Skills flow from the `cofin/flow` repository. Flow ships the Antigravity plugin manifest at `plugin.json` and the root SessionStart hook manifest at `hooks.json`.
 
-Update with `gemini extensions update flow`. Use `gemini extensions link .` only for local development against a checkout — Gemini copies installed extensions, so linked development and installed releases are different workflows.
-
-<!-- markdownlint-disable -->
-<details>
-<summary>Recommended Gemini settings</summary>
-<!-- markdownlint-restore -->
-
-Flow's `gemini-extension.json` already sets `plan.directory: ".agents"` so `enter_plan_mode` / `exit_plan_mode` write the approval artifact under Flow's canonical `.agents/specs/` directory. You only need to enable planning + model routing yourself:
-
-```json
-{
-  "general": {
-    "plan": {
-      "enabled": true,
-      "modelRouting": true
-    }
-  }
-}
-```
-
-Do not rely on undocumented `autoEnter` behavior for model routing.
-
-</details>
+After installing or updating the plugin, restart Antigravity so the plugin manifest, skills, agents, and hooks are reloaded.
 
 ### Claude Code
 
@@ -81,7 +57,7 @@ claude plugin update flow@flow-marketplace
 <summary>Recommended Claude Code settings</summary>
 <!-- markdownlint-restore -->
 
-Claude Code does not let plugin authors pre-declare a plan-artifact directory the way Gemini does. To get the equivalent behavior — plan-mode artifacts written under Flow's canonical `.agents/specs/` directory — set this in your project `.claude/settings.json`:
+Claude Code does not let plugin authors pre-declare a plan-artifact directory. To keep plan artifacts under Flow's canonical `.agents/specs/` directory, set this in your project `.claude/settings.json`:
 
 ```json
 {
@@ -120,7 +96,7 @@ Codex CLI 0.117+ supports first-class marketplace commands — `add` accepts `ow
 <summary>Recommended Codex settings</summary>
 <!-- markdownlint-restore -->
 
-Codex CLI has no plugin-author hook for a plan-artifact directory. The closest Gemini-equivalent knob is reasoning effort for plan mode — set in your `~/.codex/config.toml`:
+Codex CLI has no plugin-author hook for a plan-artifact directory. The closest useful knob is reasoning effort for plan mode — set in your `~/.codex/config.toml`:
 
 ```toml
 plan_mode_reasoning_effort = "high"
@@ -128,50 +104,11 @@ plan_mode_reasoning_effort = "high"
 
 </details>
 
-<!-- markdownlint-disable -->
-<details>
-<summary>Manual / repo-scoped install (legacy)</summary>
-<!-- markdownlint-restore -->
-
-If you can't use the native marketplace command (e.g. team policy, private fork), clone Flow and register a marketplace entry that points at the checkout. Codex 0.125+ requires every local marketplace `path` to start with `./`, so place the marketplace manifest *next to* the cloned repo:
-
-```bash
-mkdir -p ~/.codex/plugins
-git clone https://github.com/cofin/flow.git ~/.codex/plugins/flow
-```
-
-Create `~/.codex/plugins/marketplace.json`:
-
-```json
-{
-  "name": "personal-plugins",
-  "interface": { "displayName": "Personal Plugins" },
-  "plugins": [
-    {
-      "name": "flow",
-      "source": { "source": "local", "path": "./flow" },
-      "policy": { "installation": "AVAILABLE" },
-      "category": "Development"
-    }
-  ]
-}
-```
-
-The `./flow` path resolves relative to the manifest's directory. Restart Codex and run `/plugins` to verify Flow appears. See `.codex/INSTALL.md` in this repo for repo-scoped variants.
-
-</details>
-
 ### OpenCode
 
-OpenCode's plugin model is local-plugin-files or npm packages. Flow ships a local plugin entrypoint and project-local skills:
+OpenCode supports npm plugins and local plugin files. Flow currently ships OpenCode-compatible project files and skills, but does not advertise a global install until a package is published through OpenCode's npm plugin path.
 
-```bash
-git clone https://github.com/cofin/flow.git ~/.config/opencode/flow
-mkdir -p ~/.config/opencode/plugins
-ln -sf ~/.config/opencode/flow/.opencode/plugins/flow.js ~/.config/opencode/plugins/flow.js
-```
-
-Restart OpenCode after installing or updating plugin files. OpenCode also discovers skills from `.opencode/skills/`, `.claude/skills/`, and `.agents/skills/`, so Flow-compatible project-local skills do not require a global plugin install.
+OpenCode also discovers skills from `.opencode/skills/`, `.claude/skills/`, and `.agents/skills/`, so Flow-compatible project-local skills do not require a global plugin install.
 
 <!-- markdownlint-disable -->
 <details>
@@ -188,7 +125,7 @@ OpenCode has no plugin-author hook for a plan-artifact directory. Set sensible d
 
 </details>
 
-### Other hosts
+### Other harnesses
 
 <!-- markdownlint-disable -->
 <details>
@@ -218,48 +155,10 @@ Use VS Code settings such as `chat.agentSkillsLocations` only when you need addi
 
 <!-- markdownlint-disable -->
 <details>
-<summary>Google Antigravity</summary>
-<!-- markdownlint-restore -->
-
-Prefer workspace-local `.agents` customizations when possible:
-
-- `.agents/skills/`
-- `.agents/rules/`
-- `.agents/workflows/`
-
-Use a global skill install only as a fallback for environments that do not yet use project-local agent assets consistently.
-
-</details>
-
-<!-- markdownlint-disable -->
-<details>
 <summary>OpenClaw</summary>
 <!-- markdownlint-restore -->
 
 OpenClaw should consume Flow through runtime skill discovery and its native `sessions_spawn` subagent mechanism. Flow does not ship a static OpenClaw plugin manifest.
-
-</details>
-
-<!-- markdownlint-disable -->
-<details>
-<summary>Multi-host installer (`tools/install.sh`)</summary>
-<!-- markdownlint-restore -->
-
-For installing Flow across several CLIs in one pass, the script auto-detects installed hosts and runs the same native commands listed above:
-
-```bash
-git clone https://github.com/cofin/flow.git
-cd flow
-./tools/install.sh
-```
-
-Or run it directly:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/cofin/flow/main/tools/install.sh | bash
-```
-
-The script is a convenience orchestrator. Prefer the per-host native commands above when installing into a single CLI.
 
 </details>
 
@@ -271,7 +170,7 @@ The script is a convenience orchestrator. Prefer the per-host native commands ab
 # Claude Code
 /flow-setup
 
-# Gemini CLI / OpenCode
+# Antigravity / OpenCode
 /flow:setup
 ```
 
@@ -292,7 +191,7 @@ Flow will:
 # Claude Code
 /flow-prd "Add user authentication"
 
-# Gemini CLI / OpenCode
+# Antigravity / OpenCode
 /flow:prd "Add user authentication"
 ```
 
@@ -308,7 +207,7 @@ This creates `spec.md` (unified spec + plan), `learnings.md` (pattern capture lo
 # Claude Code
 /flow-implement auth
 
-# Gemini CLI / OpenCode
+# Antigravity / OpenCode
 /flow:implement auth
 ```
 
@@ -320,26 +219,15 @@ Flow follows a TDD workflow with a backend adapter: detect persistence mode, sel
 
 ## Commands
 
-| Purpose | Claude Code | Gemini CLI / OpenCode |
-|---------|-------------|-----------------------|
-| Initialize project | `/flow-setup` | `/flow:setup` |
-| Create PRD (Saga) | `/flow-prd` | `/flow:prd` |
-| Plan single flow | `/flow-plan` | `/flow:plan` |
-| Sync Beads to spec | `/flow-sync` | `/flow:sync` |
-| Pre-PRD research | `/flow-research` | `/flow:research` |
-| Documentation workflow | `/flow-docs` | `/flow:docs` |
-| Implement tasks | `/flow-implement` | `/flow:implement` |
-| Check status | `/flow-status` | `/flow:status` |
-| Refresh context | `/flow-refresh` | `/flow:refresh` |
-| Revert changes | `/flow-revert` | `/flow:revert` |
-| Validate integrity | `/flow-validate` | `/flow:validate` |
-| Revise spec/plan | `/flow-revise` | `/flow:revise` |
-| Archive completed | `/flow-archive` | `/flow:archive` |
-| Ephemeral task | `/flow-task` | `/flow:task` |
-| Code review | `/flow-review` | `/flow:review` |
-| Finish flow | `/flow-finish` | `/flow:finish` |
+Flow keeps command behavior aligned, but each harness exposes a different command surface.
 
-> Claude Code uses `/flow-command` (hyphen). Gemini CLI and OpenCode use `/flow:command` (colon). Codex CLI currently uses the installed Flow skill through plain-language requests instead of plugin-defined slash commands.
+| Purpose | Claude Code | Antigravity | OpenCode | Codex CLI |
+|---------|-------------|-------------|----------|-----------|
+| Lifecycle commands | `/flow-setup`, `/flow-prd`, `/flow-plan`, etc. from `commands/flow-*.md` | Skill-derived slash commands from `skills/` such as `/flow`, `/flow-setup`, and lifecycle skills | Project/native command files when configured; otherwise use the Flow skill/plugin context | Natural-language Flow skill requests |
+| Canonical prompt source | `commands/flow-*.md` | `skills/*/SKILL.md` plus `commands/flow/*.toml` as shared prompt source material | `templates/opencode/commands/*.md` for project command installs | `skills/*/SKILL.md` in the generated plugin package |
+| Subagents | `agents/*.md` | `agents/*.md` | `.opencode/agents/*.md` | `.codex/agents/*.toml` |
+
+Codex plugins do not currently expose plugin-defined `/flow:*` slash commands. OpenCode command names depend on whether the user installs project command files or uses the plugin context.
 
 ## Reference
 
@@ -443,15 +331,12 @@ Do not run `bd dolt push` unless the user explicitly requests it or `.agents/bea
 
 ```bash
 # Official Beads (bd)
-brew install beads
-npm install -g @beads/bd
-go install github.com/gastownhall/beads/cmd/bd@latest
 curl -fsSL https://raw.githubusercontent.com/gastownhall/beads/main/scripts/install.sh | bash
 ```
 
 **Memory policy.** Use `bd note <task-id> "..."` for task-local findings. Use `bd remember "..." --key <repo>:<topic>` for durable facts that should prime future sessions. Prefer structured task creation fields such as `--context`, `--design`, `--acceptance`, `--metadata`, `--skills`, and `--spec-id`.
 
-**Session priming.** Hooks should inject `bd prime --mcp` where the host supports MCP-aware context injection; otherwise run `bd prime` at session start or after compaction.
+**Session priming.** Hooks should inject `bd prime --mcp` where the harness supports MCP-aware context injection; otherwise run `bd prime` at session start or after compaction.
 
 **Local-only ignore policy.** Prefer `.git/info/exclude`:
 
@@ -522,11 +407,6 @@ Flow includes 50+ technology-specific skills in `skills/`:
 Copy to your CLI's skills directory for auto-activation.
 
 </details>
-
-## Documentation
-
-- [CLAUDE.md](CLAUDE.md) — Claude Code context and reference
-- [GEMINI.md](GEMINI.md) — Gemini CLI context and reference
 
 ## Resources
 

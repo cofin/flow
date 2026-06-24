@@ -20,8 +20,8 @@ Sync active backend task state to on-disk spec.md for a flow.
 
 Use the active backend:
 
-- `bd`: official Beads show/export flow
-- no-Beads: skip backend export and preserve markdown-only state
+- `bd`: read task state with `bd show`/`bd list`/`bd ready` (not `bd export` — that is a separate JSONL snapshot)
+- no-Beads: skip backend reads and preserve markdown-only state
 
 Map backend status to markdown markers:
 
@@ -37,7 +37,7 @@ Map backend status to markdown markers:
 
 1. Read `.agents/specs/{flow_id}/spec.md`
 2. Find the Implementation Plan / task list section
-3. Replace task status markers with current backend status when a backend export exists
+3. Replace task status markers with current backend status when backend state is available
 4. Preserve existing markdown-only markers when no backend is configured
 5. Append commit SHAs from backend completion reasons where available
 6. Write updated spec.md

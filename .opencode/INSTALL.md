@@ -4,24 +4,9 @@
 
 - [OpenCode.ai](https://opencode.ai) installed
 
-## Installation
+## Installation Status
 
-Flow should be installed as a local plugin file, not as a git URL in `opencode.json`.
-
-### Global install
-
-1. Clone Flow somewhere stable:
-
-```bash
-git clone https://github.com/cofin/flow.git ~/.config/opencode/flow
-```
-
-2. Link the plugin entrypoint into OpenCode's global plugin directory:
-
-```bash
-mkdir -p ~/.config/opencode/plugins
-ln -sf ~/.config/opencode/flow/.opencode/plugins/flow.js ~/.config/opencode/plugins/flow.js
-```
+Flow ships OpenCode-compatible project files and Agent Skills. It does not advertise a global OpenCode install until Flow is published through OpenCode's npm plugin path.
 
 ### Project-local skills
 
@@ -30,7 +15,7 @@ Use those project-local paths when you want Flow-related skills without a global
 
 ### Restart
 
-Restart OpenCode after installing or updating plugin files.
+Restart OpenCode after updating project plugin files.
 
 Verify by asking: `What is your Flow configuration?`
 
@@ -43,15 +28,7 @@ rm -f ~/.config/opencode/agents/flow.md
 rm -f ~/.config/opencode/commands/flow-*.md
 ```
 
-The plugin handles context injection. Flow's repo-local `.opencode/agents/*.md` files provide optional native subagents for hosts that read project agent files.
-
-## Updating
-
-Update the cloned repo, then restart OpenCode:
-
-```bash
-git -C ~/.config/opencode/flow pull --ff-only
-```
+The plugin handles context injection. Flow's repo-local `.opencode/agents/*.md` files provide optional native subagents for harnesses that read project agent files.
 
 ## Usage
 

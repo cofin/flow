@@ -44,10 +44,16 @@ clean:                                              ## Cleanup temporary build a
 	@rm -rf dist/
 	@echo "${OK} Working directory cleaned"
 
+.PHONY: install-hooks
+install-hooks:                                      ## Install git hooks (auto-sync plugins/flow on commit)
+	@git config core.hooksPath .githooks
+	@chmod +x .githooks/* 2>/dev/null || true
+	@echo "${OK} Git hooks installed (core.hooksPath=.githooks)"
+
 .PHONY: lint
 lint:                                               ## Lint markdown and refresh generated Codex package files
 	@echo "${INFO} Linting and fixing markdown files..."
-	@npx markdownlint-cli2 --fix "skills/**/*.md" "commands/**/*.md" "docs/**/*.md" "AGENTS.md" "GEMINI.md" "README.md"
+	@npx markdownlint-cli2 --fix "skills/**/*.md" "commands/**/*.md" "docs/**/*.md" "AGENTS.md" "README.md"
 	@echo "${INFO} Refreshing generated Codex package..."
 	@uv run --extra dev tools/sync-codex-package.py
 	@echo "${OK} Markdown linting passed"
@@ -82,6 +88,12 @@ validate-claude-manifest:                          ## Validate Claude Code plugi
 	@uv run --extra dev tools/validate-claude-manifest.py
 	@echo "${OK} Claude manifests valid"
 
+.PHONY: validate-antigravity-manifest
+validate-antigravity-manifest:                      ## Validate Antigravity plugin and hook manifests
+	@echo "${INFO} Validating Antigravity manifests..."
+	@uv run --extra dev tools/validate-antigravity-manifest.py
+	@echo "${OK} Antigravity manifests valid"
+
 .PHONY: sync-manifests
 sync-manifests:                                    ## Sync version strings across all manifests
 	@echo "${INFO} Syncing version strings..."
@@ -89,7 +101,7 @@ sync-manifests:                                    ## Sync version strings acros
 	@echo "${OK} Version strings in sync"
 
 .PHONY: check
-check: lint validate-skills codex-package-check validate-codex-manifest validate-claude-manifest sync-manifests ## Run all quality checks (lint + validate)
+check: lint validate-skills codex-package-check validate-codex-manifest validate-claude-manifest validate-antigravity-manifest sync-manifests ## Run all quality checks (lint + validate)
 	@echo "${OK} All checks passed"
 
 .PHONY: build

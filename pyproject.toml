@@ -1,6 +1,6 @@
 [project]
 name = "flow"
-version = "0.21.0"
+version = "0.22.0"
 description = "Unified toolkit for Context-Driven Development"
 authors = [
   { name = "cofin" },
@@ -26,7 +26,7 @@ dev = [
 allow_dirty = true
 commit = false
 commit_args = "--no-verify"
-current_version = "0.21.0"
+current_version = "0.22.0"
 ignore_missing_files = false
 ignore_missing_version = false
 message = "chore(release): bump to v{new_version}"
@@ -57,11 +57,6 @@ replace = 'version = "{new_version}"'
 search = 'version = "{current_version}"'
 
 [[tool.bumpversion.files]]
-filename = "gemini-extension.json"
-replace = '"version": "{new_version}"'
-search = '"version": "{current_version}"'
-
-[[tool.bumpversion.files]]
 filename = "package.json"
 replace = '"version": "{new_version}"'
 search = '"version": "{current_version}"'
@@ -85,8 +80,3 @@ search = '"version": "{current_version}"'
 filename = ".agents/plugins/marketplace.json"
 replace = '"version": "{new_version}"'
 search = '"version": "{current_version}"'
-
-[[tool.bumpversion.files]]
-filename = "tools/install.sh"
-replace = 'Version {new_version}'
-search = 'Version {current_version}'

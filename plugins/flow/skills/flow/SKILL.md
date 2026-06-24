@@ -7,7 +7,7 @@ description: "Use when a repository has .agents, when the user asks for Flow lif
 
 Flow coordinates Context-Driven Development in `.agents/` repositories. Keep this skill small: use it to identify the active lifecycle phase, enforce the Beads-first invariants, and load the matching lifecycle skill.
 
-> **Flow is a skill, not a CLI.** There is no `flow` executable. Never run `flow`, `flow sync`, `flow prd`, etc. as shell commands. Invoke this skill (or the matching lifecycle skill), or use the `/flow:*` slash commands where the host supports them.
+> **Flow is a skill, not a CLI.** There is no `flow` executable. Never run `flow`, `flow sync`, `flow prd`, etc. as shell commands. Invoke this skill (or the matching lifecycle skill), or use the `/flow:*` slash commands where the harness supports them.
 >
 > **Beads mode:** Skip every `bd` invocation when the SessionStart hook reports `Beads Backend: Missing (None)` or `Disabled via plugin config (useBeads=false)`. Treat `spec.md` markers as fallback source of truth and skip `/flow:sync`. Never halt for missing Beads. See `references/discipline.md`.
 
@@ -26,7 +26,7 @@ Flow coordinates Context-Driven Development in `.agents/` repositories. Keep thi
 ## Guardrails
 
 - Never edit task markers (`[ ]`, `[~]`, `[x]`, `[!]`, `[-]`) manually in `spec.md`.
-- Do not run backend export, auto-stage, Dolt push, or git operations through Beads unless `.agents/beads.json` allows it or the user asks.
+- Do not run `bd export`, auto-stage, `bd dolt push`, or git operations through Beads unless `.agents/beads.json` allows it or the user asks.
 - Store Flow specs and planning artifacts under `.agents/specs/<flow_id>/`.
 - Make minimal targeted changes and record findings with `bd note <id> "..."` when work exceeds a quick fix.
 

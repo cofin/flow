@@ -25,7 +25,7 @@ Before locking a PRD, spec, or refined worksheet, interrogate the plan until eve
 - Challenge the plan against the project's **domain language**: reuse the terminology already in `patterns.md` and `knowledge/` chapters, and flag/resolve term conflicts before finalizing.
 - Record decisions that are **hard to reverse, surprising, and a real trade-off** into `knowledge/` (or `learnings.md`); skip low-value notes.
 - Stop only when no open branch remains and a zero-context executor could implement from the artifact alone.
-- The finished spec/worksheet doubles as a **handoff**: reference existing artifacts (PRD, patterns, knowledge, affected files) rather than duplicating them, and name the next skill to invoke. (If the host exposes `grill-me` / `grill-with-docs` / `handoff` skills, you may invoke them to drive these steps; otherwise apply the discipline directly.)
+- The finished spec/worksheet doubles as a **handoff**: reference existing artifacts (PRD, patterns, knowledge, affected files) rather than duplicating them, and name the next skill to invoke. (If the harness exposes `grill-me` / `grill-with-docs` / `handoff` skills, you may invoke them to drive these steps; otherwise apply the discipline directly.)
 
 ## Guardrails
 

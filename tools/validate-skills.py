@@ -14,9 +14,9 @@ enforces:
 * ``commands/**/*.toml`` parses as TOML and has top-level ``description`` (str,
   <= 1024 chars) and ``prompt`` (non-empty str).
 * ``agents/*.md``, ``.codex/agents/*.toml``, ``.opencode/agents/*.md``, and
-  ``.github/agents/*.agent.md`` use host-native subagent schemas.
+  ``.github/agents/*.agent.md`` use harness-native subagent schemas.
 * Shipped content (skills, commands, agents, and the root ``AGENTS.md`` /
-  ``CONTRIBUTING.md`` / ``README.md`` / ``GEMINI.md``) contains no references
+  ``CONTRIBUTING.md`` / ``README.md``) contains no references
   to the framework authoring tree — except the user-install convention path
   (``skills/`` sub-path of the authoring directory), which is whitelisted.
 
@@ -57,19 +57,19 @@ _TOMLDecodeError: type[Exception] = cast(
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SKILLS_DIR = REPO_ROOT / "skills"
 COMMANDS_DIR = REPO_ROOT / "commands"
-# `agents/` at repo root is Gemini CLI's extension subagents directory.
+# `agents/` at repo root is Antigravity CLI's plugin subagents directory.
 # `.opencode/agents/` is OpenCode's project-scoped subagents directory.
 # `.claude-plugin/agents/` is Claude Code's plugin subagents directory.
 # `.github/agents/` is VS Code / Copilot's workspace custom agent directory.
-# All three hosts use incompatible frontmatter schemas, so each location is
-# validated by its own rules (see `validate_gemini_agent` /
+# All harnesses use incompatible frontmatter schemas, so each location is
+# validated by its own rules (see `validate_antigravity_agent` /
 # `validate_opencode_agent` / `validate_claude_agent`).
 AGENTS_DIR = REPO_ROOT / "agents"
 OPENCODE_AGENTS_DIR = REPO_ROOT / ".opencode" / "agents"
 CLAUDE_AGENTS_DIR = REPO_ROOT / ".claude-plugin" / "agents"
 CODEX_AGENTS_DIR = REPO_ROOT / ".codex" / "agents"
 VSCODE_AGENTS_DIR = REPO_ROOT / ".github" / "agents"
-SHIPPED_ROOT_FILES = ("AGENTS.md", "CONTRIBUTING.md", "README.md", "GEMINI.md")
+SHIPPED_ROOT_FILES = ("AGENTS.md", "CONTRIBUTING.md", "README.md")
 
 MAX_DESCRIPTION_CHARS = 1024
 MAX_SKILL_DESCRIPTION_CHARS = 500
@@ -179,25 +179,8 @@ VALID_CLAUDE_TOOLS = frozenset(
     }
 )
 
-# Gemini CLI subagent tool registry (see docs/core/subagents.md in google-gemini/gemini-cli).
-# Wildcards `*`, `mcp_*`, and `mcp_<server>_*` are also accepted at runtime.
-VALID_GEMINI_TOOLS = frozenset(
-    {
-        "read_file",
-        "grep_search",
-        "glob",
-        "run_shell_command",
-        "list_directory",
-        "web_fetch",
-        "google_web_search",
-        "write_file",
-        "edit",
-        "save_memory",
-    }
-)
-_GEMINI_WILDCARD_PATTERN = re.compile(r"^(?:\*|mcp_[A-Za-z0-9_-]*\*?)$")
 _CLAUDE_HOOK_EVENT_PATTERN = re.compile(r"^[A-Z][A-Za-z0-9]*$")
-_CROSS_HOST_HOOK_FALLBACK = "${CLAUDE_PLUGIN_ROOT:-${extensionPath}}"
+ANTIGRAVITY_ROOT_TOKENS = ("ANTIGRAVITY_PLUGIN_ROOT", "AGY_PLUGIN_ROOT", "PLUGIN_ROOT")
 
 # Codex nickname_candidates entries: ASCII letters, digits, spaces, hyphens,
 # underscores only. Per https://developers.openai.com/codex/subagents.
@@ -330,14 +313,14 @@ def _load_hook_event_map(path: Path) -> tuple[dict[str, object] | None, list[Vio
 
 
 def validate_claude_hook_config(path: Path) -> list[Violation]:
-    """Validate Claude's hook config file for host-specific placeholder usage."""
+    """Validate Claude's hook config file for harness-specific placeholder usage."""
     hook_events, violations = _load_hook_event_map(path)
     if hook_events is None:
         return violations
 
     violations.extend(_validate_hook_event_map(path, hook_events))
     for entry in _iter_nested_strings(hook_events):
-        if "${extensionPath}" in entry and _CROSS_HOST_HOOK_FALLBACK not in entry:
+        if "${extensionPath}" in entry:
             violations.append(
                 Violation(
                     path,
@@ -349,23 +332,33 @@ def validate_claude_hook_config(path: Path) -> list[Violation]:
     return violations
 
 
-def validate_gemini_hook_config(path: Path) -> list[Violation]:
-    """Validate Gemini's hook config file for host-specific placeholder usage."""
+def validate_antigravity_hook_config(path: Path) -> list[Violation]:
+    """Validate Antigravity's root hook config file."""
     hook_events, violations = _load_hook_event_map(path)
     if hook_events is None:
         return violations
 
     violations.extend(_validate_hook_event_map(path, hook_events))
+    saw_root_token = False
     for entry in _iter_nested_strings(hook_events):
-        if "${CLAUDE_PLUGIN_ROOT}" in entry and _CROSS_HOST_HOOK_FALLBACK not in entry:
+        if "${extensionPath}" in entry or "${/}" in entry:
             violations.append(
                 Violation(
                     path,
                     1,
-                    "Gemini hook config must not use '${CLAUDE_PLUGIN_ROOT}'; use '${extensionPath}' instead",
+                    "Antigravity hook config must not use legacy extension template tokens",
                 )
             )
-            break
+        if any(token in entry for token in ANTIGRAVITY_ROOT_TOKENS):
+            saw_root_token = True
+    if not saw_root_token:
+        violations.append(
+            Violation(
+                path,
+                1,
+                "Antigravity hook config must resolve the plugin root with ANTIGRAVITY_PLUGIN_ROOT, AGY_PLUGIN_ROOT, or PLUGIN_ROOT",
+            )
+        )
     return violations
 
 
@@ -575,12 +568,12 @@ def _check_opencode_permission(permission: Any, path: Path) -> list[Violation]:
     return violations
 
 
-def validate_gemini_agent(path: Path) -> list[Violation]:
-    """Validate a Gemini CLI subagent file under ``agents/``.
+def validate_antigravity_agent(path: Path) -> list[Violation]:
+    """Validate an Antigravity CLI subagent file under ``agents/``.
 
-    Gemini schema: no ``mode`` key (rejected by Gemini's loader), ``tools`` as
-    a list of tool-name strings. Each string must be a known Gemini tool or a
-    wildcard pattern (``*``, ``mcp_*``, ``mcp_<server>_*``).
+    Antigravity uses Markdown subagents with YAML frontmatter. Flow enforces
+    stable identity fields and rejects harness-specific mode/permission keys that
+    belong to OpenCode, Codex, or Claude-only schemas.
     """
     violations: list[Violation] = []
     text = path.read_text(encoding="utf-8")
@@ -593,7 +586,9 @@ def validate_gemini_agent(path: Path) -> list[Violation]:
         violations.append(Violation(path, 1, f"name {fm.get('name')!r} != filename stem {expected_name!r}"))
     violations.extend(_check_description(fm.get("description"), path, 1))
     if "mode" in fm:
-        violations.append(Violation(path, 1, "mode key not allowed (Gemini subagents reject it)"))
+        violations.append(Violation(path, 1, "mode key not allowed (Antigravity subagents reject OpenCode schema)"))
+    if "permission" in fm:
+        violations.append(Violation(path, 1, "permission key not allowed (Antigravity subagents reject OpenCode schema)"))
     tools = fm.get("tools")
     if tools is None:
         return violations
@@ -604,15 +599,9 @@ def validate_gemini_agent(path: Path) -> list[Violation]:
     # narrowing already gives us list[Any]; silence the redundant-cast warning.
     tools_list = cast("list[Any]", tools)  # type: ignore[redundant-cast]
     for entry in tools_list:
-        if not isinstance(entry, str):
+        if not isinstance(entry, str) or not entry.strip():
             type_name = type(entry).__name__
             violations.append(Violation(path, 1, f"tools entry must be a string, got {type_name}"))
-            continue
-        if entry in VALID_GEMINI_TOOLS:
-            continue
-        if _GEMINI_WILDCARD_PATTERN.match(entry):
-            continue
-        violations.append(Violation(path, 1, f"tool {entry!r} not in Gemini tool registry"))
     return violations
 
 
@@ -657,7 +646,7 @@ def validate_vscode_agent(path: Path) -> list[Violation]:
 
     VS Code discovers workspace agents from ``.github/agents/*.agent.md``.
     The frontmatter may be minimal; Flow requires explicit ``name`` and
-    ``description`` so the same agent identity is testable across hosts.
+    ``description`` so the same agent identity is testable across harnesses.
     """
     violations: list[Violation] = []
     if not path.name.endswith(".agent.md"):
@@ -693,7 +682,7 @@ def validate_vscode_agent(path: Path) -> list[Violation]:
 def validate_command_agent_references(path: Path) -> list[Violation]:
     """Validate Flow command prompts reference shipped agents by slug.
 
-    Gemini's subagent mention syntax uses the slug from ``agents/<slug>.md``.
+    Antigravity's subagent mention syntax uses the slug from ``agents/<slug>.md``.
     Namespaced mentions like ``@flow:executor`` are invalid for the shipped
     root ``agents/`` bundle.
     """
@@ -705,7 +694,7 @@ def validate_command_agent_references(path: Path) -> list[Violation]:
     prompt = data.get("prompt")
     if not isinstance(prompt, str):
         return violations
-    known_agents = {agent_path.stem for agent_path in iter_gemini_agents()}
+    known_agents = {agent_path.stem for agent_path in iter_antigravity_agents()}
     for match in _AGENT_REFERENCE_PATTERN.finditer(prompt):
         mention = match.group(1)
         if mention.startswith("flow:"):
@@ -719,9 +708,9 @@ def validate_command_agent_references(path: Path) -> list[Violation]:
 
 
 def validate_manifest(path: Path) -> list[Violation]:
-    """Validate a host-specific plugin.json manifest.
+    """Validate a harness-specific plugin.json manifest.
 
-    Enforces host-specific schema requirements (e.g. Claude Code requiring arrays
+    Enforces harness-specific schema requirements (e.g. Claude Code requiring arrays
     for file lists).
     """
     violations: list[Violation] = []
@@ -730,9 +719,9 @@ def validate_manifest(path: Path) -> list[Violation]:
     except (json.JSONDecodeError, OSError) as exc:
         return [Violation(path, 1, f"JSON parse error: {exc}")]
 
-    # Identify host by parent directory name
-    host_dir = path.parent.name
-    is_claude = host_dir == ".claude-plugin"
+    # Identify harness by parent directory name
+    harness_dir = path.parent.name
+    is_claude = harness_dir == ".claude-plugin"
 
     # Claude Code specific rules
     if is_claude:
@@ -902,7 +891,7 @@ def iter_commands() -> Iterator[Path]:
         yield from sorted(COMMANDS_DIR.rglob("*.toml"))
 
 
-def iter_gemini_agents() -> Iterator[Path]:
+def iter_antigravity_agents() -> Iterator[Path]:
     if AGENTS_DIR.is_dir():
         yield from sorted(AGENTS_DIR.glob("*.md"))
 
@@ -957,8 +946,8 @@ def iter_vscode_agents() -> Iterator[Path]:
 
 
 def iter_manifests() -> Iterator[Path]:
-    for host in (".claude-plugin", ".codex-plugin"):
-        candidate = REPO_ROOT / host / "plugin.json"
+    for harness in (".claude-plugin", ".codex-plugin"):
+        candidate = REPO_ROOT / harness / "plugin.json"
         if candidate.is_file():
             yield candidate
 
@@ -966,9 +955,7 @@ def iter_manifests() -> Iterator[Path]:
 def iter_claude_hook_configs() -> Iterator[Path]:
     """Resolve Claude's hook manifest path. If .claude-plugin/plugin.json
     declares a `hooks` field, that is authoritative; otherwise Claude
-    auto-discovers hooks/hooks.json. Per-host manifests are needed because
-    Gemini also default-discovers hooks/hooks.json with incompatible
-    template syntax."""
+    auto-discovers hooks/hooks.json."""
     manifest_path = REPO_ROOT / ".claude-plugin" / "plugin.json"
     if manifest_path.is_file():
         try:
@@ -987,8 +974,8 @@ def iter_claude_hook_configs() -> Iterator[Path]:
         yield default_hooks
 
 
-def iter_gemini_hook_configs() -> Iterator[Path]:
-    candidate = REPO_ROOT / "hooks" / "hooks.json"
+def iter_antigravity_hook_configs() -> Iterator[Path]:
+    candidate = REPO_ROOT / "hooks.json"
     if candidate.is_file():
         yield candidate
 
@@ -1020,7 +1007,7 @@ def iter_all_shipped_files() -> Iterator[Path]:
     docs_dir = REPO_ROOT / "docs"
     if docs_dir.is_dir():
         yield from sorted(docs_dir.rglob("*.md"))
-    # Host-specific install / config files that ship with the plugin.
+    # Harness-specific install / config files that ship with the plugin.
     for rel in (
         ".opencode/INSTALL.md",
         ".opencode/plugins/litestar-skills.js",
@@ -1042,14 +1029,14 @@ def main() -> int:
     all_violations: list[Violation] = []
     skills = list(iter_skills())
     commands = list(iter_commands())
-    gemini_agents = list(iter_gemini_agents())
+    antigravity_agents = list(iter_antigravity_agents())
     opencode_agents = list(iter_opencode_agents())
     claude_agents = list(iter_claude_agents())
     codex_agents = list(iter_codex_agents())
     vscode_agents = list(iter_vscode_agents())
     manifests = list(iter_manifests())
     claude_hook_configs = list(iter_claude_hook_configs())
-    gemini_hook_configs = list(iter_gemini_hook_configs())
+    antigravity_hook_configs = list(iter_antigravity_hook_configs())
     for manifest_path in manifests:
         all_violations.extend(validate_manifest(manifest_path))
     for skill_path in skills:
@@ -1057,8 +1044,8 @@ def main() -> int:
     for cmd_path in commands:
         all_violations.extend(validate_command(cmd_path))
         all_violations.extend(validate_command_agent_references(cmd_path))
-    for agent_path in gemini_agents:
-        all_violations.extend(validate_gemini_agent(agent_path))
+    for agent_path in antigravity_agents:
+        all_violations.extend(validate_antigravity_agent(agent_path))
     for agent_path in opencode_agents:
         all_violations.extend(validate_opencode_agent(agent_path))
     for agent_path in claude_agents:
@@ -1069,8 +1056,8 @@ def main() -> int:
         all_violations.extend(validate_vscode_agent(agent_path))
     for hook_config_path in claude_hook_configs:
         all_violations.extend(validate_claude_hook_config(hook_config_path))
-    for hook_config_path in gemini_hook_configs:
-        all_violations.extend(validate_gemini_hook_config(hook_config_path))
+    for hook_config_path in antigravity_hook_configs:
+        all_violations.extend(validate_antigravity_hook_config(hook_config_path))
     shipped = list(iter_all_shipped_files())
     all_violations.extend(check_agents_leak(shipped))
     all_violations.extend(check_forbidden_vocab(shipped))
@@ -1078,7 +1065,7 @@ def main() -> int:
         _print_violations(all_violations)
         print(f"\n{len(all_violations)} violation(s)", file=sys.stderr)
         return 1
-    agent_total = len(gemini_agents) + len(opencode_agents) + len(claude_agents) + len(codex_agents) + len(vscode_agents)
+    agent_total = len(antigravity_agents) + len(opencode_agents) + len(claude_agents) + len(codex_agents) + len(vscode_agents)
     print(f"[ OK ] validated {len(skills)} skills, {len(commands)} commands, {agent_total} agents — no violations")
     return 0
 

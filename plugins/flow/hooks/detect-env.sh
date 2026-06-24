@@ -13,7 +13,7 @@ IFS=$'\n\t'
 
 # --- Configuration ---
 # CLAUDE_PLUGIN_OPTION_* are injected by the Claude Code harness from
-# plugin.json userConfig. Other hosts leave these unset, so default-fallback.
+# plugin.json userConfig. Other harnesses leave these unset, so default-fallback.
 readonly DEFAULT_ROOT_DIR="${CLAUDE_PLUGIN_OPTION_AGENTSDIR:-.agents}"
 readonly USE_BEADS="${CLAUDE_PLUGIN_OPTION_USEBEADS:-true}"
 
@@ -48,7 +48,7 @@ safe_run() {
 
 detect_beads() {
     echo "## Flow Environment Context"
-    echo "- **Flow is a SKILL, not a CLI**: there is no \`flow\` executable. NEVER run \`flow\`, \`flow sync\`, \`flow prd\`, \`flow status\`, etc. as shell commands. Invoke the Flow skill, or use the \`/flow:*\` (e.g. \`/flow:sync\`) slash commands where the host supports them."
+    echo "- **Flow is a SKILL, not a CLI**: there is no \`flow\` executable. NEVER run \`flow\`, \`flow sync\`, \`flow prd\`, \`flow status\`, etc. as shell commands. Invoke the Flow skill, or use the \`/flow:*\` (e.g. \`/flow:sync\`) slash commands where the harness supports them."
     if [[ "${USE_BEADS}" != "true" ]]; then
         echo "- **Beads Backend**: Disabled via plugin config (useBeads=false)"
         return
@@ -58,24 +58,9 @@ detect_beads() {
     else
         echo "- **Beads Backend**: Missing (None)"
         if command -v br >/dev/null 2>&1; then
-            echo "- **Migration Notice**: Detected legacy \`br\` (beads_rust). Flow no longer supports br. Install official Beads: brew install beads (or https://github.com/gastownhall/beads)."
+            echo "- **Migration Notice**: Detected legacy \`br\` (beads_rust). Flow no longer supports br. Install official Beads: curl -fsSL https://raw.githubusercontent.com/gastownhall/beads/main/scripts/install.sh | bash"
         fi
     fi
-}
-
-check_settings() {
-    local settings_files=(".gemini/settings.json" "${HOME}/.gemini/settings.json")
-    local conflict=0
-    for file in "${settings_files[@]}"; do
-        if [[ -f "${file}" ]]; then
-            if grep -q '"autoEnter": true' "${file}"; then
-                echo "⚠ **Settings Conflict**: 'autoEnter' is enabled in ${file}."
-                echo "  - This causes the host to 'guess' your goal and fire research tools, bypassing Flow's PRD process."
-                echo "  - **Recommendation**: Set \`\"general.plan.autoEnter\": false\`."
-                conflict=1
-            fi
-        fi
-    done
 }
 
 detect_project_root() {
@@ -274,7 +259,6 @@ EOF
 
 main() {
     detect_beads
-    check_settings
     local root_dir
     local root_info
     root_info=$(detect_project_root)
