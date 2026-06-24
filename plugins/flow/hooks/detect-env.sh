@@ -58,7 +58,7 @@ detect_beads() {
     else
         echo "- **Beads Backend**: Missing (None)"
         if command -v br >/dev/null 2>&1; then
-            echo "- **Migration Notice**: Detected legacy \`br\` (beads_rust). Flow no longer supports br. Install official Beads: brew install beads (or https://github.com/gastownhall/beads)."
+            echo "- **Migration Notice**: Detected legacy \`br\` (beads_rust). Flow no longer supports br. Install official Beads: curl -fsSL https://raw.githubusercontent.com/gastownhall/beads/main/scripts/install.sh | bash"
         fi
     fi
 }

@@ -72,7 +72,7 @@ else
 fi
 ```
 
-If outdated, suggest one of the official installs: `brew install beads`, `npm install -g @beads/bd`, `go install github.com/gastownhall/beads/cmd/bd@latest`, or `curl -fsSL https://raw.githubusercontent.com/gastownhall/beads/main/scripts/install.sh | bash`
+If outdated, suggest the official install: `curl -fsSL https://raw.githubusercontent.com/gastownhall/beads/main/scripts/install.sh | bash`
 
 ### 0.1.2 Legacy Specs Migration
 
@@ -237,7 +237,7 @@ If no backend is found, ask user:
 
 > Choose a Flow task-memory backend:
 >
-> - **A) Official Beads** (recommended) - Run `brew install beads`, `npm install -g @beads/bd`, `go install github.com/gastownhall/beads/cmd/bd@latest`, or `curl -fsSL https://raw.githubusercontent.com/gastownhall/beads/main/scripts/install.sh | bash`
+> - **A) Official Beads** (recommended) - Run `curl -fsSL https://raw.githubusercontent.com/gastownhall/beads/main/scripts/install.sh | bash`
 > - **B) No Beads** - Continue with markdown-only Flow state (reduced memory/resume)
 
 If a backend is installed, verify version is current and remember the selected mode for Phase 5.

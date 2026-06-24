@@ -476,8 +476,5 @@ claude plugin install flow@flow-marketplace
 codex plugin marketplace add cofin/flow
 
 # Install official Beads
-brew install beads
-npm install -g @beads/bd
-go install github.com/gastownhall/beads/cmd/bd@latest
 curl -fsSL https://raw.githubusercontent.com/gastownhall/beads/main/scripts/install.sh | bash
 ```

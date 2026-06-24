@@ -331,9 +331,6 @@ Do not run `bd dolt push` unless the user explicitly requests it or `.agents/bea
 
 ```bash
 # Official Beads (bd)
-brew install beads
-npm install -g @beads/bd
-go install github.com/gastownhall/beads/cmd/bd@latest
 curl -fsSL https://raw.githubusercontent.com/gastownhall/beads/main/scripts/install.sh | bash
 ```
 
