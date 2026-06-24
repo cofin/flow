@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Keep the generated Codex package (plugins/flow/) in sync with its sources.
+#
+# plugins/flow/ is assembled by tools/sync-codex-package.py from repo-root
+# sources (skills/, hooks/, .codex/, .codex-plugin/, commands/flow-*.md). When a
+# commit touches any of those, regenerate the package and stage the result so
+# the committed mirror can never drift out of sync.
+#
+# Install with: make install-hooks
+set -euo pipefail
+
+staged="$(git diff --cached --name-only --diff-filter=ACMR)"
+if printf '%s\n' "$staged" | grep -Eq '^(skills/|hooks/|\.codex/|\.codex-plugin/|commands/flow-[^/]+\.md$)'; then
+    uv run --extra dev tools/sync-codex-package.py >/dev/null
+    git add plugins/flow
+fi

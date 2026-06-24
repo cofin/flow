@@ -44,6 +44,12 @@ clean:                                              ## Cleanup temporary build a
 	@rm -rf dist/
 	@echo "${OK} Working directory cleaned"
 
+.PHONY: install-hooks
+install-hooks:                                      ## Install git hooks (auto-sync plugins/flow on commit)
+	@git config core.hooksPath .githooks
+	@chmod +x .githooks/* 2>/dev/null || true
+	@echo "${OK} Git hooks installed (core.hooksPath=.githooks)"
+
 .PHONY: lint
 lint:                                               ## Lint markdown and refresh generated Codex package files
 	@echo "${INFO} Linting and fixing markdown files..."
