@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-MODULE_PATH = REPO_ROOT / "tools" / "validate-skills.py"
+MODULE_PATH = REPO_ROOT / "tools" / "validate.py"
 
 
 def _load_validate_skills_module():
@@ -292,12 +292,10 @@ def test_makefile_recipes_fail_fast() -> None:
     assert "-o pipefail" in makefile
     assert "lint:" in makefile
     assert "uv run --extra dev tools/sync-codex-package.py" in makefile
-    assert "validate-codex-manifest:" in makefile
+    assert "validate:" in makefile
     assert "codex-package-check:" in makefile
-    assert "validate-antigravity-manifest:" in makefile
     assert (
-        "check: lint validate-skills codex-package-check validate-codex-manifest "
-        "validate-claude-manifest validate-antigravity-manifest sync-manifests"
+        "check: lint codex-package-check validate sync-manifests"
     ) in makefile
 
 

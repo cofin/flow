@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-MODULE_PATH = REPO_ROOT / "tools" / "validate-antigravity-manifest.py"
+MODULE_PATH = REPO_ROOT / "tools" / "validate.py" # Point to validate.py
 
 
 def _load_validate_antigravity_manifest_module():
@@ -62,7 +62,8 @@ def test_antigravity_hook_command_validation_rejects_legacy_extension_tokens(tmp
         encoding="utf-8",
     )
 
-    assert not validate_antigravity_manifest.validate_antigravity_hook_commands(tmp_path)
+    # Inverted assertion: returns list of violations on failure (truthy)
+    assert validate_antigravity_manifest.validate_antigravity_hook_commands(tmp_path)
 
 
 def test_antigravity_hook_command_validation_accepts_plugin_root_ladder(tmp_path: Path) -> None:
@@ -97,4 +98,5 @@ def test_antigravity_hook_command_validation_accepts_plugin_root_ladder(tmp_path
         encoding="utf-8",
     )
 
-    assert validate_antigravity_manifest.validate_antigravity_hook_commands(tmp_path)
+    # Inverted assertion: returns empty list on success (falsy)
+    assert not validate_antigravity_manifest.validate_antigravity_hook_commands(tmp_path)

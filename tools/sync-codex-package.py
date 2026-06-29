@@ -13,7 +13,7 @@ from pathlib import Path
 
 PACKAGE_ROOT = Path("plugins/flow")
 DIRECTORY_ENTRIES = (".codex-plugin", "skills", "hooks")
-CODEX_ENTRIES = ("INSTALL.md", "agents", "hooks.json")
+CODEX_ENTRIES = ("INSTALL.md", "agents") # Removed hooks.json
 COMMANDS_ROOT = Path("commands")
 COMMANDS_GLOB = "flow-*.md"
 STALE_HINT = "run `make sync-codex-package`"
@@ -91,11 +91,18 @@ def _emit_codex_hooks_manifest(repo_root: Path, package_root: Path) -> None:
     through a shell. ``plugins/flow`` is the Codex/marketplace artifact, so
     overwrite the package copy with the Codex-native manifest
     (``hooks/hooks-codex.json``), which uses ``${PLUGIN_ROOT}``.
+    Also copy it to ``.codex/hooks.json`` in the package as Codex CLI entry point.
     """
     codex_source = repo_root / "hooks" / "hooks-codex.json"
     if not codex_source.is_file():
         raise RuntimeError(f"Missing canonical Codex hooks manifest: {codex_source}")
+    
+    # Ensure directories exist
+    (package_root / "hooks").mkdir(parents=True, exist_ok=True)
+    (package_root / ".codex").mkdir(parents=True, exist_ok=True)
+    
     shutil.copy2(codex_source, package_root / "hooks" / "hooks.json")
+    shutil.copy2(codex_source, package_root / ".codex" / "hooks.json")
 
 
 def _copy_codex_directory(repo_root: Path, package_root: Path) -> None:

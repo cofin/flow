@@ -1,3 +1,0 @@
-interface:
-  display_name: "Devil's Advocate"
-  short_description: "Adversarial review for plans, PRs, assumptions, and overlooked failure modes"

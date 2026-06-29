@@ -1,30 +1,15 @@
 """Validate shipped skills / commands / agents manifest integrity.
 
-Walks every shipped SKILL.md, command TOML, and agent Markdown file and
-enforces:
-
-* YAML frontmatter present, with ``name`` (matching parent dir / filename) and
-  ``description`` (<= 1024 characters).
-* SKILL.md body contains the four required sections (``workflow``,
-  ``guardrails``, ``validation``, ``example``) — present either as
-  ``<workflow>`` / ``<guardrails>`` / ``<validation>`` / ``<example>`` XML tags
-  *or* as H2 Markdown headings (``## Workflow`` etc., case-insensitive).
-* Every ``[text](./path)`` or ``[text](relative/path.md)`` link in a SKILL.md
-  resolves relative to the file.
-* ``commands/**/*.toml`` parses as TOML and has top-level ``description`` (str,
-  <= 1024 chars) and ``prompt`` (non-empty str).
-* ``agents/*.md``, ``.codex/agents/*.toml``, ``.opencode/agents/*.md``, and
-  ``.github/agents/*.agent.md`` use harness-native subagent schemas.
-* Shipped content (skills, commands, agents, and the root ``AGENTS.md`` /
-  ``CONTRIBUTING.md`` / ``README.md``) contains no references
-  to the framework authoring tree — except the user-install convention path
-  (``skills/`` sub-path of the authoring directory), which is whitelisted.
-
-Exit 0 on clean; exit 1 with a per-file violation list otherwise.
+Consolidated validator for all harnesses (Antigravity, Claude Code, Codex, etc.).
 """
 
+from __future__ import annotations
+
 import json
+import os
 import re
+import shutil
+import subprocess
 import sys
 from collections.abc import Iterable, Iterator
 from pathlib import Path
@@ -37,11 +22,7 @@ else:  # pragma: no cover - py310 fallback path
 
 import yaml
 
-# The tomllib / tomli shim yields a dict whose keys are strings; the stdlib
-# function returns ``dict[str, Any]`` but the py310 fallback lives in a third-
-# party package without stubs, so we wrap the callables in ``Any``-typed
-# aliases to keep pyright/mypy strict mode happy across both code paths.
-_toml_loads_any: Any = _tomllib.loads  # pyright: ignore[reportUnknownMemberType, reportUnknownVariableType]
+_toml_loads_any: Any = _tomllib.loads
 
 
 def _toml_loads(text: str) -> dict[str, Any]:
@@ -51,19 +32,12 @@ def _toml_loads(text: str) -> dict[str, Any]:
 
 _TOMLDecodeError: type[Exception] = cast(
     "type[Exception]",
-    _tomllib.TOMLDecodeError,  # pyright: ignore[reportUnknownMemberType]
+    _tomllib.TOMLDecodeError,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SKILLS_DIR = REPO_ROOT / "skills"
 COMMANDS_DIR = REPO_ROOT / "commands"
-# `agents/` at repo root is Antigravity CLI's plugin subagents directory.
-# `.opencode/agents/` is OpenCode's project-scoped subagents directory.
-# `.claude-plugin/agents/` is Claude Code's plugin subagents directory.
-# `.github/agents/` is VS Code / Copilot's workspace custom agent directory.
-# All harnesses use incompatible frontmatter schemas, so each location is
-# validated by its own rules (see `validate_antigravity_agent` /
-# `validate_opencode_agent` / `validate_claude_agent`).
 AGENTS_DIR = REPO_ROOT / "agents"
 OPENCODE_AGENTS_DIR = REPO_ROOT / ".opencode" / "agents"
 CLAUDE_AGENTS_DIR = REPO_ROOT / ".claude-plugin" / "agents"
@@ -83,13 +57,7 @@ FORBIDDEN_SKILL_DESCRIPTION_TERMS = (
 
 REQUIRED_SECTIONS = ("workflow", "guardrails", "validation", "example")
 
-# Match `<tag>` for each required section.
 _XML_TAG_PATTERNS = {name: re.compile(rf"<{name}\b", re.IGNORECASE) for name in REQUIRED_SECTIONS}
-# Match `## Heading` lines for each required section. Accepts any H2 that
-# *mentions* the section name as a word ("## Example", "## End-to-End Example",
-# "## Validation Checkpoint", "## Canonical Example", etc.) — singular or
-# plural. This is intentionally lenient so existing skill docs with slightly
-# different heading conventions are still considered structurally compliant.
 _H2_HEADING_PATTERNS = {
     name: re.compile(
         rf"^##\s+.*\b{name}s?\b",
@@ -100,47 +68,24 @@ _H2_HEADING_PATTERNS = {
 
 LINK_PATTERN = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
 
-# Match references to the framework authoring tree. A "leak" is a shipped-
-# content file citing a path that only exists in the authoring workspace
-# (``.agents/patterns.md``, ``.agents/knowledge/...``, ``.agents/specs/...``,
-# ``.agents/archive/...``, ``.agents/plans/...``, ``.agents/research/...``,
-# ``.agents/flows.md``, ``.agents/product.md``, ``.agents/product-guidelines.md``,
-# ``.agents/workflow.md``, ``.agents/tech-stack.md``, ``.agents/index.md``,
-# ``.agents/beads.json``, ``.agents/setup-state.json``, ``.agents/code-styleguides/``,
-# ``.agents/backlog/``). These never exist on a user install.
-#
-# Benign mentions (prose about the Flow authoring convention, the user-install
-# ``.agents/skills/`` or ``.agents/plugins/`` convention paths, or a bare
-# ``.agents/`` directory reference) are allowed. The lookbehind rejects alnum/
-# underscore prefixes so filesystem paths like ``foo_.agents/`` are not
-# flagged.
 _AUTHORING_TREE_SUBPATHS: tuple[str, ...] = ()
 AGENTS_LEAK_PATTERN = re.compile(rf"(?<![A-Za-z0-9_])\.agents/(?:{'|'.join(re.escape(p) for p in _AUTHORING_TREE_SUBPATHS)})") if _AUTHORING_TREE_SUBPATHS else re.compile(r"$.")
 
-# Forbidden vocabulary in shipped content. These tokens leak machine-
-# specific filesystem paths. Each tuple is ``(regex, human-readable label)``.
-# Keep the list narrow and high-confidence. Add allowlist exceptions in 
-# ``_FORBIDDEN_VOCAB_ALLOWLIST`` below if a legitimate use is found.
 FORBIDDEN_VOCAB_PATTERNS: tuple[tuple[re.Pattern[str], str], ...] = (
-    # --- Machine-specific paths --------------------------------------------
     (re.compile(r"/home/cody/", re.IGNORECASE), "machine-specific filesystem path '/home/cody/...'"),
 )
 
-# Files exempt from FORBIDDEN_VOCAB_PATTERNS. Tests legitimately reference the
-# literal patterns to verify the validator catches them; the validator itself
-# documents the patterns in code. Use repo-relative POSIX paths.
 _FORBIDDEN_VOCAB_ALLOWLIST: frozenset[str] = frozenset(
     {
-        "tools/validate-skills.py",  # the validator defines the patterns
-        "tests/test_validate_skills.py",  # tests assert against the patterns
+        "tools/validate.py",
+        "tools/validate-skills.py",
+        "tests/test_validate_skills.py",
+        "tests/test_validate.py",
     }
 )
 
 VALID_AGENT_MODES = frozenset({"subagent", "primary"})
 VALID_AGENT_TOOLS = frozenset({"read", "grep", "glob", "bash", "edit", "write", "todoWrite", "webFetch", "webSearch"})
-# OpenCode (June 2026) prefers a three-state ``permission`` object over the legacy
-# boolean ``tools`` map. Keys gate capabilities; values are allow/ask/deny (or a
-# nested glob->decision map, e.g. for bash). See https://opencode.ai/docs/agents/.
 VALID_AGENT_PERMISSIONS = frozenset(
     {
         "edit",
@@ -162,8 +107,6 @@ VALID_AGENT_PERMISSIONS = frozenset(
 )
 VALID_PERMISSION_DECISIONS = frozenset({"allow", "ask", "deny"})
 
-# Claude Code subagent tool registry (canonical Claude tool names exposed to
-# subagents — see https://code.claude.com/docs/en/sub-agents).
 VALID_CLAUDE_TOOLS = frozenset(
     {
         "Read",
@@ -182,10 +125,18 @@ VALID_CLAUDE_TOOLS = frozenset(
 _CLAUDE_HOOK_EVENT_PATTERN = re.compile(r"^[A-Z][A-Za-z0-9]*$")
 ANTIGRAVITY_ROOT_TOKENS = ("ANTIGRAVITY_PLUGIN_ROOT", "AGY_PLUGIN_ROOT", "PLUGIN_ROOT")
 
-# Codex nickname_candidates entries: ASCII letters, digits, spaces, hyphens,
-# underscores only. Per https://developers.openai.com/codex/subagents.
 _CODEX_NICKNAME_PATTERN = re.compile(r"^[A-Za-z0-9 _-]+$")
 _AGENT_REFERENCE_PATTERN = re.compile(r"@([A-Za-z][A-Za-z0-9:_-]*)")
+
+# Codex consolidation constants
+PACKAGE_ROOT = Path("plugins/flow")
+PACKAGE_DIRS = (
+    ".codex-plugin",
+    "skills",
+    "commands",
+    ".codex",
+    "hooks",
+)
 
 
 class Violation(NamedTuple):
@@ -363,10 +314,6 @@ def validate_antigravity_hook_config(path: Path) -> list[Violation]:
 
 
 def extract_frontmatter(text: str) -> tuple[dict[str, Any], int, str]:
-    """Return ``(frontmatter_dict, body_start_line, body_text)``.
-
-    Raises :class:`ValueError` on missing or unterminated frontmatter.
-    """
     if not text.startswith("---\n"):
         msg = "missing YAML frontmatter"
         raise ValueError(msg)
@@ -474,8 +421,6 @@ def validate_skill(path: Path) -> list[Violation]:
                     f"missing required section <{section}> (XML tag or '## {section.title()}' heading)",
                 )
             )
-    # Strip code blocks before checking links to avoid false positives from
-    # square brackets in code (e.g. Mojo / Rust / TypeScript generics).
     body_no_code = re.sub(r"```.*?```", "", body, flags=re.DOTALL)
     body_no_code = re.sub(r"`.*?`", "", body_no_code)
 
@@ -505,12 +450,6 @@ def validate_command(path: Path) -> list[Violation]:
 
 
 def validate_opencode_agent(path: Path) -> list[Violation]:
-    """Validate an OpenCode subagent file under ``.opencode/agents/``.
-
-    OpenCode schema: ``mode`` in {primary, subagent}, and tool scoping via the
-    modern ``permission`` object (keys -> allow/ask/deny, or a nested glob map)
-    or the legacy ``tools`` mapping (keys -> bool). At least one must be present.
-    """
     violations: list[Violation] = []
     text = path.read_text(encoding="utf-8")
     try:
@@ -549,7 +488,6 @@ def validate_opencode_agent(path: Path) -> list[Violation]:
 
 
 def _check_opencode_permission(permission: Any, path: Path) -> list[Violation]:
-    """Validate the OpenCode ``permission`` object (June 2026 schema)."""
     violations: list[Violation] = []
     if not isinstance(permission, dict):
         return [Violation(path, 1, "permission must be a mapping")]
@@ -559,7 +497,6 @@ def _check_opencode_permission(permission: Any, path: Path) -> list[Violation]:
         if key_s not in VALID_AGENT_PERMISSIONS:
             violations.append(Violation(path, 1, f"permission key {key_s!r} not in whitelist"))
         if isinstance(value, dict):
-            # Nested glob -> decision map (e.g. bash: {"git *": "ask"}).
             for decision in cast("dict[str, Any]", value).values():
                 if decision not in VALID_PERMISSION_DECISIONS:
                     violations.append(Violation(path, 1, f"permission {key_s!r} decision {decision!r} not in {sorted(VALID_PERMISSION_DECISIONS)}"))
@@ -569,12 +506,6 @@ def _check_opencode_permission(permission: Any, path: Path) -> list[Violation]:
 
 
 def validate_antigravity_agent(path: Path) -> list[Violation]:
-    """Validate an Antigravity CLI subagent file under ``agents/``.
-
-    Antigravity uses Markdown subagents with YAML frontmatter. Flow enforces
-    stable identity fields and rejects harness-specific mode/permission keys that
-    belong to OpenCode, Codex, or Claude-only schemas.
-    """
     violations: list[Violation] = []
     text = path.read_text(encoding="utf-8")
     try:
@@ -595,8 +526,6 @@ def validate_antigravity_agent(path: Path) -> list[Violation]:
     if not isinstance(tools, list):
         violations.append(Violation(path, 1, "tools must be a list of strings"))
         return violations
-    # pyright strict requires an explicit cast here even though mypy's
-    # narrowing already gives us list[Any]; silence the redundant-cast warning.
     tools_list = cast("list[Any]", tools)  # type: ignore[redundant-cast]
     for entry in tools_list:
         if not isinstance(entry, str) or not entry.strip():
@@ -606,13 +535,6 @@ def validate_antigravity_agent(path: Path) -> list[Violation]:
 
 
 def validate_claude_agent(path: Path) -> list[Violation]:
-    """Validate a Claude Code subagent file under ``.claude-plugin/agents/``.
-
-    Claude schema: ``tools`` as a comma-separated string of canonical Claude
-    tool names (e.g. ``Read, Grep, Glob, Bash``). YAML lists and dict mappings
-    are rejected by Claude's plugin manifest validator. ``mode`` is not part
-    of Claude's subagent schema.
-    """
     violations: list[Violation] = []
     text = path.read_text(encoding="utf-8")
     try:
@@ -642,12 +564,6 @@ def validate_claude_agent(path: Path) -> list[Violation]:
 
 
 def validate_vscode_agent(path: Path) -> list[Violation]:
-    """Validate a VS Code / Copilot custom agent file.
-
-    VS Code discovers workspace agents from ``.github/agents/*.agent.md``.
-    The frontmatter may be minimal; Flow requires explicit ``name`` and
-    ``description`` so the same agent identity is testable across harnesses.
-    """
     violations: list[Violation] = []
     if not path.name.endswith(".agent.md"):
         violations.append(Violation(path, 1, "VS Code custom agents must use the .agent.md extension"))
@@ -680,12 +596,6 @@ def validate_vscode_agent(path: Path) -> list[Violation]:
 
 
 def validate_command_agent_references(path: Path) -> list[Violation]:
-    """Validate Flow command prompts reference shipped agents by slug.
-
-    Antigravity's subagent mention syntax uses the slug from ``agents/<slug>.md``.
-    Namespaced mentions like ``@flow:executor`` are invalid for the shipped
-    root ``agents/`` bundle.
-    """
     violations: list[Violation] = []
     try:
         data = _toml_loads(path.read_text(encoding="utf-8"))
@@ -708,22 +618,15 @@ def validate_command_agent_references(path: Path) -> list[Violation]:
 
 
 def validate_manifest(path: Path) -> list[Violation]:
-    """Validate a harness-specific plugin.json manifest.
-
-    Enforces harness-specific schema requirements (e.g. Claude Code requiring arrays
-    for file lists).
-    """
     violations: list[Violation] = []
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError) as exc:
         return [Violation(path, 1, f"JSON parse error: {exc}")]
 
-    # Identify harness by parent directory name
     harness_dir = path.parent.name
     is_claude = harness_dir == ".claude-plugin"
 
-    # Claude Code specific rules
     if is_claude:
         for field in ("agents", "skills", "commands"):
             val = data.get(field)
@@ -759,14 +662,6 @@ def validate_manifest(path: Path) -> list[Violation]:
 
 
 def validate_codex_agent(path: Path) -> list[Violation]:
-    """Validate a Codex CLI subagent file under ``.codex/agents/``.
-
-    Codex schema (per https://developers.openai.com/codex/subagents) is pure
-    TOML: the prompt body lives in ``developer_instructions`` (string), and
-    tools are inherited from the session's ``config.toml`` — Codex does NOT
-    accept a per-agent ``tools`` allowlist. ``mode`` is an OpenCode dialect
-    and is also rejected.
-    """
     violations: list[Violation] = []
     try:
         data = _toml_loads(path.read_text(encoding="utf-8"))
@@ -847,14 +742,6 @@ def check_agents_leak(files: Iterable[Path]) -> list[Violation]:
 
 
 def check_forbidden_vocab(files: Iterable[Path]) -> list[Violation]:
-    """Flag forbidden internal vocabulary or machine-specific paths in shipped
-    content.
-
-    Walks every file, line by line, and flags any match of
-    :data:`FORBIDDEN_VOCAB_PATTERNS`. Files in
-    :data:`_FORBIDDEN_VOCAB_ALLOWLIST` are skipped (the validator + its tests
-    legitimately reference the literal patterns).
-    """
     violations: list[Violation] = []
     for path in files:
         rel = _rel(path)
@@ -877,7 +764,7 @@ def check_forbidden_vocab(files: Iterable[Path]) -> list[Violation]:
                             f"forbidden vocabulary ({label}): {snippet}",
                         )
                     )
-                    break  # one violation per line is enough
+                    break
     return violations
 
 
@@ -953,9 +840,6 @@ def iter_manifests() -> Iterator[Path]:
 
 
 def iter_claude_hook_configs() -> Iterator[Path]:
-    """Resolve Claude's hook manifest path. If .claude-plugin/plugin.json
-    declares a `hooks` field, that is authoritative; otherwise Claude
-    auto-discovers hooks/hooks.json."""
     manifest_path = REPO_ROOT / ".claude-plugin" / "plugin.json"
     if manifest_path.is_file():
         try:
@@ -993,7 +877,7 @@ def iter_all_shipped_files() -> Iterator[Path]:
     if CLAUDE_AGENTS_DIR.is_dir():
         yield from sorted(CLAUDE_AGENTS_DIR.rglob("*.md"))
     if CODEX_AGENTS_DIR.is_dir():
-        yield from sorted(CODEX_AGENTS_DIR.rglob("*.toml"))
+        yield from sorted(CODEX_AGENTS_DIR.glob("*.toml"))
     if VSCODE_AGENTS_DIR.is_dir():
         yield from sorted(VSCODE_AGENTS_DIR.rglob("*.md"))
     cursor_rules_dir = REPO_ROOT / ".cursor" / "rules"
@@ -1003,11 +887,9 @@ def iter_all_shipped_files() -> Iterator[Path]:
         candidate = REPO_ROOT / name
         if candidate.is_file():
             yield candidate
-    # Public docs/ tree — user-facing release notes, roadmap, launch playbook.
     docs_dir = REPO_ROOT / "docs"
     if docs_dir.is_dir():
         yield from sorted(docs_dir.rglob("*.md"))
-    # Harness-specific install / config files that ship with the plugin.
     for rel in (
         ".opencode/INSTALL.md",
         ".opencode/plugins/litestar-skills.js",
@@ -1025,6 +907,261 @@ def _print_violations(violations: list[Violation]) -> None:
         print(f"[FAIL] {_rel(v.path)}{loc}: {v.message}")
 
 
+# --- Consolidated Validators ---
+
+def discover_antigravity_plugin_manifests(repo_root: Path) -> Iterator[Path]:
+    candidate = repo_root / "plugin.json"
+    if candidate.is_file():
+        yield candidate
+
+
+def validate_antigravity_plugin_manifest(repo_root: Path) -> list[Violation]:
+    path = repo_root / "plugin.json"
+    violations: list[Violation] = []
+    if not path.is_file():
+        return [Violation(path, None, "missing plugin.json")]
+    
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        return [Violation(path, 1, f"JSON parse error: {exc}")]
+
+    if not isinstance(data, dict):
+        return [Violation(path, 1, "manifest must be a JSON object")]
+
+    if data.get("$schema") != "https://antigravity.google/schemas/v1/plugin.json":
+        violations.append(Violation(path, 1, "schema must be https://antigravity.google/schemas/v1/plugin.json"))
+    for field in ("name", "description"):
+        value = data.get(field)
+        if not isinstance(value, str) or not value.strip():
+            violations.append(Violation(path, 1, f"{field!r} must be a non-empty string"))
+    return violations
+
+
+def _iter_hook_commands(hooks_manifest: object) -> Iterator[str]:
+    if not isinstance(hooks_manifest, dict):
+        return
+    hooks = hooks_manifest.get("hooks")
+    if not isinstance(hooks, dict):
+        return
+    session_start = hooks.get("SessionStart")
+    if not isinstance(session_start, list):
+        return
+    for matcher in session_start:
+        if not isinstance(matcher, dict):
+            continue
+        nested_hooks = matcher.get("hooks")
+        if not isinstance(nested_hooks, list):
+            continue
+        for hook in nested_hooks:
+            if not isinstance(hook, dict):
+                continue
+            command = hook.get("command")
+            if isinstance(command, str):
+                yield command
+
+
+def validate_antigravity_hook_commands(repo_root: Path) -> list[Violation]:
+    path = repo_root / "hooks.json"
+    violations: list[Violation] = []
+    if not path.is_file():
+        return [Violation(path, None, "missing hooks.json")]
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        return [Violation(path, 1, f"JSON parse error: {exc}")]
+
+    if not isinstance(data, dict):
+        return [Violation(path, 1, "hooks manifest must be a JSON object")]
+    if not isinstance(data.get("hooks"), dict):
+        return [Violation(path, 1, "top-level 'hooks' record missing")]
+
+    commands = list(_iter_hook_commands(data))
+    if not commands:
+        return [Violation(path, 1, "no SessionStart command hooks found")]
+
+    for command in commands:
+        for token in ("${extensionPath}", "${/}"):
+            if token in command:
+                violations.append(Violation(path, 1, f"unsupported template token {token!r} in hook command"))
+        if not any(token in command for token in ("ANTIGRAVITY_PLUGIN_ROOT", "AGY_PLUGIN_ROOT", "PLUGIN_ROOT")):
+            violations.append(Violation(path, 1, f"hook command must resolve an Antigravity plugin root: {command!r}"))
+    return violations
+
+
+def validate_claude_manifests_with_cli(repo_root: Path) -> list[Violation]:
+    violations: list[Violation] = []
+    if os.environ.get("SKIP_CLAUDE_VALIDATE") == "1":
+        return []
+
+    claude_cmd = shutil.which("claude")
+    if claude_cmd is None:
+        return [Violation(repo_root / ".claude-plugin" / "plugin.json", None, 
+                          "claude CLI not found on PATH. Install Claude Code or set SKIP_CLAUDE_VALIDATE=1")]
+
+    targets = (
+        repo_root / ".claude-plugin" / "plugin.json",
+        repo_root / ".claude-plugin" / "marketplace.json",
+    )
+
+    for target in targets:
+        if not target.is_file():
+            violations.append(Violation(target, None, "missing file"))
+            continue
+        
+        result = subprocess.run(
+            [claude_cmd, "plugin", "validate", str(target)],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        if result.returncode != 0:
+            msg = result.stdout + result.stderr
+            violations.append(Violation(target, None, f"Claude CLI validation failed:\n{msg}"))
+            
+    return violations
+
+
+def discover_codex_marketplaces(root: Path) -> Iterator[Path]:
+    candidate = root / ".agents" / "plugins" / "marketplace.json"
+    if candidate.is_file():
+        yield candidate
+
+
+def discover_codex_plugin_manifests(root: Path) -> Iterator[Path]:
+    root_manifest = root / ".codex-plugin" / "plugin.json"
+    if root_manifest.is_file():
+        yield root_manifest
+    package_manifest = root / PACKAGE_ROOT / ".codex-plugin" / "plugin.json"
+    if package_manifest.is_file():
+        yield package_manifest
+
+
+def validate_codex_marketplace(path: Path, repo_root: Path) -> list[Violation]:
+    violations: list[Violation] = []
+    if not path.is_file():
+        return []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as e:
+        return [Violation(path, 1, f"Invalid JSON: {e}")]
+
+    for plugin in data.get('plugins', []):
+        name = plugin.get('name', 'unknown')
+        source_field = plugin.get('source', {})
+
+        path_str = ""
+        is_local = False
+        if isinstance(source_field, str):
+            path_str, is_local = source_field, True
+        elif isinstance(source_field, dict) and source_field.get('source') == 'local':
+            path_str = source_field.get('path', '')
+            is_local = True
+
+        if not is_local:
+            continue
+
+        if not path_str.startswith('./'):
+            violations.append(Violation(path, 1, f"[plugin {name}]: path '{path_str}' must start with './'"))
+        normalized = path_str[2:] if path_str.startswith('./') else path_str
+        if not normalized or normalized.strip('/') == '':
+            violations.append(Violation(path, 1, f"[plugin {name}]: path '{path_str}' must not be empty or just './'"))
+        if '..' in path_str:
+            violations.append(Violation(path, 1, f"[plugin {name}]: path '{path_str}' must not contain '..'"))
+
+        resolved = (repo_root / normalized).resolve()
+        if not resolved.is_dir():
+            violations.append(Violation(path, 1, f"[plugin {name}]: path '{path_str}' does not resolve to a directory under the repo root ({resolved})"))
+        else:
+            plugin_manifest = resolved / ".codex-plugin" / "plugin.json"
+            if not plugin_manifest.is_file():
+                violations.append(Violation(path, 1, f"[plugin {name}]: path '{path_str}' is missing .codex-plugin/plugin.json"))
+
+    return violations
+
+
+def validate_codex_plugin_manifest(path: Path) -> list[Violation]:
+    violations: list[Violation] = []
+    if not path.is_file():
+        return []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as e:
+        return [Violation(path, 1, f"Invalid JSON: {e}")]
+
+    for key in data.get('userConfig', {}).keys():
+        if not re.match(r'^[a-z][a-zA-Z0-9]*$', key):
+            violations.append(Violation(path, 1, f"[userConfig]: key '{key}' must be camelCase (no hyphens or underscores)"))
+    return violations
+
+
+def validate_codex_package_layout(repo_root: Path) -> list[Violation]:
+    package = repo_root / PACKAGE_ROOT
+    violations: list[Violation] = []
+
+    if not package.exists():
+        return [Violation(package, None, "package directory is missing — run 'make sync-codex-package'")]
+
+    if package.is_symlink():
+        return [Violation(package, None, "expected a real directory, got symlink")]
+
+    expected_names = set(PACKAGE_DIRS)
+    actual_names = {p.name for p in package.iterdir()}
+
+    for name in expected_names:
+        violations.extend(_check_real_directory(package / name, repo_root))
+
+    for symlink in sorted(p.relative_to(repo_root) for p in package.rglob("*") if p.is_symlink()):
+        violations.append(Violation(repo_root / symlink, None, "package payload must contain real files, got symlink"))
+
+    for stray in sorted(actual_names - expected_names):
+        violations.append(Violation(package / stray, None, f"unexpected file/directory in package: {stray}"))
+
+    return violations
+
+
+def _check_real_directory(path: Path, repo_root: Path) -> list[Violation]:
+    rel_path = path.relative_to(repo_root)
+    if path.is_symlink():
+        return [Violation(path, None, f"expected a real directory, got symlink: {rel_path}")]
+    if not path.exists():
+        return [Violation(path, None, f"missing directory: {rel_path}")]
+    if not path.is_dir():
+        return [Violation(path, None, f"expected directory, got file: {rel_path}")]
+    return []
+
+
+def validate_codex_hook_commands(repo_root: Path) -> list[Violation]:
+    violations: list[Violation] = []
+    codex_hooks = (
+        Path(".codex/hooks.json"),
+        Path("hooks/hooks-codex.json"),
+        Path("plugins/flow/.codex/hooks.json"),
+        Path("plugins/flow/hooks/hooks.json"),
+    )
+    
+    for rel in codex_hooks:
+        path = repo_root / rel
+        if not path.is_file():
+            continue
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError) as e:
+            violations.append(Violation(path, 1, f"invalid JSON: {e}"))
+            continue
+        for group in data.get("hooks", {}).get("SessionStart", []):
+            for hook in group.get("hooks", []):
+                command = hook.get("command", "")
+                for token in ("${extensionPath}", "${/}"):
+                    if token in command:
+                        violations.append(Violation(path, 1, f"unsupported template token '{token}' in Codex hook command"))
+                if "PLUGIN_ROOT" not in command:
+                    violations.append(Violation(path, 1, f"Codex hook command must anchor to $PLUGIN_ROOT or $CLAUDE_PLUGIN_ROOT: {command!r}"))
+    return violations
+
+
 def main() -> int:
     all_violations: list[Violation] = []
     skills = list(iter_skills())
@@ -1037,6 +1174,7 @@ def main() -> int:
     manifests = list(iter_manifests())
     claude_hook_configs = list(iter_claude_hook_configs())
     antigravity_hook_configs = list(iter_antigravity_hook_configs())
+    
     for manifest_path in manifests:
         all_violations.extend(validate_manifest(manifest_path))
     for skill_path in skills:
@@ -1058,15 +1196,33 @@ def main() -> int:
         all_violations.extend(validate_claude_hook_config(hook_config_path))
     for hook_config_path in antigravity_hook_configs:
         all_violations.extend(validate_antigravity_hook_config(hook_config_path))
+        
     shipped = list(iter_all_shipped_files())
     all_violations.extend(check_agents_leak(shipped))
     all_violations.extend(check_forbidden_vocab(shipped))
+    
+    # Antigravity specific manifests
+    all_violations.extend(validate_antigravity_plugin_manifest(REPO_ROOT))
+    all_violations.extend(validate_antigravity_hook_commands(REPO_ROOT))
+    
+    # Claude CLI validation
+    all_violations.extend(validate_claude_manifests_with_cli(REPO_ROOT))
+    
+    # Codex validation
+    for path in discover_codex_marketplaces(REPO_ROOT):
+        all_violations.extend(validate_codex_marketplace(path, REPO_ROOT))
+    for path in discover_codex_plugin_manifests(REPO_ROOT):
+        all_violations.extend(validate_codex_plugin_manifest(path))
+    all_violations.extend(validate_codex_package_layout(REPO_ROOT))
+    all_violations.extend(validate_codex_hook_commands(REPO_ROOT))
+    
     if all_violations:
         _print_violations(all_violations)
         print(f"\n{len(all_violations)} violation(s)", file=sys.stderr)
         return 1
+        
     agent_total = len(antigravity_agents) + len(opencode_agents) + len(claude_agents) + len(codex_agents) + len(vscode_agents)
-    print(f"[ OK ] validated {len(skills)} skills, {len(commands)} commands, {agent_total} agents — no violations")
+    print(f"[ OK ] validated {len(skills)} skills, {len(commands)} commands, {agent_total} agents, and all harness manifests — no violations")
     return 0
 
 

@@ -13,8 +13,7 @@ def _read(relative_path: str) -> str:
 def test_makefile_python_tool_targets_use_dev_extra() -> None:
     makefile = _read("Makefile")
 
-    assert "uv run --extra dev tools/validate-skills.py" in makefile
-    assert "uv run --extra dev tools/validate-codex-manifest.py" in makefile
+    assert "uv run --extra dev tools/validate.py" in makefile
     assert "uv run --extra dev tools/sync-manifests.py" in makefile
 
 

@@ -1,5 +1,5 @@
 ---
-description: Export Beads state to spec.md (source of truth sync)
+description: Synchronize context docs, Beads state, and export summaries
 argument-hint: [flow_id]
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash
 ---

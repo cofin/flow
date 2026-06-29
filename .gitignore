@@ -235,3 +235,6 @@ windsurf.mcp.json
 !.agents/plugins/marketplace.json
 !.agents/plugins/plugins/
 .beads/
+
+# Codex package build directory
+plugins/flow/

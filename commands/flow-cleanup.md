@@ -1,9 +1,11 @@
 ---
-description: Re-assess, reorganize, and optimize project context for implementation-readiness
+description: Groundskeeper: Global maintenance and optimization of .agents/
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash
 ---
 
-# flow:cleanup
+# Flow Cleanup
+
+> Lifecycle skill: use flow-sync-status through the flow router.
 
 **Role:** The Groundskeeper
 **Reference:** `references/cleanup.md`

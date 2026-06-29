@@ -20,7 +20,7 @@ def _write_fake_repo(root: Path) -> None:
         ".codex/INSTALL.md": "# Installing Flow for Codex\n",
         ".codex/agents/executor.toml": 'name = "executor"\n',
         ".codex/config.toml": "[profiles.flow]\n",
-        ".codex/hooks.json": "{}\n",
+        # Removed .codex/hooks.json
         "skills/flow/SKILL.md": "---\nname: flow\n---\n",
         "skills/flow/references/status.md": "# Status\n",
         "commands/flow-setup.md": "# Setup\n",
@@ -66,7 +66,8 @@ def test_sync_creates_real_package_tree_from_flow_sources(fake_repo: Path) -> No
     assert (package / "commands" / "flow-setup.md").read_text(encoding="utf-8") == "# Setup\n"
     assert not (package / "commands" / "flow" / "sync.toml").exists()
     assert (package / ".codex" / "agents" / "executor.toml").is_file()
-    assert (package / ".codex" / "hooks.json").is_file()
+    # Verified that it is generated from hooks/hooks-codex.json
+    assert (package / ".codex" / "hooks.json").read_text(encoding="utf-8") == '{"codex": true}\n'
     assert not (package / ".codex" / "config.toml").exists()
     assert (package / "hooks" / "lib" / "skill-map.json").is_file()
     # The package's auto-discovered hooks/hooks.json is overwritten with the

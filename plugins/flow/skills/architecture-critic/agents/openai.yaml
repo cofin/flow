@@ -1,3 +1,0 @@
-interface:
-  display_name: "Architecture Critic"
-  short_description: "Structural review for boundaries, coupling, abstractions, and long-term maintainability"

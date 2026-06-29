@@ -1,5 +1,5 @@
 ---
-description: Display progress overview from Beads
+description: Display progress overview with Beads status
 allowed-tools: Read, Glob, Grep, Bash
 ---
 

@@ -1,5 +1,5 @@
 ---
-description: Create ephemeral exploration flow (no audit trail)
+description: Create ephemeral task (no audit trail)
 argument-hint: <description>
 allowed-tools: Read, Write, Bash
 ---

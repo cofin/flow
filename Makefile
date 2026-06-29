@@ -58,18 +58,6 @@ lint:                                               ## Lint markdown and refresh
 	@uv run --extra dev tools/sync-codex-package.py
 	@echo "${OK} Markdown linting passed"
 
-.PHONY: validate-skills
-validate-skills:                                   ## Validate skill / command / agent manifests
-	@echo "${INFO} Validating skill manifests..."
-	@uv run --extra dev tools/validate-skills.py
-	@echo "${OK} Skill manifests valid"
-
-.PHONY: validate-codex-manifest
-validate-codex-manifest:                           ## Validate Codex marketplace and plugin manifests
-	@echo "${INFO} Validating Codex manifests..."
-	@uv run --extra dev tools/validate-codex-manifest.py
-	@echo "${OK} Codex manifests valid"
-
 .PHONY: sync-codex-package
 sync-codex-package:                                ## Assemble the committed Codex marketplace package at plugins/flow/
 	@echo "${INFO} Syncing Codex marketplace package..."
@@ -82,18 +70,6 @@ codex-package-check:                               ## Verify plugins/flow/ match
 	@uv run --extra dev tools/sync-codex-package.py --check
 	@echo "${OK} Codex marketplace package is current"
 
-.PHONY: validate-claude-manifest
-validate-claude-manifest:                          ## Validate Claude Code plugin/marketplace manifests
-	@echo "${INFO} Validating Claude manifests..."
-	@uv run --extra dev tools/validate-claude-manifest.py
-	@echo "${OK} Claude manifests valid"
-
-.PHONY: validate-antigravity-manifest
-validate-antigravity-manifest:                      ## Validate Antigravity plugin and hook manifests
-	@echo "${INFO} Validating Antigravity manifests..."
-	@uv run --extra dev tools/validate-antigravity-manifest.py
-	@echo "${OK} Antigravity manifests valid"
-
 .PHONY: sync-manifests
 sync-manifests:                                    ## Sync version strings across all manifests
 	@echo "${INFO} Syncing version strings..."
@@ -101,7 +77,14 @@ sync-manifests:                                    ## Sync version strings acros
 	@echo "${OK} Version strings in sync"
 
 .PHONY: check
-check: lint validate-skills codex-package-check validate-codex-manifest validate-claude-manifest validate-antigravity-manifest sync-manifests ## Run all quality checks (lint + validate)
+
+.PHONY: validate
+validate:                                          ## Validate all manifests, skills, commands, and agents
+	@echo "${INFO} Running consolidated validation..."
+	@uv run --extra dev tools/validate.py
+	@echo "${OK} Validation passed"
+
+check: lint codex-package-check validate sync-manifests ## Run all quality checks (lint + validate)
 	@echo "${OK} All checks passed"
 
 .PHONY: build
