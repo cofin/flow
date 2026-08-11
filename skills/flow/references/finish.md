@@ -1,8 +1,6 @@
 
 # Flow Finish
 
-> **Beads mode:** Skip every `bd` invocation below when the SessionStart hook reports `Beads Backend: Missing (None)` or `Disabled via plugin config (useBeads=false)`. Treat `spec.md` markers as fallback source of truth and skip `/flow:sync`. Never halt for missing Beads. See `discipline.md`.
-
 Complete a flow's development work by verifying, reviewing, and integrating.
 
 ## Usage
@@ -12,21 +10,9 @@ Complete a flow's development work by verifying, reviewing, and integrating.
 ## Phase 1: Load Context
 
 1. **Read Flow Artifacts:**
-   - `.agents/specs/{flow_id}/spec.md`
-   - `.agents/specs/{flow_id}/metadata.json`
-2. **Load Beads context:**
-
-   ```bash
-   bd show {epic_id}
-   ```
-
-3. **Verify all tasks completed** — check Beads for any open tasks:
-
-   ```bash
-   bd list --parent {epic_id} --status open
-   ```
-
-   If open tasks remain, warn and confirm with user before proceeding.
+   - `.agents/bundles/specs/{flow_id}/spec.md`
+   - `.agents/bundles/specs/{flow_id}/metadata.json`
+2. **Verify all tasks completed:** Read all task files under `.agents/bundles/specs/{flow_id}/tasks/*.md` and ensure their frontmatter status is closed or skipped. If any tasks are open or in_progress, warn and confirm with the user before proceeding.
 
 ## Phase 2: Verification Gate
 
@@ -37,13 +23,7 @@ IRON LAW: NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
 1. **Run full test suite** — read output, confirm 0 failures
 2. **Run coverage check** — confirm target met with actual numbers
 3. **Run linter/formatter** — confirm clean output
-4. **Sync Beads to spec.md:**
-
-   ```bash
-   # Ensure spec.md reflects current state
-   ```
-
-   Follow `syncPolicy.flowSyncAfterMutation`; when enabled, run `/flow:sync` to update spec.md from Beads.
+4. **Sync Spec Checklist:** Run `/flow:sync` to reconcile spec.md task checklists with task files.
 
 **If any check fails:** Report actual results. Do NOT proceed until issues resolved.
 
@@ -51,12 +31,10 @@ IRON LAW: NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
 
 Dispatch final comprehensive code review:
 
-1. **Get git range** from Beads task completion records:
+1. **Get git range:** Locate the Git range by finding the merge-base between main and the current branch:
 
    ```bash
-   # Base: commit before first task started
-   # Head: current HEAD
-   git log --oneline {base_sha}..HEAD
+   git log --oneline $(git merge-base main HEAD)..HEAD
    ```
 
 2. **Dispatch code review subagent** with:
@@ -70,7 +48,7 @@ Dispatch final comprehensive code review:
    - **Important issues** → should fix, confirm with user
    - **Minor issues** → note in learnings.md
 
-4. **Log review findings** to `.agents/specs/{flow_id}/learnings.md`
+4. **Log review findings** to `.agents/bundles/specs/{flow_id}/learnings.md`
 
 **Reference:** `superpowers:requesting-code-review` for dispatch pattern
 
@@ -148,21 +126,7 @@ git checkout {base_branch}
 git branch -D {feature_branch}
 ```
 
-## Phase 6: Beads Cleanup
-
-For Options 1, 2 (successful completion):
-
-```bash
-bd close {epic_id} --reason "Flow finished: {option_chosen}"
-```
-
-For Option 4 (discard):
-
-```bash
-bd close {epic_id} --reason "Flow discarded"
-```
-
-## Phase 7: Worktree Cleanup
+## Phase 6: Worktree Cleanup
 
 If working in a git worktree:
 
@@ -180,4 +144,4 @@ git worktree list | grep {feature_branch}
 2. **CODE REVIEW FIRST** — Dispatch review before presenting options
 3. **CONFIRM DISCARD** — Require typed "discard" for Option 4
 4. **SUGGEST ARCHIVE** — After merge/PR, prompt for `flow-archive`
-5. **SYNC BEADS** — Close epic after executing choice
+5. **UPDATE SPEC STATUS** — Mark the spec's status to completed in spec.md on successful finish.

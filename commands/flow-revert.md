@@ -6,8 +6,6 @@ allowed-tools: Read, Write, Edit, Bash
 
 # Flow Revert
 
-> **Beads mode:** Skip every `bd` invocation below when the SessionStart hook reports `Beads Backend: Missing (None)` or `Disabled via plugin config (useBeads=false)`. Treat `spec.md` markers as fallback source of truth and skip `/flow:sync`. Never halt for missing Beads. See `skills/flow/references/discipline.md`.
->
 > Lifecycle skill: use `flow-completion` through the `flow` router.
 
 Reverting: **$ARGUMENTS**
@@ -16,21 +14,23 @@ Reverting: **$ARGUMENTS**
 
 Determine revert scope:
 
-- `flow {flow_id}` - Revert entire flow
-- `phase {flow_id} {N}` - Revert phase N
-- `task {flow_id} {N}` - Revert single task
+- `flow {flow_id}` - Revert entire flow spec and folder (if deleted)
+- `phase {flow_id} {N}` - Revert phase N commits
+- `task {flow_id} {N}` - Revert single task commit
 
 ---
 
 ## Phase 2: Find Commits
 
-Use git notes to find related commits:
+1. **Reverting a Flow (Restoring Specs)**: If the spec directory is deleted, run:
+   ```bash
+   python3 tools/flow_completion.py revert-delete {flow_id}
+   ```
+   And set the spec's status to `in_progress` in `.agents/bundles/specs/{flow_id}/spec.md`.
 
-```bash
-git log --notes --grep="flow.*{flow_id}" --oneline
-```
+2. **Reverting a Task**: Read `.agents/bundles/specs/{flow_id}/tasks/{task_id}.md` to extract `commit: <sha>` from YAML frontmatter.
 
-For phase/task, filter by specific markers.
+3. **Reverting a Phase**: Read `.agents/bundles/specs/{flow_id}/spec.md` to identify the task IDs in the target phase, and read each corresponding task file under `tasks/` to extract their commit SHAs.
 
 ---
 
@@ -43,11 +43,9 @@ Revert Target: {scope}
 
 Commits to revert:
   - abc1234: feat(auth): Add login endpoint
-  - def5678: feat(auth): Add user model
 
 Files affected:
   - src/auth/login.ts
-  - src/auth/user.ts
   - tests/auth/login.test.ts
 
 Proceed with revert? (yes/no)
@@ -57,27 +55,28 @@ Proceed with revert? (yes/no)
 
 ## Phase 4: Execute Revert
 
-```bash
-git revert --no-commit {commits}
-git commit -m "revert({scope}): Revert {description}"
-```
+1. **Revert Commits**: Run git revert for the resolved commit(s) in reverse chronological order:
+   ```bash
+   git revert --no-commit {commits}
+   ```
+2. **Commit Reversal**: Commit the revert changes:
+   ```bash
+   git commit -m "revert({scope}): Revert changes for {target}"
+   ```
 
 ---
 
-## Phase 5: Sync Beads (Source of Truth)
+## Phase 5: Update Metadata & Sync
 
-```bash
-bd update {task_ids} --status open
-```
+1. **Reset Task Status**: For reverted tasks, edit their task files under `tasks/*.md`:
+   - `status: open`
+   - `commit: null`
+2. **Sync**: Run `/flow:sync` to update `spec.md` task checklists to match the reverted task states.
 
 ---
-
-### Markdown Sync (Manual)
-
-**CRITICAL:** Do NOT write markers directly to spec.md. Follow `syncPolicy.flowSyncAfterMutation`; when enabled, run `/flow-sync` to update the markdown state after task completion or status changes.
 
 ## Critical Rules
 
-1. **CONFIRM FIRST** - Always show what will be reverted
-2. **NO FORCE** - Use revert, not reset
-3. **BEADS FIRST** - Update Beads before syncing markdown
+1. **CONFIRM FIRST** - Always show what will be reverted before running git revert
+2. **NO FORCE** - Use git revert, not git reset
+3. **METADATA FIRST** - Reset task file status and run sync after committing the revert

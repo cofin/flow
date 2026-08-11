@@ -7,7 +7,7 @@ description: Rewrite flow completion and archiving commands to synthesize task n
 status: planned
 parent_prd: remove-beads
 created_at: '2026-07-09T00:27:32+00:00'
-updated_at: '2026-08-11T23:05:50.165593Z'
+updated_at: '2026-08-11T23:11:32.699862Z'
 flow_id: flow-completion-rewrite
 ---
 
@@ -47,7 +47,7 @@ This flow rewrites `/flow:finish` and `/flow:archive` to synthesize task notes a
 
 ### Phase 1: Python Completion Tooling (`tools/flow_completion.py`)
 
-- [ ] Task 1.1: Write unit tests for the completion helper script
+- [x] Task 1.1: Write unit tests for the completion helper script [09fb75a]
   - **Target Files**:
     - [tests/test_flow_completion.py](../../../../tests/test_flow_completion.py)
   - **Implementation Details**:
@@ -71,7 +71,7 @@ This flow rewrites `/flow:finish` and `/flow:archive` to synthesize task notes a
       pytest tests/test_flow_completion.py
       ```
 
-- [ ] Task 1.2: Implement the completion helper script
+- [x] Task 1.2: Implement the completion helper script [09fb75a]
   - **Target Files**:
     - [tools/flow_completion.py](../../../../tools/flow_completion.py)
   - **Implementation Details**:

@@ -4,24 +4,24 @@ prompt = """
 Use the `flow-completion` lifecycle skill through the `flow` router before carrying out this command.
 
 ## 1.0 SYSTEM DIRECTIVE
-You are completing a Flow's development work. Your task is to verify all tests pass, finalize the Beads state, and help the user integrate their work.
+You are completing a Flow's development work. Your task is to verify all tests pass, validate the OKF task files status, and help the user integrate their work.
 
 CRITICAL: You must have FRESH VERIFICATION EVIDENCE before claiming anything passes.
 
 ---
 
 ## 3.0 VERIFICATION & SYNC
-**PROTOCOL: Finalize Beads and Sync Markdown.**
+**PROTOCOL: Validate Tasks and Sync Markdown.**
 
 1.  **Final Verification:** Run all tests and check coverage.
-2.  **Beads Finalization:** Close all remaining tasks in the active backend.
-3.  **Sync:** Follow `syncPolicy.flowSyncAfterMutation`; when enabled, run `/flow:sync` to update the Markdown view with final statuses and notes.
+2.  **Task Validation:** Read all files under `.agents/bundles/specs/{flow_id}/tasks/*.md` to ensure they are marked as closed or skipped.
+3.  **Sync:** Run `/flow:sync` to reconcile `spec.md` task checklists with task files.
 
 ---
 
 ## 7.0 CLEANUP
-**PROTOCOL: Close the Epic.**
+**PROTOCOL: Update Spec Status.**
 
-1.  **Close Epic:** Use the active backend to close the flow epic with a summary of the outcome.
-2.  **Archive:** Recommend `/flow:archive` to move artifacts to history.
+1.  **Update Spec Status:** Mark spec complete by editing the frontmatter of `.agents/bundles/specs/{flow_id}/spec.md` to `status: completed` and updating `updated_at`.
+2.  **Archive:** Recommend `/flow:archive` to synthesize learnings and clean up the active spec bundle directory.
 """

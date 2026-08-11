@@ -18,14 +18,14 @@ Use this lifecycle skill for review, finish, archive, revert, docs, validation, 
 ## Guardrails
 
 - No completion claim without fresh verification evidence.
-- Do not archive flows whose code, tests, Beads tasks, and markdown views disagree.
+- Do not archive flows whose code, tests, task metadata, and markdown views disagree.
 - Do not revert unrelated files or user changes.
 - Keep knowledge chapters current-state oriented; avoid historical logs outside learnings.
 
 ## Validation
 
 - Run full relevant test and validation commands before finish/archive.
-- Confirm Beads tasks are closed or intentionally blocked/deferred.
+- Confirm task metadata files are closed or skipped.
 - Confirm `spec.md`, learnings, patterns, and knowledge chapters reflect the current state.
 
 ## References Index
@@ -42,4 +42,4 @@ Use this lifecycle skill for review, finish, archive, revert, docs, validation, 
 
 User: "Finish this flow."
 
-Action: run verification, review against the spec, close or explain remaining tasks, sync markdown, elevate reusable patterns, and present finish options.
+Action: run verification, review against the spec, verify task files are closed, sync markdown, elevate reusable patterns, and present finish options.

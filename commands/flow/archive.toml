@@ -13,24 +13,24 @@ You are an AI agent assistant for the Flow spec-driven development framework. Yo
 ## 1.1 VALIDATION
 
 1.  **Check Input:** Ensure `flow_id` is provided. If not, scan `.agents/bundles/specs/` dynamically, list completed flows, and ask the user to select.
-3.  **Verify Completion:** Check `.agents/bundles/specs/{flow_id}/spec.md` Implementation Plan section (or scan task files under `.agents/bundles/specs/{flow_id}/tasks/*.md`) to verify completion status.
-    *   If tasks are incomplete, warn the user: "Flow '<flow_id>' has incomplete tasks. Archive anyway? (y/n)"
+2.  **Verify Completion:** Check `.agents/bundles/specs/{flow_id}/spec.md` status.
+    *   If status is not `completed`, warn the user: "Flow '<flow_id>' is not marked as completed. Archive anyway? (y/n)"
 
 ---
 
 ## 2.0 PATTERN ELEVATION
 **PROTOCOL: Extract and merge knowledge.**
 
-1.  **Read Learnings:** Read `.agents/bundles/specs/<flow_id>/learnings.md`.
-2.  **Read Patterns:** Read `.agents/bundles/knowledge/patterns/patterns.md`.
+1.  **Read Learnings:** Read `.agents/bundles/specs/<flow_id>/extracted_learnings.md` (generate first using consolidate command).
+2.  **Read Patterns:** Read `.agents/patterns.md`.
 3.  **Analysis:**
-    *   Identify new patterns, gotchas, or conventions in `learnings.md` that are NOT yet in `patterns.md`.
+    *   Identify new patterns, gotchas, or conventions in `extracted_learnings.md` that are NOT yet in `patterns.md`.
     *   Filter out flow-specific trivialities.
 4.  **Proposal:**
     *   Present a list of "Candidates for Pattern Elevation" to the user.
     *   Ask: "Which of these should be added to the global patterns?"
 5.  **Merge:**
-    *   Append selected patterns to `.agents/bundles/knowledge/patterns/patterns.md` under appropriate sections.
+    *   Append selected patterns to `.agents/patterns.md` under appropriate sections.
     *   Format: `- {Pattern} (derived from <flow_id>)`
 
 ---
@@ -38,8 +38,11 @@ You are an AI agent assistant for the Flow spec-driven development framework. Yo
 ## 3.0 KNOWLEDGE SYNTHESIS
 **PROTOCOL: Persist synthesized learnings.**
 
-1.  **Create Directory:** Create `.agents/bundles/knowledge/` if missing.
-2.  **Read Sources:** Read `learnings.md` and `spec.md` from the flow.
+1.  **Consolidate Learnings:** Run consolidation to extract task discoveries:
+    ```bash
+    python3 tools/flow_completion.py consolidate <flow_id>
+    ```
+2.  **Read Sources:** Read `extracted_learnings.md` and `spec.md` from the flow folder.
 3.  **Synthesize Knowledge:**
     *   Synthesize learnings directly into cohesive, logically organized knowledge base chapters under `.agents/bundles/knowledge/` (e.g., `product/`, `workflow/`, `patterns/`, `code-styleguides/`).
     *   Update the current state of these documents. Do NOT outline history or create per-flow logs. The chapters are structurally there to provide the implementation details needed to be an expert on the codebase.
@@ -47,30 +50,21 @@ You are an AI agent assistant for the Flow spec-driven development framework. Yo
 ---
 
 ## 4.0 DELETE FLOW BUNDLE
-**PROTOCOL: Log and clean filesystem.**
+**PROTOCOL: Clean filesystem.**
 
-1.  **Log Flow Completion:**
-    Append metadata of the completed flow (ID, Title, completion timestamp) to `.agents/bundles/knowledge/log.md`.
-2.  **Delete Bundle Directory:**
+1.  **Delete Bundle Directory:** Run the safe deletion command:
     ```bash
-    rm -rf .agents/bundles/specs/<flow_id>/
+    python3 tools/flow_completion.py delete <flow_id>
     ```
 
 ---
 
 ## 5.0 GIT COMMIT
-1.  **Check Ignore Status:**
+1.  **Commit Changes:**
     ```bash
-    git check-ignore .agents/
-    ```
-    *   If output is non-empty (ignored), **SKIP COMMIT** and warn user: "Note: .agents/ is ignored. Archival changes are local only."
-    *   If output is empty (not ignored), proceed to commit.
-
-2.  **Commit Changes (if not ignored):**
-    ```bash
-    git add .agents/bundles/knowledge/
+    git add .agents/patterns.md .agents/bundles/knowledge/
     git rm -r .agents/bundles/specs/<flow_id>/
-    git commit -m "chore(archive): archive <flow_id> and elevate patterns"
+    git commit -m "chore(archive): synthesize learnings from <flow_id> and archive spec"
     ```
 
 ---
@@ -79,6 +73,5 @@ You are an AI agent assistant for the Flow spec-driven development framework. Yo
 Announce:
 "Flow '<flow_id>' successfully archived.
 - Spec deleted from filesystem
-- Patterns Elevated: [Count]
-- Logged in .agents/bundles/knowledge/log.md"
+- Patterns Elevated: [Count]"
 """
