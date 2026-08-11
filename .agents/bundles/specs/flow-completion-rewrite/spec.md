@@ -4,10 +4,10 @@ id: flow-completion-rewrite
 title: Flow Completion & Knowledge Base Synthesis
 description: Rewrite flow completion and archiving commands to synthesize task notes
   into the knowledge base and remove active specs.
-status: planned
+status: completed
 parent_prd: remove-beads
 created_at: '2026-07-09T00:27:32+00:00'
-updated_at: '2026-08-11T23:11:32.699862Z'
+updated_at: '2026-08-11T23:14:32.495787Z'
 flow_id: flow-completion-rewrite
 ---
 
@@ -106,7 +106,7 @@ This flow rewrites `/flow:finish` and `/flow:archive` to synthesize task notes a
 
 ### Phase 2: Command & Reference Refactoring
 
-- [ ] Task 2.1: Refactor the `/flow:finish` command and reference documentation
+- [x] Task 2.1: Refactor the `/flow:finish` command and reference documentation [477fac8]
   - **Target Files**:
     - [commands/flow-finish.md](../../../../commands/flow-finish.md)
     - [commands/flow/finish.toml](../../../../commands/flow/finish.toml)
@@ -131,7 +131,7 @@ This flow rewrites `/flow:finish` and `/flow:archive` to synthesize task notes a
       python3 tools/validate.py
       ```
 
-- [ ] Task 2.2: Refactor the `/flow:archive` command and reference documentation
+- [x] Task 2.2: Refactor the `/flow:archive` command and reference documentation [477fac8]
   - **Target Files**:
     - [commands/flow-archive.md](../../../../commands/flow-archive.md)
     - [commands/flow/archive.toml](../../../../commands/flow/archive.toml)
@@ -159,7 +159,7 @@ This flow rewrites `/flow:finish` and `/flow:archive` to synthesize task notes a
       python3 tools/validate.py
       ```
 
-- [ ] Task 2.3: Refactor the `/flow:revert` command and reference documentation
+- [x] Task 2.3: Refactor the `/flow:revert` command and reference documentation [477fac8]
   - **Target Files**:
     - [commands/flow-revert.md](../../../../commands/flow-revert.md)
     - [commands/flow/revert.toml](../../../../commands/flow/revert.toml)
@@ -180,7 +180,7 @@ This flow rewrites `/flow:finish` and `/flow:archive` to synthesize task notes a
       python3 tools/validate.py
       ```
 
-- [ ] Task 2.4: Update the `flow-completion` lifecycle skill
+- [x] Task 2.4: Update the `flow-completion` lifecycle skill [477fac8]
   - **Target Files**:
     - [skills/flow-completion/SKILL.md](../../../../skills/flow-completion/SKILL.md)
   - **Implementation Details**:
