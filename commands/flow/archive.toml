@@ -38,10 +38,10 @@ You are an AI agent assistant for the Flow spec-driven development framework. Yo
 ## 3.0 KNOWLEDGE SYNTHESIS
 **PROTOCOL: Persist synthesized learnings.**
 
-1.  **Consolidate Learnings:** Run consolidation to extract task discoveries:
-    ```bash
-    python3 tools/flow_completion.py consolidate <flow_id>
-    ```
+1.  **Consolidate Learnings:** Consolidate task discoveries directly:
+    *   Read all task files under `.agents/bundles/specs/<flow_id>/tasks/*.md` that have `status: closed` or `skipped`.
+    *   Read note lines starting with `- [` under `## Notes & Discoveries`.
+    *   Write these notes to `.agents/bundles/specs/<flow_id>/extracted_learnings.md` sorted by timestamp, annotated with their task ID.
 2.  **Read Sources:** Read `extracted_learnings.md` and `spec.md` from the flow folder.
 3.  **Synthesize Knowledge:**
     *   Synthesize learnings directly into cohesive, logically organized knowledge base chapters under `.agents/bundles/knowledge/` (e.g., `product/`, `workflow/`, `patterns/`, `code-styleguides/`).
@@ -52,10 +52,9 @@ You are an AI agent assistant for the Flow spec-driven development framework. Yo
 ## 4.0 DELETE FLOW BUNDLE
 **PROTOCOL: Clean filesystem.**
 
-1.  **Delete Bundle Directory:** Run the safe deletion command:
-    ```bash
-    python3 tools/flow_completion.py delete <flow_id>
-    ```
+1.  **Delete Bundle Directory:** Run safe deletion directly:
+    *   Read all task files under `.agents/bundles/specs/<flow_id>/tasks/*.md` and ensure their status is `closed` or `skipped`. If any task is open or in progress, abort and warn.
+    *   Delete all files inside `.agents/bundles/specs/<flow_id>/` (and its subdirectories) and remove the directory itself.
 
 ---
 

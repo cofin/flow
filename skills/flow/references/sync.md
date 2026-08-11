@@ -33,13 +33,7 @@ The sync reconciler operates directly on local markdown files:
 
 ## Phase 2: Run Integrity Validation
 
-Validate spec/task schemas and link resolution:
-
-```bash
-SKIP_CLAUDE_VALIDATE=1 python3 tools/validate.py
-```
-
-Validation checks:
+Validate spec/task schemas and link resolution directly using your file-manipulation tools:
 
 - Verify YAML frontmatter schemas for both specs and tasks.
 - Verify referenced files and tests in task files exist in the repository (enforced strictly only for `closed` tasks).

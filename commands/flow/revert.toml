@@ -67,7 +67,7 @@ Handles non-linear Git histories (rebase, squash, merge commits).
     *   **IF Phase Revert**: Parse `.agents/bundles/specs/{flow_id}/spec.md` checklist to find the task IDs in the target phase. Read their task files to get all their commit SHAs.
     *   **IF Flow Revert**: Read all task files under `.agents/bundles/specs/{flow_id}/tasks/*.md` to get all commit SHAs. If the specs folder itself was deleted, first restore it by running:
         ```bash
-        python3 tools/flow_completion.py revert-delete {flow_id}
+        git checkout HEAD -- .agents/bundles/specs/{flow_id}
         ```
 2.  **Compile and Analyze Final List:**
     *   Compile the list of SHAs to be reverted in reverse chronological order.

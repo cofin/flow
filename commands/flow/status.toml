@@ -4,19 +4,59 @@ prompt = """
 Use the `flow-sync-status` lifecycle skill through the `flow` router before carrying out this command.
 
 ## 1.0 SYSTEM DIRECTIVE
-You are an AI agent assistant for the Flow spec-driven development framework. Your task is to report the status of active flows using the unified status dashboard script.
+You are an AI agent assistant for the Flow spec-driven development framework. Your task is to report the status of active flows by aggregating status metrics and recent notes from the task metadata files directly.
+
+MANDATORY: Execute the status aggregation directly. Do NOT run external python scripts (like tools/status.py).
 
 CRITICAL: You must validate the success of every tool call. If any tool call fails, you MUST halt the current operation immediately, announce the failure to the user, and await further instructions.
 
 ---
 
-## 1.1 EXECUTION
-1.  **Run Status Dashboard Script**:
-    Execute the developer status dashboard tool to aggregate and display active flows, ready queues, blocked queues, and recent notes:
-    ```bash
-    python3 tools/status.py
-    ```
+## 1.1 EXECUTION PROTOCOL
+Perform the following steps directly in the workspace:
 
-2.  **Report**:
-    Present the output of the status script to the developer as the active dashboard view.
+1.  **Scan Active Specs**:
+    *   List all directories under `.agents/bundles/specs/`.
+    *   For each subdirectory, read `spec.md` and check the YAML frontmatter.
+    *   Find specs in status `planned` or `active` to identify active flows.
+
+2.  **Scan Tasks & Count Metrics**:
+    *   For each active flow, scan all task files under `tasks/*.md`.
+    *   Read each task file to extract: `status` (open, in_progress, closed, blocked, skipped), `depends_on`, and task notes under `## Notes & Discoveries` heading.
+    *   Count metrics: `total_tasks` (count of task files), `closed_count` (status is closed), `skipped_count` (status is skipped).
+    *   Calculate progress: `progress_percentage = closed_count / (total_tasks - skipped_count) * 100` (if denominator > 0).
+
+3.  **Resolve Queues**:
+    *   **Active Tasks**: list of task IDs in status `in_progress`.
+    *   **Ready Queue**: list of task IDs in status `open` and having all dependencies in status `closed`.
+    *   **Blocked Queue**: list of task IDs in status `blocked`, or in status `open` with unresolved dependencies.
+
+4.  **Extract Recent Notes**:
+    *   Extract note lines (`- [timestamp] text`) from the `## Notes & Discoveries` heading in each task file.
+    *   Sort all notes by timestamp descending and display the 5 most recent notes.
+
+5.  **Present Dashboard**:
+    *   Print the consolidated status dashboard:
+        ```text
+        ================================================================================
+                                   DEVELOPER STATUS DASHBOARD                           
+        ================================================================================
+        Active Flows: {active_flows_count}
+
+        Flow: {flow_id} [██████████░░░░░░░░░░] {progress}%
+          Tasks: {closed_count}/{total_tasks} closed (skipped: {skipped_count})
+          Active Task(s): {active_tasks}
+          Ready Queue (next up): {ready_queue}
+          Blocked Queue: {blocked_queue}
+
+        --------------------------------------------------------------------------------
+        Recent Notes & Discoveries:
+          [{timestamp}] ({task_id}): {note_text}
+        --------------------------------------------------------------------------------
+
+        Next Recommendations:
+          [{flow_id}]: Continue working on active task(s): {active_tasks}
+          [{flow_id}]: Claim and start next ready task: {first_ready_task}
+        ================================================================================
+        ```
 """

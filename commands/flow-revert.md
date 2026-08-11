@@ -22,9 +22,9 @@ Determine revert scope:
 
 ## Phase 2: Find Commits
 
-1. **Reverting a Flow (Restoring Specs)**: If the spec directory is deleted, run:
+1. **Reverting a Flow (Restoring Specs)**: If the spec directory is deleted, restore it from Git:
    ```bash
-   python3 tools/flow_completion.py revert-delete {flow_id}
+   git checkout HEAD -- .agents/bundles/specs/{flow_id}
    ```
    And set the spec's status to `in_progress` in `.agents/bundles/specs/{flow_id}/spec.md`.
 

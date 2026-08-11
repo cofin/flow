@@ -51,10 +51,7 @@ Suggest logical next steps based on the queue state:
 
 ---
 
-## Execution Command
+## Execution
 
-Run the status dashboard tool:
-
-```bash
-python3 tools/status.py
-```
+As the AI agent, you must execute the status dashboard aggregation directly inside your turn using the workflow detailed in Phase 1, 2, 3, and 4.
+Do NOT call external python tools. Use directory listing and file-reading tools to gather the metadata from spec and task files.

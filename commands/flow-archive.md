@@ -41,10 +41,7 @@ Read the `.agents/bundles/specs/{flow_id}/spec.md` status.
 
 ## Phase 3: Knowledge Synthesis
 
-1. Run consolidation to extract task discoveries:
-   ```bash
-   python3 tools/flow_completion.py consolidate {flow_id}
-   ```
+1. **Consolidate Learnings**: Read all task files under `.agents/bundles/specs/{flow_id}/tasks/*.md` that have `status: closed` or `skipped`, extract notes from the `## Notes & Discoveries` heading, and write them sorted by timestamp into `.agents/bundles/specs/{flow_id}/extracted_learnings.md`.
 2. Read the consolidated learnings at `.agents/bundles/specs/{flow_id}/extracted_learnings.md` and the specification `.agents/bundles/specs/{flow_id}/spec.md`.
 3. Synthesize learnings directly into cohesive, logically organized knowledge base chapters under `.agents/bundles/knowledge/` (e.g., `product/`, `workflow/`, `patterns/`, `code-styleguides/`).
 4. Update the current state of these documents. Do NOT outline history or create per-flow logs. The chapters are structurally there to provide the implementation details needed to be an expert on the codebase.
@@ -53,10 +50,7 @@ Read the `.agents/bundles/specs/{flow_id}/spec.md` status.
 
 ## Phase 4: Delete Flow Bundle
 
-1. Run the safe deletion command:
-   ```bash
-   python3 tools/flow_completion.py delete {flow_id}
-   ```
+1. **Safe Deletion**: Verify that all task files under `.agents/bundles/specs/{flow_id}/tasks/*.md` are in `closed` or `skipped` status. If any task is open or in progress, abort and warn. Otherwise, delete the folder `.agents/bundles/specs/{flow_id}/` from the filesystem.
 
 ---
 

@@ -6,33 +6,72 @@ Use the `flow-sync-status` lifecycle skill through the `flow` router before carr
 ## 1.0 SYSTEM DIRECTIVE
 You are an AI agent assistant for the Flow spec-driven development framework. Your task is to synchronize the current active flow spec and task files.
 
-MANDATORY: Run the python sync tool to reconcile task statuses and auto-scaffold missing task files.
+MANDATORY: Execute the reconciliation algorithm directly. Do NOT run external python sync/validate scripts.
 
 CRITICAL: Validate the success of every tool call. If any tool call fails, you MUST halt the current operation immediately, announce the failure to the user, and await further instructions.
 
 ---
 
-## 1.1 EXECUTION
-1.  **Run Sync Reconciler**:
-    If a flow ID is provided:
-    ```bash
-    python3 tools/sync.py "{{args}}"
-    ```
-    Otherwise:
-    ```bash
-    python3 tools/sync.py
-    ```
+## 1.1 RECONCILIATION ALGORITHM
+Perform the following steps directly in the workspace using your file-manipulation tools:
 
-2.  **Run Repository Validator**:
-    Run the repository validator to check OKF frontmatter schemas, markdown link integrity, and referenced files:
-    ```bash
-    SKIP_CLAUDE_VALIDATE=1 python3 tools/validate.py
-    ```
-    If validation returns any violations, report them to the developer and halt execution until resolved.
+1.  **Locate Active Flow**:
+    - Scan `.agents/bundles/specs/` to find the active flow directory (contains `spec.md` with status `active` or `in_progress`). If a flow ID argument is provided, target that flow ID.
+2.  **Read Spec File**:
+    - Read `.agents/bundles/specs/{flow_id}/spec.md`. Extract `flow_id` from the YAML frontmatter.
+3.  **Parse Tasks**:
+    - Find all task checklist lines in the spec body using regex. A task checklist line matches:
+      `^(\\s*-\\s*\\[([ ~x!-])\\]\\s*Task\\s+([a-zA-Z0-9._-]+)\\s*:\\s*)(.*?)(?:\\s*\\[([a-fA-F0-9]{7,})\\])?$`
+      Where:
+      - Group 2 is the status marker: ` ` (open), `~` (in_progress), `x` (closed), `!` (blocked), `-` (skipped).
+      - Group 3 is the Task ID (e.g. `1.1`).
+      - Group 4 is the task description.
+      - Group 5 is the optional commit SHA.
+4.  **Reconcile Tasks**:
+    - For each parsed task:
+      * Check if `.agents/bundles/specs/{flow_id}/tasks/{task_id}.md` exists.
+      * **If it does NOT exist**: Scaffold it with default YAML frontmatter:
+        ```yaml
+        ---
+        id: {flow_id}:{task_id}
+        status: open
+        depends_on: []
+        files: []
+        tests: []
+        created_at: <current_iso_timestamp>
+        updated_at: <current_iso_timestamp>
+        commit: null
+        ---
+        ```
+      * **If it DOES exist**: Read its YAML frontmatter. Check the `status` field:
+        - `open` -> Map checklist marker to `[ ]`
+        - `in_progress` -> Map checklist marker to `[~]`
+        - `closed` -> Map checklist marker to `[x]` (and append ` [<commit_sha>]` using the `commit` value from frontmatter)
+        - `blocked` -> Map checklist marker to `[!]`
+        - `skipped` -> Map checklist marker to `[-]`
+5.  **Update Spec File**:
+    - Rewrite `.agents/bundles/specs/{flow_id}/spec.md` with the updated checklist markers and commit SHAs, preserving the rest of the file.
 
 ---
 
-## 1.2 FINAL REPORT
+## 1.2 INTEGRITY VALIDATION PROTOCOL
+Perform the following validation checks:
+
+1.  **Verify Orphaned Task Files**:
+    - Scan `.agents/bundles/specs/{flow_id}/tasks/*.md`.
+    - Ensure that every task file has a corresponding checklist task in `spec.md`.
+    - If any task file is orphaned (not defined in `spec.md`), report a validation violation.
+2.  **Verify File and Test Paths**:
+    - For each task file in status `closed`, read `files:` and `tests:` arrays.
+    - Verify that all listed paths exist in the workspace. If any path does not exist, report a validation violation.
+3.  **Verify Markdown Links**:
+    - Scan all relative links in `spec.md` and verify they resolve to existing files or directories in the workspace.
+
+If validation fails, report all violations and halt execution.
+
+---
+
+## 1.3 FINAL REPORT
 Report:
 "Flow Sync Complete!
 - Flow synced: <flow_id>

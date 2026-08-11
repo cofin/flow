@@ -15,21 +15,27 @@ Performing global maintenance and integrity checks on Flow specifications and ta
 
 ---
 
-## Phase 1: Reconcile All Specs
+## Phase 1: Reconcile All Specs on Disk
 
-Run the sync reconciler on the active flow (if any) or execute it to ensure all task files are aligned with their respective spec plans:
+As the AI agent, you must execute the reconciliation algorithm directly:
 
-```bash
-python3 tools/sync.py
-```
+1. **Scan Specs Directory**:
+   - List all directories under `.agents/bundles/specs/`.
+   - For each directory, if it contains a `spec.md` file, run the **Reconciliation Algorithm** (described in `/flow:sync` command) to ensure task checklist items and task metadata files are fully synchronized.
 
-## Phase 2: Run Integrity Check
+## Phase 2: Integrity Validation
 
-Run the repository validation tool. This checks OKF YAML schemas, verifies that referenced files exist for closed tasks, checks that relative links are valid in completed flows, and flags any **orphaned task files** (files under `tasks/*.md` that are no longer listed in `spec.md` plans):
+Execute the repository integrity checks manually:
 
-```bash
-SKIP_CLAUDE_VALIDATE=1 python3 tools/validate.py
-```
+1. **Verify Orphaned Task Files**:
+   - Scan `.agents/bundles/specs/*/tasks/*.md`.
+   - Ensure that every task file has a corresponding checklist task in its parent `spec.md`.
+   - If any task file is orphaned (not defined in `spec.md`), delete it or flag a validation violation.
+2. **Verify File and Test Paths**:
+   - For each task file in status `closed` in any active flow, read `files:` and `tests:` arrays.
+   - Verify that all listed paths exist in the workspace. If any path does not exist, report a validation violation.
+3. **Verify Markdown Links**:
+   - Scan all relative links in `spec.md` files and verify they resolve to existing files or directories in the workspace.
 
 If validation fails, resolve the reported violations (e.g. delete orphaned task files, fix broken links, or add missing required frontmatter).
 
