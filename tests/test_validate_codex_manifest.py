@@ -53,7 +53,7 @@ def test_codex_package_layout_rejects_symlinked_package_payload(tmp_path: Path) 
 def _write_codex_hooks(root: Path, command: str) -> None:
     path = root / ".codex" / "hooks.json"
     path.parent.mkdir(parents=True, exist_ok=True)
-    manifest = {"hooks": {"SessionStart": [{"matcher": "*", "hooks": [{"type": "command", "command": command}]}]}}
+    manifest = {"hooks": {"SessionStart": [{"type": "command", "command": command}]}}
     path.write_text(json.dumps(manifest), encoding="utf-8")
 
 

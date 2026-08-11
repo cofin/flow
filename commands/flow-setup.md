@@ -78,25 +78,20 @@ If outdated, suggest the official install: `curl -fsSL https://raw.githubusercon
 
 **Scan for legacy spec locations:**
 
-- `specs/active/`
-- `specs/archive/`
-- `.agents/specs/active/` (if different from current)
-- `.agents/specs/archive/`
+- `specs/`
+- `.agents/specs/`
 
 **For each discovered spec directory:**
 
 ```text
 Found [N] specs in legacy locations:
 
-Active (specs/active/):
+Active (specs/):
   - user-auth (3/5 tasks complete)
   - api-refactor (complete, has learnings)
 
-Archived (specs/archive/):
-  - initial-mvp (archived, has learnings)
-
 Options:
-A) Migrate all to .agents/specs/ (recommended)
+A) Migrate all to .agents/bundles/specs/ (recommended)
 B) Migrate active only, skip archive
 C) Review each spec individually
 D) Skip migration
@@ -104,19 +99,11 @@ D) Skip migration
 
 **Migration steps for each spec:**
 
-1. Read `metadata.json` to understand status
-2. Read `spec.md`
-3. Read `learnings.md` if exists
-4. Check if referenced files still exist in codebase
-5. Copy to `.agents/specs/{flow_id}/`
-6. Update `.agents/flows.md` registry
-7. Create Beads epic if not exists:
-
-    ```bash
-    bd create "Flow: {flow_id}" -t epic -p 2 \
-      --description="{flow_description}"
-    bd update {epic_id} --notes "Migrated from legacy location. Created by Flow during setup"
-    ```
+1. Read `metadata.json` if exists, parse it to extract status, epic_id, and other metadata.
+2. Read legacy `spec.md` content.
+3. Parse and convert metadata into YAML frontmatter at the top of the new `spec.md` file.
+4. Copy spec file content (with YAML frontmatter prepended) to `.agents/bundles/specs/{flow_id}/spec.md`.
+5. Copy `learnings.md` to `.agents/bundles/specs/{flow_id}/learnings.md` if it exists.
 
 ### 0.1.3 Learnings Ingestion with Validation
 
@@ -403,15 +390,15 @@ Create `<root_directory>/beads.json` with local-only configuration from `templat
 Create:
 
 - `<root_directory>/index.md` - File resolution index
-- `<root_directory>/flows.md` - Empty flow registry
 - `<root_directory>/patterns.md` - Empty patterns template
-- `<root_directory>/knowledge/index.md` - Knowledge base index (from template)
+- `<root_directory>/bundles/knowledge/index.md` - Knowledge base index (from template)
 
 ```bash
-mkdir -p <root_directory>/knowledge
+mkdir -p <root_directory>/bundles/specs
+mkdir -p <root_directory>/bundles/knowledge
 ```
 
-Copy `knowledge/index.md` from the Flow templates (`templates/agent/knowledge/index.md`).
+Copy `knowledge/index.md` from the Flow templates (`templates/agent/knowledge/index.md`) to `<root_directory>/bundles/knowledge/index.md`.
 
 ---
 
@@ -542,9 +529,8 @@ Created:
 - workflow.md
 - beads.json
 - index.md
-- flows.md
 - patterns.md
-- knowledge/index.md
+- bundles/knowledge/index.md
 - code-styleguides/
 
 Next Steps:

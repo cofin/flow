@@ -268,13 +268,8 @@ def test_antigravity_hook_config_accepts_plugin_root_command(tmp_path: Path) -> 
             "hooks": {
                 "SessionStart": [
                     {
-                        "matcher": "*",
-                        "hooks": [
-                            {
-                                "type": "command",
-                                "command": 'r="${ANTIGRAVITY_PLUGIN_ROOT:-${PLUGIN_ROOT:-${AGY_PLUGIN_ROOT:-}}}"; bash "$r/hooks/session-start.sh"',
-                            }
-                        ],
+                        "type": "command",
+                        "command": 'r="${ANTIGRAVITY_PLUGIN_ROOT:-${PLUGIN_ROOT:-${AGY_PLUGIN_ROOT:-}}}"; bash "$r/hooks/session-start.sh"',
                     }
                 ]
             }
@@ -330,3 +325,190 @@ def test_repo_codex_manifest_validates() -> None:
     codex_violations = validate_skills.validate_manifest(REPO_ROOT / ".codex-plugin" / "plugin.json")
 
     assert codex_violations == []
+
+
+def test_skill_uses_bundles_directory_layout() -> None:
+    skill_content = (REPO_ROOT / "skills" / "flow" / "SKILL.md").read_text(encoding="utf-8")
+    assert ".agents/bundles/specs/" in skill_content
+    assert ".agents/specs/" not in skill_content
+
+
+def _write_okf_file(path: Path, frontmatter: str, content: str = "") -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(f"---\n{frontmatter.strip()}\n---\n{content}", encoding="utf-8")
+
+
+def test_validate_okf_flow_frontmatter_fails_on_missing_required_fields(tmp_path: Path) -> None:
+    # Missing required field 'status'
+    spec_path = tmp_path / "bundles" / "specs" / "test-flow" / "spec.md"
+    _write_okf_file(
+        spec_path,
+        """
+flow_id: test-flow
+type: feature
+created_at: 2026-08-11T12:00:00Z
+updated_at: 2026-08-11T12:00:00Z
+description: Test flow
+""",
+    )
+
+    violations = validate_skills.validate_okf_bundle(spec_path.parent, repo_root=tmp_path)
+    assert any("missing required field" in v.message and "status" in v.message for v in violations)
+
+
+def test_validate_okf_task_frontmatter_fails_on_missing_fields(tmp_path: Path) -> None:
+    # Missing required field 'status' in task
+    spec_path = tmp_path / "bundles" / "specs" / "test-flow" / "spec.md"
+    _write_okf_file(
+        spec_path,
+        """
+flow_id: test-flow
+type: feature
+status: active
+created_at: 2026-08-11T12:00:00Z
+updated_at: 2026-08-11T12:00:00Z
+description: Test flow
+""",
+    )
+    task_path = spec_path.parent / "tasks" / "001-task.md"
+    _write_okf_file(
+        task_path,
+        """
+id: test-flow:001-task
+depends_on: []
+files: []
+tests: []
+created_at: 2026-08-11T12:00:00Z
+updated_at: 2026-08-11T12:00:00Z
+""",
+    )
+
+    violations = validate_skills.validate_okf_bundle(spec_path.parent, repo_root=tmp_path)
+    assert any("missing required field" in v.message and "status" in v.message for v in violations)
+
+
+def test_validate_okf_task_referenced_files_exist(tmp_path: Path) -> None:
+    spec_path = tmp_path / "bundles" / "specs" / "test-flow" / "spec.md"
+    _write_okf_file(
+        spec_path,
+        """
+flow_id: test-flow
+type: feature
+status: active
+created_at: 2026-08-11T12:00:00Z
+updated_at: 2026-08-11T12:00:00Z
+description: Test flow
+""",
+    )
+    task_path = spec_path.parent / "tasks" / "001-task.md"
+    # References non-existent file 'src/non_existent.py'
+    _write_okf_file(
+        task_path,
+        """
+id: test-flow:001-task
+status: closed
+depends_on: []
+files:
+  - src/non_existent.py
+tests: []
+created_at: 2026-08-11T12:00:00Z
+updated_at: 2026-08-11T12:00:00Z
+""",
+    )
+
+    violations = validate_skills.validate_okf_bundle(spec_path.parent, repo_root=tmp_path)
+    assert any("referenced file does not exist" in v.message and "src/non_existent.py" in v.message for v in violations)
+
+    # Let's create the file and make sure validation passes
+    (tmp_path / "src").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "src" / "non_existent.py").write_text("# exists now", encoding="utf-8")
+    violations2 = validate_skills.validate_okf_bundle(spec_path.parent, repo_root=tmp_path)
+    assert not any("referenced file does not exist" in v.message and "src/non_existent.py" in v.message for v in violations2)
+
+
+def test_validate_okf_task_id_format(tmp_path: Path) -> None:
+    spec_path = tmp_path / "bundles" / "specs" / "test-flow" / "spec.md"
+    _write_okf_file(
+        spec_path,
+        """
+flow_id: test-flow
+type: feature
+status: active
+created_at: 2026-08-11T12:00:00Z
+updated_at: 2026-08-11T12:00:00Z
+description: Test flow
+""",
+    )
+    task_path = spec_path.parent / "tasks" / "001-task.md"
+    # Task ID does not match expected format '<flow_id>:<task_name>' (uses 'wrong-flow' instead of 'test-flow')
+    _write_okf_file(
+        task_path,
+        """
+id: wrong-flow:001-task
+status: open
+depends_on: []
+files: []
+tests: []
+created_at: 2026-08-11T12:00:00Z
+updated_at: 2026-08-11T12:00:00Z
+""",
+    )
+
+    violations = validate_skills.validate_okf_bundle(spec_path.parent, repo_root=tmp_path)
+    assert any("task ID prefix" in v.message and "test-flow" in v.message for v in violations)
+
+
+def test_validate_okf_task_orphaned_fails(tmp_path: Path) -> None:
+    spec_path = tmp_path / "bundles" / "specs" / "test-flow" / "spec.md"
+    _write_okf_file(
+        spec_path,
+        """
+flow_id: test-flow
+type: feature
+status: active
+created_at: 2026-08-11T12:00:00Z
+updated_at: 2026-08-11T12:00:00Z
+description: Test flow
+""",
+        content="""
+# Test Flow
+
+## Implementation Plan
+
+### Phase 1: Setup
+- [ ] Task 1.1: First task
+""",
+    )
+    
+    # 1. Valid task file (1.1.md)
+    _write_okf_file(
+        spec_path.parent / "tasks" / "1.1.md",
+        """
+id: test-flow:1.1
+status: open
+depends_on: []
+files: []
+tests: []
+created_at: 2026-08-11T12:00:00Z
+updated_at: 2026-08-11T12:00:00Z
+""",
+    )
+    
+    # 2. Orphaned task file (1.2.md - not in spec.md checklist!)
+    _write_okf_file(
+        spec_path.parent / "tasks" / "1.2.md",
+        """
+id: test-flow:1.2
+status: open
+depends_on: []
+files: []
+tests: []
+created_at: 2026-08-11T12:00:00Z
+updated_at: 2026-08-11T12:00:00Z
+""",
+    )
+
+    violations = validate_skills.validate_okf_bundle(spec_path.parent, repo_root=tmp_path)
+    assert any("orphaned task file" in v.message and "1.2" in v.message for v in violations)
+
+

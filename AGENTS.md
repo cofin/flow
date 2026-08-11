@@ -9,24 +9,22 @@ This file provides guidance to AI coding agents working with code in this reposi
 **Flow** is a unified toolkit for **Context-Driven Development** combining:
 
 - **Flow Framework**: Spec-first planning, human-readable context, TDD workflow
-- **Beads Integration**: **Primary Source of Truth** for task state and persistent context.
+- **Task-Centric Filesystem Engine (OKF)**: Local specifications (`spec.md`) and task files (`tasks/*.md`) with YAML frontmatter.
 
-Beads is a **required dependency**. Flow will offer to install it and configures it for **local-only mode** by default.
+## The Task-First Mandate
 
-## The Beads-First Mandate
+**CRITICAL:** Every task, discovery, and decision MUST be recorded in the local specification folder.
 
-**CRITICAL:** Every task, discovery, and decision MUST be recorded in Beads (`bd`).
-
-- **Epics**: Define Flows and Sagas.
-- **Tasks**: Define implementation steps.
-- **Notes**: Preserve context (investigation findings, architectural decisions).
-- **Markdown**: `spec.md` and `prd.md` are **Synchronized Views** of the Beads state. Run `/flow:sync` to update them when `syncPolicy.flowSyncAfterMutation` is enabled.
+- **Flow Specs**: A unified `spec.md` outlining the roadmap and implementation checklists.
+- **Task Files**: Individual markdown files under `tasks/*.md` tracking status, dependencies, target files, and tests.
+- **Notes & Discoveries**: Captured directly in the corresponding task file under the `## Notes & Discoveries` heading to preserve context.
+- **Spec Reconciler**: Run `python3 tools/sync.py` to automatically reconcile the task checklist in `spec.md` with individual task file statuses.
 
 ## Auto-Activation
 
 ...
 
-When the `.agents/` directory exists in the project root, the Flow skill MUST be activated at session start. Detect the active Beads backend (`bd` or none) and load context before beginning work.
+When the `.agents/` directory exists in the project root, the Flow skill MUST be activated at session start. Detect the Flow specifications directory and load active specs and tasks before beginning work.
 
 ## Agent Conduct
 
@@ -58,7 +56,7 @@ To ensure high-reasoning model routing and automated verification, all complex F
 
 All spec and design documents (including those created by superpowers brainstorming) MUST be written to the Flow spec directory:
 
-- Default: `.agents/specs/<flow_id>/`
+- Default: `.agents/bundles/specs/<flow_id>/`
 - Check `.agents/setup-state.json` for custom `root_directory`
 - Do NOT use `docs/superpowers/specs/` — Flow manages all specs in `.agents/`
 
@@ -89,10 +87,8 @@ To find a file (e.g., "**Product Definition**") within a specific context:
 1. **Identify Index:** Determine the relevant index file:
     - **Project Context:** `.agents/index.md`
     - **Flow Context:**
-        a. Resolve and read the **Flow Registry** (via Project Context)
-        b. Find the entry for the specific `<flow_id>`
-        c. Follow the link to locate the flow's folder. Index file is `<flow_folder>/index.md`
-        d. **Fallback:** If not yet registered, use `<Flow Directory>/<flow_id>/index.md`
+        a. Locate active flows by scanning the `<Flow Directory>` dynamically for `<flow_id>/spec.md`
+        b. Follow the spec's directory link. Index file is `<flow_folder>/spec.md`
 
 2. **Check Index:** Read the index file and look for a link with a matching label.
 
@@ -110,14 +106,12 @@ To find a file (e.g., "**Product Definition**") within a specific context:
 | **Tech Stack** | `.agents/tech-stack.md` |
 | **Workflow** | `.agents/workflow.md` |
 | **Product Guidelines** | `.agents/product-guidelines.md` |
-| **Flow Registry** | `.agents/flows.md` |
-| **Flow Directory** | `.agents/specs/` |
-| **Archive Directory** | `.agents/archive/` |
+| **Flow Directory** | `.agents/bundles/specs/` |
 | **Template Directory** | `.agents/templates/` |
 | **Code Styleguides Directory** | `.agents/code-styleguides/` |
 | **Patterns** | `.agents/patterns.md` |
-| **Knowledge Base** | `.agents/knowledge/` |
-| **Knowledge Index** | `.agents/knowledge/index.md` |
+| **Knowledge Base** | `.agents/bundles/knowledge/` |
+| **Knowledge Index** | `.agents/bundles/knowledge/index.md` |
 | **Project Skills** | `.agents/skills/` |
 | **Beads Config** | `.agents/beads.json` |
 | **Research Directory** | `.agents/research/` |
@@ -127,9 +121,8 @@ To find a file (e.g., "**Product Definition**") within a specific context:
 
 | Key | Default Path |
 |-----|--------------|
-| **Specification** | `.agents/specs/<flow_id>/spec.md` (unified spec + plan) |
-| **Metadata** | `.agents/specs/<flow_id>/metadata.json` |
-| **Learnings** | `.agents/specs/<flow_id>/learnings.md` |
+| **Specification** | `.agents/bundles/specs/<flow_id>/spec.md` (unified spec + plan) |
+| **Learnings** | `.agents/bundles/specs/<flow_id>/learnings.md` |
 
 ## Flow ID Naming Convention
 
@@ -137,7 +130,7 @@ To find a file (e.g., "**Product Definition**") within a specific context:
 
 - **Active Flows:** Simple slug (e.g., `dark-mode`)
   - Derived from description: lowercase, hyphens for spaces, max 3-4 words
-- **Archived Flows:** Keep same ID, moved to `.agents/archive/`
+- **Archived Flows:** Logged to `.agents/bundles/knowledge/log.md` and deleted from the filesystem.
 
 ## Supported Harnesses
 
@@ -184,15 +177,15 @@ The following external repositories provide comprehensive, harness-verified skil
 
 ## Task Status Markers (Synchronized via /flow:sync)
 
-| Marker | Status | Beads Status | Sync Direction |
-|--------|--------|-------------|----------------|
-| `[ ]` | Pending | `open` | Beads -> MD |
-| `[~]` | In Progress | `in_progress` | Beads -> MD |
-| `[x]` | Completed | `closed` | Beads -> MD |
-| `[!]` | Blocked | `blocked` | Beads -> MD |
-| `[-]` | Skipped | `closed` | Beads -> MD |
+| Marker | Status | Task File Status |
+|--------|--------|------------------|
+| `[ ]` | Pending | `open` |
+| `[~]` | In Progress | `in_progress` |
+| `[x]` | Completed | `closed` |
+| `[!]` | Blocked | `blocked` |
+| `[-]` | Skipped | `skipped` |
 
-**IMPORTANT:** Agents MUST NOT edit these markers manually. Use `/flow:sync` to reflect Beads state in Markdown when `syncPolicy.flowSyncAfterMutation` is enabled.
+**IMPORTANT:** Agents MUST NOT edit these markers manually. Use `/flow:sync` to reconcile `spec.md` with task files.
 
 ## Commands
 
@@ -202,15 +195,15 @@ The following external repositories provide comprehensive, harness-verified skil
 
 | Lifecycle | Claude command | Shared command key | Purpose |
 |---------|---------|---------|---------|
-| Setup | `/flow-setup` | `flow/setup` | Initialize project with context files, Beads, and first flow |
+| Setup | `/flow-setup` | `flow/setup` | Initialize project with context files and first flow |
 | PRD | `/flow-prd` | `flow/prd` | Analyze goals and generate Master Roadmap (Sagas) |
 | Plan | `/flow-plan` | `flow/plan` | Create unified spec.md for a single Flow |
 | Refine | `/flow-refine` | `flow/refine` | Expand coarse tasks into implementation-ready plan |
-| Sync | `/flow-sync` | `flow/sync` | Synchronize context docs, Beads state, and export summaries |
+| Sync | `/flow-sync` | `flow/sync` | Reconcile spec.md task checklists with individual task files |
 | Research | `/flow-research` | `flow/research` | Conduct pre-PRD research |
 | Docs | `/flow-docs` | `flow/docs` | Five-phase documentation workflow |
 | Implement | `/flow-implement` | `flow/implement` | Execute tasks from plan (context-aware) |
-| Status | `/flow-status` | `flow/status` | Display progress overview with Beads status |
+| Status | `/flow-status` | `flow/status` | Display progress overview dashboard for active flows |
 | Revert | `/flow-revert` | `flow/revert` | Git-aware revert of flows, phases, or tasks |
 | Validate | `/flow-validate` | `flow/validate` | Validate project integrity and fix issues |
 | Revise | `/flow-revise` | `flow/revise` | Update spec/plan when implementation reveals issues |
@@ -218,153 +211,71 @@ The following external repositories provide comprehensive, harness-verified skil
 | Refresh | `/flow-refresh` | `flow/refresh` | Sync context with codebase after external changes |
 | Task | `/flow-task` | `flow/task` | Create ephemeral exploration task |
 | Finish | `/flow-finish` | `flow/finish` | Complete flow: verify, review, merge/PR/keep/discard |
-| Review | `/flow-review` | `flow/review` | Dispatch code review with Beads-aware git range |
+| Review | `/flow-review` | `flow/review` | Dispatch code review for completed work |
 
-## Beads Integration
+## Task-Centric Filesystem Engine (OKF)
 
-Flow supports two persistence modes:
+In Flow, task states and planning metadata are tracked entirely inside local Markdown files inside the `.agents/bundles/specs/<flow_id>/` directory:
 
-- **Official Beads (`bd`)** - default
-- **No Beads** - degraded mode for docs/plans/lightweight local work
+- **Unified Specification (`spec.md`)**: The root design and plan. The `Implementation Plan` section contains the checklist of tasks.
+- **Task Files (`tasks/<short_id>.md`)**: Detailed metadata for each task in the plan.
 
-### Installation Check
+### Task File Schema
 
-```bash
-if command -v bd >/dev/null 2>&1; then
-  echo "BD_OK"
-else
-  echo "BEADS_MISSING"
-fi
+Each task file under `tasks/<short_id>.md` (where `<short_id>` matches the ID in `spec.md`, e.g., `1.1.md`) MUST start with a YAML frontmatter block:
+
+```yaml
+---
+id: flow-id:1.1
+status: open
+depends_on: []
+files:
+  - src/auth.py
+tests:
+  - tests/test_auth.py
+created_at: 2026-08-11T12:00:00Z
+updated_at: 2026-08-11T12:00:00Z
+commit: null
+---
 ```
 
-If missing, Flow should offer:
+Fields:
 
-- **A) Install official Beads (`bd`)** (recommended)
-- **B) Continue without Beads**
+- **`id`**: Unique string in the format `<flow_id>:<short_id>`.
+- **`status`**: Current lifecycle state: `open`, `in_progress`, `closed`, `blocked`, or `skipped`.
+- **`depends_on`**: List of parent task IDs that this task depends on.
+- **`files`**: List of repository-relative paths to source files affected by this task.
+- **`tests`**: List of repository-relative paths to test files verified by this task.
+- **`created_at` / `updated_at`**: Valid ISO-8601 timestamps.
+- **`commit`**: The commit SHA when the task is resolved (optional, only for `closed` status).
 
-### Initialization
+### Task Notes & Discoveries
 
-Official default:
+To capture learnings and debug findings, append notes to the bottom of the task file under a `## Notes & Discoveries` heading:
 
-```bash
-repo_slug="$(basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-//; s/-$//')"
-bd init --non-interactive --stealth --prefix "$repo_slug" --skip-agents
-bd config set no-git-ops true
-bd config set export.auto false
-bd config set export.git-add false
+```markdown
+# Task 1.1
+
+## Notes & Discoveries
+- [2026-08-11 12:00] Discovered that Zod form validation handles this case automatically.
+- [2026-08-11 12:15] Refined regex pattern to match ISO-8601 timezone offsets.
 ```
 
-For local-only use, prefer `.git/info/exclude` instead of editing `.gitignore`. Flow defaults to no automatic Beads export, no auto-staging, and no git operations in Beads priming.
+---
 
-### Configuration (`.agents/beads.json`)
+## Spec & Tasks Reconciler
 
-```json
-{
-  "enabled": true,
-  "localOnly": true,
-  "sync": "manual",
-  "epicPrefix": "flow",
-  "autoCreateTasks": true,
-  "autoSyncOnComplete": true,
-  "bdConfig": {
-    "no-git-ops": true,
-    "export.auto": false,
-    "export.git-add": false
-  },
-  "syncPolicy": {
-    "flowSyncAfterMutation": true,
-    "autoExport": false,
-    "autoGitAdd": false,
-    "allowDoltPush": false
-  },
-  "dolt": {
-    "push": "never"
-  },
-  "taskStatusMapping": {
-    "open": "[ ]",
-    "in_progress": "[~]",
-    "closed": "[x]",
-    "blocked": "[!]"
-  }
-}
-```
+The reconciler matches the checklist in `spec.md` with the task files:
 
-### Sync and Export Policy
+1. **Checklist Status Mapping**: `spec.md` checklist status markers are updated by `/flow:sync` to match the `status` of their task files:
+   - `open` -> `[ ]`
+   - `in_progress` -> `[~]`
+   - `closed` -> `[x]` (and the commit SHA is appended if present: `[<sha>]`)
+   - `blocked` -> `[!]`
+   - `skipped` -> `[-]`
+2. **Auto-Scaffolding**: If a task is listed in `spec.md` but has no file in `tasks/`, `/flow:sync` auto-generates the task file with default frontmatter.
 
-Agents MUST read `.agents/beads.json` before running export or backend sync commands. `syncPolicy.flowSyncAfterMutation` controls whether Flow immediately runs `/flow:sync` after Beads mutations. `syncPolicy.autoExport` and `syncPolicy.autoGitAdd` map to `bd config set export.auto false` and `bd config set export.git-add false` for local-only defaults.
-
-Three operations get loosely called "sync" — keep them distinct:
-
-- **`bd export`** — writes an optional `.beads/issues.jsonl` snapshot (for viewing, interchange, or backup). Off by default (`export.auto false`). It is **not** sync.
-- **`bd dolt push` / `bd dolt pull`** — Beads' real remote sync over its Dolt remote (`refs/dolt/data`). Opt-in only via `syncPolicy.allowDoltPush`.
-- **`/flow:sync`** — Flow's reconciliation of `.agents/specs/**` markdown with Beads state. This is the only "sync" Flow runs by default; it never writes JSONL or pushes Dolt.
-
-Do not run `bd dolt push` unless the user explicitly requests it or `.agents/beads.json` sets `syncPolicy.allowDoltPush` to `true` and `dolt.push` to an opt-in value.
-
-### Key Beads Commands
-
-| Flow Action | Beads Command |
-|-------------|---------------|
-| Create flow (epic) | `bd create "Flow: <flow_id>" -t epic -p 2` |
-| Create task | `bd create "<title>" -t task -p <0-4>` |
-| Add context/notes | `bd note <id> "..."` |
-| Start task | `bd update <id> --claim` |
-| Complete task | `bd close <id> --reason "[<sha>] ..."` |
-| Block task | `bd update <id> --status blocked` |
-| Get ready tasks | `bd ready --json` |
-| List in progress | `bd list --status in_progress` |
-| Show issue | `bd show <id> --json` |
-| Show blocked | `bd blocked` |
-| Export JSONL snapshot | `bd export -o .beads/issues.jsonl` — only when `syncPolicy.autoExport` or the user asks |
-| Remote sync (Dolt) | `bd dolt push` / `bd dolt pull` — only when `syncPolicy.allowDoltPush` or the user asks |
-
-In no-Beads mode, skip these commands and use markdown-only task state.
-
-### Memory Policy
-
-- Durable cross-session facts: `bd remember "..." --key <repo>:<topic>`
-- Task-local findings: `bd note <id> "..."`
-- Structured tasks: prefer `bd create --context --design --acceptance --metadata --skills --spec-id`
-- Session priming: run or inject `bd prime --mcp` where harness hooks support MCP-aware context injection; otherwise use `bd prime`
-
-**CRITICAL:** Keep purpose/description separate from context notes/comments:
-
-- `description`: WHY this issue exists and WHAT needs to be done
-- notes/comments: CONTEXT - files affected, dependencies, origin command, timestamp
-- Priority levels: P0=critical, P1=high, P2=medium, P3=low, P4=backlog
-
-### When to Track in Beads
-
-**Rule: If work takes >5 minutes, track it in Beads.**
-
-| Duration | Action | Example |
-|----------|--------|---------|
-| <5 min | Just do it | Fix typo, update config |
-| 5-30 min | Create task | Add validation, write test |
-| 30+ min | Create task with subtasks | Implement feature |
-
-**Why this matters:**
-
-- Notes survive context compaction - critical for multi-session work
-- The active Beads backend finds unblocked work automatically
-- If resuming in 2 weeks would be hard without context, use Beads
-
-### Session Protocol
-
-At session start, the environment (Beads backend, project root, available tooling) is **automatically detected via hooks** and provided in your `<hook_context>`. Use this ground truth before beginning work.
-
-If manual verification is needed:
-
-```bash
-# Official Beads (`bd`)
-bd prime
-bd ready --json
-bd list --status in_progress
-```
-
-At session end:
-
-Run `/flow:sync` to reconcile markdown with Beads state when `syncPolicy.flowSyncAfterMutation` is enabled; run `bd export -o .beads/issues.jsonl` or `bd dolt push` only when their respective `syncPolicy` flags allow it or the user asks. For local-only setups, prefer `.git/info/exclude` over `.gitignore`.
+---
 
 ## Learnings System (Ralph-style)
 

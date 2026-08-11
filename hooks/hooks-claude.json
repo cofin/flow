@@ -5,10 +5,11 @@
         "matcher": "*",
         "hooks": [
           {
-            "name": "flow-env-detection",
+            "name": "flow-session-start",
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh",
-            "description": "Detects Beads backend and project root at session start."
+            "command": "python3 \"${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-.}}/tools/priming.py\"",
+            "timeout": 30,
+            "description": "Inject Flow project context into Claude sessions."
           }
         ]
       }

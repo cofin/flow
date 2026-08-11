@@ -1,58 +1,43 @@
 ---
-description: Groundskeeper: Global maintenance and optimization of .agents/
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash
+description: Groundskeeper: Global maintenance and integrity check of Flow specifications
+allowed-tools: Read, Glob, Grep, Bash
 ---
 
 # Flow Cleanup
 
-> Lifecycle skill: use flow-sync-status through the flow router.
+> Lifecycle skill: use `flow-sync-status` through the `flow` router.
 
-**Role:** The Groundskeeper
-**Reference:** `references/cleanup.md`
-**Mandate:** Cleanup Mandate
-
-## Overview
-
-Re-assess, reorganize, and optimize the entire project context to ensure it is in its most authoritative and implementation-ready state.
+Performing global maintenance and integrity checks on Flow specifications and task files.
 
 ## The Cleanup Mandate
 
-**CRITICAL:** The `.agents/` directory must be in its most authoritative and implementation-ready state.
+**CRITICAL:** The Flow specifications directory must be in a clean, consistent, and fully validated state.
 
-- **Knowledge Re-synthesis**: Consolidate `.agents/knowledge/` into a single, unified, authoritative "Current State" guide. Focus on "how," not "why" or history.
-- **Spec & Beads Integrity**: Audit all flows in `.agents/specs/`. Verify task status against SOURCE CODE. Sync status with Beads (create if missing).
-- **Archive & Git**: Every completed flow MUST be archived and moved out of the `specs/` folder following the archive policy. Ensure all changes are git-tracked.
-- **Artifact Consolidation**: Synthesize stale `.agents/research/` and `.agents/plans/` into active specs or knowledge chapters.
-- **Pattern Optimization**: Reorganize, index, and synthesize `.agents/patterns.md` and `learnings.md` into high-fidelity guidance.
+---
 
-## Workflow
+## Phase 1: Reconcile All Specs
 
-### 1. Preparation & Inventory
-
-Map all files in `.agents/` and detect the active Beads backend.
-
-### 2. Knowledge Re-synthesis
-
-Consolidate knowledge into a single, unified, authoritative "Current State" guide. Strip away history and "why" to focus on the current "how."
-
-### 3. Spec & Beads Integrity Audit
-
-Audit all flows in `.agents/specs/`. **Verify status against actual source code.** Sync with Beads and archive completed flows.
-
-### 4. Artifact Consolidation
-
-Synthesize stale `.agents/research/` and `.agents/plans/` into active specs or knowledge chapters. No stale artifacts should remain.
-
-### 5. Pattern & Learning Optimization
-
-Reorganize and re-index `.agents/patterns.md` and `learnings.md` into cohesive, high-quality guidance.
-
-### 6. Final Sync & Validation
-
-Perform a global `/flow:sync` and update the registry `.agents/flows.md`.
-
-## Usage
+Run the sync reconciler on the active flow (if any) or execute it to ensure all task files are aligned with their respective spec plans:
 
 ```bash
-/flow:cleanup
+python3 tools/sync.py
 ```
+
+## Phase 2: Run Integrity Check
+
+Run the repository validation tool. This checks OKF YAML schemas, verifies that referenced files exist for closed tasks, checks that relative links are valid in completed flows, and flags any **orphaned task files** (files under `tasks/*.md` that are no longer listed in `spec.md` plans):
+
+```bash
+SKIP_CLAUDE_VALIDATE=1 python3 tools/validate.py
+```
+
+If validation fails, resolve the reported violations (e.g. delete orphaned task files, fix broken links, or add missing required frontmatter).
+
+## Phase 3: Identify Completed Flows for Archiving
+
+Scan `.agents/bundles/specs/*/spec.md` for flows that have frontmatter `status: completed`.
+For each completed flow found, prompt the developer:
+
+> Propose archiving completed flow '{flow_id}'?
+> A) Yes - I will run /flow:archive {flow_id}
+> B) No - Keep it active on disk

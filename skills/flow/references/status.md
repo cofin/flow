@@ -1,95 +1,60 @@
+# Flow Status Reference
 
-# Flow Status
+Displays the developer dashboard, including progress metrics, ready queues, blocked queues, and recent discoveries for all active flows.
 
-> **Beads mode:** Skip every `bd` invocation below when the SessionStart hook reports `Beads Backend: Missing (None)` or `Disabled via plugin config (useBeads=false)`. Treat `spec.md` markers as fallback source of truth and skip `/flow:sync`. Never halt for missing Beads. See `discipline.md`.
+---
 
-Display progress overview for all active flows.
+## Phase 1: Dynamic Discovery
 
-## Phase 1: Load Registry
+Active flows are discovered by scanning the specs directory:
 
-Read `.agents/flows.md` to get list of active flows.
+1. Scan `.agents/bundles/specs/*/spec.md`.
+2. Parse the frontmatter of each spec.
+3. Filter for active flows (`status` is `planned` or `active`).
 
-## Phase 2: Beads Status (Source of Truth)
+---
+
+## Phase 2: Status Aggregation
+
+For each active flow, scan all task files under `tasks/*.md` to collect metadata:
+
+1. **Calculate Metrics**:
+   - Total tasks = count of task files.
+   - Closed tasks = count of tasks with `status: closed`.
+   - Skipped tasks = count of tasks with `status: skipped`.
+   - Progress percentage = `closed_count / (total_tasks - skipped_count) * 100`.
+2. **Resolve Queues**:
+   - **Active Task(s)**: List of tasks with `status: in_progress`.
+   - **Ready Queue**: List of `open` tasks that have no dependencies, or whose dependencies (listed in `depends_on`) are all `status: closed`.
+   - **Blocked Queue**: List of `blocked` tasks, or `open` tasks that have at least one dependency that is not yet `closed`.
+
+---
+
+## Phase 3: Recent Discoveries
+
+Extract notes from task files to display a chronological list of recent findings:
+
+1. For each task file, extract lines starting with `- [` under the `## Notes & Discoveries` heading.
+2. Gather all notes, parse timestamps, and sort in descending order.
+3. Take the top 5 most recent notes.
+
+---
+
+## Phase 4: Next Action Recommendations
+
+Suggest logical next steps based on the queue state:
+
+- If there are active tasks: recommend resuming work on them.
+- If there are no active tasks but ready tasks exist: recommend claiming and starting the first ready task.
+- If the ready queue is empty but there are blocked tasks: recommend investigating and resolving dependencies to unblock tasks.
+- If all tasks are completed: recommend proposing documentation updates or archiving the flow.
+
+---
+
+## Execution Command
+
+Run the status dashboard tool:
 
 ```bash
-bd status                     # Workspace overview
-bd ready --json               # Unblocked tasks ready to work
-bd list --status in_progress  # Resume active work
+python3 tools/status.py
 ```
-
-## Phase 3: Flow Summary (Beads-First)
-
-For each active flow:
-
-### Primary: Get Status from Beads
-
-```bash
-bd show {epic_id} --json
-```
-
-Parse JSON to count:
-
-- `open` tasks
-- `in_progress` tasks
-- `closed` tasks
-- `blocked` tasks
-
-Calculate progress: `closed / total * 100`
-
-### Fallback: Parse spec.md
-
-If Beads unavailable:
-
-1. Read `.agents/specs/{flow_id}/spec.md` (unified spec+plan)
-2. Parse Implementation Plan section
-3. Count tasks by status
-
-## Phase 4: Display Dashboard
-
-```text
-Flow Status Dashboard
-
-=== Active Flows ===
-
-[~] auth - Add user authentication
-    Progress: 5/12 tasks (41%)
-    Current: Phase 2, Task 6
-    Blockers: 0
-
-[ ] dark-mode - Add dark mode toggle
-    Progress: 0/8 tasks (0%)
-    Status: Not started
-
-=== Beads Ready ===
-
-Ready tasks (no blockers):
-  - auth: Task 6 - Implement login endpoint
-
-=== Beads Blocked ===
-
-Blocked tasks:
-  - auth: Task 8 - Waiting for API keys [!]
-
-=== Quality Gates ===
-
-Last Test Run: PASSED
-Coverage: 82%
-
-=== Recent Activity ===
-
-- 14:30 - auth: Task 5 completed [abc1234]
-```
-
-## Phase 5: Recommendations
-
-Based on status, suggest next action:
-
-- If blocked: "Run `flow-block` to document blockers"
-- If no in-progress: "Run `flow-implement {flow_id}`"
-- If complete: "Run `flow-archive {flow_id}`"
-
-## Critical Rules
-
-1. **READ ONLY** - This command only displays information
-2. **BEADS IS SOURCE OF TRUTH** - Pull task status from Beads, not spec.md
-3. **ACTIONABLE** - Provide next step suggestions

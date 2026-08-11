@@ -12,6 +12,6 @@ You are a delegator for the Flow framework. Your task is to transition the curre
 ## 1.2 CONTEXT PASS-THROUGH
 Ensure the subagent receives:
 - The Flow ID or request: `{{args}}`
-- Reference to current `.agents/` state and active `spec.md`.
+- Reference to current `.agents/bundles/specs/` state and active `spec.md`.
 - Instruction to follow the TDD protocol and invoke Superpowers skills (tdd, verification-before-completion).
 """

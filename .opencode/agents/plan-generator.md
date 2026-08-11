@@ -8,4 +8,4 @@ permission:
   webfetch: allow
 ---
 
-Create implementation-ready Flow specs with exact file targets, task order, test commands, and acceptance checks.
+Create implementation-ready Flow specs at `.agents/bundles/specs/<flow_id>/spec.md` with YAML frontmatter, containing exact file targets, task order, test commands, and acceptance checks.

@@ -11,7 +11,7 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion
 
 ## The Planner Mandate
 
-**CRITICAL:** `/flow:plan` is the entry point for single flows. Its primary role is to define the roadmap by creating **Beads Tasks** (source of truth) and syncing them to a human-readable `spec.md`.
+**CRITICAL:** `/flow:plan` is the entry point for single flows. Its primary role is to define the roadmap by creating a unified `spec.md` worksheet at `.agents/bundles/specs/<flow_id>/spec.md` containing the YAML frontmatter and the implementation plan.
 
 ---
 
@@ -34,9 +34,9 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion
 
 ---
 
-## 3.4 Beads Integration (Source of Truth)
+## 3.4 Beads Integration (Conditional)
 
-**PROTOCOL: Create Beads tasks with full context.**
+**PROTOCOL: If Beads backend is active, link/create tasks.**
 
 1. **Epic Linkage**: Ensure the flow is backed by a Beads Epic.
 2. **Task Creation**: Create granular implementation tasks in Beads linked to the epic.
@@ -46,16 +46,17 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion
 
 ## 3.5 Completion
 
-**PROTOCOL: Finalize artifacts and sync.**
+**PROTOCOL: Finalize artifacts.**
 
-1. **Registry**: Append to `.agents/flows.md`.
-2. **Sync**: Follow `syncPolicy.flowSyncAfterMutation`; when enabled, run `/flow:sync` to generate the `spec.md` worksheet from the new Beads tasks.
+1. **Save Spec**: Save the spec file directly at `.agents/bundles/specs/<flow_id>/spec.md` with all YAML frontmatter populated.
+2. **Sync**: If Beads backend is active, run `/flow:sync` to generate/align the `spec.md` worksheet.
 
 ---
 
 ## Critical Rules
 
-1. **BEADS FIRST** - Create tasks in the issue tracker before finalizing Markdown.
-2. **NO CODE MODIFICATION** - Planning documents only.
-3. **SYNC POLICY** - Follow `syncPolicy.flowSyncAfterMutation`; default setup runs `/flow:sync` after planning to ensure consistency.
-4. **HARD STOP** - End with explicit instruction to run `/flow:implement`.
+1. **SPEC FIRST** - Write the `spec.md` with YAML frontmatter at `.agents/bundles/specs/<flow_id>/spec.md` before starting implementation.
+2. **BEADS CONDITIONAL** - If Beads is active, create tasks in the issue tracker before finalizing the plan.
+3. **NO CODE MODIFICATION** - Planning documents only.
+4. **SYNC POLICY** - Follow `syncPolicy.flowSyncAfterMutation`; run `/flow:sync` only if Beads backend is active.
+5. **HARD STOP** - End with explicit instruction to run `/flow:implement`.

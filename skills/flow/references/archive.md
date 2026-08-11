@@ -1,8 +1,6 @@
 
 # Flow Archive
 
-> **Beads mode:** Skip every `bd` invocation below when the SessionStart hook reports `Beads Backend: Missing (None)` or `Disabled via plugin config (useBeads=false)`. Treat `spec.md` markers as fallback source of truth and skip `/flow:sync`. Never halt for missing Beads. See `discipline.md`.
-
 Archive completed flow and elevate patterns to project level.
 
 ## Usage
@@ -18,14 +16,8 @@ IRON LAW: NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
 ```
 
 1. **Run full test suite** — read output, confirm 0 failures
-2. **Check Beads** for completion status:
-
-   ```bash
-   bd show {epic_id}
-   ```
-
-3. **Verify** all tasks are completed or explicitly skipped — read `spec.md` Implementation Plan section
-4. If incomplete tasks or failing tests exist, warn and confirm.
+2. **Verify** all tasks are completed or explicitly skipped — read `.agents/bundles/specs/{flow_id}/spec.md` (or scan task files in `.agents/bundles/specs/{flow_id}/tasks/*.md`)
+3. If incomplete tasks or failing tests exist, warn and confirm.
 
 ### 1.2 Optional Code Review
 
@@ -39,7 +31,7 @@ For flows being archived without prior `flow-review`:
 
 ### 2.1 Read Flow Learnings
 
-Parse `.agents/specs/{flow_id}/learnings.md`
+Parse `.agents/bundles/specs/{flow_id}/learnings.md`
 
 ### 2.2 Identify Patterns for Elevation
 
@@ -57,7 +49,7 @@ Which patterns should be elevated to project-level? [all/select/none]
 
 ### 2.3 Merge to Project Patterns
 
-Append selected patterns to `.agents/patterns.md`:
+Append selected patterns to `.agents/bundles/knowledge/patterns/patterns.md`:
 
 ```markdown
 ## Code Conventions
@@ -71,62 +63,31 @@ Append selected patterns to `.agents/patterns.md`:
 
 You are responsible for the formal evolution of the project's knowledge base. It is NOT a manual copy-paste; it is a **Synthesis**.
 
-1. **Identify**: Read `learnings.md`, `spec.md`, and `metadata.json` from the flow. Identify which discoveries are one-off observations and which represent **Core Patterns** or **Architectural Shifts**.
-2. **Synthesize**: Integrate these discoveries directly into cohesive, logically organized knowledge base chapters in `.agents/knowledge/` (e.g., `architecture.md`, `conventions.md`).
+1. **Identify**: Read `learnings.md` and `spec.md` from the flow. Identify which discoveries are one-off observations and which represent **Core Patterns** or **Architectural Shifts**.
+2. **Synthesize**: Integrate these discoveries directly into cohesive, logically organized knowledge base chapters in `.agents/bundles/knowledge/` (e.g., `product/`, `workflow/`, `patterns/`, `code-styleguides/`).
 3. **Update the State**: Revise these chapters to reflect the *current* authoritative state of the codebase.
 4. **No History Logs**: Do NOT outline history or create per-flow logs in the knowledge base. The chapters must provide the high-definition implementation details needed for a new agent to become an instant expert on the current state.
 
-## Phase 4: Close Beads Epic
+## Phase 4: Delete Flow Bundle
 
-```bash
-bd close {epic_id} --reason "Flow archived"
-```
+1. **Log Flow Completion:**
+   Append metadata of the completed flow (ID, Title, completion timestamp) to `.agents/bundles/knowledge/log.md`.
 
-## Phase 5: Move to Archive
+2. **Delete Bundle Directory:**
 
-1. Move directory:
-
-   ```text
-   .agents/specs/{flow_id}/ -> .agents/archive/{flow_id}/
+   ```bash
+   rm -rf .agents/bundles/specs/{flow_id}/
    ```
-
-2. Update `.agents/flows.md`:
-   - Remove from Active section
-   - Add to Archived section with completion date
-
-## Phase 6: Create Archive Summary
-
-Create `.agents/archive/{flow_id}/summary.md`:
-
-```markdown
-# Archive Summary: {flow_id}
-
-**Completed:** {date}
-**Duration:** {days} days
-**Tasks:** {completed}/{total}
-**Commits:** {count}
-
-## Key Deliverables
-- {deliverable 1}
-- {deliverable 2}
-
-## Patterns Elevated
-- {pattern 1}
-- {pattern 2}
-
-## Final State
-All tests passing, coverage at {X}%
-```
 
 ## Final Output
 
 ```text
 Flow Archived: {flow_id}
 
-Location: .agents/archive/{flow_id}/
+Spec deleted from filesystem
 Patterns Elevated: {count}
-Epic Closed: {epic_id}
+Logged in .agents/bundles/knowledge/log.md
 
 Project patterns updated. View with:
-cat .agents/patterns.md
+cat .agents/bundles/knowledge/patterns/patterns.md
 ```

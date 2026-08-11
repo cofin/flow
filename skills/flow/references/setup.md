@@ -63,7 +63,7 @@ Use official Beads (`bd`). Allow no-Beads degraded mode when the user wants less
 
 ### 0.1.2 Legacy Specs Migration
 
-Scan for legacy spec locations and offer migration to the current root. Update the registry and Beads backend accordingly.
+Scan for legacy spec locations and offer migration to the current root. Parse legacy `metadata.json` if present and prepend as YAML frontmatter to the migrated `spec.md` files in `.agents/bundles/specs/{flow_id}/spec.md`. Update the Beads backend accordingly. Do not create `flows.md` or `metadata.json` files.
 
 ### 0.1.3 Learnings Ingestion
 
@@ -279,16 +279,15 @@ Create `<root_directory>/beads.json` with local-only configuration from `templat
 Create:
 
 - `<root_directory>/index.md` - File resolution index
-- `<root_directory>/flows.md` - Empty flow registry
 - `<root_directory>/patterns.md` - Empty patterns template
-- `<root_directory>/knowledge/index.md` - Knowledge base index (from template)
+- `<root_directory>/bundles/knowledge/index.md` - Knowledge base index (from template)
 - `<root_directory>/skills/flow-memory-keeper/SKILL.md` - Project-local memory/refinement skill
 
 ```bash
-mkdir -p <root_directory>/knowledge <root_directory>/skills/flow-memory-keeper
+mkdir -p <root_directory>/bundles/specs <root_directory>/bundles/knowledge <root_directory>/skills/flow-memory-keeper
 ```
 
-Copy `knowledge/index.md` from the Flow templates (`templates/agent/knowledge/index.md`).
+Copy `knowledge/index.md` from the Flow templates (`templates/agent/knowledge/index.md`) to `<root_directory>/bundles/knowledge/index.md`.
 Copy `templates/agent/skills/flow-memory-keeper/SKILL.md` into `<root_directory>/skills/flow-memory-keeper/SKILL.md`.
 
 ---
@@ -476,9 +475,8 @@ Created:
 - workflow.md
 - beads.json
 - index.md
-- flows.md
 - patterns.md
-- knowledge/index.md
+- bundles/knowledge/index.md
 - code-styleguides/
 
 Next Steps:

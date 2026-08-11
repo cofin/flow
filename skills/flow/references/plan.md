@@ -35,8 +35,7 @@ You are STRICTLY FORBIDDEN from:
 
 You MAY ONLY:
 
-- Create/edit files in `.agents/specs/` (spec.md, metadata.json)
-- Create/edit `.agents/flows.md` registry
+- Create/edit files in `.agents/bundles/specs/` (spec.md)
 - Run the active backend's epic/task creation flow when a backend is enabled
 - Read source code for analysis (but NEVER modify it)
 
@@ -47,7 +46,7 @@ You MAY ONLY:
 When Superpowers skills are available, they MUST be used in the Planning workflow:
 
 1. **Brainstorming Phase:** Invoke `superpowers:brainstorming` to explore the user's intent and requirements before starting code analysis.
-2. **Redirect Output:** Force the output of `superpowers:brainstorming` and `superpowers:writing-plans` to `.agents/specs/<flow_id>/spec.md`.
+2. **Redirect Output:** Force the output of `superpowers:brainstorming` and `superpowers:writing-plans` to `.agents/bundles/specs/<flow_id>/spec.md`.
 3. **Self-Review Phase:** Invoke `code-reviewer` (via `superpowers:requesting-code-review`) once the unified `spec.md` is drafted to ensure it meets requirements and adheres to project patterns.
 
 **NEVER** use `docs/superpowers/` for Flow-related planning documents.
@@ -64,7 +63,7 @@ If a referenced companion skill is unavailable in the current harness, perform t
     - Keep these patterns in mind. If the user suggests something violating a pattern, WARN them.
 
 2. **Read Parent Context (Optional):**
-    - If a `parent_prd_id` is provided (or if you find an active PRD in `.agents/specs/`), read its `prd.md`.
+    - If a `parent_prd_id` is provided (or if you find an active PRD in `.agents/bundles/specs/`), read its `prd.md`.
     - Ensure this Flow's spec aligns with the Master Roadmap.
 
 3. **Read Research:**
@@ -234,33 +233,24 @@ If a referenced companion skill is unavailable in the current harness, perform t
 
 1. **Unique ID:** `slug` (e.g., `user-auth`).
 
-2. **Directory:** `.agents/specs/<flow_id>/`.
+2. **Directory:** `.agents/bundles/specs/<flow_id>/`.
 
-3. **Files:** Write `spec.md` and `metadata.json`.
+3. **Files:** Write `spec.md` containing YAML frontmatter.
 
-4. **metadata.json:**
+4. **YAML Frontmatter (in spec.md):**
 
-    ```json
-    {
-      "flow_id": "<flow_id>",
-      "type": "feature",
-      "status": "planned",
-      "beads_epic_id": "<epic_id>",
-      "created_at": "ISO timestamp",
-      "updated_at": "ISO timestamp",
-      "description": "<flow_description>",
-      "files_analyzed": ["<list of key files from code analysis>"]
-    }
+    ```yaml
+    ---
+    flow_id: <flow_id>
+    type: feature
+    status: planned
+    created_at: ISO timestamp
+    updated_at: ISO timestamp
+    description: <flow_description>
+    ---
     ```
 
-5. **Registry:** Append to `.agents/flows.md`.
-
-6. **Beads Integration:**
-
-    ```bash
-    <active_backend_create_flow_epic>
-    <active_backend_attach_flow_notes>
-    ```
+5. **Beads Integration (Conditional):** If Beads is active, create epic and attach notes.
 
 ---
 
@@ -280,7 +270,7 @@ Announce:
 >
 > **Artifacts:**
 >
-> - Spec: `.agents/specs/<flow_id>/spec.md` ([N] phases, [M] tasks)
+> - Spec: `.agents/bundles/specs/<flow_id>/spec.md` ([N] phases, [M] tasks)
 >
 > Ready to execute? Run:
 > `flow-implement <flow_id>`"
@@ -293,5 +283,5 @@ Announce:
 2. **INFORMED QUESTIONS** - Questions must reference actual files/code found
 3. **PATTERNS COMPLIANCE** - Check patterns.md and warn on violations
 4. **UNIFIED SPEC** - Single `spec.md` contains both requirements and plan. No separate `plan.md`.
-5. **SPECS DIRECTORY** - All artifacts go in `.agents/specs/`
-6. **BEADS CONTEXT** - Include a full description at creation time, then attach notes/context through the active backend
+5. **SPECS DIRECTORY** - All artifacts go in `.agents/bundles/specs/`
+6. **BEADS CONTEXT** - If active, include a full description at creation time, then attach notes/context through the active backend

@@ -1,6 +1,6 @@
 ---
 name: flow-planning
-description: "Use when drafting PRDs, researching, planning, refining, revising, or creating .agents/specs/<flow_id>/spec.md worksheets for Flow."
+description: "Use when drafting PRDs, researching, planning, refining, revising, or creating .agents/bundles/specs/<flow_id>/spec.md worksheets for Flow."
 ---
 
 # Flow Planning
@@ -31,7 +31,7 @@ Before locking a PRD, spec, or refined worksheet, interrogate the plan until eve
 
 - Planning must be decision-complete; do not defer obvious research to implementation.
 - Ask only product or tradeoff questions that cannot be answered from the repo.
-- Store plans under `.agents/specs/<flow_id>/`, not ad hoc docs paths.
+- Store plans under `.agents/bundles/specs/<flow_id>/`, not ad hoc docs paths.
 - Do not modify production code during planning.
 
 ## Validation

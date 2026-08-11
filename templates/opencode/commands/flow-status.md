@@ -1,83 +1,17 @@
 ---
-description: Display progress overview with Beads status
+description: Display progress overview dashboard for active flows
 ---
 
 # Flow Status
 
-Display progress overview for all active flows.
+Display progress overview dashboard for all active flows.
 
-## Phase 1: Load Registry
+## Phase 1: Run Dashboard Script
 
-Read `.agents/flows.md` to get list of active flows.
-
-## Phase 2: Beads Status (Source of Truth)
+Execute the developer status dashboard tool to aggregate and display active flows, ready queues, blocked queues, and recent notes:
 
 ```bash
-bd status                          # Workspace overview
-bd ready --json                    # Unblocked tasks ready to work
-bd list --status in_progress       # Active work
-bd list --status blocked           # Blocked tasks
+python3 tools/status.py
 ```
 
-## Phase 3: Flow Summary (Beads-First)
-
-For each active flow:
-
-### Primary: Get Status from Beads
-
-```bash
-bd show {epic_id} --json
-```
-
-Count tasks by status: pending, in_progress, completed, blocked
-
-### Fallback: Parse spec.md
-
-If Beads unavailable:
-1. Read `.agents/specs/{flow_id}/spec.md`
-2. Parse Implementation Plan section
-
-## Phase 4: Display Dashboard
-
-```
-Flow Status Dashboard
-
-=== Active Flows ===
-
-[~] auth - Add user authentication
-    Progress: 5/12 tasks (41%)
-    Current: Phase 2, Task 6
-    Blockers: 0
-
-[ ] dark-mode - Add dark mode toggle
-    Progress: 0/8 tasks (0%)
-    Status: Not started
-
-=== Beads Ready ===
-
-Ready tasks (no blockers):
-  - auth: Task 6 - Implement login endpoint
-
-=== Beads Blocked ===
-
-Blocked tasks:
-  - auth: Task 8 - Waiting for API keys [!]
-
-=== Recent Activity ===
-
-- 14:30 - auth: Task 5 completed [abc1234]
-```
-
-## Phase 5: Recommendations
-
-Based on status, suggest next action:
-
-- If blocked: "Document blockers with `bd update {id} --status blocked --notes \"BLOCKED: {reason}\"`"
-- If no in-progress: "Run `/flow-implement {flow_id}`"
-- If complete: "Run `/flow-archive {flow_id}`"
-
-## Critical Rules
-
-1. **READ ONLY** - This command only displays information
-2. **BEADS IS SOURCE OF TRUTH** - Pull task status from Beads
-3. **ACTIONABLE** - Provide next step suggestions
+If the dashboard shows any out-of-sync indicators or if you have recently modified task files directly, run `/flow-sync` to reconcile them first.

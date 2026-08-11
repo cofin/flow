@@ -14,6 +14,7 @@
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import { execFileSync } from 'child_process';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_ROOT = path.resolve(__dirname, '../..');
@@ -30,44 +31,18 @@ function isFlowDisabledByManagedConfig(ctx) {
   return false;
 }
 
-function getFlowContext() {
-  const contextPath = path.join(PLUGIN_ROOT, 'AGENTS.md');
-  if (!fs.existsSync(contextPath)) return null;
-  return fs.readFileSync(contextPath, 'utf8');
-}
-
 function buildSessionContext() {
   if (cachedContext !== null) return cachedContext;
 
-  const agentsContent = getFlowContext();
-  if (!agentsContent) {
+  try {
+    const primingScript = path.join(PLUGIN_ROOT, 'tools', 'priming.py');
+    const result = execFileSync('python3', [primingScript], { encoding: 'utf8' });
+    const payload = JSON.parse(result);
+    cachedContext = payload.hookSpecificOutput?.additionalContext || '';
+  } catch (e) {
+    console.warn('Flow Priming failed:', e.message);
     cachedContext = '';
-    return cachedContext;
   }
-
-  cachedContext = [
-    'You are operating within the **Flow Framework** for Context-Driven Development.',
-    '',
-    'Flow is installed and MUST be used for all development work in projects with a .agents/ directory.',
-    'Use official Beads (`bd`) when persistence is needed; allow no-Beads degraded mode when the user wants less admin.',
-    '',
-    'AUTO-TRIGGER RULES:',
-    '- When .agents/ directory exists: ALWAYS invoke the flow skill at session start',
-    '- When user says "implement", "plan", "spec", "prd", "sync", "status": immediately invoke the matching Flow workflow rather than staying in generic chat mode',
-    '- When editing files in .agents/specs/: invoke flow skill for context',
-    '- When user mentions "beads", "bd", or backend migration: invoke flow skill',
-    '- Route lifecycle detail through flow-setup, flow-planning, flow-execution, flow-sync-status, or flow-completion after the flow router skill triggers',
-    '- When a spec or PRD exists but task detail is coarse: invoke flow-refine before implementation or subagent dispatch',
-    '- Do not finish PRD or planning work while obvious research gaps remain',
-    '',
-    'Key commands: /flow:setup, /flow:prd, /flow:plan, /flow:implement, /flow:sync, /flow:status, /flow:refresh',
-    'Lifecycle skills: flow-setup, flow-planning, flow-execution, flow-sync-status, flow-completion.',
-    '',
-    'All spec/design docs go in .agents/specs/ (not docs/superpowers/specs/).',
-    'Before dispatching subagents, preserve context with the relevant spec/PRD, patterns, knowledge chapters, learnings, affected files, and verification requirements.',
-    '',
-    agentsContent,
-  ].join('\n');
 
   return cachedContext;
 }

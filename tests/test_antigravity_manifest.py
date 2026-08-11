@@ -77,19 +77,16 @@ def test_antigravity_hook_command_validation_accepts_plugin_root_ladder(tmp_path
         ),
         encoding="utf-8",
     )
-    (tmp_path / "hooks.json").write_text(
+    hooks_dir = tmp_path / "hooks"
+    hooks_dir.mkdir(exist_ok=True)
+    (hooks_dir / "hooks-agy.json").write_text(
         json.dumps(
             {
                 "hooks": {
                     "SessionStart": [
                         {
-                            "matcher": "*",
-                            "hooks": [
-                                {
-                                    "type": "command",
-                                    "command": 'r="${ANTIGRAVITY_PLUGIN_ROOT:-${PLUGIN_ROOT:-${AGY_PLUGIN_ROOT:-}}}"; bash "$r/hooks/session-start.sh"',
-                                }
-                            ],
+                            "type": "command",
+                            "command": 'r="${ANTIGRAVITY_PLUGIN_ROOT:-${PLUGIN_ROOT:-${AGY_PLUGIN_ROOT:-}}}"; bash "$r/hooks/session-start.sh"',
                         }
                     ]
                 }

@@ -157,7 +157,7 @@ If a backend is installed, verify version is current and remember the selected m
 > - **B) `specs/`** (Visible at project root)
 > - **C) Custom path** (Type your own)
 
-**Store Configuration:** Based on user's choice, set `root_directory` variable.
+**Store Configuration:** Based on user's choice, set `root_directory` variable. Specifications will reside under `<root_directory>/bundles/specs/`.
 
 - Default to `.agents/` if A selected
 - Use `specs/` if B selected
@@ -286,15 +286,15 @@ Create `<root_directory>/beads.json` with local-only configuration from `templat
 Create:
 
 - `<root_directory>/index.md` - File resolution index
-- `<root_directory>/flows.md` - Empty flow registry
 - `<root_directory>/patterns.md` - Empty patterns template
-- `<root_directory>/knowledge/index.md` - Knowledge base index (from template)
+- `<root_directory>/bundles/knowledge/index.md` - Knowledge base index (from template)
 
 ```bash
-mkdir -p <root_directory>/knowledge
+mkdir -p <root_directory>/bundles/specs
+mkdir -p <root_directory>/bundles/knowledge
 ```
 
-Copy `knowledge/index.md` from the Flow templates (`templates/agent/knowledge/index.md`).
+Copy `knowledge/index.md` from the Flow templates (`templates/agent/knowledge/index.md`) to `<root_directory>/bundles/knowledge/index.md`.
 
 ---
 
@@ -382,9 +382,8 @@ Created:
 - workflow.md
 - beads.json
 - index.md
-- flows.md
 - patterns.md
-- knowledge/index.md
+- bundles/knowledge/index.md
 - code-styleguides/
 
 Next Steps:

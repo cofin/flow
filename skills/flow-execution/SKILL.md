@@ -1,21 +1,19 @@
 ---
 name: flow-execution
-description: "Use when implementing Flow tasks from Beads or spec.md, claiming ready work, applying TDD, recording task notes, committing, and syncing after task state changes."
+description: "Use when implementing Flow tasks from local task files under `.agents/bundles/specs/<flow_id>/tasks/`, claiming ready work, applying TDD, recording task notes, committing, and updating task file state."
 ---
 
 # Flow Execution
 
-Use this lifecycle skill when implementation starts after a Flow plan or ready Beads task exists.
-
-> **Beads mode:** Skip every `bd` invocation when the SessionStart hook reports `Beads Backend: Missing (None)` or `Disabled via plugin config (useBeads=false)`. Treat `spec.md` markers as fallback source of truth and skip `/flow:sync`. Never halt for missing Beads. See `../flow/references/discipline.md`.
+Use this lifecycle skill when implementation starts after a Flow plan or ready task file exists.
 
 ## Workflow
 
-1. Select ready work from `bd ready` and claim it before editing.
-2. Read the relevant spec, notes, patterns, affected files, and validation commands.
-3. Record investigation findings with `bd note`.
+1. Select ready work from `.agents/bundles/specs/<flow_id>/tasks/*.md` (YAML frontmatter `status: open` and dependencies resolved) and claim it (status to `in_progress`).
+2. Read the relevant spec, task notes, patterns, affected files, and validation commands.
+3. Record investigation findings directly inside the task file's `## Notes & Discoveries` section.
 4. Follow red-green-refactor: write the failing test, verify the failure, implement minimally, verify green, then refactor.
-5. Commit targeted changes, close the Beads task with evidence, and sync markdown when policy requires it.
+5. Commit targeted changes, retrieve the commit SHA, and close the task (status to `closed` and write commit SHA to frontmatter).
 
 ## Guardrails
 
@@ -28,7 +26,7 @@ Use this lifecycle skill when implementation starts after a Flow plan or ready B
 
 - Verify the new test failed for the intended reason before implementation.
 - Run focused tests after each task and the repo’s aggregate verification before phase completion.
-- Record test output, commit reference, and closure reason in Beads.
+- Record commit reference and discoveries inside the task markdown file.
 
 ## References Index
 
@@ -39,4 +37,4 @@ Use this lifecycle skill when implementation starts after a Flow plan or ready B
 
 User: "Implement auth flow."
 
-Action: claim the next ready Beads task, add code-path notes, write a failing auth test, implement the minimal behavior, verify, commit, close the task, and sync.
+Action: claim the next ready task file, add code-path notes to `## Notes & Discoveries`, write a failing auth test, implement the minimal behavior, verify, commit, and update the task status to closed with the commit SHA.

@@ -196,41 +196,61 @@ def _validate_manifest_path_list_field(path: Path, field: str, value: object) ->
     return violations
 
 
-def _validate_hook_event_map(path: Path, hooks: object) -> list[Violation]:
+def _validate_hook_event_map(path: Path, hooks: object, *, allow_flat_events: set[str] | None = None) -> list[Violation]:
     violations: list[Violation] = []
     if not isinstance(hooks, dict):
         return [Violation(path, 1, "hook config must contain a top-level 'hooks' record")]
-    for event_name, matchers in hooks.items():
+    if allow_flat_events is None:
+        allow_flat_events = set()
+
+    for event_name, handlers in hooks.items():
         if not isinstance(event_name, str) or not _CLAUDE_HOOK_EVENT_PATTERN.match(event_name):
-            violations.append(Violation(path, 1, f"Claude hooks event {event_name!r} must be PascalCase"))
-        if not isinstance(matchers, list):
-            violations.append(Violation(path, 1, f"Claude hooks event {event_name!r} must map to a list"))
+            violations.append(Violation(path, 1, f"hooks event {event_name!r} must be PascalCase"))
+        if not isinstance(handlers, list):
+            violations.append(Violation(path, 1, f"hooks event {event_name!r} must map to a list"))
             continue
-        for matcher in matchers:
-            if not isinstance(matcher, dict):
-                violations.append(Violation(path, 1, f"Claude hooks event {event_name!r} entries must be objects"))
+
+        is_flat_event = event_name in allow_flat_events
+
+        for item in handlers:
+            if not isinstance(item, dict):
+                violations.append(Violation(path, 1, f"hooks event {event_name!r} entries must be objects"))
                 continue
-            nested_hooks = matcher.get("hooks")
-            if not isinstance(nested_hooks, list) or not nested_hooks:
-                violations.append(
-                    Violation(path, 1, f"Claude hooks event {event_name!r} entries must contain a non-empty 'hooks' list")
-                )
-                continue
-            for hook in nested_hooks:
-                if not isinstance(hook, dict):
+            
+            if is_flat_event:
+                # Flat structure: must be a hook block directly
+                if item.get("type") != "command":
                     violations.append(
-                        Violation(path, 1, f"Claude hooks event {event_name!r} hook entries must be objects")
+                        Violation(path, 1, f"hooks event {event_name!r} flat hook entries must use type 'command'")
                     )
-                    continue
-                if hook.get("type") != "command":
-                    violations.append(
-                        Violation(path, 1, f"Claude hooks event {event_name!r} hook entries must use type 'command'")
-                    )
-                command = hook.get("command")
+                command = item.get("command")
                 if not isinstance(command, str) or not command.strip():
                     violations.append(
-                        Violation(path, 1, f"Claude hooks event {event_name!r} hook entries need a non-empty command")
+                        Violation(path, 1, f"hooks event {event_name!r} flat hook entries need a non-empty command")
                     )
+            else:
+                # Nested structure: must be a matcher block containing hooks list
+                nested_hooks = item.get("hooks")
+                if not isinstance(nested_hooks, list) or not nested_hooks:
+                    violations.append(
+                        Violation(path, 1, f"hooks event {event_name!r} entries must contain a non-empty 'hooks' list")
+                    )
+                    continue
+                for hook in nested_hooks:
+                    if not isinstance(hook, dict):
+                        violations.append(
+                            Violation(path, 1, f"hooks event {event_name!r} hook entries must be objects")
+                        )
+                        continue
+                    if hook.get("type") != "command":
+                        violations.append(
+                            Violation(path, 1, f"hooks event {event_name!r} hook entries must use type 'command'")
+                        )
+                    command = hook.get("command")
+                    if not isinstance(command, str) or not command.strip():
+                        violations.append(
+                            Violation(path, 1, f"hooks event {event_name!r} hook entries need a non-empty command")
+                        )
     return violations
 
 
@@ -289,7 +309,11 @@ def validate_antigravity_hook_config(path: Path) -> list[Violation]:
     if hook_events is None:
         return violations
 
-    violations.extend(_validate_hook_event_map(path, hook_events))
+    violations.extend(_validate_hook_event_map(
+        path,
+        hook_events,
+        allow_flat_events={"SessionStart", "PreInvocation", "PostInvocation", "Stop"}
+    ))
     saw_root_token = False
     for entry in _iter_nested_strings(hook_events):
         if "${extensionPath}" in entry or "${/}" in entry:
@@ -859,7 +883,7 @@ def iter_claude_hook_configs() -> Iterator[Path]:
 
 
 def iter_antigravity_hook_configs() -> Iterator[Path]:
-    candidate = REPO_ROOT / "hooks.json"
+    candidate = REPO_ROOT / "hooks" / "hooks-agy.json"
     if candidate.is_file():
         yield candidate
 
@@ -947,25 +971,27 @@ def _iter_hook_commands(hooks_manifest: object) -> Iterator[str]:
     session_start = hooks.get("SessionStart")
     if not isinstance(session_start, list):
         return
-    for matcher in session_start:
-        if not isinstance(matcher, dict):
+    for item in session_start:
+        if not isinstance(item, dict):
             continue
-        nested_hooks = matcher.get("hooks")
-        if not isinstance(nested_hooks, list):
-            continue
-        for hook in nested_hooks:
-            if not isinstance(hook, dict):
-                continue
-            command = hook.get("command")
+        nested_hooks = item.get("hooks")
+        if isinstance(nested_hooks, list):
+            for hook in nested_hooks:
+                if isinstance(hook, dict):
+                    command = hook.get("command")
+                    if isinstance(command, str):
+                        yield command
+        else:
+            command = item.get("command")
             if isinstance(command, str):
                 yield command
 
 
 def validate_antigravity_hook_commands(repo_root: Path) -> list[Violation]:
-    path = repo_root / "hooks.json"
+    path = repo_root / "hooks" / "hooks-agy.json"
     violations: list[Violation] = []
     if not path.is_file():
-        return [Violation(path, None, "missing hooks.json")]
+        return [Violation(path, None, "missing hooks/hooks-agy.json")]
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError) as exc:
@@ -1151,14 +1177,200 @@ def validate_codex_hook_commands(repo_root: Path) -> list[Violation]:
         except (json.JSONDecodeError, OSError) as e:
             violations.append(Violation(path, 1, f"invalid JSON: {e}"))
             continue
-        for group in data.get("hooks", {}).get("SessionStart", []):
-            for hook in group.get("hooks", []):
-                command = hook.get("command", "")
+            
+        hooks = data.get("hooks", {})
+        session_start = hooks.get("SessionStart", [])
+        if not isinstance(session_start, list):
+            continue
+            
+        for item in session_start:
+            if not isinstance(item, dict):
+                continue
+            nested = item.get("hooks")
+            commands = []
+            if isinstance(nested, list):
+                # Nested structure
+                for h in nested:
+                    if isinstance(h, dict):
+                        commands.append(h.get("command", ""))
+            else:
+                # Flat structure
+                commands.append(item.get("command", ""))
+                
+            for command in commands:
                 for token in ("${extensionPath}", "${/}"):
                     if token in command:
                         violations.append(Violation(path, 1, f"unsupported template token '{token}' in Codex hook command"))
-                if "PLUGIN_ROOT" not in command:
+                if not any(token in command for token in ("PLUGIN_ROOT", "CLAUDE_PLUGIN_ROOT")):
                     violations.append(Violation(path, 1, f"Codex hook command must anchor to $PLUGIN_ROOT or $CLAUDE_PLUGIN_ROOT: {command!r}"))
+    return violations
+
+
+def iter_okf_bundles(repo_root: Path = REPO_ROOT) -> Iterator[Path]:
+    specs_dir = repo_root / ".agents" / "bundles" / "specs"
+    if not specs_dir.is_dir():
+        return
+    for path in specs_dir.iterdir():
+        if path.is_dir() and (path / "spec.md").is_file():
+            yield path
+
+
+def _validate_iso_timestamp(timestamp: str) -> bool:
+    pattern = re.compile(
+        r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?$"
+    )
+    return bool(pattern.match(timestamp))
+
+
+def _parse_yaml_frontmatter(path: Path) -> tuple[dict[str, Any] | None, list[Violation]]:
+    if not path.is_file():
+        return None, [Violation(path, None, f"File does not exist: {path}")]
+    try:
+        content = path.read_text(encoding="utf-8")
+    except OSError as e:
+        return None, [Violation(path, None, f"Failed to read file: {e}")]
+
+    if not content.startswith("---\n"):
+        return None, [Violation(path, 1, "Missing opening frontmatter delimiter '---'")]
+    parts = content.split("---\n", 2)
+    if len(parts) < 3:
+        return None, [Violation(path, 1, "Missing closing frontmatter delimiter '---'")]
+    yaml_block = parts[1]
+    try:
+        data = yaml.safe_load(yaml_block)
+    except yaml.YAMLError as e:
+        return None, [Violation(path, 2, f"Failed to parse YAML frontmatter: {e}")]
+    if not isinstance(data, dict):
+        return None, [Violation(path, 2, "YAML frontmatter must be an object/dictionary")]
+    return data, []
+
+
+def _validate_markdown_links(path: Path, repo_root: Path, *, strict: bool = True) -> list[Violation]:
+    violations: list[Violation] = []
+    if not path.is_file():
+        return []
+    content = path.read_text(encoding="utf-8")
+    for line_num, line in enumerate(content.splitlines(), start=1):
+        for label, url in LINK_PATTERN.findall(line):
+            if url.startswith(("http://", "https://", "mailto:", "ftp:", "#")):
+                continue
+            url_path_only = url.split("#")[0]
+            if not url_path_only:
+                continue
+            
+            if url_path_only.startswith("file://"):
+                clean_url = url_path_only.removeprefix("file://")
+                resolved = Path(clean_url).resolve()
+            else:
+                resolved = (path.parent / url_path_only).resolve()
+
+            try:
+                resolved.relative_to(repo_root.resolve())
+            except ValueError:
+                violations.append(Violation(path, line_num, f"relative link '{url}' escapes repository root"))
+                continue
+            if strict and not resolved.exists():
+                violations.append(Violation(path, line_num, f"relative link target does not exist: '{url}'"))
+    return violations
+
+
+def validate_okf_bundle(bundle_path: Path, repo_root: Path = REPO_ROOT) -> list[Violation]:
+    violations: list[Violation] = []
+    spec_path = bundle_path / "spec.md"
+    if not spec_path.is_file():
+        return [Violation(bundle_path, None, f"Spec file spec.md is missing in bundle: {_rel(bundle_path)}")]
+
+    spec_data, spec_errs = _parse_yaml_frontmatter(spec_path)
+    violations.extend(spec_errs)
+    
+    spec_parsed_ok = False
+    spec_task_short_ids = set()
+    if spec_path.is_file():
+        try:
+            content = spec_path.read_text(encoding="utf-8")
+            parts = content.split("---\n", 2)
+            body = parts[2] if len(parts) >= 3 else content
+            pattern = re.compile(r"^\s*-\s*\[([ ~x!-])\]\s*Task\s+([a-zA-Z0-9._-]+)\s*:", re.MULTILINE)
+            spec_task_short_ids = {m.group(2) for m in pattern.finditer(body)}
+            spec_parsed_ok = True
+        except OSError:
+            pass
+
+    spec_status = spec_data.get("status", "planned") if spec_data else "planned"
+    is_spec_closed = spec_status in ("completed", "archived")
+    violations.extend(_validate_markdown_links(spec_path, repo_root, strict=is_spec_closed))
+    
+    if spec_data is not None:
+        required_fields = {"flow_id", "type", "status", "created_at", "updated_at", "description"}
+        for f in required_fields:
+            if f not in spec_data or spec_data[f] is None:
+                violations.append(Violation(spec_path, 1, f"spec.md missing required field: '{f}'"))
+            elif f in ("created_at", "updated_at"):
+                val = str(spec_data[f])
+                if not _validate_iso_timestamp(val):
+                    violations.append(Violation(spec_path, 1, f"spec.md field '{f}' must be a valid ISO-8601 timestamp (got '{val}')"))
+
+        if "type" in spec_data and spec_data["type"] not in ("prd", "saga", "flow", "feature", "bug", "refactor", "task"):
+            violations.append(Violation(spec_path, 1, f"spec.md field 'type' has invalid value: '{spec_data['type']}'"))
+        if "status" in spec_data and spec_data["status"] not in ("planned", "active", "completed", "archived"):
+            violations.append(Violation(spec_path, 1, f"spec.md field 'status' has invalid value: '{spec_data['status']}'"))
+        if "flow_id" in spec_data and spec_data["flow_id"] != bundle_path.name:
+            violations.append(Violation(spec_path, 1, f"spec.md flow_id '{spec_data['flow_id']}' does not match directory name '{bundle_path.name}'"))
+
+    tasks_dir = bundle_path / "tasks"
+    if tasks_dir.is_dir():
+        for task_file in tasks_dir.glob("*.md"):
+            task_data, task_errs = _parse_yaml_frontmatter(task_file)
+            violations.extend(task_errs)
+            
+            # Check for orphaned task file
+            short_id = task_file.stem
+            if spec_parsed_ok and short_id not in spec_task_short_ids:
+                violations.append(Violation(task_file, None, f"orphaned task file: no corresponding 'Task {short_id}' found in spec.md implementation plan"))
+            
+            task_status = task_data.get("status", "open") if task_data else "open"
+            violations.extend(_validate_markdown_links(task_file, repo_root, strict=(task_status == "closed")))
+            
+            if task_data is not None:
+                required_task_fields = {"id", "status", "depends_on", "files", "tests", "created_at", "updated_at"}
+                for f in required_task_fields:
+                    if f not in task_data or task_data[f] is None:
+                        violations.append(Violation(task_file, 1, f"task missing required field: '{f}'"))
+                    elif f in ("created_at", "updated_at"):
+                        val = str(task_data[f])
+                        if not _validate_iso_timestamp(val):
+                            violations.append(Violation(task_file, 1, f"task field '{f}' must be a valid ISO-8601 timestamp (got '{val}')"))
+
+                if "status" in task_data and task_data["status"] not in ("open", "in_progress", "closed", "blocked", "skipped"):
+                    violations.append(Violation(task_file, 1, f"task field 'status' has invalid value: '{task_data['status']}'"))
+
+                if "depends_on" in task_data and not isinstance(task_data["depends_on"], list):
+                    violations.append(Violation(task_file, 1, "task field 'depends_on' must be a list"))
+
+                if spec_data and "flow_id" in spec_data:
+                    flow_id = spec_data["flow_id"]
+                    task_id = str(task_data.get("id", ""))
+                    if not task_id.startswith(f"{flow_id}:"):
+                        violations.append(Violation(task_file, 1, f"task ID prefix '{task_id.split(':')[0] if ':' in task_id else task_id}' must match flow_id '{flow_id}'"))
+
+                for list_field in ("files", "tests"):
+                    if list_field in task_data:
+                        items = task_data[list_field]
+                        if not isinstance(items, list):
+                            violations.append(Violation(task_file, 1, f"task field '{list_field}' must be a list"))
+                        else:
+                            for item in items:
+                                if not isinstance(item, str):
+                                    violations.append(Violation(task_file, 1, f"task field '{list_field}' item must be a string path"))
+                                    continue
+                                resolved = (repo_root / item).resolve()
+                                try:
+                                    resolved.relative_to(repo_root.resolve())
+                                except ValueError:
+                                    violations.append(Violation(task_file, 1, f"referenced file '{item}' escapes repository root"))
+                                    continue
+                                if not resolved.exists() and task_status == "closed":
+                                    violations.append(Violation(task_file, 1, f"referenced file does not exist: '{item}'"))
     return violations
 
 
@@ -1216,6 +1428,10 @@ def main() -> int:
     all_violations.extend(validate_codex_package_layout(REPO_ROOT))
     all_violations.extend(validate_codex_hook_commands(REPO_ROOT))
     
+    # OKF Bundle validation
+    for bundle_path in iter_okf_bundles(REPO_ROOT):
+        all_violations.extend(validate_okf_bundle(bundle_path, REPO_ROOT))
+        
     if all_violations:
         _print_violations(all_violations)
         print(f"\n{len(all_violations)} violation(s)", file=sys.stderr)

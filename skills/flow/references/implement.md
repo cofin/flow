@@ -11,39 +11,32 @@ Execute tasks from a flow's plan using TDD workflow.
 
 **PROTOCOL: Load Flow, Project, and Parent Context.**
 
-1. **Read Artifacts:**
-    - `.agents/specs/{flow_id}/spec.md` (unified spec+plan)
-    - `.agents/specs/{flow_id}/learnings.md`
+1. **Read Spec Artifacts:**
+    - `.agents/bundles/specs/{flow_id}/spec.md` (unified spec+plan)
+    - `.agents/bundles/specs/{flow_id}/learnings.md` (if exists)
 2. **Read Project Context:** `.agents/patterns.md` and `.agents/workflow.md`
 3. **Read Parent Context:**
     - Check if this flow has a parent PRD/Saga.
-    - If yes, read `.agents/specs/<parent_id>/prd.md`.
-4. **Load Beads context:**
-    - If using official Beads (`bd`): load the active queue/workspace state
-    - If using no-Beads mode: skip backend loading and use `spec.md`
+    - If yes, read `.agents/bundles/specs/<parent_id>/prd.md`.
+4. **Load Task List**:
+    - Scan task files under `.agents/bundles/specs/{flow_id}/tasks/*.md`.
 
 **CRITICAL:** Before starting, check whether `.agents/` is ignored by git. If it is ignored via `.gitignore`, `.git/info/exclude`, or global ignores, do NOT commit changes to artifacts inside it using git. Update them on disk only.
 Extract canonical repo commands from `.agents/workflow.md` before coding. Prefer the documented setup, lint, test, typecheck, and full verification commands when they exist.
 
-## Phase 2: Select Task (Beads-First)
+## Phase 2: Select Task
 
-**CRITICAL:** Beads is the source of truth for task status. Do NOT update spec.md markers.
+**PROTOCOL: Scan and select the next pending task from the filesystem.**
 
 ### 2.1 Check for Resume State
 
-```bash
-cat .agents/specs/{flow_id}/implement_state.json 2>/dev/null
-```
+Check `.agents/bundles/specs/{flow_id}/tasks/` for any task file with `status: in_progress`. If one is found, resume it.
 
 ### 2.2 Find Next Task
 
-#### Primary: Use Beads
-
-Use the active backend's ready/queue command.
-
-#### Fallback: Parse spec.md
-
-If Beads unavailable, parse `spec.md` Implementation Plan section for pending tasks.
+1. **Scan**: Scan task files under `.agents/bundles/specs/{flow_id}/tasks/*.md`.
+2. **Parse & Resolve Dependencies**: Parse the YAML frontmatter of each task. A task is ready if its `status` is `"open"` and all dependencies listed in `depends_on` have `status` set to `"closed"`.
+3. **Select**: Sort the ready tasks by priority (`P0` > `P1` > `P2` > `P3` > `P4`), then select the first one.
 
 ## Phase 3: Task Execution (TDD)
 
@@ -74,15 +67,10 @@ Write code before the test? Delete it. Start over. No exceptions.
 
 ### 3.1 Mark In Progress
 
-**If task not in Beads, create it first:**
+Edit the selected task's file (e.g. `.agents/bundles/specs/{flow_id}/tasks/{task_id}.md`):
 
-Create it with the active backend's task creation flow and attach notes/context after creation.
-
-Then mark in progress:
-
-Use the active backend's in-progress/claim command.
-
-**CRITICAL:** Do NOT write `[~]` markers to spec.md. Beads is source of truth.
+1. Set `status: in_progress` in the YAML frontmatter.
+2. Set `updated_at` to the current ISO-8601 timestamp.
 
 ### 3.2 Red Phase — Write Failing Tests
 
@@ -157,21 +145,23 @@ Format: conventional commits
 Never use `git add -A` or `git add -f` for Flow work. If a file is ignored, leave it local-only.
 Never force-add ignored Flow artifacts.
 
-## Phase 5: Sync to Beads (Source of Truth)
+## Phase 5: Close Task
 
-**CRITICAL:** Only update Beads. Do NOT write `[x]` markers to spec.md.
+Edit the task file:
 
-Use the active backend's completion/close command with the commit reference.
+1. Set `status: closed` in the YAML frontmatter.
+2. Set `commit: <sha>` where `<sha>` is the commit hash retrieved from the recent git commit (`git log -n 1 --format="%H"`).
+3. Set `updated_at` to the current ISO-8601 timestamp.
 
 ### 5.1 Log Learnings
 
-If any patterns discovered, add to `.agents/specs/{flow_id}/learnings.md`
+If any patterns were discovered, append them to `.agents/bundles/specs/{flow_id}/learnings.md` using the Ralph format.
 
 If `.agents/skills/flow-memory-keeper/SKILL.md` exists, invoke it so learnings, failures, sync cleanup, and archive prep are refined consistently.
 
 ## Phase 6: Save State
 
-Save progress to `.agents/specs/{flow_id}/implement_state.json`:
+Save progress to `.agents/bundles/specs/{flow_id}/implement_state.json`:
 
 ```json
 {
@@ -188,21 +178,18 @@ Save progress to `.agents/specs/{flow_id}/implement_state.json`:
 IRON LAW: NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
 ```
 
-At end of each phase:
+At the end of each phase:
 
-1. **Run full test suite** — read output, confirm 0 failures. No "should pass."
-2. **Run coverage check** — confirm target met with actual numbers.
+1. **Run full test suite** — read output, confirm 0 failures.
+2. **Run coverage check** — confirm target met.
 3. **Dispatch code review** (recommended for multi-task phases):
-   - Get git range from Beads task completion records (commit SHAs)
-   - Dispatch review subagent with: spec.md requirements, patterns.md, git range
-   - Fix Critical issues immediately, Important issues before proceeding
-   - Log findings to learnings.md
-   - See `superpowers:requesting-code-review` for dispatch pattern
+   - Get the git range from the task file commit history (e.g. comparing the last checkpoint commit to HEAD).
+   - Dispatch review subagent with: `spec.md` requirements, `patterns.md`, and the git range.
+   - Fix Critical issues immediately, Important issues before proceeding.
+   - Log findings to `learnings.md`.
 4. **Create checkpoint commit**: `git commit -m "chore(checkpoint): complete phase {N}"`
 5. **Prompt for pattern elevation**: "Are there learnings from this phase to elevate to `patterns.md`?"
-6. **Record checkpoint in Beads**: use the active backend's note/comment command
-7. **Sync to markdown**: follow `syncPolicy.flowSyncAfterMutation`; when enabled, run `/flow:sync`
-8. **Ask user to verify**
+6. **Ask user to verify**
 
 **Verification red flags — STOP before claiming completion:**
 
@@ -214,7 +201,7 @@ At end of each phase:
 
 When a phase has independent tasks that can be executed concurrently (prefer this mode when `superpowers:subagent-driven-development` is available):
 
-1. **Controller** (flow:implement) manages Beads state transitions for all tasks
+1. **Controller** (flow:implement) manages task file status state transitions for all tasks
 2. **Dispatch one subagent per task** — each gets preserved context with:
    - task text and refined task instructions
    - relevant `spec.md` requirements
@@ -252,10 +239,9 @@ If continuing, loop back to Phase 2.
 2. **DEBUGGING IRON LAW** — No fixes without root cause investigation. No guessing.
 3. **VERIFICATION IRON LAW** — No completion claims without fresh evidence. Run the command, read the output.
 4. **SMALL COMMITS** — One task = one commit
-5. **BEADS IS SOURCE OF TRUTH** — Never write markers to spec.md
+5. **TASK FILES ARE SOURCE OF TRUTH** — Maintain task status and SHAs in the task files frontmatter.
 6. **LOG LEARNINGS** — Capture patterns as you go
 7. **LOCAL ONLY** — Never push automatically
-8. **USE THE ACTIVE BACKEND'S READY QUEUE** — Always check Beads for next task when a backend is enabled
-9. **CODE REVIEW** — Dispatch review at phase checkpoints. Fix Critical/Important before proceeding.
-10. **USE CANONICAL REPO COMMANDS** — Prefer the commands documented in `.agents/workflow.md`
-11. **BE COLLABORATIVE** — Describe unrelated blockers factually and constructively; never use dismissive ownership-deflecting language
+8. **CODE REVIEW** — Dispatch review at phase checkpoints. Fix Critical/Important before proceeding.
+9. **USE CANONICAL REPO COMMANDS** — Prefer the commands documented in `.agents/workflow.md`
+10. **BE COLLABORATIVE** — Describe unrelated blockers factually and constructively; never use dismissive ownership-deflecting language

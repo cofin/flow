@@ -57,13 +57,13 @@ NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST
 
 If you haven't completed Phase 1, you cannot propose fixes.
 
-### The Beads-First Investigation Mandate
+### The Task-First Investigation Mandate
 
-**CRITICAL:** Every investigation finding, root cause discovery, and hypothesis test MUST be recorded in Beads as a note on the active task.
+**CRITICAL:** Every investigation finding, root cause discovery, and hypothesis test MUST be recorded directly in the active task file (e.g. `.agents/bundles/specs/<flow_id>/tasks/<task_id>.md`) under the `## Notes & Discoveries` heading, prefixed with a timestamp.
 
 1. **Investigate**: Trace data flow, read errors, reproduce.
-2. **Note**: `bd note <id> "Root cause: [Description]. Found in [file:line]."`
-3. **Commit**: Decisions stored in Beads survive context compaction and session resets. Markdown is for the final "Learnings" summary.
+2. **Note**: Append to `## Notes & Discoveries`: `[YYYY-MM-DD HH:MM] Root cause: [Description]. Found in [file:line].`
+3. **Commit**: Discoveries and decisions recorded in the task file survive context compaction and session resets. Learnings should be consolidated in `learnings.md` at the end of the task.
 
 ### Four-Phase Protocol
 
@@ -134,26 +134,6 @@ BEFORE claiming any status:
 - Trusting agent success reports without independent check
 
 **Full reference:** `superpowers:verification-before-completion`
-
----
-
-## Beads Mode Iron Law
-
-```text
-NO `bd` INVOCATIONS WHEN BEADS IS DISABLED OR MISSING
-```
-
-The SessionStart hook (`hooks/detect-env.sh`) emits one of three Beads-backend signals into the agent context:
-
-| Hook signal | Action |
-|---|---|
-| `Beads Backend: Official (bd)` | Proceed normally — `bd` is the source of truth. |
-| `Beads Backend: Missing (None)` | Skip every `bd` invocation. Treat `spec.md` markers as fallback source of truth. |
-| `Beads Backend: Disabled via plugin config (useBeads=false)` | Skip every `bd` invocation. Treat `spec.md` markers as fallback source of truth. |
-
-**Never halt for missing Beads.** Degrade gracefully: read state from `spec.md` markers (`[ ]`, `[~]`, `[x]`, `[!]`, `[-]`), record progress by editing those markers directly, skip notes/learnings that would otherwise go into Beads, and skip `/flow:sync` (it's a no-op without a backend).
-
-**Why this exists:** The plugin manifest exposes a `useBeads` userConfig toggle and the harness can also lack `bd` entirely. Before this rule, every flow command shelled out to `bd` unconditionally — toggling `useBeads=false` only suppressed SessionStart context while every command still emitted "command not found" or stored garbage.
 
 ---
 
