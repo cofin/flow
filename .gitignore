@@ -226,7 +226,8 @@ windsurf.mcp.json
 *.db
 .beads-credential-key
 .worktrees/
-.agents/setup-state.json
+.agents/*
+!.agents/bundles/
 .beads/
 
 # Codex package build directory
