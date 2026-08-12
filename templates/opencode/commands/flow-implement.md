@@ -40,17 +40,21 @@ If no task files exist yet, run `/flow-sync` first to scaffold them from the `sp
 
 ## Phase 3: Task Execution (TDD)
 
-### 3.0 Subagent Execution Preference
+### 3.0 Workspace Isolation Preference (Subagent Execution)
 
-If `superpowers:subagent-driven-development` is available in this harness, invoke it before implementation and use its implementation-subagent workflow for task execution and review checkpoints.
+Before executing the task, check `.agents/config.json` for the `use_branched_workspaces` preference.
 
-- Before delegating, ask: "Do I have enough task information written for this PRD/flow to complete it correctly in the first pass?"
-- If not, invoke `flow-refine` first and update the plan before dispatch.
-- Preserve subagent context by passing the relevant spec or PRD, patterns, knowledge chapters, learnings, affected files, and verification requirements.
-- Do not silently descope if the task is larger than expected. Refine it or ask the user how to prioritize.
+1. **Read Configuration:** Read `use_branched_workspaces` from `.agents/config.json` (default to `false` if missing).
+2. **Determine Workspace Strategy:**
+   - If `use_branched_workspaces` is `true` AND the harness/environment supports workspace isolation (e.g., spawning subagents with `Workspace='branch'`), then you MUST execute the task using a subagent spawned in a branched workspace.
+   - If `use_branched_workspaces` is `false` or unsupported, execute the task inline in the current workspace (single-agent TDD workflow below).
 
-Fallback: if the skill is unavailable, continue with the single-agent TDD workflow below.
-In fallback mode, preserve the same task context bundle, refine coarse tasks first, and keep the same review checkpoints.
+3. **Subagent Delegation (if using branched workspaces):**
+   - Before delegating, ask: "Do I have enough task information written for this PRD/flow to complete it correctly in the first pass?"
+   - If not, invoke `flow-refine` first and update the plan before dispatch.
+   - Spawn the subagent with `Workspace='branch'` (if supported by the `send_message` or agent spawn API).
+   - Preserve subagent context by passing the relevant spec or PRD, patterns, knowledge chapters, learnings, affected files, and verification requirements.
+   - Do not silently descope if the task is larger than expected. Refine it or ask the user how to prioritize.
 
 ### 3.0.1 API Lookup Preference
 
@@ -119,7 +123,7 @@ At phase completion: run the full test suite, check coverage requirements, and e
 3. **TASK FILES ARE SOURCE OF TRUTH** - Keep task status and commit SHAs in the task files' frontmatter; never flip a spec.md marker without the matching task-file `state:` change
 4. **ALWAYS-SYNCED TASK LIST** - Reconcile the `spec.md` checklist marker immediately after every task state change (claim → `[~]`, close → `[x]` + `[<sha>]`); never defer it
 5. **NOTE IMMEDIATELY** - Record discoveries directly into the task file's `## Notes & Discoveries` section
-6. **PREFER SUPERPOWERS SUBAGENTS** - Use `superpowers:subagent-driven-development` when available, otherwise follow the same protocol inline
+6. **WORKSPACE ISOLATION PREFERENCE** - Use branched workspaces (Workspace='branch') for subagents if enabled in `.agents/config.json`, otherwise execute inline.
 7. **PREFER API LOOKUP** - Use `flow:apilookup` for external API/version/doc questions before coding
 8. **LOCAL ONLY** - Never push automatically
 9. **USE THE READY QUEUE** - Select the next task by scanning task files for open tasks with closed dependencies

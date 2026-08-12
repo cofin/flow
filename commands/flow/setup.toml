@@ -175,7 +175,7 @@ For each migrated spec that is `planned` or `active`:
 - Confirm `.agents/bundles/index.md` exists and declares `okf_version: "0.2"`; create it if absent.
 - Confirm `.agents/bundles/log.md` exists; create it with today's dated entry if absent.
 - Confirm every non-reserved bundle `.md` file carries a non-empty `type:` frontmatter key; offer to add missing ones.
-- Confirm no task file stores workflow state in `status:` — move such values to `state:`.
+- Confirm no spec or task file stores workflow state in `status:` — move such values to `state:`.
 
 ### 0.1.6 Context Validation
 
@@ -228,6 +228,34 @@ The Flow root is always `.agents/` with bundles at `.agents/bundles/`. To reloca
 
 ---
 
+## Phase 1.5: Environment & Harness Detection
+
+**PROTOCOL: Detect the repository type and active harness to configure hooks.**
+
+1. **Detect Repository Type:**
+   - Git: Run `git rev-parse --is-inside-work-tree` (succeeds if Git).
+   - CitC (Google3): Check if path contains `/google/src/files/` or if `g4` is available.
+
+2. **Detect Active Harness:**
+   - Antigravity / VS Code: Check if `$ANTIGRAVITY_PLUGIN_ROOT` or `$VSCODE_PID` is set.
+   - Claude Code: Check if running under Claude Code (e.g. `CLAUDE.md` is active or specific env vars).
+   - Codex: Check if running under Codex.
+   - Jetski CLI: Check if running under Jetski.
+
+3. **Configure Hooks:**
+   - Determine hook destination:
+     - Git: `.agents/hooks.json`
+     - Google3 (CitC): `_agents/hooks.json`
+     - Global (fallback): `~/.gemini/config/hooks.json`
+   - Select hook source:
+     - Antigravity: `hooks/hooks-agy.json`
+     - Claude Code: `hooks/hooks-claude.json`
+     - Codex: `hooks/hooks-codex.json`
+     - Cursor: `hooks/hooks-cursor.json`
+   - Copy or symlink the selected hook configuration to the destination. If the destination file already exists, prompt the user before overwriting.
+
+---
+
 ## Phase 2: Context Gathering (Interactive)
 
 Ask the user these questions ONE AT A TIME:
@@ -277,6 +305,7 @@ Write response to `.agents/bundles/product/tech-stack.md` with `type: Guide` fro
 > - CI integration? (GitHub Actions, GitLab CI, etc.)
 > - Canonical repo commands for setup, lint, test, typecheck, and full verification?
 > - Local-only or shared ignore policy for Flow artifacts?
+> - Enable branched workspaces (Workspace='branch') for execution tasks? (y/N) (default: N)
 
 Before asking, inspect the repo's real command surfaces (`Makefile`, `justfile`, `Taskfile.yml`, `package.json`, `pyproject.toml`, `Cargo.toml`, `.pre-commit-config.yaml`, CI files) and propose those commands back to the user. Copy the workflow template from `templates/agent/workflow.md` to `.agents/bundles/knowledge/workflow.md` and customize it to preserve those canonical commands instead of leaving generic placeholders.
 
@@ -410,6 +439,20 @@ Save setup state to `.agents/setup-state.json`:
   "timestamp": "ISO timestamp"
 }
 ```
+
+---
+
+## Phase 7.1: Save Configuration
+
+Save configuration to `.agents/config.json`:
+
+```json
+{
+  "use_branched_workspaces": true|false
+}
+```
+
+If `.agents/config.json` already exists, merge this key into it.
 
 ---
 

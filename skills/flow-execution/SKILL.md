@@ -9,11 +9,15 @@ Use this lifecycle skill when implementation starts after a Flow plan or ready t
 
 ## Workflow
 
-1. Select ready work from `.agents/bundles/specs/<flow_id>/tasks/*.md` (YAML frontmatter `state: open` and dependencies resolved) and claim it (state to `in_progress`).
-2. Read the relevant spec, task notes, patterns, affected files, and validation commands.
-3. Record investigation findings directly inside the task file's `## Notes & Discoveries` section.
-4. Follow red-green-refactor: write the failing test, verify the failure, implement minimally, verify green, then refactor.
-5. Commit targeted changes, retrieve the commit SHA, and close the task (status to `closed` and write commit SHA to frontmatter).
+1. **Read Configuration:** Check `use_branched_workspaces` in `.agents/config.json` (default to `false` if missing).
+2. **Select Ready Work:** Select ready work from `.agents/bundles/specs/<flow_id>/tasks/*.md` (YAML frontmatter `state: open` and dependencies resolved) and claim it (state to `in_progress`).
+3. **Determine Execution Strategy:**
+   - **Branched Workspace (Delegated):** If `use_branched_workspaces` is `true` and the harness supports it, spawn a subagent with `Workspace='branch'`. Pass the selected task, spec, and project context. The subagent will execute the task and report back.
+   - **Inline Execution:** Otherwise, proceed with inline execution in the current workspace:
+     - Read the relevant spec, task notes, patterns, affected files, and validation commands.
+     - Record investigation findings directly inside the task file's `## Notes & Discoveries` section.
+     - Follow red-green-refactor: write the failing test, verify the failure, implement minimally, verify green, then refactor.
+     - Commit targeted changes, retrieve the commit SHA, and close the task (set `state` to `closed` and write commit SHA to frontmatter).
 
 ## Guardrails
 

@@ -74,7 +74,7 @@ For each migrated `planned`/`active` spec, verify task `state` values against so
 
 ### 0.1.5 Bundle Integrity Check
 
-Confirm `.agents/bundles/index.md` declares `okf_version: "0.2"`, `log.md` exists, every non-reserved bundle markdown file has a non-empty `type:`, and no task file stores workflow state in `status:` (move such values to `state:`).
+Confirm `.agents/bundles/index.md` declares `okf_version: "0.2"`, `log.md` exists, every non-reserved bundle markdown file has a non-empty `type:`, and no spec or task file stores workflow state in `status:` (move such values to `state:`).
 
 ### 0.1.6 Policy & Context Validation
 

@@ -27,3 +27,25 @@ def test_setup_defines_new_paths() -> None:
         assert "bundles/specs/" in text
         assert "bundles/knowledge/" in text
         assert "knowledge/index.md" not in text or "bundles/knowledge/index.md" in text
+
+def test_setup_prompts_for_branched_workspaces() -> None:
+    for relative_path in (
+        "commands/flow-setup.md",
+        "templates/opencode/commands/flow-setup.md",
+        "commands/flow/setup.toml",
+    ):
+        text = _read(relative_path)
+        assert "branched workspaces" in text
+        assert "use_branched_workspaces" in text
+
+def test_setup_performs_environment_detection() -> None:
+    for relative_path in (
+        "commands/flow-setup.md",
+        "templates/opencode/commands/flow-setup.md",
+        "commands/flow/setup.toml",
+    ):
+        text = _read(relative_path)
+        assert "Environment & Harness Detection" in text
+        assert "hooks.json" in text
+
+

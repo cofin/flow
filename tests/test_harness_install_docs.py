@@ -39,3 +39,5 @@ def test_public_install_docs_do_not_advertise_legacy_or_manual_clone_symlink_ins
         text = (REPO_ROOT / relative_path).read_text(encoding="utf-8")
         for token in forbidden:
             assert token not in text, f"{relative_path} still advertises {token!r}"
+
+

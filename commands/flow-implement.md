@@ -24,6 +24,17 @@ Implementing flow: **$ARGUMENTS**
 
 ---
 
+## Phase 1: Workspace Strategy
+
+**PROTOCOL: Determine if task execution should run in a branched workspace.**
+
+1. **Read Configuration:** Read `use_branched_workspaces` from `.agents/config.json` (default to `false` if missing).
+2. **Determine Strategy:**
+   - If `use_branched_workspaces` is `true` AND the harness supports it, spawn a subagent with `Workspace='branch'` to execute the task.
+   - Otherwise, execute the task inline in the current workspace.
+
+---
+
 ## Phase 2: Task Selection
 
 **PROTOCOL: Scan and select the next pending task from the filesystem.**
