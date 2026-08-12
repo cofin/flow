@@ -15,7 +15,7 @@ Refresh the flow's context files by re-scanning the codebase and updating the `.
 ## Workflow
 
 1. **Read current context**
-   - Load `.agents/bundles/index.md`, `.agents/bundles/knowledge/product/tech-stack.md`, `.agents/bundles/knowledge/workflow/workflow.md`
+   - Load `.agents/bundles/index.md`, `.agents/bundles/product/tech-stack.md`, `.agents/bundles/knowledge/workflow.md`
    - Identify active flows by scanning `.agents/bundles/specs/*/spec.md` frontmatter for `state: active` (or `planned`)
    - Load the active flow's `spec.md` and `tasks/*.md`; use the spec's `updated_at` as the last-sync baseline
 
@@ -25,12 +25,12 @@ Refresh the flow's context files by re-scanning the codebase and updating the `.
    - Detect dependency changes (pyproject.toml, Cargo.toml, package.json)
    - Detect tech stack changes (new frameworks, removed packages)
    - Inspect workflow drift across `Makefile`, `justfile`, `Taskfile.yml`, `package.json`, `pyproject.toml`, `Cargo.toml`, `.pre-commit-config.yaml`, and CI files
-   - Compare those command surfaces with `.agents/bundles/knowledge/workflow/workflow.md`
+   - Compare those command surfaces with `.agents/bundles/knowledge/workflow.md`
 
 3. **Update context files**
-   - Refresh `.agents/bundles/knowledge/product/tech-stack.md` if dependencies changed
-   - Update `.agents/bundles/knowledge/patterns/patterns.md` if new patterns detected in recent commits
-   - Prompt to revalidate `.agents/bundles/knowledge/workflow/workflow.md` when canonical commands or ignore policy drifted
+   - Refresh `.agents/bundles/product/tech-stack.md` if dependencies changed
+   - Update `.agents/bundles/knowledge/patterns.md` if new patterns detected in recent commits
+   - Prompt to revalidate `.agents/bundles/knowledge/workflow.md` when canonical commands or ignore policy drifted
    - Prefer repo-native aggregate commands such as `make lint`, `make test`, `make check`, `just check`, `task test`, package scripts, and pre-commit entrypoints when updating workflow guidance
    - If tasks were completed externally (commits reference task ids), set `state: closed` and `commit: <sha>` in the affected task files
    - Refresh `.agents/bundles/index.md` with any structural changes

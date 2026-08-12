@@ -6,7 +6,7 @@ Use the `flow-planning` lifecycle skill through the `flow` router before carryin
 ## SYSTEM DIRECTIVE
 You are revising a flow's spec or plan because implementation has revealed new information. All revisions must be documented.
 
-**Input:** $ARGUMENTS (flow_id)
+**Input:** {{args}} (flow_id)
 
 ---
 

@@ -32,7 +32,7 @@ You MUST invoke these skills if available:
 
 ### 1.0 INTELLIGENCE INJECTION
 
-- Read `patterns.md`, parent `prd.md` (if exists), and `.agents/research/`.
+- Read `patterns.md`, parent `prd.md` (if exists), and `.agents/bundles/research/`.
 - Warn if direction violates an existing pattern.
 
 ### 2.0 CODE ANALYSIS (MANDATORY)

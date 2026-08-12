@@ -36,25 +36,41 @@ fi
 
 Scan for legacy locations: `specs/` or `.agents/specs/` spec trees, flat context files (`.agents/product.md`, `.agents/tech-stack.md`, `.agents/workflow.md`, `.agents/patterns.md`, `.agents/knowledge/`, `.agents/code-styleguides/`), and legacy task-tracker artifacts (`.agents/beads.json`, `.beads/`, `metadata.json`).
 
-Offer migration into `.agents/bundles/`: specs to `bundles/specs/<flow_id>/spec.md` with OKF frontmatter (`type: Spec`, `flow_id`, `title`, `state`, timestamps; map legacy status in_progress→active, completed→completed, else planned), flat context files into the matching `knowledge/` chapter with `type:` frontmatter, styleguides into `knowledge/patterns/`. Delete migrated `metadata.json` files and, after user confirmation, legacy tracker config — task state now lives in the bundle files. Do not create `flows.md` or `metadata.json` files.
+Offer migration into `.agents/bundles/`: specs to `bundles/specs/<flow_id>/spec.md` with OKF frontmatter (`type: Spec`, `flow_id`, `title`, `state`, timestamps; map legacy status in_progress→active, completed→completed, else planned), flat context files into the matching `knowledge/` chapter with `type:` frontmatter, styleguides into `knowledge/` (as `<topic>-style.md` chapters). Delete migrated `metadata.json` files and, after user confirmation, legacy tracker config — task state now lives in the bundle files. Do not create `flows.md` or `metadata.json` files.
+
+### 0.1.1b Remove Legacy Tracker Machinery
+
+Offer each removal explicitly: delete `.git/hooks/pre-commit` when it contains tracker sync logic; delete `.beads/` and `.agents/beads.json` after confirmation; note the legacy `bd` binary is no longer used and may be uninstalled.
+
+### 0.1.1c Scrub Tracker Instructions from Context Files
+
+Scan `AGENTS.md`/`CLAUDE.md`/`GEMINI.md`, `.claude/settings.local.json` (`Bash(bd:*)` allowlist entries), `opencode.json`, and `.cursor/rules/*.mdc` for tracker-era instructions or legacy `.agents/specs/` paths. Show each proposed edit; replace with bundle equivalents or remove on approval (merge, back up, never clobber).
 
 ### 0.1.2 Learnings Ingestion
 
-Validate existing `learnings.md` files against the current codebase and merge confirmed patterns into `.agents/bundles/knowledge/patterns/patterns.md`.
+Validate existing `learnings.md` files against the current codebase and merge confirmed patterns into `.agents/bundles/knowledge/patterns.md`.
 
 ### 0.1.3 Core Artifacts Check
 
-Check for `knowledge/product/product.md` and `knowledge/product/tech-stack.md`. Ensure they exist, carry `type: Guide` frontmatter, and contain `<!-- truth: start -->` and `<!-- truth: end -->` markers. Keep each truth block focused (≤ 40 lines) — the session hook extracts a bounded excerpt, so broader wraps are silently truncated.
+Check for `product/product.md` and `product/tech-stack.md`. Ensure they exist, carry `type: Guide` frontmatter, and contain `<!-- truth: start -->` and `<!-- truth: end -->` markers. Keep each truth block focused (≤ 40 lines) — the session hook extracts a bounded excerpt, so broader wraps are silently truncated.
 
 ### 0.1.4 Workflow Revalidation & Sync
 
 **PROTOCOL: Synchronize the workflow chapter with the latest template while preserving local "truth" markers.**
 
-1. Read the existing `knowledge/workflow/workflow.md`.
+1. Read the existing `knowledge/workflow.md`.
 2. Extract content between `<!-- truth: start -->` and `<!-- truth: end -->`.
 3. Replace the rest of the file with the latest `templates/agent/workflow.md`.
 4. If markers are missing, offer to add them based on existing "Essential Commands" and "Guiding Principles".
 5. Inspect the repo's real command surfaces (`Makefile`, `package.json`, etc.) to propose canonical command updates.
+
+### 0.1.4b Knowledge Resynthesis
+
+Migration is complete only after RE-synthesis: rewrite migrated chapters as coherent current-state documentation — merge duplicates across old flat files and knowledge chapters, resolve contradictions against the actual codebase, drop stale notes, no dated entries or flow attributions (history lives in `log.md`). Present restructured chapters for approval.
+
+### 0.1.4c Spec Review Against the Codebase
+
+For each migrated `planned`/`active` spec, verify task `state` values against source reality (`files:` exist, `tests:` pass, behavior implemented); propose corrections and reconcile the checklist.
 
 ### 0.1.5 Bundle Integrity Check
 
@@ -89,16 +105,16 @@ Detect brownfield vs greenfield (existing code, build files, `.agents/` presence
 
 Ask the user ONE AT A TIME, as in the `/flow:setup` command:
 
-- **Product definition** → `knowledge/product/product.md` (`type: Guide`, truth markers around the summary)
-- **Product guidelines** → `knowledge/product/product-guidelines.md` (`type: Guide`)
-- **Tech stack** (detect first, confirm) → `knowledge/product/tech-stack.md` (`type: Guide`, truth markers around the core list)
-- **Workflow preferences** (coverage target, commit format, CI, canonical commands, bundle tracking policy) → `knowledge/workflow/workflow.md` from `templates/agent/workflow.md` with the repo's real commands merged in. Do not leave generic placeholders when canonical commands already exist.
+- **Product definition** → `product/product.md` (`type: Guide`, truth markers around the summary)
+- **Product guidelines** → `product/product-guidelines.md` (`type: Guide`)
+- **Tech stack** (detect first, confirm) → `product/tech-stack.md` (`type: Guide`, truth markers around the core list)
+- **Workflow preferences** (coverage target, commit format, CI, canonical commands, bundle tracking policy) → `knowledge/workflow.md` from `templates/agent/workflow.md` with the repo's real commands merged in. Do not leave generic placeholders when canonical commands already exist.
 
 ---
 
 ## Phase 3: Style & Convention Chapters
 
-Offer styleguides from `templates/styleguides/` for detected languages; copy selected into `knowledge/patterns/` as `type: Pattern` chapters alongside `patterns.md`.
+Offer styleguides from `templates/styleguides/` for detected languages; copy selected into `knowledge/` (as `<topic>-style.md` chapters) as `type: Pattern` chapters alongside `patterns.md`.
 
 ---
 
@@ -108,11 +124,11 @@ Create:
 
 - `.agents/bundles/index.md` - Bundle root index (`okf_version: "0.2"`)
 - `.agents/bundles/log.md` - Dated change log with a creation entry
-- `.agents/bundles/knowledge/patterns/patterns.md` - Patterns template (`type: Pattern`)
+- `.agents/bundles/knowledge/patterns.md` - Patterns template (`type: Pattern`)
 - `.agents/bundles/skills/flow-memory-keeper/SKILL.md` - Project-local memory/refinement skill
 
 ```bash
-mkdir -p .agents/bundles/specs .agents/bundles/knowledge/{product,workflow,patterns} .agents/bundles/skills/flow-memory-keeper
+mkdir -p .agents/bundles/{specs,product,knowledge,research} .agents/bundles/skills/flow-memory-keeper
 ```
 
 Copy `templates/agent/skills/flow-memory-keeper/SKILL.md` into `.agents/bundles/skills/flow-memory-keeper/SKILL.md`.
@@ -160,7 +176,7 @@ If A, MERGE into `.claude/settings.local.json` (NEVER clobber). Use `jq` when av
 **Computed allow entries** = read-only base ∪ workflow-derived:
 
 - **Read-only base (always included):** `Read`, `Grep`, `Glob`, `LS`, `WebFetch`, `WebSearch`, `Bash(git status)`, `Bash(git diff:*)`, `Bash(git log:*)`, `Bash(ls:*)`, `Bash(cat:*)`, `Bash(grep:*)`, `Bash(rg:*)`, `Bash(wc:*)`, `Bash(find:*)`
-- **Workflow-derived (from `knowledge/workflow/workflow.md`):** parse the "Essential Commands" section. For each canonical command (e.g. `make lint`, `make test`, `make check`, `bun test`, `bun run build:*`, `uv run pytest`, `npx vitest`, `cargo test`), add `Bash(<first-token>:*)`. Deduplicate against base.
+- **Workflow-derived (from `knowledge/workflow.md`):** parse the "Essential Commands" section. For each canonical command (e.g. `make lint`, `make test`, `make check`, `bun test`, `bun run build:*`, `uv run pytest`, `npx vitest`, `cargo test`), add `Bash(<first-token>:*)`. Deduplicate against base.
 
 **Merge recipe (jq):**
 
@@ -205,7 +221,7 @@ cp opencode.json opencode.json.bak
 
 jq '
   .permission = ((.permission // {}) + {edit: "ask", bash: "ask"}) |
-  .instructions = (((.instructions // []) + ["AGENTS.md", ".agents/bundles/knowledge/product/product.md", ".agents/bundles/knowledge/product/tech-stack.md"]) | unique)
+  .instructions = (((.instructions // []) + ["AGENTS.md", ".agents/bundles/product/product.md", ".agents/bundles/product/tech-stack.md"]) | unique)
 ' opencode.json > opencode.json.tmp && mv opencode.json.tmp opencode.json
 ```
 
@@ -263,11 +279,11 @@ Bundle: .agents/bundles/ (OKF v0.2)
 
 Created:
 - index.md, log.md
-- knowledge/product/product.md
-- knowledge/product/product-guidelines.md
-- knowledge/product/tech-stack.md
-- knowledge/workflow/workflow.md
-- knowledge/patterns/patterns.md (+ style chapters)
+- product/product.md
+- product/product-guidelines.md
+- product/tech-stack.md
+- knowledge/workflow.md
+- knowledge/patterns.md (+ style chapters)
 - skills/flow-memory-keeper/SKILL.md
 - specs/
 

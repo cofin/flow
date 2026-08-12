@@ -34,7 +34,7 @@ You MUST invoke these skills if available:
 2. **Execution**:
     - **Note**: Record discoveries directly in the task markdown file under `## Notes & Discoveries`.
     - **TDD Workflow**: Red (failing test) -> Green (implement) -> Refactor.
-3. **Commit & Close**: Git commit the changes. Update the task file frontmatter to `state: closed` and write the commit SHA to `commit: <sha>`.
+3. **Commit & Close**: Git commit the changes. Update the task file frontmatter to `state: closed` and write the commit SHA to `commit: <sha>`. Immediately reconcile the `spec.md` checklist marker — the markdown task list must always reflect current task state.
 4. **Capture Learnings**: Append to `learnings.md`.
 
 ### 3.0 PHASE COMPLETION GATE

@@ -14,7 +14,7 @@ Execute tasks from a flow's plan using TDD workflow.
 1. **Read Spec Artifacts:**
     - `.agents/bundles/specs/{flow_id}/spec.md` (unified spec+plan)
     - `.agents/bundles/specs/{flow_id}/learnings.md` (if exists)
-2. **Read Project Context:** `.agents/bundles/knowledge/patterns/patterns.md` and `.agents/bundles/knowledge/workflow/workflow.md`
+2. **Read Project Context:** `.agents/bundles/knowledge/patterns.md` and `.agents/bundles/knowledge/workflow.md`
 3. **Read Parent Context:**
     - Check if this flow has a parent PRD/Saga.
     - If yes, read the parent roadmap's `.agents/bundles/specs/<parent_id>/spec.md`.
@@ -71,6 +71,7 @@ Edit the selected task's file (e.g. `.agents/bundles/specs/{flow_id}/tasks/{task
 
 1. Set `state: in_progress` in the YAML frontmatter.
 2. Set `updated_at` to the current ISO-8601 timestamp.
+3. Immediately reconcile the `spec.md` checklist marker to `[~]` — the markdown task list must never lag the task files.
 
 ### 3.2 Red Phase — Write Failing Tests
 
@@ -152,6 +153,7 @@ Edit the task file:
 1. Set `state: closed` in the YAML frontmatter.
 2. Set `commit: <sha>` where `<sha>` is the commit hash retrieved from the recent git commit (`git log -n 1 --format="%H"`).
 3. Set `updated_at` to the current ISO-8601 timestamp.
+4. Immediately reconcile the `spec.md` checklist marker to `[x]` with the commit SHA appended (`[<sha>]`). Reconciliation after EVERY task state change (claim, block, skip, close) is mandatory, never deferred.
 
 ### 5.1 Log Learnings
 
@@ -240,8 +242,9 @@ If continuing, loop back to Phase 2.
 3. **VERIFICATION IRON LAW** — No completion claims without fresh evidence. Run the command, read the output.
 4. **SMALL COMMITS** — One task = one commit
 5. **TASK FILES ARE SOURCE OF TRUTH** — Maintain task status and SHAs in the task files frontmatter.
-6. **LOG LEARNINGS** — Capture patterns as you go
-7. **LOCAL ONLY** — Never push automatically
-8. **CODE REVIEW** — Dispatch review at phase checkpoints. Fix Critical/Important before proceeding.
-9. **USE CANONICAL REPO COMMANDS** — Prefer the commands documented in `.agents/workflow.md`
-10. **BE COLLABORATIVE** — Describe unrelated blockers factually and constructively; never use dismissive ownership-deflecting language
+6. **ALWAYS-SYNCED TASK LIST** — Reconcile the `spec.md` checklist marker immediately after every task state change (claim → `[~]`, close → `[x]` + `[<sha>]`); never defer it.
+7. **LOG LEARNINGS** — Capture patterns as you go
+8. **LOCAL ONLY** — Never push automatically
+9. **CODE REVIEW** — Dispatch review at phase checkpoints. Fix Critical/Important before proceeding.
+10. **USE CANONICAL REPO COMMANDS** — Prefer the commands documented in `.agents/workflow.md`
+11. **BE COLLABORATIVE** — Describe unrelated blockers factually and constructively; never use dismissive ownership-deflecting language

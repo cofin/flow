@@ -12,7 +12,7 @@ Dispatch a code review for a Flow's implementation using the git range derived f
 ## Phase 1: Load Context
 
 1. **Flow ID:** Use argument or auto-discover by scanning `.agents/bundles/specs/*/spec.md` frontmatter for `state: active`.
-2. **Read Artifacts:** `.agents/bundles/specs/<flow_id>/spec.md` (requirements), `.agents/bundles/knowledge/patterns/patterns.md` (conventions).
+2. **Read Artifacts:** `.agents/bundles/specs/<flow_id>/spec.md` (requirements), `.agents/bundles/knowledge/patterns.md` (conventions).
 3. **Read Task Files:** All of `.agents/bundles/specs/<flow_id>/tasks/*.md`, collecting `commit:` SHAs from tasks with `state: closed`.
 
 ## Phase 2: Determine Git Range
@@ -27,7 +27,7 @@ Dispatch code review subagent with:
 - What was implemented (from spec.md)
 - Requirements (from spec.md)
 - Git range
-- Project conventions (from knowledge/patterns/patterns.md)
+- Project conventions (from knowledge/patterns.md)
 
 For targeted analysis, consider dispatching specialized reviewers alongside the general review:
 

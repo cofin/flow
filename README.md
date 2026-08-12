@@ -218,14 +218,14 @@ In Codex CLI, ask: `Use Flow to implement auth`
 Flow follows a TDD workflow:
 
 1. Select the next ready task from `spec.md`
-2. Claim the task: update `status` to `in_progress` in `tasks/<short_id>.md` and run `/flow:sync` to update `spec.md`
+2. Claim the task: update `state` to `in_progress` in `tasks/<short_id>.md` and immediately reconcile `spec.md` (`/flow:sync`)
 3. Write failing tests (Red)
 4. Implement code to pass tests (Green)
 5. Refactor while tests pass
 6. Commit the task changes: `<type>(<scope>): <description>`
-7. Close the task: update `status` to `closed` and set `commit: <sha>` in the task frontmatter
+7. Close the task: update `state` to `closed` and set `commit: <sha>` in the task frontmatter
 8. Record learnings inside the task file under `## Notes & Discoveries`
-9. Run `/flow:sync` to reconcile status and append the commit SHA `[<sha>]` to the `spec.md` task checklist
+9. Immediately reconcile the checklist (`/flow:sync`), appending the commit SHA `[<sha>]` to the `spec.md` task entry — the markdown task list is always kept current
 
 ## Commands
 

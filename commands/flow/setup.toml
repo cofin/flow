@@ -54,6 +54,7 @@ fi
 - `specs/` or `.agents/specs/` (pre-bundle spec layout)
 - Legacy flat context files (to migrate): `.agents/product.md`, `.agents/tech-stack.md`, `.agents/workflow.md`, `.agents/patterns.md`, `.agents/knowledge/`, `.agents/code-styleguides/`
 - Legacy task-tracker artifacts: `.agents/beads.json`, `.beads/`, `metadata.json` files
+- Legacy Flow git hook: `.git/hooks/pre-commit` containing Beads sync logic
 
 **For each discovered legacy spec directory:**
 
@@ -78,7 +79,25 @@ D) Skip migration
 3. Write to `.agents/bundles/specs/{flow_id}/spec.md`; copy `learnings.md` alongside with `type: Learnings` frontmatter if it exists.
 4. For task checklists without task files, scaffold `tasks/<short_id>.md` per the reconciler rules.
 
-**Legacy flat context files** migrate into the bundle: `product.md` and `tech-stack.md` → `knowledge/product/`, `workflow.md` → `knowledge/workflow/`, `patterns.md` and `code-styleguides/*` → `knowledge/patterns/`, `.agents/knowledge/*` chapters → `knowledge/`. Add `type:` frontmatter (`Guide` or `Pattern`) to each. Remove `.agents/beads.json` after confirming with the user — task state now lives in the bundle files.
+**Legacy flat context files** migrate into the bundle categories: `product.md`, `product-guidelines.md`, and `tech-stack.md` → `product/`; `workflow.md` → `knowledge/workflow.md`; `patterns.md` → `knowledge/patterns.md`; `code-styleguides/*` → `knowledge/<topic>-style.md` chapters; `.agents/knowledge/*` chapters → `knowledge/`; `.agents/bundles/research/*` → `research/`. Add `type:` frontmatter (`Guide`, `Pattern`, or `Research`) to each. This is a MOVE, not a copy — the flat originals are removed once migrated.
+
+### 0.1.1b Remove Legacy Tracker Machinery
+
+**PROTOCOL: The old tracker must leave no live machinery behind. Offer each removal explicitly.**
+
+1. **Flow git hook**: if `.git/hooks/pre-commit` exists and mentions `bd`, Beads, or Flow sync, show its first lines and offer to delete it (it is dead weight at best, a broken commit gate at worst).
+2. **Tracker data**: offer to delete `.beads/` and `.agents/beads.json` (task state now lives in the bundle files; confirm before deleting).
+3. **CLI**: note that the legacy `bd` binary is no longer used by Flow and may be uninstalled.
+
+### 0.1.1c Scrub Tracker Instructions from Context Files
+
+Old Flow setups wrote tracker-era instructions into harness context files. Scan and offer to clean each hit:
+
+- **`AGENTS.md` / `CLAUDE.md` / `GEMINI.md`** (project root): sections instructing `bd` usage, "Beads is the source of truth", `beads.json` sync policy, or legacy `.agents/specs/` paths → replace with the bundle equivalents (task files as source of truth, `/flow:sync` reconciliation) or remove.
+- **`.claude/settings.local.json`**: `Bash(bd:*)` permission allowlist entries → remove (back up the file first, merge — never clobber).
+- **`opencode.json` / `.cursor/rules/*.mdc`**: tracker-era instructions or paths → same treatment.
+
+Show each proposed edit and apply only on approval.
 
 ### 0.1.2 Learnings Ingestion with Validation
 
@@ -103,12 +122,12 @@ From user-auth/learnings.md:
 ```
 
 1. Present validated learnings for confirmation
-2. Merge confirmed patterns into `.agents/bundles/knowledge/patterns/patterns.md`
+2. Merge confirmed patterns into `.agents/bundles/knowledge/patterns.md`
 3. Archive original learnings.md with migration note
 
 ### 0.1.3 Core Artifacts Check
 
-Check for `knowledge/product/product.md` and `knowledge/product/tech-stack.md`.
+Check for `product/product.md` and `product/tech-stack.md` in the bundle.
 
 - If missing, offer to create them from templates.
 - If present but missing `<!-- truth: start -->` markers or `type:` frontmatter, offer to add them.
@@ -117,7 +136,7 @@ Check for `knowledge/product/product.md` and `knowledge/product/tech-stack.md`.
 
 **PROTOCOL: Synchronize the workflow chapter with the latest template while preserving local "truth" markers.**
 
-Read `.agents/bundles/knowledge/workflow/workflow.md` and check for content between `<!-- truth: start -->` and `<!-- truth: end -->`.
+Read `.agents/bundles/knowledge/workflow.md` and check for content between `<!-- truth: start -->` and `<!-- truth: end -->`.
 
 - **If markers exist:** Replace everything OUTSIDE the markers with the latest `templates/agent/workflow.md` content. Keep the local truth section intact.
 - **If markers are missing:** Propose wrapping the "Essential Commands" and "Guiding Principles" in truth markers before performing the sync.
@@ -133,6 +152,23 @@ Ask the user to revalidate:
 > - **A) Refresh workflow template and keep current preferences** (recommended)
 > - **B) Refresh template and update preferences**
 > - **C) Keep current workflow.md**
+
+### 0.1.4b Knowledge Resynthesis
+
+**PROTOCOL: Migration is not done when files have moved — the knowledge must be RE-synthesized.**
+
+1. Read every migrated chapter (`knowledge/*.md`, `product/*.md`) together with the merged learnings.
+2. Rewrite each chapter as coherent current-state documentation: merge duplicated guidance (e.g. flat `patterns.md` overlapping old knowledge chapters), resolve contradictions in favor of what the codebase actually does, drop stale or low-value notes, and organize by topic.
+3. Knowledge chapters must contain no dated entries, flow attributions, or completion notes — history lives in `log.md` only.
+4. Present the restructured chapters for approval before writing.
+
+### 0.1.4c Spec Review Against the Codebase
+
+For each migrated spec that is `planned` or `active`:
+
+1. Verify task `state` values against SOURCE CODE reality: do the files in `files:` exist, do the tests in `tests:` pass, is the described behavior implemented?
+2. Propose corrections (e.g. a task marked `open` whose feature already ships → `closed` with the implementing commit SHA; a `closed` task whose files are gone → reopen or skip).
+3. Reconcile the spec checklist after applying corrections.
 
 ### 0.1.5 Bundle Integrity Check
 
@@ -162,10 +198,11 @@ B) Skip
 Alignment Complete
 
 ✓ Bundle: okf_version 0.2, index + log present
-✓ Specs migrated: {N} active, {M} archived
-✓ Learnings merged: {X} patterns added to knowledge/patterns/patterns.md
+✓ Legacy tracker machinery removed: git hook, .beads/, beads.json
+✓ Context files scrubbed of tracker instructions
+✓ Specs migrated: {N} active, {M} archived — task states reviewed against the codebase
+✓ Knowledge resynthesized into coherent chapters
 ✓ Workflow revalidated and synced
-✓ Context files configured
 
 No action needed / Issues found:
 - {list any warnings}
@@ -204,7 +241,7 @@ Ask the user these questions ONE AT A TIME:
 > - Who it's for
 > - Key differentiator
 
-Write response to `.agents/bundles/knowledge/product/product.md` with `type: Guide` frontmatter. Wrap the most critical high-level project summary in `<!-- truth: start -->` and `<!-- truth: end -->` markers for efficient agent priming.
+Write response to `.agents/bundles/product/product.md` with `type: Guide` frontmatter. Wrap the most critical high-level project summary in `<!-- truth: start -->` and `<!-- truth: end -->` markers for efficient agent priming.
 
 ### 2.2 Product Guidelines
 
@@ -215,7 +252,7 @@ Write response to `.agents/bundles/knowledge/product/product.md` with `type: Gui
 > - Visual style preferences
 > - Any constraints or requirements
 
-Write response to `.agents/bundles/knowledge/product/product-guidelines.md` with `type: Guide` frontmatter.
+Write response to `.agents/bundles/product/product-guidelines.md` with `type: Guide` frontmatter.
 
 ### 2.3 Tech Stack
 
@@ -229,7 +266,7 @@ Write response to `.agents/bundles/knowledge/product/product-guidelines.md` with
 
 Detect from existing files if possible, then confirm with user.
 
-Write response to `.agents/bundles/knowledge/product/tech-stack.md` with `type: Guide` frontmatter. Wrap the core technology list in `<!-- truth: start -->` and `<!-- truth: end -->` markers for efficient agent priming.
+Write response to `.agents/bundles/product/tech-stack.md` with `type: Guide` frontmatter. Wrap the core technology list in `<!-- truth: start -->` and `<!-- truth: end -->` markers for efficient agent priming.
 
 ### 2.4 Workflow Preferences
 
@@ -241,7 +278,7 @@ Write response to `.agents/bundles/knowledge/product/tech-stack.md` with `type: 
 > - Canonical repo commands for setup, lint, test, typecheck, and full verification?
 > - Local-only or shared ignore policy for Flow artifacts?
 
-Before asking, inspect the repo's real command surfaces (`Makefile`, `justfile`, `Taskfile.yml`, `package.json`, `pyproject.toml`, `Cargo.toml`, `.pre-commit-config.yaml`, CI files) and propose those commands back to the user. Copy the workflow template from `templates/agent/workflow.md` to `.agents/bundles/knowledge/workflow/workflow.md` and customize it to preserve those canonical commands instead of leaving generic placeholders.
+Before asking, inspect the repo's real command surfaces (`Makefile`, `justfile`, `Taskfile.yml`, `package.json`, `pyproject.toml`, `Cargo.toml`, `.pre-commit-config.yaml`, CI files) and propose those commands back to the user. Copy the workflow template from `templates/agent/workflow.md` to `.agents/bundles/knowledge/workflow.md` and customize it to preserve those canonical commands instead of leaving generic placeholders.
 
 ---
 
@@ -252,7 +289,7 @@ Based on detected languages, offer relevant style chapters:
 1. List detected languages
 2. Show available styleguides from `templates/styleguides/`
 3. Ask user which to include
-4. Copy selected into `.agents/bundles/knowledge/patterns/` as chapters with `type: Pattern` frontmatter (alongside `patterns.md`)
+4. Copy selected into `.agents/bundles/knowledge/` as `<topic>-style.md` chapters with `type: Pattern` frontmatter (siblings of `patterns.md`)
 
 ---
 
@@ -282,13 +319,10 @@ Create:
 
 - `.agents/bundles/index.md` - Bundle root index with `okf_version: "0.2"` frontmatter and a directory listing
 - `.agents/bundles/log.md` - Date-grouped change log (newest first, ISO dates) with a creation entry
-- `.agents/bundles/knowledge/patterns/patterns.md` - Patterns template with `type: Pattern` frontmatter
+- `.agents/bundles/knowledge/patterns.md` - Patterns template with `type: Pattern` frontmatter
 
 ```bash
-mkdir -p .agents/bundles/specs
-mkdir -p .agents/bundles/knowledge/product
-mkdir -p .agents/bundles/knowledge/workflow
-mkdir -p .agents/bundles/knowledge/patterns
+mkdir -p .agents/bundles/specs .agents/bundles/product .agents/bundles/knowledge .agents/bundles/research
 ```
 
 ---
@@ -384,7 +418,7 @@ Save setup state to `.agents/setup-state.json`:
 **PROTOCOL: Ensure the harness context file (`AGENTS.md`) is present at the project root.**
 
 1. If `AGENTS.md` already exists, skip — do not overwrite.
-2. Otherwise, create `AGENTS.md` as a minimal stub that points at `.agents/bundles/knowledge/product/product.md` and `.agents/bundles/knowledge/workflow/workflow.md` as the source of truth.
+2. Otherwise, create `AGENTS.md` as a minimal stub that points at `.agents/bundles/product/product.md` and `.agents/bundles/knowledge/workflow.md` as the source of truth.
 3. Announce: "Created `AGENTS.md` so the harness has project context."
 
 > **Harness boundary:** Do not create retired legacy CLI files or unrelated harness configuration from this command. Each harness owns its own configuration surface.
@@ -400,11 +434,11 @@ Bundle: .agents/bundles/ (OKF v0.2)
 
 Created:
 - index.md, log.md
-- knowledge/product/product.md
-- knowledge/product/product-guidelines.md
-- knowledge/product/tech-stack.md
-- knowledge/workflow/workflow.md
-- knowledge/patterns/patterns.md (+ style chapters)
+- product/product.md
+- product/product-guidelines.md
+- product/tech-stack.md
+- knowledge/workflow.md
+- knowledge/patterns.md (+ style chapters)
 - specs/
 
 Next Steps:

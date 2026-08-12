@@ -21,7 +21,7 @@ Read the relevant artifacts before refining:
 
 - `.agents/bundles/specs/<flow_id>/spec.md` and its `tasks/*.md` files for a single flow
 - `.agents/bundles/specs/<prd_id>/spec.md` (the roadmap) plus planned child specs for a saga
-- `.agents/bundles/knowledge/patterns/patterns.md`
+- `.agents/bundles/knowledge/patterns.md`
 - relevant `.agents/bundles/knowledge/` chapters
 - the code paths, tests, migrations, config files, or external docs that the tasks depend on
 

@@ -133,21 +133,21 @@ main() {
 
     # --- Project Purpose ---
     local identity
-    identity="$(extract_identity "${knowledge_dir}/product/product.md")"
+    identity="$(extract_identity "${bundles_dir}/product/product.md")"
     if [[ -n "${identity}" ]]; then
         blocks+=("## Project Purpose
 ${identity}")
     fi
 
     # --- Core Project Invariants ---
-    local truths="" filename sub heading file_truths
+    local truths="" filename source_path heading file_truths
     for filename in tech-stack.md workflow.md patterns.md; do
-        case "${filename}" in
-            tech-stack.md) sub="product" ;;
-            patterns.md) sub="patterns" ;;
-            *) sub="workflow" ;;
-        esac
-        file_truths="$(extract_truths "${knowledge_dir}/${sub}/${filename}")"
+        if [[ "${filename}" == "tech-stack.md" ]]; then
+            source_path="${bundles_dir}/product/${filename}"
+        else
+            source_path="${knowledge_dir}/${filename}"
+        fi
+        file_truths="$(extract_truths "${source_path}")"
         if [[ -n "${file_truths}" ]]; then
             # Mirror Python str.capitalize(): first char upper, rest unchanged-lower
             heading="$(printf '%s' "${filename:0:1}" | tr '[:lower:]' '[:upper:]')${filename:1}"

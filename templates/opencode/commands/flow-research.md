@@ -11,9 +11,9 @@ Conducting research for: $ARGUMENTS
 
 Verify Flow environment:
 
-- **Product Definition** (`.agents/bundles/knowledge/product/product.md`)
-- **Tech Stack** (`.agents/bundles/knowledge/product/tech-stack.md`)
-- **Workflow** (`.agents/bundles/knowledge/workflow/workflow.md`)
+- **Product Definition** (`.agents/bundles/product/product.md`)
+- **Tech Stack** (`.agents/bundles/product/tech-stack.md`)
+- **Workflow** (`.agents/bundles/knowledge/workflow.md`)
 
 If ANY missing: "Flow not set up. Run `/flow-setup` first." → HALT
 
@@ -45,7 +45,7 @@ If ANY missing: "Flow not set up. Run `/flow-setup` first." → HALT
 
 ## Phase 6: Create Research Document
 
-Create `.agents/research/{research_id}/research.md` with YAML frontmatter (no separate metadata file):
+Create `.agents/bundles/research/{research_id}/research.md` with YAML frontmatter (no separate metadata file):
 
 ```yaml
 ---

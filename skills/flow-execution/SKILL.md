@@ -17,7 +17,7 @@ Use this lifecycle skill when implementation starts after a Flow plan or ready t
 
 ## Guardrails
 
-- Do not manually edit task status markers in markdown.
+- Never flip checklist markers without the matching task-file `state:` change — and never leave them stale: reconcile the `spec.md` checklist immediately after EVERY task state change (claim, block, skip, close).
 - Do not skip failing-test evidence for behavior changes.
 - Do not silently descope messy tasks; refine or ask how to prioritize.
 - Preserve unrelated user changes and keep edits scoped to the claimed task.

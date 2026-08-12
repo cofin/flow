@@ -59,7 +59,7 @@ If a referenced companion skill is unavailable in the current harness, perform t
 **PROTOCOL: Read global and parent context to constrain the plan.**
 
 1. **Read Global Patterns:**
-    - Resolve and read `.agents/bundles/knowledge/patterns/patterns.md`.
+    - Resolve and read `.agents/bundles/knowledge/patterns.md`.
     - Keep these patterns in mind. If the user suggests something violating a pattern, WARN them.
 
 2. **Read Parent Context (Optional):**
@@ -67,7 +67,7 @@ If a referenced companion skill is unavailable in the current harness, perform t
     - Ensure this Flow's spec aligns with the Master Roadmap.
 
 3. **Read Research:**
-    - Check `.agents/research/`. If relevant research exists, ask to use it.
+    - Check `.agents/bundles/research/`. If relevant research exists, ask to use it.
     - If important requirements still depend on unresolved docs, versions, migrations, marketplaces, or harness behavior, continue researching until those gaps are closed before declaring planning complete.
 
 ---
@@ -205,7 +205,7 @@ If a referenced companion skill is unavailable in the current harness, perform t
 1. **Dispatch spec-reviewer subagent** with:
    - Path to drafted spec.md
    - Flow requirements and constraints
-   - Relevant patterns from `.agents/bundles/knowledge/patterns/patterns.md`
+   - Relevant patterns from `.agents/bundles/knowledge/patterns.md`
    - Review criteria: completeness, consistency, feasibility, TDD task structure
 
 2. **Handle results:**

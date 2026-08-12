@@ -80,7 +80,7 @@ def test_extract_project_identity() -> None:
     with tempfile.TemporaryDirectory() as tmpdir:
         tmp_path = Path(tmpdir).resolve()
         
-        # Test Case 1: product.md under knowledge/product/product.md
+        # product.md lives in the bundle's product/ category
         prod_dir = tmp_path / "product"
         prod_dir.mkdir()
         prod_content = """# Header
@@ -96,7 +96,7 @@ Sixth line (should be ignored).
 """
         (prod_dir / "product.md").write_text(prod_content, encoding="utf-8")
         
-        identity = extract_project_identity(tmp_path)
+        identity = extract_project_identity(tmp_path / "product")
         lines = identity.splitlines()
         assert len(lines) == 5
         assert lines[0] == "First line of identity."

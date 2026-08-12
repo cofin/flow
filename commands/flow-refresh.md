@@ -12,7 +12,7 @@ Refreshing context for codebase drift: **$ARGUMENTS**
 
 ## Phase 1: Load Current Context
 
-1. Read `.agents/bundles/index.md`, `.agents/bundles/knowledge/product/tech-stack.md`, `.agents/bundles/knowledge/workflow/workflow.md`.
+1. Read `.agents/bundles/index.md`, `.agents/bundles/product/tech-stack.md`, `.agents/bundles/knowledge/workflow.md`.
 2. Identify active flows by scanning `.agents/bundles/specs/*/spec.md` frontmatter for `state: active` (or `planned`).
 3. If an active flow exists, read its `spec.md` and `tasks/*.md`; use the spec's `updated_at` as the last-sync baseline.
 
@@ -23,17 +23,17 @@ Refreshing context for codebase drift: **$ARGUMENTS**
 1. Run `git log --oneline` since last sync to find recent commits.
 2. Run `git diff --name-status` to identify changed files.
 3. Check dependency files (`package.json`, `pyproject.toml`, `Cargo.toml`) for changes.
-4. Compare with `.agents/bundles/knowledge/product/tech-stack.md`.
+4. Compare with `.agents/bundles/product/tech-stack.md`.
 5. Inspect workflow drift across `Makefile`, `justfile`, `Taskfile.yml`, `package.json`, `pyproject.toml`, `Cargo.toml`, `.pre-commit-config.yaml`, and CI files.
-6. Compare those command surfaces with `.agents/bundles/knowledge/workflow/workflow.md`.
+6. Compare those command surfaces with `.agents/bundles/knowledge/workflow.md`.
 
 ---
 
 ## Phase 3: Update Context
 
-1. If dependencies changed, update `.agents/bundles/knowledge/product/tech-stack.md`.
+1. If dependencies changed, update `.agents/bundles/product/tech-stack.md`.
 2. If workflow settings or canonical commands changed, prompt:
-   - "Workflow settings may be stale. Revalidate `.agents/bundles/knowledge/workflow/workflow.md` now?"
+   - "Workflow settings may be stale. Revalidate `.agents/bundles/knowledge/workflow.md` now?"
    - Refresh only the affected workflow sections instead of replacing the whole file.
 3. Prefer repo-native aggregate commands such as `make lint`, `make test`, `make check`, `just check`, `task test`, package scripts, and pre-commit entrypoints when updating workflow guidance.
 4. If tasks completed externally (commits reference task ids), set `state: closed` and `commit: <sha>` in the affected task files.

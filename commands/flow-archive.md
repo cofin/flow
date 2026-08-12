@@ -1,9 +1,8 @@
 ---
-description: Archive completed flows + elevate patterns
+description: Synthesize a completed flow into knowledge chapters, log it, and remove its spec bundle
 argument-hint: <flow_id>
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, WebSearch
 ---
-
 
 # Flow Archive
 
@@ -11,70 +10,81 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, WebSearch
 
 Archiving flow: **$ARGUMENTS**
 
+Archiving is a contraction: the flow's durable knowledge moves into the knowledge chapters, one line lands in the bundle log, and the spec directory is deleted. Git history is the archive — `specs/` never accumulates completed flows.
+
 ## Phase 1: Validation
 
 ### 1.1 Resolve Flow ID
 
-If not provided, dynamically scan the `.agents/bundles/specs/` directory to discover active/completed flows and ask the user to select.
+If not provided, scan `.agents/bundles/specs/*/spec.md` frontmatter for flows with `state: completed` and ask the user to select. If none are completed, list active flows and confirm intent.
 
 ### 1.2 Verify Completion
 
-Read the `.agents/bundles/specs/{flow_id}/spec.md` status.
+Read `.agents/bundles/specs/{flow_id}/spec.md` frontmatter.
 
-- If status is not `completed` (e.g. `active`, `planned`, `blocked`), warn: "Warning: Flow is not marked as completed. Continue? (y/n)" → Halt if 'n'.
+- If `state` is not `completed` (e.g. `active`, `planned`), warn: "Warning: Flow is not marked as completed. Continue? (y/n)" → Halt if 'n'.
+- Verify every task file under `tasks/*.md` has `state: closed` or `skipped`. If not, abort and report the open tasks.
 
----
+### 1.3 Verify Recoverability
 
-## Phase 2: Pattern Elevation
+Check whether the bundle is tracked: `git ls-files --error-unmatch .agents/bundles/specs/{flow_id}/spec.md`.
 
-1. Read `.agents/bundles/specs/{flow_id}/extracted_learnings.md` (generate first using consolidate command).
-2. Read `.agents/bundles/knowledge/patterns/patterns.md`.
-3. Identify new patterns not present in global patterns.
-4. **Interactive Selection:**
-   - "Found these potential patterns:"
-   - [ ] Pattern 1
-   - [ ] Pattern 2
-   - "Select patterns to elevate (or 'all'/'none'):"
-5. **Merge:** Append selected patterns to `.agents/bundles/knowledge/patterns/patterns.md`.
-   - Format: `- {new pattern} (from: {flow_id})`
+- **Tracked**: deletion is safe — git history preserves the full spec.
+- **Untracked**: warn that deletion is unrecoverable and require explicit confirmation before proceeding (or suggest committing the bundle first).
 
 ---
 
-## Phase 3: Knowledge Synthesis
+## Phase 2: Knowledge Synthesis (RE-synthesis, not appending)
 
-1. **Consolidate Learnings**: Read all task files under `.agents/bundles/specs/{flow_id}/tasks/*.md` that have `state: closed` or `skipped`, extract notes from the `## Notes & Discoveries` heading, and write them sorted by timestamp into `.agents/bundles/specs/{flow_id}/extracted_learnings.md`.
-2. Read the consolidated learnings at `.agents/bundles/specs/{flow_id}/extracted_learnings.md` and the specification `.agents/bundles/specs/{flow_id}/spec.md`.
-3. Synthesize learnings directly into cohesive, logically organized knowledge base chapters under `.agents/bundles/knowledge/` (e.g., `product/`, `workflow/`, `patterns/`, `code-styleguides/`).
-4. Update the current state of these documents. Do NOT outline history or create per-flow logs. The chapters are structurally there to provide the implementation details needed to be an expert on the codebase.
+1. **Consolidate**: read every task file's `## Notes & Discoveries` (plus `learnings.md` if present), sorted by timestamp. Work from this consolidated view — a temporary scratch list, not a persisted file.
+2. **Map each durable learning to its chapter**: conventions and gotchas → `knowledge/patterns.md`; workflow/command changes → `knowledge/workflow.md`; architectural facts → `knowledge/architecture.md` (create the chapter if the topic warrants one); style rules → the matching `knowledge/<topic>-style.md` chapter; product-level changes → `product/` docs.
+3. **Rewrite the chapter, don't append to it**: integrate each learning into the existing prose where it belongs — update stale statements, merge duplicates, restructure sections if needed. The chapter must read as coherent current-state documentation afterwards. NEVER add dated entries, "from: {flow_id}" attributions, changelog lines, or completion notes to a knowledge chapter.
+4. **Interactive gate**: present the proposed chapter edits (what's being added, updated, or dropped as low-value) and let the user approve or trim before writing.
+5. Delete `extracted_learnings.md` if a previous run left one — consolidated views are transient.
 
 ---
 
-## Phase 4: Delete Flow Bundle
+## Phase 3: Log the Archive
 
-1. **Safe Deletion**: Verify that all task files under `.agents/bundles/specs/{flow_id}/tasks/*.md` are in `closed` or `skipped` status. If any task is open or in progress, abort and warn. Otherwise, delete the folder `.agents/bundles/specs/{flow_id}/` from the filesystem.
+Add ONE entry to `.agents/bundles/log.md` under today's ISO date (newest first):
+
+```markdown
+## {YYYY-MM-DD}
+
+**Archive** {flow_id}: {one-line outcome}. Final commit {sha}. {N} learnings synthesized into {chapters}.
+```
+
+Update `.agents/bundles/index.md` if it lists the flow.
+
+---
+
+## Phase 4: Delete the Spec Bundle
+
+Delete `.agents/bundles/specs/{flow_id}/` from the filesystem (it passed the safety checks in Phase 1).
 
 ---
 
 ## Phase 5: Git Commit
 
-1. **Commit Changes:**
+If the bundle is tracked:
 
-   ```bash
-   git add .agents/bundles/knowledge/patterns/patterns.md .agents/bundles/knowledge/
-   git rm -r .agents/bundles/specs/{flow_id}/
-   git commit -m "chore(archive): synthesize learnings from {flow_id} and archive spec"
-   ```
+```bash
+git add .agents/bundles/
+git rm -r --quiet .agents/bundles/specs/{flow_id}/ 2>/dev/null || true
+git commit -m "chore(archive): synthesize {flow_id} into knowledge and remove its spec"
+```
+
+If the bundle is local-only, skip the commit.
 
 ---
 
 ## Phase 6: Completion
 
-> "Flow '{flow_id}' archived successfully.
+> "Flow '{flow_id}' archived.
 >
 > **Summary:**
 >
-> - ID: {flow_id}
-> - Spec deleted from filesystem
-> - Patterns Elevated: {count}
+> - Knowledge chapters updated: {list}
+> - Log entry added; spec directory removed ({tracked: recoverable via git | untracked: confirmed unrecoverable})
 >
 > Ready for next flow: `/flow-prd`"

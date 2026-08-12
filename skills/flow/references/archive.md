@@ -1,91 +1,26 @@
 
 # Flow Archive
 
-Archive completed flow and elevate patterns to project level.
+Archiving is a contraction: durable knowledge moves into the knowledge chapters, one line lands in the bundle log, and the spec directory is deleted. Git history is the archive — `.agents/bundles/specs/` holds only planned and active flows.
 
-## Usage
+## Procedure
 
-`flow-archive {flow_id}`
+1. **Validate**: resolve the flow id (scan spec frontmatter for `state: completed` when not given). Confirm every task file is `state: closed` or `skipped`; abort otherwise. Check recoverability with `git ls-files --error-unmatch` — if the bundle is untracked, deletion is unrecoverable and needs explicit user confirmation.
+2. **Synthesize (RE-synthesize, never append)**:
+   - Consolidate all task `## Notes & Discoveries` and `learnings.md` content into a transient working list.
+   - Map each durable learning to its chapter: conventions/gotchas → `knowledge/patterns.md`; workflow changes → `knowledge/workflow.md`; architecture → `knowledge/architecture.md`; style rules → `knowledge/<topic>-style.md`; product changes → `product/` docs.
+   - Rewrite each affected chapter as coherent current-state documentation: integrate into existing prose, update stale statements, merge duplicates. No dated entries, no flow attributions, no changelog lines, no "completed X" notes in knowledge chapters — history belongs in `log.md` only.
+   - Present proposed chapter edits for user approval before writing. Skip low-value notes rather than hoarding them.
+   - Delete any leftover `extracted_learnings.md` — consolidated views are transient.
+3. **Log**: one entry in `.agents/bundles/log.md` under today's ISO date: flow id, one-line outcome, final commit SHA, chapters touched. Update `index.md` if it lists the flow.
+4. **Delete** `.agents/bundles/specs/{flow_id}/`.
+5. **Commit** (tracked bundles only): stage the bundle, `git rm` the spec directory, one `chore(archive)` commit.
 
-## Phase 1: Validate
+## Verification
 
-### 1.1 Verification Gate
-
-```text
-IRON LAW: NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
+```bash
+ls .agents/bundles/specs/          # archived flow gone; only planned/active remain
+head -20 .agents/bundles/log.md    # new archive entry at the top
 ```
 
-1. **Run full test suite** — read output, confirm 0 failures
-2. **Verify** flow is completed — read `.agents/bundles/specs/{flow_id}/spec.md` and ensure `state: completed`
-3. If spec is not completed, warn and confirm.
-
-### 1.2 Optional Code Review
-
-For flows being archived without prior `flow-review`:
-
-- Dispatch final code review subagent with full flow git range
-- Log findings to `extracted_learnings.md` (will be archived with flow)
-- Fix Critical issues before archiving
-
-## Phase 2: Extract Learnings
-
-### 2.1 Read Flow Learnings
-
-Parse `.agents/bundles/specs/{flow_id}/extracted_learnings.md` (generated in next phase).
-
-### 2.2 Identify Patterns for Elevation
-
-Present discovered patterns:
-
-```text
-Patterns from {flow_id}:
-
-1. [Code] Use Zod for form validation
-2. [Gotcha] Must update barrel exports after adding files
-3. [Testing] Mock external APIs in integration tests
-
-Which patterns should be elevated to project-level? [all/select/none]
-```
-
-### 2.3 Merge to Project Patterns
-
-Append selected patterns to `.agents/bundles/knowledge/patterns/patterns.md`:
-
-```markdown
-## Code Conventions
-- Use Zod for form validation (from: {flow_id})
-
-## Gotchas
-- Must update barrel exports after adding files (from: {flow_id})
-```
-
-## Phase 3: Knowledge Synthesis (The Synthesis Mandate)
-
-You are responsible for the formal evolution of the project's knowledge base. It is NOT a manual copy-paste; it is a **Synthesis**.
-
-1. **Consolidate**: Extract task discoveries directly:
-   - Read all task files under `.agents/bundles/specs/{flow_id}/tasks/*.md` that have `state: closed` or `skipped`.
-   - Read note lines starting with `- [` under `## Notes & Discoveries`.
-   - Write these notes to `.agents/bundles/specs/{flow_id}/extracted_learnings.md` sorted by timestamp, annotated with their task ID.
-2. **Identify**: Read `extracted_learnings.md` and `spec.md` from the flow. Identify which discoveries are one-off observations and which represent **Core Patterns** or **Architectural Shifts**.
-3. **Synthesize**: Integrate these discoveries directly into cohesive, logically organized knowledge base chapters in `.agents/bundles/knowledge/` (e.g., `product/`, `workflow/`, `patterns/`, `code-styleguides/`).
-4. **Update the State**: Revise these chapters to reflect the *current* authoritative state of the codebase.
-5. **No History Logs**: Do NOT outline history or create per-flow logs in the knowledge base. The chapters must provide the high-definition implementation details needed for a new agent to become an instant expert on the current state.
-
-## Phase 4: Delete Flow Spec Folder
-
-1. **Delete spec bundle**: Run safe deletion directly:
-   - Read all task files under `.agents/bundles/specs/{flow_id}/tasks/*.md` and ensure their status is `closed` or `skipped`. If any task is open or in progress, abort and warn the developer.
-   - Delete all files inside `.agents/bundles/specs/{flow_id}/` (and its subdirectories) and remove the directory itself.
-
-## Final Output
-
-```text
-Flow Archived: {flow_id}
-
-Spec deleted from filesystem
-Patterns Elevated: {count}
-
-Project patterns updated. View with:
-cat .agents/bundles/knowledge/patterns/patterns.md
-```
+Knowledge chapters must read as if written fresh today — an agent reading `knowledge/` should learn how the codebase works now, never which flow taught us.

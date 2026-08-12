@@ -72,6 +72,6 @@ Execute the repository integrity checks manually:
 
 Verify if any core project configuration or dependencies have drifted since the last execution:
 
-1. Compare dependency files (`package.json`, `pyproject.toml`, etc.) with `.agents/bundles/knowledge/product/tech-stack.md`.
+1. Compare dependency files (`package.json`, `pyproject.toml`, etc.) with `.agents/bundles/product/tech-stack.md`.
 2. Inspect workflow drift across `Makefile`, `justfile`, `tasks.json`, etc.
-3. If drift is detected, report to the developer and request validation of `.agents/bundles/knowledge/workflow/workflow.md`.
+3. If drift is detected, report to the developer and request validation of `.agents/bundles/knowledge/workflow.md`.

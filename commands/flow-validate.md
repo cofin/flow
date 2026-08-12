@@ -14,10 +14,10 @@ Validate Flow project integrity and optionally fix issues. All checks are file c
 Check required files exist:
 
 - [ ] `.agents/bundles/index.md` (bundle root; frontmatter carries `okf_version`)
-- [ ] `.agents/bundles/knowledge/product/product.md`
-- [ ] `.agents/bundles/knowledge/product/tech-stack.md`
-- [ ] `.agents/bundles/knowledge/workflow/workflow.md`
-- [ ] `.agents/bundles/knowledge/patterns/patterns.md`
+- [ ] `.agents/bundles/product/product.md`
+- [ ] `.agents/bundles/product/tech-stack.md`
+- [ ] `.agents/bundles/knowledge/workflow.md`
+- [ ] `.agents/bundles/knowledge/patterns.md`
 - [ ] `.agents/bundles/specs/` directory
 
 ---

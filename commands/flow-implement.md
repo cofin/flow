@@ -31,7 +31,7 @@ Implementing flow: **$ARGUMENTS**
 1. **Scan**: Scan task files under `.agents/bundles/specs/<flow_id>/tasks/*.md`.
 2. **Parse & Resolve Dependencies**: Parse the YAML frontmatter of each task. A task is ready if its `state` is `"open"` and all dependencies listed in `depends_on` have `state` set to `"closed"`.
 3. **Select**: Sort the ready tasks by priority (`P0` > `P1` > `P2` > `P3` > `P4`), then select the first one.
-4. **Claim**: Update the selected task's frontmatter: set `state: in_progress` and `updated_at` to the current ISO-8601 timestamp.
+4. **Claim**: Update the selected task's frontmatter: set `state: in_progress` and `updated_at` to the current ISO-8601 timestamp. Immediately reconcile the spec checklist marker to `[~]` — the markdown task list must never lag the task files.
 
 ---
 
@@ -44,7 +44,7 @@ For the selected task:
 3. **Implement (Green Phase)**: Write minimal code to pass the tests.
 4. **Refactor**: Clean up code and test structure while remaining green.
 5. **Commit**: Git commit the changes: `<type>(<scope>): <description>`. Retrieve the commit SHA.
-6. **Close Task**: Update the task's frontmatter: set `state: closed`, `commit: <sha>`, and `updated_at` to the current ISO-8601 timestamp.
+6. **Close Task**: Update the task's frontmatter: set `state: closed`, `commit: <sha>`, and `updated_at` to the current ISO-8601 timestamp. Immediately reconcile the spec checklist marker to `[x] ... [<sha>]`. Reconciliation after every state change (claim, block, skip, close) is mandatory, not deferred.
 
 ---
 

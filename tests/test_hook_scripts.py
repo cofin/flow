@@ -26,18 +26,17 @@ needs_powershell = pytest.mark.skipif(POWERSHELL is None, reason="PowerShell not
 def _build_fixture_project(root: Path) -> None:
     bundles = root / ".agents" / "bundles"
     knowledge = bundles / "knowledge"
-    (knowledge / "product").mkdir(parents=True)
-    (knowledge / "workflow").mkdir(parents=True)
-    (knowledge / "patterns").mkdir(parents=True)
-    (knowledge / "product" / "product.md").write_text(
+    (bundles / "product").mkdir(parents=True)
+    knowledge.mkdir(parents=True)
+    (bundles / "product" / "product.md").write_text(
         "---\ntype: Guide\ntitle: Product\n---\n\n# Product\n\nLine one.\nLine two.\n",
         encoding="utf-8",
     )
-    (knowledge / "workflow" / "workflow.md").write_text(
+    (knowledge / "workflow.md").write_text(
         "---\ntype: Guide\n---\n\n# Workflow\n\n<!-- truth: start -->\n- Run make check\n<!-- truth: end -->\n",
         encoding="utf-8",
     )
-    (knowledge / "patterns" / "patterns.md").write_text(
+    (knowledge / "patterns.md").write_text(
         "---\ntype: Pattern\n---\n\n# Patterns\n\n- Pattern one\n- Pattern two\n",
         encoding="utf-8",
     )

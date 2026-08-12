@@ -12,7 +12,7 @@ Dispatch a code review for a flow's implementation, deriving the git range from 
 1. **Read Flow Artifacts:**
    - `.agents/bundles/specs/{flow_id}/spec.md` (requirements and plan)
    - `.agents/bundles/specs/{flow_id}/tasks/*.md` (task states and commit SHAs)
-2. **Read Project Context:** `.agents/bundles/knowledge/patterns/patterns.md`
+2. **Read Project Context:** `.agents/bundles/knowledge/patterns.md`
 
 ## Phase 2: Determine Git Range
 
@@ -46,7 +46,7 @@ Dispatch code review subagent with:
 1. **What was implemented:** Summary from spec.md Specification section
 2. **Requirements:** From spec.md Requirements section
 3. **Git range:** `{base_sha}..{head_sha}`
-4. **Conventions:** From `.agents/bundles/knowledge/patterns/patterns.md`
+4. **Conventions:** From `.agents/bundles/knowledge/patterns.md`
 5. **Description:** Brief summary of the flow's purpose
 
 ## Phase 4: Present Results

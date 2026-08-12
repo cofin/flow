@@ -10,8 +10,8 @@ Use this lifecycle skill for project initialization, installation checks, setup 
 ## Workflow
 
 1. Detect project root, existing `.agents/` state, and repo-native commands (setup, lint, test, typecheck, full verification).
-2. Scaffold the OKF bundle: `.agents/bundles/index.md` (frontmatter `okf_version: "0.2"`), `.agents/bundles/log.md`, and `knowledge/{product,workflow,patterns}/` chapters from templates, each with a non-empty `type:` frontmatter key.
-3. Capture repo-native commands in `knowledge/workflow/workflow.md` between `<!-- truth: start -->` and `<!-- truth: end -->` markers so hooks can inject them.
+2. Scaffold the OKF bundle: `.agents/bundles/index.md` (frontmatter `okf_version: "0.2"`), `.agents/bundles/log.md`, `product/` identity docs, and flat `knowledge/` chapters (workflow.md, patterns.md) from templates, each with a non-empty `type:` frontmatter key.
+3. Capture repo-native commands in `knowledge/workflow.md` between `<!-- truth: start -->` and `<!-- truth: end -->` markers so hooks can inject them.
 4. Ask the user whether `.agents/bundles/` should be tracked (shared team knowledge) or ignored (private planning), and apply their choice.
 5. Re-run setup validation before handing off to planning.
 
@@ -25,9 +25,9 @@ Use this lifecycle skill for project initialization, installation checks, setup 
 
 ## Validation
 
-- Confirm `.agents/bundles/index.md` declares `okf_version`, `log.md` exists, and `knowledge/product/product.md`, `knowledge/workflow/workflow.md`, and `knowledge/patterns/patterns.md` carry `type:` frontmatter.
+- Confirm `.agents/bundles/index.md` declares `okf_version`, `log.md` exists, and `product/product.md`, `knowledge/workflow.md`, and `knowledge/patterns.md` carry `type:` frontmatter.
 - Confirm the session hook resolves context: the priming output lists the project purpose and invariants.
-- Run repository validation commands documented in `knowledge/workflow/workflow.md` or hook context.
+- Run repository validation commands documented in `knowledge/workflow.md` or hook context.
 
 ## References Index
 

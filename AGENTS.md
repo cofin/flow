@@ -102,18 +102,18 @@ To find a file (e.g., "**Product Definition**") within a specific context:
 
 | Key | Default Path |
 |-----|--------------|
-| **Product Definition** | `.agents/bundles/knowledge/product/product.md` |
-| **Tech Stack** | `.agents/bundles/knowledge/product/tech-stack.md` |
-| **Workflow** | `.agents/bundles/knowledge/workflow/workflow.md` |
+| **Product Definition** | `.agents/bundles/product/product.md` |
+| **Tech Stack** | `.agents/bundles/product/tech-stack.md` |
+| **Workflow** | `.agents/bundles/knowledge/workflow.md` |
 | **Flow Directory** | `.agents/bundles/specs/` |
 | **Template Directory** | `.agents/templates/` |
-| **Patterns** | `.agents/bundles/knowledge/patterns/patterns.md` (style guides live here as chapters) |
+| **Patterns** | `.agents/bundles/knowledge/patterns.md` (style guides live in `knowledge/` as sibling chapters) |
 | **Knowledge Base** | `.agents/bundles/knowledge/` |
 | **Bundle Root Index** | `.agents/bundles/index.md` |
 | **Project Skills** | `.agents/bundles/skills/` (legacy fallback: `.agents/skills/`) |
 | **Layout Overrides** | `.agents/config.json` (`bundles_dir`, `knowledge_dir`) |
-| **Research Directory** | `.agents/research/` |
-| **Task Directory** | `.agents/tasks/` |
+| **Research Directory** | `.agents/bundles/research/` |
+| **Task Directory** | `.agents/tasks/` (ephemeral scratch, never tracked) |
 
 **Standard Default Paths (Flow):**
 
@@ -220,19 +220,20 @@ Flow stores all planning metadata, task state, and curated knowledge as **OKF v0
 .agents/bundles/
   index.md                      # bundle root index; carries okf_version: "0.2"
   log.md                        # date-grouped change history (newest first, ISO dates)
-  specs/<flow_id>/
+  product/                      # identity docs: product.md, tech-stack.md (product-guidelines.md optional)
+  knowledge/                    # THE synthesized current-state chapters, flat:
+    workflow.md                 #   canonical commands + development workflow
+    patterns.md                 #   elevated conventions and gotchas
+    <topic>.md                  #   architecture.md, <lang>-style.md, ... as chapters
+  research/                     # pre-PRD research documents (type: Research)
+  specs/<flow_id>/              # PLANNED and ACTIVE flows only (see Archive Lifecycle)
     spec.md                     # the flow's design + Implementation Plan checklist
     tasks/<short_id>.md         # one file per task (e.g. tasks/1.1.md)
-    learnings.md                # append-only per-flow discoveries (optional)
-    extracted_learnings.md      # consolidated at archive time (optional)
-  knowledge/
-    product/                    # product.md, tech-stack.md
-    workflow/                   # workflow.md
-    patterns/                   # patterns.md + style/convention chapters
+    learnings.md                # per-flow discoveries awaiting synthesis (optional)
   skills/                       # project-local skills (<name>/SKILL.md)
 ```
 
-`.agents/config.json` may override `bundles_dir` and `knowledge_dir` (defaults: `.agents/bundles`, `.agents/bundles/knowledge`). It is the only layout knob.
+`.agents/config.json` may override `bundles_dir` and `knowledge_dir` (defaults: `.agents/bundles`, `.agents/bundles/knowledge`). It is the only layout knob. Do not invent additional top-level categories or scatter loose files at the bundle root — every document belongs to exactly one category above.
 
 ### Frontmatter Rules
 
@@ -242,9 +243,10 @@ Every non-reserved `.md` file in a bundle carries YAML frontmatter with a non-em
 |--------|----------|
 | `Spec` | `specs/<flow_id>/spec.md` |
 | `Task` | `specs/<flow_id>/tasks/*.md` |
-| `Guide` | knowledge/product and workflow chapters |
-| `Pattern` | knowledge/patterns chapters (incl. style/convention guides) |
-| `Learnings` | `learnings.md`, `extracted_learnings.md` |
+| `Guide` | `product/` docs and `knowledge/workflow.md` |
+| `Pattern` | `knowledge/patterns.md` and style/convention chapters |
+| `Research` | `research/` documents |
+| `Learnings` | `learnings.md` (transient, until synthesized) |
 | `Skill` | `skills/<name>/SKILL.md` |
 
 **Workflow state lives in `state:`.** The OKF `status:` key keeps its spec meaning — document lifecycle (`draft`, `stable`, `deprecated`) — and stays optional. Never store workflow state in `status`. Never add `generated:` model attribution.
@@ -355,13 +357,23 @@ Consolidated patterns from all flows:
 ### Knowledge Flywheel
 
 1. **Capture** - After each task, append learnings to flow's `learnings.md`
-2. **Elevate** - At phase/flow completion, move reusable patterns to `.agents/bundles/knowledge/patterns/patterns.md`
-3. **Synthesize** - During sync and archive, integrate learnings directly into cohesive, logically organized knowledge base chapters in `.agents/bundles/knowledge/` (e.g., `architecture.md`, `conventions.md`). Update the current state, do NOT outline history.
-4. **Inherit** - New flows read `knowledge/patterns/patterns.md` + scan the other `.agents/bundles/knowledge/` chapters.
+2. **Elevate** - At phase/flow completion, move reusable patterns to `.agents/bundles/knowledge/patterns.md`
+3. **Synthesize** - During sync and archive, RE-SYNTHESIZE: read the affected chapter in `.agents/bundles/knowledge/`, integrate the new learning into the existing prose where it belongs, and rewrite the chapter as coherent current-state documentation. NEVER append a dated entry, a "completed X" note, or a changelog line to a knowledge chapter — history goes in `log.md`, knowledge chapters describe only how the codebase works now. Delete the source `learnings.md` content once synthesized.
+4. **Inherit** - New flows read `knowledge/patterns.md` + scan the other `.agents/bundles/knowledge/` chapters.
 
-Repeated user corrections or visible frustration are high-signal workflow gaps. Capture them in `learnings.md`, elevate them into `.agents/bundles/knowledge/patterns/patterns.md`, and refine `.agents/bundles/skills/flow-memory-keeper/SKILL.md` when present so the same miss does not have to be corrected again.
+Repeated user corrections or visible frustration are high-signal workflow gaps. Capture them in `learnings.md`, elevate them into `.agents/bundles/knowledge/patterns.md`, and refine `.agents/bundles/skills/flow-memory-keeper/SKILL.md` when present so the same miss does not have to be corrected again.
 
 Knowledge chapters in `.agents/bundles/knowledge/` survive archive cleanup and serve as the expert implementation details for the codebase.
+
+### Archive Lifecycle
+
+`specs/` holds only `planned` and `active` flows. Completing a flow is a three-step contraction, not an accumulation:
+
+1. **Synthesize** the flow's learnings and task notes into the knowledge chapters (re-synthesis rules above).
+2. **Log** one entry in `.agents/bundles/log.md`: date, flow_id, one-line outcome, and the final commit SHA.
+3. **Delete** the spec directory. Git history is the archive — `git log -- .agents/bundles/specs/<flow_id>` recovers everything, and tracked bundles make restoration a `git checkout` away.
+
+Never keep `completed`/`archived` spec directories piling up in the bundle; if a backlog of them exists, `/flow:cleanup` consolidates and removes them in one pass.
 
 If `.agents/bundles/skills/flow-memory-keeper/SKILL.md` exists, invoke it during sync, archive, finish, revise, and failure recovery so learnings, failures, and spec cleanup remain mandatory instead of ad hoc.
 
@@ -395,7 +407,7 @@ State tracked in `parallel_state.json`. Uses the `invoke_subagent` tool to spawn
 8. **Close task**: set `state: closed` and record the commit SHA in the task file's `commit:` field.
 9. **Sync to spec**: run `/flow:sync` (or apply the reconciler rules inline) so the `spec.md` checklist reflects task-file state.
 
-**CRITICAL:** Task files are the source of truth. Update the task file first, then reconcile the `spec.md` checklist — never flip checklist markers without the matching task-file change.
+**CRITICAL:** Task files are the source of truth. Update the task file first, then reconcile the `spec.md` checklist — never flip checklist markers without the matching task-file change. Reconciliation is NOT optional or deferred: the checklist must be updated **immediately after every task state change** (claim, block, skip, close), so the markdown task list is always current for humans and other agents.
 
 **Important:** All commits stay local. Flow never pushes automatically.
 

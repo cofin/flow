@@ -23,7 +23,7 @@ title: Project Workflow
 
 ## Guiding Principles
 
-1. **Task files are the Source of Truth:** Task state lives in `.agents/bundles/specs/<flow_id>/tasks/*.md` frontmatter (`state:`). Run `/flow:sync` to reconcile the `spec.md` checklist after task-state changes.
+1. **Task files are the Source of Truth:** Task state lives in `.agents/bundles/specs/<flow_id>/tasks/*.md` frontmatter (`state:`). Reconcile the `spec.md` checklist IMMEDIATELY after every task-state change (`/flow:sync` or the inline rules) — the markdown task list must never lag the task files.
 2. **The Tech Stack is Deliberate:** Changes to the tech stack must be documented in `tech-stack.md` *before* implementation
 3. **Test-Driven Development:** Write unit tests before implementing functionality
 4. **High Code Coverage:** Aim for >80% code coverage for all modules
@@ -99,7 +99,7 @@ All tasks follow a strict lifecycle:
 
 ### Task Workflow (TDD)
 
-**CRITICAL:** Task files are the source of truth. Never flip `[x]`, `[~]`, `[!]`, or `[-]` markers in spec.md without the matching task-file `state:` change; reconcile with `/flow:sync` after task-state changes.
+**CRITICAL:** Task files are the source of truth. Never flip `[x]`, `[~]`, `[!]`, or `[-]` markers in spec.md without the matching task-file `state:` change; reconcile with `/flow:sync` immediately after every task-state change.
 
 **Companion Skills Usage:**
 
@@ -162,7 +162,7 @@ All tasks follow a strict lifecycle:
 
 10. **Log Learnings:**
     - Append discoveries to the flow's `learnings.md` and the task file's `## Notes & Discoveries`
-    - Elevate reusable patterns to `.agents/bundles/knowledge/patterns/patterns.md` at phase completion
+    - Elevate reusable patterns to `.agents/bundles/knowledge/patterns.md` at phase completion
     - If the user had to repeat a correction or showed frustration, capture that as a workflow gap and elevate it into the knowledge system
     - Capture validated repo-native commands and verification workflows so future agents reuse the same `make`, `just`, `task`, package-script, or pre-commit entrypoints
     - If `.agents/bundles/skills/flow-memory-keeper/SKILL.md` exists, update it with durable project-specific refinements
@@ -170,9 +170,9 @@ All tasks follow a strict lifecycle:
 ### Knowledge Flywheel
 
 1. **Capture** - After each task, append learnings to flow's `learnings.md`
-2. **Elevate** - At phase/flow completion, move reusable patterns to `.agents/bundles/knowledge/patterns/patterns.md`
+2. **Elevate** - At phase/flow completion, move reusable patterns to `.agents/bundles/knowledge/patterns.md`
 3. **Synthesize** - During sync and archive, integrate learnings directly into cohesive, logically organized knowledge base chapters in `.agents/bundles/knowledge/` (e.g., `architecture.md`, `conventions.md`). Update the current state, do NOT outline history.
-4. **Inherit** - New flows read `knowledge/patterns/patterns.md` + scan the other `.agents/bundles/knowledge/` chapters.
+4. **Inherit** - New flows read `knowledge/patterns.md` + scan the other `.agents/bundles/knowledge/` chapters.
 
 Repeated user corrections or frustration are high-signal learning triggers. Do not leave them buried in chat history; turn them into explicit patterns or knowledge updates.
 Validated repo-native commands are also high-signal learnings. If the project already has a canonical `make lint`, `make test`, `make check`, `just check`, `task test`, or equivalent wrapper, preserve it in this workflow and elevate it when needed.
@@ -181,7 +181,7 @@ Validated repo-native commands are also high-signal learnings. If the project al
 
 | Tier | File | Loaded | Purpose |
 |------|------|--------|---------|
-| **Patterns** | `.agents/bundles/knowledge/patterns/patterns.md` | Always | Elevated actionable rules for priming |
+| **Patterns** | `.agents/bundles/knowledge/patterns.md` | Always | Elevated actionable rules for priming |
 | **Knowledge Chapters** | `.agents/bundles/knowledge/**/*.md` | On demand | Synthesized implementation details and current state |
 
 **Important:** the patterns chapter is NOT archived with flows. It persists as project knowledge. Knowledge chapters in `.agents/bundles/knowledge/` also persist independently of archives and describe the active codebase state.

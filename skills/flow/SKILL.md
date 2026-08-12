@@ -21,7 +21,7 @@ Flow coordinates Context-Driven Development in `.agents/` repositories. Keep thi
    - Sync, status, refresh, cleanup, context drift: use `flow-sync-status`.
    - Review, finish, archive, revert, docs, phase completion: use `flow-completion`.
 3. Record durable discoveries in the owning task file's `## Notes & Discoveries` section and task state in its `state:` frontmatter.
-4. Prefer repo-native commands from `.agents/bundles/knowledge/workflow/workflow.md` or hook context for validation.
+4. Prefer repo-native commands from `.agents/bundles/knowledge/workflow.md` or hook context for validation.
 
 ## Guardrails
 

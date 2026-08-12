@@ -11,9 +11,9 @@ Five-phase documentation workflow with validation, knowledge capture, and cleanu
 
 Verify Flow environment:
 
-- **Product Definition** (`.agents/bundles/knowledge/product/product.md`)
-- **Tech Stack** (`.agents/bundles/knowledge/product/tech-stack.md`)
-- **Workflow** (`.agents/bundles/knowledge/workflow/workflow.md`)
+- **Product Definition** (`.agents/bundles/product/product.md`)
+- **Tech Stack** (`.agents/bundles/product/tech-stack.md`)
+- **Workflow** (`.agents/bundles/knowledge/workflow.md`)
 - **Specs Directory** (`.agents/bundles/specs/` — flows are discovered by scanning spec frontmatter)
 
 If ANY missing: "Flow not set up. Run `flow-setup` first." -> HALT
@@ -39,7 +39,7 @@ Identify all docs:
 
 - Flow specs (`.agents/`)
 - Flow folders (`.agents/bundles/specs/*/`)
-- Research folders (`.agents/research/*/`)
+- Research folders (`.agents/bundles/research/*/`)
 
 ### Quality Gate Checks
 

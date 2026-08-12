@@ -62,7 +62,7 @@ If a referenced companion skill is unavailable in the current harness, perform t
 
 ## 3.0 INTELLIGENCE INJECTION
 
-1. **Read History:** Scan `.agents/bundles/specs/` (spec frontmatter `state`) and `.agents/bundles/knowledge/patterns/patterns.md`.
+1. **Read History:** Scan `.agents/bundles/specs/` (spec frontmatter `state`) and `.agents/bundles/knowledge/patterns.md`.
 2. **Velocity Check:** Estimate how many tasks fit in a context window based on past flows.
 3. **Strategy:** Determine the *order* of execution to maximize context recovery.
 
@@ -75,7 +75,7 @@ If a referenced companion skill is unavailable in the current harness, perform t
 1. **Analyze Request:**
     - Read the user's goal/request thoroughly
     - Identify ambiguities, unknowns, and decision points
-    - Consider existing codebase patterns from `knowledge/patterns/patterns.md`
+    - Consider existing codebase patterns from `knowledge/patterns.md`
 
 2. **Code Analysis (if existing project):**
     - Search for relevant code files related to the request
@@ -96,7 +96,7 @@ If a referenced companion skill is unavailable in the current harness, perform t
     - Continue researching until obvious external docs, version, marketplace, migration, or harness-capability gaps are closed.
 
 5. **Constraint Check:**
-    - "Based on `knowledge/patterns/patterns.md`, I'll ensure X. Any concerns?"
+    - "Based on `knowledge/patterns.md`, I'll ensure X. Any concerns?"
 
 ---
 

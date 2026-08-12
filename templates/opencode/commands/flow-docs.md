@@ -13,9 +13,9 @@ Five-phase documentation workflow with validation, knowledge capture, and cleanu
 
 Verify Flow environment:
 
-- **Product Definition** (`.agents/bundles/knowledge/product/product.md`)
-- **Tech Stack** (`.agents/bundles/knowledge/product/tech-stack.md`)
-- **Workflow** (`.agents/bundles/knowledge/workflow/workflow.md`)
+- **Product Definition** (`.agents/bundles/product/product.md`)
+- **Tech Stack** (`.agents/bundles/product/tech-stack.md`)
+- **Workflow** (`.agents/bundles/knowledge/workflow.md`)
 - **Specs Directory** (`.agents/bundles/specs/` — flows are discovered by scanning spec frontmatter)
 
 If ANY missing: "Flow not set up. Run `/flow-setup` first." → HALT
@@ -33,7 +33,7 @@ If ANY missing: "Flow not set up. Run `/flow-setup` first." → HALT
 
 ## Mode A: Validation
 
-Scan all documentation — spec bundles (`.agents/bundles/specs/*/`), knowledge chapters (`.agents/bundles/knowledge/`), and research folders (`.agents/research/*/`).
+Scan all documentation — spec bundles (`.agents/bundles/specs/*/`), knowledge chapters (`.agents/bundles/knowledge/`), and research folders (`.agents/bundles/research/*/`).
 
 For each document verify quality gates:
 
@@ -51,7 +51,7 @@ Generate a validation report with Critical/Warning issues and recommended action
 1. **Identify Knowledge Sources:** completed flows (spec frontmatter `state: completed`), git history, research documents.
 2. Use `flow:docgen` for systematic documentation generation with progress tracking (`[3/12 files documented]`).
 3. Update the knowledge chapters under `.agents/bundles/knowledge/` (patterns, technology decisions, lessons learned, recovery playbooks).
-4. Identify recurring patterns (used in 2+ flows) and propose updates to `.agents/bundles/knowledge/patterns/`.
+4. Identify recurring patterns (used in 2+ flows) and propose updates to `.agents/bundles/knowledge/`.
 
 ## Mode C: Archive
 

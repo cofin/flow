@@ -91,7 +91,7 @@ Use the matching Flow workflow whenever the user expresses the intent, even if t
 - `/flow-finish` - Complete flow work: verify, review, merge/PR/keep/discard
 
 ## Critical Rules
-1. **Read knowledge/patterns/patterns.md** before starting work
+1. **Read knowledge/patterns.md** before starting work
 2. **Log learnings** as you discover them
 3. **Use TDD** - tests first, then implementation
 4. **Task files are source of truth** - Never hand-edit markers in spec.md; update task-file `state` and run `/flow-sync`

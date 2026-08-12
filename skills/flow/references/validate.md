@@ -14,10 +14,10 @@ Validate project integrity and fix issues. All checks are file checks — read t
 Check existence of:
 
 - `.agents/bundles/index.md` (bundle root; frontmatter carries `okf_version`)
-- `.agents/bundles/knowledge/product/product.md`
-- `.agents/bundles/knowledge/product/tech-stack.md`
-- `.agents/bundles/knowledge/workflow/workflow.md`
-- `.agents/bundles/knowledge/patterns/patterns.md`
+- `.agents/bundles/product/product.md`
+- `.agents/bundles/product/tech-stack.md`
+- `.agents/bundles/knowledge/workflow.md`
+- `.agents/bundles/knowledge/patterns.md`
 
 ### 1.2 Flow Directories
 
@@ -55,7 +55,7 @@ For each spec.md:
 
 ### 3.2 Patterns
 
-For each pattern in `.agents/bundles/knowledge/patterns/patterns.md`:
+For each pattern in `.agents/bundles/knowledge/patterns.md`:
 
 - Referenced files exist
 - Code examples still valid

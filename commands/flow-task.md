@@ -82,7 +82,7 @@ git checkout .  # Discard any code changes
 ### Keep Notes
 
 ```bash
-mv .agents/tasks/{task_id}/findings.md .agents/research/
+mv .agents/tasks/{task_id}/findings.md .agents/bundles/research/
 rm -rf .agents/tasks/{task_id}
 git checkout .
 ```

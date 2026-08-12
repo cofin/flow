@@ -34,7 +34,7 @@ def _build_canonical_bundle(root: Path) -> Path:
     _write(bundles / "index.md", '---\nokf_version: "0.2"\n---\n\n# Bundle\n')
     _write(bundles / "log.md", "# Bundle Log\n\n## 2026-08-12\n\n**Creation** Initial bundle.\n")
     _write(
-        bundles / "knowledge" / "patterns" / "patterns.md",
+        bundles / "knowledge" / "patterns.md",
         "---\ntype: Pattern\ntitle: Patterns\n---\n\n# Patterns\n",
     )
     flow_dir = bundles / "specs" / "demo-flow"

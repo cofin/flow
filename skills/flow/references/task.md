@@ -61,7 +61,7 @@ git checkout .
 **Keep Notes** - Delete code, keep findings:
 
 ```bash
-mv .agents/tasks/{task_id}/findings.md .agents/research/
+mv .agents/tasks/{task_id}/findings.md .agents/bundles/research/
 rm -rf .agents/tasks/{task_id}
 ```
 

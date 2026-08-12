@@ -14,4 +14,5 @@ Ensure the subagent receives:
 - The Flow ID or request: `{{args}}`
 - Reference to current `.agents/bundles/specs/` state and active `spec.md`.
 - Instruction to follow the TDD protocol and invoke Superpowers skills (tdd, verification-before-completion).
+- Instruction to reconcile the `spec.md` checklist marker IMMEDIATELY after EVERY task state change (claim, block, skip, close) — mandatory, never deferred. Claiming reconciles the marker to `[~]`; closing reconciles it to `[x]` with the commit SHA appended (`[<sha>]`).
 """

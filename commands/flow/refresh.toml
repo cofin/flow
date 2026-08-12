@@ -22,7 +22,7 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
 ## 2.0 READ CURRENT CONTEXT
 **PROTOCOL: Load existing context files.**
 
-1.  Read `.agents/bundles/index.md`, `.agents/bundles/knowledge/product/tech-stack.md`, `.agents/bundles/knowledge/workflow/workflow.md`, `.agents/bundles/knowledge/patterns/patterns.md`.
+1.  Read `.agents/bundles/index.md`, `.agents/bundles/product/tech-stack.md`, `.agents/bundles/knowledge/workflow.md`, `.agents/bundles/knowledge/patterns.md`.
 2.  Identify active flows by scanning `.agents/bundles/specs/*/spec.md` frontmatter for `state: active` (or `planned`).
 3.  If an active flow exists, read `.agents/bundles/specs/<flow_id>/spec.md` and its task files under `tasks/*.md`.
 4.  Note the spec's `updated_at` timestamp (this is the baseline for detecting changes).
@@ -35,17 +35,17 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
 1.  **Git History:** Run `git log --oneline --since="<last_updated_at>"` to identify recent commits.
 2.  **New/Modified/Deleted Files:** Run `git diff --name-status <last_commit>..HEAD` to find files changed since last sync.
 3.  **Dependency Changes:** Check `package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod` for modifications.
-4.  **Tech Stack Drift:** Compare current dependency files with `.agents/bundles/knowledge/product/tech-stack.md`. Note any new frameworks, removed packages, or version changes.
-5.  **Workflow Drift:** Inspect `Makefile`, `justfile`, `Taskfile.yml`, `package.json`, `pyproject.toml`, `Cargo.toml`, `.pre-commit-config.yaml`, and CI files. Compare discovered canonical commands and workflow assumptions with `.agents/bundles/knowledge/workflow/workflow.md`.
+4.  **Tech Stack Drift:** Compare current dependency files with `.agents/bundles/product/tech-stack.md`. Note any new frameworks, removed packages, or version changes.
+5.  **Workflow Drift:** Inspect `Makefile`, `justfile`, `Taskfile.yml`, `package.json`, `pyproject.toml`, `Cargo.toml`, `.pre-commit-config.yaml`, and CI files. Compare discovered canonical commands and workflow assumptions with `.agents/bundles/knowledge/workflow.md`.
 
 ---
 
 ## 4.0 UPDATE CONTEXT FILES
 **PROTOCOL: Refresh context to match codebase state.**
 
-1.  **Tech Stack:** If dependency changes detected, update `.agents/bundles/knowledge/product/tech-stack.md` with current state.
+1.  **Tech Stack:** If dependency changes detected, update `.agents/bundles/product/tech-stack.md` with current state.
 2.  **Patterns:** If new patterns detected in recent commits (e.g., new conventions, new libraries adopted), note them for pattern elevation.
-3.  **Workflow:** If workflow drift is detected, explicitly prompt the user: "Workflow settings may be stale. Revalidate `.agents/bundles/knowledge/workflow/workflow.md` now?"
+3.  **Workflow:** If workflow drift is detected, explicitly prompt the user: "Workflow settings may be stale. Revalidate `.agents/bundles/knowledge/workflow.md` now?"
     *   Refresh only the affected workflow sections instead of replacing the entire file.
     *   Prefer repo-native aggregate commands such as `make lint`, `make test`, `make check`, `just check`, `task test`, package scripts, and pre-commit entrypoints.
 4.  **Flow Tasks:** If the active flow's tasks were completed externally (commits reference task ids), update the affected task files: set `state: closed`, `commit: <sha>`, and refresh `updated_at`.

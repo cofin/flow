@@ -33,7 +33,7 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
 
 3. **Load Flow Context:**
     * **Read Artifacts:** `spec.md` (unified spec+plan), task files under `tasks/*.md`, `learnings.md` (create if missing).
-    * **Read Project Context:** Read `.agents/bundles/knowledge/patterns/patterns.md` and `.agents/bundles/knowledge/workflow/workflow.md`.
+    * **Read Project Context:** Read `.agents/bundles/knowledge/patterns.md` and `.agents/bundles/knowledge/workflow.md`.
     * **Read Durable Knowledge:** Load relevant `.agents/bundles/knowledge/` chapters before refining.
 
 ---
@@ -45,7 +45,7 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
 Read the relevant artifacts before refining:
 
 * `spec.md` and the task files under `tasks/*.md`
-* `.agents/bundles/knowledge/patterns/patterns.md`
+* `.agents/bundles/knowledge/patterns.md`
 * relevant `.agents/bundles/knowledge/` chapters
 * The code paths, tests, migrations, config files, or external docs that the tasks depend on.
 

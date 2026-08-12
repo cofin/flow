@@ -55,7 +55,7 @@ If a referenced companion skill is unavailable in the current harness, perform t
 **PROTOCOL: Read global and parent context to constrain the plan.**
 
 1. **Read Global Patterns:**
-    - Resolve and read `.agents/bundles/knowledge/patterns/patterns.md`.
+    - Resolve and read `.agents/bundles/knowledge/patterns.md`.
     - Keep these patterns in mind. If the user suggests something violating a pattern, WARN them.
 
 2. **Read Parent Context (Optional):**
@@ -63,7 +63,7 @@ If a referenced companion skill is unavailable in the current harness, perform t
     - Ensure this Flow's spec aligns with the Master Roadmap.
 
 3. **Read Research:**
-    - Check `.agents/research/`. If relevant research exists, ask to use it.
+    - Check `.agents/bundles/research/`. If relevant research exists, ask to use it.
     - If important requirements still depend on unresolved docs, versions, migrations, marketplaces, or harness behavior, continue researching until those gaps are closed before declaring planning complete.
 
 ---
@@ -138,7 +138,7 @@ If a referenced companion skill is unavailable in the current harness, perform t
 2. **INFORMED Questioning Phase:**
     - Ask 3-5 questions based on CODE ANALYSIS (not generic guesses)
     - Each question MUST reference specific files/code found
-    - **Constraint Check:** "Based on `knowledge/patterns/patterns.md` and the existing code at [path], we should use X. Do you agree?"
+    - **Constraint Check:** "Based on `knowledge/patterns.md` and the existing code at [path], we should use X. Do you agree?"
 
     **Example BAD questions:**
 
@@ -165,7 +165,7 @@ If a referenced companion skill is unavailable in the current harness, perform t
       {files examined, key findings}
 
       ### Relevant Patterns
-      {from knowledge/patterns/patterns.md}
+      {from knowledge/patterns.md}
 
       ### Requirements
       {Functional, Non-Functional, API, DB, Risk sections as needed}
@@ -182,7 +182,7 @@ If a referenced companion skill is unavailable in the current harness, perform t
       ```
 
     - Include "Code Analysis Summary" section with files examined
-    - Include "Relevant Patterns" section (extracted from `knowledge/patterns/patterns.md`)
+    - Include "Relevant Patterns" section (extracted from `knowledge/patterns.md`)
     - Include "Parent Context" section (if applicable)
     - Standard spec sections: Functional Req, Non-Functional, API, DB, Risk
     - Implementation Plan section with Phases and TDD Tasks, one checklist line per task in the form `- [ ] Task <short_id>: Title`
@@ -270,7 +270,7 @@ Announce:
 
 1. **CODE ANALYSIS FIRST** - Always analyze codebase before asking questions
 2. **INFORMED QUESTIONS** - Questions must reference actual files/code found
-3. **PATTERNS COMPLIANCE** - Check `knowledge/patterns/patterns.md` and warn on violations
+3. **PATTERNS COMPLIANCE** - Check `knowledge/patterns.md` and warn on violations
 4. **UNIFIED SPEC** - Single `spec.md` contains both requirements and plan. No separate `plan.md`.
 5. **SPECS DIRECTORY** - All artifacts go in `.agents/bundles/specs/`
 6. **TASK FILES** - Create task files under `.agents/bundles/specs/<flow_id>/tasks/` before finalizing the plan

@@ -129,7 +129,7 @@ if ($cfgKnowledge) { $knowledgeDir = Join-Path $projectRoot $cfgKnowledge }
 $blocks = @()
 
 # --- Project Purpose ---
-$identity = Get-Identity (Join-Path $knowledgeDir 'product/product.md')
+$identity = Get-Identity (Join-Path $bundlesDir 'product/product.md')
 if ($identity) {
     $blocks += "## Project Purpose`n$identity"
 }
@@ -137,12 +137,12 @@ if ($identity) {
 # --- Core Project Invariants ---
 $truthSections = @()
 foreach ($filename in @('tech-stack.md', 'workflow.md', 'patterns.md')) {
-    $sub = switch ($filename) {
-        'tech-stack.md' { 'product' }
-        'patterns.md' { 'patterns' }
-        default { 'workflow' }
+    $sourcePath = if ($filename -eq 'tech-stack.md') {
+        Join-Path $bundlesDir "product/$filename"
+    } else {
+        Join-Path $knowledgeDir $filename
     }
-    $truths = Get-Truths (Join-Path $knowledgeDir "$sub/$filename")
+    $truths = Get-Truths $sourcePath
     if ($truths) {
         $heading = $filename.Substring(0, 1).ToUpper() + $filename.Substring(1)
         $truthSections += "### $heading Invariants`n$truths"

@@ -238,15 +238,15 @@ Create explicit research tasks with status tracking:
 2. **Create Research Directory:**
 
    ```bash
-   mkdir -p .agents/research/{research_id}
+   mkdir -p .agents/bundles/research/{research_id}
    ```
 
-3. **Write Research Document:** `.agents/research/{research_id}/research.md`
+3. **Write Research Document:** `.agents/bundles/research/{research_id}/research.md`
 
    ```markdown
    # Research: [Topic]
 
-   **Workspace**: `.agents/research/{research_id}/`
+   **Workspace**: `.agents/bundles/research/{research_id}/`
    **Status**: Complete
    **Type**: [New Feature|Bug|Integration|Refactoring|Performance]
 
@@ -287,7 +287,7 @@ Create explicit research tasks with status tracking:
    - Flow: `.agents/bundles/specs/{flow_id}/` (when created)
    ```
 
-4. **Add Frontmatter:** Give `.agents/research/{research_id}/research.md` YAML frontmatter (no separate metadata file):
+4. **Add Frontmatter:** Give `.agents/bundles/research/{research_id}/research.md` YAML frontmatter (no separate metadata file):
 
    ```yaml
    ---
@@ -308,7 +308,7 @@ Create explicit research tasks with status tracking:
 >
 > [3-5 bullet points]
 >
-> **Full research:** `.agents/research/{research_id}/research.md`
+> **Full research:** `.agents/bundles/research/{research_id}/research.md`
 >
 > **Next step:** Run `/flow-prd` to create a PRD based on this research."
 

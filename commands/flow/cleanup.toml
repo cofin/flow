@@ -25,9 +25,15 @@ CRITICAL: You must validate the success of every tool call. If any tool call fai
     If validation fails with any violations, report them to the developer and halt.
 
 3.  **Identify Completed Flows**:
-    *   Scan `.agents/bundles/specs/*/spec.md` files.
-    *   For any spec that has frontmatter `state: completed`, ask the developer whether to archive it:
+    *   Scan `.agents/bundles/specs/*/spec.md` files for frontmatter `state: completed` or `state: archived`.
+    *   **One or two completed flows** — ask per flow:
         > Propose archiving completed flow '{flow_id}'?
         > A) Yes - I will run /flow:archive {flow_id}
         > B) No - Keep it active on disk
+    *   **Three or more completed flows (archive backlog)** — offer batch consolidation:
+        > Found {N} completed flows accumulating in specs/. Consolidate the backlog?
+        > A) Batch archive (recommended) - synthesize all into the knowledge chapters in ONE pass, one log.md entry per flow, then delete all spec directories
+        > B) Review each flow individually
+        > C) Skip
+    *   Batch mode applies the /flow:archive procedure across the set: consolidate every flow's notes first, rewrite each affected knowledge chapter ONCE with all learnings integrated, append log entries newest-first, verify recoverability (tracked vs untracked) once, and remove all spec directories in a single commit.
 """

@@ -41,9 +41,19 @@ If validation fails, resolve the reported violations (e.g. delete orphaned task 
 
 ## Phase 3: Identify Completed Flows for Archiving
 
-Scan `.agents/bundles/specs/*/spec.md` for flows that have frontmatter `state: completed`.
-For each completed flow found, prompt the developer:
+Scan `.agents/bundles/specs/*/spec.md` for flows that have frontmatter `state: completed` or `state: archived`.
+
+**One or two completed flows** — prompt per flow:
 
 > Propose archiving completed flow '{flow_id}'?
 > A) Yes - I will run /flow:archive {flow_id}
 > B) No - Keep it active on disk
+
+**Three or more completed flows (archive backlog)** — offer batch consolidation instead of one-by-one prompts:
+
+> Found {N} completed flows accumulating in specs/. Consolidate the backlog?
+> A) Batch archive (recommended) - synthesize all of them into the knowledge chapters in ONE pass, one log.md entry per flow, then delete all spec directories
+> B) Review each flow individually
+> C) Skip
+
+Batch mode applies the `/flow:archive` procedure across the whole set: consolidate every flow's notes first, then rewrite each affected knowledge chapter ONCE with all learnings integrated (avoids N successive rewrites of the same chapter), append the log entries newest-first, verify recoverability (tracked vs untracked) once for the set, and remove all the spec directories in a single commit.

@@ -70,8 +70,8 @@ def parse_config(project_root: Path) -> tuple[Path, Path]:
     return bundles_dir, knowledge_dir
 
 
-def extract_project_identity(knowledge_dir: Path) -> str:
-    file_path = knowledge_dir / "product" / "product.md"
+def extract_project_identity(product_dir: Path) -> str:
+    file_path = product_dir / "product.md"
     if not file_path.is_file():
         return ""
 
@@ -208,19 +208,14 @@ def scan_custom_skills(bundles_dir: Path, project_root: Path) -> list:
 def build_context(root: Path) -> str:
     bundles_dir, knowledge_dir = parse_config(root)
 
-    identity = extract_project_identity(knowledge_dir)
+    identity = extract_project_identity(bundles_dir / "product")
 
     truths = []
     for filename in ("tech-stack.md", "workflow.md", "patterns.md"):
-        prefix = filename.split(".")[0]
-        if prefix == "tech-stack":
-            sub = "product"
-        elif prefix == "patterns":
-            sub = "patterns"
+        if filename == "tech-stack.md":
+            filepath = bundles_dir / "product" / filename
         else:
-            sub = "workflow"
-
-        filepath = knowledge_dir / sub / filename
+            filepath = knowledge_dir / filename
         if filepath.is_file():
             file_truths = extract_truths_from_file(filepath)
             if file_truths:

@@ -10,7 +10,7 @@ You are dispatching a code review for a Flow's implementation. Your task is to d
 
 ## 2.0 LOAD CONTEXT
 1.  **Flow ID:** Use `{{args}}` or auto-discover by scanning `.agents/bundles/specs/*/spec.md` frontmatter for `state: active`.
-2.  **Read Artifacts:** `.agents/bundles/specs/<flow_id>/spec.md` (requirements), `.agents/bundles/knowledge/patterns/patterns.md` (conventions).
+2.  **Read Artifacts:** `.agents/bundles/specs/<flow_id>/spec.md` (requirements), `.agents/bundles/knowledge/patterns.md` (conventions).
 3.  **Read Task Files:** All of `.agents/bundles/specs/<flow_id>/tasks/*.md`, collecting `commit:` SHAs from tasks with `state: closed`.
 
 ---

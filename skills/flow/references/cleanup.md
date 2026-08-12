@@ -39,9 +39,14 @@ If validation fails:
 ### Phase 3: Archive completed flows
 
 1. Scan `.agents/bundles/specs/*/spec.md` files.
-2. Filter for specs containing `state: completed`.
-3. Propose archiving each completed flow:
-   - Suggest running the `/flow:archive <flow_id>` slash command to move the spec directory to the archive store and elevate patterns.
+2. Filter for specs containing `state: completed` (or `state: archived`).
+3. **One or two completed flows**: propose archiving each individually — suggest running the `/flow:archive <flow_id>` slash command to synthesize the flow into the knowledge chapters, log it in `.agents/bundles/log.md`, and delete its spec directory.
+4. **Three or more completed flows (archive backlog)**: offer batch consolidation instead of one-by-one prompts. Batch mode applies the `/flow:archive` procedure across the whole set:
+   - Consolidate every flow's notes first.
+   - Rewrite each affected knowledge chapter ONCE with all learnings integrated (avoids N successive rewrites of the same chapter).
+   - Append the `log.md` entries newest-first, one per flow.
+   - Verify recoverability (tracked vs untracked) once for the set.
+   - Remove all the spec directories in a single commit.
 
 ---
 

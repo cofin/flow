@@ -29,7 +29,7 @@ Complete a Flow's development work: verify tests, dispatch code review, and inte
 ## Phase 3: Code Review
 
 1. Get the git range from the task files: collect `commit:` SHAs from tasks with `state: closed`.
-2. Dispatch code review subagent with: spec.md requirements, `knowledge/patterns/patterns.md`, git range.
+2. Dispatch code review subagent with: spec.md requirements, `knowledge/patterns.md`, git range.
 3. Fix Critical issues before proceeding. Fix Important issues or confirm with user.
 4. Log findings to `.agents/bundles/specs/{flow_id}/learnings.md`.
 
