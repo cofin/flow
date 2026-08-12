@@ -16,7 +16,7 @@ Authoritative per-harness contract for what Flow ships and how each harness cons
 
 ## Invariants
 
-- **Antigravity root manifests:** `plugin.json` and root `hooks.json` exist and pass `make validate-antigravity-manifest`.
+- **Antigravity root manifests:** `plugin.json` and `hooks/hooks-agy.json` exist and pass `make validate`.
 - **Codex hook commands:** every Codex-consumed hook manifest anchors to `$PLUGIN_ROOT` or `$CLAUDE_PLUGIN_ROOT` and contains no shell-unsafe extension template tokens.
 - **Claude hooks:** `.claude-plugin/plugin.json` points at `hooks/hooks-claude.json`; Claude hooks do not use extension template tokens.
 - **Generated Codex package:** `plugins/flow/` is regenerated from source by `tools/sync-codex-package.py`, contains real files only, and rewrites package `hooks/hooks.json` to the Codex-native manifest.

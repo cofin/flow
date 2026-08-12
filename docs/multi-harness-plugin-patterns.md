@@ -43,9 +43,6 @@ Do not ship a repository-specific multi-harness installer as the public installa
 
 Use separate validators for separate harness contracts:
 
-- `tools/validate-antigravity-manifest.py`
-- `tools/validate-codex-manifest.py`
-- `tools/validate-claude-manifest.py`
-- `tools/validate-skills.py`
+- `tools/validate.py` (consolidated validator for all harness manifests, skills, commands, agents, and OKF bundles)
 
 Keep generated package checks in the aggregate `make check` path so stale Codex payloads cannot be committed accidentally.
