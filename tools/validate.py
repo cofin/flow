@@ -304,19 +304,44 @@ def validate_claude_hook_config(path: Path) -> list[Violation]:
     return violations
 
 
-def validate_antigravity_hook_config(path: Path) -> list[Violation]:
-    """Validate Antigravity's root hook config file."""
-    hook_events, violations = _load_hook_event_map(path)
-    if hook_events is None:
-        return violations
+ANTIGRAVITY_HOOK_EVENTS = frozenset({"PreToolUse", "PostToolUse", "PreInvocation", "PostInvocation", "Stop"})
 
-    violations.extend(_validate_hook_event_map(
-        path,
-        hook_events,
-        allow_flat_events={"SessionStart", "PreInvocation", "PostInvocation", "Stop"}
-    ))
+
+def validate_antigravity_hook_config(path: Path) -> list[Violation]:
+    """Validate Antigravity's named-hook config: {"<name>": {"<Event>": [handlers]}}."""
+    violations: list[Violation] = []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        return [Violation(path, 1, f"JSON parse error: {exc}")]
+    if not isinstance(data, dict) or not data:
+        return [Violation(path, 1, "Antigravity hook config must be a non-empty JSON object of named hooks")]
+
+    for hook_name, events in data.items():
+        if not isinstance(events, dict):
+            violations.append(Violation(path, 1, f"hook {hook_name!r} must map events to handler lists"))
+            continue
+        for event_name, handlers in events.items():
+            if event_name not in ANTIGRAVITY_HOOK_EVENTS:
+                violations.append(
+                    Violation(
+                        path,
+                        1,
+                        f"hook {hook_name!r} uses unknown Antigravity event {event_name!r} "
+                        f"(supported: {', '.join(sorted(ANTIGRAVITY_HOOK_EVENTS))}; there is no SessionStart)",
+                    )
+                )
+            if not isinstance(handlers, list) or not handlers:
+                violations.append(Violation(path, 1, f"hook {hook_name!r} event {event_name!r} must be a non-empty list"))
+                continue
+            for handler in handlers:
+                if not isinstance(handler, dict) or handler.get("type") != "command" or not handler.get("command"):
+                    violations.append(
+                        Violation(path, 1, f"hook {hook_name!r} event {event_name!r} handlers must be command objects")
+                    )
+
     saw_root_token = False
-    for entry in _iter_nested_strings(hook_events):
+    for entry in _iter_nested_strings(data):
         if "${extensionPath}" in entry or "${/}" in entry:
             violations.append(
                 Violation(
@@ -1000,12 +1025,18 @@ def validate_antigravity_hook_commands(repo_root: Path) -> list[Violation]:
 
     if not isinstance(data, dict):
         return [Violation(path, 1, "hooks manifest must be a JSON object")]
-    if not isinstance(data.get("hooks"), dict):
-        return [Violation(path, 1, "top-level 'hooks' record missing")]
 
-    commands = list(_iter_hook_commands(data))
+    commands = [
+        handler.get("command")
+        for events in data.values() if isinstance(events, dict)
+        for handlers in events.values() if isinstance(handlers, list)
+        for handler in handlers if isinstance(handler, dict) and isinstance(handler.get("command"), str)
+    ]
     if not commands:
-        return [Violation(path, 1, "no SessionStart command hooks found")]
+        return [Violation(path, 1, "no command hooks found in Antigravity manifest")]
+    for command in commands:
+        if "python" in command:
+            violations.append(Violation(path, 1, f"Antigravity hook commands must not require Python at runtime: {command!r}"))
 
     for command in commands:
         for token in ("${extensionPath}", "${/}"):

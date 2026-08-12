@@ -1,12 +1,10 @@
 {
-  "hooks": {
-    "SessionStart": [
+  "flow-priming": {
+    "PreInvocation": [
       {
-        "name": "flow-session-start",
         "type": "command",
-        "command": "python3 \"${PLUGIN_ROOT:-${ANTIGRAVITY_PLUGIN_ROOT:-.}}/tools/priming.py\"",
-        "timeout": 30,
-        "description": "Inject Flow project context into Antigravity sessions."
+        "command": "bash \"${PLUGIN_ROOT:-${ANTIGRAVITY_PLUGIN_ROOT:-.}}/hooks/agy-pre-invocation.sh\"",
+        "timeout": 25
       }
     ]
   }

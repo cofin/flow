@@ -1,268 +1,224 @@
-# PowerShell environment detection for Flow
-# Mirror of detect-env.sh logic for native Windows support
+# detect-env.ps1 - Emit Flow priming context from the OKF bundles as markdown.
+#
+# Windows twin of detect-env.sh; output mirrors `tools/priming.py --markdown`.
+# Runtime dependency policy: PowerShell only — no Python at runtime.
 
-Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# CLAUDE_PLUGIN_OPTION_* are injected by the Claude Code harness from
-# plugin.json userConfig. Other harnesses leave these unset, so default-fallback.
-$script:DEFAULT_ROOT_DIR = if ($env:CLAUDE_PLUGIN_OPTION_AGENTSDIR) { $env:CLAUDE_PLUGIN_OPTION_AGENTSDIR } else { '.agents' }
-$script:USE_BEADS = if ($env:CLAUDE_PLUGIN_OPTION_USEBEADS) { $env:CLAUDE_PLUGIN_OPTION_USEBEADS } else { 'true' }
-
-# Opt into the bd v2.0 JSON envelope so `bd --json` stops emitting the
-# deprecation notice into the SessionStart context block. Bridges until
-# beads wires this through Viper config; flow's parsers below are
-# envelope-aware either way.
-$env:BD_JSON_ENVELOPE = '1'
-
-function Get-BeadsBackend {
-    Write-Host "## Flow Environment Context"
-    Write-Host "- **Flow is a SKILL, not a CLI**: there is no ``flow`` executable. NEVER run ``flow``, ``flow sync``, ``flow prd``, ``flow status``, etc. as shell commands. Invoke the Flow skill, or use the ``/flow:*`` (e.g. ``/flow:sync``) slash commands where the harness supports them."
-    if ($script:USE_BEADS -ne 'true') {
-        Write-Host "- **Beads Backend**: Disabled via plugin config (useBeads=false)"
-        return "disabled"
-    }
-    $beads_bd = Get-Command bd -ErrorAction SilentlyContinue
-
-    if ($beads_bd) {
-        Write-Host "- **Beads Backend**: Official (bd)"
-        return "bd"
-    } else {
-        Write-Host "- **Beads Backend**: Missing (None)"
-        $beads_br = Get-Command br -ErrorAction SilentlyContinue
-        if ($beads_br) {
-            Write-Host "- **Migration Notice**: Detected legacy 'br' (beads_rust). Flow no longer supports br. Install official Beads: brew install beads (or https://github.com/gastownhall/beads)."
+function Find-ProjectRoot {
+    $dir = (Get-Location).Path
+    while ($dir) {
+        if (Test-Path (Join-Path $dir '.agents') -PathType Container) {
+            return $dir
         }
+        $parent = Split-Path -Parent $dir
+        if (-not $parent -or $parent -eq $dir) { break }
+        $dir = $parent
+    }
+    return (Get-Location).Path
+}
+
+function Get-ConfigValue {
+    param([string]$File, [string]$Key)
+    if (-not (Test-Path $File -PathType Leaf)) { return $null }
+    try {
+        $data = Get-Content -Raw -Path $File | ConvertFrom-Json
+        return $data.$Key
+    } catch {
         return $null
     }
 }
 
-function Get-FlowRoot {
-    $rootDir = $script:DEFAULT_ROOT_DIR
-    $setupStateFile = "$($script:DEFAULT_ROOT_DIR)/setup-state.json"
-    # Backward-compat: if the configured root has no setup-state but the
-    # default .agents/ does, read from there. Helps users who switched
-    # agentsDir after an existing setup.
-    if ((-not (Test-Path $setupStateFile)) -and (Test-Path ".agents/setup-state.json")) {
-        $setupStateFile = ".agents/setup-state.json"
-    }
-    if (Test-Path $setupStateFile) {
-        try {
-            $setupState = Get-Content $setupStateFile -Raw | ConvertFrom-Json
-            if ($setupState.root_directory) {
-                $rootDir = ([string]$setupState.root_directory).TrimEnd('/', '\')
-                Write-Host "- **Flow Root**: $rootDir"
-            } else {
-                Write-Host "- **Flow Root**: $rootDir (default, missing in setup-state)"
-            }
-        } catch {
-            Write-Host "- **Flow Root**: $rootDir (default, error parsing setup-state)"
-        }
-    } else {
-        Write-Host "- **Flow Root**: $rootDir (default)"
-    }
-    return $rootDir
-}
-
-function Get-Tooling {
-    $toolsToCheck = @("uv", "bun", "ruff", "make", "railway")
-    $availableTools = @()
-    foreach ($tool in $toolsToCheck) {
-        if (Get-Command $tool -ErrorAction SilentlyContinue) {
-            $availableTools += $tool
+function Get-Frontmatter {
+    param([string]$File)
+    $fm = @{}
+    if (-not (Test-Path $File -PathType Leaf)) { return $fm }
+    $lines = Get-Content -Path $File
+    if ($lines.Count -eq 0 -or $lines[0] -ne '---') { return $fm }
+    for ($i = 1; $i -lt $lines.Count; $i++) {
+        if ($lines[$i] -eq '---') { break }
+        $idx = $lines[$i].IndexOf(':')
+        if ($idx -gt 0) {
+            $key = $lines[$i].Substring(0, $idx).Trim()
+            $value = $lines[$i].Substring($idx + 1).Trim().Trim('"').Trim("'")
+            if (-not $fm.ContainsKey($key)) { $fm[$key] = $value }
         }
     }
-
-    if ($availableTools.Count -gt 0) {
-        Write-Host ("- **Tooling**: " + ($availableTools -join " "))
-    } else {
-        Write-Host "- **Tooling**: None"
-    }
+    return $fm
 }
 
-function Get-GitContext($rootDir) {
-    try {
-        if (git rev-parse --is-inside-work-tree 2>$null) {
-            $branch = git symbolic-ref --short HEAD 2>$null
-            if (-not $branch) { $branch = "unborn" }
-            Write-Host "- **Git Branch**: $branch"
-            
-            if (git check-ignore -q "$rootDir/" 2>$null) {
-                Write-Host "- **Git Visibility**: $rootDir/ is GIT-IGNORED (Use 'cat' or bypass ignore filters)"
-            } else {
-                Write-Host "- **Git Visibility**: $rootDir/ is Tracked"
-            }
-        }
-    } catch {
-        # Git failed or not installed, skip silently
-    }
-}
-
-function Get-ProjectIdentity($rootDir) {
-    $productFile = Join-Path $rootDir "product.md"
-    if (Test-Path $productFile) {
-        Write-Host ""
-        Write-Host "### Project Identity"
-        if (-not (Extract-Truths $productFile)) {
-            try {
-                Get-Content $productFile |
-                    Where-Object { $_.Trim() -and $_ -notmatch '^[#<]' } |
-                    Select-Object -First 5 |
-                    ForEach-Object { Write-Host "  $_" }
-            } catch {
-                # Failed to read/process, skip
-            }
+function Get-Body {
+    param([string]$File)
+    if (-not (Test-Path $File -PathType Leaf)) { return @() }
+    $lines = @(Get-Content -Path $File)
+    if ($lines.Count -eq 0 -or $lines[0] -ne '---') { return $lines }
+    for ($i = 1; $i -lt $lines.Count; $i++) {
+        if ($lines[$i] -eq '---') {
+            if ($i + 1 -ge $lines.Count) { return @() }
+            return $lines[($i + 1)..($lines.Count - 1)]
         }
     }
+    return $lines
 }
 
-function Get-ContextIndex($rootDir) {
-    Write-Host ""
-    Write-Host "### Project Context Index"
-    Write-Host "- **Product Definition**: $rootDir/product.md"
-    Write-Host "- **Tech Stack**: $rootDir/tech-stack.md"
-    Write-Host "- **Workflow**: $rootDir/workflow.md"
-    Write-Host "- **Patterns**: $rootDir/patterns.md"
-    Write-Host "- **Flow Registry**: $rootDir/flows.md"
+function Get-StateOf {
+    param([hashtable]$Frontmatter, [string]$Fallback)
+    if ($Frontmatter['state']) { return $Frontmatter['state'] }
+    if ($Frontmatter['status']) { return $Frontmatter['status'] }
+    return $Fallback
 }
 
-function Get-ActiveWork($backend) {
-    Write-Host ""
-    Write-Host "### Active Work"
-    if ($backend -eq "disabled") {
-        Write-Host "- **Status**: Beads disabled via plugin config (useBeads=false)."
-        return
+function Get-Identity {
+    param([string]$File)
+    $out = @()
+    foreach ($line in (Get-Body $File)) {
+        $trimmed = $line.Trim()
+        if (-not $trimmed -or $trimmed.StartsWith('#')) { continue }
+        $out += $trimmed
+        if ($out.Count -eq 5) { break }
     }
-    if ($backend -eq "bd") {
-        try {
-            # ConvertFrom-Json may return a single object; wrap in @(...) so Select-Object sees an array.
-            # Unwrap the v2.0 envelope ({schema_version, data: [...]}) when present so legacy and envelope outputs both flow through.
-            $parsed = bd ready --json | ConvertFrom-Json
-            if ($parsed -is [PSCustomObject] -and $parsed.PSObject.Properties.Name -contains 'data') {
-                $parsed = $parsed.data
-            }
-            $ready = @($parsed) | Select-Object -First 3
-            if ($ready) {
-                $readyJson = $ready | ConvertTo-Json -Compress
-                Write-Host "- **Ready Tasks (Top 3)**: $readyJson"
-            } else {
-                Write-Host "- **Ready Tasks**: None"
-            }
-        } catch {
-            Write-Host "- **Ready Tasks**: None (error or no active session)"
-        }
-    } else {
-        Write-Host "- **Status**: No active backend for task tracking."
-    }
+    return ($out -join "`n")
 }
 
-function Extract-Truths($file) {
-    if (Test-Path $file) {
-        try {
-            $content = Get-Content $file
-            $inTruth = $false
-            $truths = @()
-            foreach ($line in $content) {
-                if ($line -match "<!-- truth: start -->") { $inTruth = $true; continue }
-                if ($line -match "<!-- truth: end -->") { $inTruth = $false; continue }
-                if ($inTruth -and $line -notmatch "<!--") { $truths += $line }
-            }
-            if ($truths.Count -gt 0) {
-                $truths | Select-Object -First 40 | ForEach-Object { Write-Host "  $_" }
-                return $true
-            }
-        } catch {
-            return $false
+function Get-Truths {
+    param([string]$File)
+    $body = Get-Body $File
+    if ($body.Count -eq 0) { return '' }
+
+    $text = $body -join "`n"
+    $startMark = '<!-- truth: start -->'
+    $endMark = '<!-- truth: end -->'
+    $start = $text.IndexOf($startMark)
+    $end = $text.IndexOf($endMark)
+    if ($start -ge 0 -and $end -gt $start) {
+        return $text.Substring($start + $startMark.Length, $end - $start - $startMark.Length).Trim()
+    }
+
+    $items = @()
+    foreach ($line in $body) {
+        $trimmed = $line.Trim()
+        if ($trimmed -match '^(- |\* |1\. )') {
+            $items += $trimmed
+            if ($items.Count -eq 10) { break }
         }
     }
-    return $false
+    if ($items.Count -gt 0) { return ($items -join "`n") }
+
+    $plain = ($body | Where-Object { -not $_.Trim().StartsWith('#') }) -join "`n"
+    $plain = $plain.Trim()
+    if ($plain.Length -gt 200) { $plain = $plain.Substring(0, 200) }
+    return $plain
 }
 
-function Get-EssentialTruths($rootDir) {
-    Write-Host ""
-    Write-Host "### Core Project Truths"
+function Get-RelPath {
+    param([string]$Path, [string]$Root)
+    $rel = $Path.Substring($Root.Length).TrimStart('\', '/')
+    return ($rel -replace '\\', '/')
+}
 
-    $techStackFile = Join-Path $rootDir "tech-stack.md"
-    if (Test-Path $techStackFile) {
-        Write-Host "- **Tech Stack Summary**:"
-        if (-not (Extract-Truths $techStackFile)) {
-            Get-Content $techStackFile | Where-Object { $_ -match "^-" } | Select-Object -First 10 | ForEach-Object { Write-Host "  $_" }
-        }
+$projectRoot = Find-ProjectRoot
+$configFile = Join-Path $projectRoot '.agents/config.json'
+
+$bundlesDir = Join-Path $projectRoot '.agents/bundles'
+$cfgBundles = Get-ConfigValue -File $configFile -Key 'bundles_dir'
+if ($cfgBundles) { $bundlesDir = Join-Path $projectRoot $cfgBundles }
+$knowledgeDir = Join-Path $bundlesDir 'knowledge'
+$cfgKnowledge = Get-ConfigValue -File $configFile -Key 'knowledge_dir'
+if ($cfgKnowledge) { $knowledgeDir = Join-Path $projectRoot $cfgKnowledge }
+
+$blocks = @()
+
+# --- Project Purpose ---
+$identity = Get-Identity (Join-Path $knowledgeDir 'product/product.md')
+if ($identity) {
+    $blocks += "## Project Purpose`n$identity"
+}
+
+# --- Core Project Invariants ---
+$truthSections = @()
+foreach ($filename in @('tech-stack.md', 'workflow.md', 'patterns.md')) {
+    $sub = switch ($filename) {
+        'tech-stack.md' { 'product' }
+        'patterns.md' { 'patterns' }
+        default { 'workflow' }
     }
+    $truths = Get-Truths (Join-Path $knowledgeDir "$sub/$filename")
+    if ($truths) {
+        $heading = $filename.Substring(0, 1).ToUpper() + $filename.Substring(1)
+        $truthSections += "### $heading Invariants`n$truths"
+    }
+}
+if ($truthSections.Count -gt 0) {
+    $blocks += "## Core Project Invariants`n" + ($truthSections -join "`n`n")
+}
 
-    $workflowFile = Join-Path $rootDir "workflow.md"
-    if (Test-Path $workflowFile) {
-        Write-Host "- **Canonical Commands**:"
-        if (-not (Extract-Truths $workflowFile)) {
-            $wfContent = Get-Content $workflowFile
-            $foundSection = $false
-            $count = 0
-            foreach ($line in $wfContent) {
-                if ($line -match "## Development Commands") { $foundSection = $true; continue }
-                if ($foundSection) {
-                    if ($line -match "^##") { break }
-                    if ($line.Trim() -and $line -notmatch "^#") {
-                        Write-Host "  $line"
-                        $count++
-                        if ($count -ge 15) { break }
-                    }
-                }
+# --- Active Flows & Tasks ---
+$specsDir = Join-Path $bundlesDir 'specs'
+$flowLines = @()
+if (Test-Path $specsDir -PathType Container) {
+    foreach ($specDir in (Get-ChildItem -Path $specsDir -Directory | Sort-Object Name)) {
+        $specFile = Join-Path $specDir.FullName 'spec.md'
+        if (-not (Test-Path $specFile -PathType Leaf)) { continue }
+        $fm = Get-Frontmatter $specFile
+        $state = Get-StateOf -Frontmatter $fm -Fallback 'planned'
+        if ($state -notin @('planned', 'active')) { continue }
+
+        $flowId = if ($fm['flow_id']) { $fm['flow_id'] } elseif ($fm['id']) { $fm['id'] } else { $specDir.Name }
+        $title = if ($fm['title']) { $fm['title'] } else { $flowId }
+        $relSpec = Get-RelPath -Path $specFile -Root $projectRoot
+
+        $flowLines += "### Flow: [$title]($relSpec) ($state)"
+        if ($fm['description']) { $flowLines += "*$($fm['description'])*" }
+
+        $taskLines = @()
+        $tasksDir = Join-Path $specDir.FullName 'tasks'
+        if (Test-Path $tasksDir -PathType Container) {
+            foreach ($taskFile in (Get-ChildItem -Path $tasksDir -Filter '*.md' -File | Sort-Object Name)) {
+                $tfm = Get-Frontmatter $taskFile.FullName
+                $tstate = Get-StateOf -Frontmatter $tfm -Fallback 'open'
+                if ($tstate -notin @('open', 'in_progress', 'blocked')) { continue }
+                $ttitle = if ($tfm['title']) { $tfm['title'] } else { $taskFile.BaseName }
+                $tpriority = if ($tfm['priority']) { $tfm['priority'] } else { 'P2' }
+                $relTask = Get-RelPath -Path $taskFile.FullName -Root $projectRoot
+                $taskLines += "- [$tpriority] [$ttitle]($relTask) ($tstate)"
             }
         }
-    }
-
-    $patternsFile = Join-Path $rootDir "patterns.md"
-    if (Test-Path $patternsFile) {
-        Write-Host "- **Critical Patterns**:"
-        if (-not (Extract-Truths $patternsFile)) {
-            Get-Content $patternsFile | Where-Object { $_ -match "^-" } | Select-Object -First 10 | ForEach-Object { Write-Host "  $_" }
+        if ($taskLines.Count -gt 0) {
+            $flowLines += 'Pending Tasks:'
+            $flowLines += $taskLines
+        } else {
+            $flowLines += 'No active tasks.'
         }
     }
 }
+if ($flowLines.Count -gt 0) {
+    $blocks += "## Active Flows & Tasks`n" + ($flowLines -join "`n")
+}
 
-function Get-KnowledgeInventory($rootDir) {
-    if ((Test-Path (Join-Path $rootDir "knowledge")) -or (Test-Path (Join-Path $rootDir "patterns.md"))) {
-        Write-Host ""
-        Write-Host "### Knowledge Base"
-        if (Test-Path (Join-Path $rootDir "patterns.md")) { Write-Host "- **Consolidated Patterns**: $rootDir/patterns.md" }
-        $knowledgeDir = Join-Path $rootDir "knowledge"
-        if (Test-Path $knowledgeDir) {
-            try {
-                $chapters = Get-ChildItem "$knowledgeDir/*.md" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Name
-                if ($chapters) {
-                    Write-Host ("- **Knowledge Chapters**: " + ($chapters -join " "))
-                }
-            } catch {
-                # Skip
-            }
-        }
+# --- Custom Project Skills ---
+$skillLines = @()
+$seen = @{}
+foreach ($skillRoot in @((Join-Path $projectRoot '.agents/skills'), (Join-Path $bundlesDir 'skills'))) {
+    if (-not (Test-Path $skillRoot -PathType Container)) { continue }
+    foreach ($skillDir in (Get-ChildItem -Path $skillRoot -Directory | Sort-Object Name)) {
+        if ($seen.ContainsKey($skillDir.Name)) { continue }
+        $skillFile = Join-Path $skillDir.FullName 'SKILL.md'
+        if (-not (Test-Path $skillFile -PathType Leaf)) { continue }
+        $sfm = Get-Frontmatter $skillFile
+        $name = if ($sfm['name']) { $sfm['name'] } else { $skillDir.Name }
+        $desc = if ($sfm['description']) { $sfm['description'] } else { '' }
+        $relSkill = Get-RelPath -Path $skillFile -Root $projectRoot
+        $skillLines += "- **[$name]($relSkill)**: $desc"
+        $seen[$skillDir.Name] = $true
     }
 }
-
-function Get-FlowMandate($rootDir) {
-    Write-Host ""
-    Write-Host "### Flow Mandate"
-    Write-Host "- **Zero-Ambiguity Standard**: All PRDs MUST be Master Roadmaps (Sagas). ALL child plans MUST be 'High-Definition Worksheets' with exact line numbers and code snippets."
-    Write-Host "- **Synthesis Mandate**: You are responsible for the knowledge lifecycle. Autonomously identify patterns and synthesize learnings into formal guides in `"$rootDir/knowledge/"`."
-    Write-Host "- **Cleanup Mandate**: Regularly run \"/flow:cleanup\" to re-assess, reorganize, and optimize the project context. Verify task status against SOURCE CODE."
-    Write-Host "- **Inherit First**: READ `patterns.md` and `knowledge/` chapters before planning. Adhere to current state truth."
-    Write-Host "- **Deep Research First**: Do NOT defer research to implementation. ALL analysis and architectural decisions MUST be completed upfront."
-    Write-Host "- **Stateless Executor Test**: A plan is only 'Ready' if an agent with ZERO context can implement it 100% correctly based ONLY on the worksheet."
-    Write-Host "- **TDD Discipline**: Follow the Red-Green-Refactor cycle and verify coverage as outlined in the `flow` skill."
-    Write-Host "- **Sync Requirement**: Follow $rootDir/beads.json syncPolicy.flowSyncAfterMutation; default setup runs /flow:sync after Beads changes but does not auto-export, auto-stage, or run bd dolt push."
+if ($skillLines.Count -gt 0) {
+    $blocks += "## Custom Project Skills`n" + ($skillLines -join "`n")
 }
 
-function Main {
-    $backend = Get-BeadsBackend
-    $rootDir = Get-FlowRoot
-    Get-Tooling
-    Get-GitContext $rootDir
-    Get-ProjectIdentity $rootDir
-    Get-ContextIndex $rootDir
-    Get-ActiveWork $backend
-    Get-EssentialTruths $rootDir
-    Get-KnowledgeInventory $rootDir
-    Get-FlowMandate $rootDir
+# --- Emit ---
+if ($blocks.Count -eq 0) {
+    Write-Output 'No project context resolved.'
+} else {
+    Write-Output ($blocks -join "`n`n")
 }
-
-Main

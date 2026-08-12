@@ -4,7 +4,7 @@
       {
         "name": "flow-session-start",
         "type": "command",
-        "command": "python3 \"${PLUGIN_ROOT:-${CODEX_PLUGIN_ROOT:-.}}/tools/priming.py\"",
+        "command": "FLOW_HARNESS=codex bash \"${PLUGIN_ROOT:-${CODEX_PLUGIN_ROOT:-.}}/hooks/session-start.sh\" 2>/dev/null || bun \"${PLUGIN_ROOT:-${CODEX_PLUGIN_ROOT:-.}}/hooks/session-start.js\" 2>/dev/null || node \"${PLUGIN_ROOT:-${CODEX_PLUGIN_ROOT:-.}}/hooks/session-start.js\"",
         "timeout": 30,
         "description": "Inject Flow project context into Codex sessions."
       }

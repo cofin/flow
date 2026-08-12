@@ -265,11 +265,11 @@ def test_antigravity_hook_config_accepts_plugin_root_command(tmp_path: Path) -> 
     _write_json(
         hooks_path,
         {
-            "hooks": {
-                "SessionStart": [
+            "flow-priming": {
+                "PreInvocation": [
                     {
                         "type": "command",
-                        "command": 'r="${ANTIGRAVITY_PLUGIN_ROOT:-${PLUGIN_ROOT:-${AGY_PLUGIN_ROOT:-}}}"; bash "$r/hooks/session-start.sh"',
+                        "command": 'bash "${PLUGIN_ROOT:-${ANTIGRAVITY_PLUGIN_ROOT:-.}}/hooks/agy-pre-invocation.sh"',
                     }
                 ]
             }
@@ -277,6 +277,27 @@ def test_antigravity_hook_config_accepts_plugin_root_command(tmp_path: Path) -> 
     )
 
     assert validate_skills.validate_antigravity_hook_config(hooks_path) == []
+
+
+def test_antigravity_hook_config_rejects_session_start(tmp_path: Path) -> None:
+    # Antigravity has no SessionStart event; registering one must be flagged.
+    hooks_path = tmp_path / "hooks.json"
+    _write_json(
+        hooks_path,
+        {
+            "flow-priming": {
+                "SessionStart": [
+                    {
+                        "type": "command",
+                        "command": 'bash "${PLUGIN_ROOT:-.}/hooks/session-start.sh"',
+                    }
+                ]
+            }
+        },
+    )
+
+    violations = validate_skills.validate_antigravity_hook_config(hooks_path)
+    assert any("SessionStart" in v.message or "unknown Antigravity event" in v.message for v in violations)
 
 
 def test_makefile_recipes_fail_fast() -> None:
