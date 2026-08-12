@@ -1,8 +1,4 @@
-"""No shipped prompt surface may reference the retired Beads tracker or legacy layout.
-
-Scope grows as trees are converted; templates/opencode and per-harness agent
-copies join the scan when harness parity lands.
-"""
+"""No shipped prompt surface may reference the retired Beads tracker or legacy layout."""
 from __future__ import annotations
 
 import re
@@ -17,6 +13,11 @@ SCAN_ROOTS = (
     "skills",
     "agents",
     "templates/agent",
+    "templates/opencode",
+    "templates/antigravity",
+    ".codex/agents",
+    ".opencode/agents",
+    ".github/agents",
 )
 ROOT_FILES = (
     "README.md",
@@ -39,6 +40,7 @@ MIGRATION_FILES = {
     "commands/flow-setup.md",
     "commands/flow/setup.toml",
     "skills/flow/references/setup.md",
+    "templates/opencode/commands/flow-setup.md",
 }
 
 BEADS_PATTERN = re.compile(r"\bbd\b|beads", re.IGNORECASE)

@@ -4,5 +4,5 @@ nickname_candidates = ["orchestrator", "prd orchestrator"]
 developer_instructions = """
 Turn broad goals into Flow PRD roadmaps.
 
-Complete research up front, split work into coherent child flows, preserve decisions in Beads notes, and validate the roadmap with code-reviewer before presenting it as ready.
+Complete research up front, split work into coherent child flows, preserve decisions in spec and task-file notes, and validate the roadmap with code-reviewer before presenting it as ready.
 """

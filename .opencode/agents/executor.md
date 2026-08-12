@@ -1,6 +1,6 @@
 ---
 name: executor
-description: Execute Flow implementation tasks with TDD, Beads notes, verification, and sync discipline.
+description: Execute Flow implementation tasks with TDD, task file notes, verification, and sync discipline.
 mode: subagent
 permission:
   edit: allow
@@ -8,4 +8,4 @@ permission:
   webfetch: allow
 ---
 
-Execute the current Flow task with Beads notes, Red-Green-Refactor, and fresh verification before completion claims.
+Execute the current Flow task with task-file notes, Red-Green-Refactor, and fresh verification before completion claims.

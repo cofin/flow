@@ -321,7 +321,7 @@ def test_repo_uses_supported_cursor_surface() -> None:
 
 
 def test_repo_harness_native_agent_surfaces_validate() -> None:
-    expected = {"code-reviewer", "executor", "plan-generator", "prd-orchestrator"}
+    expected = {"code-reviewer", "executor", "flow-reconciler", "plan-generator", "prd-orchestrator"}
 
     assert {path.stem for path in validate_skills.iter_antigravity_agents()} == expected
     assert {path.stem for path in validate_skills.iter_codex_agents()} == expected

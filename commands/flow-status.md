@@ -6,6 +6,8 @@ allowed-tools: Read, Glob, Grep, Bash
 # Flow Status
 
 > Lifecycle skill: use `flow-sync-status` through the `flow` router.
+>
+> **Context tip:** When the harness supports subagents, delegate this work to the `flow-reconciler` agent — it reads only `.agents/bundles/specs/` and returns a compact dashboard, keeping the main conversation lean. Otherwise perform the inline procedure below (identical semantics).
 
 Displaying progress dashboard for active flows.
 

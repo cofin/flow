@@ -55,7 +55,7 @@ fi
 **Scan for legacy locations:**
 
 - `specs/` or `.agents/specs/` (pre-bundle spec layout)
-- Flat context files: `.agents/product.md`, `.agents/tech-stack.md`, `.agents/workflow.md`, `.agents/patterns.md`, `.agents/knowledge/`, `.agents/code-styleguides/`
+- Legacy flat context files (to migrate): `.agents/product.md`, `.agents/tech-stack.md`, `.agents/workflow.md`, `.agents/patterns.md`, `.agents/knowledge/`, `.agents/code-styleguides/`
 - Legacy task-tracker artifacts: `.agents/beads.json`, `.beads/`, `metadata.json` files
 
 **For each discovered legacy spec directory:**
@@ -81,7 +81,7 @@ D) Skip migration
 3. Write to `.agents/bundles/specs/{flow_id}/spec.md`; copy `learnings.md` alongside with `type: Learnings` frontmatter if it exists.
 4. For task checklists without task files, scaffold `tasks/<short_id>.md` per the reconciler rules.
 
-**Flat context files** migrate into the bundle: `product.md` and `tech-stack.md` → `knowledge/product/`, `workflow.md` → `knowledge/workflow/`, `patterns.md` and `code-styleguides/*` → `knowledge/patterns/`, `.agents/knowledge/*` chapters → `knowledge/`. Add `type:` frontmatter (`Guide` or `Pattern`) to each. Remove `.agents/beads.json` after confirming with the user — task state now lives in the bundle files.
+**Legacy flat context files** migrate into the bundle: `product.md` and `tech-stack.md` → `knowledge/product/`, `workflow.md` → `knowledge/workflow/`, `patterns.md` and `code-styleguides/*` → `knowledge/patterns/`, `.agents/knowledge/*` chapters → `knowledge/`. Add `type:` frontmatter (`Guide` or `Pattern`) to each. Remove `.agents/beads.json` after confirming with the user — task state now lives in the bundle files.
 
 ### 0.1.2 Learnings Ingestion with Validation
 

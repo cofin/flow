@@ -30,6 +30,7 @@
   "agents": [
     "./agents/code-reviewer.md",
     "./agents/executor.md",
+    "./agents/flow-reconciler.md",
     "./agents/plan-generator.md",
     "./agents/prd-orchestrator.md"
   ]

@@ -1,29 +1,22 @@
 ---
-description: Initialize project with context files, Beads, and first flow
+description: Initialize project with OKF knowledge bundles and first flow
 ---
 
 # Flow Setup
 
-Initialize a project for context-driven development with Beads integration.
+Initialize a project for context-driven development backed by OKF v0.2 knowledge bundles under `.agents/bundles/`.
 
-> **Harness boundary:** This command runs under OpenCode. Do not create `CLAUDE.md`, `.claude/*`, `.codex/*`, or `.cursor/*` — each harness's setup command owns its own configuration surface.
+> **Harness boundary:** This command runs under OpenCode. Only OpenCode-owned files are created (e.g., `AGENTS.md`). Do not create `CLAUDE.md`, `.claude/*`, `.codex/*`, or `.cursor/*` — each harness's setup command owns its own configuration surface.
 
 ## Phase 0: Setup State Check
-
-Resolve the configured Flow root first:
 
 ```bash
 if [ -f ".agents/setup-state.json" ]; then
   cat .agents/setup-state.json
-elif [ -f "specs/setup-state.json" ]; then
-  cat specs/setup-state.json
 fi
 ```
 
-**Treat setup as completed if either of these is true:**
-
-- `setup_status` is `"complete"`
-- legacy `last_successful_step` is `"complete"` or `"3.3_initial_prd_generated"`
+**Treat setup as completed if** `setup_status` is `"complete"`.
 
 **If setup is complete:**
 
@@ -49,45 +42,86 @@ fi
 
 **PROTOCOL: Validate existing setup and update to latest best practices.**
 
-### 0.1.1 Beads Validation
+### 0.1.1 Legacy Layout Migration
 
-```bash
-if command -v bd >/dev/null 2>&1; then
-  echo "BEADS_BD"
-  bd --version
-else
-  echo "BEADS_MISSING"
-fi
+**Scan for legacy locations:**
+
+- `specs/` or `.agents/specs/` (pre-bundle spec layout — migrate)
+- Flat context files (migrate): `.agents/product.md`, `.agents/tech-stack.md`, `.agents/workflow.md`, `.agents/patterns.md`, `.agents/knowledge/`, `.agents/code-styleguides/`
+- legacy task-tracker artifacts to migrate away from and delete: `.agents/beads.json`, `.beads/`, `metadata.json` files
+
+**For each discovered legacy spec directory:**
+
+```text
+Found [N] specs in legacy locations:
+
+Active (specs/):
+  - user-auth (3/5 tasks complete)
+  - api-refactor (complete, has learnings)
+
+Options:
+A) Migrate all to .agents/bundles/specs/ (recommended)
+B) Migrate active only, skip archive
+C) Review each spec individually
+D) Skip migration
 ```
 
-If outdated, suggest the official install: `curl -fsSL https://raw.githubusercontent.com/gastownhall/beads/main/scripts/install.sh | bash`
+**Migration steps for each spec:**
 
-### 0.1.2 Knowledge Base Check
+1. Read legacy `spec.md` content (and legacy `metadata.json` if present, then delete it after extracting status).
+2. Prepend OKF YAML frontmatter: `type: Spec`, `flow_id` (directory name), `title`, `state` (map legacy status values — in_progress→active, completed/done→completed, else planned), `created_at`, `updated_at`.
+3. Write to `.agents/bundles/specs/{flow_id}/spec.md`; copy `learnings.md` alongside with `type: Learnings` frontmatter if it exists.
+4. For task checklists without task files, scaffold `tasks/<short_id>.md` per the reconciler rules.
 
-Check for missing `.agents/knowledge/` directory. If absent, create it and write `knowledge/index.md` from template.
+**Flat context files** migrate into the bundle: `product.md` and `tech-stack.md` → `knowledge/product/`, `workflow.md` → `knowledge/workflow/`, `patterns.md` and `code-styleguides/*` → `knowledge/patterns/`, legacy `.agents/knowledge` chapters → the bundle's `knowledge/`. Add `type:` frontmatter (`Guide` or `Pattern`) to each. Delete the legacy `.agents/beads.json` after confirming with the user — task state now lives in the bundle files.
 
-### 0.1.3 Configuration Validation
+### 0.1.2 Learnings Ingestion with Validation
 
-Check and update:
+**For each spec with learnings.md:**
 
-- `<root_directory>/beads.json` - Ensure valid configuration
-- `<root_directory>/workflow.md` - Check for outdated workflow content, backend assumptions, and command syntax
-- `<root_directory>/tech-stack.md` - Verify detected languages match codebase
+1. Parse learnings entries
+2. Cross-reference with current codebase:
 
-### 0.1.4 Workflow Revalidation
+```text
+From user-auth/learnings.md:
 
-Read `<root_directory>/workflow.md` and inspect the repo's real command surfaces before declaring setup aligned:
+✓ VALID: "Use Zod for form validation"
+  → Referenced file src/lib/validators.ts exists
 
-- `Makefile`
-- `justfile`
-- `Taskfile.yml`
-- `package.json`
-- `pyproject.toml`
-- `Cargo.toml`
-- `.pre-commit-config.yaml`
-- CI files
+⚠ REVIEW: "Auth uses /api/v1/login endpoint"
+  → File src/routes/api/v1/login.ts not found
+  → Keep anyway? [Y/n]
 
-Prompt the user to refresh/update workflow behavior instead of just syntax-checking:
+✗ STALE: "Use deprecated-package for X"
+  → Package not in package.json/pyproject.toml
+  → Removing from migration
+```
+
+1. Present validated learnings for confirmation
+2. Merge confirmed patterns into `.agents/bundles/knowledge/patterns/patterns.md`
+3. Archive original learnings.md with migration note
+
+### 0.1.3 Core Artifacts Check
+
+Check for `knowledge/product/product.md` and `knowledge/product/tech-stack.md`.
+
+- If missing, offer to create them from templates.
+- If present but missing `<!-- truth: start -->` markers or `type:` frontmatter, offer to add them.
+
+### 0.1.4 Workflow Revalidation & Sync
+
+**PROTOCOL: Synchronize the workflow chapter with the latest template while preserving local "truth" markers.**
+
+Read `.agents/bundles/knowledge/workflow/workflow.md` and check for content between `<!-- truth: start -->` and `<!-- truth: end -->`.
+
+- **If markers exist:** Replace everything OUTSIDE the markers with the latest workflow template content. Keep the local truth section intact.
+- **If markers are missing:** Propose wrapping the "Essential Commands" and "Guiding Principles" in truth markers before performing the sync.
+
+Compare with the current repo's real command surfaces:
+
+- `Makefile`, `justfile`, `Taskfile.yml`, `package.json`, `pyproject.toml`, `Cargo.toml`, `.pre-commit-config.yaml`, CI files.
+
+Ask the user to revalidate:
 
 > **Workflow settings may be stale. Revalidate now?**
 >
@@ -95,24 +129,38 @@ Prompt the user to refresh/update workflow behavior instead of just syntax-check
 > - **B) Refresh template and update preferences**
 > - **C) Keep current workflow.md**
 
-If refreshing, preserve or re-confirm:
+### 0.1.5 Bundle Integrity Check
 
-- coverage target
-- commit cadence
-- task-summary mechanism
-- backend mode
-- local-only vs shared ignore policy
-- canonical repo commands for setup, lint, test, typecheck, and full verification
+- Confirm `.agents/bundles/index.md` exists and declares `okf_version: "0.2"`; create it if absent.
+- Confirm `.agents/bundles/log.md` exists; create it with today's dated entry if absent.
+- Confirm every non-reserved bundle `.md` file carries a non-empty `type:` frontmatter key; offer to add missing ones.
+- Confirm no task file stores workflow state in `status:` — move such values to `state:`.
 
-### 0.1.5 Alignment Summary
+### 0.1.6 Context Validation
 
+**PROTOCOL: Ensure the OpenCode context file is present.**
+
+This setup runs under OpenCode. Only OpenCode-owned files are touched. Claude Code/Codex/Cursor artifacts are out of scope and must not be created here.
+
+- Check for `AGENTS.md` in the project root. If missing, offer to create it so OpenCode has project context and rules.
+
+```text
+AGENTS.md missing or outdated. Create it now?
+
+A) Yes (recommended)
+B) Skip
 ```
+
+### 0.1.7 Alignment Summary
+
+```text
 Alignment Complete
 
-✓ Beads: v{version} (up to date)
-✓ Hooks: Installed
-✓ Workflow revalidated
-✓ Configuration validated
+✓ Bundle: okf_version 0.2, index + log present
+✓ Specs migrated: {N} active, {M} archived
+✓ Learnings merged: {X} patterns added to knowledge/patterns/patterns.md
+✓ Workflow revalidated and synced
+✓ Context files configured
 
 No action needed / Issues found:
 - {list any warnings}
@@ -124,72 +172,25 @@ Run `/flow-status` to see current state.
 
 ---
 
-## Phase 1: Beads Backend Check
-
-**CRITICAL: Use official Beads, or run in no-Beads mode if persistence is not desired.**
-
-```bash
-if command -v bd >/dev/null 2>&1; then
-  echo "BEADS_BD"
-else
-  echo "BEADS_MISSING"
-fi
-```
-
-If no backend is found, ask user:
-
-> Choose a Flow task-memory backend:
->
-> - **A) Official Beads** (recommended) - Run `curl -fsSL https://raw.githubusercontent.com/gastownhall/beads/main/scripts/install.sh | bash`
-> - **B) No Beads** - Continue with markdown-only Flow state (reduced memory/resume)
-
-If a backend is installed, verify version is current and remember the selected mode for Phase 5.
-
----
-
-## Phase 1.5: Configure Root Directory
-
-**PROTOCOL: Ask user where to store Flow specification files.**
-
-> **Where would you like to store Flow specification files?**
->
-> - **A) `.agents/`** (Recommended - hidden from project root)
-> - **B) `specs/`** (Visible at project root)
-> - **C) Custom path** (Type your own)
-
-**Store Configuration:** Based on user's choice, set `root_directory` variable. Specifications will reside under `<root_directory>/bundles/specs/`.
-
-- Default to `.agents/` if A selected
-- Use `specs/` if B selected
-- Use custom path if C selected
-
-**Create Directory:**
-
-```bash
-mkdir -p <root_directory>
-```
-
-**All subsequent file paths use `<root_directory>` instead of hardcoded `.agents/`.**
-
----
-
-## Phase 2: Project Detection
+## Phase 1: Project Detection
 
 Detect if this is a brownfield (existing) or greenfield (new) project:
 
 1. Check for existing code: `src/`, `lib/`, `app/`, `packages/`
 2. Check for build files: `package.json`, `pyproject.toml`, `Cargo.toml`, `go.mod`
-3. Check for existing `<root_directory>` directory
+3. Check for an existing `.agents/` directory
 
 **Output**: "Detected: [Brownfield|Greenfield] project"
 
+The Flow root is always `.agents/` with bundles at `.agents/bundles/`. To relocate bundle directories, write `.agents/config.json` with `bundles_dir` and/or `knowledge_dir` — offer this only if the user asks for a nonstandard layout.
+
 ---
 
-## Phase 3: Context Gathering (Interactive)
+## Phase 2: Context Gathering (Interactive)
 
 Ask the user these questions ONE AT A TIME:
 
-### 3.1 Product Definition
+### 2.1 Product Definition
 
 > **What is this project?**
 > Describe your product in 2-3 sentences. Include:
@@ -198,9 +199,9 @@ Ask the user these questions ONE AT A TIME:
 > - Who it's for
 > - Key differentiator
 
-Write response to `<root_directory>/product.md`. Wrap the most critical high-level project summary in `<!-- truth: start -->` and `<!-- truth: end -->` markers for efficient agent priming.
+Write response to `.agents/bundles/knowledge/product/product.md` with `type: Guide` frontmatter. Wrap the most critical high-level project summary in `<!-- truth: start -->` and `<!-- truth: end -->` markers for efficient agent priming.
 
-### 3.2 Product Guidelines
+### 2.2 Product Guidelines
 
 > **What are your brand/style guidelines?**
 > Include:
@@ -209,9 +210,9 @@ Write response to `<root_directory>/product.md`. Wrap the most critical high-lev
 > - Visual style preferences
 > - Any constraints or requirements
 
-Write response to `<root_directory>/product-guidelines.md`
+Write response to `.agents/bundles/knowledge/product/product-guidelines.md` with `type: Guide` frontmatter.
 
-### 3.3 Tech Stack
+### 2.3 Tech Stack
 
 > **What technologies are you using?**
 > Include:
@@ -223,9 +224,9 @@ Write response to `<root_directory>/product-guidelines.md`
 
 Detect from existing files if possible, then confirm with user.
 
-Write response to `<root_directory>/tech-stack.md`. Wrap the core technology list in `<!-- truth: start -->` and `<!-- truth: end -->` markers for efficient agent priming.
+Write response to `.agents/bundles/knowledge/product/tech-stack.md` with `type: Guide` frontmatter. Wrap the core technology list in `<!-- truth: start -->` and `<!-- truth: end -->` markers for efficient agent priming.
 
-### 3.4 Workflow Preferences
+### 2.4 Workflow Preferences
 
 > **What are your development preferences?**
 >
@@ -235,111 +236,88 @@ Write response to `<root_directory>/tech-stack.md`. Wrap the core technology lis
 > - Canonical repo commands for setup, lint, test, typecheck, and full verification?
 > - Local-only or shared ignore policy for Flow artifacts?
 
-Before asking, inspect the repo's real command surfaces and copy the workflow template with those commands merged into it. Do not leave generic placeholders when canonical commands already exist.
+Before asking, inspect the repo's real command surfaces (`Makefile`, `justfile`, `Taskfile.yml`, `package.json`, `pyproject.toml`, `Cargo.toml`, `.pre-commit-config.yaml`, CI files) and propose those commands back to the user. Copy the workflow template to `.agents/bundles/knowledge/workflow/workflow.md` and customize it to preserve those canonical commands instead of leaving generic placeholders.
 
 ---
 
-## Phase 4: Code Styleguides
+## Phase 3: Style & Convention Chapters
 
-Based on detected languages, offer relevant styleguides:
+Based on detected languages, offer relevant style chapters:
 
 1. List detected languages
-2. Show available styleguides from `templates/styleguides/`
+2. Show available styleguides from the Flow templates (`templates/styleguides/`)
 3. Ask user which to include
-4. Copy selected to `<root_directory>/code-styleguides/`
+4. Copy selected into `.agents/bundles/knowledge/patterns/` as chapters with `type: Pattern` frontmatter (alongside `patterns.md`)
 
 ---
 
-## Phase 5: Beads Backend Initialization
-
-**CRITICAL: Prefer local-only defaults with `.git/info/exclude`, not repo `.gitignore`.**
-
-If official Beads was selected:
-
-```bash
-bd init --non-interactive --stealth --prefix <project_name_slug> --skip-agents
-bd config set no-git-ops true
-bd config set export.auto false
-bd config set export.git-add false
-```
-
-These defaults keep Beads local-only: no automatic export, no auto-staging, and no git operations in `bd prime` output. `bd dolt push` remains explicit opt-in only. Flow's hooks export `BD_JSON_ENVELOPE=1`, which wraps `bd --json` output in the v2.0 `{schema_version, data}` envelope (the hooks read `.data`). Beads has no config-file key for the envelope — the environment variable is the only supported switch.
-
-If no-Beads mode was selected:
-
-- Skip CLI initialization.
-- Create `<root_directory>/beads.json` with Flow's no-backend configuration so later commands know to use markdown-only state.
-
-Or prompt user:
-
-> **Beads mode:**
->
-> - **Local-only** (recommended) - Add local ignores to `.git/info/exclude`
-> - **Shared repo policy** - Update `.gitignore` for the whole team
-
-Create `<root_directory>/beads.json` with local-only configuration from `templates/agent/beads.json`, including `syncPolicy.allowDoltPush: false`.
-
----
-
-## Phase 6: Create Supporting Files
+## Phase 4: Create the Bundle Skeleton
 
 Create:
 
-- `<root_directory>/index.md` - File resolution index
-- `<root_directory>/patterns.md` - Empty patterns template
-- `<root_directory>/bundles/knowledge/index.md` - Knowledge base index (from template)
+- `.agents/bundles/index.md` - Bundle root index with `okf_version: "0.2"` frontmatter and a directory listing
+- `.agents/bundles/log.md` - Date-grouped change log (newest first, ISO dates) with a creation entry
+- `.agents/bundles/knowledge/patterns/patterns.md` - Patterns template with `type: Pattern` frontmatter
 
 ```bash
-mkdir -p <root_directory>/bundles/specs
-mkdir -p <root_directory>/bundles/knowledge
+mkdir -p .agents/bundles/specs
+mkdir -p .agents/bundles/knowledge/product
+mkdir -p .agents/bundles/knowledge/workflow
+mkdir -p .agents/bundles/knowledge/patterns
 ```
-
-Copy `knowledge/index.md` from the Flow templates (`templates/agent/knowledge/index.md`) to `<root_directory>/bundles/knowledge/index.md`.
 
 ---
 
-## Phase 7: Git Configuration (Optional)
+## Phase 5: Git Configuration
 
-**PROTOCOL: Prefer `.git/info/exclude` for local-only defaults.**
+**PROTOCOL: Ask whether the knowledge bundle is shared or private.**
 
-### 7.1 Local Ignore Configuration
+### 5.1 Bundle Tracking Policy
 
-> **Would you like to keep Flow context local-only?**
+> **Should your team share the `.agents/bundles/` knowledge bundle in git?**
 >
-> - **A) Yes** (recommended) - Append to `.git/info/exclude`
-> - **B) Shared** - Update `.gitignore` for the repo
+> - **A) Shared** (recommended for teams) - Track `.agents/bundles/` so agents and teammates inherit the same context
+> - **B) Local-only** - Append `.agents/` to `.git/info/exclude`
 
-**If A selected:**
+**If A selected**, keep scratch content private while tracking the bundle — append to `.git/info/exclude`:
 
-1. Check if `.git/info/exclude` exists and already has the entry:
-
-    ```bash
-    [ -f ".git/info/exclude" ] && grep -q "<root_directory>" .git/info/exclude && echo "ALREADY_EXISTS" || echo "NEEDS_UPDATE"
-    ```
-
-2. **CRITICAL: APPEND only, never overwrite:**
-
-    ```bash
-    printf '\n# Flow specification files (local-only)\n<root_directory>/\n.beads/\n' >> .git/info/exclude
-    ```
+```bash
+printf '\n# Flow local scratch (not shared)\n.agents/*\n!.agents/bundles/\n!.agents/config.json\n' >> .git/info/exclude
+```
 
 **If B selected:**
 
-1. Check if `.gitignore` exists and already has the entry:
+1. Check if `.git/info/exclude` already has the entry:
 
     ```bash
-    [ -f ".gitignore" ] && grep -q "<root_directory>" .gitignore && echo "ALREADY_EXISTS" || echo "NEEDS_UPDATE"
+    [ -f ".git/info/exclude" ] && grep -q ".agents" .git/info/exclude && echo "ALREADY_EXISTS" || echo "NEEDS_UPDATE"
     ```
 
 2. **CRITICAL: APPEND only, never overwrite:**
 
     ```bash
-    printf '\n# Flow specification files\n<root_directory>/\n.beads/\n' >> .gitignore
+    printf '\n# Flow context files (local-only)\n.agents/\n' >> .git/info/exclude
     ```
+
+Use `.gitignore` instead of `.git/info/exclude` only when the user explicitly wants the policy shared with the whole team.
+
+### 5.2 Respect Ignored Files During Commits
+
+Check whether `.agents` paths are ignored before staging:
+
+```bash
+git check-ignore -q ".agents/bundles" && echo "bundles: IGNORED" || echo "bundles: TRACKED"
+```
+
+- If a path is ignored, leave it unstaged.
+- Never use `git add -f` to force-add ignored Flow files.
+- Commit only the non-ignored setup artifacts.
+
+> **Note:** Harness-foreign artifacts are out of scope for OpenCode setup. Other harnesses own their own configuration surfaces.
 
 ---
 
-## Phase 8: First Flow (Optional)
+## Phase 6: First Flow (Optional)
 
 > **Would you like to create your first flow?**
 > Describe what you want to build.
@@ -348,78 +326,79 @@ If yes, invoke `/flow-prd` with description.
 
 ---
 
-## Phase 9: Save State
+## Phase 7: Save State
 
-Save setup state to `<root_directory>/setup-state.json`:
+Save setup state to `.agents/setup-state.json`:
 
 ```json
 {
   "setup_status": "complete",
   "last_successful_step": "complete",
   "project_type": "brownfield|greenfield",
-  "root_directory": "<root_directory>",
-  "workflow_revision": "flow-template-v1",
-  "shadcn_official_prompted": false,
-  "mojo_official_prompted": false,
-  "railway_official_prompted": false,
+  "workflow_revision": "flow-template-v2",
+  "workflow_preferences": {
+    "coverage_target": "80%",
+    "commit_cadence": "task",
+    "bundle_policy": "shared|local-only",
+    "canonical_commands": {
+      "setup": "<command>",
+      "lint": "<command>",
+      "test": "<command>",
+      "typecheck": "<command>",
+      "verify": "<command>"
+    }
+  },
   "timestamp": "ISO timestamp"
 }
 ```
 
 ---
 
-## Final Summary
+## Phase 8: OpenCode Context File
 
-```
-Flow Setup Complete
+**PROTOCOL: Ensure `AGENTS.md` is present at the project root.**
 
-Directory: <root_directory>
+1. If `AGENTS.md` already exists, skip — do not overwrite.
+2. Otherwise, create a minimal `AGENTS.md` that points at `.agents/bundles/knowledge/product/product.md` and `.agents/bundles/knowledge/workflow/workflow.md` as the source of truth.
+3. Announce: "Created `AGENTS.md` so OpenCode has project context."
 
-Created:
-- product.md
-- product-guidelines.md
-- tech-stack.md
-- workflow.md
-- beads.json
-- index.md
-- patterns.md
-- bundles/knowledge/index.md
-- code-styleguides/
-
-Next Steps:
-1. Load the active backend state (`bd`) or continue in no-Beads mode
-2. Run `/flow-prd "description"` to create your first flow
-3. Run `/flow-implement {flow_id}` to start coding
-```
+> **Harness boundary:** Do not create `CLAUDE.md`, `.claude/*`, `.codex/*`, or `.cursor/*` artifacts from this file. Each harness's setup command owns its own configuration surface.
 
 ---
 
-## Phase 8: Install Git Hooks
+## Final Summary
 
-**PROTOCOL: Install pre-commit hook to automate Beads sync.**
+```text
+Flow Setup Complete
 
-Copy the `pre-commit` hook to the `.git/hooks/` directory to ensure Bead states remain synchronized before any commit:
+Bundle: .agents/bundles/ (OKF v0.2)
 
-```bash
-# OpenCode exposes OPENCODE_PLUGIN_ROOT when this command runs from the installed plugin.
-FLOW_INSTALL_ROOT="${OPENCODE_PLUGIN_ROOT:-$HOME/.flow}"
-if [ -f "$FLOW_INSTALL_ROOT/hooks/pre-commit" ]; then
-  cp "$FLOW_INSTALL_ROOT/hooks/pre-commit" .git/hooks/pre-commit
-  chmod +x .git/hooks/pre-commit
-fi
+Created:
+- index.md, log.md
+- knowledge/product/product.md
+- knowledge/product/product-guidelines.md
+- knowledge/product/tech-stack.md
+- knowledge/workflow/workflow.md
+- knowledge/patterns/patterns.md (+ style chapters)
+- specs/
+
+Next Steps:
+1. Run `/flow-prd "description"` to create your first flow
+2. Run `/flow-implement {flow_id}` to start coding
 ```
 
 ---
 
 ## Critical Rules
 
-1. **BEADS MODE FIRST** - Use `bd`, allow no-Beads when admin overhead should stay low
-2. **CLI CHECK** - Ensure the chosen backend is installed and available
-3. **ROOT DIRECTORY PROMPT** - Ask user where to store files
-4. **LOCAL DEFAULT** - Configure Beads for local-only use
-5. **ONE QUESTION AT A TIME** - Don't overwhelm the user
-6. **DETECT FIRST** - Auto-detect tech stack before asking
-7. **APPEND ONLY** - Never overwrite .gitignore
+1. **BUNDLE FIRST** - All context and task state lives in `.agents/bundles/` OKF files; no task database or CLI
+2. **TYPED FRONTMATTER** - Every non-reserved bundle markdown file gets a non-empty `type:` key
+3. **FIXED ROOT** - `.agents/` is the root; relocations go through `.agents/config.json` only
+4. **ONE QUESTION AT A TIME** - Don't overwhelm the user
+5. **DETECT FIRST** - Auto-detect tech stack before asking
+6. **APPEND ONLY** - Never overwrite `.gitignore` or `.git/info/exclude`
+7. **HARNESS ISOLATION** - Only write OpenCode-owned files; never write Claude Code, Codex, or Cursor artifacts
 8. **SAVE STATE** - Enable resume if interrupted
-9. **REVALIDATE EXISTING INSTALLS** - Existing installs must be offered workflow refresh/update, not just syntax checks
-10. **PREFER REPO-NATIVE COMMANDS** - Capture and reuse canonical commands like `make lint`, `make test`, `make check`, `just check`, or equivalent wrappers
+9. **NO FORCE-ADD** - If a Flow file is ignored, leave it out of the commit
+10. **REVALIDATE EXISTING INSTALLS** - Existing installs must be offered workflow refresh/update, not just syntax checks
+11. **PREFER REPO-NATIVE COMMANDS** - Capture and reuse canonical commands like `make lint`, `make test`, `make check`, `just check`, `task test`, or equivalent wrappers

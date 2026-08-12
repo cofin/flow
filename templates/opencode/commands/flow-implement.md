@@ -6,6 +6,8 @@ description: Execute tasks from plan (context-aware)
 
 Execute tasks from a flow's plan using TDD workflow.
 
+**CRITICAL:** `/flow-implement` is the TDD engine. It uses local task files under `.agents/bundles/specs/{flow_id}/tasks/` as the authority for what to work on next. Every discovery and decision MUST be noted directly inside the active task markdown file.
+
 ## Usage
 
 `/flow-implement {flow_id}` or `/flow-implement` (uses current flow)
@@ -14,38 +16,27 @@ Execute tasks from a flow's plan using TDD workflow.
 
 **PROTOCOL: Load Flow, Project, and Parent Context.**
 
-1. **Read Artifacts:**
-    - `.agents/specs/{flow_id}/spec.md` (unified spec+plan)
-    - `.agents/specs/{flow_id}/learnings.md`
-2. **Read Project Context:** `.agents/patterns.md` and `.agents/workflow.md`
-3. **Read Parent Context:**
-    - Check if this flow has a parent PRD/Saga.
-    - If yes, read `.agents/specs/<parent_id>/prd.md`.
-4. **Load Beads:**
-    - If using official Beads (`bd`): load the active queue/workspace state
-    - If using no-Beads mode: skip backend loading and use `spec.md`
+1. **Resolve Flow:** Use the argument, or auto-discover by scanning `.agents/bundles/specs/*/spec.md` frontmatter for `state: active` (or `planned`).
+2. **Read Artifacts:**
+    - `.agents/bundles/specs/{flow_id}/spec.md` (unified spec+plan)
+    - `.agents/bundles/specs/{flow_id}/learnings.md`
+3. **Read Project Context:** `.agents/bundles/knowledge/patterns/patterns.md` and `.agents/bundles/knowledge/workflow/workflow.md`
+4. **Read Parent Context:**
+    - Check if this flow has a parent PRD/Saga (a roadmap spec bundle referencing this flow).
+    - If yes, read the roadmap `spec.md` under `.agents/bundles/specs/<prd_id>/`.
 
 **CRITICAL:** Before starting, check whether `.agents/` artifacts are ignored by `.gitignore`, `.git/info/exclude`, or global git ignores. If they are ignored, do NOT commit those artifacts. Update them on disk only.
 
-## Phase 2: Select Task (Beads-First)
+## Phase 2: Select Task (Task-Files-First)
 
-**CRITICAL:** Beads is the source of truth for task status. Do NOT update spec.md markers.
+**CRITICAL:** Task files are the source of truth for task status. Do NOT hand-edit spec.md markers.
 
-### 2.1 Check for Resume State
+1. **Scan**: Scan task files under `.agents/bundles/specs/{flow_id}/tasks/*.md`.
+2. **Parse & Resolve Dependencies**: Parse the YAML frontmatter of each task. A task is ready if its `state` is `open` and all dependencies listed in `depends_on` have `state` set to `closed`.
+3. **Select**: Sort the ready tasks by priority (`P0` > `P1` > `P2` > `P3` > `P4`), then select the first one.
+4. **Claim**: Update the selected task's frontmatter: set `state: in_progress` and `updated_at` to the current ISO-8601 timestamp.
 
-```bash
-cat .agents/specs/{flow_id}/implement_state.json 2>/dev/null
-```
-
-### 2.2 Find Next Task
-
-**Primary: Use Beads**
-
-Use the active backend's ready/queue command.
-
-**Fallback: Parse spec.md**
-
-If Beads unavailable, parse `spec.md` Implementation Plan section for pending tasks.
+If no task files exist yet, run `/flow-sync` first to scaffold them from the `spec.md` Implementation Plan checklist.
 
 ## Phase 3: Task Execution (TDD)
 
@@ -65,28 +56,20 @@ In fallback mode, preserve the same task context bundle, refine coarse tasks fir
 
 If task execution depends on external framework/API behavior, versions, migrations, or release changes, invoke `flow:apilookup` before implementation decisions.
 
-### 3.1 Mark In Progress
+### 3.1 Investigate & Note
 
-**If task not in Beads, create it first:**
+Trace the code and append findings to the task markdown file under a `## Notes & Discoveries` heading, prefixed with a timestamp:
 
-```bash
-<active_backend_create_task>
-<active_backend_attach_notes>
+```markdown
+## Notes & Discoveries
+- [2026-08-11 12:00] Discovered existing validator covers this case.
 ```
-
-Then mark in progress:
-
-```bash
-<active_backend_mark_in_progress>
-```
-
-**CRITICAL:** Do NOT write `[~]` markers to spec.md. Beads is source of truth.
 
 ### 3.2 Red Phase - Write Failing Tests
 
 1. Create/update test file
 2. Write tests that define expected behavior
-3. Run the canonical test command from `.agents/workflow.md` when present to confirm they fail
+3. Run the canonical test command from `.agents/bundles/knowledge/workflow/workflow.md` when present to confirm they fail for the right reason
 
 ### 3.3 Green Phase - Implement
 
@@ -97,12 +80,12 @@ Then mark in progress:
 ### 3.4 Refactor Phase
 
 1. Clean up while tests pass
-2. Apply patterns from patterns.md
+2. Apply patterns from `knowledge/patterns/patterns.md`
 
 ### 3.5 Verify Coverage
 
 Target: 80% minimum
-Prefer the repo's canonical verification or coverage command from `.agents/workflow.md` when present.
+Prefer the repo's canonical verification or coverage command from `.agents/bundles/knowledge/workflow/workflow.md` when present.
 
 ## Phase 4: Commit
 
@@ -111,38 +94,33 @@ git add <implementation_files> <non_ignored_context_files>
 git commit -m "<type>(<scope>): <description>"
 ```
 
+Retrieve the commit SHA.
+
 Never use `git add -A` or `git add -f` for Flow work. If a file is ignored, leave it local-only.
 Never force-add ignored Flow artifacts.
 
-## Phase 5: Sync to Beads (Source of Truth)
+## Phase 5: Close Task & Sync
 
-```bash
-<active_backend_close_task>
-```
-
-### Markdown Sync (Manual)
-
-**CRITICAL:** Do NOT write markers directly to spec.md. Follow `syncPolicy.flowSyncAfterMutation`; when enabled, run `/flow-sync` to update the markdown state after task completion or status changes.
-
-### 5.2 Log Learnings
-
-Add discoveries to `.agents/specs/{flow_id}/learnings.md`
-If a backend is enabled, attach the same learning summary through the active backend's notes mechanism.
+1. **Close Task**: Update the task file's frontmatter: set `state: closed`, `commit: <sha>`, and `updated_at` to the current ISO-8601 timestamp.
+2. **Markdown Sync**: Do NOT hand-edit markers in spec.md. Run `/flow-sync` so the `spec.md` checklist markers match task-file state (closed tasks render as `[x]` with the commit SHA appended).
+3. **Log Learnings**: Record discoveries in the task file's `## Notes & Discoveries` section as you go; promote durable patterns to `.agents/bundles/specs/{flow_id}/learnings.md`.
 
 ## Phase 6: Continue or Stop
 
 After each task:
 > Task complete. Continue to next task? [Y/n]
 
+At phase completion: run the full test suite, check coverage requirements, and ensure all changes are committed.
+
 ## Critical Rules
 
 1. **TDD ALWAYS** - Write tests before implementation
 2. **SMALL COMMITS** - One task = one commit
-3. **BEADS IS SOURCE OF TRUTH** - Never write markers to spec.md
-4. **PREFER SUPERPOWERS SUBAGENTS** - Use `superpowers:subagent-driven-development` when available, otherwise follow the same protocol inline
-5. **PREFER API LOOKUP** - Use `flow:apilookup` for external API/version/doc questions before coding
-6. **LOG LEARNINGS** - Capture patterns as you go
+3. **TASK FILES ARE SOURCE OF TRUTH** - Keep task status and commit SHAs in the task files' frontmatter; never hand-edit spec.md markers
+4. **NOTE IMMEDIATELY** - Record discoveries directly into the task file's `## Notes & Discoveries` section
+5. **PREFER SUPERPOWERS SUBAGENTS** - Use `superpowers:subagent-driven-development` when available, otherwise follow the same protocol inline
+6. **PREFER API LOOKUP** - Use `flow:apilookup` for external API/version/doc questions before coding
 7. **LOCAL ONLY** - Never push automatically
-8. **USE THE ACTIVE BACKEND'S READY QUEUE** - Always check Beads for next task when a backend is enabled
-9. **USE CANONICAL REPO COMMANDS** - Prefer the commands documented in `.agents/workflow.md`
+8. **USE THE READY QUEUE** - Select the next task by scanning task files for open tasks with closed dependencies
+9. **USE CANONICAL REPO COMMANDS** - Prefer the commands documented in `knowledge/workflow/workflow.md`
 10. **BE COLLABORATIVE** - Describe unrelated blockers factually and constructively; never use dismissive ownership-deflecting language

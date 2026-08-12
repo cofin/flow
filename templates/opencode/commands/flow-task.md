@@ -18,11 +18,13 @@ Tasks have NO audit trail - meant to be discarded.
 
 ## Phase 1: Create Task
 
-```bash
-bd create "Task: {description}" -t task -p 4 \
-  --description="{exploration_goal}"
-bd update {task_task_id} --notes "Ephemeral exploration. Created by /flow-task"
-```
+1. **Generate ID**: Create `task_id` in the format `task_shortname` (e.g., `task_fix_login`).
+2. **Record the goal**: Note the exploration goal and what you are trying to learn in the task's `notes.md` (created in Phase 2).
+
+This creates:
+
+- A temporary task directory (no spec bundle, no task files)
+- No git commits required
 
 ## Phase 2: Task Directory
 
@@ -41,9 +43,10 @@ During task:
 
 When done, choose:
 
-**Promote** - Convert to a real flow:
+**Promote** - Convert to a real flow (preserves learnings):
 ```bash
 /flow-prd "{description}"
+# Copy findings to the new spec bundle's learnings.md
 ```
 
 **Discard** - Delete everything:
@@ -56,6 +59,7 @@ git checkout .
 ```bash
 mv .agents/tasks/{task_id}/findings.md .agents/research/
 rm -rf .agents/tasks/{task_id}
+git checkout .
 ```
 
 ## Critical Rules

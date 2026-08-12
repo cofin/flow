@@ -6,14 +6,16 @@ description: Complete flow work - verify, review, merge/PR/keep/discard
 
 Complete a Flow's development work: verify tests, dispatch code review, and integrate.
 
+**CRITICAL:** `/flow-finish` ensures the OKF task files' state is finalized and the human view is synced before the flow is integrated.
+
 ## Usage
 `/flow-finish {flow_id}`
 
 ## Phase 1: Load Context
 
-1. **Flow ID:** Use argument or auto-discover from `.agents/flows.md` (look for `[~]` in-progress flows).
-2. **Read Artifacts:** `.agents/specs/<flow_id>/spec.md`, `metadata.json`
-3. **Check Beads:** `bd show <epic_id>`, verify all tasks completed. If open tasks remain, warn user.
+1. **Flow ID:** Use argument or auto-discover by scanning `.agents/bundles/specs/*/spec.md` frontmatter for `state: active`.
+2. **Read Artifacts:** `.agents/bundles/specs/{flow_id}/spec.md` and all task files under `.agents/bundles/specs/{flow_id}/tasks/*.md`.
+3. **Task Validation:** Ensure every task file has `state: closed` or `skipped`. If open or in-progress tasks remain, warn the user.
 
 ## Phase 2: Verification Gate
 
@@ -21,15 +23,15 @@ Complete a Flow's development work: verify tests, dispatch code review, and inte
 
 1. Run full test suite. Read output. Confirm 0 failures.
 2. Run coverage check. Confirm target met with actual numbers.
-3. Follow `syncPolicy.flowSyncAfterMutation`; when enabled, run `/flow-sync` to ensure spec.md is current.
+3. Run `/flow-sync` to reconcile the `spec.md` task checklist with the task files.
 4. If any check fails, report actual results and STOP.
 
 ## Phase 3: Code Review
 
-1. Get git range from Beads task records (commit SHAs from `bd close` reasons).
-2. Dispatch code review subagent with: spec.md requirements, patterns.md, git range.
+1. Get the git range from the task files: collect `commit:` SHAs from tasks with `state: closed`.
+2. Dispatch code review subagent with: spec.md requirements, `knowledge/patterns/patterns.md`, git range.
 3. Fix Critical issues before proceeding. Fix Important issues or confirm with user.
-4. Log findings to `.agents/specs/<flow_id>/learnings.md`.
+4. Log findings to `.agents/bundles/specs/{flow_id}/learnings.md`.
 
 ## Phase 4: Present Options
 
@@ -48,11 +50,12 @@ Present exactly 4 options:
 
 ## Phase 6: Cleanup
 
-- Close Beads epic: `bd close <epic_id> --reason "Flow finished: <option>"`
+- **Update Spec Status:** Mark the spec complete by editing the frontmatter of `.agents/bundles/specs/{flow_id}/spec.md` to `state: completed` and updating `updated_at`.
+- **Archive:** Recommend `/flow-archive` to synthesize learnings and clean up the active spec bundle directory.
 - Clean up worktree if applicable.
 
 ## Critical Rules
 
 1. **VERIFY FIRST** - No claims without fresh evidence
-2. **BEADS IS SOURCE OF TRUTH** - Check all tasks are complete
+2. **TASK FILES ARE SOURCE OF TRUTH** - Check all task files are closed or skipped
 3. **USER DECIDES** - Present options, don't assume
