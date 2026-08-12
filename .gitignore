@@ -214,21 +214,16 @@ ref/
 docs/superpowers/
 .claude/settings.local.json
 .codex/config.toml
-.vscode/mcp.json
 opencode.json
-gemini.mcp.json
-cline.mcp.json
-cursor.mcp.json
-windsurf.mcp.json
-
-# Beads / Dolt files (added by bd init)
-.dolt/
 *.db
-.beads-credential-key
 .worktrees/
+
+# Local .agents content stays private; OKF bundles and shared config are tracked
 .agents/*
-!.agents/plugins/marketplace.json
-.beads/
+!.agents/bundles/
+!.agents/hooks.json
+!.agents/config.json
+!.agents/plugins/
 
 # Codex package build directory
 plugins/flow/

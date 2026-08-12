@@ -26,22 +26,23 @@ As the AI agent, you must execute the status dashboard aggregation directly:
 
 2. **Scan Tasks and Extract Notes**:
    - For each active/planned flow:
-     * List all task files under `.agents/bundles/specs/{flow_id}/tasks/*.md`.
-     * Read each task file, extract `status` (open, in_progress, closed, blocked, skipped), `depends_on`, and task notes.
-     * Task notes are extracted from the `## Notes & Discoveries` heading to the next heading or end of file. Extract the note lines (e.g. `- [timestamp] note text`).
-     * Count metrics: `total_tasks`, `closed_count`, `skipped_count`. Calculate progress percentage: `closed_count / (total_tasks - skipped_count) * 100.0` (if denominator > 0).
+     - List all task files under `.agents/bundles/specs/{flow_id}/tasks/*.md`.
+     - Read each task file, extract `status` (open, in_progress, closed, blocked, skipped), `depends_on`, and task notes.
+     - Task notes are extracted from the `## Notes & Discoveries` heading to the next heading or end of file. Extract the note lines (e.g. `- [timestamp] note text`).
+     - Count metrics: `total_tasks`, `closed_count`, `skipped_count`. Calculate progress percentage: `closed_count / (total_tasks - skipped_count) * 100.0` (if denominator > 0).
 
 3. **Resolve Queues**:
    - Sort tasks into queues:
-     * **Active Tasks**: task status is `in_progress`.
-     * **Ready Queue**: task status is `open` AND all dependency tasks (in `depends_on`) are in status `closed`.
-     * **Blocked Queue**: task status is `blocked`, OR task status is `open` and at least one dependency is NOT `closed`.
+     - **Active Tasks**: task status is `in_progress`.
+     - **Ready Queue**: task status is `open` AND all dependency tasks (in `depends_on`) are in status `closed`.
+     - **Blocked Queue**: task status is `blocked`, OR task status is `open` and at least one dependency is NOT `closed`.
 
 4. **Sort and Format Recent Notes**:
    - Gather all extracted notes, sort them by timestamp descending, and take the 5 most recent notes.
 
 5. **Print Status Dashboard**:
    - Format and print the consolidated status dashboard:
+
      ```text
      ================================================================================
                                 DEVELOPER STATUS DASHBOARD                           

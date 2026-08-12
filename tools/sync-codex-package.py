@@ -16,6 +16,8 @@ DIRECTORY_ENTRIES = (".codex-plugin", "skills", "hooks")
 CODEX_ENTRIES = ("INSTALL.md", "agents") # Removed hooks.json
 COMMANDS_ROOT = Path("commands")
 COMMANDS_GLOB = "flow-*.md"
+CODEX_COMMANDS_DIR = Path("commands/flow")
+CODEX_COMMANDS_GLOB = "*.toml"
 STALE_HINT = "run `make sync-codex-package`"
 IGNORED_NAMES = {
     ".DS_Store",
@@ -131,6 +133,14 @@ def _copy_codex_commands(repo_root: Path, package_root: Path) -> None:
     for source in sorted(source_root.glob(COMMANDS_GLOB)):
         if source.is_file():
             shutil.copy2(source, destination_root / source.name)
+    toml_root = repo_root / CODEX_COMMANDS_DIR
+    if not toml_root.is_dir():
+        raise RuntimeError(f"Missing canonical source directory: {toml_root}")
+    toml_destination = package_root / CODEX_COMMANDS_DIR
+    toml_destination.mkdir(parents=True, exist_ok=True)
+    for source in sorted(toml_root.glob(CODEX_COMMANDS_GLOB)):
+        if source.is_file():
+            shutil.copy2(source, toml_destination / source.name)
 
 
 def _ignore_names(_directory: str, names: list[str]) -> set[str]:

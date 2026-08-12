@@ -23,9 +23,11 @@ Determine revert scope:
 ## Phase 2: Find Commits
 
 1. **Reverting a Flow (Restoring Specs)**: If the spec directory is deleted, restore it from Git:
+
    ```bash
    git checkout HEAD -- .agents/bundles/specs/{flow_id}
    ```
+
    And set the spec's status to `in_progress` in `.agents/bundles/specs/{flow_id}/spec.md`.
 
 2. **Reverting a Task**: Read `.agents/bundles/specs/{flow_id}/tasks/{task_id}.md` to extract `commit: <sha>` from YAML frontmatter.
@@ -56,10 +58,13 @@ Proceed with revert? (yes/no)
 ## Phase 4: Execute Revert
 
 1. **Revert Commits**: Run git revert for the resolved commit(s) in reverse chronological order:
+
    ```bash
    git revert --no-commit {commits}
    ```
+
 2. **Commit Reversal**: Commit the revert changes:
+
    ```bash
    git commit -m "revert({scope}): Revert changes for {target}"
    ```

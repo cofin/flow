@@ -25,6 +25,7 @@ As the AI agent, you must execute the reconciliation algorithm directly (as deta
 ### Phase 2: Run Integrity Check
 
 Perform validation checks manually using your file-manipulation tools:
+
 1. **Verify Orphaned Task Files**: Scan `.agents/bundles/specs/*/tasks/*.md` and ensure every task file has a corresponding checklist task in its parent `spec.md`.
 2. **Verify File and Test Paths**: For each task file in status `closed` in any active spec, verify that all paths in its `files` and `tests` arrays exist on disk.
 3. **Verify Markdown Links**: Verify that all relative links in `spec.md` files resolve to existing files or directories in the workspace.

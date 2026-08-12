@@ -290,7 +290,7 @@ def test_makefile_recipes_fail_fast() -> None:
     assert "validate:" in makefile
     assert "codex-package-check:" in makefile
     assert (
-        "check: lint codex-package-check validate sync-manifests"
+        "check: lint sync-codex-package codex-package-check validate sync-manifests test"
     ) in makefile
 
 

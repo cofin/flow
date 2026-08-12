@@ -20,6 +20,7 @@ If not provided, dynamically scan the `.agents/bundles/specs/` directory to disc
 ### 1.2 Verify Completion
 
 Read the `.agents/bundles/specs/{flow_id}/spec.md` status.
+
 - If status is not `completed` (e.g. `active`, `planned`, `blocked`), warn: "Warning: Flow is not marked as completed. Continue? (y/n)" → Halt if 'n'.
 
 ---
@@ -27,14 +28,14 @@ Read the `.agents/bundles/specs/{flow_id}/spec.md` status.
 ## Phase 2: Pattern Elevation
 
 1. Read `.agents/bundles/specs/{flow_id}/extracted_learnings.md` (generate first using consolidate command).
-2. Read `.agents/patterns.md`.
+2. Read `.agents/bundles/knowledge/patterns/patterns.md`.
 3. Identify new patterns not present in global patterns.
 4. **Interactive Selection:**
    - "Found these potential patterns:"
    - [ ] Pattern 1
    - [ ] Pattern 2
    - "Select patterns to elevate (or 'all'/'none'):"
-5. **Merge:** Append selected patterns to `.agents/patterns.md`.
+5. **Merge:** Append selected patterns to `.agents/bundles/knowledge/patterns/patterns.md`.
    - Format: `- {new pattern} (from: {flow_id})`
 
 ---
@@ -57,8 +58,9 @@ Read the `.agents/bundles/specs/{flow_id}/spec.md` status.
 ## Phase 5: Git Commit
 
 1. **Commit Changes:**
+
    ```bash
-   git add .agents/patterns.md .agents/bundles/knowledge/
+   git add .agents/bundles/knowledge/patterns/patterns.md .agents/bundles/knowledge/
    git rm -r .agents/bundles/specs/{flow_id}/
    git commit -m "chore(archive): synthesize learnings from {flow_id} and archive spec"
    ```

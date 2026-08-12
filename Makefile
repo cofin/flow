@@ -84,7 +84,13 @@ validate:                                          ## Validate all manifests, sk
 	@uv run --extra dev tools/validate.py
 	@echo "${OK} Validation passed"
 
-check: lint codex-package-check validate sync-manifests ## Run all quality checks (lint + validate)
+.PHONY: test
+test:                                              ## Run the Python test suite
+	@echo "${INFO} Running tests..."
+	@uv run --extra dev pytest
+	@echo "${OK} Tests passed"
+
+check: lint sync-codex-package codex-package-check validate sync-manifests test ## Run all quality checks (lint + validate + tests)
 	@echo "${OK} All checks passed"
 
 .PHONY: build

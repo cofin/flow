@@ -42,6 +42,9 @@
     }
   },
   "agents": [
-    "./agents/"
+    "./agents/code-reviewer.md",
+    "./agents/executor.md",
+    "./agents/plan-generator.md",
+    "./agents/prd-orchestrator.md"
   ]
 }

@@ -64,7 +64,7 @@ def test_sync_creates_real_package_tree_from_flow_sources(fake_repo: Path) -> No
     assert (package / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8") == '{"name": "flow"}\n'
     assert (package / "skills" / "flow" / "SKILL.md").read_text(encoding="utf-8") == "---\nname: flow\n---\n"
     assert (package / "commands" / "flow-setup.md").read_text(encoding="utf-8") == "# Setup\n"
-    assert not (package / "commands" / "flow" / "sync.toml").exists()
+    assert (package / "commands" / "flow" / "sync.toml").read_text(encoding="utf-8") == 'description = "Harness-specific command source"\n'
     assert (package / ".codex" / "agents" / "executor.toml").is_file()
     # Verified that it is generated from hooks/hooks-codex.json
     assert (package / ".codex" / "hooks.json").read_text(encoding="utf-8") == '{"codex": true}\n'

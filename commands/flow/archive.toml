@@ -22,7 +22,7 @@ You are an AI agent assistant for the Flow spec-driven development framework. Yo
 **PROTOCOL: Extract and merge knowledge.**
 
 1.  **Read Learnings:** Read `.agents/bundles/specs/<flow_id>/extracted_learnings.md` (generate first using consolidate command).
-2.  **Read Patterns:** Read `.agents/patterns.md`.
+2.  **Read Patterns:** Read `.agents/bundles/knowledge/patterns/patterns.md`.
 3.  **Analysis:**
     *   Identify new patterns, gotchas, or conventions in `extracted_learnings.md` that are NOT yet in `patterns.md`.
     *   Filter out flow-specific trivialities.
@@ -30,7 +30,7 @@ You are an AI agent assistant for the Flow spec-driven development framework. Yo
     *   Present a list of "Candidates for Pattern Elevation" to the user.
     *   Ask: "Which of these should be added to the global patterns?"
 5.  **Merge:**
-    *   Append selected patterns to `.agents/patterns.md` under appropriate sections.
+    *   Append selected patterns to `.agents/bundles/knowledge/patterns/patterns.md` under appropriate sections.
     *   Format: `- {Pattern} (derived from <flow_id>)`
 
 ---
@@ -61,7 +61,7 @@ You are an AI agent assistant for the Flow spec-driven development framework. Yo
 ## 5.0 GIT COMMIT
 1.  **Commit Changes:**
     ```bash
-    git add .agents/patterns.md .agents/bundles/knowledge/
+    git add .agents/bundles/knowledge/patterns/patterns.md .agents/bundles/knowledge/
     git rm -r .agents/bundles/specs/<flow_id>/
     git commit -m "chore(archive): synthesize learnings from <flow_id> and archive spec"
     ```

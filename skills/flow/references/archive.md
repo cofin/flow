@@ -49,7 +49,7 @@ Which patterns should be elevated to project-level? [all/select/none]
 
 ### 2.3 Merge to Project Patterns
 
-Append selected patterns to `.agents/patterns.md`:
+Append selected patterns to `.agents/bundles/knowledge/patterns/patterns.md`:
 
 ```markdown
 ## Code Conventions
@@ -87,5 +87,5 @@ Spec deleted from filesystem
 Patterns Elevated: {count}
 
 Project patterns updated. View with:
-cat .agents/patterns.md
+cat .agents/bundles/knowledge/patterns/patterns.md
 ```

@@ -1,5 +1,5 @@
 ---
-description: Groundskeeper: Global maintenance and integrity check of Flow specifications
+description: "Groundskeeper: Global maintenance and integrity check of Flow specifications"
 allowed-tools: Read, Glob, Grep, Bash
 ---
 

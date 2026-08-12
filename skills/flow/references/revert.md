@@ -53,6 +53,7 @@ git commit -m "revert({scope}): {reason}"
 ### 3.2 Reset Task Metadata
 
 For the reverted tasks, edit their task files under `tasks/*.md`:
+
 - Set `status: open`
 - Set `commit: null`
 
@@ -61,6 +62,7 @@ If reverting an entire flow, also update `.agents/bundles/specs/{flow_id}/spec.m
 ### 3.3 Sync Spec Checklist
 
 Run the spec checklist sync command to reconcile `spec.md` checklist markers:
+
 ```bash
 flow-sync {flow_id}
 ```

@@ -34,8 +34,9 @@ As the AI agent, you must execute the reconciliation algorithm directly using yo
      - Group 5 is the optional commit SHA.
 4. **Reconcile Tasks**:
    - For each parsed task:
-     * Check if `.agents/bundles/specs/{flow_id}/tasks/{task_id}.md` exists.
-     * **If it does NOT exist**: Scaffold it with default YAML frontmatter:
+     - Check if `.agents/bundles/specs/{flow_id}/tasks/{task_id}.md` exists.
+     - **If it does NOT exist**: Scaffold it with default YAML frontmatter:
+
        ```yaml
        ---
        id: {flow_id}:{task_id}
@@ -48,10 +49,11 @@ As the AI agent, you must execute the reconciliation algorithm directly using yo
        commit: null
        ---
        ```
-     * **If it DOES exist**: Read its YAML frontmatter. Check the `status` field:
+
+     - **If it DOES exist**: Read its YAML frontmatter. Check the `status` field:
        - `open` -> Map checklist marker to `[ ]`
        - `in_progress` -> Map checklist marker to `[~]`
-       - `closed` -> Map checklist marker to `[x]` (and append ` [<commit_sha>]` using the `commit` value from frontmatter)
+       - `closed` -> Map checklist marker to `[x]` (and append `[<commit_sha>]` using the `commit` value from frontmatter)
        - `blocked` -> Map checklist marker to `[!]`
        - `skipped` -> Map checklist marker to `[-]`
 5. **Update Spec File**:
@@ -71,7 +73,6 @@ Execute the repository integrity checks manually:
 3. **Verify Markdown Links**:
    - Scan all relative links in `spec.md`.
    - Verify that all relative links resolve to existing files or directories in the workspace.
-
 
 ## Phase 3: Context Drift Check
 
