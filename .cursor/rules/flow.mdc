@@ -5,7 +5,7 @@ alwaysApply: true
 
 When a repository has `.agents/`, use the Flow workflow for planning, implementation, sync, status, review, finish, and archive.
 
-Since the framework operates in a Beads-free mode, all flow details are loaded dynamically from the `.agents/bundles/specs/` directory, and task claiming/updating must be performed by editing status checkboxes in the specification markdown files.
+All flow details are loaded from OKF bundle files under `.agents/bundles/specs/`; task claiming/updating is performed by editing each task file's `state:` frontmatter and reconciling the spec checklist markers.
 
 After the `flow` router skill triggers, load the matching lifecycle skill: `flow-setup`, `flow-planning`, `flow-execution`, `flow-sync-status`, or `flow-completion`.
 

@@ -57,11 +57,11 @@ claude plugin update flow@flow-marketplace
 <summary>Recommended Claude Code settings</summary>
 <!-- markdownlint-restore -->
 
-Claude Code does not let plugin authors pre-declare a plan-artifact directory. To keep plan artifacts under Flow's canonical `.agents/specs/` directory, set this in your project `.claude/settings.json`:
+Claude Code does not let plugin authors pre-declare a plan-artifact directory. To keep plan artifacts under Flow's canonical `.agents/bundles/specs/` directory, set this in your project `.claude/settings.json`:
 
 ```json
 {
-  "plansDirectory": ".agents/specs"
+  "plansDirectory": ".agents/bundles/specs"
 }
 ```
 
@@ -367,7 +367,6 @@ Copy to your CLI's skills directory for auto-activation.
 ## Resources
 
 - [GitHub Issues](https://github.com/cofin/flow/issues) — Report bugs or request features
-- [Beads CLI](https://github.com/gastownhall/beads) — Official `bd` task persistence layer
 
 ## License
 

@@ -39,7 +39,7 @@ You are an AI agent assistant for the Flow spec-driven development framework. Yo
 **PROTOCOL: Persist synthesized learnings.**
 
 1.  **Consolidate Learnings:** Consolidate task discoveries directly:
-    *   Read all task files under `.agents/bundles/specs/<flow_id>/tasks/*.md` that have `status: closed` or `skipped`.
+    *   Read all task files under `.agents/bundles/specs/<flow_id>/tasks/*.md` that have `state: closed` or `skipped`.
     *   Read note lines starting with `- [` under `## Notes & Discoveries`.
     *   Write these notes to `.agents/bundles/specs/<flow_id>/extracted_learnings.md` sorted by timestamp, annotated with their task ID.
 2.  **Read Sources:** Read `extracted_learnings.md` and `spec.md` from the flow folder.

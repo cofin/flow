@@ -30,11 +30,11 @@ You MUST invoke these skills if available:
 
 ### 2.0 EXECUTION LOOP
 
-1. **Task Selection**: Scan `.agents/bundles/specs/<flow_id>/tasks/*.md` for the next ready task (`status: open` and all dependencies resolved).
+1. **Task Selection**: Scan `.agents/bundles/specs/<flow_id>/tasks/*.md` for the next ready task (`state: open` and all dependencies resolved).
 2. **Execution**:
     - **Note**: Record discoveries directly in the task markdown file under `## Notes & Discoveries`.
     - **TDD Workflow**: Red (failing test) -> Green (implement) -> Refactor.
-3. **Commit & Close**: Git commit the changes. Update the task file frontmatter to `status: closed` and write the commit SHA to `commit: <sha>`.
+3. **Commit & Close**: Git commit the changes. Update the task file frontmatter to `state: closed` and write the commit SHA to `commit: <sha>`.
 4. **Capture Learnings**: Append to `learnings.md`.
 
 ### 3.0 PHASE COMPLETION GATE

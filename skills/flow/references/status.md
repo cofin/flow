@@ -10,7 +10,7 @@ Active flows are discovered by scanning the specs directory:
 
 1. Scan `.agents/bundles/specs/*/spec.md`.
 2. Parse the frontmatter of each spec.
-3. Filter for active flows (`status` is `planned` or `active`).
+3. Filter for active flows (`state` is `planned` or `active`).
 
 ---
 
@@ -20,12 +20,12 @@ For each active flow, scan all task files under `tasks/*.md` to collect metadata
 
 1. **Calculate Metrics**:
    - Total tasks = count of task files.
-   - Closed tasks = count of tasks with `status: closed`.
-   - Skipped tasks = count of tasks with `status: skipped`.
+   - Closed tasks = count of tasks with `state: closed`.
+   - Skipped tasks = count of tasks with `state: skipped`.
    - Progress percentage = `closed_count / (total_tasks - skipped_count) * 100`.
 2. **Resolve Queues**:
-   - **Active Task(s)**: List of tasks with `status: in_progress`.
-   - **Ready Queue**: List of `open` tasks that have no dependencies, or whose dependencies (listed in `depends_on`) are all `status: closed`.
+   - **Active Task(s)**: List of tasks with `state: in_progress`.
+   - **Ready Queue**: List of `open` tasks that have no dependencies, or whose dependencies (listed in `depends_on`) are all `state: closed`.
    - **Blocked Queue**: List of `blocked` tasks, or `open` tasks that have at least one dependency that is not yet `closed`.
 
 ---

@@ -12,9 +12,9 @@ Refreshing context for codebase drift: **$ARGUMENTS**
 
 ## Phase 1: Load Current Context
 
-1. Read `.agents/index.md`, `.agents/flows.md`, `.agents/tech-stack.md`, `.agents/workflow.md`.
-2. Identify active flow from `.agents/flows.md`.
-3. If active flow exists, read `.agents/specs/{flow_id}/metadata.json` for last sync timestamp.
+1. Read `.agents/bundles/index.md`, `.agents/bundles/knowledge/product/tech-stack.md`, `.agents/bundles/knowledge/workflow/workflow.md`.
+2. Identify active flows by scanning `.agents/bundles/specs/*/spec.md` frontmatter for `state: active` (or `planned`).
+3. If an active flow exists, read its `spec.md` and `tasks/*.md`; use the spec's `updated_at` as the last-sync baseline.
 
 ---
 
@@ -23,30 +23,27 @@ Refreshing context for codebase drift: **$ARGUMENTS**
 1. Run `git log --oneline` since last sync to find recent commits.
 2. Run `git diff --name-status` to identify changed files.
 3. Check dependency files (`package.json`, `pyproject.toml`, `Cargo.toml`) for changes.
-4. Compare with `.agents/tech-stack.md`.
+4. Compare with `.agents/bundles/knowledge/product/tech-stack.md`.
 5. Inspect workflow drift across `Makefile`, `justfile`, `Taskfile.yml`, `package.json`, `pyproject.toml`, `Cargo.toml`, `.pre-commit-config.yaml`, and CI files.
-6. Compare those command surfaces with `.agents/workflow.md`.
+6. Compare those command surfaces with `.agents/bundles/knowledge/workflow/workflow.md`.
 
 ---
 
 ## Phase 3: Update Context
 
-1. If dependencies changed, update `.agents/tech-stack.md`.
+1. If dependencies changed, update `.agents/bundles/knowledge/product/tech-stack.md`.
 2. If workflow settings or canonical commands changed, prompt:
-   - "Workflow settings may be stale. Revalidate `.agents/workflow.md` now?"
+   - "Workflow settings may be stale. Revalidate `.agents/bundles/knowledge/workflow/workflow.md` now?"
    - Refresh only the affected workflow sections instead of replacing the whole file.
 3. Prefer repo-native aggregate commands such as `make lint`, `make test`, `make check`, `just check`, `task test`, package scripts, and pre-commit entrypoints when updating workflow guidance.
-4. If tasks completed externally, sync them through the active backend's completion flow.
-5. Refresh `.agents/index.md` if structural changes detected.
+4. If tasks completed externally (commits reference task ids), set `state: closed` and `commit: <sha>` in the affected task files.
+5. Refresh `.agents/bundles/index.md` if structural changes detected.
 
 ---
 
-## Phase 4: Sync with Beads
+## Phase 4: Reconcile Spec and Tasks
 
-Resolve the active backend first:
-
-- `bd`: use the official Beads sync/status commands
-- no-Beads: skip backend sync and continue refreshing workflow/context files
+Run the `/flow:sync` reconciliation inline: update each `spec.md` checklist marker to match its task file's `state` (task file wins on conflict), appending commit SHAs for closed tasks.
 
 ---
 
@@ -70,5 +67,5 @@ Since last sync ({timestamp}):
 1. **MERGE, DON'T REPLACE** - Never overwrite manual edits to spec.md
 2. **ASK ON CONFLICT** - Present both versions if conflicts detected
 3. **READ-ONLY ON CODE** - Only modify `.agents/` context files
-4. **SYNC AT END** - Run sync to ensure spec.md reflects final state
-5. **WORKFLOW DRIFT COUNTS** - Treat stale canonical commands, backend assumptions, and ignore policy as refresh work, not optional cleanup
+4. **SYNC AT END** - Reconcile the checklist so spec.md reflects final task state
+5. **WORKFLOW DRIFT COUNTS** - Treat stale canonical commands and ignore policy as refresh work, not optional cleanup

@@ -26,5 +26,5 @@ Completing flow: **$ARGUMENTS**
 
 ## 7.0 Cleanup
 
-- **Update Spec Status**: Mark spec complete by editing the frontmatter of `.agents/bundles/specs/{flow_id}/spec.md` to `status: completed` and updating `updated_at`.
+- **Update Spec Status**: Mark spec complete by editing the frontmatter of `.agents/bundles/specs/{flow_id}/spec.md` to `state: completed` and updating `updated_at`.
 - **Archive**: Recommend `/flow:archive` to synthesize learnings and clean up the active spec bundle directory.

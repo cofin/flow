@@ -39,7 +39,7 @@ If validation fails:
 ### Phase 3: Archive completed flows
 
 1. Scan `.agents/bundles/specs/*/spec.md` files.
-2. Filter for specs containing `status: completed`.
+2. Filter for specs containing `state: completed`.
 3. Propose archiving each completed flow:
    - Suggest running the `/flow:archive <flow_id>` slash command to move the spec directory to the archive store and elevate patterns.
 

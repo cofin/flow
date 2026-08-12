@@ -106,9 +106,9 @@ Handles non-linear Git histories (rebase, squash, merge commits).
     git commit -m "revert({scope}): Revert changes for {target}"
     ```
 4.  **Reset Metadata Status:** Update the task file(s) for the reverted tasks under `tasks/*.md`:
-    - `status: open`
+    - `state: open`
     - `commit: null`
-    If reverting an entire flow, also update spec.md frontmatter to `status: in_progress`.
+    If reverting an entire flow, also update spec.md frontmatter to `state: active`.
 5.  **Sync Spec:** Run `/flow:sync` to synchronize `spec.md` checklist states with the updated task files.
 6.  **Announce Completion:**
     > "Revert complete.

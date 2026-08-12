@@ -18,8 +18,8 @@ Read the spec file `.agents/bundles/specs/{flow_id}/spec.md` and task files unde
 ### 1.2 Gather Commits
 
 - **For Task Revert**: Read the commit SHA from the target task's file (e.g. `tasks/{task_id}.md`) frontmatter `commit: <sha>`.
-- **For Phase Revert**: Read the commit SHAs from all task files in the target phase that have `status: closed`.
-- **For Flow Revert**: Read the commit SHAs from all task files under `tasks/*.md` that have `status: closed`.
+- **For Phase Revert**: Read the commit SHAs from all task files in the target phase that have `state: closed`.
+- **For Flow Revert**: Read the commit SHAs from all task files under `tasks/*.md` that have `state: closed`.
 
 ## Phase 2: Confirm Revert
 
@@ -54,10 +54,10 @@ git commit -m "revert({scope}): {reason}"
 
 For the reverted tasks, edit their task files under `tasks/*.md`:
 
-- Set `status: open`
+- Set `state: open`
 - Set `commit: null`
 
-If reverting an entire flow, also update `.agents/bundles/specs/{flow_id}/spec.md` frontmatter to `status: in_progress`.
+If reverting an entire flow, also update `.agents/bundles/specs/{flow_id}/spec.md` frontmatter to `state: active`.
 
 ### 3.3 Sync Spec Checklist
 

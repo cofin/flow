@@ -39,7 +39,7 @@ Use OpenCode's native skill system:
 /flow:prd      — Create feature roadmap
 /flow:plan     — Plan single flow
 /flow:implement — Execute tasks (TDD)
-/flow:sync     — Sync Beads to spec
+/flow:sync     — Reconcile spec checklist with task files
 /flow:status   — Show progress
 /flow:refresh  — Refresh context from codebase
 ```

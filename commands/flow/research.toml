@@ -221,18 +221,17 @@ Based on research, the recommended approach is: [Summary]
     -   Recommended Approach
     -   Open Questions (if any)
 
-4.  **Create Metadata:** Create `<research_directory>/metadata.json`:
-    ```json
-    {
-      "research_id": "<research_id>",
-      "topic": "<research topic>",
-      "type": "<research type>",
-      "status": "complete",
-      "created_at": "YYYY-MM-DDTHH:MM:SSZ",
-      "libraries_researched": ["lib1", "lib2"],
-      "files_analyzed": ["file1.ts", "file2.ts"],
-      "linked_prd": null
-    }
+4.  **Add Frontmatter:** Give `<research_directory>/research.md` YAML frontmatter (no separate metadata file):
+    ```yaml
+    ---
+    type: Research
+    research_id: <research_id>
+    title: <research topic>
+    created_at: YYYY-MM-DDTHH:MM:SSZ
+    libraries_researched: [lib1, lib2]
+    files_analyzed: [file1.ts, file2.ts]
+    linked_prd: null
+    ---
     ```
 
 ### 7.2 Present Summary

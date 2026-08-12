@@ -1,6 +1,6 @@
 {
   "name": "flow",
-  "description": "Unified toolkit for Context-Driven Development with spec-first planning, TDD workflow, and Beads integration",
+  "description": "Unified toolkit for Context-Driven Development with spec-first planning, TDD workflow, and OKF knowledge bundles.",
   "version": "0.22.0",
   "author": {
     "name": "cofin"
@@ -11,7 +11,7 @@
   "keywords": [
     "flow",
     "context-driven-development",
-    "beads",
+    "okf",
     "tdd",
     "ai-agent",
     "workflow",
@@ -27,20 +27,6 @@
     "./commands/"
   ],
   "hooks": "./hooks/hooks-claude.json",
-  "userConfig": {
-    "useBeads": {
-      "type": "boolean",
-      "title": "Use Beads for Task Persistence",
-      "default": true,
-      "description": "Use Beads (bd) for task persistence. Disable to run in degraded mode without bd."
-    },
-    "agentsDir": {
-      "type": "string",
-      "title": "Agents Directory",
-      "default": ".agents",
-      "description": "Directory where Flow stores specs, plans, and knowledge (e.g. .agents or specs)"
-    }
-  },
   "agents": [
     "./agents/code-reviewer.md",
     "./agents/executor.md",

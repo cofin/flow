@@ -9,7 +9,7 @@ Use this lifecycle skill when implementation starts after a Flow plan or ready t
 
 ## Workflow
 
-1. Select ready work from `.agents/bundles/specs/<flow_id>/tasks/*.md` (YAML frontmatter `status: open` and dependencies resolved) and claim it (status to `in_progress`).
+1. Select ready work from `.agents/bundles/specs/<flow_id>/tasks/*.md` (YAML frontmatter `state: open` and dependencies resolved) and claim it (state to `in_progress`).
 2. Read the relevant spec, task notes, patterns, affected files, and validation commands.
 3. Record investigation findings directly inside the task file's `## Notes & Discoveries` section.
 4. Follow red-green-refactor: write the failing test, verify the failure, implement minimally, verify green, then refactor.

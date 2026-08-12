@@ -49,7 +49,7 @@ Search and read files related to the problem. Map implementation paths, note con
 ### 4.0 ARTIFACT CREATION (Post-Approval Only)
 
 1. **Save Spec**: Write to `.agents/bundles/specs/<flow_id>/spec.md` with YAML frontmatter.
-2. **Scaffold Tasks**: For each task in the plan, create its task file under `.agents/bundles/specs/<flow_id>/tasks/<short_id>.md` containing the task YAML frontmatter (`id`, `status: open`, `depends_on`, `files`, `tests`, `created_at`, `updated_at`, `commit: null`) and a minimal title header.
+2. **Scaffold Tasks**: For each task in the plan, create its task file under `.agents/bundles/specs/<flow_id>/tasks/<short_id>.md` containing the task YAML frontmatter (`id`, `state: open`, `depends_on`, `files`, `tests`, `created_at`, `updated_at`, `commit: null`) and a minimal title header.
 3. **Sync Reconcile**: Run the sync reconciler script `python3 tools/sync.py` to align and verify all markers.
 
 ## OUTPUT

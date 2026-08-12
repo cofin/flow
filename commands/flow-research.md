@@ -283,23 +283,23 @@ Create explicit research tasks with status tracking:
 
    ## Research Outputs
    **This research informs:**
-   - PRD: `.agents/specs/{prd_id}/prd.md` (when created)
-   - Flow: `.agents/specs/{flow_id}/` (when created)
+   - PRD: `.agents/bundles/specs/{prd_id}/spec.md` (roadmap, when created)
+   - Flow: `.agents/bundles/specs/{flow_id}/` (when created)
    ```
 
-4. **Create Metadata:** `.agents/research/{research_id}/metadata.json`
+4. **Add Frontmatter:** Give `.agents/research/{research_id}/research.md` YAML frontmatter (no separate metadata file):
 
-   ```json
-   {
-     "research_id": "{research_id}",
-     "topic": "{topic}",
-     "type": "{type}",
-     "created_at": "ISO timestamp",
-     "libraries_researched": ["lib1", "lib2"],
-     "files_analyzed": ["path1", "path2"],
-     "linked_prd": null,
-     "linked_flow": null
-   }
+   ```yaml
+   ---
+   type: Research
+   research_id: {research_id}
+   title: {topic}
+   created_at: ISO timestamp
+   libraries_researched: [lib1, lib2]
+   files_analyzed: [path1, path2]
+   linked_prd: null
+   linked_flow: null
+   ---
    ```
 
 ### 6.2 Present Summary

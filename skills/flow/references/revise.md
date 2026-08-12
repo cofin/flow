@@ -1,8 +1,6 @@
 
 # Flow Revise
 
-> **Beads mode:** Skip every `bd` invocation below when the SessionStart hook reports `Beads Backend: Missing (None)` or `Disabled via plugin config (useBeads=false)`. Treat `spec.md` markers as fallback source of truth and skip `/flow:sync`. Never halt for missing Beads. See `discipline.md`.
-
 Update spec or plan when implementation reveals issues.
 
 ## Usage
@@ -15,9 +13,10 @@ flow-revise <flow_id>
 
 ### Phase 1: Load Current State
 
-Read `.agents/specs/{flow_id}/`:
+Read `.agents/bundles/specs/{flow_id}/`:
 
 - spec.md
+- tasks/*.md
 - learnings.md
 
 ### Phase 2: Identify Revision Need (Critical Thinking)
@@ -41,7 +40,7 @@ Update spec.md as needed.
 
 ### Phase 5: Log Revision
 
-Append to `.agents/specs/{flow_id}/revisions.md`:
+Append to `.agents/bundles/specs/{flow_id}/revisions.md`:
 
 ```markdown
 ## [YYYY-MM-DD HH:MM] Revision {N}
@@ -51,19 +50,16 @@ Append to `.agents/specs/{flow_id}/revisions.md`:
 **Changes:** {description}
 ```
 
-### Phase 6: Sync Beads
+### Phase 6: Update Task Files
 
-```bash
-bd update {affected_task_ids} --notes "Revised: {reason}"
+- **Affected tasks:** append `- [timestamp] Revised: {reason}` to each affected task file's `## Notes & Discoveries` section and refresh `updated_at`.
+- **New tasks:** add a `- [ ] Task {short_id}: {title}` checklist line to the spec's Implementation Plan, then create `tasks/{short_id}.md` with full frontmatter (`type: Task`, `id: {flow_id}:{short_id}`, `title`, `state: open`, `depends_on`, `files`, `tests`, `created_at`, `updated_at`, `commit: null`), a body describing what changed and why, and a note `- [timestamp] Added during revision. Created by flow-revise`.
+- **Removed tasks** (not started): set `state: skipped` and note `- [timestamp] Removed in revision`. Never delete task files.
 
-# If NEW tasks added:
-bd create "{new_task}" --parent {epic_id} -p 2 \
-  --description="{what_and_why}"
-bd update {new_task_id} --notes "Added during revision. Created by flow-revise"
-```
+Run `/flow:sync` (reconcile checklist markers with task-file `state`) after task files change.
 
 ## Critical Rules
 
 1. **LOG EVERYTHING** - All revisions documented
-2. **BEADS SYNC** - Update affected tasks
+2. **TASK FILES FIRST** - Update task files, then reconcile the checklist
 3. **PRESERVE HISTORY** - Never delete, only append

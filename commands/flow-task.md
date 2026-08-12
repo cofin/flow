@@ -6,8 +6,6 @@ allowed-tools: Read, Write, Bash
 
 # Flow Task
 
-> **Beads mode:** Skip every `bd` invocation below when the SessionStart hook reports `Beads Backend: Missing (None)` or `Disabled via plugin config (useBeads=false)`. Treat `spec.md` markers as fallback source of truth and skip `/flow:sync`. Never halt for missing Beads. See `skills/flow/references/discipline.md`.
->
 > Lifecycle skill: use `flow-planning` through the `flow` router.
 
 Creating ephemeral exploration flow: **$ARGUMENTS**
@@ -27,19 +25,13 @@ Tasks have NO audit trail - they're meant to be discarded.
 
 ## Phase 1: Create Task
 
-```bash
-bd create "Task: {description}" -t task -p 4 \
-  --description="{exploration_goal_and_what_youre_trying_to_learn}"
-bd update {task_id} --notes "Ephemeral exploration. No audit trail. Created by /flow-task on {date}"
-```
+1. **Generate ID**: Create `task_id` in the format `task_shortname` (e.g., `task_fix_login`).
+2. **Record the goal**: Note the exploration goal and what you are trying to learn in the task's `notes.md` (created in Phase 2).
 
 This creates:
 
-- Temporary Beads task (priority P4 - backlog)
-- Minimal spec file
+- A temporary task directory (no spec bundle, no task files)
 - No git commits required
-
-**Note:** Always include `--description` with `bd create`, then add `--notes` via `bd update`, even for ephemeral work.
 
 ---
 
@@ -84,7 +76,6 @@ When done, choose:
 
 ```bash
 rm -rf .agents/tasks/{task_id}
-bd close {task_id} --reason "Task discarded"  # if tracked in Beads
 git checkout .  # Discard any code changes
 ```
 

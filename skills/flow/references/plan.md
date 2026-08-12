@@ -59,11 +59,11 @@ If a referenced companion skill is unavailable in the current harness, perform t
 **PROTOCOL: Read global and parent context to constrain the plan.**
 
 1. **Read Global Patterns:**
-    - Resolve and read `.agents/patterns.md`.
+    - Resolve and read `.agents/bundles/knowledge/patterns/patterns.md`.
     - Keep these patterns in mind. If the user suggests something violating a pattern, WARN them.
 
 2. **Read Parent Context (Optional):**
-    - If a `parent_prd_id` is provided (or if you find an active PRD in `.agents/bundles/specs/`), read its `prd.md`.
+    - If a `parent_prd_id` is provided (or if you find an active PRD in `.agents/bundles/specs/`), read the roadmap's `spec.md`.
     - Ensure this Flow's spec aligns with the Master Roadmap.
 
 3. **Read Research:**
@@ -158,8 +158,6 @@ If a referenced companion skill is unavailable in the current harness, perform t
       # Flow: {flow_name}
 
       **Flow ID:** `{flow_id}`
-      **Beads Epic:** `{epic_id}`
-      **Status:** Planned
 
       ## Specification
 
@@ -207,7 +205,7 @@ If a referenced companion skill is unavailable in the current harness, perform t
 1. **Dispatch spec-reviewer subagent** with:
    - Path to drafted spec.md
    - Flow requirements and constraints
-   - Relevant patterns from `.agents/patterns.md`
+   - Relevant patterns from `.agents/bundles/knowledge/patterns/patterns.md`
    - Review criteria: completeness, consistency, feasibility, TDD task structure
 
 2. **Handle results:**
@@ -241,16 +239,17 @@ If a referenced companion skill is unavailable in the current harness, perform t
 
     ```yaml
     ---
+    type: Spec
     flow_id: <flow_id>
-    type: feature
-    status: planned
+    title: <flow_title>
+    state: planned
     created_at: ISO timestamp
     updated_at: ISO timestamp
     description: <flow_description>
     ---
     ```
 
-5. **Beads Integration (Conditional):** If Beads is active, create epic and attach notes.
+5. **Task Files:** Create one task file per checklist entry at `.agents/bundles/specs/<flow_id>/tasks/<short_id>.md` (frontmatter `type: Task`, `id: <flow_id>:<short_id>`, `title`, `state: open`, `depends_on`, `files`, `tests`, `created_at`, `updated_at`).
 
 ---
 
@@ -284,4 +283,4 @@ Announce:
 3. **PATTERNS COMPLIANCE** - Check patterns.md and warn on violations
 4. **UNIFIED SPEC** - Single `spec.md` contains both requirements and plan. No separate `plan.md`.
 5. **SPECS DIRECTORY** - All artifacts go in `.agents/bundles/specs/`
-6. **BEADS CONTEXT** - If active, include a full description at creation time, then attach notes/context through the active backend
+6. **FULL CONTEXT** - Include a full description in the spec and task files at creation time; record follow-up context in the task file bodies

@@ -19,10 +19,10 @@ Refinement is an autonomous, iterative process that MUST continue until the plan
 
 Read the relevant artifacts before refining:
 
-- `.agents/specs/<flow_id>/spec.md` for a single flow
-- `.agents/specs/<prd_id>/prd.md` plus planned child specs for a saga
-- `.agents/patterns.md`
-- relevant `.agents/knowledge/*.md` chapters
+- `.agents/bundles/specs/<flow_id>/spec.md` and its `tasks/*.md` files for a single flow
+- `.agents/bundles/specs/<prd_id>/spec.md` (the roadmap) plus planned child specs for a saga
+- `.agents/bundles/knowledge/patterns/patterns.md`
+- relevant `.agents/bundles/knowledge/` chapters
 - the code paths, tests, migrations, config files, or external docs that the tasks depend on
 
 ### Step 2: The Zero-Ambiguity Test
@@ -62,7 +62,7 @@ After refining all tasks, ask:
 If the answer is anything beyond minor execution noise:
 
 - run the missing research now
-- update the relevant `spec.md`, `prd.md`, or knowledge artifact
+- update the relevant `spec.md`, task file, or knowledge artifact
 - repeat the check
 
 Planning is only complete when the roadmap and child plans no longer leave obvious research holes for later.

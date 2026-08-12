@@ -5,7 +5,6 @@ Flow ships as a native Codex plugin via marketplace.
 ## Prerequisites
 
 - Codex CLI 0.117.0+ (with marketplace support; verify with `codex --version`)
-- [Beads CLI](https://github.com/gastownhall/beads)
 
 ## Install
 
@@ -55,6 +54,6 @@ If you previously installed Flow via symlinks under `~/.codex/prompts/` or `~/.c
 
 ```bash
 rm -f ~/.codex/prompts/flow-*.md
-rm -rf ~/.codex/skills/flow ~/.codex/skills/beads
+rm -rf ~/.codex/skills/flow
 sed -i '/^# Flow Framework/,$d' ~/.codex/AGENTS.md 2>/dev/null
 ```

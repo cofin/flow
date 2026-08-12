@@ -27,7 +27,7 @@ As the AI agent, you must execute the status dashboard aggregation directly:
 2. **Scan Tasks and Extract Notes**:
    - For each active/planned flow:
      - List all task files under `.agents/bundles/specs/{flow_id}/tasks/*.md`.
-     - Read each task file, extract `status` (open, in_progress, closed, blocked, skipped), `depends_on`, and task notes.
+     - Read each task file, extract `state` (open, in_progress, closed, blocked, skipped), `depends_on`, and task notes.
      - Task notes are extracted from the `## Notes & Discoveries` heading to the next heading or end of file. Extract the note lines (e.g. `- [timestamp] note text`).
      - Count metrics: `total_tasks`, `closed_count`, `skipped_count`. Calculate progress percentage: `closed_count / (total_tasks - skipped_count) * 100.0` (if denominator > 0).
 

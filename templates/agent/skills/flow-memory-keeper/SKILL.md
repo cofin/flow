@@ -21,8 +21,8 @@ Before claiming a task, phase, or flow is complete:
 2. Capture concrete learnings in the flow's `learnings.md`.
 3. Capture failures, false starts, blockers, and recovery notes when they would help a future session.
 4. If the user had to repeat a correction or showed frustration that something was forgotten, flag that as a workflow gap and capture it explicitly.
-5. Elevate durable patterns to `.agents/patterns.md`.
-6. Update `.agents/knowledge/` chapters when the current-state knowledge base changed.
+5. Elevate durable patterns to `.agents/bundles/knowledge/patterns/patterns.md`.
+6. Update `.agents/bundles/knowledge/` chapters when the current-state knowledge base changed.
 7. If the flow is complete, archive it cleanly and leave the active spec area uncluttered.
 8. Capture validated repo-native commands and verification workflows in `.agents/workflow.md` when they were discovered or corrected during the work.
 
@@ -30,7 +30,7 @@ Before claiming a task, phase, or flow is complete:
 
 ### Task or Phase Completion
 
-1. Append a concise entry to `.agents/specs/<flow_id>/learnings.md`:
+1. Append a concise entry to `.agents/bundles/specs/<flow_id>/learnings.md`:
    - what changed
    - why it changed
    - files touched
@@ -38,8 +38,8 @@ Before claiming a task, phase, or flow is complete:
    - canonical repo commands that future agents should reuse
    - gotchas, failures, and recoveries worth remembering
    - any repeated user correction or frustration that revealed a missing default, checklist item, or workflow rule
-2. Move reusable guidance into `.agents/patterns.md`.
-3. If the work changed architecture, conventions, tooling, operational behavior, or canonical project commands, update the relevant `.agents/knowledge/*.md` chapter and `.agents/workflow.md`.
+2. Move reusable guidance into `.agents/bundles/knowledge/patterns/patterns.md`.
+3. If the work changed architecture, conventions, tooling, operational behavior, or canonical project commands, update the relevant `.agents/bundles/knowledge/*.md` chapter and `.agents/bundles/knowledge/workflow/workflow.md`.
 4. Promote repeated user corrections or frustration into an obvious durable rule instead of leaving it as a one-off note.
 5. Run the normal Flow sync step so `spec.md` reflects the latest state.
 
@@ -99,8 +99,8 @@ Before claiming a task, phase, or flow is complete, verify:
 
 - [ ] `spec.md` was synced through the normal Flow process
 - [ ] `learnings.md` captures the durable lessons, failures, and recoveries
-- [ ] reusable guidance was elevated to `.agents/patterns.md` when appropriate
-- [ ] `.agents/knowledge/` reflects current-state knowledge when it changed
+- [ ] reusable guidance was elevated to `.agents/bundles/knowledge/patterns/patterns.md` when appropriate
+- [ ] `.agents/bundles/knowledge/` reflects current-state knowledge when it changed
 - [ ] repeated user corrections or frustration were promoted into an explicit rule when applicable
 - [ ] canonical repo commands and verification flows were captured when they were learned or corrected
 - [ ] completed flows are archived cleanly without leaving stale active-spec clutter

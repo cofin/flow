@@ -16,7 +16,7 @@ IRON LAW: NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
 ```
 
 1. **Run full test suite** — read output, confirm 0 failures
-2. **Verify** flow is completed — read `.agents/bundles/specs/{flow_id}/spec.md` and ensure `status: completed`
+2. **Verify** flow is completed — read `.agents/bundles/specs/{flow_id}/spec.md` and ensure `state: completed`
 3. If spec is not completed, warn and confirm.
 
 ### 1.2 Optional Code Review
@@ -64,7 +64,7 @@ Append selected patterns to `.agents/bundles/knowledge/patterns/patterns.md`:
 You are responsible for the formal evolution of the project's knowledge base. It is NOT a manual copy-paste; it is a **Synthesis**.
 
 1. **Consolidate**: Extract task discoveries directly:
-   - Read all task files under `.agents/bundles/specs/{flow_id}/tasks/*.md` that have `status: closed` or `skipped`.
+   - Read all task files under `.agents/bundles/specs/{flow_id}/tasks/*.md` that have `state: closed` or `skipped`.
    - Read note lines starting with `- [` under `## Notes & Discoveries`.
    - Write these notes to `.agents/bundles/specs/{flow_id}/extracted_learnings.md` sorted by timestamp, annotated with their task ID.
 2. **Identify**: Read `extracted_learnings.md` and `spec.md` from the flow. Identify which discoveries are one-off observations and which represent **Core Patterns** or **Architectural Shifts**.

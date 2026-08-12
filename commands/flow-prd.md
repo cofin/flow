@@ -5,19 +5,17 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion
 
 # Flow PRD
 
-> **Beads mode:** Skip every `bd` invocation below when the SessionStart hook reports `Beads Backend: Missing (None)` or `Disabled via plugin config (useBeads=false)`. Treat `spec.md` markers as fallback source of truth and skip `/flow:sync`. Never halt for missing Beads. See `skills/flow/references/discipline.md`.
->
 > Lifecycle skill: use `flow-planning` through the `flow` router.
 >
 > **Grill before finalizing:** interrogate every open decision one question at a time (each with your recommended answer + trade-off), and explore the repo / `patterns.md` / `knowledge/` instead of asking when the answer is in the code. Do not finish the roadmap while obvious research gaps remain. See `flow-planning` → "Interrogate Before Finalizing".
 
 ## The Orchestrator Mandate
 
-**CRITICAL:** `/flow:prd` is the entry point for large features. Its primary role is to initialize the **Beads Epic** (source of truth) and define the high-level roadmap.
+**CRITICAL:** `/flow:prd` is the entry point for large features. Its primary role is to create the **roadmap spec bundle** (source of truth) and define the high-level roadmap.
 
 ---
 
-## 1.0 Environment & Backend Detection
+## 1.0 Environment Detection
 
 **PROTOCOL: Check hook context for environment metadata.**
 
@@ -31,7 +29,7 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion
 **PROTOCOL: Determine if this is a Flow or a Saga.**
 
 1. **Simple feature?** -> Suggest `/flow:plan`.
-2. **Multi-module/Complex?** -> **Saga (PRD)**. Initialize Beads Epic.
+2. **Multi-module/Complex?** -> **Saga (PRD)**. Create a roadmap spec bundle.
 
 ---
 
@@ -50,21 +48,21 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion
 **PROTOCOL: Create the Master Roadmap.**
 
 1. **Breakdown Chapters**: Propose 3-10 granular Flows (Chapters).
-2. **Draft prd.md**: Define North Star goals and global constraints.
+2. **Draft Roadmap Spec**: Define North Star goals and global constraints in the roadmap `spec.md`.
 
 ---
 
-## 5.0 Beads Integration (Source of Truth)
+## 5.0 Roadmap Bundle Creation (Source of Truth)
 
-**PROTOCOL: Create Beads epics with full context.**
+**PROTOCOL: Create the spec bundles with full context.**
 
-1. **Master Epic**:
-    - Run `<active_backend_create_prd_epic>`.
-    - The `--description` MUST include the North Star goal.
-2. **Sub-Epics (Chapters)**:
-    - For each chapter in the roadmap, create a child epic.
+1. **Roadmap Spec Bundle**:
+    - Create `.agents/bundles/specs/<prd_id>/spec.md` with frontmatter `type: Spec`, `flow_id`, `title`, `state: planned`, `created_at`, `updated_at`.
+    - The spec body MUST include the North Star goal.
+2. **Child Flow Bundles (Chapters)**:
+    - For each chapter in the roadmap, create its own spec bundle at `.agents/bundles/specs/<flow_id>/spec.md` (`state: planned`).
 3. **Contextual Notes**:
-    - Attach high-level architectural decisions as notes to the master epic using `bd note`.
+    - Record high-level architectural decisions directly in the roadmap spec body.
 
 ---
 
@@ -73,7 +71,7 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion
 **PROTOCOL: Create a unified spec.md for the first chapter.**
 
 1. **Plan Workflow**: Execute read-only code analysis and draft `spec.md`.
-2. **Beads Tasks**: Create initial implementation tasks in Beads under the chapter epic.
+2. **Task Files**: Create one task file per checklist entry under `.agents/bundles/specs/<flow_id>/tasks/<short_id>.md` (frontmatter `type: Task`, `id: <flow_id>:<short_id>`, `title`, `state: open`).
 3. **Refine**: Ensure the first chapter is implementation-ready.
 
 ---
@@ -82,14 +80,14 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, AskUserQuestion
 
 **PROTOCOL: Create all required files.**
 
-1. **Registry**: Append to `.agents/flows.md`.
-2. **Sync**: Follow `syncPolicy.flowSyncAfterMutation`; when enabled, run `/flow:sync` so Markdown views match the new Beads state.
+1. **Discovery**: No registry file — flows are discovered by scanning spec frontmatter under `.agents/bundles/specs/`.
+2. **Sync**: Run `/flow:sync` so the `spec.md` checklist markers match the task files.
 
 ---
 
 ## Critical Rules
 
-1. **BEADS FIRST** - Initialize epics and notes before finalizing Markdown.
+1. **SPEC FIRST** - Create the spec bundles and task files before finalizing the roadmap.
 2. **NO CODE MODIFICATION** - Planning documents only.
-3. **SYNC AFTER CREATION** - Follow `syncPolicy.flowSyncAfterMutation`; default setup runs `/flow:sync` to generate Markdown from Beads state.
+3. **SYNC AFTER CREATION** - Run `/flow:sync` so checklist markers match task file state.
 4. **HARD STOP** - End with explicit instruction to run `/flow:implement`.

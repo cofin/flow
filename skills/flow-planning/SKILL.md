@@ -13,7 +13,7 @@ Use this lifecycle skill for PRDs, research, single-flow planning, refinement, r
 2. Research code paths and external APIs before locking implementation decisions.
 3. Create PRDs as roadmap epics and single-flow specs as implementation worksheets.
 4. Refine until tasks include concrete files, behavior, tests, commands, and acceptance criteria.
-5. Create Beads epics/tasks and sync markdown views according to policy.
+5. Write the spec checklist and one `tasks/<short_id>.md` file per task (OKF frontmatter: `type: Task`, `id`, `title`, `state: open`, `depends_on`, `files`, `tests`, timestamps), then reconcile the checklist markers.
 
 ## Interrogate Before Finalizing (Grill)
 
@@ -53,4 +53,4 @@ Before locking a PRD, spec, or refined worksheet, interrogate the plan until eve
 
 User: "Plan skill trigger optimization."
 
-Action: inspect current skills and validators, ask unresolved product tradeoffs, create a Flow spec with Beads tasks, and refine until the implementation path is explicit.
+Action: inspect current skills and validators, ask unresolved product tradeoffs, create a Flow spec with per-task bundle files, and refine until the implementation path is explicit.

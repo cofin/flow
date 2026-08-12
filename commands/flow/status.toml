@@ -22,7 +22,7 @@ Perform the following steps directly in the workspace:
 
 2.  **Scan Tasks & Count Metrics**:
     *   For each active flow, scan all task files under `tasks/*.md`.
-    *   Read each task file to extract: `status` (open, in_progress, closed, blocked, skipped), `depends_on`, and task notes under `## Notes & Discoveries` heading.
+    *   Read each task file to extract: `state` (open, in_progress, closed, blocked, skipped), `depends_on`, and task notes under `## Notes & Discoveries` heading.
     *   Count metrics: `total_tasks` (count of task files), `closed_count` (status is closed), `skipped_count` (status is skipped).
     *   Calculate progress: `progress_percentage = closed_count / (total_tasks - skipped_count) * 100` (if denominator > 0).
 

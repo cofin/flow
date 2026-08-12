@@ -1,3 +1,8 @@
+---
+type: Pattern
+title: Project Patterns
+---
+
 # Project Patterns
 
 > Ralph-style consolidated learnings extracted from completed tracks.

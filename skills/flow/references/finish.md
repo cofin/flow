@@ -10,9 +10,8 @@ Complete a flow's development work by verifying, reviewing, and integrating.
 ## Phase 1: Load Context
 
 1. **Read Flow Artifacts:**
-   - `.agents/bundles/specs/{flow_id}/spec.md`
-   - `.agents/bundles/specs/{flow_id}/metadata.json`
-2. **Verify all tasks completed:** Read all task files under `.agents/bundles/specs/{flow_id}/tasks/*.md` and ensure their frontmatter status is closed or skipped. If any tasks are open or in_progress, warn and confirm with the user before proceeding.
+   - `.agents/bundles/specs/{flow_id}/spec.md` (frontmatter carries the flow metadata)
+2. **Verify all tasks completed:** Read all task files under `.agents/bundles/specs/{flow_id}/tasks/*.md` and ensure their frontmatter `state` is `closed` or `skipped`. If any tasks are open or in_progress, warn and confirm with the user before proceeding.
 
 ## Phase 2: Verification Gate
 
@@ -41,7 +40,7 @@ Dispatch final comprehensive code review:
    - What was implemented (from spec.md Specification section)
    - Requirements (from spec.md Requirements section)
    - Git range (base to HEAD)
-   - Project patterns (from `.agents/patterns.md`)
+   - Project patterns (from `.agents/bundles/knowledge/patterns/patterns.md`)
 
 3. **Handle results:**
    - **Critical issues** → must fix before proceeding
@@ -96,7 +95,7 @@ gh pr create --title "{pr_title}" --body "$(cat <<'EOF'
 
 ## Flow
 - Flow ID: {flow_id}
-- Spec: .agents/specs/{flow_id}/spec.md
+- Spec: .agents/bundles/specs/{flow_id}/spec.md
 EOF
 )"
 ```

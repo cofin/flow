@@ -3,11 +3,8 @@ prompt = """
 ## Lifecycle Skill
 Use the `flow-setup` lifecycle skill through the `flow` router before carrying out this command.
 
-## Beads Mode Gate
-Skip every `bd` invocation below when the SessionStart hook reports `Beads Backend: Missing (None)` or `Disabled via plugin config (useBeads=false)`. Validate `spec.md` markers as fallback source of truth and skip Beads consistency checks entirely. Never halt for missing Beads. See `skills/flow/references/discipline.md`.
-
 ## SYSTEM DIRECTIVE
-You are validating a Flow project's integrity. Check all files, Beads status, and flow consistency.
+You are validating a Flow project's integrity. All checks are file checks — read the bundle files directly and verify spec, task, and knowledge consistency.
 
 ---
 
@@ -15,50 +12,49 @@ You are validating a Flow project's integrity. Check all files, Beads status, an
 
 Verify required files exist:
 
-1. **Core Files:**
-   - `.agents/product.md`
-   - `.agents/tech-stack.md`
-   - `.agents/workflow.md`
-   - `.agents/beads.json`
-   - `.agents/flows.md`
-   - `.agents/patterns.md`
+1. **Bundle Root:**
+   - `.agents/bundles/index.md` (frontmatter carries `okf_version`)
 
-2. **Beads Directory:**
-   - `.beads/` must exist
-   - Run `bd --version` to verify Beads CLI
+2. **Knowledge Chapters:**
+   - `.agents/bundles/knowledge/product/product.md`
+   - `.agents/bundles/knowledge/product/tech-stack.md`
+   - `.agents/bundles/knowledge/workflow/workflow.md`
+   - `.agents/bundles/knowledge/patterns/patterns.md`
 
----
-
-## Phase 2: Beads Health Check
-
-```bash
-bd --version
-bd status
-```
-
-Report any Beads errors.
+3. **Specs Directory:**
+   - `.agents/bundles/specs/` must exist
 
 ---
 
-## Phase 3: Flow Consistency
+## Phase 2: Spec Integrity
 
-For each flow in `.agents/flows.md`:
+For each flow directory under `.agents/bundles/specs/<flow_id>/`:
 
-1. Verify directory exists: `.agents/specs/{flow_id}/`
-2. Verify required files:
-   - spec.md
-   - metadata.json
-3. Check if Beads epic exists for flow
-4. Verify task count matches plan
+1. Verify `spec.md` exists
+2. Verify spec frontmatter: `type: Spec`, `flow_id` equals the directory name, `title`, `state` in `planned|active|completed|archived`, valid `created_at`/`updated_at`
+3. Verify Implementation Plan checklist markers are valid: `[ ]`, `[~]`, `[x]`, `[!]`, `[-]`
 
 ---
 
-## Phase 4: Plan Integrity
+## Phase 3: Task Integrity
 
-For each spec.md Implementation Plan section:
-- Verify task IDs are sequential
-- Verify status markers are valid: `[ ]`, `[~]`, `[x]`, `[!]`, `[-]`
-- Verify checkpoint SHAs exist in git history
+For each task file under `.agents/bundles/specs/<flow_id>/tasks/*.md`:
+
+- Frontmatter fields present: `type: Task`, `id`, `title`, `state`, `depends_on`, `created_at`, `updated_at`
+- `id` matches `<flow_id>:<short_id>` and `<short_id>` matches the filename
+- `state` in `open|in_progress|closed|blocked|skipped` (workflow state lives in `state:`, never `status:`)
+- `depends_on` uses short ids that resolve to task files in the same flow
+- `closed` tasks carry a `commit:` SHA that exists in git history
+
+---
+
+## Phase 4: Checklist/Task Agreement
+
+For each flow:
+
+1. Every checklist entry in `spec.md` has a matching file in `tasks/`
+2. No orphaned task files without a checklist entry
+3. Each marker matches its task file's `state` (`open` -> `[ ]`, `in_progress` -> `[~]`, `closed` -> `[x]` + ` [sha]`, `blocked` -> `[!]`, `skipped` -> `[-]`); the task file is authoritative on conflict
 
 ---
 
@@ -70,11 +66,11 @@ Generate validation report:
 Flow Validation Report
 
 === Structure ===
-[x] .agents/ directory complete
-[x] Beads initialized
+[x] .agents/bundles/ directory complete
+[x] index.md carries okf_version
 
 === Flows ===
-[x] {flow_id}: {task_count} tasks, {complete_count} complete
+[x] {flow_id}: {task_count} tasks, {closed_count} closed
 [!] {flow_id}: Missing required file
 
 === Issues Found ===
@@ -90,8 +86,8 @@ Flow Validation Report
 
 If user requests fix:
 - Create missing files from templates
-- Sync Beads task counts
-- Add missing index files
+- Scaffold task files for checklist entries missing one (default `Task` frontmatter)
+- Reconcile checklist markers with task file `state` (task file wins)
 
 Report all fixes made.
 
@@ -100,6 +96,6 @@ Report all fixes made.
 ## Critical Rules
 
 1. **NON-DESTRUCTIVE** - Only report by default
-2. **BEADS INTEGRATION** - Always check Beads health
+2. **FILES ARE THE BACKEND** - Task files are the source of truth; checklist markers are a synchronized view
 3. **COMPREHENSIVE** - Check all aspects
 """

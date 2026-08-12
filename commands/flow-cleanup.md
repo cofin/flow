@@ -41,7 +41,7 @@ If validation fails, resolve the reported violations (e.g. delete orphaned task 
 
 ## Phase 3: Identify Completed Flows for Archiving
 
-Scan `.agents/bundles/specs/*/spec.md` for flows that have frontmatter `status: completed`.
+Scan `.agents/bundles/specs/*/spec.md` for flows that have frontmatter `state: completed`.
 For each completed flow found, prompt the developer:
 
 > Propose archiving completed flow '{flow_id}'?

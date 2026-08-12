@@ -22,6 +22,6 @@ CRITICAL: You must have FRESH VERIFICATION EVIDENCE before claiming anything pas
 ## 7.0 CLEANUP
 **PROTOCOL: Update Spec Status.**
 
-1.  **Update Spec Status:** Mark spec complete by editing the frontmatter of `.agents/bundles/specs/{flow_id}/spec.md` to `status: completed` and updating `updated_at`.
+1.  **Update Spec Status:** Mark spec complete by editing the frontmatter of `.agents/bundles/specs/{flow_id}/spec.md` to `state: completed` and updating `updated_at`.
 2.  **Archive:** Recommend `/flow:archive` to synthesize learnings and clean up the active spec bundle directory.
 """

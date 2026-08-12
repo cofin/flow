@@ -74,7 +74,7 @@ Proceed with revert? (yes/no)
 ## Phase 5: Update Metadata & Sync
 
 1. **Reset Task Status**: For reverted tasks, edit their task files under `tasks/*.md`:
-   - `status: open`
+   - `state: open`
    - `commit: null`
 2. **Sync**: Run `/flow:sync` to update `spec.md` task checklists to match the reverted task states.
 

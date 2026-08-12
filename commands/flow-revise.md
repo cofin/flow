@@ -6,8 +6,6 @@ allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
 
 # Flow Revise
 
-> **Beads mode:** Skip every `bd` invocation below when the SessionStart hook reports `Beads Backend: Missing (None)` or `Disabled via plugin config (useBeads=false)`. Treat `spec.md` markers as fallback source of truth and skip `/flow:sync`. Never halt for missing Beads. See `skills/flow/references/discipline.md`.
->
 > Lifecycle skill: use `flow-planning` through the `flow` router.
 
 Revising flow: **$ARGUMENTS**
@@ -16,8 +14,9 @@ Revising flow: **$ARGUMENTS**
 
 Read:
 
-- `.agents/specs/{flow_id}/spec.md`
-- `.agents/specs/{flow_id}/learnings.md`
+- `.agents/bundles/specs/{flow_id}/spec.md`
+- `.agents/bundles/specs/{flow_id}/tasks/*.md`
+- `.agents/bundles/specs/{flow_id}/learnings.md`
 
 ---
 
@@ -52,7 +51,7 @@ Based on revision type:
 
 ### Plan Revision
 
-1. Show current task status
+1. Show current task status from task files
 2. Allow adding/removing/reordering tasks
 3. Update task numbers and dependencies
 
@@ -60,7 +59,7 @@ Based on revision type:
 
 ## Phase 5: Log Revision
 
-Append to `.agents/specs/{flow_id}/revisions.md`:
+Append to `.agents/bundles/specs/{flow_id}/revisions.md`:
 
 ```markdown
 ## [YYYY-MM-DD HH:MM] Revision {N}
@@ -78,32 +77,26 @@ Append to `.agents/specs/{flow_id}/revisions.md`:
 
 ---
 
-## Phase 6: Sync Beads
+## Phase 6: Update Task Files
 
 If plan changed:
 
-```bash
-# Update existing tasks with revision notes
-bd update {affected_task_ids} --notes "Revised: {reason}"
+- **Affected tasks:** Append to each affected task file's `## Notes & Discoveries` section: `- [timestamp] Revised: {reason}`. Refresh `updated_at`.
+- **New tasks:** Add a `- [ ] Task {short_id}: {title}` line to the spec's Implementation Plan, then create `tasks/{short_id}.md` with full frontmatter (`type: Task`, `id: {flow_id}:{short_id}`, `title`, `state: open`, `depends_on`, `files`, `tests`, `created_at`, `updated_at`, `commit: null`), a body describing what changed and why this task is needed, and a note: `- [timestamp] Added during revision. Reason: {reason}. Created by /flow-revise on {date}`.
+- **Removed tasks** (not started): set `state: skipped` in the task file and note `- [timestamp] Removed in revision`. Never delete task files.
 
-# If NEW tasks were added during revision, create with FULL CONTEXT:
-bd create "{new_task}" --parent {epic_id} -p 2 \
-  --description="{what_changed_and_why}"
-bd update {new_task_id} --notes "Added during revision. Reason: {reason}. Created by /flow-revise on {date}"
-```
-
-**CRITICAL:** Always include `--description` when creating tasks, then add `--notes` via `bd update`.
+**CRITICAL:** Always include a description of what changed and why when creating task files, plus the revision note.
 
 ---
 
-### Markdown Sync (Manual)
+### Markdown Sync
 
-**CRITICAL:** Do NOT write markers directly to spec.md. Follow `syncPolicy.flowSyncAfterMutation`; when enabled, run `/flow-sync` to update the markdown state after task completion or status changes.
+**CRITICAL:** Do NOT hand-edit status markers in spec.md. Run `/flow-sync` (reconcile checklist markers with task-file `state`) after task files change.
 
 ## Phase 8: Commit Revision
 
 ```bash
-git add .agents/specs/{flow_id}/
+git add .agents/bundles/specs/{flow_id}/
 git commit -m "chore(revise): {flow_id} - {brief description}"
 ```
 
@@ -112,5 +105,5 @@ git commit -m "chore(revise): {flow_id} - {brief description}"
 ## Critical Rules
 
 1. **LOG EVERYTHING** - All revisions documented
-2. **BEADS FIRST** - Update Beads before syncing markdown
+2. **TASK FILES FIRST** - Update task files before reconciling checklist markers
 3. **PRESERVE HISTORY** - Never delete, only append

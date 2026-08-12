@@ -1,34 +1,32 @@
 ---
-description: Dispatch code review with Beads-aware git range
+description: Dispatch code review for a flow using the git range from its task-file commits
 argument-hint: <flow_id>
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent
 ---
 
 # Flow Review
 
-> **Beads mode:** Skip every `bd` invocation below when the SessionStart hook reports `Beads Backend: Missing (None)` or `Disabled via plugin config (useBeads=false)`. Treat `spec.md` markers as fallback source of truth and skip `/flow:sync`. Never halt for missing Beads. See `skills/flow/references/discipline.md`.
->
 > Lifecycle skill: use `flow-completion` through the `flow` router.
 
 Reviewing flow: **$ARGUMENTS**
 
 ## 1.0 SYSTEM DIRECTIVE
 
-You are dispatching a code review for a Flow's implementation. Your task is to determine the correct git range from Beads, dispatch a review subagent, and present actionable results.
+You are dispatching a code review for a Flow's implementation. Your task is to determine the correct git range from the flow's task files, dispatch a review subagent, and present actionable results.
 
 ---
 
 ## 2.0 LOAD CONTEXT
 
-1. **Flow ID:** Use `$ARGUMENTS` or auto-discover from `.agents/flows.md`.
-2. **Read Artifacts:** `.agents/specs/<flow_id>/spec.md` (requirements), `.agents/patterns.md` (conventions).
-3. **Load Beads:** `bd show <epic_id>`, `bd list --parent <epic_id> --status closed`
+1. **Flow ID:** Use `$ARGUMENTS` or auto-discover by scanning `.agents/bundles/specs/*/spec.md` frontmatter for `state: active`.
+2. **Read Artifacts:** `.agents/bundles/specs/<flow_id>/spec.md` (requirements), `.agents/bundles/knowledge/patterns/patterns.md` (conventions).
+3. **Read Task Files:** All of `.agents/bundles/specs/<flow_id>/tasks/*.md`, collecting `commit:` SHAs from tasks with `state: closed`.
 
 ---
 
 ## 3.0 DETERMINE GIT RANGE
 
-1. **From Beads:** Extract commit SHAs from task close reasons (`"commit: abc1234"`). Base = before earliest, Head = latest or HEAD.
+1. **From Task Files:** Use the `commit:` SHAs collected from closed task files. Base = before earliest, Head = latest or HEAD.
 2. **Fallback:** `git merge-base HEAD main`
 3. **Confirm:** Show `git log --oneline <base>..<head>` and ask user to confirm range.
 
@@ -76,4 +74,4 @@ Apply `flow:challenge` when evaluating review findings. Do not reflexively accep
 
 ## 7.0 LOG
 
-Append review summary to `.agents/specs/<flow_id>/learnings.md`.
+Append review summary to `.agents/bundles/specs/<flow_id>/learnings.md`.

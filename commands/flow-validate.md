@@ -5,80 +5,71 @@ allowed-tools: Read, Write, Edit, Glob, Grep, Bash
 
 # Flow Validate
 
-> **Beads mode:** Skip every `bd` invocation below when the SessionStart hook reports `Beads Backend: Missing (None)` or `Disabled via plugin config (useBeads=false)`. Treat `spec.md` markers as fallback source of truth and skip `/flow:sync`. Never halt for missing Beads. See `skills/flow/references/discipline.md`.
->
 > Lifecycle skill: use `flow-setup` through the `flow` router.
 
-Validate Flow project integrity and optionally fix issues.
+Validate Flow project integrity and optionally fix issues. All checks are file checks — read the bundle files directly.
 
 ## Phase 1: Directory Structure
 
 Check required files exist:
 
-- [ ] `.agents/product.md`
-- [ ] `.agents/tech-stack.md`
-- [ ] `.agents/workflow.md`
-- [ ] `.agents/beads.json`
-- [ ] `.agents/flows.md`
-- [ ] `.agents/patterns.md`
-- [ ] `.beads/` directory
+- [ ] `.agents/bundles/index.md` (bundle root; frontmatter carries `okf_version`)
+- [ ] `.agents/bundles/knowledge/product/product.md`
+- [ ] `.agents/bundles/knowledge/product/tech-stack.md`
+- [ ] `.agents/bundles/knowledge/workflow/workflow.md`
+- [ ] `.agents/bundles/knowledge/patterns/patterns.md`
+- [ ] `.agents/bundles/specs/` directory
 
 ---
 
-## Phase 2: Beads Health
+## Phase 2: Spec Integrity
 
-```bash
-bd --version
-bd status
-```
+For each flow directory under `.agents/bundles/specs/<flow_id>/`:
 
-Check Beads is operational.
-
----
-
-## Phase 3: Flow Consistency
-
-For each flow in `.agents/flows.md`:
-
-1. Verify directory exists: `.agents/specs/{flow_id}/`
-2. Verify required files: spec.md, metadata.json
-3. Verify Beads epic exists
-4. Check task count matches spec
+1. Verify `spec.md` exists
+2. Verify spec frontmatter: `type: Spec`, `flow_id` equals the directory name, `title`, `state` in `planned|active|completed|archived`, valid `created_at`/`updated_at`
+3. Verify Implementation Plan checklist markers are valid: `[ ]`, `[~]`, `[x]`, `[!]`, `[-]`
 
 ---
 
-## Phase 4: Spec Integrity
+## Phase 3: Task Integrity
 
-For each spec.md:
+For each task file under `.agents/bundles/specs/<flow_id>/tasks/*.md`:
 
-- Task IDs are sequential
-- Status markers are valid: `[ ]`, `[~]`, `[x]`, `[!]`, `[-]`
-- Checkpoint SHAs exist in git history
-
----
-
-## Phase 5: Git Notes
-
-Verify git notes exist for completed tasks.
+- Frontmatter fields present: `type: Task`, `id`, `title`, `state`, `depends_on`, `created_at`, `updated_at`
+- `id` matches `<flow_id>:<short_id>` and `<short_id>` matches the filename
+- `state` in `open|in_progress|closed|blocked|skipped` (workflow state lives in `state:`, never `status:`)
+- `depends_on` uses short ids that resolve to task files in the same flow
+- `closed` tasks carry a `commit:` SHA that exists in git history
 
 ---
 
-## Phase 6: Report
+## Phase 4: Checklist/Task Agreement
+
+For each flow:
+
+1. Every checklist entry in `spec.md` has a matching file in `tasks/`
+2. No orphaned task files without a checklist entry
+3. Each marker matches its task file's `state` (`open` → `[ ]`, `in_progress` → `[~]`, `closed` → `[x]` + `[sha]`, `blocked` → `[!]`, `skipped` → `[-]`); the task file is authoritative on conflict
+
+---
+
+## Phase 5: Report
 
 ```text
 Flow Validation Report
 
 === Structure ===
-[x] .agents/ directory complete
-[x] Beads initialized
+[x] .agents/bundles/ directory complete
+[x] index.md carries okf_version
 
 === Flows ===
-[x] auth: 12 tasks, 5 complete
+[x] auth: 12 tasks, 5 closed
 [!] dark-mode: Missing spec.md
 
 === Issues Found ===
 1. dark-mode: Missing spec.md
-2. auth: Task 3 marked complete but no commit SHA
+2. auth: Task 3 closed but no commit SHA
 
 === Recommendations ===
 - Run with --fix to auto-repair issues
@@ -87,13 +78,13 @@ Flow Validation Report
 
 ---
 
-## Phase 7: Auto-Fix (if --fix)
+## Phase 6: Auto-Fix (if --fix)
 
 If `--fix` argument provided:
 
 - Create missing files from templates
-- Sync Beads task counts
-- Add missing index files
+- Scaffold task files for checklist entries missing one (default `Task` frontmatter)
+- Reconcile checklist markers with task file `state` (task file wins)
 
 ---
 

@@ -1,9 +1,7 @@
 
 # Flow Review
 
-> **Beads mode:** Skip every `bd` invocation below when the SessionStart hook reports `Beads Backend: Missing (None)` or `Disabled via plugin config (useBeads=false)`. Treat `spec.md` markers as fallback source of truth and skip `/flow:sync`. Never halt for missing Beads. See `discipline.md`.
-
-Dispatch a code review for a flow's implementation with Beads-aware git range detection.
+Dispatch a code review for a flow's implementation, deriving the git range from the flow's task-file commits.
 
 ## Usage
 
@@ -12,31 +10,22 @@ Dispatch a code review for a flow's implementation with Beads-aware git range de
 ## Phase 1: Load Context
 
 1. **Read Flow Artifacts:**
-   - `.agents/specs/{flow_id}/spec.md` (requirements and plan)
-   - `.agents/specs/{flow_id}/metadata.json`
-2. **Read Project Context:** `.agents/patterns.md`
-3. **Load Beads context:**
-
-   ```bash
-   bd show {epic_id}
-   ```
+   - `.agents/bundles/specs/{flow_id}/spec.md` (requirements and plan)
+   - `.agents/bundles/specs/{flow_id}/tasks/*.md` (task states and commit SHAs)
+2. **Read Project Context:** `.agents/bundles/knowledge/patterns/patterns.md`
 
 ## Phase 2: Determine Git Range
 
-### From Beads (Primary)
+### From Task Files (Primary)
 
-Extract commit SHAs from Beads task close reasons:
-
-```bash
-bd list --parent {epic_id} --status closed
-```
-
-Each closed task has a reason like `"commit: abc1234"`. Use:
+Collect the `commit:` frontmatter SHAs from task files with `state: closed`. Use:
 
 - **Base:** commit before earliest task SHA
 - **Head:** latest task SHA or current HEAD
 
 ### From Git (Fallback)
+
+When no task file carries a commit SHA:
 
 ```bash
 git merge-base HEAD main  # or master
@@ -57,7 +46,7 @@ Dispatch code review subagent with:
 1. **What was implemented:** Summary from spec.md Specification section
 2. **Requirements:** From spec.md Requirements section
 3. **Git range:** `{base_sha}..{head_sha}`
-4. **Conventions:** From `.agents/patterns.md`
+4. **Conventions:** From `.agents/bundles/knowledge/patterns/patterns.md`
 5. **Description:** Brief summary of the flow's purpose
 
 ## Phase 4: Present Results
@@ -104,7 +93,7 @@ Follow the **Critical Thinking Iron Law** for every review finding:
 
 ### Log Findings
 
-Append review summary to `.agents/specs/{flow_id}/learnings.md`:
+Append review summary to `.agents/bundles/specs/{flow_id}/learnings.md`:
 
 ```markdown
 ## [YYYY-MM-DD] Code Review

@@ -14,10 +14,10 @@ Execute tasks from a flow's plan using TDD workflow.
 1. **Read Spec Artifacts:**
     - `.agents/bundles/specs/{flow_id}/spec.md` (unified spec+plan)
     - `.agents/bundles/specs/{flow_id}/learnings.md` (if exists)
-2. **Read Project Context:** `.agents/patterns.md` and `.agents/workflow.md`
+2. **Read Project Context:** `.agents/bundles/knowledge/patterns/patterns.md` and `.agents/bundles/knowledge/workflow/workflow.md`
 3. **Read Parent Context:**
     - Check if this flow has a parent PRD/Saga.
-    - If yes, read `.agents/bundles/specs/<parent_id>/prd.md`.
+    - If yes, read the parent roadmap's `.agents/bundles/specs/<parent_id>/spec.md`.
 4. **Load Task List**:
     - Scan task files under `.agents/bundles/specs/{flow_id}/tasks/*.md`.
 
@@ -30,12 +30,12 @@ Extract canonical repo commands from `.agents/workflow.md` before coding. Prefer
 
 ### 2.1 Check for Resume State
 
-Check `.agents/bundles/specs/{flow_id}/tasks/` for any task file with `status: in_progress`. If one is found, resume it.
+Check `.agents/bundles/specs/{flow_id}/tasks/` for any task file with `state: in_progress`. If one is found, resume it.
 
 ### 2.2 Find Next Task
 
 1. **Scan**: Scan task files under `.agents/bundles/specs/{flow_id}/tasks/*.md`.
-2. **Parse & Resolve Dependencies**: Parse the YAML frontmatter of each task. A task is ready if its `status` is `"open"` and all dependencies listed in `depends_on` have `status` set to `"closed"`.
+2. **Parse & Resolve Dependencies**: Parse the YAML frontmatter of each task. A task is ready if its `state` is `"open"` and all dependencies listed in `depends_on` have `state` set to `"closed"`.
 3. **Select**: Sort the ready tasks by priority (`P0` > `P1` > `P2` > `P3` > `P4`), then select the first one.
 
 ## Phase 3: Task Execution (TDD)
@@ -69,7 +69,7 @@ Write code before the test? Delete it. Start over. No exceptions.
 
 Edit the selected task's file (e.g. `.agents/bundles/specs/{flow_id}/tasks/{task_id}.md`):
 
-1. Set `status: in_progress` in the YAML frontmatter.
+1. Set `state: in_progress` in the YAML frontmatter.
 2. Set `updated_at` to the current ISO-8601 timestamp.
 
 ### 3.2 Red Phase — Write Failing Tests
@@ -149,7 +149,7 @@ Never force-add ignored Flow artifacts.
 
 Edit the task file:
 
-1. Set `status: closed` in the YAML frontmatter.
+1. Set `state: closed` in the YAML frontmatter.
 2. Set `commit: <sha>` where `<sha>` is the commit hash retrieved from the recent git commit (`git log -n 1 --format="%H"`).
 3. Set `updated_at` to the current ISO-8601 timestamp.
 

@@ -1,5 +1,5 @@
 ---
-description: Synchronize flow specifications and task files (Beads-free OKF bundle)
+description: Synchronize flow specifications and task files (OKF bundle)
 argument-hint: [flow_id]
 allowed-tools: Read, Write, Edit, Glob, Grep, Bash
 ---
@@ -21,7 +21,7 @@ Syncing active flow state on disk: **$ARGUMENTS**
 As the AI agent, you must execute the reconciliation algorithm directly using your file tools:
 
 1. **Locate Active Flow**:
-   - Scan `.agents/bundles/specs/` to find the active flow (look for a spec.md file with status `active` or `in_progress`). If a flow ID argument is provided, target that flow ID.
+   - Scan `.agents/bundles/specs/` to find the active flow (look for a spec.md whose frontmatter has `state: active`). If a flow ID argument is provided, target that flow ID.
 2. **Read Spec File**:
    - Read `.agents/bundles/specs/{flow_id}/spec.md`. Extract `flow_id` from the YAML frontmatter.
 3. **Parse Tasks**:
@@ -39,8 +39,10 @@ As the AI agent, you must execute the reconciliation algorithm directly using yo
 
        ```yaml
        ---
+       type: Task
        id: {flow_id}:{task_id}
-       status: open
+       title: {task_description}
+       state: open
        depends_on: []
        files: []
        tests: []
@@ -50,7 +52,7 @@ As the AI agent, you must execute the reconciliation algorithm directly using yo
        ---
        ```
 
-     - **If it DOES exist**: Read its YAML frontmatter. Check the `status` field:
+     - **If it DOES exist**: Read its YAML frontmatter. Check the `state` field:
        - `open` -> Map checklist marker to `[ ]`
        - `in_progress` -> Map checklist marker to `[~]`
        - `closed` -> Map checklist marker to `[x]` (and append `[<commit_sha>]` using the `commit` value from frontmatter)
@@ -68,7 +70,7 @@ Execute the repository integrity checks manually:
    - Ensure that every task file has a corresponding checklist task in `.agents/bundles/specs/{flow_id}/spec.md`.
    - If any task file is orphaned (not defined in `spec.md`), report a validation violation.
 2. **Verify File and Test Paths**:
-   - For each task file in status `closed`, read `files:` and `tests:` arrays.
+   - For each task file in state `closed`, read `files:` and `tests:` arrays.
    - Verify that all listed paths exist in the workspace. If any path does not exist, report a validation violation.
 3. **Verify Markdown Links**:
    - Scan all relative links in `spec.md`.
