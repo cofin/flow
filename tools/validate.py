@@ -5,6 +5,7 @@ Consolidated validator for all harnesses (Antigravity, Claude Code, Codex, etc.)
 
 from __future__ import annotations
 
+import datetime
 import json
 import os
 import re
@@ -1215,11 +1216,28 @@ def iter_okf_bundles(repo_root: Path = REPO_ROOT) -> Iterator[Path]:
             yield path
 
 
-def _validate_iso_timestamp(timestamp: str) -> bool:
+def validate_okf_bundle_root(repo_root: Path = REPO_ROOT) -> list[Violation]:
+    """Check the bundle root index declares its OKF version."""
+    bundles_dir = repo_root / ".agents" / "bundles"
+    if not bundles_dir.is_dir():
+        return []
+    index_path = bundles_dir / "index.md"
+    if not index_path.is_file():
+        return [Violation(index_path, None, "bundle root is missing index.md (should carry okf_version)")]
+    content = index_path.read_text(encoding="utf-8")
+    if not content.startswith("---\n") or "okf_version" not in content.split("---\n", 2)[1]:
+        return [Violation(index_path, 1, "bundle root index.md must declare okf_version in frontmatter")]
+    return []
+
+
+def _validate_iso_timestamp(timestamp: Any) -> bool:
+    # PyYAML parses unquoted ISO-8601 stamps into datetime/date objects
+    if isinstance(timestamp, (datetime.datetime, datetime.date)):
+        return True
     pattern = re.compile(
         r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?$"
     )
-    return bool(pattern.match(timestamp))
+    return bool(pattern.match(str(timestamp)))
 
 
 def _parse_yaml_frontmatter(path: Path) -> tuple[dict[str, Any] | None, list[Violation]]:
@@ -1296,24 +1314,25 @@ def validate_okf_bundle(bundle_path: Path, repo_root: Path = REPO_ROOT) -> list[
         except OSError:
             pass
 
-    spec_status = spec_data.get("status", "planned") if spec_data else "planned"
-    is_spec_closed = spec_status in ("completed", "archived")
+    spec_state = (spec_data.get("state") or spec_data.get("status") or "planned") if spec_data else "planned"
+    is_spec_closed = spec_state in ("completed", "archived")
     violations.extend(_validate_markdown_links(spec_path, repo_root, strict=is_spec_closed))
-    
+
     if spec_data is not None:
-        required_fields = {"flow_id", "type", "status", "created_at", "updated_at", "description"}
+        required_fields = {"type", "flow_id", "title", "state", "created_at", "updated_at"}
         for f in required_fields:
-            if f not in spec_data or spec_data[f] is None:
+            if f not in spec_data or spec_data[f] is None or spec_data[f] == "":
                 violations.append(Violation(spec_path, 1, f"spec.md missing required field: '{f}'"))
             elif f in ("created_at", "updated_at"):
-                val = str(spec_data[f])
+                val = spec_data[f]
                 if not _validate_iso_timestamp(val):
                     violations.append(Violation(spec_path, 1, f"spec.md field '{f}' must be a valid ISO-8601 timestamp (got '{val}')"))
 
-        if "type" in spec_data and spec_data["type"] not in ("prd", "saga", "flow", "feature", "bug", "refactor", "task"):
-            violations.append(Violation(spec_path, 1, f"spec.md field 'type' has invalid value: '{spec_data['type']}'"))
-        if "status" in spec_data and spec_data["status"] not in ("planned", "active", "completed", "archived"):
-            violations.append(Violation(spec_path, 1, f"spec.md field 'status' has invalid value: '{spec_data['status']}'"))
+        # OKF: unknown `type` values are tolerated; only emptiness is an error (handled above).
+        if "state" in spec_data and spec_data["state"] not in ("planned", "active", "completed", "archived", None):
+            violations.append(Violation(spec_path, 1, f"spec.md field 'state' has invalid value: '{spec_data['state']}'"))
+        if spec_data.get("status") is not None and spec_data["status"] not in ("draft", "stable", "deprecated"):
+            violations.append(Violation(spec_path, 1, f"spec.md field 'status' is the OKF lifecycle (draft|stable|deprecated); workflow state belongs in 'state' (got '{spec_data['status']}')"))
         if "flow_id" in spec_data and spec_data["flow_id"] != bundle_path.name:
             violations.append(Violation(spec_path, 1, f"spec.md flow_id '{spec_data['flow_id']}' does not match directory name '{bundle_path.name}'"))
 
@@ -1328,21 +1347,25 @@ def validate_okf_bundle(bundle_path: Path, repo_root: Path = REPO_ROOT) -> list[
             if spec_parsed_ok and short_id not in spec_task_short_ids:
                 violations.append(Violation(task_file, None, f"orphaned task file: no corresponding 'Task {short_id}' found in spec.md implementation plan"))
             
-            task_status = task_data.get("status", "open") if task_data else "open"
-            violations.extend(_validate_markdown_links(task_file, repo_root, strict=(task_status == "closed")))
-            
+            task_state = (task_data.get("state") or task_data.get("status") or "open") if task_data else "open"
+            violations.extend(_validate_markdown_links(task_file, repo_root, strict=(task_state == "closed")))
+
             if task_data is not None:
-                required_task_fields = {"id", "status", "depends_on", "files", "tests", "created_at", "updated_at"}
+                required_task_fields = {"type", "id", "state", "depends_on", "files", "tests", "created_at", "updated_at"}
                 for f in required_task_fields:
                     if f not in task_data or task_data[f] is None:
                         violations.append(Violation(task_file, 1, f"task missing required field: '{f}'"))
                     elif f in ("created_at", "updated_at"):
-                        val = str(task_data[f])
+                        val = task_data[f]
                         if not _validate_iso_timestamp(val):
                             violations.append(Violation(task_file, 1, f"task field '{f}' must be a valid ISO-8601 timestamp (got '{val}')"))
 
-                if "status" in task_data and task_data["status"] not in ("open", "in_progress", "closed", "blocked", "skipped"):
-                    violations.append(Violation(task_file, 1, f"task field 'status' has invalid value: '{task_data['status']}'"))
+                if task_data.get("type") == "":
+                    violations.append(Violation(task_file, 1, "task field 'type' must be non-empty"))
+                if "state" in task_data and task_data["state"] not in ("open", "in_progress", "closed", "blocked", "skipped", None):
+                    violations.append(Violation(task_file, 1, f"task field 'state' has invalid value: '{task_data['state']}'"))
+                if task_data.get("status") is not None and task_data["status"] not in ("draft", "stable", "deprecated"):
+                    violations.append(Violation(task_file, 1, f"task field 'status' is the OKF lifecycle (draft|stable|deprecated); workflow state belongs in 'state' (got '{task_data['status']}')"))
 
                 if "depends_on" in task_data and not isinstance(task_data["depends_on"], list):
                     violations.append(Violation(task_file, 1, "task field 'depends_on' must be a list"))
@@ -1369,7 +1392,7 @@ def validate_okf_bundle(bundle_path: Path, repo_root: Path = REPO_ROOT) -> list[
                                 except ValueError:
                                     violations.append(Violation(task_file, 1, f"referenced file '{item}' escapes repository root"))
                                     continue
-                                if not resolved.exists() and task_status == "closed":
+                                if not resolved.exists() and task_state == "closed":
                                     violations.append(Violation(task_file, 1, f"referenced file does not exist: '{item}'"))
     return violations
 
@@ -1429,6 +1452,7 @@ def main() -> int:
     all_violations.extend(validate_codex_hook_commands(REPO_ROOT))
     
     # OKF Bundle validation
+    all_violations.extend(validate_okf_bundle_root(REPO_ROOT))
     for bundle_path in iter_okf_bundles(REPO_ROOT):
         all_violations.extend(validate_okf_bundle(bundle_path, REPO_ROOT))
         

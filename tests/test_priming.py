@@ -147,42 +147,42 @@ def test_scan_active_flows_and_tasks() -> None:
         flow_dir = specs_dir / "active-flow"
         flow_dir.mkdir()
         spec_content = """---
-type: flow
-id: active-flow
-status: in_progress
+type: Spec
+flow_id: active-flow
+state: active
 title: Active Flow Title
 ---
 # Description
 """
         (flow_dir / "spec.md").write_text(spec_content, encoding="utf-8")
-        
+
         # Create tasks directory
         tasks_dir = flow_dir / "tasks"
         tasks_dir.mkdir()
-        
+
         task1 = """---
-type: task
+type: Task
 id: active-flow:001
-status: in_progress
+state: in_progress
 title: Task 1 Title
 ---
 """
         task2 = """---
-type: task
+type: Task
 id: active-flow:002
-status: closed
+state: closed
 title: Task 2 Title
 ---
 """
         (tasks_dir / "001-t1.md").write_text(task1, encoding="utf-8")
         (tasks_dir / "002-t2.md").write_text(task2, encoding="utf-8")
-        
-        # Create a closed flow (should be ignored)
-        closed_flow = specs_dir / "closed-flow"
+
+        # Create a completed flow (should be ignored)
+        closed_flow = specs_dir / "completed-flow"
         closed_flow.mkdir()
-        (closed_flow / "spec.md").write_text("---\nstatus: closed\n---\n", encoding="utf-8")
-        
-        flows = scan_active_flows_and_tasks(tmp_path)
+        (closed_flow / "spec.md").write_text("---\ntype: Spec\nstate: completed\n---\n", encoding="utf-8")
+
+        flows = scan_active_flows_and_tasks(tmp_path, tmp_path)
         
         assert len(flows) == 1
         assert flows[0]["id"] == "active-flow"

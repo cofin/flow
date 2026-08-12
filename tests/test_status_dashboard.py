@@ -30,9 +30,9 @@ def test_status_dashboard_aggregates_metrics_correctly(tmp_path: Path) -> None:
     _write_file(
         flow_dir / "spec.md",
         """---
+type: Spec
 flow_id: test-flow
-status: active
-type: feature
+state: active
 created_at: 2026-08-11T12:00:00Z
 updated_at: 2026-08-11T12:00:00Z
 description: Test flow
@@ -45,8 +45,9 @@ description: Test flow
     _write_file(
         flow_dir / "tasks" / "1.1.md",
         """---
+type: Task
 id: test-flow:1.1
-status: closed
+state: closed
 depends_on: []
 files: []
 tests: []
@@ -64,9 +65,10 @@ updated_at: 2026-08-11T12:00:00Z
     _write_file(
         flow_dir / "tasks" / "1.2.md",
         """---
+type: Task
 id: test-flow:1.2
-status: in_progress
-depends_on: [test-flow:1.1]
+state: in_progress
+depends_on: ["1.1"]
 files: []
 tests: []
 created_at: 2026-08-11T12:00:00Z
@@ -83,9 +85,10 @@ updated_at: 2026-08-11T12:00:00Z
     _write_file(
         flow_dir / "tasks" / "1.3.md",
         """---
+type: Task
 id: test-flow:1.3
-status: open
-depends_on: [test-flow:1.2]
+state: open
+depends_on: ["1.2"]
 files: []
 tests: []
 created_at: 2026-08-11T12:00:00Z
@@ -99,8 +102,9 @@ updated_at: 2026-08-11T12:00:00Z
     _write_file(
         flow_dir / "tasks" / "1.4.md",
         """---
+type: Task
 id: test-flow:1.4
-status: open
+state: open
 depends_on: []
 files: []
 tests: []
@@ -115,8 +119,9 @@ updated_at: 2026-08-11T12:00:00Z
     _write_file(
         flow_dir / "tasks" / "1.5.md",
         """---
+type: Task
 id: test-flow:1.5
-status: skipped
+state: skipped
 depends_on: []
 files: []
 tests: []
@@ -141,9 +146,9 @@ updated_at: 2026-08-11T12:00:00Z
     assert flow_info["progress_percentage"] == 25.0
     
     # Queues check
-    assert flow_info["active_tasks"] == ["test-flow:1.2"]
-    assert flow_info["ready_queue"] == ["test-flow:1.4"] # 1.3 is blocked on 1.2
-    assert flow_info["blocked_queue"] == ["test-flow:1.3"]
+    assert flow_info["active_tasks"] == ["1.2"]
+    assert flow_info["ready_queue"] == ["1.4"]  # 1.3 is blocked on 1.2
+    assert flow_info["blocked_queue"] == ["1.3"]
     
     # Notes check
     notes = dashboard["recent_notes"]

@@ -9,7 +9,7 @@ This file provides guidance to AI coding agents working with code in this reposi
 **Flow** is a unified toolkit for **Context-Driven Development** combining:
 
 - **Flow Framework**: Spec-first planning, human-readable context, TDD workflow
-- **Task-Centric Filesystem Engine (OKF)**: Local specifications (`spec.md`) and task files (`tasks/*.md`) with YAML frontmatter.
+- **Open Knowledge Format (OKF) bundles**: Local specifications (`spec.md`), task files (`tasks/*.md`), and knowledge chapters with YAML frontmatter under `.agents/bundles/`.
 
 ## The Task-First Mandate
 
@@ -102,18 +102,16 @@ To find a file (e.g., "**Product Definition**") within a specific context:
 
 | Key | Default Path |
 |-----|--------------|
-| **Product Definition** | `.agents/product.md` |
-| **Tech Stack** | `.agents/tech-stack.md` |
-| **Workflow** | `.agents/workflow.md` |
-| **Product Guidelines** | `.agents/product-guidelines.md` |
+| **Product Definition** | `.agents/bundles/knowledge/product/product.md` |
+| **Tech Stack** | `.agents/bundles/knowledge/product/tech-stack.md` |
+| **Workflow** | `.agents/bundles/knowledge/workflow/workflow.md` |
 | **Flow Directory** | `.agents/bundles/specs/` |
 | **Template Directory** | `.agents/templates/` |
-| **Code Styleguides Directory** | `.agents/code-styleguides/` |
-| **Patterns** | `.agents/patterns.md` |
+| **Patterns** | `.agents/bundles/knowledge/patterns/patterns.md` (style guides live here as chapters) |
 | **Knowledge Base** | `.agents/bundles/knowledge/` |
-| **Knowledge Index** | `.agents/bundles/knowledge/index.md` |
-| **Project Skills** | `.agents/skills/` |
-| **Beads Config** | `.agents/beads.json` |
+| **Bundle Root Index** | `.agents/bundles/index.md` |
+| **Project Skills** | `.agents/bundles/skills/` (legacy fallback: `.agents/skills/`) |
+| **Layout Overrides** | `.agents/config.json` (`bundles_dir`, `knowledge_dir`) |
 | **Research Directory** | `.agents/research/` |
 | **Task Directory** | `.agents/tasks/` |
 
@@ -162,7 +160,6 @@ Every harness falls into one of three tiers:
 | Subagents (Antigravity / Claude Code plugin) | `agents/<agent-name>.md` (portable Markdown, slug `name`, required `description`, harness-specific tool lists omitted) |
 | Subagents (OpenCode) | `.opencode/agents/<agent-name>.md` (`tools` as dict mapping + `mode: subagent`) |
 | Subagents (VS Code / Copilot) | `.github/agents/<agent-name>.agent.md` |
-| MCP servers | `mcp-servers/<server-name>/` |
 | Hooks | `hooks/*.json` + `hooks/session-start` |
 | Templates | `templates/skill-template/` |
 
@@ -213,41 +210,85 @@ The following external repositories provide comprehensive, harness-verified skil
 | Finish | `/flow-finish` | `flow/finish` | Complete flow: verify, review, merge/PR/keep/discard |
 | Review | `/flow-review` | `flow/review` | Dispatch code review for completed work |
 
-## Task-Centric Filesystem Engine (OKF)
+## Open Knowledge Format (OKF) Bundles
 
-In Flow, task states and planning metadata are tracked entirely inside local Markdown files inside the `.agents/bundles/specs/<flow_id>/` directory:
+Flow stores all planning metadata, task state, and curated knowledge as **OKF v0.2 bundles**: directories of Markdown files with YAML frontmatter, per the [Open Knowledge Format specification](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md). No database, no CLI, no service — any agent or human that can read files can read a bundle.
 
-- **Unified Specification (`spec.md`)**: The root design and plan. The `Implementation Plan` section contains the checklist of tasks.
-- **Task Files (`tasks/<short_id>.md`)**: Detailed metadata for each task in the plan.
+### Bundle Layout
 
-### Task File Schema
+```text
+.agents/bundles/
+  index.md                      # bundle root index; carries okf_version: "0.2"
+  log.md                        # date-grouped change history (newest first, ISO dates)
+  specs/<flow_id>/
+    spec.md                     # the flow's design + Implementation Plan checklist
+    tasks/<short_id>.md         # one file per task (e.g. tasks/1.1.md)
+    learnings.md                # append-only per-flow discoveries (optional)
+    extracted_learnings.md      # consolidated at archive time (optional)
+  knowledge/
+    product/                    # product.md, tech-stack.md
+    workflow/                   # workflow.md
+    patterns/                   # patterns.md + style/convention chapters
+  skills/                       # project-local skills (<name>/SKILL.md)
+```
 
-Each task file under `tasks/<short_id>.md` (where `<short_id>` matches the ID in `spec.md`, e.g., `1.1.md`) MUST start with a YAML frontmatter block:
+`.agents/config.json` may override `bundles_dir` and `knowledge_dir` (defaults: `.agents/bundles`, `.agents/bundles/knowledge`). It is the only layout knob.
+
+### Frontmatter Rules
+
+Every non-reserved `.md` file in a bundle carries YAML frontmatter with a non-empty `type` — the only OKF-required key. Reserved files (`index.md`, `log.md`) need none. Flow's type vocabulary (consumers must tolerate unknown types):
+
+| `type` | Used for |
+|--------|----------|
+| `Spec` | `specs/<flow_id>/spec.md` |
+| `Task` | `specs/<flow_id>/tasks/*.md` |
+| `Guide` | knowledge/product and workflow chapters |
+| `Pattern` | knowledge/patterns chapters (incl. style/convention guides) |
+| `Learnings` | `learnings.md`, `extracted_learnings.md` |
+| `Skill` | `skills/<name>/SKILL.md` |
+
+**Workflow state lives in `state:`.** The OKF `status:` key keeps its spec meaning — document lifecycle (`draft`, `stable`, `deprecated`) — and stays optional. Never store workflow state in `status`. Never add `generated:` model attribution.
+
+### Spec File Schema (`spec.md`)
 
 ```yaml
 ---
-id: flow-id:1.1
-status: open
-depends_on: []
+type: Spec
+flow_id: user-auth              # must equal the directory name
+title: User Authentication
+state: planned                  # planned | active | completed | archived
+created_at: 2026-08-11T12:00:00Z
+updated_at: 2026-08-11T12:00:00Z
+---
+```
+
+Optional keys: `description`, `tags`, `status` (OKF lifecycle), `stale_after`. The spec `state` enum is exactly `planned`, `active`, `completed`, `archived` — a spec is never `blocked` (blocking is task-level).
+
+### Task File Schema (`tasks/<short_id>.md`)
+
+```yaml
+---
+type: Task
+id: user-auth:1.1               # <flow_id>:<short_id>
+title: Add login endpoint
+state: open                     # open | in_progress | closed | blocked | skipped
+depends_on: []                  # SHORT ids within the same flow, e.g. ["1.1"]
 files:
   - src/auth.py
 tests:
   - tests/test_auth.py
 created_at: 2026-08-11T12:00:00Z
 updated_at: 2026-08-11T12:00:00Z
-commit: null
+commit: null                    # 7+ hex commit SHA once closed
 ---
 ```
 
-Fields:
-
-- **`id`**: Unique string in the format `<flow_id>:<short_id>`.
-- **`status`**: Current lifecycle state: `open`, `in_progress`, `closed`, `blocked`, or `skipped`.
-- **`depends_on`**: List of parent task IDs that this task depends on.
-- **`files`**: List of repository-relative paths to source files affected by this task.
-- **`tests`**: List of repository-relative paths to test files verified by this task.
+- **`id`**: Unique string in the format `<flow_id>:<short_id>`; `<short_id>` matches the filename and the checklist ID in `spec.md`.
+- **`state`**: Task workflow state: `open`, `in_progress`, `closed`, `blocked`, or `skipped`.
+- **`depends_on`**: Short ids of tasks in the same flow that must close first.
+- **`files`** / **`tests`**: Repository-relative paths this task touches / verifies.
 - **`created_at` / `updated_at`**: Valid ISO-8601 timestamps.
-- **`commit`**: The commit SHA when the task is resolved (optional, only for `closed` status).
+- **`commit`**: The commit SHA once the task is `closed`.
 
 ### Task Notes & Discoveries
 
@@ -267,13 +308,14 @@ To capture learnings and debug findings, append notes to the bottom of the task 
 
 The reconciler matches the checklist in `spec.md` with the task files:
 
-1. **Checklist Status Mapping**: `spec.md` checklist status markers are updated by `/flow:sync` to match the `status` of their task files:
+1. **Checklist State Mapping**: `spec.md` checklist markers are updated by `/flow:sync` to match the `state` of their task files:
    - `open` -> `[ ]`
    - `in_progress` -> `[~]`
    - `closed` -> `[x]` (and the commit SHA is appended if present: `[<sha>]`)
    - `blocked` -> `[!]`
    - `skipped` -> `[-]`
-2. **Auto-Scaffolding**: If a task is listed in `spec.md` but has no file in `tasks/`, `/flow:sync` auto-generates the task file with default frontmatter.
+2. **Task file wins**: on conflict between a checklist marker and a task file's `state`, the task file is authoritative.
+3. **Auto-Scaffolding**: If a task is listed in `spec.md` but has no file in `tasks/`, `/flow:sync` auto-generates the task file with default frontmatter.
 
 ---
 
@@ -313,15 +355,15 @@ Consolidated patterns from all flows:
 ### Knowledge Flywheel
 
 1. **Capture** - After each task, append learnings to flow's `learnings.md`
-2. **Elevate** - At phase/flow completion, move reusable patterns to `.agents/patterns.md`
-3. **Synthesize** - During sync and archive, integrate learnings directly into cohesive, logically organized knowledge base chapters in `.agents/knowledge/` (e.g., `architecture.md`, `conventions.md`). Update the current state, do NOT outline history.
-4. **Inherit** - New flows read `patterns.md` + scan `.agents/knowledge/` chapters.
+2. **Elevate** - At phase/flow completion, move reusable patterns to `.agents/bundles/knowledge/patterns/patterns.md`
+3. **Synthesize** - During sync and archive, integrate learnings directly into cohesive, logically organized knowledge base chapters in `.agents/bundles/knowledge/` (e.g., `architecture.md`, `conventions.md`). Update the current state, do NOT outline history.
+4. **Inherit** - New flows read `knowledge/patterns/patterns.md` + scan the other `.agents/bundles/knowledge/` chapters.
 
-Repeated user corrections or visible frustration are high-signal workflow gaps. Capture them in `learnings.md`, elevate them into `.agents/patterns.md`, and refine `.agents/skills/flow-memory-keeper/SKILL.md` when present so the same miss does not have to be corrected again.
+Repeated user corrections or visible frustration are high-signal workflow gaps. Capture them in `learnings.md`, elevate them into `.agents/bundles/knowledge/patterns/patterns.md`, and refine `.agents/bundles/skills/flow-memory-keeper/SKILL.md` when present so the same miss does not have to be corrected again.
 
-Knowledge chapters in `.agents/knowledge/` survive archive cleanup and serve as the expert implementation details for the codebase.
+Knowledge chapters in `.agents/bundles/knowledge/` survive archive cleanup and serve as the expert implementation details for the codebase.
 
-If `.agents/skills/flow-memory-keeper/SKILL.md` exists, invoke it during sync, archive, finish, revise, and failure recovery so learnings, failures, and spec cleanup remain mandatory instead of ad hoc.
+If `.agents/bundles/skills/flow-memory-keeper/SKILL.md` exists, invoke it during sync, archive, finish, revise, and failure recovery so learnings, failures, and spec cleanup remain mandatory instead of ad hoc.
 
 ## Parallel Execution
 
@@ -341,19 +383,19 @@ Phases can annotate parallel execution:
 
 State tracked in `parallel_state.json`. Uses the `invoke_subagent` tool to spawn sub-agents.
 
-## Task Workflow (TDD) - Beads-First
+## Task Workflow (TDD)
 
-1. **Select task** from `bd ready` (Beads is source of truth).
-2. **Claim task** with `bd update <id> --claim`.
-3. **Investigate & Note**: Record findings with `bd note <id> "..."`.
+1. **Select task**: a task is ready when its `state` is `open` and every `depends_on` task is `closed`.
+2. **Claim task**: set `state: in_progress` (and bump `updated_at`) in the task file.
+3. **Investigate & Note**: Record findings under the task file's `## Notes & Discoveries`.
 4. **Write failing tests** (Red).
 5. **Implement to pass** (Green).
 6. **Refactor** while green.
 7. **Commit**: `<type>(<scope>): <description>`.
-8. **Close task** in Beads with the commit SHA: `bd close <id> --reason "[abc1234]..."`.
-9. **Sync to markdown**: Run `/flow:sync` when `syncPolicy.flowSyncAfterMutation` is enabled (default).
+8. **Close task**: set `state: closed` and record the commit SHA in the task file's `commit:` field.
+9. **Sync to spec**: run `/flow:sync` (or apply the reconciler rules inline) so the `spec.md` checklist reflects task-file state.
 
-**CRITICAL:** After Beads state changes, agents MUST follow `syncPolicy.flowSyncAfterMutation` in `.agents/beads.json`. Never write markers (`[x]`, `[~]`, etc.) directly to spec.md.
+**CRITICAL:** Task files are the source of truth. Update the task file first, then reconcile the `spec.md` checklist — never flip checklist markers without the matching task-file change.
 
 **Important:** All commits stay local. Flow never pushes automatically.
 
@@ -385,7 +427,4 @@ claude plugin install flow@flow-marketplace
 
 # Codex CLI
 codex plugin marketplace add cofin/flow
-
-# Install official Beads
-curl -fsSL https://raw.githubusercontent.com/gastownhall/beads/main/scripts/install.sh | bash
 ```

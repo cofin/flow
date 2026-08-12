@@ -339,41 +339,42 @@ def _write_okf_file(path: Path, frontmatter: str, content: str = "") -> None:
 
 
 def test_validate_okf_flow_frontmatter_fails_on_missing_required_fields(tmp_path: Path) -> None:
-    # Missing required field 'status'
+    # Missing required field 'state'
     spec_path = tmp_path / "bundles" / "specs" / "test-flow" / "spec.md"
     _write_okf_file(
         spec_path,
         """
+type: Spec
 flow_id: test-flow
-type: feature
+title: Test flow
 created_at: 2026-08-11T12:00:00Z
 updated_at: 2026-08-11T12:00:00Z
-description: Test flow
 """,
     )
 
     violations = validate_skills.validate_okf_bundle(spec_path.parent, repo_root=tmp_path)
-    assert any("missing required field" in v.message and "status" in v.message for v in violations)
+    assert any("missing required field" in v.message and "state" in v.message for v in violations)
 
 
 def test_validate_okf_task_frontmatter_fails_on_missing_fields(tmp_path: Path) -> None:
-    # Missing required field 'status' in task
+    # Missing required field 'state' in task
     spec_path = tmp_path / "bundles" / "specs" / "test-flow" / "spec.md"
     _write_okf_file(
         spec_path,
         """
+type: Spec
 flow_id: test-flow
-type: feature
-status: active
+title: Test flow
+state: active
 created_at: 2026-08-11T12:00:00Z
 updated_at: 2026-08-11T12:00:00Z
-description: Test flow
 """,
     )
     task_path = spec_path.parent / "tasks" / "001-task.md"
     _write_okf_file(
         task_path,
         """
+type: Task
 id: test-flow:001-task
 depends_on: []
 files: []
@@ -384,7 +385,7 @@ updated_at: 2026-08-11T12:00:00Z
     )
 
     violations = validate_skills.validate_okf_bundle(spec_path.parent, repo_root=tmp_path)
-    assert any("missing required field" in v.message and "status" in v.message for v in violations)
+    assert any("missing required field" in v.message and "state" in v.message for v in violations)
 
 
 def test_validate_okf_task_referenced_files_exist(tmp_path: Path) -> None:
@@ -392,12 +393,12 @@ def test_validate_okf_task_referenced_files_exist(tmp_path: Path) -> None:
     _write_okf_file(
         spec_path,
         """
+type: Spec
 flow_id: test-flow
-type: feature
-status: active
+title: Test flow
+state: active
 created_at: 2026-08-11T12:00:00Z
 updated_at: 2026-08-11T12:00:00Z
-description: Test flow
 """,
     )
     task_path = spec_path.parent / "tasks" / "001-task.md"
@@ -405,8 +406,9 @@ description: Test flow
     _write_okf_file(
         task_path,
         """
+type: Task
 id: test-flow:001-task
-status: closed
+state: closed
 depends_on: []
 files:
   - src/non_existent.py
@@ -431,12 +433,12 @@ def test_validate_okf_task_id_format(tmp_path: Path) -> None:
     _write_okf_file(
         spec_path,
         """
+type: Spec
 flow_id: test-flow
-type: feature
-status: active
+title: Test flow
+state: active
 created_at: 2026-08-11T12:00:00Z
 updated_at: 2026-08-11T12:00:00Z
-description: Test flow
 """,
     )
     task_path = spec_path.parent / "tasks" / "001-task.md"
@@ -463,12 +465,12 @@ def test_validate_okf_task_orphaned_fails(tmp_path: Path) -> None:
     _write_okf_file(
         spec_path,
         """
+type: Spec
 flow_id: test-flow
-type: feature
-status: active
+title: Test flow
+state: active
 created_at: 2026-08-11T12:00:00Z
 updated_at: 2026-08-11T12:00:00Z
-description: Test flow
 """,
         content="""
 # Test Flow

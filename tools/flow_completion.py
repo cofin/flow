@@ -1,6 +1,5 @@
 from __future__ import annotations
 import argparse
-import datetime
 import os
 from pathlib import Path
 import re
@@ -60,11 +59,11 @@ def consolidate_flow_learnings(flow_id: str, repo_root: Path = REPO_ROOT) -> Pat
                     
                 task_id = metadata.get("id", f"{flow_id}:{task_file.stem}")
                 title = metadata.get("title", task_file.stem)
-                status = metadata.get("status", "open")
+                state = metadata.get("state") or metadata.get("status") or "open"
                 commit = metadata.get("commit")
                 files = metadata.get("files", [])
-                
-                header = f"### Task {task_id}: {title} ({status})"
+
+                header = f"### Task {task_id}: {title} ({state})"
                 if commit:
                     header += f" [{commit}]"
                 
@@ -79,11 +78,15 @@ def consolidate_flow_learnings(flow_id: str, repo_root: Path = REPO_ROOT) -> Pat
             except Exception as e:
                 print(f"Warning: Failed to process {task_file}: {e}", file=sys.stderr)
                 
-    extracted_content = ""
-    if notes_list:
-        extracted_content = f"# Extracted Learnings: {flow_id}\n\n" + "\n---\n\n".join(notes_list)
-        
     extracted_path = flow_dir / "extracted_learnings.md"
+    if not notes_list:
+        print(f"No task notes found for flow '{flow_id}'; nothing written.", file=sys.stderr)
+        return extracted_path
+
+    extracted_content = (
+        "---\ntype: Learnings\n---\n\n"
+        f"# Extracted Learnings: {flow_id}\n\n" + "\n---\n\n".join(notes_list)
+    )
     extracted_path.write_text(extracted_content, encoding="utf-8")
     return extracted_path
 
@@ -100,17 +103,22 @@ def delete_flow_bundle(flow_id: str, repo_root: Path = REPO_ROOT, force: bool = 
                 try:
                     content = task_file.read_text(encoding="utf-8")
                     metadata, _ = _parse_yaml_frontmatter(content)
-                    if metadata:
-                        status = metadata.get("status", "open")
-                        if status not in ("closed", "skipped"):
-                            raise ValueError(
-                                f"Cannot delete flow '{flow_id}': task '{task_file.name}' is '{status}'. "
-                                "Flow contains open or in-progress tasks. Use --force to override."
-                            )
-                except ValueError:
-                    raise
-                except Exception:
-                    pass
+                except OSError as exc:
+                    raise ValueError(
+                        f"Cannot delete flow '{flow_id}': task '{task_file.name}' is unreadable ({exc}). "
+                        "Use --force to override."
+                    ) from exc
+                if metadata is None:
+                    raise ValueError(
+                        f"Cannot delete flow '{flow_id}': task '{task_file.name}' has invalid frontmatter. "
+                        "Use --force to override."
+                    )
+                state = metadata.get("state") or metadata.get("status") or "open"
+                if state not in ("closed", "skipped"):
+                    raise ValueError(
+                        f"Cannot delete flow '{flow_id}': task '{task_file.name}' is '{state}'. "
+                        "Flow contains open or in-progress tasks. Use --force to override."
+                    )
                     
     shutil.rmtree(flow_dir)
 

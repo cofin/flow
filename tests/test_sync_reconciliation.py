@@ -31,9 +31,9 @@ def test_sync_auto_discovery_resolves_most_recent_active_spec(tmp_path: Path) ->
     _write_file(
         specs_dir / "flow-completed" / "spec.md",
         """---
+type: Spec
 flow_id: flow-completed
-status: completed
-type: feature
+state: completed
 created_at: 2026-08-11T12:00:00Z
 updated_at: 2026-08-11T12:00:00Z
 description: Done
@@ -64,9 +64,9 @@ description: Active 1
     _write_file(
         flow_active2_dir / "spec.md",
         """---
+type: Spec
 flow_id: flow-active-2
-status: active
-type: feature
+state: active
 created_at: 2026-08-11T12:00:00Z
 updated_at: 2026-08-11T12:00:00Z
 description: Active 2
@@ -85,9 +85,9 @@ def test_sync_reconciles_status_markers_and_commits(tmp_path: Path) -> None:
     
     # Create spec.md with tasks
     spec_content = """---
+type: Spec
 flow_id: test-flow
-status: active
-type: feature
+state: active
 created_at: 2026-08-11T12:00:00Z
 updated_at: 2026-08-11T12:00:00Z
 description: Test flow
@@ -107,8 +107,9 @@ description: Test flow
     _write_file(
         flow_dir / "tasks" / "1.1.md",
         """---
+type: Task
 id: test-flow:1.1
-status: closed
+state: closed
 commit: abc1234
 depends_on: []
 files: []
@@ -122,9 +123,10 @@ updated_at: 2026-08-11T12:00:00Z
     _write_file(
         flow_dir / "tasks" / "1.2.md",
         """---
+type: Task
 id: test-flow:1.2
-status: in_progress
-depends_on: [test-flow:1.1]
+state: in_progress
+depends_on: ["1.1"]
 files: []
 tests: []
 created_at: 2026-08-11T12:00:00Z
@@ -133,7 +135,7 @@ updated_at: 2026-08-11T12:00:00Z
 """
     )
     
-    # task 1.3 has no task file (should be auto-created as status: open)
+    # task 1.3 has no task file (should be auto-created as state: open)
     
     # Run sync
     sync_flow.sync_flow_bundle(flow_dir, repo_root=tmp_path)
@@ -150,7 +152,8 @@ updated_at: 2026-08-11T12:00:00Z
     assert task_1_3_path.is_file()
     task_1_3_content = task_1_3_path.read_text(encoding="utf-8")
     assert "id: test-flow:1.3" in task_1_3_content
-    assert "status: open" in task_1_3_content
+    assert "state: open" in task_1_3_content
+    assert "type: Task" in task_1_3_content
 
 
 def test_sync_cli_with_flow_id_argument(tmp_path: Path) -> None:
@@ -159,9 +162,9 @@ def test_sync_cli_with_flow_id_argument(tmp_path: Path) -> None:
     
     flow_dir = tmp_path / ".agents" / "bundles" / "specs" / "cli-flow"
     spec_content = """---
+type: Spec
 flow_id: cli-flow
-status: active
-type: feature
+state: active
 created_at: 2026-08-11T12:00:00Z
 updated_at: 2026-08-11T12:00:00Z
 description: CLI flow

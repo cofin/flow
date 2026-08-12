@@ -218,12 +218,10 @@ opencode.json
 *.db
 .worktrees/
 
-# Local .agents content stays private; OKF bundles and shared config are tracked
+# Flow's own planning bundles stay local-only; user repos choose their own policy at setup
 .agents/*
-!.agents/bundles/
-!.agents/hooks.json
-!.agents/config.json
 !.agents/plugins/
+!.agents/plugins/marketplace.json
 
 # Codex package build directory
 plugins/flow/
