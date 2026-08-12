@@ -1,0 +1,9 @@
+{
+  "flow_id": "flow-test-suite-rewrite",
+  "type": "feature",
+  "status": "planned",
+  "parent_prd": "remove-beads",
+  "created_at": "2026-07-08T23:45:00Z",
+  "updated_at": "2026-07-08T23:45:00Z",
+  "description": "Implement unified validation test suite in tools/validate.py"
+}
