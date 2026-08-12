@@ -12,7 +12,7 @@ Use this lifecycle skill when implementation starts after a Flow plan or ready t
 1. **Read Configuration:** Check `use_branched_workspaces` in `.agents/config.json` (default to `false` if missing).
 2. **Select Ready Work:** Select ready work from `.agents/bundles/specs/<flow_id>/tasks/*.md` (YAML frontmatter `state: open` and dependencies resolved) and claim it (state to `in_progress`).
 3. **Determine Execution Strategy:**
-   - **Branched Workspace (Delegated):** If `use_branched_workspaces` is `true` and the harness supports it, spawn a subagent with `Workspace='branch'`. Pass the selected task, spec, and project context. The subagent will execute the task and report back.
+   - **Branched Workspace (Delegated):** If `use_branched_workspaces` is `true` and the harness supports it, spawn a subagent with `Workspace='branch'`. Pass the selected task, spec, and project context. The subagent follows the same rules as inline execution — TDD, notes in the task file, close with `state: closed` + commit SHA, immediate checklist reconciliation — and reports back.
    - **Inline Execution:** Otherwise, proceed with inline execution in the current workspace:
      - Read the relevant spec, task notes, patterns, affected files, and validation commands.
      - Record investigation findings directly inside the task file's `## Notes & Discoveries` section.

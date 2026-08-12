@@ -9,7 +9,7 @@ You are a delegator for the Flow framework. Your task is to transition the curre
 ## 1.1 DELEGATION STRATEGY
 1. **Read Configuration**: Read `use_branched_workspaces` from `.agents/config.json` (default to `false` if missing).
 2. **Delegate**:
-   - If `use_branched_workspaces` is `true` and the harness supports it, spawn/invoke `@executor` in a branched workspace (`Workspace='branch'`) with the user's request: `{{args}}`.
+   - If `use_branched_workspaces` is `true` and the harness supports it, spawn/invoke `@executor` in a branched workspace (`Workspace='branch'`) with the user's request: `{{args}}`. The executor follows the same rules either way: TDD, notes in the task file, close with `state: closed` + commit SHA, immediate spec checklist reconciliation.
    - Otherwise, invoke `@executor` in the current workspace.
 
 ## 1.2 CONTEXT PASS-THROUGH

@@ -41,11 +41,14 @@ The hook manifest uses Antigravity's named-hook format:
 
 ## Install
 
-Use Antigravity's native Plugins & Skills installer for the `cofin/flow` repository. Do not install Flow by copying directories or creating symlinks.
+Antigravity has two surfaces, installed differently:
+
+- **Antigravity CLI**: install Flow through the CLI's extension/plugin installer — hooks, agents, and skills ship with the plugin; no manual file placement.
+- **Antigravity IDE**: use the native Plugins & Skills installer for the `cofin/flow` repository. Do not install Flow by copying directories or creating symlinks.
 
 Workspace-level pieces live in Antigravity's customization directory, which is `.agents/` — the same root Flow already uses:
 
-- hook config: `.agents/hooks.json` (contents of `hooks/hooks-agy.json`), or globally at `~/.gemini/config/`
+- hook config (IDE/workspace): `.agents/hooks.json` (contents of `hooks/hooks-agy.json`), or globally at `~/.gemini/config/`; a nonstandard location can be set via `hooks_dir` in `.agents/config.json`
 - subagents: `.agents/agents/<name>.md` (workspace) or `~/.gemini/config/agents/` (global)
 
 Install the `flow-reconciler` sidecar from `templates/antigravity/agents/flow-reconciler.md` into `.agents/agents/` so `/flow:sync` and `/flow:status` work can run in a clean-context subagent instead of the main conversation.

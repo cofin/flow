@@ -30,7 +30,7 @@ Implementing flow: **$ARGUMENTS**
 
 1. **Read Configuration:** Read `use_branched_workspaces` from `.agents/config.json` (default to `false` if missing).
 2. **Determine Strategy:**
-   - If `use_branched_workspaces` is `true` AND the harness supports it, spawn a subagent with `Workspace='branch'` to execute the task.
+   - If `use_branched_workspaces` is `true` AND the harness supports it, spawn a subagent with `Workspace='branch'` to execute the task. The subagent must follow the same rules as inline execution: TDD, notes in the task file, close with `state: closed` + commit SHA, and immediate spec checklist reconciliation.
    - Otherwise, execute the task inline in the current workspace.
 
 ---

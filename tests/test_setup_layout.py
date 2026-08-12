@@ -47,5 +47,3 @@ def test_setup_performs_environment_detection() -> None:
         text = _read(relative_path)
         assert "Environment & Harness Detection" in text
         assert "hooks.json" in text
-
-

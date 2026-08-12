@@ -226,5 +226,5 @@ opencode.json
 # Codex package build directory
 plugins/flow/
 
-# Smith Memory Service integration (optional)
-docs/smith-bridge.md
+# Local-only environment bridge notes (never committed)
+docs/*-bridge.md

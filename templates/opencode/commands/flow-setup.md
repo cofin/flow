@@ -188,29 +188,18 @@ The Flow root is always `.agents/` with bundles at `.agents/bundles/`. To reloca
 
 ## Phase 1.5: Environment & Harness Detection
 
-**PROTOCOL: Detect the repository type and active harness to configure hooks.**
+**PROTOCOL: Detect the workspace environment and active harness to configure session hooks.**
 
-1. **Detect Repository Type:**
-   - Git: Run `git rev-parse --is-inside-work-tree` (succeeds if Git).
-   - CitC (Google3): Check if path contains `/google/src/files/` or if `g4` is available.
+1. **Detect Workspace Environment:**
+   - Git repository: `git rev-parse --is-inside-work-tree` succeeds.
+   - Non-git workspace (VFS monorepo, cloud workspace, plain directory): anything else. Bundle paths are unchanged; if the environment needs hook config in a nonstandard location, set `hooks_dir` in `.agents/config.json` and use it as the destination below.
 
-2. **Detect Active Harness:**
-   - Antigravity / VS Code: Check if `$ANTIGRAVITY_PLUGIN_ROOT` or `$VSCODE_PID` is set.
-   - Claude Code: Check if running under Claude Code (e.g. `CLAUDE.md` is active or specific env vars).
-   - Codex: Check if running under Codex.
-   - Jetski CLI: Check if running under Jetski.
+2. **Detect Active Harness:** trust the session's own signals — the hook-provided context banner and harness env vars (`ANTIGRAVITY_PLUGIN_ROOT`, `CLAUDE_PLUGIN_ROOT`, `CODEX_PLUGIN_ROOT`) — rather than guessing from the filesystem.
 
-3. **Configure Hooks:**
-   - Determine hook destination:
-     - Git: `.agents/hooks.json`
-     - Google3 (CitC): `_agents/hooks.json`
-     - Global (fallback): `~/.gemini/config/hooks.json`
-   - Select hook source:
-     - Antigravity: `hooks/hooks-agy.json`
-     - Claude Code: `hooks/hooks-claude.json`
-     - Codex: `hooks/hooks-codex.json`
-     - Cursor: `hooks/hooks-cursor.json`
-   - Copy or symlink the selected hook configuration to the destination. If the destination file already exists, prompt the user before overwriting.
+3. **Configure Hooks (only the active harness's own surface):**
+   - **Antigravity CLI**: no manual hook placement — install Flow through the CLI's extension/plugin installer and hooks ship with the plugin.
+   - **Antigravity IDE**: copy `hooks/hooks-agy.json` to the workspace hook config `.agents/hooks.json` (or `~/.gemini/config/hooks.json` for a global install; honor `hooks_dir` from `.agents/config.json` when set). If the destination file already exists, prompt the user before overwriting.
+   - **Claude Code / Codex / Cursor**: no manual hook placement — the harness loads `hooks/hooks-claude.json`, `hooks/hooks-codex.json`, or `hooks/hooks-cursor.json` from the installed plugin automatically. Do not copy hook manifests into the project.
 
 ---
 

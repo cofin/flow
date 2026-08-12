@@ -54,6 +54,7 @@ Before executing the task, check `.agents/config.json` for the `use_branched_wor
    - If not, invoke `flow-refine` first and update the plan before dispatch.
    - Spawn the subagent with `Workspace='branch'` (if supported by the `send_message` or agent spawn API).
    - Preserve subagent context by passing the relevant spec or PRD, patterns, knowledge chapters, learnings, affected files, and verification requirements.
+   - The subagent must follow the same rules as inline execution: TDD, notes in the task file, close with `state: closed` + commit SHA, and immediate spec checklist reconciliation.
    - Do not silently descope if the task is larger than expected. Refine it or ask the user how to prioritize.
 
 ### 3.0.1 API Lookup Preference

@@ -9,7 +9,7 @@ Use this lifecycle skill for project initialization, installation checks, setup 
 
 ## Workflow
 
-1. Detect project root, existing `.agents/` state, repository type, active harness, and repo-native commands. Configure appropriate hooks (e.g., copying/linking `hooks-*.json` to `.agents/hooks.json` or `_agents/hooks.json` depending on environment).
+1. Detect project root, existing `.agents/` state, workspace environment, active harness, and repo-native commands. Configure hooks for the active harness only: the Antigravity IDE copies `hooks/hooks-agy.json` to `.agents/hooks.json` (or the `hooks_dir` override from `.agents/config.json`); the Antigravity CLI, Claude Code, Codex, and Cursor load hooks from the installed plugin/extension automatically.
 2. Scaffold the OKF bundle: `.agents/bundles/index.md` (frontmatter `okf_version: "0.2"`), `.agents/bundles/log.md`, `product/` identity docs, and flat `knowledge/` chapters (workflow.md, patterns.md) from templates, each with a non-empty `type:` frontmatter key.
 3. Capture repo-native commands in `knowledge/workflow.md` between `<!-- truth: start -->` and `<!-- truth: end -->` markers so hooks can inject them.
 4. Ask the user whether `.agents/bundles/` should be tracked (shared team knowledge) or ignored (private planning), and apply their choice.
