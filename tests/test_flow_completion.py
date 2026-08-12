@@ -1,8 +1,6 @@
 from pathlib import Path
 import pytest
 from unittest.mock import patch, MagicMock
-import shutil
-import subprocess
 import textwrap
 
 from tools import flow_completion

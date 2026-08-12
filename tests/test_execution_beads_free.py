@@ -37,7 +37,7 @@ def test_no_beads_references_in_execution_files() -> None:
                 # but let's report them as violations to be strict.
                 violations.append(f"{relative_path}:{line_num}: {line.strip()}")
 
-    assert not violations, f"Found Beads references in execution files:\n" + "\n".join(violations)
+    assert not violations, "Found Beads references in execution files:\n" + "\n".join(violations)
 
 def test_execution_references_bundles_layout() -> None:
     for relative_path in (

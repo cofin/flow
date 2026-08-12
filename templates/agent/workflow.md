@@ -30,7 +30,7 @@ title: Project Workflow
 5. **User Experience First:** Every decision should prioritize user experience
 6. **Non-Interactive & CI-Aware:** Prefer non-interactive commands. Use `CI=true` for watch-mode tools (tests, linters) to ensure single execution.
 7. **Use the Repo's Real Commands:** Prefer canonical project entrypoints such as `make lint`, `make test`, `make check`, `just check`, `task test`, package scripts, or pre-commit wrappers before inventing ad hoc commands.
-8. **Be Collaborative:** Never use blamey or ownership-deflecting language such as "not my issue" or "not caused by my change." Describe unrelated failures factually, offer the smallest useful next step, and ask the user whether to handle them now or separately.
+8. **Be Collaborative:** Never use blame-shifting or ownership-deflecting language such as "not my issue" or "not caused by my change." Describe unrelated failures factually, offer the smallest useful next step, and ask the user whether to handle them now or separately.
 9. **Minimal Targeted Changes:** Make the smallest coherent change set that solves the task. Do not make opportunistic cleanup edits or random unrelated modifications without approval.
 10. **No Silent Descoping:** If the task is larger or messier than expected, refine the plan or ask the user how to prioritize. Do not quietly skip work.
 <!-- truth: end -->

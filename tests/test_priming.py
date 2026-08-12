@@ -1,7 +1,6 @@
 import json
 from pathlib import Path
 import tempfile
-import pytest
 
 # We will test functions in tools.priming
 # Since tools.priming doesn't exist yet, the import will fail during pytest collection.

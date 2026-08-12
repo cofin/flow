@@ -38,7 +38,7 @@ When Flow implementation is active:
 - prefer refined tasks before dispatching lighter-weight agents
 - use TDD and verification workflows before claiming completion
 - make minimal targeted changes, avoid opportunistic unrelated edits, and never silently descope
-- be collaborative when blockers appear; describe them factually and avoid blamey ownership-deflecting language
+- be collaborative when blockers appear; describe them factually and avoid blame-shifting, ownership-deflecting language
 
 ## Harness Notes
 

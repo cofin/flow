@@ -1,10 +1,8 @@
 from __future__ import annotations
 import importlib.util
-import json
 import os
 from pathlib import Path
 import time
-import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SYNC_MODULE_PATH = REPO_ROOT / "tools" / "sync.py"
