@@ -3,6 +3,12 @@
 
 Archiving is a contraction: durable knowledge moves into the knowledge chapters, one line lands in the bundle log, and the spec directory is deleted. Git history is the archive — `.agents/bundles/specs/` holds only planned and active flows.
 
+Git notes under `refs/notes/flow` are supplementary audit evidence only. Their
+absence or an attachment failure never changes archive eligibility: canonical
+Markdown and the archive journal are sufficient for recovery. Archive never
+pushes, copies, rewrites, prunes, or requires the notes ref.
+Never create or mutate Git tags for archive evidence or as a notes fallback.
+
 ## Procedure
 
 1. **Validate**: resolve the flow id (scan spec frontmatter for `state: completed` when not given). Confirm every task file is `state: closed` or `skipped`; abort otherwise. Check recoverability with `git ls-files --error-unmatch` — if the bundle is untracked, deletion is unrecoverable and needs explicit user confirmation.

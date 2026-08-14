@@ -285,6 +285,19 @@ identity, expected spec state revision, and explicit task target. The sidecar
 updates the task first and derived spec state last. Reread the terminal result;
 do not close or reconcile Markdown directly.
 
+The compact `verification_evidence` must be inside the `close request`; the
+executor never writes verification Markdown separately. Only after the close
+transaction succeeds may it optionally append a detailed `flow-git-note-v1`
+record to the same functional commit with the procedure in
+[Git Notes](../../../docs/git-notes.md). Before appending, it checks the note
+stream for the stable attachment attempt id: exact record replay skips append,
+while a different record with that id conflicts.
+It must then request `note(category=git_note_attachment)` with the stable
+attachment attempt id and the `attached|failed` diagnostic. Exact replay is a
+sidecar no-op; a conflicting replay is refused. Attachment failure never
+reopens the closed task, and no Flow workflow pushes notes. Never create or
+mutate Git tags as evidence or as a fallback for an unavailable notes ref.
+
 ### 5.1 Log Learnings
 
 If any patterns were discovered, append them to `.agents/bundles/specs/{flow_id}/learnings.md` using the Ralph format.
@@ -306,9 +319,10 @@ At the end of each phase:
    - Dispatch review subagent with: `spec.md` requirements, `patterns.md`, and the git range.
    - Fix Critical issues immediately, Important issues before proceeding.
    - Log findings to `learnings.md`.
-4. **Create checkpoint commit**: `git commit -m "chore(checkpoint): complete phase {N}"`
-5. **Prompt for pattern elevation**: "Are there learnings from this phase to elevate to `patterns.md`?"
-6. **Ask user to verify**
+4. **Record a phase checkpoint**: put the affected task ids, exact command/result evidence, and last functional commit in the spec-only `checkpoint` payload. Never create an empty checkpoint commit.
+5. **Optionally attach detail**: only after checkpoint succeeds, append the detailed phase Git note to the last functional commit and report `attached|failed` through the canonical idempotent `note` operation.
+6. **Prompt for pattern elevation**: "Are there learnings from this phase to elevate to `patterns.md`?"
+7. **Ask user to verify**
 
 **Verification red flags — STOP before claiming completion:**
 

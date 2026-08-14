@@ -23,6 +23,8 @@ IRON LAW: NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
 2. **Run coverage check** — confirm target met with actual numbers
 3. **Run linter/formatter** — confirm clean output
 4. **Sync Spec Checklist:** Run `/flow:sync` to reconcile spec.md task checklists with task files.
+5. **Record phase evidence:** Put the exact command/results and affected task ids in a spec-only phase `checkpoint` payload targeting the last functional commit. Never create an empty checkpoint commit.
+6. **Optional detailed evidence:** Only after the checkpoint succeeds, append a `flow-git-note-v1` record to that same commit and record `attached|failed` through the idempotent `note(category=git_note_attachment)` state operation. Git notes remain supplementary; never push them automatically.
 
 **If any check fails:** Report actual results. Do NOT proceed until issues resolved.
 
@@ -144,3 +146,5 @@ git worktree list | grep {feature_branch}
 3. **CONFIRM DISCARD** — Require typed "discard" for Option 4
 4. **SUGGEST ARCHIVE** — After merge/PR, prompt for `flow-archive`
 5. **UPDATE SPEC STATUS** — Mark the spec's status to completed in spec.md on successful finish.
+6. **MARKDOWN AUTHORITY** — Completion and recovery use the sidecar-written checkpoint and task evidence; optional Git notes never replace it.
+7. **NO GIT TAGS** — Never create or mutate Git tags for completion evidence or as a notes fallback.

@@ -33,7 +33,8 @@ authority: skills/flow/references/implement.md
      - Read the relevant spec, task notes, patterns, affected files, and validation commands.
      - Record investigation findings with the `flow-reconciler` `note` or `discover` operation.
      - Follow red-green-refactor: write the failing test, verify the failure, implement minimally, verify green, then refactor.
-     - Commit targeted changes, retrieve the commit SHA, and request `close` with fresh evidence through `flow-reconciler`.
+     - Commit targeted changes, retrieve the functional commit SHA, and put compact fresh verification evidence in the `close` request to `flow-reconciler`.
+     - Only after close succeeds, optionally append the detailed `flow-git-note-v1` record to that functional commit, then report attachment success or failure with an idempotent `note(category=git_note_attachment)` request. Git notes are supplementary and are never pushed automatically.
 
 ## Mismatch decision table
 
@@ -63,11 +64,14 @@ transitions use the Markdown sidecar protocol.
 - Verify the new test failed for the intended reason before implementation.
 - Run focused tests after each task and the repo’s aggregate verification before phase completion.
 - Record commit reference and discoveries through exact sidecar requests.
+- Put compact evidence inside `close`/phase `checkpoint` requests. Optional detailed notes follow a successful state transaction, target an existing functional commit, and use the protocol in [Git Notes](../../docs/git-notes.md).
+- Never create or mutate Git tags, including as a fallback when notes are unavailable.
 
 ## References Index
 
 - [Implement](../flow/references/implement.md)
 - [Discipline](../flow/references/discipline.md)
+- [Git Notes](../../docs/git-notes.md)
 
 ## Example
 

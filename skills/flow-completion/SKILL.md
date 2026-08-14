@@ -11,9 +11,10 @@ Use this lifecycle skill for review, finish, archive, revert, docs, validation, 
 
 1. Run fresh verification before claiming a phase or flow is complete.
 2. Review implementation against the spec, tests, patterns, security, architecture, and performance risks as appropriate.
-3. Archive completed flows as a contraction — synthesize, log, delete: RE-synthesize durable learnings into the knowledge chapters, add one `.agents/bundles/log.md` entry (date, flow_id, one-line outcome, final commit SHA), then delete the spec directory. `.agents/bundles/specs/` holds only planned and active flows; git history is the archive.
-4. Before deleting, verify recoverability with `git ls-files` — untracked bundles are unrecoverable and need explicit user confirmation. Commit the deletion for tracked bundles only.
-5. For reverts, identify the logical Flow scope and avoid unrelated user changes.
+3. Put phase evidence in the spec-only `checkpoint` payload, targeting the last functional commit. After the checkpoint succeeds, an optional detailed Git note may be appended and its result recorded through the idempotent state-sidecar `note` operation. Never create an empty checkpoint commit and never push notes automatically.
+4. Archive completed flows as a contraction — synthesize, log, delete: RE-synthesize durable learnings into the knowledge chapters, add one `.agents/bundles/log.md` entry (date, flow_id, one-line outcome, final commit SHA), then delete the spec directory. `.agents/bundles/specs/` holds only planned and active flows; git history is the archive.
+5. Before deleting, verify recoverability with `git ls-files` — untracked bundles are unrecoverable and need explicit user confirmation. Commit the deletion for tracked bundles only.
+6. For reverts, identify the logical Flow scope and avoid unrelated user changes.
 
 ## Guardrails
 
@@ -23,6 +24,8 @@ Use this lifecycle skill for review, finish, archive, revert, docs, validation, 
 - Rewrite knowledge chapters as coherent current-state documentation — never append dated entries, "from: {flow_id}" attributions, changelog lines, or completion notes; history belongs in `.agents/bundles/log.md` only.
 - Treat `extracted_learnings.md` as transient: delete it after synthesis, never leave it behind.
 - Never delete an untracked spec bundle without explicit user confirmation.
+- Git notes are supplementary evidence, never state or recovery authority. Their absence or attachment failure cannot block archive once canonical Markdown evidence satisfies the archive contract.
+- Never create or mutate Git tags, including as a fallback for notes, checkpoints, or archive evidence.
 
 ## Validation
 
@@ -39,6 +42,7 @@ Use this lifecycle skill for review, finish, archive, revert, docs, validation, 
 - [Docs](../flow/references/docs.md)
 - [Validate](../flow/references/validate.md)
 - [Cleanup](../flow/references/cleanup.md)
+- [Git Notes](../../docs/git-notes.md)
 
 ## Example
 

@@ -89,6 +89,49 @@ Every task is a complete worksheet with these headings: `## Objective`, `## Cont
 
 Every executable spec has an `## Implementation Plan` checklist and `## Continuity Snapshot`. The snapshot records active flow/lifecycle, current task and claimant, last verified checkpoint, decisions, the five newest discoveries, blockers and unblock conditions, next exact step, plan identity, state identity, and relevant rule/knowledge paths. Verification records live under `## Verification Evidence` in the affected task or spec and name scope, commit, exact command/result evidence, summary, operation id, actor, and time.
 
+## Supplementary Git note evidence
+
+The optional detailed audit record is `flow-git-note-v1` under
+`refs/notes/flow`; [the Git notes guide](../../../docs/git-notes.md) owns its
+closed schema and transport procedure. Git notes are supplementary. Tracked
+Markdown remains sufficient for state, continuity, and recovery when the ref is
+absent, incomplete, or unavailable, and no lifecycle operation pushes a ref.
+
+Task evidence belongs in the `close request`; phase evidence belongs in the
+`checkpoint` payload. The sidecar writes that compact evidence and operation
+metadata in the same Markdown transaction. Only after a successful close or
+phase checkpoint may the caller validate the existing functional commit and
+append the detailed Git note. The caller then reports `attached|failed` with
+the idempotent `note(category=git_note_attachment)` operation. Executors never
+write verification Markdown outside the state transaction.
+
+The stable attachment key is
+`<flow-id>:<task-or-phase-id>:<commit>:refs/notes/flow`. The first result
+appends one attachment-result entry. Exact same-key/same-payload replay returns
+the recorded result without another Git note, journal, Markdown edit, or state
+revision; same-key/different-payload conflicts without writes. A failed attach
+is recorded independently and never reopens a closed task or invalidates the
+checkpoint.
+
+The detailed record carries that same attachment id. Before `append`, parse the
+existing note stream: an exact same-id/same-record match skips the Git write and
+continues to the attachment-result request; same-id/different-record conflicts;
+only an absent id may append. This closes the crash window between Git-note
+attachment and the canonical result transaction without making notes
+authoritative.
+
+A task attachment-result `note` targets that task. A phase result targets the
+first id in the checkpoint's sorted `affected_task_ids`; this gives the
+existing one-task `note` operation a deterministic audit owner without turning
+the note into phase authority.
+
+Phase notes target the checkpoint payload's last functional commit. Flow never
+creates an empty checkpoint commit. Attachment uses `git notes
+--ref=refs/notes/flow append`; destructive overwrite is forbidden.
+
+Never create or mutate Git tags. Tags are not a fallback transport for notes,
+lifecycle state, checkpoints, archive evidence, or recovery.
+
 Checklist markers are derived from task files: `open -> [ ]`, `in_progress -> [~]`, `closed -> [x]` plus commit, `blocked -> [!]`, and `skipped -> [-]`. A task-file/spec mismatch is reconciled to task-file truth only through `reconcile`; agents never flip a checklist marker as an independent mutation.
 
 ## Identity and revision invariants
@@ -404,7 +447,7 @@ predicate_shapes:
   reconcile_mismatches_exact: {predicate: reconcile_mismatches_exact, spec: {base: flow_root, path: spec.md}, scope: {base: flow_root, glob: tasks/*.md}, mismatches: "exact payload list"}
   all_tasks_terminal_no_blockers: {predicate: all_tasks_terminal_no_blockers, scope: {base: flow_root, glob: tasks/*.md}, observed_states: "complete id->closed|skipped map"}
   completion_evidence_valid: {predicate: completion_evidence_valid, spec: {base: flow_root, path: spec.md}, evidence: "exact verification/code/quality/waiver payload"}
-  archive_candidate_exact: {predicate: archive_candidate_exact, root: {base: flow_root, glob: "**/*"}, destinations: {paths: [{base: bundle_root, path: log.md}], globs: [{base: bundle_root, glob: knowledge/*.md}]}, manifest: "exact payload manifest"}
+  archive_candidate_exact: {predicate: archive_candidate_exact, root: {base: flow_root, glob: "**/*"}, destinations: {paths: [{base: bundle_root, path: log.md}], globs: [{base: bundle_root, glob: knowledge/**/*.md}]}, manifest: "exact payload manifest"}
   archive_evidence_valid: {predicate: archive_evidence_valid, candidate: "exact payload archive_candidate_manifest", quality: "exact payload quality_report", waivers: "exact payload waivers"}
   selected_journal_recoverable: {predicate: selected_journal_recoverable, directory: {base: configured_root, path: tasks/transactions}, operation_id: "payload journal_operation_id", states: [prepared, task_writes_started, recovery_required, rollback_in_progress]}
   journal_arbitration_single_candidate: {predicate: journal_arbitration_single_candidate, directory: {base: configured_root, path: tasks/transactions}, observed_operation_ids: "complete sorted nonterminal ids"}
