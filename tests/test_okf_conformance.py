@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 import shutil
 from pathlib import Path
 
@@ -831,6 +832,41 @@ TRANSACTION_FIXTURE = REPO_ROOT / "tests" / "fixtures" / "okf" / "continuity"
 
 def _transaction_root(tmp_path: Path) -> Path:
     shutil.copytree(TRANSACTION_FIXTURE, tmp_path, dirs_exist_ok=True)
+    task = tmp_path / ".agents/bundles/specs/demo-flow/tasks/1.2.md"
+    task_text = task.read_text(encoding="utf-8")
+    task.write_text(
+        task_text.replace("state: in_progress", "state: open", 1)
+        .replace("claimed_by: flow-executor", "claimed_by: null", 1)
+        .replace("claimed_at: 2026-08-14T12:00:00Z", "claimed_at: null", 1)
+        .replace(
+            "last_operation: 20260814T120000Z-flow-executor-claim-1-2-00",
+            "last_operation: 20260814T115900Z-flow-reconciler-reconcile-spec-00",
+            1,
+        )
+        .replace('operation_targets: ["1.2"]', "operation_targets: []", 1),
+        encoding="utf-8",
+    )
+    spec = tmp_path / ".agents/bundles/specs/demo-flow/spec.md"
+    spec_text = spec.read_text(encoding="utf-8")
+    spec.write_text(
+        spec_text.replace('current_task: "1.2"', "current_task: null", 1)
+        .replace(
+            "last_operation: 20260814T120000Z-flow-executor-claim-1-2-00",
+            "last_operation: 20260814T115900Z-flow-reconciler-reconcile-spec-00",
+            1,
+        )
+        .replace('operation_targets: ["1.2"]', "operation_targets: []", 1)
+        .replace("- [~] Task 1.2", "- [ ] Task 1.2", 1)
+        .replace("Task `1.2`, claimed by `flow-executor`", "none", 1)
+        .replace("execute the first numbered worksheet step", "claim Task 1.2", 1)
+        .replace(
+            "last_operation: 20260814T120000Z-flow-executor-claim-1-2-00",
+            "last_operation: 20260814T115900Z-flow-reconciler-reconcile-spec-00",
+            1,
+        )
+        .replace('operation_targets: ["1.2"]', "operation_targets: []", 1),
+        encoding="utf-8",
+    )
     return tmp_path
 
 
@@ -880,6 +916,35 @@ def _journal(operation_id: str, *, state: str = "prepared") -> dict:
                 "observed_operation_ids": [],
             },
             {
+                "base": "flow_root",
+                "path": "spec.md",
+                "fields": {
+                    "state": "active",
+                    "state_revision": 3,
+                    "current_task": None,
+                    "plan_revision": 2,
+                    "plan_commit": None,
+                    "last_operation": "20260814T115900Z-flow-reconciler-reconcile-spec-00",
+                    "operation_targets": [],
+                },
+            },
+            {
+                "base": "flow_root",
+                "path": "tasks/1.2.md",
+                "fields": {
+                    "id": "demo-flow:1.2",
+                    "state": "open",
+                    "state_revision": 3,
+                    "plan_revision": 2,
+                    "plan_commit": None,
+                    "claimed_by": None,
+                    "claimed_at": None,
+                    "blocked_reason": None,
+                    "unblock_condition": None,
+                    "commit": None,
+                },
+            },
+            {
                 "predicate": "all_dependencies_closed",
                 "target": {"base": "flow_root", "path": "tasks/1.2.md"},
                 "dependency_paths": [{"base": "flow_root", "path": "tasks/1.1.md"}],
@@ -897,15 +962,84 @@ def _journal(operation_id: str, *, state: str = "prepared") -> dict:
                 "base": "flow_root",
                 "path": "tasks/1.2.md",
                 "anchor": "frontmatter",
-                "before": {"state_revision": 3},
-                "after": {"state_revision": 4},
+                "before": {
+                    "state": "open",
+                    "state_revision": 3,
+                    "claimed_by": None,
+                    "claimed_at": None,
+                    "blocked_reason": None,
+                    "unblock_condition": None,
+                    "next_step": "execute the first numbered worksheet step",
+                    "last_operation": "20260814T115900Z-flow-reconciler-reconcile-spec-00",
+                    "operation_targets": [],
+                    "updated_at": "2026-08-14T12:00:00Z",
+                },
+                "after": {
+                    "state": "in_progress",
+                    "state_revision": 4,
+                    "claimed_by": "flow-executor",
+                    "claimed_at": "2026-08-14T12:00:00Z",
+                    "blocked_reason": None,
+                    "unblock_condition": None,
+                    "next_step": "execute the first numbered worksheet step",
+                    "last_operation": operation_id,
+                    "operation_targets": ["1.2"],
+                    "updated_at": "2026-08-14T12:00:00Z",
+                },
             },
             {
                 "base": "flow_root",
                 "path": "spec.md",
                 "anchor": "frontmatter",
-                "before": {"state_revision": 3},
-                "after": {"state_revision": 4},
+                "before": {
+                    "state_revision": 3,
+                    "current_task": None,
+                    "last_operation": "20260814T115900Z-flow-reconciler-reconcile-spec-00",
+                    "operation_targets": [],
+                    "updated_at": "2026-08-14T12:00:00Z",
+                },
+                "after": {
+                    "state_revision": 4,
+                    "current_task": "1.2",
+                    "last_operation": operation_id,
+                    "operation_targets": ["1.2"],
+                    "updated_at": "2026-08-14T12:00:00Z",
+                },
+            },
+            {
+                "base": "flow_root",
+                "path": "spec.md",
+                "anchor": "implementation-plan-task-1.2",
+                "before": {"checklist_marker": "[ ]", "commit_suffix": None},
+                "after": {"checklist_marker": "[~]", "commit_suffix": None},
+            },
+            {
+                "base": "flow_root",
+                "path": "spec.md",
+                "anchor": "continuity-snapshot",
+                "before": {
+                    "current_task_claim": None,
+                    "last_verified_checkpoint": "task:1.1@abc1234",
+                    "next_exact_step": "claim Task 1.2",
+                    "state_identity": {
+                        "revision": 3,
+                        "last_operation": "20260814T115900Z-flow-reconciler-reconcile-spec-00",
+                        "operation_targets": [],
+                    },
+                },
+                "after": {
+                    "current_task_claim": {
+                        "task": "1.2",
+                        "claimed_by": "flow-executor",
+                    },
+                    "last_verified_checkpoint": "task:1.1@abc1234",
+                    "next_exact_step": "execute the first numbered worksheet step",
+                    "state_identity": {
+                        "revision": 4,
+                        "last_operation": operation_id,
+                        "operation_targets": ["1.2"],
+                    },
+                },
             },
         ],
     }
@@ -924,8 +1058,90 @@ def _event(journal: dict, kind: str, write_index: int | None = None, **extra) ->
     journal["events"].append(item)
 
 
-def _apply(journal: dict, write_index: int) -> None:
+def _set_write_image(root: Path, journal: dict, write_index: int, image: str) -> None:
+    write = journal["ordered_writes"][write_index]
+    bases = {
+        "configured_root": root / journal["configured_root"],
+        "bundle_root": root / journal["bundle_root"],
+        "flow_root": root / journal["flow_root"],
+    }
+    target = bases[write["base"]] / write["path"]
+    for fragment in journal.get("file_fragments", []):
+        if (fragment["base"], fragment["path"]) != (
+            write["base"],
+            write["path"],
+        ):
+            continue
+        file_image = fragment[image]
+        if file_image["exists"]:
+            _write(target, file_image["content_utf8_lf"])
+        elif target.exists():
+            target.unlink()
+    for fragment in journal["fragments"]:
+        if (fragment["base"], fragment["path"]) != (
+            write["base"],
+            write["path"],
+        ):
+            continue
+        values = fragment[image]
+        text = target.read_text(encoding="utf-8")
+        if fragment["anchor"] == "frontmatter":
+            _, raw, body = text.split("---\n", 2)
+            frontmatter = validate.yaml.safe_load(raw)
+            frontmatter.update(values)
+            text = (
+                "---\n"
+                + validate.yaml.safe_dump(frontmatter, sort_keys=False)
+                + "---\n"
+                + body
+            )
+        elif fragment["anchor"].startswith("implementation-plan-task-"):
+            short_id = fragment["anchor"].removeprefix("implementation-plan-task-")
+            suffix = (
+                ""
+                if values["commit_suffix"] is None
+                else f" [{values['commit_suffix']}]"
+            )
+            text = re.sub(
+                rf"(?m)^- \[[ ~x!-]\] Task {re.escape(short_id)}: ([^\n\[]+?)(?: \[[^\]]+\])?$",
+                rf"- {values['checklist_marker']} Task {short_id}: \1{suffix}",
+                text,
+            )
+        elif fragment["anchor"] == "continuity-snapshot":
+            claim = values["current_task_claim"]
+            claim_text = (
+                "none"
+                if claim is None
+                else f"Task `{claim['task']}`, claimed by `{claim['claimed_by']}`"
+            )
+            checkpoint = values["last_verified_checkpoint"]
+            state = values["state_identity"]
+            replacements = {
+                "Current task/claim": claim_text,
+                "Last verified checkpoint": "none"
+                if checkpoint is None
+                else f"`{checkpoint}`",
+                "Next exact step": values["next_exact_step"],
+                "State identity": (
+                    f"revision `{state['revision']}`; `last_operation: {state['last_operation']}`; "
+                    f"`operation_targets: {json.dumps(state['operation_targets'])}`"
+                ),
+            }
+            for label, rendered in replacements.items():
+                text = re.sub(
+                    rf"(?m)^- \*\*{re.escape(label)}:\*\* .+$",
+                    f"- **{label}:** {rendered}",
+                    text,
+                )
+        target.write_text(text, encoding="utf-8")
+
+
+def _apply(journal: dict, write_index: int, root: Path | None = None) -> None:
     _event(journal, "write_started", write_index)
+    if journal["state"] == "prepared":
+        journal["state"] = "task_writes_started"
+    if root is not None:
+        _set_write_image(root, journal, write_index, "after")
     journal["applied_writes"].append(
         {"write_index": write_index, **journal["ordered_writes"][write_index]}
     )
@@ -939,7 +1155,7 @@ def _select(journal: dict, action: str) -> None:
     )
 
 
-def _as_archive(journal: dict) -> None:
+def _as_archive(journal: dict, root: Path | None = None) -> None:
     journal["request"]["operation"] = "archive"
     journal["request"]["targets"] = []
     journal["request"]["payload"] = {
@@ -968,10 +1184,100 @@ def _as_archive(journal: dict) -> None:
     }
     journal["target_state_revision"] = 4
     journal["file_fragments"] = []
+    journal["read_set"] = [
+        {
+            "predicate": "no_other_unresolved_journal",
+            "directory": {"base": "configured_root", "path": "tasks/transactions"},
+            "excluding_operation_id": journal["operation_id"],
+            "observed_operation_ids": [],
+        },
+        {
+            "base": "flow_root",
+            "path": "spec.md",
+            "fields": {
+                "state": "completed" if root is not None else "active",
+                "state_revision": 3,
+                "current_task": None,
+                "plan_revision": 2,
+                "plan_commit": None,
+                "last_operation": "20260814T115900Z-flow-reconciler-reconcile-spec-00",
+                "operation_targets": [],
+            },
+        },
+        {
+            "predicate": "archive_candidate_exact",
+            "root": {"base": "flow_root", "glob": "**/*"},
+            "destinations": {
+                "paths": [{"base": "bundle_root", "path": "log.md"}],
+                "globs": [{"base": "bundle_root", "glob": "knowledge/*.md"}],
+            },
+            "manifest": journal["request"]["payload"]["archive_candidate_manifest"],
+        },
+        {
+            "predicate": "archive_evidence_valid",
+            "candidate": journal["request"]["payload"]["archive_candidate_manifest"],
+            "quality": journal["request"]["payload"]["quality_report"],
+            "waivers": [],
+        },
+    ]
+    if root is not None:
+        bundle = root / journal["bundle_root"]
+        spec = root / journal["flow_root"] / "spec.md"
+        spec.write_text(
+            spec.read_text(encoding="utf-8")
+            .replace("state: active", "state: completed", 1)
+            .replace("(`active`)", "(`completed`)", 1),
+            encoding="utf-8",
+        )
+        knowledge = bundle / "knowledge/workflow.md"
+        _write(knowledge, "# Workflow\n\nBefore.\n")
+        journal["ordered_writes"] = [
+            {"base": "bundle_root", "path": "knowledge/workflow.md"},
+            {"base": "bundle_root", "path": "log.md"},
+            {"base": "bundle_root", "path": "specs/demo-flow/tasks/1.1.md"},
+            {"base": "bundle_root", "path": "specs/demo-flow/tasks/1.2.md"},
+            {"base": "bundle_root", "path": "specs/demo-flow/spec.md"},
+        ]
+        journal["fragments"] = []
+        for item in journal["ordered_writes"]:
+            bases = {
+                "bundle_root": bundle,
+                "flow_root": root / journal["flow_root"],
+            }
+            target = bases[item["base"]] / item["path"]
+            before = target.read_text(encoding="utf-8")
+            after = (
+                before + "\nReviewed.\n"
+                if item["path"].startswith("knowledge/")
+                else before + "\n- 2026-08-14: archived demo-flow\n"
+                if item["path"] == "log.md"
+                else None
+            )
+            journal["file_fragments"].append(
+                {
+                    **item,
+                    "before": {"exists": True, "content_utf8_lf": before},
+                    "after": {"exists": after is not None, "content_utf8_lf": after},
+                }
+            )
+        journal["archive_inventory"] = {
+            "base": "bundle_root",
+            "root": "specs/demo-flow",
+            "directories": [".", "tasks"],
+            "files": ["spec.md", "tasks/1.1.md", "tasks/1.2.md"],
+        }
 
 
-def _restore(journal: dict, write_index: int, *, confirmed: bool = True) -> None:
+def _restore(
+    journal: dict,
+    write_index: int,
+    *,
+    confirmed: bool = True,
+    root: Path | None = None,
+) -> None:
     _event(journal, "rollback_started", write_index)
+    if root is not None:
+        _set_write_image(root, journal, write_index, "before")
     if confirmed:
         journal["rolled_back_writes"].append(
             {"write_index": write_index, **journal["ordered_writes"][write_index]}
@@ -999,6 +1305,26 @@ def _validate_rollback(journal: dict) -> None:
     )
 
 
+def _validate_forward(journal: dict, suffix: int = 0) -> None:
+    _event(
+        journal,
+        "validation_recorded",
+        actor="flow-executor",
+        direction="forward",
+        validation_attempt_id=f"{journal['operation_id']}:forward:v{suffix:02d}",
+        checks=[
+            {"check_id": check_id, "result": "passed", "observed": "exact"}
+            for check_id in (
+                "transaction_arbitration",
+                "complete_read_set",
+                "ordered_mutations",
+                "after_fragments",
+                "operation_postconditions",
+            )
+        ],
+    )
+
+
 def _write_journal(root: Path, journal: dict, configured_root: str = ".agents") -> Path:
     path = (
         root
@@ -1018,8 +1344,8 @@ def _write_journal(root: Path, journal: dict, configured_root: str = ".agents") 
 def test_late_contender_is_proven_zero_after_winner_spec_last(tmp_path: Path) -> None:
     root = _transaction_root(tmp_path)
     winner = _journal("20260814T120000Z-agent-claim-1-2-00")
-    _apply(winner, 0)
-    _apply(winner, 1)
+    _apply(winner, 0, root)
+    _apply(winner, 1, root)
     contender = _journal("20260814T120001Z-agent-claim-1-2-00", state="contended")
     contender["events"][0]["observed_nonterminal_operation_ids"] = [
         winner["operation_id"]
@@ -1050,7 +1376,7 @@ def test_all_zero_journals_supersede_and_retry(tmp_path: Path) -> None:
 def test_one_applied_journal_is_sole_recovery_candidate(tmp_path: Path) -> None:
     root = _transaction_root(tmp_path)
     applied = _journal("20260814T120000Z-agent-claim-1-2-00")
-    _apply(applied, 0)
+    _apply(applied, 0, root)
     zero = _journal("20260814T120001Z-agent-claim-1-2-00")
     _write_journal(root, applied)
     _write_journal(root, zero)
@@ -1063,7 +1389,7 @@ def test_two_applied_journals_hard_conflict(tmp_path: Path) -> None:
     root = _transaction_root(tmp_path)
     journals = [_journal(f"20260814T12000{i}Z-agent-claim-1-2-00") for i in range(2)]
     for journal in journals:
-        _apply(journal, 0)
+        _apply(journal, 0, root)
         _write_journal(root, journal)
     assert set(validate.assess_markdown_transactions(root).values()) == {
         "hard_conflict"
@@ -1076,11 +1402,11 @@ def test_regular_rollback_resumes_after_each_restore(
 ) -> None:
     root = _transaction_root(tmp_path)
     journal = _journal("20260814T120000Z-agent-claim-1-2-00")
-    _apply(journal, 0)
-    _apply(journal, 1)
+    _apply(journal, 0, root)
+    _apply(journal, 1, root)
     _select(journal, "rollback")
     for index in [1, 0][:restored_count]:
-        _restore(journal, index)
+        _restore(journal, index, root=root)
     if restored_count == 3:
         _validate_rollback(journal)
     _write_journal(root, journal)
@@ -1089,38 +1415,21 @@ def test_regular_rollback_resumes_after_each_restore(
     )
 
 
-@pytest.mark.parametrize("restored_count", [0, 1, 2, 3, 4])
+@pytest.mark.parametrize("restored_count", [0, 1, 2, 3, 4, 5, 6])
 def test_archive_rollback_resumes_after_each_restore(
     tmp_path: Path, restored_count: int
 ) -> None:
     root = _transaction_root(tmp_path)
     journal = _journal("20260814T120000Z-agent-archive-spec-00")
-    _as_archive(journal)
-    journal["ordered_writes"].insert(
-        0, {"base": "bundle_root", "path": "knowledge/workflow.md"}
-    )
-    journal["fragments"].insert(
-        0,
-        {
-            "base": "bundle_root",
-            "path": "knowledge/workflow.md",
-            "anchor": "complete",
-            "before": {"exists": True},
-            "after": {"exists": True},
-        },
-    )
-    journal["archive_inventory"] = {
-        "base": "bundle_root",
-        "root": "specs/demo-flow",
-        "directories": [".", "tasks"],
-        "files": ["spec.md", "tasks/1.1.md", "tasks/1.2.md"],
-    }
-    for index in range(3):
-        _apply(journal, index)
+    _as_archive(journal, root)
+    for index in range(len(journal["ordered_writes"])):
+        _apply(journal, index, root)
     _select(journal, "rollback")
-    for index in [2, 1, 0][:restored_count]:
-        _restore(journal, index)
-    if restored_count == 4:
+    for index in reversed(range(len(journal["ordered_writes"]))):
+        if len(journal["rolled_back_writes"]) >= restored_count:
+            break
+        _restore(journal, index, root=root)
+    if restored_count == len(journal["ordered_writes"]) + 1:
         _validate_rollback(journal)
     _write_journal(root, journal)
     assert validate.assess_markdown_transactions(root)[journal["operation_id"]] == (
@@ -1133,14 +1442,14 @@ def _assert_unmatched_forward_start_before_image_recovery(
 ) -> None:
     root = _transaction_root(tmp_path)
     journal = _journal("20260814T120000Z-agent-claim-1-2-00")
-    _apply(journal, 0)
+    _apply(journal, 0, root)
     _event(journal, "write_started", 1)
     _event(journal, "write_not_applied", 1)
     _select(journal, action)
     if action == "finish":
         _event(journal, "write_started", 1)
     else:
-        _restore(journal, 0, confirmed=False)
+        _restore(journal, 0, confirmed=False, root=root)
     _write_journal(root, journal)
     expected = "finishable" if action == "finish" else "resumable_rollback"
     assert (
@@ -1165,7 +1474,7 @@ def test_transaction_provenance_corruption_is_conflict(
 ) -> None:
     root = _transaction_root(tmp_path)
     journal = _journal("20260814T120000Z-agent-claim-1-2-00")
-    _apply(journal, 0)
+    _apply(journal, 0, root)
     _select(journal, "rollback")
     if corrupt == "direction":
         _event(journal, "recovery_selected", action="finish", actor="flow-executor")
@@ -1225,11 +1534,11 @@ def test_journal_rejects_missing_wrong_or_escaping_bases(
     records = {
         "fragment": journal["fragments"][0],
         "ordered_write": journal["ordered_writes"][0],
-        "read_target": journal["read_set"][1]["target"],
-        "dependency_path": journal["read_set"][1]["dependency_paths"][0],
+        "read_target": journal["read_set"][3]["target"],
+        "dependency_path": journal["read_set"][3]["dependency_paths"][0],
         "transaction_directory": journal["read_set"][0]["directory"],
         "inventory": journal["archive_inventory"],
-        "glob_scope": journal["read_set"][2]["scope"],
+        "glob_scope": journal["read_set"][4]["scope"],
     }
     record = records[location]
     if bad_base is None:
@@ -1271,14 +1580,38 @@ def test_custom_root_nondefault_bundle_and_deleted_archive_are_discovered(
     journal["flow_root"] = ".flow-local/okf-data/specs/deleted-flow"
     journal["request"]["flow_id"] = "deleted-flow"
     journal["request"]["payload"]["log_entry"]["flow_id"] = "deleted-flow"
-    journal["ordered_writes"] = []
+    journal["read_set"][1]["fields"]["state"] = "completed"
+    journal["ordered_writes"] = [
+        {"base": "bundle_root", "path": "log.md"},
+        {"base": "bundle_root", "path": "specs/deleted-flow/spec.md"},
+    ]
     journal["fragments"] = []
+    journal["file_fragments"] = [
+        {
+            "base": "bundle_root",
+            "path": "log.md",
+            "before": {"exists": False, "content_utf8_lf": None},
+            "after": {
+                "exists": True,
+                "content_utf8_lf": "# Log\n\nArchived deleted-flow.\n",
+            },
+        },
+        {
+            "base": "bundle_root",
+            "path": "specs/deleted-flow/spec.md",
+            "before": {"exists": True, "content_utf8_lf": "---\ntype: Spec\n---\n"},
+            "after": {"exists": False, "content_utf8_lf": None},
+        },
+    ]
     journal["archive_inventory"] = {
         "base": "bundle_root",
         "root": "specs/deleted-flow",
         "directories": ["."],
-        "files": [],
+        "files": ["spec.md"],
     }
+    _apply(journal, 0, tmp_path)
+    _apply(journal, 1, tmp_path)
+    journal["state"] = "recovery_required"
     _write_journal(tmp_path, journal, ".flow-local")
     layout = validate.resolve_okf_layout(tmp_path)
     assert layout.configured_root == configured
@@ -1287,3 +1620,613 @@ def test_custom_root_nondefault_bundle_and_deleted_archive_are_discovered(
     assert validate.assess_markdown_transactions(tmp_path) == {
         journal["operation_id"]: "recoverable_deleted_archive"
     }
+
+
+def test_recorded_applied_write_requires_exact_live_after_image(tmp_path: Path) -> None:
+    root = _transaction_root(tmp_path)
+    journal = _journal("20260814T120000Z-agent-claim-1-2-00")
+    _apply(journal, 0)
+    _write_journal(root, journal)
+    assert validate.assess_markdown_transactions(root) == {
+        journal["operation_id"]: "hard_conflict"
+    }
+
+
+def test_live_after_prefix_is_the_sole_recovery_candidate(tmp_path: Path) -> None:
+    root = _transaction_root(tmp_path)
+    journal = _journal("20260814T120000Z-agent-claim-1-2-00")
+    _apply(journal, 0, root)
+    _write_journal(root, journal)
+    assert validate.assess_markdown_transactions(root) == {
+        journal["operation_id"]: "sole_recovery_candidate"
+    }
+
+
+def test_unexplained_live_fragment_drift_is_a_hard_conflict(tmp_path: Path) -> None:
+    root = _transaction_root(tmp_path)
+    journal = _journal("20260814T120000Z-agent-claim-1-2-00")
+    task = root / journal["flow_root"] / "tasks/1.2.md"
+    task.write_text(
+        task.read_text(encoding="utf-8").replace(
+            "state_revision: 3", "state_revision: 99", 1
+        ),
+        encoding="utf-8",
+    )
+    _write_journal(root, journal)
+    assert validate.assess_markdown_transactions(root) == {
+        journal["operation_id"]: "hard_conflict"
+    }
+
+
+@pytest.mark.parametrize(
+    ("mutation", "expected"),
+    [
+        ("missing_predicate", "read_set predicates"),
+        ("target_path_disagreement", "targets/path"),
+        ("fragment_unknown_key", "fragment keyset"),
+        ("wrong_write_order", "task-before-spec"),
+        ("committed_without_validation", "validation_recorded"),
+        ("rolled_back_without_validation", "rollback_validated"),
+        ("expected_identity_mismatch", "expected plan/state identity"),
+    ],
+)
+def test_journal_exact_grammar_rejects_semantic_gaps(
+    tmp_path: Path, mutation: str, expected: str
+) -> None:
+    root = _transaction_root(tmp_path)
+    journal = _journal("20260814T120000Z-agent-claim-1-2-00")
+    if mutation == "missing_predicate":
+        journal["read_set"] = [
+            item
+            for item in journal["read_set"]
+            if item.get("predicate") != "all_dependencies_closed"
+        ]
+    elif mutation == "target_path_disagreement":
+        journal["request"]["targets"] = ["1.1"]
+    elif mutation == "fragment_unknown_key":
+        journal["fragments"][0]["summary"] = "not exact"
+    elif mutation == "wrong_write_order":
+        journal["ordered_writes"].reverse()
+    elif mutation == "committed_without_validation":
+        journal["state"] = "committed"
+    elif mutation == "expected_identity_mismatch":
+        journal["request"]["expected_state_revision"] = 99
+    else:
+        journal["state"] = "rolled_back"
+    _write_journal(root, journal)
+    messages = "\n".join(
+        item.message for item in validate.validate_markdown_transactions(root)
+    )
+    assert expected in messages
+
+
+def test_journal_rejects_invalid_nested_payload_values_and_lifecycle(
+    tmp_path: Path,
+) -> None:
+    root = _transaction_root(tmp_path)
+    journal = _journal("20260814T120000Z-agent-close-1-2-00")
+    journal["request"]["operation"] = "close"
+    journal["request"]["payload"] = {
+        "commit": "NOT-A-SHA",
+        "verification_evidence": [{"command": "pytest", "unexpected": "passed"}],
+        "acceptance_criteria_checked": [],
+    }
+    journal["read_set"] = journal["read_set"][:3] + [
+        {
+            "predicate": "sole_current_claim",
+            "spec": {"base": "flow_root", "path": "spec.md"},
+            "target": {"base": "flow_root", "path": "tasks/1.2.md"},
+            "claimant": "flow-executor",
+        },
+        {
+            "predicate": "verification_bound_to_commit",
+            "target": {"base": "flow_root", "path": "tasks/1.2.md"},
+            "commit": "NOT-A-SHA",
+            "evidence": journal["request"]["payload"]["verification_evidence"],
+        },
+        {
+            "predicate": "acceptance_criteria_satisfied",
+            "target": {"base": "flow_root", "path": "tasks/1.2.md"},
+            "checked_ids": [],
+        },
+    ]
+    journal["read_set"][1]["fields"]["state"] = "completed"
+    _write_journal(root, journal)
+    messages = "\n".join(
+        item.message for item in validate.validate_markdown_transactions(root)
+    )
+    assert "commit" in messages
+    assert "verification_evidence" in messages
+    assert "acceptance_criteria_checked" in messages
+    assert "lifecycle" in messages
+
+
+def test_plan_bind_requires_typed_evidence_inventory_and_complete_images(
+    tmp_path: Path,
+) -> None:
+    root = _transaction_root(tmp_path)
+    journal = _journal("20260814T120000Z-agent-checkpoint-plan-00")
+    journal["request"]["operation"] = "checkpoint"
+    journal["request"]["targets"] = ["1.1", "1.2"]
+    journal["request"]["payload"] = {
+        "scope": "plan",
+        "plan_bind_evidence": {"evidence_id": "bind-1"},
+    }
+    journal["read_set"] = journal["read_set"][:2] + [
+        {
+            "predicate": "all_task_identities",
+            "scope": {"base": "flow_root", "glob": "tasks/*.md"},
+            "fields": [],
+        },
+        {
+            "predicate": "plan_bind_evidence_matches_live",
+            "paths": [{"base": "flow_root", "path": "spec.md"}],
+            "globs": [{"base": "flow_root", "glob": "tasks/*.md"}],
+            "evidence": journal["request"]["payload"]["plan_bind_evidence"],
+            "runtime_inspection": "forbidden",
+        },
+    ]
+    journal["file_fragments"] = []
+    _write_journal(root, journal)
+    messages = "\n".join(
+        item.message for item in validate.validate_markdown_transactions(root)
+    )
+    assert "plan_bind_evidence must use the exact keyset" in messages
+    assert "complete file_fragments must agree with ordered_writes" in messages
+
+
+def test_create_requires_complete_files_and_directory_provenance(
+    tmp_path: Path,
+) -> None:
+    root = _transaction_root(tmp_path)
+    journal = _journal("20260814T120000Z-agent-create-task-00")
+    journal["request"].update(
+        {
+            "operation": "create",
+            "targets": ["1.3"],
+            "payload": {
+                "variant": "task",
+                "short_id": "1.3",
+                "chapter_id": "phase-1",
+                "worksheet": {
+                    "Objective": "Create the next task",
+                    "Context": "Use the current plan",
+                    "Steps": ["Write the task"],
+                    "Verification": ["validate bundle"],
+                    "Acceptance Criteria": ["Task is executable"],
+                },
+                "priority": "P2",
+                "verification_strategy": "static_validation",
+                "depends_on": [],
+                "files": [],
+                "tests": [],
+            },
+        }
+    )
+    _write_journal(root, journal)
+    messages = "\n".join(
+        item.message for item in validate.validate_markdown_transactions(root)
+    )
+    assert "file_fragments" in messages
+    assert "ordered_directories" in messages
+
+
+def _create_directory_journal() -> dict:
+    journal = _journal("20260814T120000Z-agent-create-flow-00")
+    journal["request"] = {
+        "flow_id": "new-flow",
+        "operation": "create",
+        "actor": "flow-executor",
+        "occurred_at": "2026-08-14T12:00:00Z",
+        "expected_plan_revision": None,
+        "expected_plan_commit": None,
+        "expected_state_revision": None,
+        "targets": [],
+        "payload": {"variant": "flow", "title": "Demo", "description": "Demo flow"},
+    }
+    journal["flow_id"] = "new-flow"
+    journal["flow_root"] = ".agents/bundles/specs/new-flow"
+    journal["read_set"] = [
+        {
+            "predicate": "no_other_unresolved_journal",
+            "directory": {"base": "configured_root", "path": "tasks/transactions"},
+            "excluding_operation_id": journal["operation_id"],
+            "observed_operation_ids": [],
+        },
+        {
+            "predicate": "flow_absent",
+            "target": {"base": "bundle_root", "path": "specs/new-flow"},
+        },
+    ]
+    journal["ordered_directories"] = [
+        {"directory_index": 0, "base": "flow_root", "path": "."}
+    ]
+    journal["applied_directories"] = []
+    journal["rolled_back_directories"] = []
+    journal["file_fragments"] = [
+        {
+            "base": "flow_root",
+            "path": "spec.md",
+            "before": {"exists": False, "content_utf8_lf": None},
+            "after": {"exists": True, "content_utf8_lf": "---\ntype: Spec\n---\n"},
+        }
+    ]
+    journal["ordered_writes"] = [{"base": "flow_root", "path": "spec.md"}]
+    journal["fragments"] = []
+    return journal
+
+
+def test_directory_attempt_chain_allows_retries_then_apply_and_rollback(
+    tmp_path: Path,
+) -> None:
+    root = _transaction_root(tmp_path)
+    journal = _create_directory_journal()
+    for attempt in range(2):
+        _event(
+            journal,
+            "directory_started",
+            directory_index=0,
+            directory_attempt_index=attempt,
+            base="flow_root",
+            path=".",
+        )
+        _event(
+            journal,
+            "directory_not_applied",
+            directory_index=0,
+            directory_attempt_index=attempt,
+            base="flow_root",
+            path=".",
+        )
+    _event(
+        journal,
+        "directory_started",
+        directory_index=0,
+        directory_attempt_index=2,
+        base="flow_root",
+        path=".",
+    )
+    (root / journal["flow_root"]).mkdir(parents=True)
+    _event(
+        journal,
+        "directory_applied",
+        directory_index=0,
+        directory_attempt_index=2,
+        base="flow_root",
+        path=".",
+    )
+    journal["applied_directories"] = [
+        {
+            "directory_index": 0,
+            "directory_attempt_index": 2,
+            "base": "flow_root",
+            "path": ".",
+        }
+    ]
+    journal["state"] = "task_writes_started"
+    _write_journal(root, journal)
+    assert validate.assess_markdown_transactions(root)[journal["operation_id"]] == (
+        "sole_recovery_candidate"
+    )
+
+
+@pytest.mark.parametrize("live_created", [False, True])
+def test_unmatched_directory_start_is_recoverable_but_not_supersedable(
+    tmp_path: Path, live_created: bool
+) -> None:
+    root = _transaction_root(tmp_path)
+    journal = _create_directory_journal()
+    _event(
+        journal,
+        "directory_started",
+        directory_index=0,
+        directory_attempt_index=0,
+        base="flow_root",
+        path=".",
+    )
+    if live_created:
+        (root / journal["flow_root"]).mkdir(parents=True)
+    contender = _journal("20260814T120001Z-agent-note-1-2-00")
+    _write_journal(root, journal)
+    _write_journal(root, contender)
+    results = validate.assess_markdown_transactions(root)
+    assert results[journal["operation_id"]] == "sole_recovery_candidate"
+    assert results[contender["operation_id"]] == "superseded_proven_zero"
+
+
+def test_closed_directory_not_applied_retries_are_proven_zero(tmp_path: Path) -> None:
+    root = _transaction_root(tmp_path)
+    journals = []
+    for sequence in range(2):
+        journal = _create_directory_journal()
+        journal["operation_id"] = f"20260814T12000{sequence}Z-agent-create-flow-00"
+        journal["request"]["actor"] = f"agent-{sequence}"
+        journal["read_set"][0]["excluding_operation_id"] = journal["operation_id"]
+        for attempt in range(2):
+            _event(
+                journal,
+                "directory_started",
+                directory_index=0,
+                directory_attempt_index=attempt,
+                base="flow_root",
+                path=".",
+            )
+            _event(
+                journal,
+                "directory_not_applied",
+                directory_index=0,
+                directory_attempt_index=attempt,
+                base="flow_root",
+                path=".",
+            )
+        journals.append(journal)
+        _write_journal(root, journal)
+    assert set(validate.assess_markdown_transactions(root).values()) == {
+        "superseded_proven_zero"
+    }
+
+
+@pytest.mark.parametrize("rollback_stage", ["started", "removed", "confirmed"])
+def test_applied_directory_rollback_is_resumable(
+    tmp_path: Path, rollback_stage: str
+) -> None:
+    root = _transaction_root(tmp_path)
+    journal = _create_directory_journal()
+    entry = {
+        "directory_index": 0,
+        "directory_attempt_index": 0,
+        "base": "flow_root",
+        "path": ".",
+    }
+    _event(journal, "directory_started", **entry)
+    (root / journal["flow_root"]).mkdir(parents=True)
+    journal["applied_directories"] = [entry]
+    _event(journal, "directory_applied", **entry)
+    _select(journal, "rollback")
+    _event(journal, "directory_rollback_started", **entry)
+    if rollback_stage in {"removed", "confirmed"}:
+        (root / journal["flow_root"]).rmdir()
+    if rollback_stage == "confirmed":
+        journal["rolled_back_directories"] = [entry]
+        _event(journal, "directory_rollback_applied", **entry)
+    _write_journal(root, journal)
+    assert validate.assess_markdown_transactions(root)[journal["operation_id"]] == (
+        "resumable_rollback"
+    )
+
+
+def test_terminal_validation_event_requires_exact_checks_and_fresh_ids(
+    tmp_path: Path,
+) -> None:
+    root = _transaction_root(tmp_path)
+    journal = _journal("20260814T120000Z-agent-claim-1-2-00")
+    _apply(journal, 0, root)
+    _event(
+        journal,
+        "validation_recorded",
+        actor="flow-executor",
+        direction="forward",
+        validation_attempt_id=f"{journal['operation_id']}:forward:v00",
+        checks=[
+            {"check_id": "transaction_arbitration", "result": "passed", "observed": []}
+        ],
+    )
+    journal["state"] = "committed"
+    _write_journal(root, journal)
+    messages = "\n".join(
+        item.message for item in validate.validate_markdown_transactions(root)
+    )
+    assert "exact validation checks" in messages
+
+
+@pytest.mark.parametrize(
+    ("relative", "content"),
+    [
+        (
+            ".opencode/plugins/flow.js",
+            'import { spawn } from "child_process"; spawn("python3", ["state.py"]);',
+        ),
+        ("hooks/session-start", "#!/bin/sh\npython3 tools/priming.py\n"),
+        ("hooks/session-start.ps1", "pwsh -File tools/state.ps1\n"),
+        ("hooks/session-start.cmd", "flow status\r\n"),
+        ("commands/flow/status.toml", 'prompt = """```bash\npython3 state.py\n```"""'),
+    ],
+)
+def test_installed_runtime_scan_detects_structural_invocations(
+    tmp_path: Path, relative: str, content: str
+) -> None:
+    _write(tmp_path / relative, content)
+    assert relative in "\n".join(
+        str(item.path.relative_to(tmp_path))
+        for item in validate.validate_installed_runtime_dependencies(tmp_path)
+    )
+
+
+def test_installed_runtime_scan_allows_explicit_maintainer_surfaces(
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path / "tools/validate.py", "subprocess.run(['python3', 'generator.py'])\n"
+    )
+    _write(tmp_path / "tests/test_runtime.py", "python3 tools/validate.py\n")
+    assert validate.validate_installed_runtime_dependencies(tmp_path) == []
+
+
+def test_runtime_transition_allowlist_is_exact_and_stale_sensitive(
+    tmp_path: Path,
+) -> None:
+    assert (
+        validate.validate_installed_runtime_dependencies(
+            REPO_ROOT,
+            transition_allowlist=validate._RUNTIME_TRANSITION_ALLOWLIST,
+        )
+        == []
+    )
+    violations = validate.validate_installed_runtime_dependencies(
+        tmp_path,
+        transition_allowlist={"hooks/session-start.sh:hook_script"},
+    )
+    assert len(violations) == 1
+    assert "stale runtime transition allowlist entry" in violations[0].message
+
+
+def test_validation_invalidation_requires_fresh_revalidation_before_terminal(
+    tmp_path: Path,
+) -> None:
+    root = _transaction_root(tmp_path)
+    journal = _journal("20260814T120000Z-agent-claim-1-2-00")
+    _apply(journal, 0, root)
+    _apply(journal, 1, root)
+    _validate_forward(journal)
+    _event(
+        journal,
+        "validation_invalidated",
+        actor="flow-executor",
+        direction="forward",
+        validation_attempt_id=f"{journal['operation_id']}:forward:v00",
+        reason="contender_appeared",
+        observed_nonterminal_operation_ids=["20260814T120001Z-other-note-1-1-00"],
+        failed_checks=[
+            {
+                "check_id": "transaction_arbitration",
+                "expected": [],
+                "observed": ["20260814T120001Z-other-note-1-1-00"],
+            }
+        ],
+    )
+    journal["state"] = "committed"
+    _write_journal(root, journal)
+    messages = "\n".join(
+        item.message for item in validate.validate_markdown_transactions(root)
+    )
+    assert "final validation_recorded" in messages
+
+    journal["state"] = "recovery_required"
+    _validate_forward(journal, 1)
+    journal["state"] = "committed"
+    _write_journal(root, journal)
+    assert validate.validate_markdown_transactions(root) == []
+
+
+def test_validation_attempt_suffix_exhaustion_is_a_hard_stop(tmp_path: Path) -> None:
+    root = _transaction_root(tmp_path)
+    journal = _journal("20260814T120000Z-agent-claim-1-2-00")
+    _apply(journal, 0, root)
+    for suffix in range(100):
+        _validate_forward(journal, suffix)
+        _event(
+            journal,
+            "validation_invalidated",
+            actor="flow-executor",
+            direction="forward",
+            validation_attempt_id=f"{journal['operation_id']}:forward:v{suffix:02d}",
+            reason="read_set_drift",
+            observed_nonterminal_operation_ids=[],
+            failed_checks=[
+                {
+                    "check_id": "complete_read_set",
+                    "expected": "exact",
+                    "observed": "drift",
+                }
+            ],
+        )
+    journal["state"] = "recovery_required"
+    _write_journal(root, journal)
+    messages = "\n".join(
+        item.message for item in validate.validate_markdown_transactions(root)
+    )
+    assert "validation attempts exhausted" in messages
+
+
+@pytest.mark.parametrize(
+    "location",
+    [
+        "fragment",
+        "ordered_write",
+        "read_target",
+        "dependency_path",
+        "transaction_directory",
+        "inventory",
+        "glob_scope",
+    ],
+)
+def test_journal_rejects_symlink_traversal_in_every_namespace(
+    tmp_path: Path, location: str
+) -> None:
+    root = _transaction_root(tmp_path)
+    journal = _journal("20260814T120000Z-agent-claim-1-2-00")
+    journal["archive_inventory"] = {
+        "base": "bundle_root",
+        "root": "specs/demo-flow",
+        "directories": ["."],
+        "files": ["spec.md"],
+    }
+    flow_root = root / journal["flow_root"]
+    configured_root = root / journal["configured_root"]
+    bundle_root = root / journal["bundle_root"]
+    (flow_root / "linked").symlink_to(flow_root / "tasks", target_is_directory=True)
+    (configured_root / "linked-transactions").symlink_to(
+        configured_root / "tasks/transactions", target_is_directory=True
+    )
+    (bundle_root / "linked-flow").symlink_to(flow_root, target_is_directory=True)
+    records = {
+        "fragment": (journal["fragments"][0], "path", "linked/1.2.md"),
+        "ordered_write": (journal["ordered_writes"][0], "path", "linked/1.2.md"),
+        "read_target": (journal["read_set"][3]["target"], "path", "linked/1.2.md"),
+        "dependency_path": (
+            journal["read_set"][3]["dependency_paths"][0],
+            "path",
+            "linked/1.1.md",
+        ),
+        "transaction_directory": (
+            journal["read_set"][0]["directory"],
+            "path",
+            "linked-transactions",
+        ),
+        "inventory": (journal["archive_inventory"], "root", "linked-flow"),
+        "glob_scope": (journal["read_set"][4]["scope"], "glob", "linked/*.md"),
+    }
+    record, key, value = records[location]
+    record[key] = value
+    _write_journal(root, journal)
+    messages = "\n".join(
+        item.message for item in validate.validate_markdown_transactions(root)
+    )
+    assert "symlink" in messages
+
+
+@pytest.mark.parametrize(
+    ("operation", "payload", "extra_predicate"),
+    [
+        ("note", {"category": "observation", "text": "record it"}, None),
+        ("discover", {"text": "found", "impact": "none", "next_step": None}, None),
+        (
+            "block",
+            {
+                "blocked_reason": "waiting",
+                "unblock_condition": "reply",
+                "next_step": "resume",
+            },
+            {
+                "predicate": "in_progress_target_is_current",
+                "spec": {"base": "flow_root", "path": "spec.md"},
+                "target": {"base": "flow_root", "path": "tasks/1.2.md"},
+            },
+        ),
+    ],
+)
+def test_noncurrent_note_discover_and_open_block_need_no_claim_guards(
+    tmp_path: Path, operation: str, payload: dict, extra_predicate: dict | None
+) -> None:
+    root = _transaction_root(tmp_path)
+    journal = _journal(f"20260814T120000Z-agent-{operation}-1-2-00")
+    journal["request"]["operation"] = operation
+    journal["request"]["payload"] = payload
+    journal["read_set"] = journal["read_set"][:3]
+    if extra_predicate is not None:
+        journal["read_set"].append(extra_predicate)
+    _write_journal(root, journal)
+    messages = "\n".join(
+        item.message for item in validate.validate_markdown_transactions(root)
+    )
+    assert "read_set predicates" not in messages

@@ -237,3 +237,82 @@ def test_dependency_drift_is_reported_at_the_claimed_task(tmp_path: Path) -> Non
     messages = _messages(violations)
     assert "tasks/1.2.md" in messages
     assert "dependency '1.1' is not closed" in messages
+
+
+@pytest.mark.parametrize(
+    ("old", "new", "expected"),
+    [
+        (
+            "## Objective\nDeliver a visible continuation behavior.\n",
+            "## Objective\nx\n",
+            "Objective",
+        ),
+        (
+            "## Context\nEdit `src/continuation.py` using the existing foundation.\n",
+            "## Context\nx\n",
+            "Context",
+        ),
+        (
+            "## Steps\n1. Add a failing continuation scenario.\n2. Implement the continuation behavior.\n",
+            "## Steps\n1. x\n",
+            "Steps",
+        ),
+        (
+            "## Verification\nRun `pytest tests/test_continuation.py` and require a passing result.\n",
+            "## Verification\n`x`\n",
+            "Verification",
+        ),
+        (
+            "## Acceptance Criteria\n- The continuation behavior is observable.\n",
+            "## Acceptance Criteria\n- x\n",
+            "Acceptance Criteria",
+        ),
+    ],
+)
+def test_one_token_worksheet_fields_are_not_executable(
+    tmp_path: Path, old: str, new: str, expected: str
+) -> None:
+    root, bundle = _fixture(tmp_path)
+    _replace(bundle / "tasks" / "1.2.md", old, new)
+    assert expected in _messages(validate.validate_okf_bundle(bundle, root))
+
+
+def test_timestamps_priority_and_verification_strategy_use_closed_contracts(
+    tmp_path: Path,
+) -> None:
+    root, bundle = _fixture(tmp_path)
+    task = bundle / "tasks" / "1.2.md"
+    _replace(task, "priority: P2", "priority: urgent")
+    _replace(
+        task, "verification_strategy: behavior_tdd", "verification_strategy: vibes"
+    )
+    _replace(
+        task,
+        "claimed_at: 2026-08-14T12:00:00Z",
+        "claimed_at: 2026-08-14T12:00:00+01:00",
+    )
+    messages = _messages(validate.validate_okf_bundle(bundle, root))
+    assert "priority" in messages
+    assert "verification_strategy" in messages
+    assert "claimed_at" in messages and "UTC" in messages
+
+
+def test_activate_is_spec_only_and_snapshot_checkpoint_must_match(
+    tmp_path: Path,
+) -> None:
+    root, bundle = _fixture(tmp_path)
+    spec = bundle / "spec.md"
+    _replace(
+        spec,
+        "last_operation: 20260814T120000Z-flow-executor-claim-1-2-00",
+        "last_operation: 20260814T121000Z-flow-executor-activate-spec-00",
+    )
+    _replace(
+        spec,
+        "last_operation: 20260814T120000Z-flow-executor-claim-1-2-00",
+        "last_operation: 20260814T121000Z-flow-executor-activate-spec-00",
+    )
+    _replace(spec, "`task:1.1@abc1234`", "`task:9.9@bad9999`")
+    messages = _messages(validate.validate_okf_bundle(bundle, root))
+    assert "activate" in messages and "operation_targets" in messages
+    assert "Last verified checkpoint" in messages
