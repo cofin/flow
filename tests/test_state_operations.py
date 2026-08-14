@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import re
 import shutil
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +15,19 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SKILL_PATH = REPO_ROOT / "skills" / "flow-state" / "SKILL.md"
 TEMPLATE_PATH = REPO_ROOT / "templates" / "agent" / "skills" / "flow-state" / "SKILL.md"
+SOURCE_STATE_REFERENCE_PATH = REPO_ROOT / "skills" / "flow" / "references" / "state.md"
+PACKAGED_STATE_REFERENCE_PATH = (
+    REPO_ROOT / "skills" / "flow-state" / "references" / "state.md"
+)
+TEMPLATE_STATE_REFERENCE_PATH = (
+    REPO_ROOT
+    / "templates"
+    / "agent"
+    / "skills"
+    / "flow-state"
+    / "references"
+    / "state.md"
+)
 AGENT_PATH = REPO_ROOT / "agents" / "flow-reconciler.md"
 SYNC_SKILL_PATH = REPO_ROOT / "skills" / "flow-sync-status" / "SKILL.md"
 SYNC_REFERENCE_PATH = REPO_ROOT / "skills" / "flow" / "references" / "sync.md"
@@ -54,6 +69,15 @@ def _contract(path: Path, name: str = "flow-state-contract") -> dict[str, Any]:
     return parsed
 
 
+def _yaml_block(path: Path, heading: str) -> dict[str, Any]:
+    content = path.read_text(encoding="utf-8")
+    section = content.split(heading, maxsplit=1)[1]
+    raw = section.split("```yaml\n", maxsplit=1)[1].split("\n```", maxsplit=1)[0]
+    parsed = yaml.safe_load(raw)
+    assert isinstance(parsed, dict)
+    return parsed
+
+
 def _request_outcome(contract: dict[str, Any], request: dict[str, Any]) -> str:
     operation = request.get("operation")
     if operation not in contract["operations"]:
@@ -80,6 +104,27 @@ def _request_outcome(contract: dict[str, Any], request: dict[str, Any]) -> str:
         request.get("targets", [])
     ):
         return "refuse"
+    if operation == "checkpoint":
+        scope = request["payload"].get("scope")
+        checkpoint = _yaml_block(
+            PACKAGED_STATE_REFERENCE_PATH, "### Operation payload schemas"
+        )["checkpoint"].get(scope)
+        if checkpoint is None or set(request["payload"]) != set(checkpoint["required"]):
+            return "refuse"
+        if scope in {"task", "phase"} and not request["payload"].get(
+            "verification_evidence"
+        ):
+            return "refuse"
+        if scope == "plan":
+            evidence = request["payload"].get("plan_bind_evidence")
+            if not isinstance(evidence, dict) or set(evidence) != {
+                "evidence_id",
+                "commit",
+                "inventory",
+                "documents",
+                "verifier",
+            }:
+                return "refuse"
     return "accept"
 
 
@@ -96,6 +141,46 @@ def _mutation_request(
         "expected_state_revision": 7,
         "targets": targets,
         "payload": payload,
+    }
+
+
+def _checkpoint_payload(scope: str) -> dict[str, Any]:
+    if scope == "task":
+        return {
+            "scope": "task",
+            "commit": "abc1234",
+            "verification_evidence": [
+                {"command": "project test command", "result": "passed"}
+            ],
+            "summary": "task behavior verified",
+        }
+    if scope == "phase":
+        return {
+            "scope": "phase",
+            "phase_id": "phase-1",
+            "affected_task_ids": ["1.1", "1.2"],
+            "last_functional_commit": "abc1234",
+            "verification_evidence": [
+                {"command": "project phase command", "result": "passed"}
+            ],
+        }
+    return {
+        "scope": "plan",
+        "plan_bind_evidence": {
+            "evidence_id": "plan-bind-17",
+            "commit": "abc1234",
+            "inventory": [
+                {"base": "flow_root", "path": "spec.md"},
+                {"base": "flow_root", "path": "tasks/1.1.md"},
+                {"base": "flow_root", "path": "tasks/1.2.md"},
+            ],
+            "documents": [],
+            "verifier": {
+                "actor": "code-reviewer",
+                "verified_at": "2026-08-14T18:40:00Z",
+                "result": "verified_against_commit",
+            },
+        },
     }
 
 
@@ -125,8 +210,86 @@ def _load_validator():
     return module
 
 
+def _load_trace_oracle():
+    module_path = REPO_ROOT / "tests" / "test_okf_conformance.py"
+    spec = importlib.util.spec_from_file_location("state_trace_oracle", module_path)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.fixture(scope="module")
+def trace_oracle():
+    return _load_trace_oracle()
+
+
 def test_state_skill_and_consumer_template_are_identical() -> None:
     assert SKILL_PATH.read_bytes() == TEMPLATE_PATH.read_bytes()
+
+
+def test_packaged_state_reference_is_self_contained_and_in_sync() -> None:
+    source = SOURCE_STATE_REFERENCE_PATH.read_bytes()
+
+    assert PACKAGED_STATE_REFERENCE_PATH.read_bytes() == source
+    assert TEMPLATE_STATE_REFERENCE_PATH.read_bytes() == source
+    skill = SKILL_PATH.read_text(encoding="utf-8")
+    assert "(references/state.md)" in skill
+    assert "../flow/references/state.md" not in skill
+
+    for heading in [
+        "### Operation payload schemas",
+        "### Operation read/precondition matrix",
+        "### Create complete-file fragments",
+        "### Event and write-entry shapes",
+        "### Terminal validation event schemas",
+    ]:
+        assert heading in PACKAGED_STATE_REFERENCE_PATH.read_text(encoding="utf-8")
+
+
+def test_sidecar_result_union_is_closed_and_shared() -> None:
+    skill_union = _contract(SKILL_PATH)["result_union"]
+    agent_union = _contract(AGENT_PATH, "flow-sidecar-protocol")["result_union"]
+
+    assert agent_union == skill_union
+    assert skill_union["keyset"] == [
+        "outcome",
+        "operation",
+        "flow_id",
+        "operation_id",
+        "plan_revision",
+        "plan_commit",
+        "state_revision",
+        "targets",
+        "journal",
+        "evidence",
+        "refusal",
+    ]
+    assert set(skill_union["variants"]) == {
+        "committed",
+        "replayed",
+        "rolled_back",
+        "recovery_required",
+        "contended",
+        "refused",
+        "status",
+    }
+    assert skill_union["field_types"] == {
+        "operation": "contract_operation_or_null",
+        "flow_id": "non_empty_flow_id_or_null",
+        "operation_id": "canonical_operation_id_or_null",
+        "plan_revision": "integer_at_least_one_or_null",
+        "plan_commit": "lowercase_7_to_40_hex_or_null",
+        "state_revision": "non_negative_integer_or_null",
+        "targets": "unique_sorted_task_id_array",
+        "journal": "journal_record_or_null",
+        "evidence": "selected_evidence_record_or_null",
+        "refusal": "refusal_record_or_null",
+    }
+    for name, variant in skill_union["variants"].items():
+        assert variant["outcome"] == name
+        assert set(variant["nullability"]) == set(skill_union["keyset"]) - {"outcome"}
 
 
 def test_request_contract_is_closed_and_supports_every_operation() -> None:
@@ -176,12 +339,16 @@ def test_request_contract_is_closed_and_supports_every_operation() -> None:
             "accept",
         ),
         (
-            _mutation_request("checkpoint", targets=[], payload={"scope": "phase"}),
+            _mutation_request(
+                "checkpoint", targets=[], payload=_checkpoint_payload("phase")
+            ),
             "accept",
         ),
         (
             _mutation_request(
-                "checkpoint", targets=["1.1", "1.2"], payload={"scope": "plan"}
+                "checkpoint",
+                targets=["1.1", "1.2"],
+                payload=_checkpoint_payload("plan"),
             ),
             "accept",
         ),
@@ -237,9 +404,9 @@ def test_request_scenarios(input_request: dict[str, Any], outcome: str) -> None:
         ("discover", ["1.1"], {}),
         ("block", ["1.1"], {}),
         ("unblock", ["1.1"], {}),
-        ("checkpoint", ["1.1"], {"scope": "task"}),
-        ("checkpoint", [], {"scope": "phase"}),
-        ("checkpoint", ["1.1", "1.2"], {"scope": "plan"}),
+        ("checkpoint", ["1.1"], _checkpoint_payload("task")),
+        ("checkpoint", [], _checkpoint_payload("phase")),
+        ("checkpoint", ["1.1", "1.2"], _checkpoint_payload("plan")),
         ("close", ["1.1"], {}),
         ("skip", ["1.1"], {}),
         ("reopen", ["1.1"], {}),
@@ -256,6 +423,43 @@ def test_every_mutation_has_an_explicit_accepted_target_shape(
     request = _mutation_request(operation, targets=targets, payload=payload)
 
     assert _request_outcome(_contract(SKILL_PATH), request) == "accept"
+
+
+@pytest.mark.parametrize(
+    ("targets", "payload"),
+    [
+        (["1.1"], {"scope": "task"}),
+        (
+            ["1.1"],
+            {
+                **_checkpoint_payload("task"),
+                "verification_evidence": [],
+            },
+        ),
+        ([], {"scope": "phase"}),
+        (
+            [],
+            {
+                **_checkpoint_payload("phase"),
+                "verification_evidence": [],
+            },
+        ),
+        (["1.1", "1.2"], {"scope": "plan"}),
+        (
+            ["1.1", "1.2"],
+            {
+                "scope": "plan",
+                "plan_bind_evidence": {"evidence_id": "incomplete"},
+            },
+        ),
+    ],
+)
+def test_checkpoint_requires_typed_task_phase_or_plan_evidence(
+    targets: list[str], payload: dict[str, Any]
+) -> None:
+    request = _mutation_request("checkpoint", targets=targets, payload=payload)
+
+    assert _request_outcome(_contract(SKILL_PATH), request) == "refuse"
 
 
 def test_lifecycle_and_identity_routes_are_explicit() -> None:
@@ -361,104 +565,6 @@ def test_lifecycle_guard_scenarios(operation: str, state: str, outcome: str) -> 
     assert _lifecycle_outcome(_contract(SKILL_PATH), operation, state) == outcome
 
 
-@pytest.mark.parametrize(
-    ("scenario", "outcome"),
-    [
-        ("all_zero", "supersede_lexicographically_then_retry"),
-        ("sole_applied", "supersede_zero_then_require_explicit_recovery"),
-        (
-            "late_zero_shared_drift_explained",
-            "supersede_zero_then_require_explicit_recovery",
-        ),
-        ("multiple_applied", "hard_stop"),
-        ("conflict", "hard_stop"),
-    ],
-)
-def test_joint_arbitration_scenarios(scenario: str, outcome: str) -> None:
-    protocol = _contract(AGENT_PATH, "flow-sidecar-protocol")
-
-    assert protocol["arbitration"][scenario] == outcome
-    assert protocol["authority"] == "joint_classification_never_scan_order"
-    assert protocol["reread_boundaries"] == [
-        "after_journal_creation",
-        "before_each_directory_or_file_write",
-        "after_each_directory_or_file_write",
-        "before_validation",
-        "before_terminal_state",
-    ]
-
-
-@pytest.mark.parametrize(
-    ("live_value", "resolution"),
-    [
-        ("exact_after", "record_applied_entry_then_write_applied"),
-        ("exact_before", "write_not_applied_then_fresh_attempt_allowed"),
-        ("other", "refuse"),
-    ],
-)
-def test_unmatched_forward_start_recovery(live_value: str, resolution: str) -> None:
-    protocol = _contract(AGENT_PATH, "flow-sidecar-protocol")
-
-    assert protocol["recovery"]["unmatched_forward_start"][live_value] == resolution
-
-
-def test_recovery_and_fault_boundaries_are_deterministic() -> None:
-    protocol = _contract(AGENT_PATH, "flow-sidecar-protocol")
-
-    assert protocol["recovery"]["direction"] == "one_immutable_recovery_selected_event"
-    assert protocol["recovery"]["rollback"] == {
-        "order": "reverse_applied_prefix",
-        "events": ["rollback_started", "rollback_applied"],
-        "entries": "namespaced_indexed_duplicate_free",
-        "closed_not_applied_attempts": "ignored",
-        "confirmed_restores": "live_before",
-        "remaining_applied": "live_after",
-        "resume": "same_direction_after_every_boundary",
-    }
-    assert protocol["recovery"]["refuse"] == [
-        "changed_direction",
-        "duplicate_or_unclosed_start",
-        "event_gap_or_reordering",
-        "invalid_prefix",
-        "unexplained_live_value",
-        "journal_or_fragment_tamper",
-    ]
-    assert protocol["terminal_validation"] == {
-        "forward": "validation_recorded_then_reread_then_committed",
-        "rollback": "rollback_validated_then_reread_then_rolled_back",
-        "interruption": "rerun_exact_checks_without_duplicate_event",
-    }
-    assert protocol["recovery"]["restore_modes"] == [
-        "regular_fragment",
-        "archive_file_fragment",
-        "created_directory",
-    ]
-    assert protocol["recovery"]["fault_boundaries"] == [
-        "after_each_restore",
-        "before_terminal_state",
-    ]
-
-
-def test_interleaving_provenance_and_archive_recovery_are_explicit() -> None:
-    protocol = _contract(AGENT_PATH, "flow-sidecar-protocol")
-
-    assert protocol["contention"] == {
-        "contender_before_any_applied_mutation": "contended_before_write_then_stop",
-        "contender_after_applied_prefix": "recovery_required_then_stop",
-    }
-    assert protocol["provenance"] == {
-        "events": "append_only_gap_free_namespaced_indexed",
-        "writes": "applied_and_rolled_back_lists_match_live_prefixes",
-        "directories": "shallowest_forward_deepest_rollback",
-    }
-    assert protocol["archive"] == {
-        "inventory": "complete_sorted_regular_utf8_markdown_files_and_directories",
-        "deletion": "recorded_files_then_empty_directories",
-        "rollback": "directories_shallowest_then_files_reverse_deletion_order",
-        "per_file_resume": "exact_before_after_image",
-    }
-
-
 def test_sidecar_scope_and_runtime_are_file_tool_only() -> None:
     contract = _contract(SKILL_PATH)
     protocol = _contract(AGENT_PATH, "flow-sidecar-protocol")
@@ -516,3 +622,150 @@ def test_owned_consumer_surfaces_have_zero_runtime_dependencies(tmp_path: Path) 
 
     validate = _load_validator()
     assert validate.validate_installed_runtime_dependencies(tmp_path) == []
+
+
+def test_live_claim_trace_is_task_first_spec_last_and_terminal(
+    tmp_path: Path, trace_oracle
+) -> None:
+    oracle = trace_oracle
+    interrupted_root = oracle._transaction_root(tmp_path / "before-write")
+    interrupted = oracle._journal("20260814T184000Z-agent-claim-1-2-00")
+
+    oracle._event(interrupted, "write_started", 0)
+    oracle._write_journal(interrupted_root, interrupted)
+    assert oracle.validate.assess_markdown_transactions(interrupted_root) == {
+        interrupted["operation_id"]: "sole_recovery_candidate"
+    }
+
+    root = oracle._transaction_root(tmp_path / "successful")
+    journal = oracle._journal("20260814T184001Z-agent-claim-1-2-00")
+    oracle._apply(journal, 0, root)
+    oracle._write_journal(root, journal)
+    spec = root / journal["flow_root"] / "spec.md"
+    assert "current_task: null" in spec.read_text(encoding="utf-8")
+    assert oracle.validate.assess_markdown_transactions(root) == {
+        journal["operation_id"]: "sole_recovery_candidate"
+    }
+
+    oracle._apply(journal, 1, root)
+    oracle._validate_forward(journal)
+    journal["state"] = "committed"
+    oracle._write_journal(root, journal)
+    assert oracle.validate.validate_markdown_transactions(root) == []
+    assert oracle.validate.assess_markdown_transactions(root) == {}
+
+
+def test_live_late_zero_contender_is_explained_by_winner(
+    tmp_path: Path, trace_oracle
+) -> None:
+    oracle = trace_oracle
+    root = oracle._transaction_root(tmp_path)
+    winner = oracle._journal("20260814T184000Z-agent-claim-1-2-00")
+    oracle._apply(winner, 0, root)
+    oracle._apply(winner, 1, root)
+    contender = oracle._journal(
+        "20260814T184001Z-agent-claim-1-2-00", state="contended"
+    )
+    oracle._observe_journals(contender, [winner["operation_id"]])
+    oracle._event(
+        contender,
+        "contended_before_write",
+        observed_nonterminal_operation_ids=[winner["operation_id"]],
+    )
+    oracle._write_journal(root, winner)
+    oracle._write_journal(root, contender)
+
+    assert oracle.validate.assess_markdown_transactions(root) == {
+        winner["operation_id"]: "sole_recovery_candidate",
+        contender["operation_id"]: "superseded_proven_zero",
+    }
+
+
+@pytest.mark.parametrize(
+    ("action", "expected"),
+    [("finish", "finishable"), ("rollback", "resumable_rollback")],
+)
+def test_live_recovery_direction_is_immutable(
+    tmp_path: Path, trace_oracle, action: str, expected: str
+) -> None:
+    oracle = trace_oracle
+    root = oracle._transaction_root(tmp_path)
+    journal = oracle._journal("20260814T184000Z-agent-claim-1-2-00")
+    oracle._apply(journal, 0, root)
+    oracle._event(journal, "write_started", 1)
+    oracle._event(journal, "write_not_applied", 1)
+    oracle._select(journal, action)
+    if action == "finish":
+        oracle._event(journal, "write_started", 1)
+    else:
+        oracle._restore(journal, 0, confirmed=False, root=root)
+    oracle._write_journal(root, journal)
+    assert oracle.validate.assess_markdown_transactions(root) == {
+        journal["operation_id"]: expected
+    }
+
+    changed = deepcopy(journal)
+    oracle._event(
+        changed,
+        "recovery_selected",
+        action="rollback" if action == "finish" else "finish",
+        actor="flow-executor",
+    )
+    oracle._write_journal(root, changed)
+    assert oracle.validate.assess_markdown_transactions(root) == {
+        journal["operation_id"]: "hard_conflict"
+    }
+
+
+def test_live_custom_root_and_bundle_are_authoritative(
+    tmp_path: Path, trace_oracle
+) -> None:
+    oracle = trace_oracle
+    root = oracle._transaction_root(tmp_path)
+    configured = root / ".flow-local"
+    (root / ".agents").rename(configured)
+    (root / ".agents").mkdir()
+    (root / ".agents" / "setup-state.json").write_text(
+        json.dumps({"root_directory": ".flow-local"}), encoding="utf-8"
+    )
+    (configured / "bundles").rename(configured / "okf-data")
+    (configured / "config.json").write_text(
+        json.dumps({"bundles_dir": "okf-data"}), encoding="utf-8"
+    )
+    journal = oracle._journal("20260814T184000Z-agent-claim-1-2-00")
+    journal["configured_root"] = ".flow-local"
+    journal["bundle_root"] = ".flow-local/okf-data"
+    journal["flow_root"] = ".flow-local/okf-data/specs/demo-flow"
+    oracle._write_journal(root, journal, ".flow-local")
+
+    layout = oracle.validate.resolve_okf_layout(root)
+    assert layout.configured_root == configured
+    assert layout.bundle_root == configured / "okf-data"
+    assert oracle.validate.assess_markdown_transactions(root) == {
+        journal["operation_id"]: "finishable"
+    }
+
+
+def test_live_archive_deletion_and_per_file_rollback_resume(
+    tmp_path: Path, trace_oracle
+) -> None:
+    oracle = trace_oracle
+    root = oracle._transaction_root(tmp_path)
+    journal = oracle._journal("20260814T184000Z-agent-archive-spec-00")
+    oracle._as_archive(journal, root)
+    for index in range(len(journal["ordered_writes"])):
+        oracle._apply(journal, index, root)
+    oracle._write_journal(root, journal)
+    spec = root / journal["flow_root"] / "spec.md"
+    assert not spec.exists()
+    assert oracle.validate.assess_markdown_transactions(root) == {
+        journal["operation_id"]: "sole_recovery_candidate"
+    }
+
+    oracle._select(journal, "rollback")
+    oracle._restore(journal, len(journal["ordered_writes"]) - 1, root=root)
+    oracle._write_journal(root, journal)
+    assert spec.exists()
+    assert oracle.validate.assess_markdown_transactions(root) == {
+        journal["operation_id"]: "resumable_rollback"
+    }

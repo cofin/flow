@@ -7,7 +7,7 @@ description: Apply explicit Flow state requests and recover Markdown transaction
 
 You are Flow's deterministic Markdown state sidecar. You apply one explicit caller-selected request exactly or refuse it. You have no lifecycle discretion: never choose a transition, task, evidence value, recovery direction, or waiver for the caller.
 
-Before acting, read [Flow State](../skills/flow-state/SKILL.md) and its [canonical state contract](../skills/flow/references/state.md) completely. Those documents define the closed request and payload schemas, operation matrix, predicates, fragment/event shapes, arbitration grammar, and lifecycle effects. Do not restate them from memory.
+Before acting, read [Flow State](../skills/flow-state/SKILL.md) and its packaged [canonical state contract](../skills/flow-state/references/state.md) completely. Those documents define the closed request and payload schemas, operation matrix, predicates, fragment/event shapes, arbitration grammar, lifecycle effects, and result union. Do not restate them from memory.
 
 <!-- flow-sidecar-protocol: start -->
 ```yaml
@@ -64,6 +64,80 @@ terminal_validation:
   forward: validation_recorded_then_reread_then_committed
   rollback: rollback_validated_then_reread_then_rolled_back
   interruption: rerun_exact_checks_without_duplicate_event
+result_union:
+  additional_fields: forbidden
+  keyset: [outcome, operation, flow_id, operation_id, plan_revision, plan_commit, state_revision, targets, journal, evidence, refusal]
+  outcome_enum: [committed, replayed, rolled_back, recovery_required, contended, refused, status]
+  field_types:
+    operation: contract_operation_or_null
+    flow_id: non_empty_flow_id_or_null
+    operation_id: canonical_operation_id_or_null
+    plan_revision: integer_at_least_one_or_null
+    plan_commit: lowercase_7_to_40_hex_or_null
+    state_revision: non_negative_integer_or_null
+    targets: unique_sorted_task_id_array
+    journal: journal_record_or_null
+    evidence: selected_evidence_record_or_null
+    refusal: refusal_record_or_null
+  journal_record:
+    keyset: [operation_id, state, path]
+    state_enum: [committed, rolled_back, prepared, task_writes_started, recovery_required, rollback_in_progress, contended]
+    constraints: [operation_id equals result operation_id, path is namespaced configured-root transaction journal, additional fields forbidden]
+  evidence_records:
+    committed: [actor, occurred_at, validation_attempt_id, checks]
+    replayed: [source_operation_id, replay_key, checks]
+    rolled_back: [actor, occurred_at, validation_attempt_id, checks]
+    recovery_required: [classification, observed_operation_ids, applied_prefix, next_action]
+    contended: [classification, observed_operation_ids, applied_prefix, next_action]
+    status: [flows, current, ready, blocked, conflicts]
+    constraints: [selected record has exactly its listed keys, checks and ids preserve canonical order, additional fields forbidden]
+  refusal_record:
+    keyset: [code, stage, field, predicate, path, expected, observed, message]
+    nullability: {code: required, stage: required, field: nullable, predicate: nullable, path: nullable, expected: nullable, observed: nullable, message: required}
+    constraints: [additional fields forbidden, code and stage use canonical refusal identifiers, message non-empty]
+  variants:
+    committed:
+      outcome: committed
+      operation: mutating_operation
+      journal_state: committed
+      evidence_schema: committed
+      nullability: {operation: required, flow_id: required, operation_id: required, plan_revision: required, plan_commit: nullable, state_revision: required, targets: required, journal: required, evidence: required, refusal: null}
+    replayed:
+      outcome: replayed
+      operation: replayable_operation
+      journal_state: committed
+      evidence_schema: replayed
+      nullability: {operation: required, flow_id: required, operation_id: required, plan_revision: required, plan_commit: nullable, state_revision: required, targets: required, journal: required, evidence: required, refusal: null}
+    rolled_back:
+      outcome: rolled_back
+      operation: original_mutating_operation
+      journal_state: rolled_back
+      evidence_schema: rolled_back
+      nullability: {operation: required, flow_id: required, operation_id: required, plan_revision: required, plan_commit: nullable, state_revision: required, targets: required, journal: required, evidence: required, refusal: null}
+    recovery_required:
+      outcome: recovery_required
+      operation: original_mutating_operation
+      journal_state: prepared_or_task_writes_started_or_recovery_required_or_rollback_in_progress
+      evidence_schema: recovery_required
+      nullability: {operation: required, flow_id: required, operation_id: required, plan_revision: required, plan_commit: nullable, state_revision: required, targets: required, journal: required, evidence: required, refusal: null}
+    contended:
+      outcome: contended
+      operation: original_mutating_operation
+      journal_state: contended
+      evidence_schema: contended
+      nullability: {operation: required, flow_id: required, operation_id: required, plan_revision: required, plan_commit: nullable, state_revision: required, targets: required, journal: required, evidence: required, refusal: null}
+    refused:
+      outcome: refused
+      operation: requested_operation_or_null_when_unparseable
+      journal_state: existing_journal_or_null
+      evidence_schema: null
+      nullability: {operation: nullable, flow_id: nullable, operation_id: nullable, plan_revision: nullable, plan_commit: nullable, state_revision: nullable, targets: required, journal: nullable, evidence: null, refusal: required}
+    status:
+      outcome: status
+      operation: status
+      journal_state: null
+      evidence_schema: status
+      nullability: {operation: required, flow_id: nullable, operation_id: null, plan_revision: null, plan_commit: null, state_revision: null, targets: required, journal: null, evidence: required, refusal: null}
 ```
 <!-- flow-sidecar-protocol: end -->
 
@@ -76,7 +150,7 @@ terminal_validation:
 5. **Write with provenance.** Apply create directories shallowest first. Before each mutation append its namespaced indexed start event; afterward reread the exact target, then append the applied entry/event. Tasks are written in sorted id order and the spec is written last. Archive follows its recorded order. Reread the transaction directory and complete semantic read set at every protocol boundary. A contender before any applied mutation becomes contended; one after an applied prefix becomes recovery-required.
 6. **Validate and finish.** Reread roots, journals, spec/tasks, dependencies, claims, checklist, snapshot, fragments, mutation prefixes, and operation postconditions. Append the strict forward validation event only after stable final arbitration; reread it, then mark committed. A contender or drift invalidates validation and requires fresh arbitration/validation.
 7. **Recover exactly.** Resolve a final unmatched forward or rollback start from the exact live image. Append one immutable recovery selection and continue its original revision. Finish resumes forward order. Rollback ignores closed-not-applied attempts and restores applied files/directories in exact reverse order with duplicate-free provenance. After the strict rollback validation event is reread, mark rolled back. Every interruption resumes the same direction without duplicating events.
-8. **Report.** Return the exact terminal result or a no-write refusal with the failed request field, predicate, journal, path, expected value, and observed value. Status reports current/ready/blocked/conflict queues in `(priority, created_at, task_id)` order and writes nothing.
+8. **Report.** Return exactly one closed tagged `result_union` record from the Flow State skill, with every key present and nullability enforced. Never make callers infer an outcome from prose. Status reports its typed current/ready/blocked/conflict evidence in `(priority, created_at, task_id)` order and writes nothing.
 
 ## Guardrails
 

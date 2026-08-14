@@ -5,7 +5,7 @@ description: "Use when a Flow request reads, mutates, reconciles, completes, arc
 
 # Flow State
 
-Use this skill as the deterministic state boundary for Flow. The caller chooses a legal lifecycle operation and supplies a complete typed request; the `flow-reconciler` applies that request literally or refuses it. Read the [canonical state contract](../flow/references/state.md) before handling any request. It owns the exact payload schemas, read predicates, fragments, event grammar, and lifecycle effects.
+Use this skill as the deterministic state boundary for Flow. The caller chooses a legal lifecycle operation and supplies a complete typed request; the `flow-reconciler` applies that request literally or refuses it. Read the packaged [canonical state contract](references/state.md) before handling any request. It owns the exact payload schemas, read predicates, fragments, event grammar, and lifecycle effects.
 
 <!-- flow-state-contract: start -->
 ```yaml
@@ -67,6 +67,80 @@ roots:
   bundle: config_or_default
   flow: bundle_specs_flow_id
   paths: namespaced_relative_no_symlink_or_escape
+result_union:
+  additional_fields: forbidden
+  keyset: [outcome, operation, flow_id, operation_id, plan_revision, plan_commit, state_revision, targets, journal, evidence, refusal]
+  outcome_enum: [committed, replayed, rolled_back, recovery_required, contended, refused, status]
+  field_types:
+    operation: contract_operation_or_null
+    flow_id: non_empty_flow_id_or_null
+    operation_id: canonical_operation_id_or_null
+    plan_revision: integer_at_least_one_or_null
+    plan_commit: lowercase_7_to_40_hex_or_null
+    state_revision: non_negative_integer_or_null
+    targets: unique_sorted_task_id_array
+    journal: journal_record_or_null
+    evidence: selected_evidence_record_or_null
+    refusal: refusal_record_or_null
+  journal_record:
+    keyset: [operation_id, state, path]
+    state_enum: [committed, rolled_back, prepared, task_writes_started, recovery_required, rollback_in_progress, contended]
+    constraints: [operation_id equals result operation_id, path is namespaced configured-root transaction journal, additional fields forbidden]
+  evidence_records:
+    committed: [actor, occurred_at, validation_attempt_id, checks]
+    replayed: [source_operation_id, replay_key, checks]
+    rolled_back: [actor, occurred_at, validation_attempt_id, checks]
+    recovery_required: [classification, observed_operation_ids, applied_prefix, next_action]
+    contended: [classification, observed_operation_ids, applied_prefix, next_action]
+    status: [flows, current, ready, blocked, conflicts]
+    constraints: [selected record has exactly its listed keys, checks and ids preserve canonical order, additional fields forbidden]
+  refusal_record:
+    keyset: [code, stage, field, predicate, path, expected, observed, message]
+    nullability: {code: required, stage: required, field: nullable, predicate: nullable, path: nullable, expected: nullable, observed: nullable, message: required}
+    constraints: [additional fields forbidden, code and stage use canonical refusal identifiers, message non-empty]
+  variants:
+    committed:
+      outcome: committed
+      operation: mutating_operation
+      journal_state: committed
+      evidence_schema: committed
+      nullability: {operation: required, flow_id: required, operation_id: required, plan_revision: required, plan_commit: nullable, state_revision: required, targets: required, journal: required, evidence: required, refusal: null}
+    replayed:
+      outcome: replayed
+      operation: replayable_operation
+      journal_state: committed
+      evidence_schema: replayed
+      nullability: {operation: required, flow_id: required, operation_id: required, plan_revision: required, plan_commit: nullable, state_revision: required, targets: required, journal: required, evidence: required, refusal: null}
+    rolled_back:
+      outcome: rolled_back
+      operation: original_mutating_operation
+      journal_state: rolled_back
+      evidence_schema: rolled_back
+      nullability: {operation: required, flow_id: required, operation_id: required, plan_revision: required, plan_commit: nullable, state_revision: required, targets: required, journal: required, evidence: required, refusal: null}
+    recovery_required:
+      outcome: recovery_required
+      operation: original_mutating_operation
+      journal_state: prepared_or_task_writes_started_or_recovery_required_or_rollback_in_progress
+      evidence_schema: recovery_required
+      nullability: {operation: required, flow_id: required, operation_id: required, plan_revision: required, plan_commit: nullable, state_revision: required, targets: required, journal: required, evidence: required, refusal: null}
+    contended:
+      outcome: contended
+      operation: original_mutating_operation
+      journal_state: contended
+      evidence_schema: contended
+      nullability: {operation: required, flow_id: required, operation_id: required, plan_revision: required, plan_commit: nullable, state_revision: required, targets: required, journal: required, evidence: required, refusal: null}
+    refused:
+      outcome: refused
+      operation: requested_operation_or_null_when_unparseable
+      journal_state: existing_journal_or_null
+      evidence_schema: null
+      nullability: {operation: nullable, flow_id: nullable, operation_id: nullable, plan_revision: nullable, plan_commit: nullable, state_revision: nullable, targets: required, journal: nullable, evidence: null, refusal: required}
+    status:
+      outcome: status
+      operation: status
+      journal_state: null
+      evidence_schema: status
+      nullability: {operation: required, flow_id: nullable, operation_id: null, plan_revision: null, plan_commit: null, state_revision: null, targets: required, journal: null, evidence: required, refusal: null}
 ```
 <!-- flow-state-contract: end -->
 
@@ -76,7 +150,7 @@ roots:
 2. Require the exact request keyset above. `occurred_at` is canonical UTC; targets are explicit and sorted where required. Existing-flow mutations require the caller's exact expected plan and state identity. Only absent-flow creation uses null expected identity. Status uses its separate read-only request shape.
 3. Load the operation-specific payload and predicate schemas from the canonical contract. Refuse unknown payload keys, implicit targets, missing identity, lifecycle violations, incomplete read sets, unresolved journals, and live/expected drift without changing tracked state.
 4. Dispatch the accepted request to `flow-reconciler`. It prepares exact before/after images, creates the untracked Markdown journal, jointly arbitrates contenders, writes in canonical order, rereads every mutation, and records terminal validation.
-5. Return the operation id, result, new shared state identity, explicit targets, and evidence. Status returns the filtered dashboard without an operation id, journal, or write.
+5. Return exactly one tagged `result_union` variant. Never omit a key or substitute prose for a nullable field. Status returns its typed dashboard evidence without an operation id, journal, revision, or write.
 
 ## Recovery
 
