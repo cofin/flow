@@ -1205,6 +1205,7 @@ def _as_archive(journal: dict, root: Path | None = None) -> None:
             "reviewer": "quality-reviewer",
             "base_commit": "abc1234",
             "head_commit": "def5678",
+            "debloat_source": "packaged_skill",
             "findings": [],
         },
         "waivers": [],
@@ -1531,6 +1532,35 @@ def test_journal_rejects_illegal_transition_and_payload_keyset(tmp_path: Path) -
     )
     assert "exact operation keyset" in messages
     assert "illegal claim transition blocked -> closed" in messages
+
+
+def test_quality_evidence_requires_exact_range_and_debloat_source() -> None:
+    report = {
+        "reviewer": "quality-reviewer",
+        "base_commit": "abc1234",
+        "head_commit": "def5678",
+        "debloat_source": "packaged_skill",
+        "findings": [],
+    }
+    assert validate._quality_report(report, "abc1234", "def5678")
+    assert not validate._quality_report(
+        {key: value for key, value in report.items() if key != "debloat_source"},
+        "abc1234",
+        "def5678",
+    )
+    assert not validate._quality_report(report, "abc1234", "feedface")
+    assert not validate._range_bound_command_evidence(
+        [
+            {
+                "command": "uv run pytest",
+                "result": "passed",
+                "base_commit": "abc1234",
+                "head_commit": "feedface",
+            }
+        ],
+        "abc1234",
+        "def5678",
+    )
 
 
 @pytest.mark.parametrize(

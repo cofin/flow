@@ -3530,6 +3530,44 @@ def _command_evidence(value: object) -> bool:
     )
 
 
+def _range_bound_command_evidence(value: object, base_commit: object, head_commit: object) -> bool:
+    """Require verification evidence to attest the reviewed immutable range."""
+    return (
+        isinstance(value, list)
+        and bool(value)
+        and all(
+            _exact_record(item, {"command", "result", "base_commit", "head_commit"})
+            and _nonempty(item["command"])
+            and _nonempty(item["result"])
+            and item["base_commit"] == base_commit
+            and item["head_commit"] == head_commit
+            for item in value
+        )
+    )
+
+
+def _quality_report(value: object, base_commit: object, head_commit: object) -> bool:
+    return (
+        _exact_record(value, {"reviewer", "base_commit", "head_commit", "debloat_source", "findings"})
+        and value["reviewer"] == "quality-reviewer"
+        and value["base_commit"] == base_commit
+        and value["head_commit"] == head_commit
+        and value["debloat_source"] in {"consumer_skill", "packaged_skill", "inline_fallback"}
+        and isinstance(value["findings"], list)
+    )
+
+
+def _quality_waivers(value: object, base_commit: object, head_commit: object) -> bool:
+    return isinstance(value, list) and all(
+        _exact_record(item, {"finding_id", "rationale", "approval_text", "approved_at", "compensating_evidence", "base_commit", "head_commit"})
+        and all(_nonempty(item[key]) for key in ("finding_id", "rationale", "approval_text", "compensating_evidence"))
+        and _validate_iso_timestamp(item["approved_at"])
+        and item["base_commit"] == base_commit
+        and item["head_commit"] == head_commit
+        for item in value
+    )
+
+
 def _validate_payload_values(
     path: Path, request: dict[str, Any], variant: str
 ) -> list[Violation]:
@@ -3643,26 +3681,16 @@ def _validate_payload_values(
     elif variant == "complete":
         if not re.fullmatch(r"[0-9a-f]{7,40}", str(payload.get("final_functional_commit"))):
             violations.append(Violation(path, 1, "journal complete final commit is invalid"))
-        if not _command_evidence(payload.get("verification_evidence")):
+        final_commit = payload.get("final_functional_commit")
+        if not _range_bound_command_evidence(payload.get("verification_evidence"), request.get("expected_plan_commit"), final_commit):
             violations.append(Violation(path, 1, "journal complete verification_evidence is invalid"))
-        review_keys = {"reviewer", "base_commit", "head_commit", "findings"}
-        for key in ("code_review_evidence", "quality_review"):
-            review = payload.get(key)
-            if (
-                not _exact_record(review, review_keys)
-                or not _nonempty(review.get("reviewer"))
-                or not re.fullmatch(r"[0-9a-f]{7,40}", str(review.get("base_commit")))
-                or not re.fullmatch(r"[0-9a-f]{7,40}", str(review.get("head_commit")))
-                or not isinstance(review.get("findings"), list)
-            ):
-                violations.append(Violation(path, 1, f"journal complete {key} is invalid"))
-        if not isinstance(payload.get("waivers"), list) or not all(
-            _exact_record(item, {"finding_id", "approval_text", "approved_at"})
-            and _nonempty(item.get("finding_id"))
-            and _nonempty(item.get("approval_text"))
-            and _validate_iso_timestamp(item.get("approved_at"))
-            for item in payload.get("waivers", [])
-        ):
+        base_commit = request.get("expected_plan_commit")
+        code = payload.get("code_review_evidence")
+        if not _exact_record(code, {"reviewer", "base_commit", "head_commit", "findings"}) or not _nonempty(code["reviewer"]) or code["base_commit"] != base_commit or code["head_commit"] != final_commit or not isinstance(code["findings"], list):
+            violations.append(Violation(path, 1, "journal complete code_review_evidence is invalid"))
+        if not _quality_report(payload.get("quality_review"), base_commit, final_commit):
+            violations.append(Violation(path, 1, "journal complete quality_review is invalid"))
+        if not _quality_waivers(payload.get("waivers"), base_commit, final_commit):
             violations.append(Violation(path, 1, "journal complete waivers are invalid"))
     elif variant == "archive":
         if not _unique_strings(payload.get("knowledge_destinations"), sorted_values=True):
@@ -3700,17 +3728,12 @@ def _validate_payload_values(
             for key in ("base_commit", "head_commit")
         ) or not all(isinstance(candidate.get(key), list) for key in ("inventory", "file_fragments")):
             violations.append(Violation(path, 1, "journal archive candidate manifest is invalid"))
+        base_commit = candidate.get("base_commit") if isinstance(candidate, dict) else None
+        head_commit = candidate.get("head_commit") if isinstance(candidate, dict) else None
         quality = payload.get("quality_report")
-        if not _exact_record(quality, {"reviewer", "base_commit", "head_commit", "findings"}) or not _nonempty(quality.get("reviewer")) or not all(
-            re.fullmatch(r"[0-9a-f]{7,40}", str(quality.get(key)))
-            for key in ("base_commit", "head_commit")
-        ) or not isinstance(quality.get("findings"), list):
+        if not _quality_report(quality, base_commit, head_commit):
             violations.append(Violation(path, 1, "journal archive quality_report is invalid"))
-        waivers = payload.get("waivers")
-        if not isinstance(waivers, list) or not all(
-            _exact_record(item, {"finding_id", "approval_text", "approved_at"})
-            for item in waivers or []
-        ):
+        if not _quality_waivers(payload.get("waivers"), base_commit, head_commit):
             violations.append(Violation(path, 1, "journal archive waivers are invalid"))
     elif variant == "recover":
         require_strings("journal_operation_id")
