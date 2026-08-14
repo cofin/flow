@@ -6,6 +6,7 @@ Consolidated validator for all harnesses (Antigravity, Claude Code, Codex, etc.)
 from __future__ import annotations
 
 import datetime
+import hashlib
 import json
 import os
 import re
@@ -1251,6 +1252,11 @@ def _contained_path(repo_root: Path, base: Path, raw: object, field: str) -> Pat
     relative = Path(raw)
     if relative.is_absolute() or ".." in relative.parts:
         raise ValueError(f"{field} escapes repository root: {raw!r}")
+    current = base
+    for part in relative.parts:
+        current /= part
+        if current.is_symlink():
+            raise ValueError(f"{field} traverses a symlink component: {raw!r}")
     resolved = (base / relative).resolve()
     try:
         resolved.relative_to(repo_root.resolve())
@@ -2216,25 +2222,35 @@ _RUNTIME_CODE = re.compile(
 )
 _HOOK_SCRIPT_SUFFIXES = {".sh", ".ps1", ".cmd", ".bat"}
 
-# Task 2.4 removes these installed runtime sidecars. Keeping the allowlist exact
-# makes the repository validator usable during the transition and deliberately
-# turns stale as soon as any named offender is removed.
+def _runtime_fingerprint(
+    relative: str, category: str, evidence: str, occurrence: int
+) -> str:
+    identity = f"{category}\0{evidence}\0{occurrence}".encode()
+    digest = hashlib.sha256(identity).hexdigest()[:16]
+    return f"{relative}:{category}:{digest}"
+
+
+# Task 2.4 removes these exact installed runtime invocations. Fingerprints bind
+# each allowance to one stable invocation and deliberately become stale when
+# that invocation changes or disappears.
 _RUNTIME_TRANSITION_ALLOWLIST = {
-    ".opencode/plugins/flow.js:runtime_code",
-    "hooks/session-start.js:runtime_code",
-    "hooks/session-start.sh:hook_script",
-    "hooks/session-start.ps1:hook_script",
-    "hooks/session-start.cmd:hook_script",
-    "hooks/detect-env.sh:hook_script",
-    "hooks/detect-env.ps1:hook_script",
-    "hooks/agy-pre-invocation.sh:hook_script",
-    "hooks/agy-pre-invocation.ps1:hook_script",
-    "hooks/hooks-agy.json:hook_target",
-    "hooks/hooks-claude.json:hook_target",
-    "hooks/hooks-codex.json:hook_target",
-    "hooks/hooks-cursor.json:hook_target",
-    "skills/flow/references/revert.md:runtime_command",
-    "skills/flow/references/task.md:runtime_command",
+    ".opencode/plugins/flow.js:runtime_code:ddc5846ffa466e97",
+    ".opencode/plugins/flow.js:runtime_code:6b35da74d620c100",
+    "hooks/agy-pre-invocation.ps1:hook_script:f3cd328ea2743137",
+    "hooks/agy-pre-invocation.sh:hook_script:86e155ef1940acda",
+    "hooks/detect-env.ps1:hook_script:7f44ad6f7614e393",
+    "hooks/detect-env.sh:hook_script:02b616946f3afc1f",
+    "hooks/hooks-agy.json:hook_target:6372b9e41dd8e712",
+    "hooks/hooks-claude.json:hook_target:f1f73f106d37591c",
+    "hooks/hooks-codex.json:hook_target:b5bbee601285f75e",
+    "hooks/hooks-cursor.json:hook_target:c8fd69038ec5f262",
+    "hooks/session-start.cmd:hook_script:6ff2a1fd14e0d3ef",
+    "hooks/session-start.js:runtime_code:dd0d694e3b0460b4",
+    "hooks/session-start.js:runtime_code:e0291a0a474dbb68",
+    "hooks/session-start.ps1:hook_script:a088526198f47ec3",
+    "hooks/session-start.sh:hook_script:3409c97e20c172d7",
+    "skills/flow/references/revert.md:runtime_command:b06ba3730e38798d",
+    "skills/flow/references/task.md:runtime_command:7ff76bdaf45c86e9",
 }
 
 
@@ -2244,7 +2260,7 @@ def validate_installed_runtime_dependencies(
     transition_allowlist: set[str] | None = None,
 ) -> list[Violation]:
     """Reject executable consumer sidecars on installed operational surfaces."""
-    findings: list[tuple[str, Violation]] = []
+    raw_findings: list[tuple[str, str, str, Violation]] = []
     paths: set[Path] = set()
     for relative in _INSTALLED_OPERATIONAL_ROOTS:
         root = repo_root / relative
@@ -2273,9 +2289,11 @@ def validate_installed_runtime_dependencies(
             path.suffix.lower() in _HOOK_SCRIPT_SUFFIXES
             or text.startswith(("#!/bin/sh", "#!/usr/bin/env bash", "#!/bin/bash"))
         ):
-            findings.append(
+            raw_findings.append(
                 (
-                    f"{relative}:hook_script",
+                    relative,
+                    "hook_script",
+                    text.replace("\r\n", "\n"),
                     Violation(path, 1, "installed SessionStart hook requires a runtime script"),
                 )
             )
@@ -2290,9 +2308,11 @@ def validate_installed_runtime_dependencies(
                 json.dumps(parsed),
                 re.IGNORECASE,
             ):
-                findings.append(
+                raw_findings.append(
                     (
-                        f"{relative}:hook_target",
+                        relative,
+                        "hook_target",
+                        json.dumps(parsed, sort_keys=True, separators=(",", ":")),
                         Violation(path, 1, "installed hook JSON targets a runtime script"),
                     )
                 )
@@ -2320,9 +2340,11 @@ def validate_installed_runtime_dependencies(
             ):
                 continue
             if _RUNTIME_CODE.search(line):
-                findings.append(
+                raw_findings.append(
                     (
-                        f"{relative}:runtime_code",
+                        relative,
+                        "runtime_code",
+                        stripped,
                         Violation(path, line_number, "installed code invokes a forbidden runtime process"),
                     )
                 )
@@ -2333,12 +2355,26 @@ def validate_installed_runtime_dependencies(
                 if re.search(r"(?:tasks?|specs?)/[^\s`]*\*", line):
                     details.append("dynamic task/spec scan")
                 detail = f" ({'; '.join(details)})" if details else ""
-                findings.append(
+                raw_findings.append(
                     (
-                        f"{relative}:runtime_command",
+                        relative,
+                        "runtime_command",
+                        stripped,
                         Violation(path, line_number, f"installed workflow requires a forbidden consumer runtime command{detail}"),
                     )
                 )
+    occurrences: dict[tuple[str, str, str], int] = {}
+    findings: list[tuple[str, Violation]] = []
+    for relative, category, evidence, violation in raw_findings:
+        occurrence_key = (relative, category, evidence)
+        occurrence = occurrences.get(occurrence_key, 0)
+        occurrences[occurrence_key] = occurrence + 1
+        findings.append(
+            (
+                _runtime_fingerprint(relative, category, evidence, occurrence),
+                violation,
+            )
+        )
     if transition_allowlist is None:
         return [violation for _, violation in findings]
     found_keys = {key for key, _ in findings}
@@ -2346,7 +2382,7 @@ def validate_installed_runtime_dependencies(
         violation for key, violation in findings if key not in transition_allowlist
     ]
     for stale in sorted(transition_allowlist - found_keys):
-        relative = stale.rsplit(":", 1)[0]
+        relative = stale.split(":", 1)[0]
         violations.append(
             Violation(
                 repo_root / relative,
@@ -2469,6 +2505,62 @@ _OPERATION_PREDICATES: dict[str, set[str]] = {
     "archive": {"no_other_unresolved_journal", "spec_identity", "archive_candidate_exact", "archive_evidence_valid"},
     "recover": {"selected_journal_recoverable", "journal_arbitration_single_candidate", "stage_read_set_matches"},
 }
+_SPEC_IDENTITY_FIELDS = {
+    "state",
+    "state_revision",
+    "current_task",
+    "plan_revision",
+    "plan_commit",
+    "last_operation",
+    "operation_targets",
+}
+_TARGET_IDENTITY_FIELDS = {
+    "id",
+    "state",
+    "state_revision",
+    "plan_revision",
+    "plan_commit",
+    "claimed_by",
+    "claimed_at",
+    "blocked_reason",
+    "unblock_condition",
+    "commit",
+}
+_PREDICATE_KEYS = {
+    "no_other_unresolved_journal": {"predicate", "directory", "excluding_operation_id", "observed_operation_ids"},
+    "flow_absent": {"predicate", "target"},
+    "all_task_identities": {"predicate", "scope", "fields"},
+    "target_absent": {"predicate", "target"},
+    "plan_ready_approved": {"predicate", "spec", "approval_evidence", "reviewer_state"},
+    "all_worksheets_complete": {"predicate", "scope", "required_headings"},
+    "dependencies_exist_and_acyclic": {"predicate", "target", "dependency_paths", "observed_states"},
+    "all_dependencies_closed": {"predicate", "target", "dependency_paths", "observed_states"},
+    "no_other_in_progress_claim": {"predicate", "scope", "excluding", "observed_task_ids"},
+    "sole_current_claim": {"predicate", "spec", "target", "claimant"},
+    "actor_is_claimant_or_authorized": {"predicate", "target", "authorization"},
+    "in_progress_target_is_current": {"predicate", "spec", "target"},
+    "unblock_condition_satisfied": {"predicate", "target", "resolution_evidence"},
+    "verification_bound_to_commit": {"predicate", "target", "commit", "evidence"},
+    "acceptance_criteria_satisfied": {"predicate", "target", "checked_ids"},
+    "affected_tasks_closed_or_skipped": {"predicate", "paths", "observed_states"},
+    "phase_verification_valid": {"predicate", "affected_paths", "commit", "evidence"},
+    "no_current_claim": {"predicate", "spec", "scope", "observed_task_ids"},
+    "plan_bind_evidence_matches_live": {"predicate", "paths", "globs", "evidence", "runtime_inspection"},
+    "git_note_attempt_idempotent": {"predicate", "target", "attachment_attempt_id", "observed_payload"},
+    "fresh_user_approval": {"predicate", "approval", "occurred_at"},
+    "skip_dependents_coherent": {"predicate", "scope", "target", "observed_dependents"},
+    "replacement_checkpoint_valid": {"predicate", "spec", "checkpoint"},
+    "reopen_plan_dependents_consistent": {"predicate", "scope", "target"},
+    "revise_diff_and_adjustments_legal": {"predicate", "scope", "diffs", "adjustments"},
+    "reconcile_mismatches_exact": {"predicate", "spec", "scope", "mismatches"},
+    "all_tasks_terminal_no_blockers": {"predicate", "scope", "observed_states"},
+    "completion_evidence_valid": {"predicate", "spec", "evidence"},
+    "archive_candidate_exact": {"predicate", "root", "destinations", "manifest"},
+    "archive_evidence_valid": {"predicate", "candidate", "quality", "waivers"},
+    "selected_journal_recoverable": {"predicate", "directory", "operation_id", "states"},
+    "journal_arbitration_single_candidate": {"predicate", "directory", "observed_operation_ids"},
+    "stage_read_set_matches": {"predicate", "journal", "recorded_read_set"},
+}
 _TRANSITIONS: dict[str, set[tuple[str, str]]] = {
     "activate": {("planned", "active")},
     "claim": {("open", "in_progress")},
@@ -2538,8 +2630,15 @@ def _resolve_journal_path(
         return None, f"escapes its {base} namespace"
     if glob:
         for match in base_path.glob(raw):
-            if match.is_symlink():
-                return None, "glob matches a symlink"
+            current = base_path
+            try:
+                match_parts = match.relative_to(base_path).parts
+            except ValueError:
+                return None, "glob match escapes its namespace"
+            for part in match_parts:
+                current /= part
+                if current.is_symlink():
+                    return None, "glob matches or traverses a symlink"
             try:
                 match.resolve().relative_to(base_path.resolve())
                 match.resolve().relative_to(roots["repo_root"].resolve())
@@ -2558,7 +2657,21 @@ def _validate_path_record(
     base = record.get("base")
     if base not in _PATH_BASES:
         return [Violation(path, 1, f"{trail} has missing or unknown base: {base!r}")]
-    key = "path" if "path" in record else "glob" if "glob" in record else "root"
+    path_keys = {key for key in ("path", "glob") if key in record}
+    if trail.endswith("archive_inventory") and "root" in record:
+        path_keys.add("root")
+    expected_keys = {"root"} if trail.endswith("archive_inventory") else {"path", "glob"}
+    if len(path_keys) != 1 or not path_keys <= expected_keys:
+        return [
+            Violation(
+                path,
+                1,
+                f"{trail} must contain exactly one of path or glob"
+                if not trail.endswith("archive_inventory")
+                else f"{trail} must contain exactly one archive root",
+            )
+        ]
+    key = next(iter(path_keys))
     raw = record.get(key)
     if not isinstance(raw, str) or not raw:
         return [Violation(path, 1, f"{trail}.{key} must be a non-empty relative path")]
@@ -2743,6 +2856,352 @@ def _validate_plan_bind_payload(
     return violations
 
 
+def _nonempty(value: object) -> bool:
+    return isinstance(value, str) and bool(value.strip())
+
+
+def _exact_record(value: object, keys: set[str]) -> bool:
+    return isinstance(value, dict) and set(value) == keys
+
+
+def _unique_strings(value: object, *, sorted_values: bool = False) -> bool:
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        return False
+    return len(value) == len(set(value)) and (not sorted_values or value == sorted(value))
+
+
+def _command_evidence(value: object) -> bool:
+    return (
+        isinstance(value, list)
+        and bool(value)
+        and all(
+            _exact_record(item, {"command", "result"})
+            and _nonempty(item["command"])
+            and _nonempty(item["result"])
+            for item in value
+        )
+    )
+
+
+def _validate_payload_values(
+    path: Path, request: dict[str, Any], variant: str
+) -> list[Violation]:
+    payload = request.get("payload")
+    targets = request.get("targets")
+    if not isinstance(payload, dict):
+        return [Violation(path, 1, f"journal {variant} payload must be an object")]
+    violations: list[Violation] = []
+
+    def require_strings(*keys: str) -> None:
+        for key in keys:
+            if not _nonempty(payload.get(key)):
+                violations.append(
+                    Violation(path, 1, f"journal {variant} payload {key} must be non-empty")
+                )
+
+    if variant == "create.flow":
+        if payload.get("variant") != "flow":
+            violations.append(Violation(path, 1, "journal create.flow payload variant is invalid"))
+        require_strings("title", "description")
+    elif variant == "create.task":
+        require_strings("short_id", "chapter_id")
+        worksheet = payload.get("worksheet")
+        worksheet_keys = {"Objective", "Context", "Steps", "Verification", "Acceptance Criteria"}
+        if not _exact_record(worksheet, worksheet_keys) or not all(
+            _nonempty(item) or (isinstance(item, list) and bool(item))
+            for item in worksheet.values()
+        ):
+            violations.append(Violation(path, 1, "journal create.task worksheet is incomplete"))
+        if payload.get("priority") not in {"P0", "P1", "P2", "P3", "P4"}:
+            violations.append(Violation(path, 1, "journal create.task priority is invalid"))
+        if payload.get("verification_strategy") not in _VERIFICATION_STRATEGIES:
+            violations.append(Violation(path, 1, "journal create.task verification_strategy is invalid"))
+        for key in ("depends_on", "files", "tests"):
+            if not _unique_strings(payload.get(key)):
+                violations.append(Violation(path, 1, f"journal create.task {key} must be unique strings"))
+    elif variant in {"activate", "release", "block", "unblock", "reopen"}:
+        required = {
+            "activate": ("approval_evidence", "next_step"),
+            "release": ("reason", "next_step"),
+            "block": ("blocked_reason", "unblock_condition", "next_step"),
+            "unblock": ("resolution_evidence", "next_step"),
+            "reopen": ("reason", "next_step"),
+        }[variant]
+        require_strings(*required)
+    elif variant == "claim":
+        require_strings("next_step")
+    elif variant.startswith("note."):
+        require_strings("category", "text")
+        if variant == "note.normal" and payload.get("category") == "git_note_attachment":
+            violations.append(Violation(path, 1, "journal note.normal category is invalid"))
+        if variant == "note.git_note_attachment":
+            require_strings("attachment_attempt_id", "ref", "diagnostic")
+            if payload.get("category") != "git_note_attachment" or payload.get("result") not in {"attached", "failed"}:
+                violations.append(Violation(path, 1, "journal git-note category/result is invalid"))
+            if not re.fullmatch(r"[0-9a-f]{7,40}", str(payload.get("commit"))):
+                violations.append(Violation(path, 1, "journal git-note commit is invalid"))
+    elif variant == "discover":
+        require_strings("text", "impact")
+        if payload.get("next_step") is not None and not _nonempty(payload.get("next_step")):
+            violations.append(Violation(path, 1, "journal discover payload next_step is invalid"))
+    elif variant.startswith("checkpoint."):
+        scope = variant.split(".", 1)[1]
+        if payload.get("scope") != scope:
+            violations.append(Violation(path, 1, f"journal {variant} scope is invalid"))
+        if scope == "task":
+            require_strings("summary")
+            if not re.fullmatch(r"[0-9a-f]{7,40}", str(payload.get("commit"))):
+                violations.append(Violation(path, 1, "journal checkpoint.task commit is invalid"))
+            if not _command_evidence(payload.get("verification_evidence")):
+                violations.append(Violation(path, 1, "journal checkpoint.task verification_evidence is invalid"))
+        elif scope == "phase":
+            require_strings("phase_id")
+            if not _unique_strings(payload.get("affected_task_ids"), sorted_values=True) or not payload.get("affected_task_ids"):
+                violations.append(Violation(path, 1, "journal checkpoint.phase affected_task_ids is invalid"))
+            if not re.fullmatch(r"[0-9a-f]{7,40}", str(payload.get("last_functional_commit"))):
+                violations.append(Violation(path, 1, "journal checkpoint.phase commit is invalid"))
+            if not _command_evidence(payload.get("verification_evidence")):
+                violations.append(Violation(path, 1, "journal checkpoint.phase verification_evidence is invalid"))
+    elif variant == "close":
+        if not re.fullmatch(r"[0-9a-f]{7,40}", str(payload.get("commit"))):
+            violations.append(Violation(path, 1, "journal close payload commit is invalid"))
+        if not _command_evidence(payload.get("verification_evidence")):
+            violations.append(Violation(path, 1, "journal close payload verification_evidence is invalid"))
+        if not _unique_strings(payload.get("acceptance_criteria_checked")) or not payload.get("acceptance_criteria_checked"):
+            violations.append(Violation(path, 1, "journal close payload acceptance_criteria_checked is invalid"))
+    elif variant == "skip":
+        require_strings("reason")
+    elif variant == "revise":
+        require_strings("rationale")
+        diffs = payload.get("plan_diffs")
+        if not isinstance(diffs, list) or not diffs or not all(
+            _exact_record(item, {"base", "path", "anchor", "before", "after"})
+            for item in diffs
+        ):
+            violations.append(Violation(path, 1, "journal revise plan_diffs are invalid"))
+        expected_revision = request.get("expected_plan_revision")
+        if not isinstance(expected_revision, int) or payload.get("new_plan_revision") != expected_revision + 1:
+            violations.append(Violation(path, 1, "journal revise new_plan_revision is invalid"))
+        if not all(isinstance(payload.get(key), list) for key in ("reviewer_findings", "state_adjustments")):
+            violations.append(Violation(path, 1, "journal revise review/adjustment arrays are invalid"))
+    elif variant == "reconcile":
+        mismatches = payload.get("mismatches")
+        if not isinstance(mismatches, list) or not mismatches or not all(
+            _exact_record(item, {"path", "field", "spec_value", "task_value"})
+            for item in mismatches
+        ):
+            violations.append(Violation(path, 1, "journal reconcile mismatches are invalid"))
+        if not _unique_strings(payload.get("affected_task_ids"), sorted_values=True):
+            violations.append(Violation(path, 1, "journal reconcile affected_task_ids are invalid"))
+    elif variant == "complete":
+        if not re.fullmatch(r"[0-9a-f]{7,40}", str(payload.get("final_functional_commit"))):
+            violations.append(Violation(path, 1, "journal complete final commit is invalid"))
+        if not _command_evidence(payload.get("verification_evidence")):
+            violations.append(Violation(path, 1, "journal complete verification_evidence is invalid"))
+        review_keys = {"reviewer", "base_commit", "head_commit", "findings"}
+        for key in ("code_review_evidence", "quality_review"):
+            review = payload.get(key)
+            if (
+                not _exact_record(review, review_keys)
+                or not _nonempty(review.get("reviewer"))
+                or not re.fullmatch(r"[0-9a-f]{7,40}", str(review.get("base_commit")))
+                or not re.fullmatch(r"[0-9a-f]{7,40}", str(review.get("head_commit")))
+                or not isinstance(review.get("findings"), list)
+            ):
+                violations.append(Violation(path, 1, f"journal complete {key} is invalid"))
+        if not isinstance(payload.get("waivers"), list) or not all(
+            _exact_record(item, {"finding_id", "approval_text", "approved_at"})
+            and _nonempty(item.get("finding_id"))
+            and _nonempty(item.get("approval_text"))
+            and _validate_iso_timestamp(item.get("approved_at"))
+            for item in payload.get("waivers", [])
+        ):
+            violations.append(Violation(path, 1, "journal complete waivers are invalid"))
+    elif variant == "archive":
+        if not _unique_strings(payload.get("knowledge_destinations"), sorted_values=True):
+            violations.append(Violation(path, 1, "journal archive knowledge_destinations are invalid"))
+        log_entry = payload.get("log_entry")
+        if (
+            not _exact_record(log_entry, {"date", "flow_id", "outcome", "final_commit"})
+            or log_entry.get("flow_id") != request.get("flow_id")
+            or not re.fullmatch(r"\d{4}-\d{2}-\d{2}", str(log_entry.get("date")))
+            or not _nonempty(log_entry.get("outcome"))
+            or not re.fullmatch(r"[0-9a-f]{7,40}", str(log_entry.get("final_commit")))
+        ):
+            violations.append(Violation(path, 1, "journal archive log_entry is invalid"))
+        edits = payload.get("synthesized_edits")
+        if not isinstance(edits, list) or not all(
+            _exact_record(item, {"path", "before", "after"})
+            and _nonempty(item.get("path"))
+            and isinstance(item.get("before"), str)
+            and isinstance(item.get("after"), str)
+            for item in edits or []
+        ):
+            violations.append(Violation(path, 1, "journal archive synthesized_edits is invalid"))
+        notes = payload.get("notes_incorporation")
+        if not isinstance(notes, list) or not all(
+            _exact_record(item, {"task_id", "note_ids", "destinations"})
+            and _nonempty(item.get("task_id"))
+            and _unique_strings(item.get("note_ids"))
+            and _unique_strings(item.get("destinations"), sorted_values=True)
+            for item in notes or []
+        ):
+            violations.append(Violation(path, 1, "journal archive notes_incorporation is invalid"))
+        candidate = payload.get("archive_candidate_manifest")
+        if not _exact_record(candidate, {"base_commit", "head_commit", "inventory", "file_fragments"}) or not all(
+            re.fullmatch(r"[0-9a-f]{7,40}", str(candidate.get(key)))
+            for key in ("base_commit", "head_commit")
+        ) or not all(isinstance(candidate.get(key), list) for key in ("inventory", "file_fragments")):
+            violations.append(Violation(path, 1, "journal archive candidate manifest is invalid"))
+        quality = payload.get("quality_report")
+        if not _exact_record(quality, {"reviewer", "base_commit", "head_commit", "findings"}) or not _nonempty(quality.get("reviewer")) or not all(
+            re.fullmatch(r"[0-9a-f]{7,40}", str(quality.get(key)))
+            for key in ("base_commit", "head_commit")
+        ) or not isinstance(quality.get("findings"), list):
+            violations.append(Violation(path, 1, "journal archive quality_report is invalid"))
+        waivers = payload.get("waivers")
+        if not isinstance(waivers, list) or not all(
+            _exact_record(item, {"finding_id", "approval_text", "approved_at"})
+            for item in waivers or []
+        ):
+            violations.append(Violation(path, 1, "journal archive waivers are invalid"))
+    elif variant == "recover":
+        require_strings("journal_operation_id")
+        if payload.get("action") not in {"finish", "rollback"}:
+            violations.append(Violation(path, 1, "journal recover action is invalid"))
+
+    for approval_key in ("user_authorization", "user_approval"):
+        if approval_key in payload:
+            approval = payload[approval_key]
+            if not _exact_record(approval, {"text", "at"}) or not _nonempty(approval.get("text")) or not _validate_iso_timestamp(approval.get("at")):
+                violations.append(Violation(path, 1, f"journal {variant} {approval_key} is invalid"))
+    if not isinstance(targets, list):
+        violations.append(Violation(path, 1, f"journal {variant} targets are invalid"))
+    return violations
+
+
+def _validate_read_predicates(
+    path: Path, data: dict[str, Any], request: dict[str, Any]
+) -> list[Violation]:
+    violations: list[Violation] = []
+    payload = request.get("payload") if isinstance(request.get("payload"), dict) else {}
+
+    def path_record(value: object, key: str, base: str) -> bool:
+        return _exact_record(value, {"base", key}) and value.get("base") == base and _nonempty(value.get(key))
+
+    def path_array(value: object, key: str, base: str) -> bool:
+        if not isinstance(value, list) or not all(path_record(item, key, base) for item in value):
+            return False
+        rendered = [str(item[key]) for item in value]
+        return rendered == sorted(set(rendered))
+
+    for index, item in enumerate(data.get("read_set", [])):
+        if not isinstance(item, dict):
+            violations.append(Violation(path, 1, f"journal read_set[{index}] must be an object"))
+            continue
+        predicate = item.get("predicate")
+        if predicate is None:
+            expected = _SPEC_IDENTITY_FIELDS if item.get("path") == "spec.md" else _TARGET_IDENTITY_FIELDS
+            if set(item) != {"base", "path", "fields"} or not isinstance(item.get("fields"), dict) or set(item["fields"]) != expected:
+                name = "spec_identity" if item.get("path") == "spec.md" else "target_identity"
+                violations.append(Violation(path, 1, f"journal {name} predicate body is incomplete"))
+            continue
+        expected_keys = _PREDICATE_KEYS.get(str(predicate))
+        if expected_keys is None or set(item) != expected_keys:
+            violations.append(Violation(path, 1, f"journal {predicate} predicate body has an inexact keyset"))
+            continue
+        if predicate == "no_other_unresolved_journal":
+            if not path_record(item.get("directory"), "path", "configured_root") or item["directory"].get("path") != "tasks/transactions" or item.get("excluding_operation_id") != data.get("operation_id") or not _unique_strings(item.get("observed_operation_ids"), sorted_values=True):
+                violations.append(Violation(path, 1, "journal no_other_unresolved_journal predicate values are invalid"))
+        elif predicate == "flow_absent":
+            if not path_record(item.get("target"), "path", "bundle_root") or item["target"].get("path") != f"specs/{request.get('flow_id')}":
+                violations.append(Violation(path, 1, "journal flow_absent target is invalid"))
+        elif predicate == "all_task_identities":
+            fields = item.get("fields")
+            if not path_record(item.get("scope"), "glob", "flow_root") or item["scope"].get("glob") != "tasks/*.md" or not isinstance(fields, list) or set(fields) != _TARGET_IDENTITY_FIELDS or len(fields) != len(_TARGET_IDENTITY_FIELDS):
+                violations.append(Violation(path, 1, "journal all_task_identities fields are incomplete"))
+        elif predicate == "target_absent":
+            target = request.get("targets", [None])[0] if request.get("targets") else None
+            if not path_record(item.get("target"), "path", "flow_root") or item["target"].get("path") != f"tasks/{target}.md":
+                violations.append(Violation(path, 1, "journal target_absent target is invalid"))
+        elif predicate in {"all_dependencies_closed", "dependencies_exist_and_acyclic"}:
+            paths = item.get("dependency_paths")
+            states = item.get("observed_states")
+            ids = [Path(str(record.get("path"))).stem for record in paths or [] if isinstance(record, dict)]
+            target = request.get("targets", [None])[0] if request.get("targets") else None
+            if not path_record(item.get("target"), "path", "flow_root") or item["target"].get("path") != f"tasks/{target}.md" or not path_array(paths, "path", "flow_root") or ids != sorted(set(ids)) or not isinstance(states, dict) or set(states) != set(ids):
+                violations.append(Violation(path, 1, f"journal {predicate} predicate paths/states are incomplete"))
+            elif predicate == "all_dependencies_closed" and set(states.values()) != ({"closed"} if states else set()):
+                violations.append(Violation(path, 1, "journal all_dependencies_closed predicate contains a non-closed dependency"))
+        elif predicate in {"no_other_in_progress_claim", "no_current_claim"}:
+            if not path_record(item.get("scope"), "glob", "flow_root") or item["scope"].get("glob") != "tasks/*.md" or not _unique_strings(item.get("observed_task_ids"), sorted_values=True):
+                violations.append(Violation(path, 1, f"journal {predicate} observed task ids are invalid"))
+            if predicate == "no_other_in_progress_claim" and (
+                not path_record(item.get("excluding"), "path", "flow_root")
+                or item["excluding"].get("path") != f"tasks/{request.get('targets', [None])[0]}.md"
+            ):
+                violations.append(Violation(path, 1, "journal no_other_in_progress_claim excluding target is invalid"))
+            if predicate == "no_current_claim" and (item.get("observed_task_ids") != [] or not path_record(item.get("spec"), "path", "flow_root") or item["spec"].get("path") != "spec.md"):
+                violations.append(Violation(path, 1, "journal no_current_claim values are invalid"))
+        elif predicate == "all_worksheets_complete" and item.get("required_headings") != ["Objective", "Context", "Steps", "Verification", "Acceptance Criteria"]:
+            violations.append(Violation(path, 1, "journal all_worksheets_complete headings are incomplete"))
+        elif predicate == "plan_ready_approved" and (not path_record(item.get("spec"), "path", "flow_root") or item["spec"].get("path") != "spec.md" or item.get("reviewer_state") != "Ready" or item.get("approval_evidence") != payload.get("approval_evidence")):
+            violations.append(Violation(path, 1, "journal plan_ready_approved values disagree with payload"))
+        elif predicate == "unblock_condition_satisfied" and item.get("resolution_evidence") != payload.get("resolution_evidence"):
+            violations.append(Violation(path, 1, "journal unblock predicate disagrees with payload"))
+        elif predicate == "verification_bound_to_commit" and (item.get("commit") != payload.get("commit") and item.get("commit") != payload.get("last_functional_commit") or item.get("evidence") != payload.get("verification_evidence")):
+            violations.append(Violation(path, 1, "journal verification predicate disagrees with payload"))
+        elif predicate == "acceptance_criteria_satisfied" and item.get("checked_ids") != payload.get("acceptance_criteria_checked"):
+            violations.append(Violation(path, 1, "journal acceptance predicate disagrees with payload"))
+        elif predicate == "sole_current_claim" and (not path_record(item.get("spec"), "path", "flow_root") or not path_record(item.get("target"), "path", "flow_root") or item.get("claimant") != request.get("actor")):
+            violations.append(Violation(path, 1, "journal sole_current_claim predicate values are invalid"))
+        elif predicate == "actor_is_claimant_or_authorized":
+            authorization = item.get("authorization")
+            if authorization is not None and (not _exact_record(authorization, {"text", "at"}) or not _nonempty(authorization.get("text")) or not _validate_iso_timestamp(authorization.get("at"))):
+                violations.append(Violation(path, 1, "journal claimant authorization predicate is invalid"))
+            if authorization != payload.get("user_authorization"):
+                violations.append(Violation(path, 1, "journal claimant authorization disagrees with payload"))
+        elif predicate == "in_progress_target_is_current" and (not path_record(item.get("spec"), "path", "flow_root") or not path_record(item.get("target"), "path", "flow_root")):
+            violations.append(Violation(path, 1, "journal in_progress_target_is_current paths are invalid"))
+        elif predicate == "affected_tasks_closed_or_skipped":
+            paths = item.get("paths")
+            states = item.get("observed_states")
+            ids = [Path(str(record.get("path"))).stem for record in paths or [] if isinstance(record, dict)]
+            if not path_array(paths, "path", "flow_root") or not isinstance(states, dict) or set(states) != set(ids) or any(state not in {"closed", "skipped"} for state in states.values()):
+                violations.append(Violation(path, 1, "journal affected task predicate values are invalid"))
+        elif predicate == "phase_verification_valid" and (not path_array(item.get("affected_paths"), "path", "flow_root") or item.get("commit") != payload.get("last_functional_commit") or item.get("evidence") != payload.get("verification_evidence")):
+            violations.append(Violation(path, 1, "journal phase verification predicate disagrees with payload"))
+        elif predicate == "plan_bind_evidence_matches_live" and (item.get("paths") != [{"base": "flow_root", "path": "spec.md"}] or item.get("globs") != [{"base": "flow_root", "glob": "tasks/*.md"}] or item.get("runtime_inspection") != "forbidden" or item.get("evidence") != payload.get("plan_bind_evidence")):
+            violations.append(Violation(path, 1, "journal plan-bind predicate disagrees with payload"))
+        elif predicate == "git_note_attempt_idempotent" and (item.get("attachment_attempt_id") != payload.get("attachment_attempt_id") or item.get("observed_payload") is not None and not isinstance(item.get("observed_payload"), dict)):
+            violations.append(Violation(path, 1, "journal git-note predicate disagrees with payload"))
+        elif predicate == "fresh_user_approval" and (item.get("approval") != payload.get("user_approval") or item.get("occurred_at") != request.get("occurred_at")):
+            violations.append(Violation(path, 1, "journal fresh approval predicate disagrees with request"))
+        elif predicate == "replacement_checkpoint_valid" and item.get("checkpoint") != payload.get("replacement_checkpoint"):
+            violations.append(Violation(path, 1, "journal replacement checkpoint predicate disagrees with payload"))
+        elif predicate == "revise_diff_and_adjustments_legal" and (item.get("diffs") != payload.get("plan_diffs") or item.get("adjustments") != payload.get("state_adjustments")):
+            violations.append(Violation(path, 1, "journal revise predicate disagrees with payload"))
+        elif predicate == "reconcile_mismatches_exact" and item.get("mismatches") != payload.get("mismatches"):
+            violations.append(Violation(path, 1, "journal reconcile predicate disagrees with payload"))
+        elif predicate == "all_tasks_terminal_no_blockers":
+            states = item.get("observed_states")
+            if not isinstance(states, dict) or any(state not in {"closed", "skipped"} for state in states.values()):
+                violations.append(Violation(path, 1, "journal terminal task predicate values are invalid"))
+        elif predicate == "completion_evidence_valid" and item.get("evidence") != {key: payload.get(key) for key in ("verification_evidence", "code_review_evidence", "quality_review", "waivers")}:
+            violations.append(Violation(path, 1, "journal completion predicate disagrees with payload"))
+        elif predicate == "archive_candidate_exact" and item.get("manifest") != payload.get("archive_candidate_manifest"):
+            violations.append(Violation(path, 1, "journal archive candidate predicate disagrees with payload"))
+        elif predicate == "archive_evidence_valid" and (item.get("candidate") != payload.get("archive_candidate_manifest") or item.get("quality") != payload.get("quality_report") or item.get("waivers") != payload.get("waivers")):
+            violations.append(Violation(path, 1, "journal archive evidence predicate disagrees with payload"))
+        elif predicate == "selected_journal_recoverable" and (item.get("operation_id") != payload.get("journal_operation_id") or item.get("states") != ["prepared", "task_writes_started", "recovery_required", "rollback_in_progress"]):
+            violations.append(Violation(path, 1, "journal selected recoverable predicate is invalid"))
+        elif predicate == "journal_arbitration_single_candidate" and not _unique_strings(item.get("observed_operation_ids"), sorted_values=True):
+            violations.append(Violation(path, 1, "journal arbitration predicate observations are invalid"))
+        elif predicate == "stage_read_set_matches" and item.get("recorded_read_set") != data.get("read_set"):
+            violations.append(Violation(path, 1, "journal stage read-set predicate is invalid"))
+    return violations
+
+
 def _validate_journal_semantics(
     path: Path, data: dict[str, Any], request: dict[str, Any]
 ) -> list[Violation]:
@@ -2762,12 +3221,17 @@ def _validate_journal_semantics(
                 )
             )
     operation = request.get("operation")
+    if not _nonempty(request.get("flow_id")):
+        violations.append(Violation(path, 1, "journal request flow_id must be non-empty"))
     if not isinstance(request.get("actor"), str) or not request["actor"].strip():
         violations.append(Violation(path, 1, "journal request actor must be non-empty"))
     targets = request.get("targets")
-    if not isinstance(targets, list) or targets != sorted(set(map(str, targets))):
+    if not _unique_strings(targets, sorted_values=True):
         violations.append(Violation(path, 1, "journal request targets must be unique and sorted"))
         targets = []
+    plan_commit = request.get("expected_plan_commit")
+    if plan_commit is not None and not re.fullmatch(r"[0-9a-f]{7,40}", str(plan_commit)):
+        violations.append(Violation(path, 1, "journal request expected_plan_commit is invalid"))
     variant = str(operation)
     if operation == "create" and isinstance(payload, dict):
         variant = f"create.{payload.get('variant')}"
@@ -2779,6 +3243,7 @@ def _validate_journal_semantics(
             if payload.get("category") == "git_note_attachment"
             else "note.normal"
         )
+    violations.extend(_validate_payload_values(path, request, variant))
     spec_only = {"activate", "checkpoint.phase", "reconcile", "complete", "archive", "recover", "create.flow"}
     if variant in spec_only and targets:
         violations.append(Violation(path, 1, f"{variant} requires empty targets"))
@@ -2795,8 +3260,20 @@ def _validate_journal_semantics(
             violations.append(Violation(path, 1, "create.flow expected identities must be null"))
         if variant == "create.task" and isinstance(payload, dict) and targets != [str(payload.get("short_id"))]:
             violations.append(Violation(path, 1, "create.task targets/path must equal payload short_id"))
-    elif any(request.get(key) is None for key in ("expected_plan_revision", "expected_state_revision")):
-        violations.append(Violation(path, 1, "existing-flow request requires expected plan/state identity"))
+        if variant == "create.task" and (
+            not isinstance(expected[0], int)
+            or not isinstance(expected[2], int)
+            or expected[0] < 1
+            or expected[2] < 0
+        ):
+            violations.append(Violation(path, 1, "create.task requires valid expected plan/state identity"))
+    else:
+        revisions = (
+            request.get("expected_plan_revision"),
+            request.get("expected_state_revision"),
+        )
+        if any(not isinstance(value, int) or value < 0 for value in revisions):
+            violations.append(Violation(path, 1, "existing-flow request requires nonnegative expected plan/state identity"))
 
     read_set = data.get("read_set")
     observed_predicates: set[str] = set()
@@ -2811,6 +3288,7 @@ def _validate_journal_semantics(
                 observed_predicates.add("spec_identity")
             elif item.get("base") == "flow_root" and str(item.get("path", "")).startswith("tasks/") and isinstance(item.get("fields"), dict):
                 observed_predicates.add("target_identity")
+        violations.extend(_validate_read_predicates(path, data, request))
     required_predicates = _OPERATION_PREDICATES.get(variant)
     if required_predicates is not None and observed_predicates != required_predicates:
         violations.append(
@@ -2882,24 +3360,6 @@ def _validate_journal_semantics(
                 f"journal {variant} lifecycle source {source_state!r} is illegal",
             )
         )
-
-    if isinstance(payload, dict):
-        for key in ("commit", "last_functional_commit", "final_functional_commit"):
-            if key in payload and not re.fullmatch(r"[0-9a-f]{7,40}", str(payload[key])):
-                violations.append(Violation(path, 1, f"journal payload {key} must be 7-40 lowercase hex"))
-        if "verification_evidence" in payload:
-            evidence = payload["verification_evidence"]
-            if not isinstance(evidence, list) or not evidence or not all(
-                isinstance(item, dict)
-                and set(item) == {"command", "result"}
-                and all(isinstance(item[key], str) and item[key].strip() for key in ("command", "result"))
-                for item in evidence
-            ):
-                violations.append(Violation(path, 1, "journal payload verification_evidence must use exact non-empty command/result records"))
-        if "acceptance_criteria_checked" in payload:
-            checked = payload["acceptance_criteria_checked"]
-            if not isinstance(checked, list) or not checked or checked != list(dict.fromkeys(map(str, checked))):
-                violations.append(Violation(path, 1, "journal payload acceptance_criteria_checked must be a non-empty unique list"))
 
     fragments = data.get("fragments")
     if not isinstance(fragments, list):
@@ -2995,6 +3455,7 @@ def _validate_terminal_events(path: Path, data: dict[str, Any]) -> list[Violatio
     validations: dict[str, tuple[int, str]] = {}
     invalidated: set[str] = set()
     latest_by_direction: dict[str, str] = {}
+    selected_action: str | None = None
     for index, event in enumerate(events):
         if not isinstance(event, dict):
             violations.append(Violation(path, 1, f"journal event {index} must be an object"))
@@ -3035,10 +3496,45 @@ def _validate_terminal_events(path: Path, data: dict[str, Any]) -> list[Violatio
             elif attempt_id is not None:
                 validations[attempt_id] = (index, expected_direction)
                 latest_by_direction[expected_direction] = attempt_id
+            if (expected_direction == "forward" and selected_action == "rollback") or (
+                expected_direction == "rollback" and selected_action != "rollback"
+            ):
+                violations.append(
+                    Violation(path, 1, "journal validation direction grammar conflicts with recovery selection")
+                )
         elif kind == "validation_invalidated":
             required = {"sequence", "kind", "at", "actor", "direction", "validation_attempt_id", "reason", "observed_nonterminal_operation_ids", "failed_checks"}
             attempt_id = event.get("validation_attempt_id")
             failed = event.get("failed_checks")
+            failed_ids = {
+                item.get("check_id")
+                for item in failed or []
+                if isinstance(item, dict)
+            }
+            reason = event.get("reason")
+            reason_matches = (
+                reason == "contender_appeared"
+                and failed_ids == {"transaction_arbitration"}
+                and bool(event.get("observed_nonterminal_operation_ids"))
+            ) or (
+                reason == "read_set_drift"
+                and bool(failed_ids & {"complete_read_set", "stage_read_set"})
+                and failed_ids <= {"complete_read_set", "stage_read_set"}
+            ) or (
+                reason == "mutation_drift"
+                and bool(
+                    failed_ids
+                    & {
+                        "ordered_mutations",
+                        "after_fragments",
+                        "operation_postconditions",
+                        "rolled_back_mutations",
+                        "before_fragments",
+                        "rollback_postconditions",
+                    }
+                )
+                and "transaction_arbitration" not in failed_ids
+            )
             if (
                 set(event) != required
                 or attempt_id not in validations
@@ -3049,9 +3545,15 @@ def _validate_terminal_events(path: Path, data: dict[str, Any]) -> list[Violatio
                 or not isinstance(event.get("observed_nonterminal_operation_ids"), list)
                 or event.get("observed_nonterminal_operation_ids") != sorted(set(map(str, event.get("observed_nonterminal_operation_ids", []))))
                 or not isinstance(failed, list)
+                or not failed
                 or not all(isinstance(item, dict) and set(item) == {"check_id", "expected", "observed"} for item in failed)
+                or not reason_matches
             ):
                 violations.append(Violation(path, 1, "journal validation_invalidated event is not exact"))
+                if not reason_matches:
+                    violations.append(
+                        Violation(path, 1, "journal validation direction grammar requires reason-matched failed checks")
+                    )
             elif isinstance(attempt_id, str):
                 invalidated.add(attempt_id)
         elif isinstance(kind, str) and kind.startswith("directory_"):
@@ -3069,6 +3571,8 @@ def _validate_terminal_events(path: Path, data: dict[str, Any]) -> list[Violatio
             }.get(str(kind))
             if exact_keys is None or set(event) != exact_keys:
                 violations.append(Violation(path, 1, f"journal {kind!r} event keyset is invalid"))
+            if kind == "recovery_selected" and event.get("action") in {"finish", "rollback"}:
+                selected_action = cast("str", event.get("action"))
     for direction in ("forward", "rollback"):
         expected_ids = {
             f"{data.get('operation_id')}:{direction}:v{suffix:02d}"
@@ -3096,6 +3600,99 @@ def _validate_terminal_events(path: Path, data: dict[str, Any]) -> list[Violatio
             violations.append(Violation(path, 1, "terminal committed requires complete applied prefix"))
         if state == "rolled_back" and len(rolled) != len(applied):
             violations.append(Violation(path, 1, "terminal rolled_back requires complete reverse rollback prefix"))
+    return violations
+
+
+def _validate_create_flow_shape(
+    path: Path, data: dict[str, Any], request: dict[str, Any]
+) -> list[Violation]:
+    payload = request.get("payload")
+    if request.get("operation") != "create" or not isinstance(payload, dict) or payload.get("variant") != "flow":
+        return []
+    violations: list[Violation] = []
+    expected_directories = [
+        {"directory_index": 0, "base": "flow_root", "path": "."},
+        {"directory_index": 1, "base": "flow_root", "path": "tasks"},
+    ]
+    if data.get("ordered_directories") != expected_directories:
+        violations.append(
+            Violation(path, 1, "create.flow requires unique flow-root and tasks directories in shallow order")
+        )
+    fragments = data.get("file_fragments")
+    expected_file = (
+        isinstance(fragments, list)
+        and len(fragments) == 1
+        and isinstance(fragments[0], dict)
+        and fragments[0].get("base") == "flow_root"
+        and fragments[0].get("path") == "spec.md"
+    )
+    if not expected_file or data.get("ordered_writes") != [{"base": "flow_root", "path": "spec.md"}] or data.get("fragments") != []:
+        violations.append(Violation(path, 1, "create.flow effects must contain only the complete spec write"))
+        return violations
+    content = fragments[0].get("after", {}).get("content_utf8_lf")
+    if not isinstance(content, str) or not content.startswith("---\n"):
+        violations.append(Violation(path, 1, "create.flow spec content is incomplete"))
+        return violations
+    try:
+        _, raw_frontmatter, body = content.split("---\n", 2)
+        frontmatter = yaml.safe_load(raw_frontmatter)
+    except (ValueError, yaml.YAMLError):
+        frontmatter = None
+        body = ""
+    required = {
+        "type",
+        "flow_id",
+        "title",
+        "state",
+        "plan_revision",
+        "plan_commit",
+        "state_revision",
+        "current_task",
+        "last_operation",
+        "operation_targets",
+        "last_verified_checkpoint",
+        "created_at",
+        "updated_at",
+        "description",
+    }
+    expected_values = {
+        "type": "Spec",
+        "flow_id": request.get("flow_id"),
+        "title": payload.get("title"),
+        "description": payload.get("description"),
+        "state": "planned",
+        "plan_revision": 1,
+        "plan_commit": None,
+        "state_revision": 0,
+        "current_task": None,
+        "last_operation": None,
+        "operation_targets": [],
+        "last_verified_checkpoint": None,
+    }
+    if (
+        not isinstance(frontmatter, dict)
+        or not required <= set(frontmatter)
+        or any(frontmatter.get(key) != value for key, value in expected_values.items())
+        or not _validate_iso_timestamp(frontmatter.get("created_at"))
+        or not _validate_iso_timestamp(frontmatter.get("updated_at"))
+    ):
+        violations.append(Violation(path, 1, "create.flow spec frontmatter is incomplete or has wrong initial effects"))
+    required_snapshot_labels = (
+        "Lifecycle",
+        "Current task/claim",
+        "Last verified checkpoint",
+        "Decisions",
+        "Recent discoveries",
+        "Blockers",
+        "Next exact step",
+        "Plan identity",
+        "State identity",
+        "Relevant paths",
+    )
+    if "## Implementation Plan" not in body or "## Continuity Snapshot" not in body or any(
+        f"**{label}:**" not in body for label in required_snapshot_labels
+    ):
+        violations.append(Violation(path, 1, "create.flow spec body requires a complete Continuity Snapshot"))
     return violations
 
 
@@ -3643,11 +4240,13 @@ def validate_markdown_transactions(repo_root: Path = REPO_ROOT) -> list[Violatio
         return [Violation(repo_root / ".agents" / "setup-state.json", 1, str(exc))]
     configured_rel = str(layout.configured_root.relative_to(repo_root.resolve()))
     bundle_rel = str(layout.bundle_root.relative_to(repo_root.resolve()))
+    journal_records: list[tuple[Path, dict[str, Any]]] = []
     for path in _iter_transaction_journals(repo_root):
         data, errors = _journal_data(path)
         violations.extend(errors)
         if data is None:
             continue
+        journal_records.append((path, data))
         if data.get("type") != "FlowTransaction" or data.get("version") != 1:
             violations.append(
                 Violation(path, 1, "journal type/version must be FlowTransaction/1")
@@ -3754,7 +4353,21 @@ def validate_markdown_transactions(repo_root: Path = REPO_ROOT) -> list[Violatio
         if isinstance(request, dict):
             violations.extend(_validate_journal_semantics(path, data, request))
             violations.extend(_validate_plan_bind_payload(path, data, request))
+            violations.extend(_validate_create_flow_shape(path, data, request))
         violations.extend(_validate_terminal_events(path, data))
+        if data.get("state") in {"committed", "rolled_back"}:
+            try:
+                live_valid, _, _, _ = _live_mutation_images(repo_root, data)
+            except (OSError, UnicodeDecodeError, ValueError):
+                live_valid = False
+            if not live_valid:
+                violations.append(
+                    Violation(
+                        path,
+                        1,
+                        f"terminal live image does not match recorded {'after' if data.get('state') == 'committed' else 'before'} fragments",
+                    )
+                )
         if operation == "archive":
             inventory = data.get("archive_inventory")
             if not isinstance(inventory, dict):
@@ -3837,6 +4450,48 @@ def validate_markdown_transactions(repo_root: Path = REPO_ROOT) -> list[Violatio
             violations.append(
                 Violation(path, 1, "journal event/write provenance is a hard conflict")
             )
+    unresolved = {
+        str(data.get("operation_id"))
+        for _, data in journal_records
+        if data.get("state") in _JOURNAL_NONTERMINAL_STATES
+    }
+    for path, data in journal_records:
+        if data.get("state") not in _JOURNAL_NONTERMINAL_STATES:
+            continue
+        operation_id = str(data.get("operation_id"))
+        events = data.get("events")
+        prepared = events[0] if isinstance(events, list) and events and isinstance(events[0], dict) else {}
+        observed = prepared.get("observed_nonterminal_operation_ids")
+        transaction = next(
+            (
+                item
+                for item in data.get("read_set", [])
+                if isinstance(item, dict)
+                and item.get("predicate") == "no_other_unresolved_journal"
+            ),
+            {},
+        )
+        valid_observed = (
+            isinstance(observed, list)
+            and observed == sorted(set(map(str, observed)))
+            and operation_id not in observed
+            and set(observed) <= unresolved
+            and transaction.get("observed_operation_ids") == observed
+        )
+        if not valid_observed:
+            violations.append(
+                Violation(
+                    path,
+                    1,
+                    "prepared observation must be a complete internally consistent sorted set of observed nonterminal journal ids",
+                )
+            )
+    if len(unresolved) == 1:
+        for path, data in journal_records:
+            if data.get("state") in _JOURNAL_NONTERMINAL_STATES and not _read_set_matches_live(repo_root, data):
+                violations.append(
+                    Violation(path, 1, "journal read predicate values do not match the stage-aware live tree")
+                )
     return violations
 
 

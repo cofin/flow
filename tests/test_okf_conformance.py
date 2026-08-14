@@ -1058,6 +1058,11 @@ def _event(journal: dict, kind: str, write_index: int | None = None, **extra) ->
     journal["events"].append(item)
 
 
+def _observe_journals(journal: dict, operation_ids: list[str]) -> None:
+    journal["events"][0]["observed_nonterminal_operation_ids"] = operation_ids
+    journal["read_set"][0]["observed_operation_ids"] = operation_ids
+
+
 def _set_write_image(root: Path, journal: dict, write_index: int, image: str) -> None:
     write = journal["ordered_writes"][write_index]
     bases = {
@@ -1347,9 +1352,7 @@ def test_late_contender_is_proven_zero_after_winner_spec_last(tmp_path: Path) ->
     _apply(winner, 0, root)
     _apply(winner, 1, root)
     contender = _journal("20260814T120001Z-agent-claim-1-2-00", state="contended")
-    contender["events"][0]["observed_nonterminal_operation_ids"] = [
-        winner["operation_id"]
-    ]
+    _observe_journals(contender, [winner["operation_id"]])
     _event(
         contender,
         "contended_before_write",
@@ -1378,6 +1381,7 @@ def test_one_applied_journal_is_sole_recovery_candidate(tmp_path: Path) -> None:
     applied = _journal("20260814T120000Z-agent-claim-1-2-00")
     _apply(applied, 0, root)
     zero = _journal("20260814T120001Z-agent-claim-1-2-00")
+    _observe_journals(zero, [applied["operation_id"]])
     _write_journal(root, applied)
     _write_journal(root, zero)
     assert validate.assess_markdown_transactions(root)[applied["operation_id"]] == (
@@ -1545,7 +1549,9 @@ def test_journal_rejects_missing_wrong_or_escaping_bases(
         record.pop("base")
     elif bad_base == "flow_root/../../escape":
         record["base"] = "flow_root"
-        record["path" if "path" in record else "glob"] = "../../escape"
+        record[
+            "path" if "path" in record else "glob" if "glob" in record else "root"
+        ] = "../../escape"
     else:
         record["base"] = bad_base
     path = _write_journal(root, journal)
@@ -1839,7 +1845,8 @@ def _create_directory_journal() -> dict:
         },
     ]
     journal["ordered_directories"] = [
-        {"directory_index": 0, "base": "flow_root", "path": "."}
+        {"directory_index": 0, "base": "flow_root", "path": "."},
+        {"directory_index": 1, "base": "flow_root", "path": "tasks"},
     ]
     journal["applied_directories"] = []
     journal["rolled_back_directories"] = []
@@ -1848,12 +1855,194 @@ def _create_directory_journal() -> dict:
             "base": "flow_root",
             "path": "spec.md",
             "before": {"exists": False, "content_utf8_lf": None},
-            "after": {"exists": True, "content_utf8_lf": "---\ntype: Spec\n---\n"},
+            "after": {
+                "exists": True,
+                "content_utf8_lf": (
+                    "---\n"
+                    "type: Spec\n"
+                    "flow_id: new-flow\n"
+                    "title: Demo\n"
+                    "state: planned\n"
+                    "plan_revision: 1\n"
+                    "plan_commit: null\n"
+                    "state_revision: 0\n"
+                    "current_task: null\n"
+                    "last_operation: null\n"
+                    "operation_targets: []\n"
+                    "last_verified_checkpoint: null\n"
+                    "created_at: 2026-08-14T12:00:00Z\n"
+                    "updated_at: 2026-08-14T12:00:00Z\n"
+                    "description: Demo flow\n"
+                    "---\n"
+                    "# Demo\n\n"
+                    "## Implementation Plan\n\n"
+                    "## Continuity Snapshot\n\n"
+                    "- **Lifecycle:** `new-flow` (`planned`)\n"
+                    "- **Current task/claim:** none\n"
+                    "- **Last verified checkpoint:** none\n"
+                    "- **Decisions:** none\n"
+                    "- **Recent discoveries:** none\n"
+                    "- **Blockers:** none\n"
+                    "- **Next exact step:** refine the first task\n"
+                    "- **Plan identity:** revision `1`; `plan_commit: null`\n"
+                    "- **State identity:** revision `0`; `last_operation: null`; "
+                    "`operation_targets: []`\n"
+                    "- **Relevant paths:** `skills/flow/references/state.md`\n"
+                ),
+            },
         }
     ]
     journal["ordered_writes"] = [{"base": "flow_root", "path": "spec.md"}]
     journal["fragments"] = []
     return journal
+
+
+@pytest.mark.parametrize("terminal_state", ["committed", "rolled_back"])
+def test_terminal_journal_requires_exact_live_terminal_image(
+    tmp_path: Path, terminal_state: str
+) -> None:
+    root = _transaction_root(tmp_path)
+    journal = _journal("20260814T120000Z-agent-claim-1-2-00")
+    _apply(journal, 0, root)
+    _apply(journal, 1, root)
+    if terminal_state == "committed":
+        _validate_forward(journal)
+    else:
+        _select(journal, "rollback")
+        _restore(journal, 1, root=root)
+        _restore(journal, 0, root=root)
+        _validate_rollback(journal)
+    journal["state"] = terminal_state
+    _set_write_image(
+        root,
+        journal,
+        0,
+        "before" if terminal_state == "committed" else "after",
+    )
+    _write_journal(root, journal)
+
+    messages = "\n".join(
+        item.message for item in validate.validate_markdown_transactions(root)
+    )
+    assert "terminal live image" in messages
+
+
+@pytest.mark.parametrize(
+    ("mutation", "expected"),
+    [
+        ("null_payload", "next_step"),
+        ("false_dependency", "all_dependencies_closed"),
+        ("incomplete_identity", "target_identity"),
+    ],
+)
+def test_journal_rejects_invalid_payload_values_and_predicate_bodies(
+    tmp_path: Path, mutation: str, expected: str
+) -> None:
+    root = _transaction_root(tmp_path)
+    journal = _journal("20260814T120000Z-agent-claim-1-2-00")
+    if mutation == "null_payload":
+        journal["request"]["payload"]["next_step"] = None
+    elif mutation == "false_dependency":
+        journal["read_set"][3]["observed_states"] = {"1.1": "open"}
+    else:
+        journal["read_set"][2]["fields"].pop("state_revision")
+    _write_journal(root, journal)
+
+    messages = "\n".join(
+        item.message for item in validate.validate_markdown_transactions(root)
+    )
+    assert expected in messages
+
+
+@pytest.mark.parametrize("observation", [["ghost-operation"], []])
+def test_prepared_observation_must_be_complete_and_consistent(
+    tmp_path: Path, observation: list[str]
+) -> None:
+    root = _transaction_root(tmp_path)
+    first = _journal("20260814T120000Z-agent-claim-1-2-00")
+    second = _journal("20260814T120001Z-agent-note-1-2-00")
+    second["request"]["operation"] = "note"
+    second["request"]["payload"] = {"category": "finding", "text": "found"}
+    second["read_set"] = second["read_set"][:3]
+    if observation:
+        first["events"][0]["observed_nonterminal_operation_ids"] = observation
+    else:
+        second["events"][0]["observed_nonterminal_operation_ids"] = [
+            first["operation_id"]
+        ]
+        second["read_set"][0]["observed_operation_ids"] = []
+    _write_journal(root, first)
+    _write_journal(root, second)
+
+    messages = "\n".join(
+        item.message for item in validate.validate_markdown_transactions(root)
+    )
+    assert "prepared observation" in messages
+
+
+@pytest.mark.parametrize(
+    "mutation", ["missing_tasks_directory", "duplicate_directory", "incomplete_spec"]
+)
+def test_create_flow_requires_complete_contents_effects_and_unique_directories(
+    tmp_path: Path, mutation: str
+) -> None:
+    root = _transaction_root(tmp_path)
+    journal = _create_directory_journal()
+    if mutation == "missing_tasks_directory":
+        journal["ordered_directories"] = journal["ordered_directories"][:1]
+    elif mutation == "duplicate_directory":
+        journal["ordered_directories"].append(
+            {"directory_index": 2, "base": "flow_root", "path": "tasks"}
+        )
+    else:
+        journal["file_fragments"][0]["after"]["content_utf8_lf"] = (
+            "---\ntype: Spec\nflow_id: new-flow\n---\n# Demo\n"
+        )
+    _write_journal(root, journal)
+
+    messages = "\n".join(
+        item.message for item in validate.validate_markdown_transactions(root)
+    )
+    assert "create.flow" in messages
+
+
+def test_namespaced_record_rejects_both_path_and_glob(tmp_path: Path) -> None:
+    root = _transaction_root(tmp_path)
+    journal = _journal("20260814T120000Z-agent-claim-1-2-00")
+    journal["read_set"][4]["scope"]["path"] = "tasks/1.2.md"
+    _write_journal(root, journal)
+
+    messages = "\n".join(
+        item.message for item in validate.validate_markdown_transactions(root)
+    )
+    assert "exactly one of path or glob" in messages
+
+
+def test_configured_root_symlink_is_rejected(tmp_path: Path) -> None:
+    real_root = tmp_path / ".flow-real"
+    real_root.mkdir()
+    (tmp_path / ".flow-link").symlink_to(real_root, target_is_directory=True)
+    (tmp_path / ".agents").mkdir()
+    (tmp_path / ".agents" / "setup-state.json").write_text(
+        json.dumps({"root_directory": ".flow-link"}), encoding="utf-8"
+    )
+
+    with pytest.raises(ValueError, match="symlink"):
+        validate.resolve_okf_layout(tmp_path)
+
+
+def test_glob_rejects_wildcard_matched_symlink_ancestor(tmp_path: Path) -> None:
+    root = _transaction_root(tmp_path)
+    journal = _journal("20260814T120000Z-agent-claim-1-2-00")
+    flow_root = root / journal["flow_root"]
+    (flow_root / "linked").symlink_to(flow_root / "tasks", target_is_directory=True)
+    journal["read_set"][4]["scope"]["glob"] = "*/1.2.md"
+    _write_journal(root, journal)
+
+    messages = "\n".join(
+        item.message for item in validate.validate_markdown_transactions(root)
+    )
+    assert "symlink" in messages
 
 
 def test_directory_attempt_chain_allows_retries_then_apply_and_rollback(
@@ -1927,6 +2116,7 @@ def test_unmatched_directory_start_is_recoverable_but_not_supersedable(
     if live_created:
         (root / journal["flow_root"]).mkdir(parents=True)
     contender = _journal("20260814T120001Z-agent-note-1-2-00")
+    _observe_journals(contender, [journal["operation_id"]])
     _write_journal(root, journal)
     _write_journal(root, contender)
     results = validate.assess_markdown_transactions(root)
@@ -2070,6 +2260,33 @@ def test_runtime_transition_allowlist_is_exact_and_stale_sensitive(
     assert "stale runtime transition allowlist entry" in violations[0].message
 
 
+def test_runtime_transition_allowlist_covers_only_the_known_invocation(
+    tmp_path: Path,
+) -> None:
+    relative = ".opencode/plugins/flow.js"
+    source = REPO_ROOT / relative
+    _write(tmp_path / relative, source.read_text(encoding="utf-8"))
+    exact_entries = {
+        item
+        for item in validate._RUNTIME_TRANSITION_ALLOWLIST
+        if item.startswith(f"{relative}:")
+    }
+    assert exact_entries
+    assert (
+        validate.validate_installed_runtime_dependencies(
+            tmp_path, transition_allowlist=exact_entries
+        )
+        == []
+    )
+
+    with (tmp_path / relative).open("a", encoding="utf-8") as file:
+        file.write('\nspawn("python3", ["arbitrary.py"]);\n')
+    violations = validate.validate_installed_runtime_dependencies(
+        tmp_path, transition_allowlist=exact_entries
+    )
+    assert any("forbidden runtime process" in item.message for item in violations)
+
+
 def test_validation_invalidation_requires_fresh_revalidation_before_terminal(
     tmp_path: Path,
 ) -> None:
@@ -2106,6 +2323,75 @@ def test_validation_invalidation_requires_fresh_revalidation_before_terminal(
     journal["state"] = "committed"
     _write_journal(root, journal)
     assert validate.validate_markdown_transactions(root) == []
+
+
+def test_validation_invalidation_requires_a_concrete_failed_check(
+    tmp_path: Path,
+) -> None:
+    root = _transaction_root(tmp_path)
+    journal = _journal("20260814T120000Z-agent-claim-1-2-00")
+    _apply(journal, 0, root)
+    _apply(journal, 1, root)
+    _validate_forward(journal)
+    _event(
+        journal,
+        "validation_invalidated",
+        actor="flow-executor",
+        direction="forward",
+        validation_attempt_id=f"{journal['operation_id']}:forward:v00",
+        reason="mutation_drift",
+        observed_nonterminal_operation_ids=[],
+        failed_checks=[],
+    )
+    journal["state"] = "recovery_required"
+    _write_journal(root, journal)
+
+    messages = "\n".join(
+        item.message for item in validate.validate_markdown_transactions(root)
+    )
+    assert "validation_invalidated event is not exact" in messages
+
+
+@pytest.mark.parametrize(
+    "mutation", ["terminal_after_rollback", "reason_check_mismatch"]
+)
+def test_terminal_validation_and_invalidation_direction_grammar_is_exact(
+    tmp_path: Path, mutation: str
+) -> None:
+    root = _transaction_root(tmp_path)
+    journal = _journal("20260814T120000Z-agent-claim-1-2-00")
+    _apply(journal, 0, root)
+    _apply(journal, 1, root)
+    _validate_forward(journal)
+    if mutation == "terminal_after_rollback":
+        journal["events"].pop()
+        _select(journal, "rollback")
+        _validate_forward(journal)
+        journal["state"] = "committed"
+    else:
+        _event(
+            journal,
+            "validation_invalidated",
+            actor="flow-executor",
+            direction="forward",
+            validation_attempt_id=f"{journal['operation_id']}:forward:v00",
+            reason="contender_appeared",
+            observed_nonterminal_operation_ids=[],
+            failed_checks=[
+                {
+                    "check_id": "after_fragments",
+                    "expected": "after",
+                    "observed": "drift",
+                }
+            ],
+        )
+        journal["state"] = "recovery_required"
+    _write_journal(root, journal)
+
+    messages = "\n".join(
+        item.message for item in validate.validate_markdown_transactions(root)
+    )
+    assert "validation direction grammar" in messages
 
 
 def test_validation_attempt_suffix_exhaustion_is_a_hard_stop(tmp_path: Path) -> None:
