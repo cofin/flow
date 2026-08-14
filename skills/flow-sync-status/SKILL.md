@@ -1,44 +1,53 @@
 ---
 name: flow-sync-status
-description: "Use when syncing flow specifications and task files, checking status dashboard, or executing groundskeeping cleanup checks."
+description: "Use when reconciling Flow task truth into a spec, displaying status queues, or checking bundle state anomalies."
 ---
 
 # Flow Sync And Status
 
-Use this lifecycle skill for spec/task sync, developer status dashboards, and groundskeeping cleanup checks. Perform every step inline by reading and editing the bundle files directly — do NOT run external scripts (`tools/*.py` are dev utilities for the Flow repository itself, not runtime dependencies).
+Use this lifecycle skill for reconciliation and read-only dashboards. Read the [sync](../flow/references/sync.md), [status](../flow/references/status.md), and [state](../flow/references/state.md) references. All state mutations cross the `flow-state`/`flow-reconciler` boundary; status remains a direct read-only request.
+
+<!-- flow-sync-status-routing: start -->
+```yaml
+sync: typed_reconcile_request
+status: typed_read_only_status_request
+state_mutations: flow-reconciler_via_flow-state
+```
+<!-- flow-sync-status-routing: end -->
 
 ## Workflow
 
-1. **Reconcile** `spec.md` with `tasks/*.md` for the active flow under `.agents/bundles/specs/<flow_id>/`:
-   - Read each task file's `state:` and `commit:` frontmatter. The task file always wins on conflict.
-   - Rewrite each `- [<marker>] Task <short_id>: <title>` checklist line to match: `open` -> `[ ]`, `in_progress` -> `[~]`, `closed` -> `[x]` plus `[<sha>]`, `blocked` -> `[!]`, `skipped` -> `[-]`.
-   - Scaffold a task file (OKF frontmatter: `type: Task`, `id: <flow_id>:<short_id>`, `title`, `state`, `depends_on`, `files`, `tests`, `created_at`, `updated_at`, `commit`) for any checklist entry missing one.
-   - Update the spec's `updated_at` timestamp; change nothing else in its frontmatter.
-2. **Report status** by aggregating the same files: per flow, count tasks by `state`, compute progress as closed/(total-skipped), and partition open tasks into a ready queue (all `depends_on` short ids closed) and a blocked queue. Surface in-progress tasks and the five most recent `## Notes & Discoveries` entries.
-3. **Cleanup checks**: flag orphaned task files with no matching checklist entry, checklist entries with no task file, malformed frontmatter, and workflow state stored in `status:` instead of `state:`.
-4. Suggest archiving completed specs (`state: completed`) using the `/flow:archive <flow_id>` command.
+### Sync
+
+1. Resolve configured, bundle, and flow roots; read nonterminal journals first. Read the chosen spec, every task frontmatter, its implementation checklist, and Continuity Snapshot.
+2. Build the exact mismatch records and sorted affected task ids. Missing or malformed task files are anomalies, not permission to invent a worksheet or task state.
+3. Submit a closed `reconcile` request with exact observed plan/state identity, empty targets, actor/time, and the canonical payload. The reconciler journals a spec-only transaction, updates derived checklist/snapshot fields, and records affected ids as typed evidence.
+4. Reread the spec/tasks and report the new state identity or exact refusal. Never flip a marker independently.
+
+### Status
+
+1. Submit the closed read-only `status` request with an optional flow id and sorted unique task filter.
+2. Read specs, task frontmatter, snapshots, and journals. Report progress, current claims, ready tasks, blocked tasks, and transaction conflicts. Ready tasks sort by priority, creation time, then task id.
+3. Offer a next lifecycle action; do not execute a mutation until the caller supplies its explicit typed state request.
 
 ## Guardrails
 
-- **Reconciled markdown is ALWAYS persisted to disk.** The checklist in `spec.md` must match the states of `tasks/*.md` after sync.
-- **Do not run external python scripts** (like tools/sync.py, tools/status.py, or tools/validate.py); apply the reconciliation rules inline.
-- **Do not commit or stage files automatically** unless the user explicitly approves it.
-- **Never mutate task details destructively** during status or cleanup checks. Only sync reconciliation may rewrite checklist markers or add commit SHAs.
+- Task files are authoritative, but only `reconcile` may project their state into the spec checklist and snapshot.
+- Status never creates an operation id, journal, revision, or write.
+- Never invoke Python, `uv`, a shell, PowerShell, a Flow executable, or a helper. Use ordinary file tools and the Markdown sidecar protocol.
+- Never scaffold a missing worksheet during reconcile, infer identity/targets, mutate plan content, or stage/commit automatically.
 
 ## Validation
 
-- Confirm every checklist marker matches its task file's `state` after sync.
-- Verify no orphaned task files remain in spec directories.
-- Confirm task ids follow `<flow_id>:<short_id>` and `depends_on` uses short ids from the same flow.
+After reconcile, require every affected checklist marker/snapshot field to equal task truth, unchanged task and plan identity, empty operation targets, exact typed affected ids, and one valid terminal journal. Status validation requires a complete read with no writes.
+
+## Example
+
+For a task/spec marker mismatch, read both documents and submit one explicit `reconcile` request containing the exact mismatch and affected task id. For “show status,” submit the specialized status request and render the sorted queues without changing Markdown.
 
 ## References Index
 
 - [Sync](../flow/references/sync.md)
 - [Status](../flow/references/status.md)
+- [State contract](../flow/references/state.md)
 - [Cleanup](../flow/references/cleanup.md)
-
-## Example
-
-User: "Show status."
-
-Action: read every active spec bundle and its task files, then print the status dashboard: per-flow progress bar, closed/total counts, active tasks, ready queue, blocked queue, and recent notes.
