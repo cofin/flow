@@ -87,7 +87,10 @@ def test_scope_aware_scan_allows_migration_evidence_but_not_live_instructions() 
     violations = validate.validate_migration_path_references(
         operational, partial, allow_negative_fixture=False
     )
-    assert any("operational content references legacy path" in item.message for item in violations)
+    assert any(
+        "operational content references legacy path" in item.message
+        for item in violations
+    )
 
 
 def test_migration_fixture_scope_passes_as_a_regression_suite() -> None:
@@ -102,3 +105,73 @@ def test_migration_fixture_scope_passes_as_a_regression_suite() -> None:
     assert completed.returncode == 0, completed.stdout + completed.stderr
     assert "beekeeper-partial" in completed.stdout
     assert "beekeeper-corrected" in completed.stdout
+
+
+def test_setup_protocol_covers_the_migration_validator_contract() -> None:
+    text = (REPO_ROOT / "skills" / "flow" / "references" / "setup.md").read_text(
+        encoding="utf-8"
+    )
+
+    for source in (
+        "active and archived legacy specifications",
+        "product, workflow, knowledge, and style-guide authorities",
+        "both historical project-skill roots",
+        "legacy tracker data and configuration",
+        "hooks, policies, setup state, ignore/tracking policy, and root instruction files",
+    ):
+        assert source in text
+    for field in (
+        "priority",
+        "dependencies",
+        "claims",
+        "blockers",
+        "notes",
+        "commit_evidence",
+        "history",
+        "local_only_policy",
+    ):
+        assert f"`{field}`" in text
+    for disposition in (
+        "migrate",
+        "synthesize",
+        "remove_after_verify",
+        "preserve_local_policy",
+    ):
+        assert f"`{disposition}`" in text
+
+
+def test_setup_completion_requires_all_migration_postconditions() -> None:
+    text = (REPO_ROOT / "skills" / "flow" / "references" / "setup.md").read_text(
+        encoding="utf-8"
+    )
+
+    for postcondition in (
+        "plan integrity",
+        "continuity",
+        "contradiction",
+        "single authority",
+        "archive contraction",
+        "skill-root authority",
+        "source/destination count equality",
+    ):
+        assert postcondition in text
+    assert "Setup remains incomplete" in text
+    assert "remove stale backend fields" in text
+
+
+def test_setup_acceptance_keeps_large_project_nested_knowledge_paths() -> None:
+    text = (REPO_ROOT / "skills" / "flow" / "references" / "setup.md").read_text(
+        encoding="utf-8"
+    )
+    normalized = " ".join(text.split())
+
+    for required in (
+        "knowledge/data-model/schema.md",
+        "knowledge/app-design/services.md",
+        "knowledge/standards/testing.md",
+        "without flattening",
+        "preserve nested relative paths",
+        "relative paths unchanged",
+        "second identical run",
+    ):
+        assert required in normalized

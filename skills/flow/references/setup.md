@@ -18,11 +18,16 @@ if [ -f ".agents/setup-state.json" ]; then
 fi
 ```
 
-**Treat setup as completed if** `setup_status` is `"complete"`.
+Treat `setup_status: "complete"` as a claim to revalidate, never as proof. Setup
+is complete only when the current inventory, destinations, and every completion
+postcondition below pass. A stale or incomplete claim is reset to incomplete
+without deleting any source.
 
 **If setup is complete:** offer Align (recommended), Re-setup, or Exit — as in the `/flow:setup` command.
 
-**If state exists with incomplete step:** Offer to resume from last successful step.
+**If state exists with incomplete step:** Read `last_successful_step`, the report
+path, and the exact `resume_operation`. Re-inventory first; resume only when the
+approved mapping still exactly matches the current source/destination tree.
 
 **If no state exists:** Continue with full setup.
 
@@ -34,9 +39,127 @@ fi
 
 ### 0.1.1 Legacy Layout Migration
 
-Scan for legacy locations: `specs/` or `.agents/specs/` spec trees, flat context files (`.agents/product.md`, `.agents/tech-stack.md`, `.agents/workflow.md`, `.agents/patterns.md`, `.agents/knowledge/`, `.agents/code-styleguides/`), and legacy task-tracker artifacts (`.agents/beads.json`, `.beads/`, `metadata.json`).
+Brownfield migration follows the `setup-migration-v1` contract below. Use
+ordinary agent file read/list/search tools directly; do not call
+`tools/priming.py`, another scanner, a task database, or a hidden service.
 
-Offer migration into `.agents/bundles/`: specs to `bundles/specs/<flow_id>/spec.md` with OKF frontmatter (`type: Spec`, `flow_id`, `title`, `state`, timestamps; map legacy status in_progress→active, completed→completed, else planned), flat context files into the matching `knowledge/` chapter with `type:` frontmatter, styleguides into `knowledge/` (as `<topic>-style.md` chapters). Delete migrated `metadata.json` files and, after user confirmation, legacy tracker config — task state now lives in the bundle files. Do not create `flows.md` or `metadata.json` files.
+#### Inventory before writes
+
+Resolve the configured and bundle roots, then inventory every existing item in
+one read-only pass before proposing or applying any write:
+
+- active and archived legacy specifications plus current bundle specs, their
+  registries, task files, learnings, and archive trees;
+- product, workflow, knowledge, and style-guide authorities, including
+  duplicates across flat and bundle locations;
+- every file and directory recursively below each knowledge authority, preserving
+  its nested relative path, index membership, and inbound/outbound relative links;
+- both historical project-skill roots: legacy `.agents/bundles/skills/` and
+  canonical `.agents/skills/`;
+- legacy tracker data and configuration, including `.agents/beads.json`,
+  `.beads/`, and every legacy `metadata.json` slated for migration or removal;
+- hooks, policies, setup state, ignore/tracking policy, and root instruction files
+  (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, OpenCode config, and Cursor rules).
+
+Write the proposed report to `<configured-root>/migration-inventory.json`. Its
+required migration payload is:
+
+```yaml
+contract: setup-migration-v1
+version: 1
+items:
+  - source: <repository-relative path>
+    destination: <repository-relative path>
+    disposition: migrate|synthesize|remove_after_verify|preserve_local_policy
+semantic_mappings:
+  <field>: {status: mapped|warning, detail: <non-empty explanation>}
+knowledge_paths:
+  - source_root: <legacy knowledge root>
+    destination_root: <configured bundle knowledge root>
+    relative_paths: [<unique sorted recursive paths>]
+approval:
+  approved_by: <user identity>
+  approved_at: <canonical UTC timestamp>
+progress:
+  last_successful_step: inventory|mapping_approved|destination_writes|postconditions|complete
+  resume_operation: <exact next setup operation or null>
+```
+
+Items are unique and sorted by `source`. Every live source has exactly one
+destination and one disposition: `migrate`, `synthesize`,
+`remove_after_verify`, or `preserve_local_policy`. Present the complete mapping
+and warnings, then obtain approval for that exact report content before any
+destination write. A changed inventory invalidates approval and returns to the
+inventory step.
+
+For every active or planned legacy spec, create a canonical planned/active spec
+and a full worksheet per task. Record `semantic_mappings` for `priority`,
+`dependencies`, `claims`, `blockers`, `notes`, `commit_evidence`, `history`, and
+`local_only_policy`. A `warning` preserves the exact source and explains the
+unresolved semantic choice; it never silently drops a field or authorizes
+source cleanup.
+
+Knowledge structure is scope-derived, not flat-only. Mappings preserve nested relative
+paths without flattening when relocating a knowledge root. For example, a large project
+keeps `knowledge/data-model/schema.md`, `knowledge/app-design/services.md`, and
+`knowledge/standards/testing.md` at those relative destinations; a domain tree
+may likewise keep `knowledge/domains/<domain>.md`. Inventory every directory,
+chapter, and index entry recursively, rewrite only links whose root relocation
+requires it, and validate all knowledge indexes and links. The migration and a
+second identical run must leave those relative paths unchanged.
+
+Apply spec/task destination writes through the explicit state operations in
+[`state.md`](state.md): `create` the destination plan, then use the applicable
+`activate`, `claim`, `block`, `checkpoint`, `close`, `revise`, or `reconcile`
+operations to reproduce approved semantics. State operations must use their
+ordinary-file transaction journals and full before/after fragments. Merge
+approved product and knowledge destinations without overwriting unique source
+content. Keep every source recoverable throughout destination construction.
+
+Operational skills install only under `.agents/skills/`. When identical copies
+exist at the legacy and canonical roots, retain the canonical copy and mark the
+legacy copy `remove_after_verify`. When contents differ, hard-stop without any
+skill write or cleanup and ask the user which exact content becomes canonical.
+
+After destination verification, show every proposed deletion and obtain fresh
+approval for that exact cleanup set. Never treat mapping approval as destructive
+cleanup approval. Delete no source before its destination and semantic mapping
+have passed all postconditions.
+
+#### Fail-closed completion and resume
+
+Run and record all of these postconditions against current files:
+
+1. plan integrity: every planned/active destination has a valid spec and full
+   task worksheets with a shared plan identity;
+2. continuity: priority, dependencies, claims, blockers, notes, commit evidence,
+   verification evidence, history, and local-only policy are mapped or preserved
+   by an explicit warning;
+3. contradiction: no stale tracker, path, setup, hook, policy, or instruction
+   text claims authority;
+4. single authority: legacy/current product, workflow, knowledge, spec, and
+   instruction authorities do not coexist;
+5. archive contraction: completed history is synthesized into current knowledge,
+   logged once, and the resident archived spec tree is absent;
+6. skill-root authority: `.agents/skills/` is the only operational project-skill
+   root and divergent duplicates have explicit resolution;
+7. source/destination count equality: the approved inventory count, mapped
+   destination count, verified-cleanup count, and current source disposition
+   count reconcile exactly; recursively inventoried knowledge path counts also
+   match with relative paths unchanged and no missing index/link target.
+
+Setup remains incomplete if any check fails. Persist the failed check,
+`last_successful_step`, report path and approval, and an exact deterministic
+`resume_operation` such as `resume setup-migration-v1 at postconditions[4]
+using <configured-root>/migration-inventory.json`; do not log migration
+completion.
+
+Only after every check passes, atomically remove stale backend fields from
+setup state. Write `setup_status: "complete"`, set `last_successful_step` to
+`complete`, persist the report path and approval, and set `resume_operation` to
+`null`. Then re-read the state and rerun the postconditions. A second identical run compares
+the inventory, approval, destinations, and state, produces no diff, creates no
+transaction, and changes neither `plan_revision` nor `plan_commit`.
 
 ### 0.1.1b Remove Legacy Tracker Machinery
 
@@ -66,7 +189,7 @@ Check for `product/product.md` and `product/tech-stack.md`. Ensure they exist, c
 
 ### 0.1.4b Knowledge Resynthesis
 
-Migration is complete only after RE-synthesis: rewrite migrated chapters as coherent current-state documentation — merge duplicates across old flat files and knowledge chapters, resolve contradictions against the actual codebase, drop stale notes, no dated entries or flow attributions (history lives in `log.md`). Present restructured chapters for approval.
+Migration is complete only after RE-synthesis: rewrite migrated chapters as coherent current-state documentation while preserving their scope-derived nested relative paths. Merge duplicates across old flat files and knowledge chapters, resolve contradictions against the actual codebase, drop stale notes, validate recursive indexes and links, and add no dated entries or flow attributions (history lives in `log.md`). Present restructured chapters for approval.
 
 ### 0.1.4c Spec Review Against the Codebase
 
@@ -114,7 +237,10 @@ Ask the user ONE AT A TIME, as in the `/flow:setup` command:
 
 ## Phase 3: Style & Convention Chapters
 
-Offer styleguides from `templates/styleguides/` for detected languages; copy selected into `knowledge/` (as `<topic>-style.md` chapters) as `type: Pattern` chapters alongside `patterns.md`.
+Offer styleguides from `templates/styleguides/` for detected languages. Keep
+`knowledge/patterns.md` as the stable default, but place selected `type: Pattern`
+chapters at scope-derived relative paths when the project organization calls for
+it; setup never requires every knowledge chapter to be a root sibling.
 
 ---
 
@@ -125,13 +251,13 @@ Create:
 - `.agents/bundles/index.md` - Bundle root index (`okf_version: "0.2"`)
 - `.agents/bundles/log.md` - Dated change log with a creation entry
 - `.agents/bundles/knowledge/patterns.md` - Patterns template (`type: Pattern`)
-- `.agents/bundles/skills/flow-memory-keeper/SKILL.md` - Project-local memory/refinement skill
+- `.agents/skills/flow-memory-keeper/SKILL.md` - Project-local memory/refinement skill
 
 ```bash
-mkdir -p .agents/bundles/{specs,product,knowledge,research} .agents/bundles/skills/flow-memory-keeper
+mkdir -p .agents/bundles/{specs,product,knowledge,research} .agents/skills/flow-memory-keeper
 ```
 
-Copy `templates/agent/skills/flow-memory-keeper/SKILL.md` into `.agents/bundles/skills/flow-memory-keeper/SKILL.md`.
+Copy `templates/agent/skills/flow-memory-keeper/SKILL.md` into `.agents/skills/flow-memory-keeper/SKILL.md`.
 
 ---
 
@@ -262,6 +388,9 @@ Save setup state to `.agents/setup-state.json`:
 {
   "setup_status": "complete",
   "last_successful_step": "complete",
+  "resume_operation": null,
+  "migration_report": ".agents/migration-inventory.json",
+  "migration_approved_at": "canonical UTC timestamp",
   "project_type": "brownfield|greenfield",
   "workflow_revision": "flow-template-v2",
   "timestamp": "ISO timestamp"
@@ -284,7 +413,7 @@ Created:
 - product/tech-stack.md
 - knowledge/workflow.md
 - knowledge/patterns.md (+ style chapters)
-- skills/flow-memory-keeper/SKILL.md
+- `.agents/skills/flow-memory-keeper/SKILL.md`
 - specs/
 
 Next Steps:

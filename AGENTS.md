@@ -30,11 +30,15 @@ When the `.agents/` directory exists in the project root, the Flow skill MUST be
 
 ## Agent Conduct
 
-Before planning or implementation, read `.agents/workflow.md` and prefer the repo's canonical commands such as `make lint`, `make test`, `make check`, `just check`, `task test`, package scripts, or pre-commit wrappers when they exist.
+Before planning or implementation, read `.agents/bundles/knowledge/workflow.md` and prefer the repo's canonical commands such as `make lint`, `make test`, `make check`, `just check`, `task test`, package scripts, or pre-commit wrappers when they exist.
 
 Be collaborative and constructive. Never use dismissive ownership-deflecting language such as "not my issue" or "not caused by my change." If unrelated blockers appear, describe them factually, offer the smallest helpful next step, and ask the user whether to handle them now or separately.
 
 Make the minimum targeted changes needed for the task. Do not make opportunistic unrelated edits without approval. Do not silently descope or take shortcuts because a request is larger or messier than expected; refine the plan or ask the user how to prioritize.
+
+Flow must never create, move, force-update, or delete Git tags. Git notes,
+branches, and worktrees remain available when their owning workflow permits
+them.
 
 ## Configuration
 
@@ -109,10 +113,10 @@ To find a file (e.g., "**Product Definition**") within a specific context:
 | **Workflow** | `.agents/bundles/knowledge/workflow.md` |
 | **Flow Directory** | `.agents/bundles/specs/` |
 | **Template Directory** | `.agents/templates/` |
-| **Patterns** | `.agents/bundles/knowledge/patterns.md` (style guides live in `knowledge/` as sibling chapters) |
-| **Knowledge Base** | `.agents/bundles/knowledge/` |
+| **Patterns** | `.agents/bundles/knowledge/patterns.md` (stable default; project-scoped chapters may be nested) |
+| **Knowledge Base** | `.agents/bundles/knowledge/` (scope-derived nested directories are supported) |
 | **Bundle Root Index** | `.agents/bundles/index.md` |
-| **Project Skills** | `.agents/bundles/skills/` (legacy fallback: `.agents/skills/`) |
+| **Project Skills** | `.agents/skills/` (the only consumer operational skill root) |
 | **Layout Overrides** | `.agents/config.json` (`bundles_dir`, `knowledge_dir`) |
 | **Research Directory** | `.agents/bundles/research/` |
 | **Task Directory** | `.agents/tasks/` (ephemeral scratch, never tracked) |
@@ -130,7 +134,7 @@ To find a file (e.g., "**Product Definition**") within a specific context:
 
 - **Active Flows:** Simple slug (e.g., `dark-mode`)
   - Derived from description: lowercase, hyphens for spaces, max 3-4 words
-- **Archived Flows:** Logged to `.agents/bundles/knowledge/log.md` and deleted from the filesystem.
+- **Archived Flows:** Logged to `.agents/bundles/log.md` and deleted from the filesystem.
 
 ## Supported Harnesses
 
@@ -223,10 +227,11 @@ Flow stores all planning metadata, task state, and curated knowledge as **OKF v0
   index.md                      # bundle root index; carries okf_version: "0.2"
   log.md                        # date-grouped change history (newest first, ISO dates)
   product/                      # identity docs: product.md, tech-stack.md (product-guidelines.md optional)
-  knowledge/                    # THE synthesized current-state chapters, flat:
+  knowledge/                    # THE synthesized current-state chapters; nesting is scope-derived:
     workflow.md                 #   canonical commands + development workflow
     patterns.md                 #   elevated conventions and gotchas
-    <topic>.md                  #   architecture.md, <lang>-style.md, ... as chapters
+    <scope>/                    #   optional data-model/, app-design/, standards/, domains/, ...
+      <topic>.md                #     project-shaped chapters preserve their relative paths
   research/                     # pre-PRD research documents (type: Research)
   specs/<flow_id>/              # PLANNED and ACTIVE flows only (see Archive Lifecycle)
     spec.md                     # the flow's design + Implementation Plan checklist
@@ -396,10 +401,10 @@ Consolidated patterns from all flows:
 
 1. **Capture** - After each task, append learnings to flow's `learnings.md`
 2. **Elevate** - At phase/flow completion, move reusable patterns to `.agents/bundles/knowledge/patterns.md`
-3. **Synthesize** - During sync and archive, RE-SYNTHESIZE: read the affected chapter in `.agents/bundles/knowledge/`, integrate the new learning into the existing prose where it belongs, and rewrite the chapter as coherent current-state documentation. NEVER append a dated entry, a "completed X" note, or a changelog line to a knowledge chapter — history goes in `log.md`, knowledge chapters describe only how the codebase works now. Delete the source `learnings.md` content once synthesized.
-4. **Inherit** - New flows read `knowledge/patterns.md` + scan the other `.agents/bundles/knowledge/` chapters.
+3. **Synthesize** - During sync and archive, RE-SYNTHESIZE: read the affected chapter recursively under `.agents/bundles/knowledge/`, preserve its project-shaped relative path, integrate the new learning into the existing prose where it belongs, and rewrite the chapter as coherent current-state documentation. NEVER append a dated entry, a "completed X" note, or a changelog line to a knowledge chapter — history goes in `log.md`, knowledge chapters describe only how the codebase works now. Delete the source `learnings.md` content once synthesized.
+4. **Inherit** - New flows read `knowledge/patterns.md` + recursively scan the other `.agents/bundles/knowledge/` chapters and their indexes.
 
-Repeated user corrections or visible frustration are high-signal workflow gaps. Capture them in `learnings.md`, elevate them into `.agents/bundles/knowledge/patterns.md`, and refine `.agents/bundles/skills/flow-memory-keeper/SKILL.md` when present so the same miss does not have to be corrected again.
+Repeated user corrections or visible frustration are high-signal workflow gaps. Capture them in `learnings.md`, elevate them into `.agents/bundles/knowledge/patterns.md`, and refine `.agents/skills/flow-memory-keeper/SKILL.md` when present so the same miss does not have to be corrected again.
 
 Knowledge chapters in `.agents/bundles/knowledge/` survive archive cleanup and serve as the expert implementation details for the codebase.
 
@@ -413,7 +418,7 @@ Knowledge chapters in `.agents/bundles/knowledge/` survive archive cleanup and s
 
 Never keep `completed` spec directories piling up in the bundle, and never create a resident `archived` spec state. If a completed backlog exists, `/flow:cleanup` consolidates and removes it in one pass.
 
-If `.agents/bundles/skills/flow-memory-keeper/SKILL.md` exists, invoke it during sync, archive, finish, revise, and failure recovery so learnings, failures, and spec cleanup remain mandatory instead of ad hoc.
+If `.agents/skills/flow-memory-keeper/SKILL.md` exists, invoke it during sync, archive, finish, revise, and failure recovery so learnings, failures, and spec cleanup remain mandatory instead of ad hoc.
 
 ## Parallel Execution
 

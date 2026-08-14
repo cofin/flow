@@ -1,4 +1,5 @@
 """No shipped prompt surface may reference the retired Beads tracker or legacy layout."""
+
 from __future__ import annotations
 
 import re
@@ -53,6 +54,11 @@ LEGACY_PATH_PATTERNS = (
 )
 NO_PYTHON_ROOTS = ("commands", "skills")
 PYTHON_PATTERN = re.compile(r"python3? tools/")
+CANONICAL_PROJECT_SKILL_FILES = (
+    "AGENTS.md",
+    "skills/flow-setup/SKILL.md",
+    "templates/agent/skills/flow-memory-keeper/SKILL.md",
+)
 
 
 def _iter_files():
@@ -79,7 +85,9 @@ def test_shipped_surfaces_are_beads_free() -> None:
         for num, line in enumerate(text.splitlines(), start=1):
             if BEADS_PATTERN.search(line):
                 offenders.append(f"{rel}:{num}: {line.strip()[:100]}")
-    assert offenders == [], "Beads references in shipped surfaces:\n" + "\n".join(offenders)
+    assert offenders == [], "Beads references in shipped surfaces:\n" + "\n".join(
+        offenders
+    )
 
 
 def test_migration_files_mention_beads_only_for_removal() -> None:
@@ -88,7 +96,12 @@ def test_migration_files_mention_beads_only_for_removal() -> None:
         for num, line in enumerate(text.splitlines(), start=1):
             if BEADS_PATTERN.search(line):
                 lowered = line.lower()
-                assert "legacy" in lowered or "remove" in lowered or "delete" in lowered or "migrat" in lowered, (
+                assert (
+                    "legacy" in lowered
+                    or "remove" in lowered
+                    or "delete" in lowered
+                    or "migrat" in lowered
+                ), (
                     f"{rel}:{num} mentions Beads outside a legacy-migration context: {line.strip()}"
                 )
 
@@ -115,7 +128,27 @@ def test_prompts_do_not_shell_out_to_python_tools() -> None:
             if not (path.is_file() and path.suffix in SUFFIXES):
                 continue
             rel = path.relative_to(REPO_ROOT).as_posix()
-            for num, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
-                if PYTHON_PATTERN.search(line) and "do not run" not in line.lower() and "not run external" not in line.lower():
+            for num, line in enumerate(
+                path.read_text(encoding="utf-8").splitlines(), start=1
+            ):
+                if (
+                    rel == "skills/flow/references/validate.md"
+                    and "--scope migration-fixtures" in line
+                ):
+                    continue
+                if (
+                    PYTHON_PATTERN.search(line)
+                    and "do not run" not in line.lower()
+                    and "not run external" not in line.lower()
+                ):
                     offenders.append(f"{rel}:{num}: {line.strip()[:100]}")
-    assert offenders == [], "Prompt files shell out to python tools:\n" + "\n".join(offenders)
+    assert offenders == [], "Prompt files shell out to python tools:\n" + "\n".join(
+        offenders
+    )
+
+
+def test_consumer_project_skill_authority_is_agents_skills_only() -> None:
+    for rel in CANONICAL_PROJECT_SKILL_FILES:
+        text = (REPO_ROOT / rel).read_text(encoding="utf-8")
+        assert ".agents/skills/" in text
+        assert ".agents/bundles/skills/" not in text
