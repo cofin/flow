@@ -1112,6 +1112,28 @@ def _set_write_image(root: Path, journal: dict, write_index: int, image: str) ->
                 rf"- {values['checklist_marker']} Task {short_id}: \1{suffix}",
                 text,
             )
+        elif fragment["anchor"].startswith("implementation-plan-chapter-"):
+            chapter_id = fragment["anchor"].removeprefix("implementation-plan-chapter-")
+            heading = next(
+                match
+                for match in re.finditer(r"(?m)^(#{2,6})\s+(.+?)\s*$", text)
+                if re.sub(r"[^a-z0-9]+", "-", match.group(2).lower()).strip("-")
+                == chapter_id
+            )
+            level = len(heading.group(1))
+            following = re.search(rf"(?m)^#{{2,{level}}}\s+.+$", text[heading.end() :])
+            end = heading.end() + following.start() if following else len(text)
+            section = text[heading.end() : end]
+            section = re.sub(
+                r"(?m)^- \[[ ~x!-]\] Task [^\n]+\n?",
+                "",
+                section,
+            ).rstrip()
+            checklist = "\n".join(values["checklist_items"])
+            replacement = f"\n\n{checklist}"
+            if section:
+                replacement += f"\n\n{section.lstrip()}"
+            text = text[: heading.end()] + replacement + text[end:]
         elif fragment["anchor"] == "continuity-snapshot":
             claim = values["current_task_claim"]
             claim_text = (
@@ -1817,6 +1839,251 @@ def test_create_requires_complete_files_and_directory_provenance(
     assert "ordered_directories" in messages
 
 
+def _task_create_journal(root: Path) -> dict:
+    operation_id = "20260814T120000Z-agent-create-1-3-00"
+    journal = _journal(operation_id)
+    spec_path = root / journal["flow_root"] / "spec.md"
+    spec_path.write_text(
+        spec_path.read_text(encoding="utf-8").replace(
+            "## Implementation Plan\n\n",
+            "## Implementation Plan\n\n### Phase 1\n\n",
+            1,
+        ),
+        encoding="utf-8",
+    )
+    journal["request"].update(
+        {
+            "operation": "create",
+            "targets": ["1.3"],
+            "payload": {
+                "variant": "task",
+                "short_id": "1.3",
+                "chapter_id": "phase-1",
+                "worksheet": {
+                    "Objective": "Add a concrete third task.",
+                    "Context": "Edit src/third.py using current patterns.",
+                    "Steps": [
+                        "1. Add the failing scenario.",
+                        "2. Implement the behavior.",
+                    ],
+                    "Verification": [
+                        "Run pytest tests/test_third.py and require pass."
+                    ],
+                    "Acceptance Criteria": ["The third behavior is observable."],
+                },
+                "priority": "P2",
+                "verification_strategy": "behavior_tdd",
+                "depends_on": ["1.2"],
+                "files": ["src/third.py"],
+                "tests": ["tests/test_third.py"],
+            },
+        }
+    )
+    target_fields = [
+        "id",
+        "state",
+        "state_revision",
+        "plan_revision",
+        "plan_commit",
+        "claimed_by",
+        "claimed_at",
+        "blocked_reason",
+        "unblock_condition",
+        "commit",
+    ]
+    journal["read_set"] = journal["read_set"][:2] + [
+        {
+            "predicate": "all_task_identities",
+            "scope": {"base": "flow_root", "glob": "tasks/*.md"},
+            "fields": target_fields,
+        },
+        {
+            "predicate": "target_absent",
+            "target": {"base": "flow_root", "path": "tasks/1.3.md"},
+        },
+        {
+            "predicate": "dependencies_exist_and_acyclic",
+            "target": {"base": "flow_root", "path": "tasks/1.3.md"},
+            "dependency_paths": [{"base": "flow_root", "path": "tasks/1.2.md"}],
+            "observed_states": {"1.2": "open"},
+        },
+    ]
+    task_content = (
+        "---\n"
+        "type: Task\n"
+        "id: demo-flow:1.3\n"
+        "title: Add third behavior\n"
+        "state: open\n"
+        "priority: P2\n"
+        "verification_strategy: behavior_tdd\n"
+        'depends_on: ["1.2"]\n'
+        "files: [src/third.py]\n"
+        "tests: [tests/test_third.py]\n"
+        "plan_revision: 3\n"
+        "plan_commit: null\n"
+        "state_revision: 4\n"
+        "claimed_by: null\nclaimed_at: null\nblocked_reason: null\n"
+        "unblock_condition: null\nnext_step: null\n"
+        f"last_operation: {operation_id}\n"
+        'operation_targets: ["1.3"]\n'
+        "last_verified_at: null\nlast_verified_commit: null\n"
+        "verification_evidence: null\ncreated_at: 2026-08-14T12:00:00Z\n"
+        "updated_at: 2026-08-14T12:00:00Z\ncommit: null\n---\n"
+        "# Task 1.3: Add third behavior\n\n"
+        "## Objective\nAdd a concrete third task.\n\n"
+        "## Context\nEdit `src/third.py`.\n\n"
+        "## Steps\n1. Add the failing scenario.\n2. Implement it.\n\n"
+        "## Verification\nRun `pytest tests/test_third.py` and require pass.\n\n"
+        "## Acceptance Criteria\n- The third behavior is observable.\n\n"
+        "## Notes & Discoveries\n"
+    )
+    journal["ordered_directories"] = []
+    journal["applied_directories"] = []
+    journal["rolled_back_directories"] = []
+    journal["file_fragments"] = [
+        {
+            "base": "flow_root",
+            "path": "tasks/1.3.md",
+            "before": {"exists": False, "content_utf8_lf": None},
+            "after": {"exists": True, "content_utf8_lf": task_content},
+        }
+    ]
+    journal["fragments"] = [
+        {
+            "base": "flow_root",
+            "path": f"tasks/{short_id}.md",
+            "anchor": "frontmatter",
+            "before": {"plan_revision": 2, "plan_commit": None},
+            "after": {"plan_revision": 3, "plan_commit": None},
+        }
+        for short_id in ("1.1", "1.2")
+    ] + [
+        {
+            "base": "flow_root",
+            "path": "spec.md",
+            "anchor": "frontmatter",
+            "before": {
+                "plan_revision": 2,
+                "plan_commit": None,
+                "state_revision": 3,
+                "last_operation": "20260814T115900Z-flow-reconciler-reconcile-spec-00",
+                "operation_targets": [],
+                "updated_at": "2026-08-14T12:00:00Z",
+            },
+            "after": {
+                "plan_revision": 3,
+                "plan_commit": None,
+                "state_revision": 4,
+                "last_operation": operation_id,
+                "operation_targets": ["1.3"],
+                "updated_at": "2026-08-14T12:00:00Z",
+            },
+        },
+        {
+            "base": "flow_root",
+            "path": "spec.md",
+            "anchor": "implementation-plan-chapter-phase-1",
+            "before": {
+                "checklist_items": [
+                    "- [x] Task 1.1: Foundation [abc1234]",
+                    "- [ ] Task 1.2: Continue work",
+                ]
+            },
+            "after": {
+                "checklist_items": [
+                    "- [x] Task 1.1: Foundation [abc1234]",
+                    "- [ ] Task 1.2: Continue work",
+                    "- [ ] Task 1.3: Add third behavior",
+                ]
+            },
+        },
+        {
+            "base": "flow_root",
+            "path": "spec.md",
+            "anchor": "continuity-snapshot",
+            "before": {
+                "current_task_claim": None,
+                "last_verified_checkpoint": "task:1.1@abc1234",
+                "next_exact_step": "claim Task 1.2",
+                "state_identity": {
+                    "revision": 3,
+                    "last_operation": "20260814T115900Z-flow-reconciler-reconcile-spec-00",
+                    "operation_targets": [],
+                },
+            },
+            "after": {
+                "current_task_claim": None,
+                "last_verified_checkpoint": "task:1.1@abc1234",
+                "next_exact_step": "claim Task 1.2",
+                "state_identity": {
+                    "revision": 4,
+                    "last_operation": operation_id,
+                    "operation_targets": ["1.3"],
+                },
+            },
+        },
+    ]
+    journal["ordered_writes"] = [
+        {"base": "flow_root", "path": f"tasks/{short_id}.md"}
+        for short_id in ("1.1", "1.2", "1.3")
+    ] + [{"base": "flow_root", "path": "spec.md"}]
+    return journal
+
+
+def test_task_create_golden_mixes_existing_anchors_and_new_complete_file(
+    tmp_path: Path,
+) -> None:
+    root = _transaction_root(tmp_path)
+    journal = _task_create_journal(root)
+    _write_journal(root, journal)
+    assert validate.validate_markdown_transactions(root) == []
+    assert validate.assess_markdown_transactions(root) == {
+        journal["operation_id"]: "finishable"
+    }
+
+
+@pytest.mark.parametrize(
+    "mutation", ["existing_complete_file", "new_task_anchor", "wrong_chapter_anchor"]
+)
+def test_task_create_rejects_incorrect_fragment_roles(
+    tmp_path: Path, mutation: str
+) -> None:
+    root = _transaction_root(tmp_path)
+    journal = _task_create_journal(root)
+    if mutation == "existing_complete_file":
+        journal["file_fragments"].append(
+            {
+                "base": "flow_root",
+                "path": "tasks/1.1.md",
+                "before": {"exists": False, "content_utf8_lf": None},
+                "after": {"exists": True, "content_utf8_lf": "invalid"},
+            }
+        )
+    elif mutation == "new_task_anchor":
+        journal["file_fragments"] = []
+        journal["fragments"].insert(
+            2,
+            {
+                "base": "flow_root",
+                "path": "tasks/1.3.md",
+                "anchor": "frontmatter",
+                "before": {"plan_revision": 2, "plan_commit": None},
+                "after": {"plan_revision": 3, "plan_commit": None},
+            },
+        )
+    else:
+        chapter = next(
+            item
+            for item in journal["fragments"]
+            if item["anchor"].startswith("implementation-plan-chapter-")
+        )
+        chapter["anchor"] = "implementation-plan-task-1.3"
+    _write_journal(root, journal)
+    assert "create.task" in "\n".join(
+        item.message for item in validate.validate_markdown_transactions(root)
+    )
+
+
 def _create_directory_journal() -> dict:
     journal = _journal("20260814T120000Z-agent-create-flow-00")
     journal["request"] = {
@@ -1925,6 +2192,49 @@ def test_terminal_journal_requires_exact_live_terminal_image(
         item.message for item in validate.validate_markdown_transactions(root)
     )
     assert "terminal live image" in messages
+
+
+def test_terminal_journal_rechecks_dependency_predicates_after_validation(
+    tmp_path: Path,
+) -> None:
+    root = _transaction_root(tmp_path)
+    journal = _journal("20260814T120000Z-agent-claim-1-2-00")
+    _apply(journal, 0, root)
+    _apply(journal, 1, root)
+    _validate_forward(journal)
+    journal["state"] = "committed"
+    dependency = root / journal["flow_root"] / "tasks/1.1.md"
+    dependency.write_text(
+        dependency.read_text(encoding="utf-8").replace(
+            "state: closed", "state: open", 1
+        ),
+        encoding="utf-8",
+    )
+    _write_journal(root, journal)
+
+    messages = "\n".join(
+        item.message for item in validate.validate_markdown_transactions(root)
+    )
+    assert "terminal semantic read_set" in messages
+
+
+@pytest.mark.parametrize("stage", ["prepared", "applied"])
+def test_archive_inventory_rejects_unrecorded_live_markdown(
+    tmp_path: Path, stage: str
+) -> None:
+    root = _transaction_root(tmp_path)
+    journal = _journal("20260814T120000Z-agent-archive-spec-00")
+    _as_archive(journal, root)
+    surprise = root / journal["flow_root"] / "tasks/surprise.md"
+    _write(surprise, "---\ntype: Task\n---\n# Surprise\n")
+    if stage == "applied":
+        _apply(journal, 0, root)
+    _write_journal(root, journal)
+
+    messages = "\n".join(
+        item.message for item in validate.validate_markdown_transactions(root)
+    )
+    assert "archive inventory omits live path" in messages
 
 
 @pytest.mark.parametrize(
@@ -2154,6 +2464,45 @@ def test_closed_directory_not_applied_retries_are_proven_zero(tmp_path: Path) ->
     assert set(validate.assess_markdown_transactions(root).values()) == {
         "superseded_proven_zero"
     }
+
+
+@pytest.mark.parametrize(
+    "mutation", ["child_before_root", "root_before_child_rollback", "surprise_file"]
+)
+def test_created_directory_provenance_rejects_order_and_descendant_drift(
+    tmp_path: Path, mutation: str
+) -> None:
+    root = _transaction_root(tmp_path)
+    journal = _create_directory_journal()
+
+    def apply_directory(index: int) -> None:
+        entry = {
+            "directory_index": index,
+            "directory_attempt_index": 0,
+            "base": "flow_root",
+            "path": journal["ordered_directories"][index]["path"],
+        }
+        _event(journal, "directory_started", **entry)
+        (root / journal["flow_root"] / entry["path"]).mkdir(parents=True, exist_ok=True)
+        journal["applied_directories"].append(entry)
+        _event(journal, "directory_applied", **entry)
+
+    if mutation == "child_before_root":
+        apply_directory(1)
+    else:
+        apply_directory(0)
+        apply_directory(1)
+        if mutation == "root_before_child_rollback":
+            _select(journal, "rollback")
+            root_entry = journal["applied_directories"][0]
+            _event(journal, "directory_rollback_started", **root_entry)
+        else:
+            _write(root / journal["flow_root"] / "surprise.txt", "unrecorded\n")
+    _write_journal(root, journal)
+
+    assert validate.assess_markdown_transactions(root)[journal["operation_id"]] == (
+        "hard_conflict"
+    )
 
 
 @pytest.mark.parametrize("rollback_stage", ["started", "removed", "confirmed"])

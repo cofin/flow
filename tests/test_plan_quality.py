@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import shutil
 from pathlib import Path
 
@@ -93,6 +94,91 @@ def test_vague_language_is_scoped_to_executable_worksheet_fields(
         encoding="utf-8",
     )
     assert validate.validate_okf_bundle(bundle, root) == []
+
+
+@pytest.mark.parametrize(
+    ("old", "new", "section"),
+    [
+        (
+            "## Objective\nDeliver a visible continuation behavior.\n",
+            "## Objective\nImprove the code as needed.\n",
+            "Objective",
+        ),
+        (
+            "## Steps\n1. Add a failing continuation scenario.\n2. Implement the continuation behavior.\n",
+            "## Steps\n1. Implement the thing.\n",
+            "Steps",
+        ),
+        (
+            "## Verification\nRun `pytest tests/test_continuation.py` and require a passing result.\n",
+            "## Verification\nRun `pytest` and verify it.\n",
+            "Verification",
+        ),
+        (
+            "## Acceptance Criteria\n- The continuation behavior is observable.\n",
+            "## Acceptance Criteria\n- The change is done.\n",
+            "Acceptance Criteria",
+        ),
+    ],
+)
+def test_placeholder_only_worksheet_bodies_are_not_executable(
+    tmp_path: Path, old: str, new: str, section: str
+) -> None:
+    root, bundle = _fixture(tmp_path)
+    _replace(bundle / "tasks" / "1.2.md", old, new)
+    assert section in _messages(validate.validate_okf_bundle(bundle, root))
+
+
+def test_null_current_task_requires_snapshot_claim_none(tmp_path: Path) -> None:
+    root, bundle = _fixture(tmp_path)
+    spec = bundle / "spec.md"
+    task = bundle / "tasks/1.2.md"
+    _replace(spec, 'current_task: "1.2"', "current_task: null")
+    _replace(task, "state: in_progress", "state: open")
+    _replace(task, "claimed_by: flow-executor", "claimed_by: null")
+    _replace(task, "claimed_at: 2026-08-14T12:00:00Z", "claimed_at: null")
+
+    messages = _messages(validate.validate_okf_bundle(bundle, root))
+    assert "snapshot current task/claim must be none" in messages
+
+
+@pytest.mark.parametrize(
+    ("scope", "targets", "expected"),
+    [
+        ("phase", ["1.2"], "phase checkpoint is spec-only"),
+        ("task", [], "task checkpoint targets disagree"),
+        ("plan", ["1.2"], "plan checkpoint targets disagree"),
+    ],
+)
+def test_checkpoint_scope_controls_operation_targets(
+    tmp_path: Path, scope: str, targets: list[str], expected: str
+) -> None:
+    root, bundle = _fixture(tmp_path)
+    operation_id = "20260814T121000Z-flow-executor-checkpoint-spec-00"
+    spec = bundle / "spec.md"
+    _replace(
+        spec,
+        "last_operation: 20260814T120000Z-flow-executor-claim-1-2-00",
+        f"last_operation: {operation_id}",
+    )
+    _replace(
+        spec, 'operation_targets: ["1.2"]', f"operation_targets: {json.dumps(targets)}"
+    )
+    transaction = root / ".agents/tasks/transactions" / operation_id / "journal.md"
+    transaction.parent.mkdir(parents=True)
+    transaction.write_text(
+        "---\n"
+        f"operation_id: {operation_id}\n"
+        "request:\n"
+        "  operation: checkpoint\n"
+        f"  targets: {json.dumps(['1.1', '1.2'] if scope == 'plan' else ['1.2'] if scope == 'task' else [])}\n"
+        "  payload:\n"
+        f"    scope: {scope}\n"
+        "---\n",
+        encoding="utf-8",
+    )
+
+    assert expected in _messages(validate.validate_okf_bundle(bundle, root))
 
 
 @pytest.mark.parametrize("field", ["plan_revision", "plan_commit"])
