@@ -2609,7 +2609,7 @@ def test_runtime_transition_allowlist_is_exact_and_stale_sensitive(
     assert "stale runtime transition allowlist entry" in violations[0].message
 
 
-def test_runtime_transition_allowlist_covers_only_the_known_invocation(
+def test_static_opencode_runtime_needs_no_transition_allowlist(
     tmp_path: Path,
 ) -> None:
     relative = ".opencode/plugins/flow.js"
@@ -2620,10 +2620,10 @@ def test_runtime_transition_allowlist_covers_only_the_known_invocation(
         for item in validate._RUNTIME_TRANSITION_ALLOWLIST
         if item.startswith(f"{relative}:")
     }
-    assert exact_entries
+    assert exact_entries == set()
     assert (
         validate.validate_installed_runtime_dependencies(
-            tmp_path, transition_allowlist=exact_entries
+            tmp_path, transition_allowlist=set()
         )
         == []
     )
@@ -2631,7 +2631,7 @@ def test_runtime_transition_allowlist_covers_only_the_known_invocation(
     with (tmp_path / relative).open("a", encoding="utf-8") as file:
         file.write('\nspawn("python3", ["arbitrary.py"]);\n')
     violations = validate.validate_installed_runtime_dependencies(
-        tmp_path, transition_allowlist=exact_entries
+        tmp_path, transition_allowlist=set()
     )
     assert any("forbidden runtime process" in item.message for item in violations)
 

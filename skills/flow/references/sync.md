@@ -1,6 +1,6 @@
 # Flow Sync
 
-Sync is the canonical `reconcile` state operation. It projects authoritative task-file state into derived spec checklist and Continuity Snapshot fields through a revision-guarded, spec-only Markdown transaction. Read the [state contract](state.md) for the exact request, payload, predicate, fragment, journal, and validation schemas.
+Sync is the canonical `reconcile` state operation. It projects authoritative task-file state into derived spec checklist and Continuity Snapshot fields through a revision-guarded, spec-only Markdown transaction. Read the canonical [`skills/flow/references/state.md`](state.md) contract for the exact request, payload, predicate, fragment, journal, and validation schemas.
 
 <!-- flow-sync-contract: start -->
 ```yaml
