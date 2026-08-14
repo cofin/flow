@@ -1561,6 +1561,35 @@ def test_quality_evidence_requires_exact_range_and_debloat_source() -> None:
         "abc1234",
         "def5678",
     )
+    finding = {
+        "finding_id": "Q-1",
+        "severity": "Critical",
+        "file": "tools/validate.py",
+        "symbol": "quality",
+        "evidence": "missing gate",
+        "preserved_invariant": "quality must be fresh",
+        "remediation_target": "validator",
+        "reverification": "pytest",
+    }
+    report["findings"] = [finding]
+    assert validate._quality_report(report, "abc1234", "def5678")
+    assert not validate._quality_waivers([], "abc1234", "def5678", report["findings"])
+    assert not validate._quality_waivers(
+        [
+            {
+                "finding_id": "Q-2",
+                "rationale": "x",
+                "approval_text": "x",
+                "approved_at": "2026-08-14T00:00:00Z",
+                "compensating_evidence": "x",
+                "base_commit": "abc1234",
+                "head_commit": "def5678",
+            }
+        ],
+        "abc1234",
+        "def5678",
+        report["findings"],
+    )
 
 
 @pytest.mark.parametrize(
