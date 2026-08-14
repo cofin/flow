@@ -146,6 +146,13 @@ class Violation(NamedTuple):
     message: str
 
 
+class OKFLayout(NamedTuple):
+    """Resolved, repository-contained locations for one Flow installation."""
+
+    configured_root: Path
+    bundle_root: Path
+
+
 def _rel(path: Path) -> str:
     try:
         return str(path.relative_to(REPO_ROOT))
@@ -1238,8 +1245,58 @@ def validate_codex_hook_commands(repo_root: Path) -> list[Violation]:
     return violations
 
 
+def _contained_path(repo_root: Path, base: Path, raw: object, field: str) -> Path:
+    if not isinstance(raw, str) or not raw.strip():
+        raise ValueError(f"{field} must be a non-empty relative path")
+    relative = Path(raw)
+    if relative.is_absolute() or ".." in relative.parts:
+        raise ValueError(f"{field} escapes repository root: {raw!r}")
+    resolved = (base / relative).resolve()
+    try:
+        resolved.relative_to(repo_root.resolve())
+    except ValueError as exc:
+        raise ValueError(f"{field} escapes repository root: {raw!r}") from exc
+    return resolved
+
+
+def resolve_okf_layout(repo_root: Path = REPO_ROOT) -> OKFLayout:
+    """Resolve configured and bundle roots without mutating the repository."""
+    setup_path = repo_root / ".agents" / "setup-state.json"
+    configured_raw: object = ".agents"
+    if setup_path.is_file():
+        try:
+            setup = json.loads(setup_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError) as exc:
+            raise ValueError(f"invalid setup-state.json: {exc}") from exc
+        if not isinstance(setup, dict):
+            raise ValueError("setup-state.json must contain an object")
+        configured_raw = setup.get("root_directory", ".agents")
+    configured_root = _contained_path(
+        repo_root, repo_root, configured_raw, "root_directory"
+    )
+
+    config_path = configured_root / "config.json"
+    bundles_raw: object = "bundles"
+    if config_path.is_file():
+        try:
+            config = json.loads(config_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError) as exc:
+            raise ValueError(f"invalid config.json: {exc}") from exc
+        if not isinstance(config, dict):
+            raise ValueError("config.json must contain an object")
+        bundles_raw = config.get("bundles_dir", "bundles")
+    bundle_root = _contained_path(
+        repo_root, configured_root, bundles_raw, "bundles_dir"
+    )
+    return OKFLayout(configured_root, bundle_root)
+
+
 def iter_okf_bundles(repo_root: Path = REPO_ROOT) -> Iterator[Path]:
-    specs_dir = repo_root / ".agents" / "bundles" / "specs"
+    try:
+        layout = resolve_okf_layout(repo_root)
+    except ValueError:
+        return
+    specs_dir = layout.bundle_root / "specs"
     if not specs_dir.is_dir():
         return
     for path in specs_dir.iterdir():
@@ -1249,15 +1306,33 @@ def iter_okf_bundles(repo_root: Path = REPO_ROOT) -> Iterator[Path]:
 
 def validate_okf_bundle_root(repo_root: Path = REPO_ROOT) -> list[Violation]:
     """Check the bundle root index declares its OKF version."""
-    bundles_dir = repo_root / ".agents" / "bundles"
+    try:
+        bundles_dir = resolve_okf_layout(repo_root).bundle_root
+    except ValueError as exc:
+        return [Violation(repo_root / ".agents" / "setup-state.json", 1, str(exc))]
     if not bundles_dir.is_dir():
         return []
     index_path = bundles_dir / "index.md"
     if not index_path.is_file():
-        return [Violation(index_path, None, "bundle root is missing index.md (should carry okf_version)")]
+        return [
+            Violation(
+                index_path,
+                None,
+                "bundle root is missing index.md (should carry okf_version)",
+            )
+        ]
     content = index_path.read_text(encoding="utf-8")
-    if not content.startswith("---\n") or "okf_version" not in content.split("---\n", 2)[1]:
-        return [Violation(index_path, 1, "bundle root index.md must declare okf_version in frontmatter")]
+    if (
+        not content.startswith("---\n")
+        or "okf_version" not in content.split("---\n", 2)[1]
+    ):
+        return [
+            Violation(
+                index_path,
+                1,
+                "bundle root index.md must declare okf_version in frontmatter",
+            )
+        ]
     return []
 
 
@@ -1271,7 +1346,9 @@ def _validate_iso_timestamp(timestamp: Any) -> bool:
     return bool(pattern.match(str(timestamp)))
 
 
-def _parse_yaml_frontmatter(path: Path) -> tuple[dict[str, Any] | None, list[Violation]]:
+def _parse_yaml_frontmatter(
+    path: Path,
+) -> tuple[dict[str, Any] | None, list[Violation]]:
     if not path.is_file():
         return None, [Violation(path, None, f"File does not exist: {path}")]
     try:
@@ -1290,11 +1367,15 @@ def _parse_yaml_frontmatter(path: Path) -> tuple[dict[str, Any] | None, list[Vio
     except yaml.YAMLError as e:
         return None, [Violation(path, 2, f"Failed to parse YAML frontmatter: {e}")]
     if not isinstance(data, dict):
-        return None, [Violation(path, 2, "YAML frontmatter must be an object/dictionary")]
+        return None, [
+            Violation(path, 2, "YAML frontmatter must be an object/dictionary")
+        ]
     return data, []
 
 
-def _validate_markdown_links(path: Path, repo_root: Path, *, strict: bool = True) -> list[Violation]:
+def _validate_markdown_links(
+    path: Path, repo_root: Path, *, strict: bool = True
+) -> list[Violation]:
     violations: list[Violation] = []
     if not path.is_file():
         return []
@@ -1306,7 +1387,7 @@ def _validate_markdown_links(path: Path, repo_root: Path, *, strict: bool = True
             url_path_only = url.split("#")[0]
             if not url_path_only:
                 continue
-            
+
             if url_path_only.startswith("file://"):
                 clean_url = url_path_only.removeprefix("file://")
                 resolved = Path(clean_url).resolve()
@@ -1316,22 +1397,268 @@ def _validate_markdown_links(path: Path, repo_root: Path, *, strict: bool = True
             try:
                 resolved.relative_to(repo_root.resolve())
             except ValueError:
-                violations.append(Violation(path, line_num, f"relative link '{url}' escapes repository root"))
+                violations.append(
+                    Violation(
+                        path, line_num, f"relative link '{url}' escapes repository root"
+                    )
+                )
                 continue
             if strict and not resolved.exists():
-                violations.append(Violation(path, line_num, f"relative link target does not exist: '{url}'"))
+                violations.append(
+                    Violation(
+                        path, line_num, f"relative link target does not exist: '{url}'"
+                    )
+                )
     return violations
 
 
-def validate_okf_bundle(bundle_path: Path, repo_root: Path = REPO_ROOT) -> list[Violation]:
+_WORKSHEET_HEADINGS = (
+    "Objective",
+    "Context",
+    "Steps",
+    "Verification",
+    "Acceptance Criteria",
+)
+_VAGUE_FIELD_PATTERN = re.compile(
+    r"(?:\bTODO\b|\bTBD\b|works correctly|do the thing)",
+    re.IGNORECASE,
+)
+
+
+def _markdown_body(path: Path) -> str:
+    text = path.read_text(encoding="utf-8")
+    parts = text.split("---\n", 2)
+    return parts[2] if len(parts) == 3 else text
+
+
+def _parse_h2_sections(body: str) -> dict[str, str]:
+    matches = list(re.finditer(r"^##\s+(.+?)\s*$", body, re.MULTILINE))
+    sections: dict[str, str] = {}
+    for index, match in enumerate(matches):
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(body)
+        sections[match.group(1).strip()] = body[match.end() : end].strip()
+    return sections
+
+
+def _validate_worksheet(path: Path, body: str) -> list[Violation]:
+    violations: list[Violation] = []
+    sections = _parse_h2_sections(body)
+    for heading in _WORKSHEET_HEADINGS:
+        content = sections.get(heading)
+        if not content:
+            violations.append(
+                Violation(path, None, f"missing or empty worksheet section '{heading}'")
+            )
+            continue
+        if _VAGUE_FIELD_PATTERN.search(content):
+            violations.append(
+                Violation(
+                    path,
+                    None,
+                    f"worksheet section '{heading}' is not executable: replace vague placeholder language",
+                )
+            )
+    steps = sections.get("Steps", "")
+    if steps and not re.search(r"^\s*1[.)]\s+\S", steps, re.MULTILINE):
+        violations.append(
+            Violation(path, None, "worksheet section 'Steps' needs numbered actions")
+        )
+    verification = sections.get("Verification", "")
+    if verification and not re.search(r"`[^`]+`", verification):
+        violations.append(
+            Violation(
+                path,
+                None,
+                "worksheet section 'Verification' needs an exact command and expected result",
+            )
+        )
+    criteria = sections.get("Acceptance Criteria", "")
+    if criteria and not re.search(r"^\s*[-*]\s+\S", criteria, re.MULTILINE):
+        violations.append(
+            Violation(
+                path,
+                None,
+                "worksheet section 'Acceptance Criteria' needs checkable list items",
+            )
+        )
+    return violations
+
+
+def _validate_task_graph(
+    task_records: dict[str, tuple[Path, dict[str, Any]]],
+) -> list[Violation]:
+    violations: list[Violation] = []
+    dependencies: dict[str, list[str]] = {}
+    for short_id, (path, data) in task_records.items():
+        raw = data.get("depends_on", [])
+        if not isinstance(raw, list):
+            continue
+        dependencies[short_id] = [str(item) for item in raw]
+        for dependency in dependencies[short_id]:
+            if dependency not in task_records:
+                violations.append(
+                    Violation(
+                        path,
+                        1,
+                        f"task '{short_id}' has missing dependency '{dependency}'",
+                    )
+                )
+
+    visiting: set[str] = set()
+    visited: set[str] = set()
+
+    def visit(short_id: str, trail: list[str]) -> None:
+        if short_id in visiting:
+            cycle = trail[trail.index(short_id) :] + [short_id]
+            path = task_records[short_id][0]
+            violations.append(
+                Violation(path, 1, f"dependency cycle: {' -> '.join(cycle)}")
+            )
+            return
+        if short_id in visited:
+            return
+        visiting.add(short_id)
+        for dependency in dependencies.get(short_id, []):
+            if dependency in task_records:
+                visit(dependency, [*trail, dependency])
+        visiting.remove(short_id)
+        visited.add(short_id)
+
+    for short_id in task_records:
+        visit(short_id, [short_id])
+    return violations
+
+
+def _snapshot_value(sections: dict[str, str], label: str) -> str | None:
+    snapshot = sections.get("Continuity Snapshot", "")
+    match = re.search(
+        rf"^\s*-\s+\*\*{re.escape(label)}:\*\*\s*(.+)$",
+        snapshot,
+        re.MULTILINE,
+    )
+    return match.group(1).strip() if match else None
+
+
+def _validate_continuity_snapshot(
+    spec_path: Path,
+    spec_data: dict[str, Any],
+    body: str,
+    task_records: dict[str, tuple[Path, dict[str, Any]]],
+) -> list[Violation]:
+    violations: list[Violation] = []
+    sections = _parse_h2_sections(body)
+    required = (
+        "Active flow",
+        "Current task/claim",
+        "Last verified checkpoint",
+        "Decisions",
+        "Recent discoveries",
+        "Blockers/unblock conditions",
+        "Next exact step",
+        "Plan identity",
+        "State identity",
+        "Relevant rules/knowledge",
+    )
+    values = {label: _snapshot_value(sections, label) for label in required}
+    for label, value in values.items():
+        if value is None:
+            violations.append(
+                Violation(
+                    spec_path,
+                    None,
+                    f"Continuity Snapshot missing field '{label}'",
+                )
+            )
+    active = values["Active flow"] or ""
+    if (
+        str(spec_data.get("flow_id")) not in active
+        or f"`{spec_data.get('state')}`" not in active
+    ):
+        violations.append(
+            Violation(
+                spec_path,
+                None,
+                "Continuity Snapshot flow/lifecycle disagrees with frontmatter",
+            )
+        )
+    plan = values["Plan identity"] or ""
+    if f"revision `{spec_data.get('plan_revision')}`" not in plan:
+        violations.append(
+            Violation(
+                spec_path,
+                None,
+                "Continuity Snapshot plan_revision disagrees with frontmatter",
+            )
+        )
+    commit = spec_data.get("plan_commit")
+    rendered_commit = "null" if commit is None else str(commit)
+    if f"plan_commit: {rendered_commit}" not in plan:
+        violations.append(
+            Violation(
+                spec_path,
+                None,
+                "Continuity Snapshot plan_commit disagrees with frontmatter",
+            )
+        )
+    state = values["State identity"] or ""
+    if f"revision `{spec_data.get('state_revision')}`" not in state:
+        violations.append(
+            Violation(
+                spec_path,
+                None,
+                "Continuity Snapshot state_revision disagrees with frontmatter",
+            )
+        )
+    if str(spec_data.get("last_operation")) not in state:
+        violations.append(
+            Violation(
+                spec_path,
+                None,
+                "Continuity Snapshot last_operation disagrees with frontmatter",
+            )
+        )
+    rendered_targets = json.dumps(spec_data.get("operation_targets", []))
+    if f"operation_targets: {rendered_targets}" not in state:
+        violations.append(
+            Violation(
+                spec_path,
+                None,
+                "Continuity Snapshot operation_targets disagrees with frontmatter",
+            )
+        )
+    current = spec_data.get("current_task")
+    claim = values["Current task/claim"] or ""
+    if current is not None:
+        task = task_records.get(str(current))
+        claimant = task[1].get("claimed_by") if task else None
+        if f"`{current}`" not in claim or str(claimant) not in claim:
+            violations.append(
+                Violation(
+                    spec_path,
+                    None,
+                    "Continuity Snapshot current claim disagrees with task/frontmatter",
+                )
+            )
+    return violations
+
+
+def validate_okf_bundle(
+    bundle_path: Path, repo_root: Path = REPO_ROOT
+) -> list[Violation]:
     violations: list[Violation] = []
     spec_path = bundle_path / "spec.md"
     if not spec_path.is_file():
-        return [Violation(bundle_path, None, f"Spec file spec.md is missing in bundle: {_rel(bundle_path)}")]
+        return [
+            Violation(
+                bundle_path,
+                None,
+                f"Spec file spec.md is missing in bundle: {_rel(bundle_path)}",
+            )
+        ]
 
     spec_data, spec_errs = _parse_yaml_frontmatter(spec_path)
     violations.extend(spec_errs)
-    
+
     spec_parsed_ok = False
     spec_task_short_ids = set()
     if spec_path.is_file():
@@ -1339,93 +1666,1095 @@ def validate_okf_bundle(bundle_path: Path, repo_root: Path = REPO_ROOT) -> list[
             content = spec_path.read_text(encoding="utf-8")
             parts = content.split("---\n", 2)
             body = parts[2] if len(parts) >= 3 else content
-            pattern = re.compile(r"^\s*-\s*\[([ ~x!-])\]\s*Task\s+([a-zA-Z0-9._-]+)\s*:", re.MULTILINE)
+            pattern = re.compile(
+                r"^\s*-\s*\[([ ~x!-])\]\s*Task\s+([a-zA-Z0-9._-]+)\s*:", re.MULTILINE
+            )
             spec_task_short_ids = {m.group(2) for m in pattern.finditer(body)}
             spec_parsed_ok = True
         except OSError:
             pass
 
-    spec_state = (spec_data.get("state") or spec_data.get("status") or "planned") if spec_data else "planned"
+    spec_state = (
+        (spec_data.get("state") or spec_data.get("status") or "planned")
+        if spec_data
+        else "planned"
+    )
     is_spec_closed = spec_state in ("completed", "archived")
-    violations.extend(_validate_markdown_links(spec_path, repo_root, strict=is_spec_closed))
+    violations.extend(
+        _validate_markdown_links(spec_path, repo_root, strict=is_spec_closed)
+    )
 
     if spec_data is not None:
-        required_fields = {"type", "flow_id", "title", "state", "created_at", "updated_at"}
+        required_fields = {
+            "type",
+            "flow_id",
+            "title",
+            "state",
+            "created_at",
+            "updated_at",
+        }
         for f in required_fields:
             if f not in spec_data or spec_data[f] is None or spec_data[f] == "":
-                violations.append(Violation(spec_path, 1, f"spec.md missing required field: '{f}'"))
+                violations.append(
+                    Violation(spec_path, 1, f"spec.md missing required field: '{f}'")
+                )
             elif f in ("created_at", "updated_at"):
                 val = spec_data[f]
                 if not _validate_iso_timestamp(val):
-                    violations.append(Violation(spec_path, 1, f"spec.md field '{f}' must be a valid ISO-8601 timestamp (got '{val}')"))
+                    violations.append(
+                        Violation(
+                            spec_path,
+                            1,
+                            f"spec.md field '{f}' must be a valid ISO-8601 timestamp (got '{val}')",
+                        )
+                    )
 
         # OKF: unknown `type` values are tolerated; only emptiness is an error (handled above).
-        if "state" in spec_data and spec_data["state"] not in ("planned", "active", "completed", "archived", None):
-            violations.append(Violation(spec_path, 1, f"spec.md field 'state' has invalid value: '{spec_data['state']}'"))
-        if spec_data.get("status") is not None and spec_data["status"] not in ("draft", "stable", "deprecated"):
-            violations.append(Violation(spec_path, 1, f"spec.md field 'status' is the OKF lifecycle (draft|stable|deprecated); workflow state belongs in 'state' (got '{spec_data['status']}')"))
+        if "state" in spec_data and spec_data["state"] not in (
+            "planned",
+            "active",
+            "completed",
+            None,
+        ):
+            violations.append(
+                Violation(
+                    spec_path,
+                    1,
+                    f"spec.md field 'state' has invalid value: '{spec_data['state']}'",
+                )
+            )
+        if spec_data.get("status") is not None and spec_data["status"] not in (
+            "draft",
+            "stable",
+            "deprecated",
+        ):
+            violations.append(
+                Violation(
+                    spec_path,
+                    1,
+                    f"spec.md field 'status' is the OKF lifecycle (draft|stable|deprecated); workflow state belongs in 'state' (got '{spec_data['status']}')",
+                )
+            )
         if "flow_id" in spec_data and spec_data["flow_id"] != bundle_path.name:
-            violations.append(Violation(spec_path, 1, f"spec.md flow_id '{spec_data['flow_id']}' does not match directory name '{bundle_path.name}'"))
+            violations.append(
+                Violation(
+                    spec_path,
+                    1,
+                    f"spec.md flow_id '{spec_data['flow_id']}' does not match directory name '{bundle_path.name}'",
+                )
+            )
 
     tasks_dir = bundle_path / "tasks"
+    task_records: dict[str, tuple[Path, dict[str, Any]]] = {}
     if tasks_dir.is_dir():
-        for task_file in tasks_dir.glob("*.md"):
+        for task_file in sorted(tasks_dir.glob("*.md")):
             task_data, task_errs = _parse_yaml_frontmatter(task_file)
             violations.extend(task_errs)
-            
+
             # Check for orphaned task file
             short_id = task_file.stem
             if spec_parsed_ok and short_id not in spec_task_short_ids:
-                violations.append(Violation(task_file, None, f"orphaned task file: no corresponding 'Task {short_id}' found in spec.md implementation plan"))
-            
-            task_state = (task_data.get("state") or task_data.get("status") or "open") if task_data else "open"
-            violations.extend(_validate_markdown_links(task_file, repo_root, strict=(task_state == "closed")))
+                violations.append(
+                    Violation(
+                        task_file,
+                        None,
+                        f"orphaned task file: no corresponding 'Task {short_id}' found in spec.md implementation plan",
+                    )
+                )
+
+            task_state = (
+                (task_data.get("state") or task_data.get("status") or "open")
+                if task_data
+                else "open"
+            )
+            violations.extend(
+                _validate_markdown_links(
+                    task_file, repo_root, strict=(task_state == "closed")
+                )
+            )
 
             if task_data is not None:
-                required_task_fields = {"type", "id", "state", "depends_on", "files", "tests", "created_at", "updated_at"}
+                task_records[short_id] = (task_file, task_data)
+                required_task_fields = {
+                    "type",
+                    "id",
+                    "state",
+                    "depends_on",
+                    "files",
+                    "tests",
+                    "created_at",
+                    "updated_at",
+                }
                 for f in required_task_fields:
                     if f not in task_data or task_data[f] is None:
-                        violations.append(Violation(task_file, 1, f"task missing required field: '{f}'"))
+                        violations.append(
+                            Violation(
+                                task_file, 1, f"task missing required field: '{f}'"
+                            )
+                        )
                     elif f in ("created_at", "updated_at"):
                         val = task_data[f]
                         if not _validate_iso_timestamp(val):
-                            violations.append(Violation(task_file, 1, f"task field '{f}' must be a valid ISO-8601 timestamp (got '{val}')"))
+                            violations.append(
+                                Violation(
+                                    task_file,
+                                    1,
+                                    f"task field '{f}' must be a valid ISO-8601 timestamp (got '{val}')",
+                                )
+                            )
 
                 if task_data.get("type") == "":
-                    violations.append(Violation(task_file, 1, "task field 'type' must be non-empty"))
-                if "state" in task_data and task_data["state"] not in ("open", "in_progress", "closed", "blocked", "skipped", None):
-                    violations.append(Violation(task_file, 1, f"task field 'state' has invalid value: '{task_data['state']}'"))
-                if task_data.get("status") is not None and task_data["status"] not in ("draft", "stable", "deprecated"):
-                    violations.append(Violation(task_file, 1, f"task field 'status' is the OKF lifecycle (draft|stable|deprecated); workflow state belongs in 'state' (got '{task_data['status']}')"))
+                    violations.append(
+                        Violation(task_file, 1, "task field 'type' must be non-empty")
+                    )
+                if "state" in task_data and task_data["state"] not in (
+                    "open",
+                    "in_progress",
+                    "closed",
+                    "blocked",
+                    "skipped",
+                    None,
+                ):
+                    violations.append(
+                        Violation(
+                            task_file,
+                            1,
+                            f"task field 'state' has invalid value: '{task_data['state']}'",
+                        )
+                    )
+                if task_data.get("status") is not None and task_data["status"] not in (
+                    "draft",
+                    "stable",
+                    "deprecated",
+                ):
+                    violations.append(
+                        Violation(
+                            task_file,
+                            1,
+                            f"task field 'status' is the OKF lifecycle (draft|stable|deprecated); workflow state belongs in 'state' (got '{task_data['status']}')",
+                        )
+                    )
 
-                if "depends_on" in task_data and not isinstance(task_data["depends_on"], list):
-                    violations.append(Violation(task_file, 1, "task field 'depends_on' must be a list"))
+                if "depends_on" in task_data and not isinstance(
+                    task_data["depends_on"], list
+                ):
+                    violations.append(
+                        Violation(
+                            task_file, 1, "task field 'depends_on' must be a list"
+                        )
+                    )
 
                 if spec_data and "flow_id" in spec_data:
                     flow_id = spec_data["flow_id"]
                     task_id = str(task_data.get("id", ""))
                     if not task_id.startswith(f"{flow_id}:"):
-                        violations.append(Violation(task_file, 1, f"task ID prefix '{task_id.split(':')[0] if ':' in task_id else task_id}' must match flow_id '{flow_id}'"))
+                        violations.append(
+                            Violation(
+                                task_file,
+                                1,
+                                f"task ID prefix '{task_id.split(':')[0] if ':' in task_id else task_id}' must match flow_id '{flow_id}'",
+                            )
+                        )
 
                 for list_field in ("files", "tests"):
                     if list_field in task_data:
                         items = task_data[list_field]
                         if not isinstance(items, list):
-                            violations.append(Violation(task_file, 1, f"task field '{list_field}' must be a list"))
+                            violations.append(
+                                Violation(
+                                    task_file,
+                                    1,
+                                    f"task field '{list_field}' must be a list",
+                                )
+                            )
                         else:
                             for item in items:
                                 if not isinstance(item, str):
-                                    violations.append(Violation(task_file, 1, f"task field '{list_field}' item must be a string path"))
+                                    violations.append(
+                                        Violation(
+                                            task_file,
+                                            1,
+                                            f"task field '{list_field}' item must be a string path",
+                                        )
+                                    )
                                     continue
                                 resolved = (repo_root / item).resolve()
                                 try:
                                     resolved.relative_to(repo_root.resolve())
                                 except ValueError:
-                                    violations.append(Violation(task_file, 1, f"referenced file '{item}' escapes repository root"))
+                                    violations.append(
+                                        Violation(
+                                            task_file,
+                                            1,
+                                            f"referenced file '{item}' escapes repository root",
+                                        )
+                                    )
                                     continue
                                 if not resolved.exists() and task_state == "closed":
-                                    violations.append(Violation(task_file, 1, f"referenced file does not exist: '{item}'"))
+                                    violations.append(
+                                        Violation(
+                                            task_file,
+                                            1,
+                                            f"referenced file does not exist: '{item}'",
+                                        )
+                                    )
+                violations.extend(
+                    _validate_worksheet(task_file, _markdown_body(task_file))
+                )
+
+    if spec_data is not None:
+        for field in (
+            "plan_revision",
+            "plan_commit",
+            "state_revision",
+            "current_task",
+            "last_operation",
+            "operation_targets",
+            "last_verified_checkpoint",
+        ):
+            if field not in spec_data:
+                violations.append(
+                    Violation(
+                        spec_path, 1, f"spec.md missing continuity field: '{field}'"
+                    )
+                )
+        plan_revision = spec_data.get("plan_revision")
+        plan_commit = spec_data.get("plan_commit")
+        state_revision = spec_data.get("state_revision")
+        targets = spec_data.get("operation_targets")
+        if not isinstance(plan_revision, int) or plan_revision < 1:
+            violations.append(
+                Violation(spec_path, 1, "spec.md plan_revision must be an integer >= 1")
+            )
+        if plan_commit is not None and not re.fullmatch(
+            r"[0-9a-f]{7,40}", str(plan_commit)
+        ):
+            violations.append(
+                Violation(
+                    spec_path,
+                    1,
+                    "spec.md plan_commit must be null or 7-40 lowercase hex",
+                )
+            )
+        if not isinstance(state_revision, int) or state_revision < 0:
+            violations.append(
+                Violation(
+                    spec_path, 1, "spec.md state_revision must be a nonnegative integer"
+                )
+            )
+        if not isinstance(targets, list) or len(targets) != len(
+            set(map(str, targets or []))
+        ):
+            violations.append(
+                Violation(
+                    spec_path, 1, "spec.md operation_targets must be a unique list"
+                )
+            )
+            targets = []
+
+        for short_id, (task_path, task_data) in task_records.items():
+            for field in (
+                "plan_revision",
+                "plan_commit",
+                "state_revision",
+                "claimed_by",
+                "claimed_at",
+                "last_operation",
+                "operation_targets",
+                "verification_strategy",
+            ):
+                if field not in task_data:
+                    violations.append(
+                        Violation(
+                            task_path, 1, f"task missing continuity field: '{field}'"
+                        )
+                    )
+            if task_data.get("plan_revision") != plan_revision:
+                violations.append(
+                    Violation(
+                        task_path,
+                        1,
+                        "task plan_revision must equal spec.md plan_revision",
+                    )
+                )
+            if task_data.get("plan_commit") != plan_commit:
+                violations.append(
+                    Violation(
+                        task_path, 1, "task plan_commit must equal spec.md plan_commit"
+                    )
+                )
+            task_revision = task_data.get("state_revision")
+            if (
+                not isinstance(task_revision, int)
+                or not isinstance(state_revision, int)
+                or not 0 <= task_revision <= state_revision
+            ):
+                violations.append(
+                    Violation(
+                        task_path,
+                        1,
+                        "task state_revision must be between zero and spec.md state_revision",
+                    )
+                )
+            if short_id in set(map(str, targets or [])):
+                for field in ("state_revision", "last_operation", "operation_targets"):
+                    if task_data.get(field) != spec_data.get(field):
+                        violations.append(
+                            Violation(
+                                task_path,
+                                1,
+                                f"target task {field} must equal latest spec operation identity",
+                            )
+                        )
+            task_targets = task_data.get("operation_targets")
+            if not isinstance(task_targets, list) or (
+                task_targets and short_id not in set(map(str, task_targets))
+            ):
+                violations.append(
+                    Violation(
+                        task_path,
+                        1,
+                        "task operation_targets must be empty or include its own short id",
+                    )
+                )
+            if task_data.get("state") == "in_progress":
+                if not task_data.get("claimed_by"):
+                    violations.append(
+                        Violation(task_path, 1, "in_progress task needs claimed_by")
+                    )
+                if not _validate_iso_timestamp(task_data.get("claimed_at")):
+                    violations.append(
+                        Violation(
+                            task_path, 1, "task claimed_at must be an ISO timestamp"
+                        )
+                    )
+                for dependency in task_data.get("depends_on", []):
+                    record = task_records.get(str(dependency))
+                    if record is not None and record[1].get("state") != "closed":
+                        violations.append(
+                            Violation(
+                                task_path, 1, f"dependency '{dependency}' is not closed"
+                            )
+                        )
+            if task_data.get("state") == "closed" and not (
+                task_data.get("commit")
+                and task_data.get("last_verified_at")
+                and task_data.get("last_verified_commit")
+                and task_data.get("verification_evidence")
+            ):
+                violations.append(
+                    Violation(
+                        task_path,
+                        1,
+                        "closed task requires commit and verification evidence",
+                    )
+                )
+
+        target_ids = set(map(str, targets or []))
+        missing_targets = target_ids - set(task_records)
+        for short_id in sorted(missing_targets):
+            violations.append(
+                Violation(
+                    spec_path,
+                    1,
+                    f"operation_targets references missing task '{short_id}'",
+                )
+            )
+        claims = [
+            short_id
+            for short_id, (_, data) in task_records.items()
+            if data.get("state") == "in_progress"
+        ]
+        if len(claims) > 1:
+            violations.append(
+                Violation(
+                    spec_path, 1, f"competing in_progress claim: {', '.join(claims)}"
+                )
+            )
+        current_task = spec_data.get("current_task")
+        if claims and current_task != claims[0]:
+            violations.append(
+                Violation(
+                    spec_path,
+                    1,
+                    "spec.md current_task must equal the sole in_progress claim",
+                )
+            )
+        if not claims and current_task is not None:
+            violations.append(
+                Violation(
+                    spec_path, 1, "spec.md current_task references no in_progress task"
+                )
+            )
+        violations.extend(_validate_task_graph(task_records))
+        violations.extend(
+            _validate_continuity_snapshot(
+                spec_path, spec_data, _markdown_body(spec_path), task_records
+            )
+        )
     return violations
+
+
+_INSTALLED_OPERATIONAL_ROOTS = (
+    "skills",
+    "commands",
+    "agents",
+    "hooks",
+    "plugins",
+    ".claude-plugin",
+    ".codex",
+    ".opencode",
+    ".github/agents",
+    ".cursor/rules",
+)
+_RUNTIME_INVOCATION = re.compile(
+    r"(?:\b(?:run|execute|invoke|call|spawn|launch)\b[^\n]*(?:\bpython3?\b|\buv\s+run\b|\bpowershell\b|\bpwsh\b)[^\n]*\b(?:state|continuity|journal|transaction|reconcile|sync|status|archive|recover)\b|\b(?:run|execute|invoke|call|spawn|launch)\b[^\n]*\bflow\s+(?:sync|status|prd|plan|implement|archive|recover)\b)",
+    re.IGNORECASE,
+)
+_DYNAMIC_FLOW_SCAN = re.compile(
+    r"(?:\b(?:python3?|shell|subprocess|child_process|detect-env|tools/priming\.py)\b[^\n]*\b(?:scan|glob|walk|enumerate)\b[^\n]*(?:tasks?/\*|specs?/\*)|\b(?:scan|glob|walk|enumerate)\b[^\n]*(?:tasks?/\*|specs?/\*)[^\n]*\b(?:python3?|shell|subprocess|child_process|detect-env|tools/priming\.py)\b)",
+    re.IGNORECASE,
+)
+
+
+def validate_installed_runtime_dependencies(
+    repo_root: Path = REPO_ROOT,
+) -> list[Violation]:
+    """Reject consumer runtime helpers only on installed operational surfaces."""
+    violations: list[Violation] = []
+    paths: set[Path] = set()
+    for relative in _INSTALLED_OPERATIONAL_ROOTS:
+        root = repo_root / relative
+        if root.is_file():
+            paths.add(root)
+        elif root.is_dir():
+            paths.update(path for path in root.rglob("*") if path.is_file())
+    for path in sorted(paths):
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        for line_number, line in enumerate(text.splitlines(), start=1):
+            lowered = line.lower()
+            if re.search(
+                r"\b(?:never|must not|do not|does not|forbidden|reject)\b", lowered
+            ):
+                continue
+            if "tools/priming.py" in line and re.search(
+                r"\b(?:run|execute|invoke|call|spawn|launch)\b", line, re.I
+            ):
+                violations.append(
+                    Violation(
+                        path,
+                        line_number,
+                        "installed workflow invokes forbidden tools/priming.py runtime helper",
+                    )
+                )
+            if _RUNTIME_INVOCATION.search(line):
+                violations.append(
+                    Violation(
+                        path,
+                        line_number,
+                        "installed workflow requires a forbidden consumer runtime command",
+                    )
+                )
+            if _DYNAMIC_FLOW_SCAN.search(line):
+                violations.append(
+                    Violation(
+                        path,
+                        line_number,
+                        "installed workflow requires a dynamic task/spec scan",
+                    )
+                )
+    return violations
+
+
+_JOURNAL_NONTERMINAL_STATES = {
+    "prepared",
+    "task_writes_started",
+    "recovery_required",
+    "contended",
+    "rollback_in_progress",
+}
+_PATH_BASES = {"flow_root", "bundle_root", "configured_root"}
+_JOURNAL_BASE_KEYS = {
+    "type",
+    "version",
+    "operation_id",
+    "state",
+    "applied_writes",
+    "rolled_back_writes",
+    "events",
+    "flow_id",
+    "configured_root",
+    "bundle_root",
+    "flow_root",
+    "request",
+    "ordered_writes",
+    "read_set",
+    "fragments",
+}
+_REQUEST_KEYS = {
+    "flow_id",
+    "operation",
+    "actor",
+    "occurred_at",
+    "expected_plan_revision",
+    "expected_plan_commit",
+    "expected_state_revision",
+    "targets",
+    "payload",
+}
+_PAYLOAD_REQUIRED: dict[str, set[str]] = {
+    "activate": {"approval_evidence", "next_step"},
+    "claim": {"next_step"},
+    "discover": {"text", "impact", "next_step"},
+    "block": {"blocked_reason", "unblock_condition", "next_step"},
+    "unblock": {"resolution_evidence", "next_step"},
+    "close": {"commit", "verification_evidence", "acceptance_criteria_checked"},
+    "skip": {"reason", "approval"},
+    "reopen": {"reason", "approval", "next_step", "replacement_checkpoint"},
+    "revise": {
+        "plan_diffs",
+        "rationale",
+        "reviewer_findings",
+        "new_plan_revision",
+        "state_adjustments",
+    },
+    "reconcile": {"expected_mismatches", "affected_task_ids"},
+    "complete": {
+        "final_commit",
+        "verification_evidence",
+        "code_review",
+        "quality_report",
+        "waivers",
+    },
+    "archive": {
+        "knowledge_destinations",
+        "synthesized_edits",
+        "log_entry",
+        "notes_incorporation",
+        "archive_candidate_manifest",
+        "quality_report",
+        "waivers",
+    },
+    "recover": {"journal_operation_id", "action"},
+}
+_TRANSITIONS: dict[str, set[tuple[str, str]]] = {
+    "activate": {("planned", "active")},
+    "claim": {("open", "in_progress")},
+    "release": {("in_progress", "open")},
+    "block": {("open", "blocked"), ("in_progress", "blocked")},
+    "unblock": {("blocked", "open")},
+    "close": {("in_progress", "closed")},
+    "skip": {("open", "skipped"), ("blocked", "skipped")},
+    "reopen": {("closed", "open"), ("skipped", "open")},
+    "complete": {("active", "completed")},
+}
+
+
+def _iter_transaction_journals(repo_root: Path) -> Iterator[Path]:
+    try:
+        layout = resolve_okf_layout(repo_root)
+    except ValueError:
+        return
+    directory = layout.configured_root / "tasks" / "transactions"
+    if directory.is_dir():
+        yield from sorted(directory.glob("*/journal.md"))
+
+
+def _journal_data(path: Path) -> tuple[dict[str, Any] | None, list[Violation]]:
+    return _parse_yaml_frontmatter(path)
+
+
+def _walk_path_records(
+    value: object, trail: str = "journal"
+) -> Iterator[tuple[str, dict[str, Any]]]:
+    if isinstance(value, dict):
+        if any(key in value for key in ("path", "glob")):
+            yield trail, value
+        if trail.endswith("archive_inventory") and "root" in value:
+            yield trail, value
+        for key, nested in value.items():
+            yield from _walk_path_records(nested, f"{trail}.{key}")
+    elif isinstance(value, list):
+        for index, nested in enumerate(value):
+            yield from _walk_path_records(nested, f"{trail}[{index}]")
+
+
+def _validate_path_record(
+    path: Path, trail: str, record: dict[str, Any]
+) -> list[Violation]:
+    violations: list[Violation] = []
+    base = record.get("base")
+    if base not in _PATH_BASES:
+        return [Violation(path, 1, f"{trail} has missing or unknown base: {base!r}")]
+    key = "path" if "path" in record else "glob" if "glob" in record else "root"
+    raw = record.get(key)
+    if not isinstance(raw, str) or not raw:
+        return [Violation(path, 1, f"{trail}.{key} must be a non-empty relative path")]
+    candidate = Path(raw)
+    if candidate.is_absolute() or ".." in candidate.parts:
+        violations.append(
+            Violation(path, 1, f"{trail}.{key} escapes its {base} namespace")
+        )
+    if "directory" in trail and "transactions" in raw:
+        if base != "configured_root":
+            violations.append(
+                Violation(
+                    path,
+                    1,
+                    f"{trail} transaction directory base must be configured_root",
+                )
+            )
+    elif trail.endswith("archive_inventory") and base != "bundle_root":
+        violations.append(Violation(path, 1, f"{trail} base must be bundle_root"))
+    elif (
+        raw.startswith(("tasks/", "spec.md"))
+        and "archive_inventory" not in trail
+        and base != "flow_root"
+    ):
+        violations.append(
+            Violation(path, 1, f"{trail} task/spec base must be flow_root")
+        )
+    return violations
+
+
+def _entry_tuple(entry: object) -> tuple[int, str, str] | None:
+    if not isinstance(entry, dict):
+        return None
+    index = entry.get("write_index")
+    base = entry.get("base")
+    path = entry.get("path")
+    if (
+        not isinstance(index, int)
+        or not isinstance(base, str)
+        or not isinstance(path, str)
+    ):
+        return None
+    return index, base, path
+
+
+def _payload_keysets(request: dict[str, Any]) -> tuple[set[str], set[str]] | None:
+    operation = request.get("operation")
+    payload = request.get("payload")
+    if not isinstance(operation, str) or not isinstance(payload, dict):
+        return None
+    if operation in _PAYLOAD_REQUIRED:
+        return _PAYLOAD_REQUIRED[operation], set()
+    if operation == "release":
+        return {"reason", "next_step"}, {"user_authorization"}
+    if operation == "note":
+        if payload.get("category") == "git_note_attachment":
+            return {
+                "category",
+                "text",
+                "attachment_attempt_id",
+                "ref",
+                "commit",
+                "result",
+                "diagnostic",
+            }, set()
+        return {"category", "text"}, set()
+    if operation == "checkpoint":
+        scope = payload.get("scope")
+        if scope == "task":
+            return {"scope", "commit", "verification_evidence", "summary"}, set()
+        if scope == "phase":
+            return {
+                "scope",
+                "phase_id",
+                "affected_task_ids",
+                "last_functional_commit",
+                "verification_evidence",
+            }, set()
+        if scope == "plan":
+            return {"scope", "plan_bind_evidence"}, set()
+        return None
+    if operation == "create":
+        if payload.get("variant") == "flow":
+            return {"variant", "title", "description"}, set()
+        if payload.get("variant") == "task":
+            return {
+                "variant",
+                "short_id",
+                "chapter_id",
+                "worksheet",
+                "priority",
+                "verification_strategy",
+                "depends_on",
+                "files",
+                "tests",
+            }, set()
+        return None
+    return None
+
+
+def _validate_journal_semantics(
+    path: Path, data: dict[str, Any], request: dict[str, Any]
+) -> list[Violation]:
+    violations: list[Violation] = []
+    payload = request.get("payload")
+    keysets = _payload_keysets(request)
+    if keysets is None or not isinstance(payload, dict):
+        violations.append(
+            Violation(path, 1, "journal request has unknown operation/payload variant")
+        )
+    else:
+        required, optional = keysets
+        if not required <= set(payload) or set(payload) - required - optional:
+            violations.append(
+                Violation(
+                    path, 1, "journal payload does not match the exact operation keyset"
+                )
+            )
+    operation = request.get("operation")
+    transitions = _TRANSITIONS.get(str(operation))
+    if transitions:
+        for index, fragment in enumerate(data.get("fragments", [])):
+            if not isinstance(fragment, dict):
+                continue
+            before = fragment.get("before")
+            after = fragment.get("after")
+            if not isinstance(before, dict) or not isinstance(after, dict):
+                continue
+            if "state" in before or "state" in after:
+                transition = (str(before.get("state")), str(after.get("state")))
+                if transition not in transitions:
+                    violations.append(
+                        Violation(
+                            path,
+                            1,
+                            f"journal.fragments[{index}] has illegal {operation} transition {transition[0]} -> {transition[1]}",
+                        )
+                    )
+    return violations
+
+
+def _local_journal_assessment(data: dict[str, Any]) -> str:
+    events = data.get("events")
+    ordered = data.get("ordered_writes")
+    applied_raw = data.get("applied_writes")
+    rolled_raw = data.get("rolled_back_writes")
+    if not all(
+        isinstance(item, list) for item in (events, ordered, applied_raw, rolled_raw)
+    ):
+        return "hard_conflict"
+    if not events or events[0].get("kind") != "prepared":
+        return "hard_conflict"
+    if [event.get("sequence") for event in events] != list(range(len(events))):
+        return "hard_conflict"
+
+    expected_entries = [
+        (index, item.get("base"), item.get("path"))
+        for index, item in enumerate(ordered)
+        if isinstance(item, dict)
+    ]
+    if len(expected_entries) != len(ordered):
+        return "hard_conflict"
+    applied = [_entry_tuple(item) for item in applied_raw]
+    rolled = [_entry_tuple(item) for item in rolled_raw]
+    if any(item is None for item in applied + rolled):
+        return "hard_conflict"
+    applied_entries = cast("list[tuple[int, str, str]]", applied)
+    rolled_entries = cast("list[tuple[int, str, str]]", rolled)
+    if (
+        len(set(applied_entries)) != len(applied_entries)
+        or applied_entries != expected_entries[: len(applied_entries)]
+    ):
+        return "hard_conflict"
+    if (
+        len(set(rolled_entries)) != len(rolled_entries)
+        or rolled_entries != list(reversed(applied_entries))[: len(rolled_entries)]
+    ):
+        return "hard_conflict"
+
+    open_forward: tuple[int, str, str] | None = None
+    aborted: set[int] = set()
+    confirmed_applied: list[tuple[int, str, str]] = []
+    open_rollback: tuple[int, str, str] | None = None
+    confirmed_rolled: list[tuple[int, str, str]] = []
+    selected: str | None = None
+    contended = False
+    for event in events[1:]:
+        kind = event.get("kind")
+        entry = _entry_tuple(event)
+        if kind == "write_started":
+            if selected == "rollback" or open_forward is not None or entry is None:
+                return "hard_conflict"
+            if entry not in expected_entries:
+                return "hard_conflict"
+            index = entry[0]
+            if entry in confirmed_applied or (
+                index in aborted and selected != "finish"
+            ):
+                return "hard_conflict"
+            open_forward = entry
+        elif kind == "write_not_applied":
+            if entry is None or entry != open_forward:
+                return "hard_conflict"
+            aborted.add(entry[0])
+            open_forward = None
+        elif kind == "write_applied":
+            if entry is None or entry != open_forward:
+                return "hard_conflict"
+            confirmed_applied.append(entry)
+            open_forward = None
+        elif kind == "recovery_selected":
+            action = event.get("action")
+            if action not in {"finish", "rollback"} or open_forward is not None:
+                return "hard_conflict"
+            if selected is not None and selected != action:
+                return "hard_conflict"
+            if selected is not None:
+                return "hard_conflict"
+            selected = cast("str", action)
+        elif kind == "rollback_started":
+            if (
+                selected != "rollback"
+                or open_forward is not None
+                or open_rollback is not None
+                or entry is None
+            ):
+                return "hard_conflict"
+            expected_reverse = list(reversed(confirmed_applied))
+            if (
+                len(confirmed_rolled) >= len(expected_reverse)
+                or entry != expected_reverse[len(confirmed_rolled)]
+            ):
+                return "hard_conflict"
+            open_rollback = entry
+        elif kind == "rollback_applied":
+            if entry is None or entry != open_rollback:
+                return "hard_conflict"
+            confirmed_rolled.append(entry)
+            open_rollback = None
+        elif kind == "contended_before_write":
+            if confirmed_applied or open_forward is not None or selected is not None:
+                return "hard_conflict"
+            contended = True
+        elif kind in {
+            "validation_recorded",
+            "rollback_validated",
+            "validation_invalidated",
+        }:
+            continue
+        else:
+            return "hard_conflict"
+
+    if confirmed_applied != applied_entries or confirmed_rolled != rolled_entries:
+        return "hard_conflict"
+    if selected == "rollback":
+        return "resumable_rollback"
+    if selected == "finish":
+        return "finishable"
+    if open_rollback is not None:
+        return "resumable_rollback"
+    if confirmed_applied or open_forward is not None:
+        return "applied"
+    if contended:
+        return "proven_zero"
+    return "zero"
+
+
+def validate_markdown_transactions(repo_root: Path = REPO_ROOT) -> list[Violation]:
+    """Validate journal roots, namespaced paths, and append-only provenance."""
+    violations: list[Violation] = []
+    try:
+        layout = resolve_okf_layout(repo_root)
+    except ValueError as exc:
+        return [Violation(repo_root / ".agents" / "setup-state.json", 1, str(exc))]
+    configured_rel = str(layout.configured_root.relative_to(repo_root.resolve()))
+    bundle_rel = str(layout.bundle_root.relative_to(repo_root.resolve()))
+    for path in _iter_transaction_journals(repo_root):
+        data, errors = _journal_data(path)
+        violations.extend(errors)
+        if data is None:
+            continue
+        if data.get("type") != "FlowTransaction" or data.get("version") != 1:
+            violations.append(
+                Violation(path, 1, "journal type/version must be FlowTransaction/1")
+            )
+        request_value = data.get("request")
+        operation = (
+            request_value.get("operation") if isinstance(request_value, dict) else None
+        )
+        allowed_keys = set(_JOURNAL_BASE_KEYS)
+        if operation == "archive":
+            allowed_keys.update(
+                {"target_state_revision", "archive_inventory", "file_fragments"}
+            )
+        elif operation == "create":
+            allowed_keys.update(
+                {
+                    "ordered_directories",
+                    "applied_directories",
+                    "rolled_back_directories",
+                    "file_fragments",
+                }
+            )
+        elif (
+            operation == "checkpoint"
+            and isinstance(request_value, dict)
+            and isinstance(request_value.get("payload"), dict)
+            and request_value["payload"].get("scope") == "plan"
+        ):
+            allowed_keys.add("file_fragments")
+        missing_keys = _JOURNAL_BASE_KEYS - set(data)
+        unknown_keys = set(data) - allowed_keys
+        if missing_keys:
+            violations.append(
+                Violation(
+                    path,
+                    1,
+                    f"journal missing exact top-level keys: {sorted(missing_keys)}",
+                )
+            )
+        if unknown_keys:
+            violations.append(
+                Violation(
+                    path,
+                    1,
+                    f"journal has unknown top-level keys: {sorted(unknown_keys)}",
+                )
+            )
+        if data.get("state") not in _JOURNAL_NONTERMINAL_STATES | {
+            "committed",
+            "rolled_back",
+            "superseded",
+        }:
+            violations.append(
+                Violation(path, 1, f"journal has invalid state: {data.get('state')!r}")
+            )
+        if path.parent.name != data.get("operation_id"):
+            violations.append(
+                Violation(
+                    path, 1, "journal operation_id must match transaction directory"
+                )
+            )
+        if data.get("configured_root") != configured_rel:
+            violations.append(
+                Violation(
+                    path, 1, "journal configured_root disagrees with resolved layout"
+                )
+            )
+        if data.get("bundle_root") != bundle_rel:
+            violations.append(
+                Violation(path, 1, "journal bundle_root disagrees with resolved layout")
+            )
+        expected_flow = f"{bundle_rel}/specs/{data.get('flow_id')}"
+        if data.get("flow_root") != expected_flow:
+            violations.append(
+                Violation(path, 1, "journal flow_root disagrees with flow/layout")
+            )
+        request = data.get("request")
+        if not isinstance(request, dict) or request.get("flow_id") != data.get(
+            "flow_id"
+        ):
+            violations.append(
+                Violation(
+                    path, 1, "journal request must be a typed matching flow request"
+                )
+            )
+        elif set(request) != _REQUEST_KEYS:
+            violations.append(
+                Violation(
+                    path, 1, "journal request must use the exact typed request keyset"
+                )
+            )
+        elif not _validate_iso_timestamp(request.get("occurred_at")):
+            violations.append(
+                Violation(path, 1, "journal request occurred_at must be ISO-8601")
+            )
+        if isinstance(request, dict):
+            violations.extend(_validate_journal_semantics(path, data, request))
+        if operation == "archive":
+            inventory = data.get("archive_inventory")
+            if not isinstance(inventory, dict):
+                violations.append(
+                    Violation(path, 1, "archive journal requires archive_inventory")
+                )
+            else:
+                files = inventory.get("files")
+                directories = inventory.get("directories")
+                if not isinstance(files, list) or files != sorted(set(map(str, files))):
+                    violations.append(
+                        Violation(
+                            path,
+                            1,
+                            "archive inventory files must be unique and sorted",
+                        )
+                    )
+                if not isinstance(directories, list) or len(directories) != len(
+                    set(map(str, directories))
+                ):
+                    violations.append(
+                        Violation(
+                            path, 1, "archive inventory directories must be unique"
+                        )
+                    )
+        for trail, record in _walk_path_records(data):
+            violations.extend(_validate_path_record(path, trail, record))
+        if _local_journal_assessment(data) == "hard_conflict":
+            violations.append(
+                Violation(path, 1, "journal event/write provenance is a hard conflict")
+            )
+    return violations
+
+
+def assess_markdown_transactions(repo_root: Path = REPO_ROOT) -> dict[str, str]:
+    """Jointly classify unresolved Markdown journals without choosing by scan order."""
+    records: list[tuple[Path, dict[str, Any], str]] = []
+    invalid_paths = {
+        violation.path for violation in validate_markdown_transactions(repo_root)
+    }
+    for path in _iter_transaction_journals(repo_root):
+        data, errors = _journal_data(path)
+        if data is None or errors:
+            continue
+        state = data.get("state")
+        if state not in _JOURNAL_NONTERMINAL_STATES:
+            continue
+        local = (
+            "hard_conflict"
+            if path in invalid_paths
+            else _local_journal_assessment(data)
+        )
+        if (
+            data.get("request", {}).get("operation") == "archive"
+            and not (repo_root / str(data.get("flow_root"))).exists()
+            and local == "zero"
+        ):
+            local = "deleted_archive"
+        records.append((path, data, local))
+    if not records:
+        return {}
+    if any(local == "hard_conflict" for _, _, local in records):
+        return {
+            str(data.get("operation_id")): "hard_conflict" for _, data, _ in records
+        }
+    nonzero = [item for item in records if item[2] not in {"zero", "proven_zero"}]
+    if len(nonzero) > 1:
+        return {
+            str(data.get("operation_id")): "hard_conflict" for _, data, _ in records
+        }
+    results: dict[str, str] = {}
+    if not nonzero:
+        outcome = "superseded_proven_zero" if len(records) > 1 else "finishable"
+        return {str(data.get("operation_id")): outcome for _, data, _ in records}
+    candidate = nonzero[0]
+    for _, data, local in records:
+        operation_id = str(data.get("operation_id"))
+        if data is candidate[1]:
+            results[operation_id] = {
+                "applied": "sole_recovery_candidate",
+                "finishable": "finishable",
+                "resumable_rollback": "resumable_rollback",
+                "deleted_archive": "recoverable_deleted_archive",
+            }[local]
+        else:
+            results[operation_id] = "superseded_proven_zero"
+    return results
 
 
 def main() -> int:
@@ -1482,10 +2811,16 @@ def main() -> int:
     all_violations.extend(validate_codex_package_layout(REPO_ROOT))
     all_violations.extend(validate_codex_hook_commands(REPO_ROOT))
     
-    # OKF Bundle validation
-    all_violations.extend(validate_okf_bundle_root(REPO_ROOT))
-    for bundle_path in iter_okf_bundles(REPO_ROOT):
-        all_violations.extend(validate_okf_bundle(bundle_path, REPO_ROOT))
+    # Repository-local .agents/ is ignored working state, not a shipped fixture.
+    # Validate committed OKF scenarios so maintainer checks stay deterministic.
+    okf_fixtures = REPO_ROOT / "tests" / "fixtures" / "okf"
+    if okf_fixtures.is_dir():
+        for fixture_root in sorted(path for path in okf_fixtures.iterdir() if path.is_dir()):
+            all_violations.extend(validate_okf_bundle_root(fixture_root))
+            for bundle_path in iter_okf_bundles(fixture_root):
+                all_violations.extend(validate_okf_bundle(bundle_path, fixture_root))
+            all_violations.extend(validate_markdown_transactions(fixture_root))
+    all_violations.extend(validate_installed_runtime_dependencies(REPO_ROOT))
         
     if all_violations:
         _print_violations(all_violations)
