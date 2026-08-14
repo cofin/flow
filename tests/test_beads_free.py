@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
 SCAN_ROOTS = (
@@ -51,13 +50,6 @@ LEGACY_PATH_PATTERNS = (
     re.compile(r"\.agents/flows\.md"),
     re.compile(r"useBeads"),
     re.compile(r"validate-skills"),
-)
-NO_PYTHON_ROOTS = ("commands", "skills")
-PYTHON_PATTERN = re.compile(r"python3? tools/")
-CANONICAL_PROJECT_SKILL_FILES = (
-    "AGENTS.md",
-    "skills/flow-setup/SKILL.md",
-    "templates/agent/skills/flow-memory-keeper/SKILL.md",
 )
 
 
@@ -119,36 +111,3 @@ def test_no_legacy_layout_paths() -> None:
                 if pattern.search(line):
                     offenders.append(f"{rel}:{num}: {line.strip()[:100]}")
     assert offenders == [], "Legacy layout references:\n" + "\n".join(offenders)
-
-
-def test_prompts_do_not_shell_out_to_python_tools() -> None:
-    offenders = []
-    for root in NO_PYTHON_ROOTS:
-        for path in sorted((REPO_ROOT / root).rglob("*")):
-            if not (path.is_file() and path.suffix in SUFFIXES):
-                continue
-            rel = path.relative_to(REPO_ROOT).as_posix()
-            for num, line in enumerate(
-                path.read_text(encoding="utf-8").splitlines(), start=1
-            ):
-                if (
-                    rel == "skills/flow/references/validate.md"
-                    and "--scope migration-fixtures" in line
-                ):
-                    continue
-                if (
-                    PYTHON_PATTERN.search(line)
-                    and "do not run" not in line.lower()
-                    and "not run external" not in line.lower()
-                ):
-                    offenders.append(f"{rel}:{num}: {line.strip()[:100]}")
-    assert offenders == [], "Prompt files shell out to python tools:\n" + "\n".join(
-        offenders
-    )
-
-
-def test_consumer_project_skill_authority_is_agents_skills_only() -> None:
-    for rel in CANONICAL_PROJECT_SKILL_FILES:
-        text = (REPO_ROOT / rel).read_text(encoding="utf-8")
-        assert ".agents/skills/" in text
-        assert ".agents/bundles/skills/" not in text

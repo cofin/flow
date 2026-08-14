@@ -2,6 +2,25 @@
 
 A structured approach to reassessing claims, assumptions, and proposals before accepting them.
 
+## Multi-View Synthesis
+
+When the task calls for explicit multi-view analysis rather than verification of
+a single claim:
+
+1. State the core decision and the evidence shared by every view.
+2. Apply the advocate stance to identify the strongest evidence-backed benefits
+   and success conditions.
+3. Apply the critic stance to identify realistic risks, failure modes, and
+   weaker assumptions.
+4. Apply the neutral stance to weight likelihood and impact without forcing an
+   even split.
+5. Synthesize the views into one recommendation. Name decisive assumptions,
+   unresolved evidence, conditions that would change the result, and concrete
+   next actions.
+
+The synthesis must preserve genuine disagreement, but it must not manufacture
+doubt when the evidence strongly supports one conclusion.
+
 ## The CRITICAL REASSESSMENT Pattern
 
 When presented with a statement, claim, or proposal that needs evaluation:

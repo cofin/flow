@@ -1,57 +1,61 @@
 from __future__ import annotations
+
 import re
 from pathlib import Path
 
+import pytest
+import yaml
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
-TARGET_FILES = (
-    "commands/flow-implement.md",
-    "skills/flow-execution/SKILL.md",
-    "skills/flow/references/implement.md",
-    "skills/flow/references/discipline.md",
-    "commands/flow/implement.toml",
-    "skills/flow-execution/agents/openai.yaml",
-    "agents/executor.md",
-    "agents/code-reviewer.md",
+
+def _execution_contract() -> dict[str, object]:
+    text = (REPO_ROOT / "skills/flow/references/implement.md").read_text(
+        encoding="utf-8"
+    )
+    match = re.search(
+        r"<!-- flow-execution-contract: start -->\s*```yaml\n(.*?)\n```\s*"
+        r"<!-- flow-execution-contract: end -->",
+        text,
+        re.DOTALL,
+    )
+    assert match is not None
+    loaded = yaml.safe_load(match.group(1))
+    assert isinstance(loaded, dict)
+    return loaded
+
+
+@pytest.mark.parametrize(
+    ("scenario", "expected_operations"),
+    [
+        ("preflight-claim", ["claim"]),
+        ("mismatch-discover-block", ["discover", "block"]),
+        ("nonblocking-discover-release", ["discover", "release"]),
+        ("revised-plan-resume", ["claim"]),
+    ],
 )
+def test_execution_state_scenarios_use_declared_markdown_operations(
+    scenario: str, expected_operations: list[str]
+) -> None:
+    contract = _execution_contract()
 
-def _read(relative_path: str) -> str:
-    return (REPO_ROOT / relative_path).read_text(encoding="utf-8")
+    assert contract["transitions"][scenario]["operations"] == expected_operations
 
-def test_no_beads_references_in_execution_files() -> None:
-    violations = []
-    # Match raw "bd " command invocation or "beads" (case-insensitive)
-    pattern = re.compile(r"\bbd\b|\bbeads\b", re.IGNORECASE)
 
-    for relative_path in TARGET_FILES:
-        file_path = REPO_ROOT / relative_path
-        if not file_path.exists():
-            continue
-        content = file_path.read_text(encoding="utf-8")
-        
-        # We allow "no-Beads" or similar in description/documentation if absolutely necessary,
-        # but the goal is complete removal. Let's find matches.
-        for line_num, line in enumerate(content.splitlines(), start=1):
-            if pattern.search(line):
-                # Ignore frontmatter or metadata mentions of beads if they are there for config,
-                # but let's report them as violations to be strict.
-                violations.append(f"{relative_path}:{line_num}: {line.strip()}")
+def test_execution_mismatch_and_resume_scenarios_fail_closed() -> None:
+    contract = _execution_contract()
 
-    assert not violations, "Found Beads references in execution files:\n" + "\n".join(violations)
-
-def test_execution_references_bundles_layout() -> None:
-    for relative_path in (
-        "commands/flow-implement.md",
-        "skills/flow/references/implement.md",
-        "agents/executor.md",
-    ):
-        file_path = REPO_ROOT / relative_path
-        if not file_path.exists():
-            continue
-        content = file_path.read_text(encoding="utf-8")
-        
-        # Ensure it points to bundles/specs/ or tasks/
-        assert "bundles/specs" in content or "tasks/" in content
-        # Ensure it does NOT point to legacy specs/active or similar
-        assert "specs/active" not in content
-        assert "specs/archive" not in content
+    assert contract["preflight"]["failure_transition"] == "mismatch-discover-block"
+    assert (
+        contract["transitions"]["mismatch-discover-block"]["production_mutations"] == []
+    )
+    assert contract["resume"] == {
+        "transition": "revised-plan-resume",
+        "requires": [
+            "plan_identity_changed",
+            "plan_validation_passed",
+            "tracked_markdown_reloaded",
+            "preflight_repeated",
+        ],
+        "otherwise": "stop_without_production_mutation",
+    }

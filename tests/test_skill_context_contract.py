@@ -5,9 +5,20 @@ import subprocess
 import sys
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 AUDIT_PATH = REPO_ROOT / "tools" / "audit-skill-contracts.py"
+REVIEWER_AUTHORITIES = {
+    "architecture-critic": ("persona.md", "checklist.md"),
+    "challenge": ("challenge-strategy.md",),
+    "consensus": ("consensus-strategy.md", "stance-rotation.md"),
+    "deepthink": ("reasoning-strategy.md", "confidence-tracking.md"),
+    "devils-advocate": ("persona.md", "checklist.md"),
+    "docgen": ("docgen-strategy.md", "component-template.md"),
+    "performance-analyst": ("persona.md", "checklist.md"),
+    "perspectives": ("critical-thinking.md", "stances.md"),
+    "security-auditor": ("persona.md", "checklist.md"),
+    "tracer": ("tracing-strategy.md", "trace-modes.md"),
+}
 
 
 def _copy_audit_tree(tmp_path: Path) -> Path:
@@ -35,11 +46,65 @@ def _append_lines(path: Path, target_lines: int) -> None:
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def _substantive_lines(path: Path) -> set[str]:
+    lines = set()
+    for raw_line in path.read_text(encoding="utf-8").splitlines():
+        line = " ".join(raw_line.split())
+        if len(line) >= 60 and not line.startswith(("#", "<", "```", "- [")):
+            lines.add(line.casefold())
+    return lines
+
+
+def _reviewer_authority_violations(root: Path) -> list[str]:
+    violations = []
+    for skill_name, reference_names in REVIEWER_AUTHORITIES.items():
+        skill = root / "skills" / skill_name / "SKILL.md"
+        skill_text = skill.read_text(encoding="utf-8")
+        skill_lines = _substantive_lines(skill)
+        for reference_name in reference_names:
+            relative_reference = f"references/{reference_name}"
+            reference = skill.parent / relative_reference
+            if f"({relative_reference})" not in skill_text:
+                violations.append(
+                    f"{skill.relative_to(root)} does not directly link {relative_reference}"
+                )
+            duplicates = sorted(skill_lines & _substantive_lines(reference))
+            for duplicate in duplicates:
+                violations.append(
+                    f"{skill.relative_to(root)} duplicates {reference.relative_to(root)}: "
+                    f"{duplicate}"
+                )
+    return violations
+
+
 def test_repository_skill_context_contract_passes() -> None:
     result = _run_audit(REPO_ROOT)
 
     assert result.returncode == 0, result.stdout + result.stderr
     assert result.stdout == "Skill context contracts pass.\n"
+
+
+def test_reviewer_authority_map_is_direct_and_singular() -> None:
+    assert _reviewer_authority_violations(REPO_ROOT) == []
+
+
+def test_reviewer_authority_check_rejects_duplicate_detail(tmp_path: Path) -> None:
+    root = _copy_audit_tree(tmp_path)
+    skill = root / "skills" / "architecture-critic" / "SKILL.md"
+    persona = skill.parent / "references" / "persona.md"
+    duplicated = next(
+        line
+        for line in persona.read_text(encoding="utf-8").splitlines()
+        if len(line.strip()) >= 60 and not line.startswith("#")
+    )
+    skill.write_text(
+        skill.read_text(encoding="utf-8") + f"\n{duplicated}\n",
+        encoding="utf-8",
+    )
+
+    violations = _reviewer_authority_violations(root)
+
+    assert any("duplicates" in violation for violation in violations)
 
 
 def test_audit_rejects_over_budget_skill(tmp_path: Path) -> None:

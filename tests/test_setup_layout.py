@@ -1,5 +1,9 @@
 from __future__ import annotations
+
+import re
 from pathlib import Path
+
+import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -8,111 +12,90 @@ def _read(relative_path: str) -> str:
     return (REPO_ROOT / relative_path).read_text(encoding="utf-8")
 
 
-def test_setup_does_not_create_flows_md() -> None:
-    for relative_path in (
-        "commands/flow/setup.toml",
-        "commands/flow-setup.md",
-        "templates/opencode/commands/flow-setup.md",
-        "skills/flow/references/setup.md",
-    ):
-        text = _read(relative_path)
-        assert "flows.md - Empty flow registry" not in text
+def _flow_contract() -> dict[str, object]:
+    loaded = yaml.safe_load(_read("contracts/flow.yaml"))
+    assert isinstance(loaded, dict)
+    return loaded
 
 
-def test_setup_defines_new_paths() -> None:
-    for relative_path in (
-        "commands/flow/setup.toml",
-        "commands/flow-setup.md",
-        "templates/opencode/commands/flow-setup.md",
-        "skills/flow/references/setup.md",
-    ):
-        text = _read(relative_path)
-        assert "bundles/specs/" in text
-        assert "bundles/knowledge/" in text
-        assert "knowledge/index.md" not in text or "bundles/knowledge/index.md" in text
+def _command(command_id: str) -> dict[str, object]:
+    commands = _flow_contract()["commands"]
+    assert isinstance(commands, list)
+    return next(command for command in commands if command["id"] == command_id)
 
 
-def test_setup_prompts_for_branched_workspaces() -> None:
-    for relative_path in (
-        "commands/flow-setup.md",
-        "templates/opencode/commands/flow-setup.md",
-        "commands/flow/setup.toml",
-    ):
-        text = _read(relative_path)
-        assert "branched workspaces" in text
-        assert "use_branched_workspaces" in text
-
-
-def test_setup_performs_environment_detection() -> None:
-    for relative_path in (
-        "commands/flow-setup.md",
-        "templates/opencode/commands/flow-setup.md",
-        "commands/flow/setup.toml",
-    ):
-        text = _read(relative_path)
-        assert "Environment & Harness Detection" in text
-        assert "hooks.json" in text
-
-
-def test_setup_summary_is_inventory_driven_and_fail_closed() -> None:
-    text = _read("skills/flow-setup/SKILL.md")
-
-    for required in (
-        "migration-inventory.json",
-        "source/destination",
-        "last_successful_step",
-        "resume_operation",
-        "postconditions",
-        ".agents/skills/",
-    ):
-        assert required in text
-    assert "setup_status: complete" in text
-    assert "A second identical run" in text
-
-
-def test_setup_reference_defines_deterministic_migration_resume() -> None:
+def _migration_contract() -> dict[str, object]:
     text = _read("skills/flow/references/setup.md")
-    normalized = " ".join(text.split())
-
-    for required in (
-        "setup-migration-v1",
-        "migration-inventory.json",
-        "semantic_mappings",
-        "approved_at",
-        "last_successful_step",
-        "resume_operation",
-        "source/destination count",
-        "fresh approval",
-        "plan_revision",
-        "plan_commit",
-    ):
-        assert required in normalized
+    match = re.search(
+        r"```yaml\n(?P<contract>contract: setup-migration-v1\n.*?)\n```",
+        text,
+        re.DOTALL,
+    )
+    assert match is not None
+    loaded = yaml.safe_load(match.group("contract"))
+    assert isinstance(loaded, dict)
+    return loaded
 
 
-def test_setup_preserves_project_shaped_nested_knowledge() -> None:
-    summary = _read("skills/flow-setup/SKILL.md")
-    reference = _read("skills/flow/references/setup.md")
-    agents = _read("AGENTS.md")
+def test_setup_has_one_parsed_lifecycle_owner_and_procedure() -> None:
+    setup = _command("flow/setup")
 
-    assert "project-shaped nested knowledge" in summary
-    assert "nested relative path" in reference
-    assert "knowledge indexes and links" in reference
-    assert "structure is scope-derived" in reference
-    for relative_path in (
-        "knowledge/data-model/schema.md",
-        "knowledge/app-design/services.md",
-        "knowledge/standards/testing.md",
-    ):
-        assert relative_path in reference
-    assert "relative paths unchanged" in reference
-    assert "flat `knowledge/` chapters" not in summary
-    assert "THE synthesized current-state chapters, flat" not in agents
+    assert setup["lifecycle_owner"] == "flow-setup"
+    assert setup["procedure_source"] == "skills/flow/references/setup.md"
+    assert setup["completion_gates"] == ["setup_validation", "migration_integrity"]
+    assert setup["runtime_dependency"] == "agent_file_tools_only"
+
+
+def test_setup_migration_contract_has_structured_paths_and_resume_state() -> None:
+    migration = _migration_contract()
+
+    assert migration["contract"] == "setup-migration-v1"
+    assert migration["version"] == 1
+    assert migration["items"] == [
+        {
+            "source": "<repository-relative path>",
+            "destination": "<repository-relative path>",
+            "disposition": "migrate|synthesize|remove_after_verify|preserve_local_policy",
+        }
+    ]
+    assert migration["knowledge_paths"] == [
+        {
+            "source_root": "<legacy knowledge root>",
+            "destination_root": "<configured bundle knowledge root>",
+            "relative_paths": ["<unique sorted recursive paths>"],
+        }
+    ]
+    assert migration["progress"] == {
+        "last_successful_step": "inventory|mapping_approved|destination_writes|postconditions|complete",
+        "resume_operation": "<exact next setup operation or null>",
+    }
+
+
+def test_setup_postconditions_are_complete_and_fail_closed() -> None:
+    text = _read("skills/flow/references/setup.md")
+    section = text.split("#### Fail-closed completion and resume", 1)[1].split(
+        "### 0.1.1b", 1
+    )[0]
+    labels = re.findall(r"^\d+\. ([^:]+):", section, re.MULTILINE)
+
+    assert labels == [
+        "plan integrity",
+        "continuity",
+        "contradiction",
+        "single authority",
+        "archive contraction",
+        "skill-root authority",
+        "source/destination count equality",
+    ]
+    assert "Setup remains incomplete if any check fails." in section
 
 
 def test_setup_never_mutates_git_tags() -> None:
-    agents = _read("AGENTS.md")
-
-    assert "never create, move, force-update, or delete Git tags" in agents
+    git_policy = _flow_contract()["git_policy"]
+    assert git_policy == {
+        "tags": "forbidden",
+        "allowed_local_operations": ["notes", "branches", "worktrees"],
+    }
     for relative_path in (
         "skills/flow-setup/SKILL.md",
         "skills/flow/references/setup.md",
