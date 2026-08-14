@@ -2,6 +2,26 @@
 
 Refinement uses `skills/flow/references/state.md` as the sole plan-identity and mutation contract. Approved plan-bearing edits increment `plan_revision` exactly once, clear `plan_commit`, update all task copies before the spec, and use the documented file-tool transaction protocol; refinement never edits lifecycle/checklist state ad hoc.
 
+Use `skills/flow/references/interaction.md` as the sole procedure authority for
+human decisions and approval/refinement gates. Execute the Markdown loop
+directly; never invoke a planning evaluator.
+
+<!-- planning-contract: structured-choice-v1 -->
+```yaml
+interaction_authority: skills/flow/references/interaction.md
+planning_loop:
+  phases: [research_closed, draft, gap_scan, refine, revision_update, review, approved, revise, blocked]
+  gap_scan:
+    reject: [deferred_research, unresolved_decisions, stub_body, vague_verification, missing_verification_strategy, overlapping_ownership, oversized_task]
+    require: [requirement_to_task_traceability, one_invocation_per_task, one_commit_per_task]
+  revision_update:
+    on_plan_change: [increment_plan_revision_once, copy_revision_to_spec_and_all_tasks, clear_plan_commit, rerun_validation]
+  review:
+    max_external_rounds: 3
+    blocking_severities: [Critical, Important]
+    on_limit: blocked
+```
+
 Use this process to enforce the **Zero-Ambiguity Mandate** by turning a mostly-correct Flow plan into an implementation-ready **Worksheet**.
 
 ## Overview
@@ -32,7 +52,10 @@ Read the relevant artifacts before refining:
 For each task, apply the **Stateless Executor Test**:
 `If I handed this task to an agent with zero project context, could they implement it 100% correctly based ONLY on this text and the provided code samples?`
 
-If the answer is "No" or "Maybe," you MUST classify the gap and iterate.
+Also require every requirement to map to a task and test scenario; every task
+to declare `verification_strategy`, exact verification commands/outcomes, and
+exclusive file ownership; and each task to fit one invocation and one commit.
+If the answer is "No" or "Maybe," classify the gap and iterate.
 
 ### Step 3: Research-and-Refine Loop (Iterative)
 
@@ -42,6 +65,12 @@ If the answer is "No" or "Maybe," you MUST classify the gap and iterate.
 2. **Pattern Matching**: Provide code samples for the expected implementation pattern based on `patterns.md` or existing code.
 3. **Dependency Analysis**: Use `flow:tracer` if the call chain is unclear.
 4. **Autonomous Completion**: You (the agent) are responsible for determining when refinement is done. Do NOT ask the user if it's granular enough; iterate until the **Zero-Ambiguity Standard** is met.
+5. **Deterministic rejection:** Do not pass deferred research, unresolved
+   decisions, stub bodies, vague verification, missing verification strategy,
+   overlapping ownership, missing requirement traceability, or oversized tasks.
+6. **True user decisions:** Ask exactly one product/trade-off decision at a
+   time through `structured-choice-v1`; never use `open` when choices can be
+   responsibly enumerated.
 
 ### Step 4: Transform Plans into Worksheets
 
@@ -69,6 +98,28 @@ If the answer is anything beyond minor execution noise:
 
 Planning is only complete when the roadmap and child plans no longer leave obvious research holes for later.
 
+### Step 6: Revision, Review, and Approval Loop
+
+When refinement changes plan-bearing content, apply one state-contract `revise`:
+increment `plan_revision` exactly once, copy it to the spec and every task
+before the spec write, clear `plan_commit`, and rerun validation. Preserve
+identity when content did not change; only a later verified plan-bind checkpoint
+updates `plan_commit`.
+
+Request a fresh `code-reviewer` result for the current revision. Apply all
+actionable findings and repeat refinement/revision/validation/review. Cap
+external dispatch at three rounds. Remaining Critical or Important findings
+after round three return `blocked`, list the findings, and require user
+direction; Ready is forbidden.
+
+Before quality passes, the user gate is exactly `Revise|Refine`. After it
+passes, it is exactly `Approve|Revise|Refine`, reordered so the contextual
+recommendation is first. Approve advances. Revise asks one
+`open(free_form_reason=revision_details)` follow-up; Refine asks the next
+structured gap. Both apply changes and rerun the loop. Cancellation stops
+without approval. Never persist a crucial artifact as approved before a valid
+Approve result.
+
 ---
 
 ## Guardrails
@@ -91,5 +142,10 @@ Before declaring a refined plan ready, verify:
 - [ ] Dependencies and ordering are explicit.
 - [ ] Test-first expectations are written into implementation tasks.
 - [ ] Verification steps are concrete.
+- [ ] Every task declares a verification strategy and exact expected outcome.
+- [ ] Requirement-to-task/test traceability is complete.
+- [ ] File ownership does not overlap and each task fits one invocation/commit.
 - [ ] Remaining research gaps were resolved or explicitly recorded as user decisions.
 - [ ] Lightweight executors would not need major additional discovery for the happy path.
+- [ ] The current revision passed fresh review or is explicitly blocked after
+      three unresolved Critical/Important rounds.
