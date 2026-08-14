@@ -4,6 +4,9 @@ This document is the normative contract for Flow plan identity, lifecycle state,
 
 Consumer agents perform every state operation and recovery with ordinary file read/write/edit tools. Python in `tools/` is repository-development support for validation, generation, and tests only; no consumer operation, recovery path, hook, skill, or agent prompt may require Python, `uv`, shell, PowerShell, a Flow executable, a task database, daemon, or hidden service.
 
+Completion and archive quality evidence follows `quality-review-v1` in
+[review.md](review.md). There is no installed quality-gate/evaluator module.
+
 ## Root resolution
 
 `<configured-root>` is the normalized repository-relative `root_directory` read from `.agents/setup-state.json`, or `.agents/` when that file is absent. `<bundle-root>` is `bundles_dir` from `<configured-root>/config.json`, resolved relative to `<configured-root>`, or `<configured-root>/bundles` by default. `<flow-root>` is `<bundle-root>/specs/<flow_id>`.
@@ -81,7 +84,18 @@ commit: null
 
 Task `state` is exactly `open|in_progress|closed|blocked|skipped`. Priority is the closed enum `P0|P1|P2|P3|P4`, defaults to `P2`, and is ordered in that sequence. Any other value refuses validation. Ready tasks are open tasks whose dependencies are all closed, ordered `(priority, created_at, task_id)`. Nullable claim, block, next-step, operation, verification, and commit fields default to `null`; `operation_targets` defaults to `[]`; `state_revision` starts at `0`.
 
-`verification_strategy` is exactly one of `behavior_tdd|regression_tdd|characterization|static_validation|documentation_validation|integration_acceptance`. Observable behavior/regression work begins with a focused failing test; behavior-preserving cleanup establishes characterization first; generated/configuration/static documentation work uses native validation without manufacturing a low-signal red test; integration acceptance runs its declared end-to-end evidence.
+`verification_strategy` is exactly one of `behavior_tdd|regression_tdd|characterization|static_validation|documentation_validation|integration_acceptance`. The worksheet justifies the selected strategy from the change class and names its initial and final evidence:
+
+| Strategy | Change class | Required initial proof |
+| --- | --- | --- |
+| `behavior_tdd` | new observable behavior | a focused behavioral test fails because the behavior is absent |
+| `regression_tdd` | defect correction | a focused reproduction fails with the reported defect |
+| `characterization` | behavior-preserving refactor or deletion | a focused behavior baseline is green before the change |
+| `static_validation` | manifest, configuration, generated surface, or tooling | the native parser/lint/type/build baseline plus an isolated representative violation proving a new or replacement gate fails with the expected diagnostic |
+| `documentation_validation` | links, examples, or documentation structure | the applicable docs-native baseline |
+| `integration_acceptance` | end-to-end composition of already-implemented contracts | a focused green baseline plus injected negative states proving refusal paths |
+
+Never manufacture a failing unit test for documentation, configuration, generated output, prose, or behavior-preserving cleanup. Integration acceptance never absorbs a newly discovered implementation gap; record and route it through `revise`. A verification waiver does not replace the required strategy. It records an explicit rationale, approver, and compensating evidence in the worksheet and close evidence; a missing element refuses completion.
 
 ### Required bodies
 
@@ -164,8 +178,8 @@ Flow lifecycle guards apply before row-specific rules. Task `create` and `revise
 | `reopen` | `closed|skipped` -> `open` | `reason`, fresh approval, `next_step`, replacement checkpoint null or existing verified task checkpoint; plan/dependents consistent. | Append prior commit/evidence summary, clear commit/evidence/claim/block, set next step and `[ ]`, set spec/snapshot checkpoint exactly to payload. Plan identity changes only by separate revise. |
 | `revise` | spec `planned|active` -> same | Exact plan diffs, rationale, reviewer findings, new plan revision old+1; optional state adjustments each satisfy their own row. | Apply plan diffs; update every task then spec to new plan revision/null commit; increment state revision once; reconcile checklist/snapshot; append decision note. No implicit close/skip. |
 | `reconcile` | task/spec states unchanged | Expected mismatches and sorted affected task ids; task files authoritative; no unresolved journal or identity mismatch. | Spec-only/empty targets: update derived checklist/snapshot/status and record affected ids. Do not touch task metadata or plan revision. |
-| `complete` | spec `active` -> `completed` | All tasks closed/skipped; no claim/block/journal; full verification and code review passed; mandatory quality review bound to exact final base/head has no unwaived Critical/Important finding; final commit and exact evidence/waivers. | Spec-only/empty targets: increment revision, completed, clear current task, preserve checkpoint, next archive synthesis. Never delete or attach/push notes. |
-| `archive` | spec `completed` -> directory absent | Exact knowledge destinations/current-state edits, log entry `{date, flow_id, outcome, final_commit}`, notes incorporation, archive manifest, quality report on exact candidate with no unwaived Critical/Important finding; no unresolved journal. | Journal target revision old+1 with empty targets; write reviewed knowledge then log; delete recorded spec files then empty dirs; terminal only after absence/postconditions. Remediation invalidates candidate and requires fresh reviews. Never push or require Git history. |
+| `complete` | spec `active` -> `completed` | All tasks closed/skipped; no claim/block/journal; verification, correctness review, then mandatory read-only quality review passed on the exact final base/head; no unwaived Critical/Important finding; final commit and exact evidence/waivers. A waiver never replaces dispatch. | Spec-only/empty targets: increment revision, completed, clear current task, preserve checkpoint, next archive synthesis. Never delete or attach/push notes. |
+| `archive` | spec `completed` -> directory absent | Exact knowledge destinations/current-state edits, log entry `{date, flow_id, outcome, final_commit}`, notes incorporation, byte-for-byte archive candidate manifest, and mandatory quality report on its disposable exact candidate range; no unresolved journal or unwaived Critical/Important finding. | Journal target revision old+1 with empty targets; write reviewed project-shaped knowledge then log; delete recorded spec files then empty dirs; terminal only after exact manifest/postconditions. Remediation or fragment drift invalidates the candidate and requires fresh verification, correctness review, and quality review. Never push or require Git history. |
 | `recover` | journal `prepared|task_writes_started|recovery_required|rollback_in_progress` -> `committed|rolled_back` | Journal id, explicit `finish|rollback`, complete stage-aware live read set, dependencies/claims still valid; existing selected action matches. `contended` is not directly recoverable: arbitration proves it zero-write and supersedes it, or reports conflict. | Resume original revision and direction. Finish remaining after-fragments or reverse only applied writes. Do not increment revision, replace last operation, change direction, or create another mutation. Drift refuses without tracked writes. |
 | `status` | read-only -> read-only | Optional flow/task filter only. | Read specs/tasks/journals; report current/ready/blocked/conflicts in `(priority, created_at, task_id)` order; write nothing and create no id/journal. |
 
@@ -258,6 +272,25 @@ The exact mutating request key set is `flow_id`, `operation`, `actor`, `occurred
 
 ### Operation payload schemas
 
+`QualityReport` has exactly `reviewer`, `base_commit`, `head_commit`,
+`debloat_source`, and `findings`. `reviewer` is `quality-reviewer`; both commits
+are 7-40 lowercase hexadecimal; `debloat_source` is
+`consumer_skill|packaged_skill|inline_fallback`. Each finding has exactly
+`finding_id`, `severity`, `file`, `symbol`, `evidence`,
+`preserved_invariant`, `remediation_target`, and `reverification`; severity is
+`Critical|Important|Minor` and every string is non-empty.
+
+Quality-review dispatch is mandatory after correctness review. For a
+one-commit range, base is the commit's parent and head is the commit. A report
+is fresh only for its exact base/head. Remediation changes the candidate,
+routes through `revise` to planned task work, and requires affected
+verification, correctness review, and a new quality review.
+
+A quality waiver has exactly `finding_id`, `rationale`, `approval_text`,
+`approved_at`, `compensating_evidence`, `base_commit`, and `head_commit`. It
+requires fresh explicit user approval after review, addresses one finding on
+that exact range, and never waives dispatch, another finding, or stale evidence.
+
 Every schema below has `additional_keys: forbidden`. `required` and `optional` are the complete payload keysets. Constraints are conjunctive. Nested records also reject unknown keys and use the exact nested keysets named in constraints.
 
 ```yaml
@@ -339,11 +372,11 @@ reconcile:
 complete:
   required: [final_functional_commit, verification_evidence, code_review_evidence, quality_review, waivers]
   optional: []
-  constraints: ["targets=[]", "final_functional_commit is 7-40 lowercase hex", "verification_evidence non-empty command|result records", "code_review_evidence exact reviewer|base_commit|head_commit|findings record", "quality_review exact reviewer|base_commit|head_commit|findings record and range equals final candidate", "waivers exact finding_id|approval_text|approved_at records and only finding-specific fresh user waivers"]
+  constraints: ["targets=[]", "final_functional_commit is 7-40 lowercase hex and equals final range head", "verification_evidence non-empty command|result|base_commit|head_commit records for exact final range", "code_review_evidence exact reviewer|base_commit|head_commit|findings record for exact final range", "quality_review is exact QualityReport for same final range and dispatch followed code review", "no unwaived Critical or Important finding", "waivers use exact quality waiver schema and only finding-specific fresh user approvals"]
 archive:
   required: [knowledge_destinations, synthesized_edits, log_entry, notes_incorporation, archive_candidate_manifest, quality_report, waivers]
   optional: []
-  constraints: ["targets=[]", "knowledge_destinations unique sorted bundle-root paths", "synthesized_edits exact path|before|after complete-content records", "log_entry exact keys date|flow_id|outcome|final_commit", "notes_incorporation exact task_id|note_ids|destinations records", "archive_candidate_manifest exact base_commit|head_commit|inventory|file_fragments record", "quality_report exact reviewer|base_commit|head_commit|findings record on candidate range", "waivers exact finding_id|approval_text|approved_at records"]
+  constraints: ["targets=[]", "knowledge_destinations unique sorted project-shaped bundle-root paths", "synthesized_edits exact path|before|after complete-content records", "log_entry exact keys date|flow_id|outcome|final_commit", "notes_incorporation exact task_id|note_ids|destinations records", "archive_candidate_manifest exact base_commit|head_commit|inventory|file_fragments record rendered byte-for-byte in a disposable local review range", "verification and code review passed on exact candidate base/head", "quality_report is exact QualityReport for same candidate range and dispatch followed code review", "no unwaived Critical or Important finding", "waivers use exact quality waiver schema and only finding-specific fresh user approvals"]
 recover:
   required: [journal_operation_id, action]
   optional: []
