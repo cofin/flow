@@ -18,7 +18,9 @@ This file provides guidance to AI coding agents working with code in this reposi
 - **Flow Specs**: A unified `spec.md` outlining the roadmap and implementation checklists.
 - **Task Files**: Individual markdown files under `tasks/*.md` tracking status, dependencies, target files, and tests.
 - **Notes & Discoveries**: Captured directly in the corresponding task file under the `## Notes & Discoveries` heading to preserve context.
-- **Spec Reconciler**: Run `python3 tools/sync.py` to automatically reconcile the task checklist in `spec.md` with individual task file statuses.
+- **Spec Reconciler**: Invoke `/flow:sync` where supported, or apply the `reconcile` operation from `skills/flow/references/state.md` inline with ordinary file tools. No consumer runtime helper is required.
+
+The normative plan identity, lifecycle fields, operation transitions, continuity snapshot, and file-tool transaction/recovery protocol are defined once in [`skills/flow/references/state.md`](skills/flow/references/state.md). Task files remain authoritative for task state. Consumer agents apply that Markdown contract with ordinary file tools; maintainer Python is validation/generation/test support, not a Flow runtime dependency.
 
 ## Auto-Activation
 
@@ -253,18 +255,20 @@ Every non-reserved `.md` file in a bundle carries YAML frontmatter with a non-em
 
 ### Spec File Schema (`spec.md`)
 
+The examples below are introductory OKF shapes. Executable Flow specs and tasks add the complete continuity fields and invariants defined by [`skills/flow/references/state.md`](skills/flow/references/state.md).
+
 ```yaml
 ---
 type: Spec
 flow_id: user-auth              # must equal the directory name
 title: User Authentication
-state: planned                  # planned | active | completed | archived
+state: planned                  # planned | active | completed
 created_at: 2026-08-11T12:00:00Z
 updated_at: 2026-08-11T12:00:00Z
 ---
 ```
 
-Optional keys: `description`, `tags`, `status` (OKF lifecycle), `stale_after`. The spec `state` enum is exactly `planned`, `active`, `completed`, `archived` — a spec is never `blocked` (blocking is task-level).
+Optional keys: `description`, `tags`, `status` (OKF lifecycle), `stale_after`. A resident spec's `state` enum is exactly `planned`, `active`, or `completed` — a spec is never `blocked` or `archived`. Archive is a committed contraction that deletes the spec directory.
 
 ### Task File Schema (`tasks/<short_id>.md`)
 
@@ -367,13 +371,13 @@ Knowledge chapters in `.agents/bundles/knowledge/` survive archive cleanup and s
 
 ### Archive Lifecycle
 
-`specs/` holds only `planned` and `active` flows. Completing a flow is a three-step contraction, not an accumulation:
+`specs/` holds `planned` and `active` flows plus a short-lived `completed` flow awaiting archive. Completing and archiving a flow is a three-step contraction, not an accumulation:
 
 1. **Synthesize** the flow's learnings and task notes into the knowledge chapters (re-synthesis rules above).
 2. **Log** one entry in `.agents/bundles/log.md`: date, flow_id, one-line outcome, and the final commit SHA.
 3. **Delete** the spec directory. Git history is the archive — `git log -- .agents/bundles/specs/<flow_id>` recovers everything, and tracked bundles make restoration a `git checkout` away.
 
-Never keep `completed`/`archived` spec directories piling up in the bundle; if a backlog of them exists, `/flow:cleanup` consolidates and removes them in one pass.
+Never keep `completed` spec directories piling up in the bundle, and never create a resident `archived` spec state. If a completed backlog exists, `/flow:cleanup` consolidates and removes it in one pass.
 
 If `.agents/bundles/skills/flow-memory-keeper/SKILL.md` exists, invoke it during sync, archive, finish, revise, and failure recovery so learnings, failures, and spec cleanup remain mandatory instead of ad hoc.
 

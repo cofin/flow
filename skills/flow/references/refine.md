@@ -1,5 +1,7 @@
 # Flow Refine
 
+Refinement uses `skills/flow/references/state.md` as the sole plan-identity and mutation contract. Approved plan-bearing edits increment `plan_revision` exactly once, clear `plan_commit`, update all task copies before the spec, and use the documented file-tool transaction protocol; refinement never edits lifecycle/checklist state ad hoc.
+
 Use this process to enforce the **Zero-Ambiguity Mandate** by turning a mostly-correct Flow plan into an implementation-ready **Worksheet**.
 
 ## Overview

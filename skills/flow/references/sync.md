@@ -3,6 +3,8 @@
 
 Reconciles the flow specification (`spec.md`) and the task files under `.agents/bundles/specs/<flow_id>/tasks/`.
 
+The normative operation is `reconcile` in `skills/flow/references/state.md`. Task files are authoritative, but reconciliation is a revision-guarded, spec-only file-tool transaction: it updates only derived checklist/snapshot/status fields and records the sorted affected task ids. It does not mutate task metadata, plan identity, or lifecycle state.
+
 ---
 
 ## Phase 1: Reconcile Task Statuses and Commits
