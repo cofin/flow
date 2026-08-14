@@ -7,9 +7,9 @@
           {
             "name": "flow-session-start",
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-.}}/hooks/session-start.sh\" 2>/dev/null || node \"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-.}}/hooks/session-start.js\"",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-.}}/hooks/session-start.sh\"",
             "timeout": 30,
-            "description": "Inject Flow project context into Claude sessions."
+            "description": "Inject static Flow routing into Claude sessions."
           }
         ]
       }

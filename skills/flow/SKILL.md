@@ -13,7 +13,7 @@ Flow coordinates Context-Driven Development in `.agents/` repositories. Keep thi
 
 ## Workflow
 
-1. Check hook-provided Flow context first; otherwise detect `.agents/`, the git branch, and repo-native commands.
+1. Resolve the configured Flow root and read the project index. After compaction, handoff, or session loss, reconstruct authority by following the [normative state contract](references/state.md) directly; hook/plugin context is routing only.
 2. Route the request:
    - Setup, validation, install, context initialization: use `flow-setup`.
    - PRD, research, plan, refine, revise, task creation: use `flow-planning`.
@@ -28,6 +28,7 @@ Flow coordinates Context-Driven Development in `.agents/` repositories. Keep thi
 - Never edit task markers (`[ ]`, `[~]`, `[x]`, `[!]`, `[-]`) in `spec.md` without the matching task-file `state:` change; reconcile via `/flow:sync` rules.
 - Store Flow specs and planning artifacts under `.agents/bundles/specs/<flow_id>/`.
 - Workflow state belongs in the `state:` frontmatter key; the OKF `status:` key is reserved for document lifecycle (draft, stable, deprecated).
+- Never substitute hook, plugin, interpreter, or synthesized context for the direct reads required by the [state contract](references/state.md).
 - Make minimal targeted changes and record findings in the task file when work exceeds a quick fix.
 - Do not commit, stage, or push automatically unless the user asks.
 
@@ -46,6 +47,7 @@ Flow coordinates Context-Driven Development in `.agents/` repositories. Keep thi
 - [Sync and Status](../flow-sync-status/SKILL.md)
 - [Completion](../flow-completion/SKILL.md)
 - [Discipline](references/discipline.md)
+- [Normative state and continuity contract](references/state.md)
 
 ## Example
 

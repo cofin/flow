@@ -1,7 +1,7 @@
-"""Generate session-priming context from the OKF bundles.
+"""Generate maintainer/test-only priming diagnostics from the OKF bundles.
 
-Dev/CI utility and test oracle for the shell priming hooks. Runtime harnesses
-run the sh/ps1 hooks under hooks/, never this script.
+This repository-development oracle is retained for direct tests and diagnostics.
+Installed hooks and plugins never invoke it, and it is not a consumer fallback.
 """
 
 import argparse

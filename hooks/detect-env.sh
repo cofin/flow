@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 #
-# detect-env.sh - Emit Flow priming context from the OKF bundles as markdown.
+# detect-env.sh - Maintainer/test-only Flow priming diagnostic.
 #
-# Output mirrors `tools/priming.py --markdown` (the dev/CI oracle). The
-# session-start dispatchers wrap this output in harness-appropriate JSON.
-# Runtime dependency policy: shell + awk only — no Python at runtime.
+# Output mirrors `tools/priming.py --markdown` for repository tests. Installed
+# hooks and plugins never invoke this diagnostic; it is not a continuity path.
 #
 set -euo pipefail
 

@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "items": [
+    {
+      "source": ".agents/product.md",
+      "destination": ".agents/bundles/product/product.md",
+      "disposition": "remove_after_verify"
+    }
+  ],
+  "semantic_mappings": {
+    "priority": {"status": "mapped", "detail": "priority copied"}
+  }
+}

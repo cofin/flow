@@ -7,6 +7,8 @@ description: "Use when reconciling Flow task truth into a spec, displaying statu
 
 Use this lifecycle skill for reconciliation and read-only dashboards. Read the [sync](../flow/references/sync.md), [status](../flow/references/status.md), and [state](../flow/references/state.md) references. All state mutations cross the `flow-state`/`flow-reconciler` boundary; status remains a direct read-only request.
 
+After compaction, handoff, or session loss, reconstruct authority by following the [normative state contract](../flow/references/state.md) directly before sync or status. Hook/plugin context is static routing only.
+
 <!-- flow-sync-status-routing: start -->
 ```yaml
 sync: typed_reconcile_request

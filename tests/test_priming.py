@@ -1,6 +1,29 @@
 import json
 from pathlib import Path
+import shutil
+import subprocess
+import sys
 import tempfile
+
+import pytest
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _build_diagnostic_fixture(root: Path) -> None:
+    product = root / ".agents" / "bundles" / "product"
+    knowledge = root / ".agents" / "bundles" / "knowledge"
+    product.mkdir(parents=True)
+    knowledge.mkdir(parents=True)
+    (product / "product.md").write_text(
+        "---\ntype: Guide\n---\n# Product\n\nDiagnostic identity.\n",
+        encoding="utf-8",
+    )
+    (knowledge / "workflow.md").write_text(
+        "---\ntype: Guide\n---\n<!-- truth: start -->\n- Diagnostic truth\n<!-- truth: end -->\n",
+        encoding="utf-8",
+    )
 
 # We will test functions in tools.priming
 # Since tools.priming doesn't exist yet, the import will fail during pytest collection.
@@ -218,3 +241,71 @@ description: Custom project skill description
         assert "my-skill" in names
         assert "another-skill" in names
 
+
+def test_priming_is_labeled_maintainer_only() -> None:
+    from tools import priming
+
+    assert "maintainer/test-only" in (priming.__doc__ or "")
+    for manifest in (REPO_ROOT / "hooks").glob("hooks-*.json"):
+        assert "priming.py" not in manifest.read_text(encoding="utf-8")
+    assert "priming.py" not in (REPO_ROOT / ".opencode/plugins/flow.js").read_text(encoding="utf-8")
+
+
+def test_shell_detect_env_remains_a_direct_maintainer_diagnostic(tmp_path: Path) -> None:
+    bash = shutil.which("bash")
+    if bash is None:
+        pytest.skip("Bash not available")
+    _build_diagnostic_fixture(tmp_path)
+    diagnostic = subprocess.run(
+        [bash, str(REPO_ROOT / "hooks/detect-env.sh")],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    oracle = subprocess.run(
+        [sys.executable, str(REPO_ROOT / "tools/priming.py"), "--markdown"],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert diagnostic == oracle
+    assert "Diagnostic identity." in diagnostic
+
+
+def test_opencode_plugin_injects_only_static_routing(tmp_path: Path) -> None:
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("Node not available")
+    driver = tmp_path / "driver.mjs"
+    plugin_uri = (REPO_ROOT / ".opencode/plugins/flow.js").as_uri()
+    driver.write_text(
+        "const plugin = (await import(" + json.dumps(plugin_uri) + ")).default;\n"
+        "const hooks = await plugin({config: {}});\n"
+        "const output = {system: []};\n"
+        "await hooks['experimental.chat.system.transform']({}, output);\n"
+        "process.stdout.write(JSON.stringify(output));\n",
+        encoding="utf-8",
+    )
+    result = subprocess.run([node, str(driver)], cwd=tmp_path, capture_output=True, text=True, check=True)
+    payload = json.loads(result.stdout)
+    assert len(payload["system"]) == 1
+    assert len(payload["system"][0]) <= 512
+    assert "journal-first direct-read continuity contract" in payload["system"][0]
+
+
+def test_opencode_plugin_has_no_state_scan_or_child_process() -> None:
+    source = (REPO_ROOT / ".opencode/plugins/flow.js").read_text(encoding="utf-8")
+    for forbidden in (
+        "child_process",
+        "execFileSync",
+        "priming.py",
+        "cachedContext",
+        "readFile",
+        "readdir",
+        "glob",
+        "spec.md",
+        "tasks/",
+    ):
+        assert forbidden not in source

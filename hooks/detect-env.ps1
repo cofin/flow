@@ -1,7 +1,7 @@
-# detect-env.ps1 - Emit Flow priming context from the OKF bundles as markdown.
+# detect-env.ps1 - Maintainer/test-only Flow priming diagnostic.
 #
-# Windows twin of detect-env.sh; output mirrors `tools/priming.py --markdown`.
-# Runtime dependency policy: PowerShell only — no Python at runtime.
+# Windows diagnostic twin used by repository tests only. Installed hooks and
+# plugins never invoke it; it is not a continuity path.
 
 $ErrorActionPreference = 'Stop'
 

@@ -1,6 +1,6 @@
 # Flow Status Reference
 
-Status is the specialized read-only state operation. It reconstructs authority from Markdown and journals and never creates transaction state. Read the [state contract](state.md) for direct-read continuity and ready-task rules.
+Status is the specialized read-only state operation. It reconstructs authority from Markdown and journals and never creates transaction state. After compaction, handoff, or session loss, follow the [normative state contract](state.md) directly for continuity and ready-task rules; hook/plugin context is routing only.
 
 <!-- flow-status-contract: start -->
 ```yaml

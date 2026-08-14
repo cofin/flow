@@ -1,219 +1,266 @@
-"""Shell priming hooks must match the Python oracle and behave idempotently."""
+"""Installed hooks must emit bounded static routing without child processes."""
+
 from __future__ import annotations
 
 import json
 import os
+import re
+import shutil
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
 
-import shutil
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DETECT_SH = REPO_ROOT / "hooks" / "detect-env.sh"
-AGY_SH = REPO_ROOT / "hooks" / "agy-pre-invocation.sh"
-DETECT_PS1 = REPO_ROOT / "hooks" / "detect-env.ps1"
-AGY_PS1 = REPO_ROOT / "hooks" / "agy-pre-invocation.ps1"
-
+HOOKS = REPO_ROOT / "hooks"
+SESSION_ENTRYPOINTS = (
+    HOOKS / "session-start.sh",
+    HOOKS / "session-start.ps1",
+    HOOKS / "session-start.js",
+    HOOKS / "session-start.cmd",
+)
+AGY_ENTRYPOINTS = (HOOKS / "agy-pre-invocation.sh", HOOKS / "agy-pre-invocation.ps1")
+MANIFESTS = tuple(sorted(HOOKS.glob("hooks-*.json")))
 POWERSHELL = shutil.which("pwsh") or shutil.which("powershell")
+NODE = shutil.which("node")
+BASH = shutil.which("bash")
 
-posix_only = pytest.mark.skipif(sys.platform == "win32", reason="sh scripts run on POSIX")
-needs_powershell = pytest.mark.skipif(POWERSHELL is None, reason="PowerShell not available")
+STATIC_ROUTING = (
+    "Flow continuity is direct Markdown. Resolve the configured root from "
+    ".agents/setup-state.json (default .agents/), read its index.md, then follow "
+    "skills/flow/references/state.md. After compaction or session loss, use the "
+    "journal-first direct-read continuity contract there; never treat hook context as authority."
+)
+
+FORBIDDEN_CALL_GRAPH = re.compile(
+    r"child_process|spawnSync|execFileSync|detect-env|priming\.py|bd\s+ready|"
+    r"\bpython(?:3)?\b|\bsed\b|\bawk\b",
+    re.IGNORECASE,
+)
 
 
-def _build_fixture_project(root: Path) -> None:
-    bundles = root / ".agents" / "bundles"
-    knowledge = bundles / "knowledge"
-    (bundles / "product").mkdir(parents=True)
+def _build_legacy_tree(
+    root: Path, *, large: bool, malformed: str | None = None
+) -> None:
+    knowledge = root / ".agents" / "bundles" / "knowledge"
     knowledge.mkdir(parents=True)
-    (bundles / "product" / "product.md").write_text(
-        "---\ntype: Guide\ntitle: Product\n---\n\n# Product\n\nLine one.\nLine two.\n",
-        encoding="utf-8",
-    )
-    (knowledge / "workflow.md").write_text(
-        "---\ntype: Guide\n---\n\n# Workflow\n\n<!-- truth: start -->\n- Run make check\n<!-- truth: end -->\n",
-        encoding="utf-8",
-    )
-    (knowledge / "patterns.md").write_text(
-        "---\ntype: Pattern\n---\n\n# Patterns\n\n- Pattern one\n- Pattern two\n",
-        encoding="utf-8",
-    )
-    flow_dir = bundles / "specs" / "demo-flow"
-    (flow_dir / "tasks").mkdir(parents=True)
-    (flow_dir / "spec.md").write_text(
-        "---\ntype: Spec\nflow_id: demo-flow\ntitle: Demo Flow\nstate: active\n"
-        "description: A demo flow\ncreated_at: 2026-08-11T12:00:00Z\nupdated_at: 2026-08-11T12:00:00Z\n---\n# Demo\n",
-        encoding="utf-8",
-    )
-    (flow_dir / "tasks" / "1.1.md").write_text(
-        "---\ntype: Task\nid: demo-flow:1.1\ntitle: First task\nstate: open\npriority: P1\n"
-        "depends_on: []\nfiles: []\ntests: []\ncreated_at: 2026-08-11T12:00:00Z\nupdated_at: 2026-08-11T12:00:00Z\ncommit: null\n---\n",
-        encoding="utf-8",
-    )
-    (flow_dir / "tasks" / "1.2.md").write_text(
-        "---\ntype: Task\nid: demo-flow:1.2\ntitle: Closed task\nstate: closed\n"
-        "depends_on: []\nfiles: []\ntests: []\ncreated_at: 2026-08-11T12:00:00Z\nupdated_at: 2026-08-11T12:00:00Z\ncommit: abc1234\n---\n",
-        encoding="utf-8",
-    )
-    skill_dir = bundles / "skills" / "demo-skill"
-    skill_dir.mkdir(parents=True)
-    (skill_dir / "SKILL.md").write_text(
-        "---\nname: demo-skill\ndescription: A demo skill\n---\n# Demo Skill\n",
-        encoding="utf-8",
-    )
+    marker_text = {
+        None: "<!-- truth: start -->\nSECRET MARKER TEXT\n<!-- truth: end -->",
+        "missing": "SECRET MARKER TEXT",
+        "duplicate": (
+            "<!-- truth: start -->\nSECRET MARKER TEXT\n<!-- truth: end -->\n"
+            "<!-- truth: start -->\nDUPLICATE\n<!-- truth: end -->"
+        ),
+        "misordered": "<!-- truth: end -->\nSECRET MARKER TEXT\n<!-- truth: start -->",
+    }[malformed]
+    (knowledge / "workflow.md").write_text(marker_text, encoding="utf-8")
+    if large:
+        tasks = root / ".agents" / "bundles" / "specs" / "legacy" / "tasks"
+        tasks.mkdir(parents=True)
+        for number in range(120):
+            (tasks / f"{number}.md").write_text(
+                f"---\ntype: Task\nid: legacy:{number}\nstate: open\n---\nLEAK-{number}\n",
+                encoding="utf-8",
+            )
 
 
-@posix_only
-def test_detect_env_matches_python_oracle(tmp_path: Path) -> None:
-    _build_fixture_project(tmp_path)
-
-    shell_out = subprocess.run(
-        ["bash", str(DETECT_SH)], cwd=tmp_path, capture_output=True, text=True, check=True
-    ).stdout
-    oracle_out = subprocess.run(
-        [sys.executable, str(REPO_ROOT / "tools" / "priming.py"), "--markdown"],
-        cwd=tmp_path,
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout
-
-    assert shell_out == oracle_out
-    assert "## Project Purpose" in shell_out
-    assert "## Active Flows & Tasks" in shell_out
-    assert "Closed task" not in shell_out  # closed tasks are not pending
-
-
-@posix_only
-def test_detect_env_honors_config_json(tmp_path: Path) -> None:
-    _build_fixture_project(tmp_path)
-    # Relocate bundles via config.json
-    (tmp_path / ".agents" / "bundles").rename(tmp_path / "kb")
-    (tmp_path / ".agents" / "config.json").write_text(json.dumps({"bundles_dir": "kb"}), encoding="utf-8")
-
-    shell_out = subprocess.run(
-        ["bash", str(DETECT_SH)], cwd=tmp_path, capture_output=True, text=True, check=True
-    ).stdout
-    oracle_out = subprocess.run(
-        [sys.executable, str(REPO_ROOT / "tools" / "priming.py"), "--markdown"],
-        cwd=tmp_path,
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout
-
-    assert shell_out == oracle_out
-    assert "kb/specs/demo-flow/spec.md" in shell_out
+def _stub_commands(root: Path) -> tuple[Path, Path]:
+    stub_dir = root / "stubs"
+    stub_dir.mkdir()
+    sentinel = root / "child-command-ran"
+    body = f"#!/bin/sh\nprintf touched > {sentinel}\nexit 97\n"
+    for name in (
+        "bd",
+        "python",
+        "python3",
+        "sed",
+        "awk",
+        "sh",
+        "bash",
+        "pwsh",
+        "powershell",
+        "node",
+        "arbitrary-child",
+    ):
+        command = stub_dir / name
+        command.write_text(body, encoding="utf-8")
+        command.chmod(0o755)
+    return stub_dir, sentinel
 
 
-@posix_only
-def test_detect_env_reports_empty_project(tmp_path: Path) -> None:
-    (tmp_path / ".agents").mkdir()
-    shell_out = subprocess.run(
-        ["bash", str(DETECT_SH)], cwd=tmp_path, capture_output=True, text=True, check=True
-    ).stdout
-    assert shell_out.strip() == "No project context resolved."
-
-
-def _run_agy(stdin_payload: dict, cwd: Path) -> dict:
-    result = subprocess.run(
-        ["bash", str(AGY_SH)],
-        cwd=cwd,
-        input=json.dumps(stdin_payload),
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 0, result.stderr
-    return json.loads(result.stdout)
-
-
-@posix_only
-def test_agy_hook_injects_once_per_conversation(tmp_path: Path) -> None:
-    _build_fixture_project(tmp_path)
-    artifacts = tmp_path / "artifacts"
-    artifacts.mkdir()
+def _run(
+    command: list[str],
+    *,
+    cwd: Path,
+    source: str,
+    stub_dir: Path,
+    extra_env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
     payload = {
-        "conversationId": "conv-123",
-        "invocationNum": 0,
-        "artifactDirectoryPath": str(artifacts),
+        "source": source,
+        "contamination": "RAW PARTIAL OUTPUT\nSECRET DIAGNOSTIC",
     }
-
-    first = _run_agy(payload, tmp_path)
-    assert len(first["injectSteps"]) == 1
-    assert "## Project Purpose" in first["injectSteps"][0]["ephemeralMessage"]
-
-    second = _run_agy(payload, tmp_path)
-    assert second == {"injectSteps": []}
-
-
-@posix_only
-def test_agy_hook_skips_later_invocations(tmp_path: Path) -> None:
-    _build_fixture_project(tmp_path)
-    payload = {"conversationId": "conv-456", "invocationNum": 4}
-    assert _run_agy(payload, tmp_path) == {"injectSteps": []}
-
-
-@posix_only
-def test_agy_hook_survives_empty_stdin(tmp_path: Path) -> None:
-    _build_fixture_project(tmp_path)
-    result = subprocess.run(
-        ["bash", str(AGY_SH)],
-        cwd=tmp_path,
-        input="",
+    env = {**os.environ, "PATH": str(stub_dir), **(extra_env or {})}
+    return subprocess.run(
+        command,
+        cwd=cwd,
+        input=json.dumps(payload),
         capture_output=True,
         text=True,
-        env={**os.environ, "TMPDIR": str(tmp_path)},
+        env=env,
+        timeout=10,
+        check=False,
     )
-    assert result.returncode == 0
+
+
+def _assert_session_payload(result: subprocess.CompletedProcess[str]) -> None:
+    assert result.returncode == 0, result.stderr
+    assert result.stderr == ""
+    assert result.stdout.count("\n") == 1
     payload = json.loads(result.stdout)
-    assert "injectSteps" in payload
+    assert payload == {
+        "hookSpecificOutput": {
+            "hookEventName": "SessionStart",
+            "additionalContext": STATIC_ROUTING,
+        }
+    }
+    context = payload["hookSpecificOutput"]["additionalContext"]
+    assert len(context) <= 512
+    assert "RAW PARTIAL OUTPUT" not in context
+    assert "SECRET" not in context
 
 
-@needs_powershell
-def test_detect_env_ps1_matches_python_oracle(tmp_path: Path) -> None:
-    _build_fixture_project(tmp_path)
+def _assert_agy_payload(result: subprocess.CompletedProcess[str]) -> None:
+    assert result.returncode == 0, result.stderr
+    assert result.stderr == ""
+    assert result.stdout.count("\n") == 1
+    payload = json.loads(result.stdout)
+    assert payload == {"injectSteps": [{"ephemeralMessage": STATIC_ROUTING}]}
+    assert len(payload["injectSteps"][0]["ephemeralMessage"]) <= 512
 
-    shell_out = subprocess.run(
-        [POWERSHELL, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(DETECT_PS1)],
+
+def _manifest_commands(payload: object) -> list[str]:
+    commands: list[str] = []
+    if isinstance(payload, dict):
+        for key, value in payload.items():
+            if key == "command" and isinstance(value, str):
+                commands.append(value)
+            else:
+                commands.extend(_manifest_commands(value))
+    elif isinstance(payload, list):
+        for value in payload:
+            commands.extend(_manifest_commands(value))
+    return commands
+
+
+def test_manifest_targets_resolve_to_direct_emitters() -> None:
+    targets: set[Path] = set()
+    for manifest in MANIFESTS:
+        commands = _manifest_commands(json.loads(manifest.read_text(encoding="utf-8")))
+        for command in commands:
+            assert "||" not in command and "&&" not in command and "|" not in command
+            matches = re.findall(
+                r"hooks/(session-start|agy-pre-invocation)\.(sh|ps1|js|cmd)", command
+            )
+            assert len(matches) == 1, (manifest, command)
+            stem, suffix = matches[0]
+            target = HOOKS / f"{stem}.{suffix}"
+            assert target.is_file()
+            targets.add(target)
+
+    assert targets
+    for target in targets:
+        source = target.read_text(encoding="utf-8")
+        assert not FORBIDDEN_CALL_GRAPH.search(source), target
+
+
+def test_shipped_entrypoints_have_no_dynamic_call_graph() -> None:
+    for path in (*SESSION_ENTRYPOINTS, *AGY_ENTRYPOINTS):
+        source = path.read_text(encoding="utf-8")
+        assert not FORBIDDEN_CALL_GRAPH.search(source), path
+
+    javascript = (HOOKS / "session-start.js").read_text(encoding="utf-8")
+    assert "node:child_process" not in javascript
+    assert not re.search(r"\b(?:spawn|exec|fork)(?:Sync|FileSync)?\s*\(", javascript)
+
+
+@pytest.mark.skipif(BASH is None, reason="Bash not available")
+@pytest.mark.parametrize("source", ["startup", "compact"])
+@pytest.mark.parametrize("large", [False, True], ids=["small", "large"])
+@pytest.mark.parametrize("malformed", [None, "missing", "duplicate", "misordered"])
+def test_shell_entrypoints_emit_static_json_without_children(
+    tmp_path: Path, source: str, large: bool, malformed: str | None
+) -> None:
+    _build_legacy_tree(tmp_path, large=large, malformed=malformed)
+    stub_dir, sentinel = _stub_commands(tmp_path)
+
+    session = _run(
+        [BASH, str(HOOKS / "session-start.sh")],
         cwd=tmp_path,
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout
-    oracle_out = subprocess.run(
-        [sys.executable, str(REPO_ROOT / "tools" / "priming.py"), "--markdown"],
+        source=source,
+        stub_dir=stub_dir,
+    )
+    agy = _run(
+        [BASH, str(HOOKS / "agy-pre-invocation.sh")],
         cwd=tmp_path,
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout
-
-    assert shell_out.replace("\r\n", "\n").strip() == oracle_out.strip()
-
-
-@needs_powershell
-def test_agy_ps1_injects_once_per_conversation(tmp_path: Path) -> None:
-    _build_fixture_project(tmp_path)
-    artifacts = tmp_path / "artifacts"
-    artifacts.mkdir()
-    payload = json.dumps(
-        {"conversationId": "conv-ps1", "invocationNum": 0, "artifactDirectoryPath": str(artifacts)}
+        source=source,
+        stub_dir=stub_dir,
     )
 
-    def run() -> dict:
-        result = subprocess.run(
-            [POWERSHELL, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(AGY_PS1)],
-            cwd=tmp_path,
-            input=payload,
-            capture_output=True,
-            text=True,
-        )
-        assert result.returncode == 0, result.stderr
-        return json.loads(result.stdout)
+    _assert_session_payload(session)
+    _assert_agy_payload(agy)
+    assert not sentinel.exists()
 
-    first = run()
-    assert len(first["injectSteps"]) == 1
-    assert "## Project Purpose" in first["injectSteps"][0]["ephemeralMessage"]
-    assert run() == {"injectSteps": []}
+
+@pytest.mark.skipif(NODE is None, reason="Node not available")
+@pytest.mark.parametrize("source", ["startup", "compact"])
+def test_javascript_entrypoint_emits_static_json_without_children(
+    tmp_path: Path, source: str
+) -> None:
+    _build_legacy_tree(tmp_path, large=True, malformed="duplicate")
+    stub_dir, sentinel = _stub_commands(tmp_path)
+    result = _run(
+        [NODE, str(HOOKS / "session-start.js")],
+        cwd=tmp_path,
+        source=source,
+        stub_dir=stub_dir,
+    )
+    _assert_session_payload(result)
+    assert not sentinel.exists()
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell not available")
+@pytest.mark.parametrize("source", ["startup", "compact"])
+def test_powershell_entrypoints_emit_static_json_without_children(
+    tmp_path: Path, source: str
+) -> None:
+    _build_legacy_tree(tmp_path, large=True, malformed="misordered")
+    stub_dir, sentinel = _stub_commands(tmp_path)
+    session = _run(
+        [POWERSHELL, "-NoProfile", "-File", str(HOOKS / "session-start.ps1")],
+        cwd=tmp_path,
+        source=source,
+        stub_dir=stub_dir,
+    )
+    agy = _run(
+        [POWERSHELL, "-NoProfile", "-File", str(HOOKS / "agy-pre-invocation.ps1")],
+        cwd=tmp_path,
+        source=source,
+        stub_dir=stub_dir,
+    )
+    _assert_session_payload(session)
+    _assert_agy_payload(agy)
+    assert not sentinel.exists()
+
+
+def test_non_flow_root_is_static_and_successful(tmp_path: Path) -> None:
+    stub_dir, sentinel = _stub_commands(tmp_path)
+    result = _run(
+        [BASH, str(HOOKS / "session-start.sh")],
+        cwd=tmp_path,
+        source="compact",
+        stub_dir=stub_dir,
+    )
+    _assert_session_payload(result)
+    assert not sentinel.exists()

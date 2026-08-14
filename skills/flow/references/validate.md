@@ -30,7 +30,7 @@ For each directory under `.agents/bundles/specs/`:
 
 ### 2.1 Spec Frontmatter
 
-For each `spec.md`: `type: Spec`, `flow_id` equals the directory name, `title`, `state` in `planned|active|completed|archived`, valid `created_at`/`updated_at`.
+For each `spec.md`: `type: Spec`, `flow_id` equals the directory name, `title`, `state` in `planned|active|completed`, valid `created_at`/`updated_at`.
 
 ### 2.2 Task Frontmatter
 
@@ -60,6 +60,39 @@ For each pattern in `.agents/bundles/knowledge/patterns.md`:
 - Referenced files exist
 - Code examples still valid
 
+### 3.3 Brownfield migration integrity
+
+Before setup can report completion, read the consumer tree and produce
+`.agents/migration-inventory.json`. Validation is read-only: it reports exact
+source and postcondition paths and never applies or removes migration content.
+
+The version 1 report contains a sorted, unique `items` list. Every legacy source
+has one repository-relative `source`, `destination`, and one disposition:
+
+- `migrate` for active specs/tasks and operational skills
+- `synthesize` for knowledge and completed history
+- `remove_after_verify` for superseded product/workflow/pattern authorities
+- `preserve_local_policy` for tracker settings such as local-only/no-auto-push
+
+The report also contains `semantic_mappings` entries for `priority`,
+`dependencies`, `claims`, `blockers`, `notes`, `commit_evidence`, `history`, and
+`local_only_policy`. Each entry records `status: mapped|warning` plus a non-empty
+`detail`; a warning is visible but does not silently discard the source field.
+
+Validation fails when active legacy work lacks a destination spec with full task
+worksheets, duplicate legacy/bundle authorities coexist, operational skills
+remain under `.agents/bundles/skills/`, archive trees violate contraction, stale
+backend/path authority remains, or setup/log completion claims precede those
+postconditions. Destination writes do not make a live legacy source disappear:
+sources marked `remove_after_verify` remain an error until verified cleanup.
+
+Legacy-path scanning is scope-aware. Live setup state, manifests, hook targets,
+operational instructions, templates, and discovered consumer skill trees cannot
+route agents to legacy authorities. Research, migration documentation,
+diagnostics, and explicitly marked negative fixtures may quote the same paths as
+evidence. The repository-default validator continues to exclude Flow's ignored
+local `.agents/bundles/` working state.
+
 ## Phase 4: Git State
 
 ```bash
@@ -85,6 +118,15 @@ Every validation check must produce evidence, not assertions. Follow the **Criti
 | Git clean | `git status` output shown | Assumed clean |
 
 Run each check fresh. Read output. Report actual results. **Deliver honest assessment** without hedging or meta-commentary.
+
+Maintainers can verify the committed migration regression pair independently:
+
+```text
+uv run python tools/validate.py --scope migration-fixtures
+```
+
+This scope succeeds only when the Beekeeper-shaped negative fixture produces
+every required migration diagnostic and the corrected fixture produces none.
 
 ## Phase 6: Report & Fix
 

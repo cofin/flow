@@ -5,6 +5,7 @@ Consolidated validator for all harnesses (Antigravity, Claude Code, Codex, etc.)
 
 from __future__ import annotations
 
+import argparse
 import datetime
 import hashlib
 import json
@@ -152,6 +153,22 @@ class OKFLayout(NamedTuple):
 
     configured_root: Path
     bundle_root: Path
+
+
+class MigrationInventoryItem(NamedTuple):
+    """One legacy source and its explicit migration disposition."""
+
+    source: str
+    destination: str
+    disposition: str
+
+
+class MigrationValidationResult(NamedTuple):
+    """Non-mutating migration inventory plus blocking and warning diagnostics."""
+
+    inventory: list[MigrationInventoryItem]
+    violations: list[Violation]
+    warnings: list[Violation]
 
 
 def _rel(path: Path) -> str:
@@ -957,6 +974,449 @@ def iter_all_shipped_files() -> Iterator[Path]:
         candidate = REPO_ROOT / rel
         if candidate.is_file():
             yield candidate
+
+
+_MIGRATION_DISPOSITIONS = frozenset(
+    {"migrate", "synthesize", "remove_after_verify", "preserve_local_policy"}
+)
+_MIGRATION_SEMANTIC_FIELDS = (
+    "priority",
+    "dependencies",
+    "claims",
+    "blockers",
+    "notes",
+    "commit_evidence",
+    "history",
+    "local_only_policy",
+)
+_LEGACY_OPERATIONAL_REFERENCES: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"(?<![A-Za-z0-9_])\.agents/specs(?:/|\b)"), ".agents/specs/"),
+    (re.compile(r"(?<![A-Za-z0-9_])\.agents/product\.md\b"), ".agents/product.md"),
+    (re.compile(r"(?<![A-Za-z0-9_])\.agents/workflow\.md\b"), ".agents/workflow.md"),
+    (re.compile(r"(?<![A-Za-z0-9_])\.agents/patterns\.md\b"), ".agents/patterns.md"),
+    (re.compile(r"(?<![A-Za-z0-9_])\.agents/knowledge(?:/|\b)"), ".agents/knowledge/"),
+    (
+        re.compile(r"(?<![A-Za-z0-9_])\.agents/bundles/skills(?:/|\b)"),
+        ".agents/bundles/skills/",
+    ),
+    (re.compile(r"\bBeads\s+is\s+the\s+source\s+of\s+truth\b", re.IGNORECASE), "Beads authority"),
+)
+
+
+def classify_migration_content(path: Path, repo_root: Path) -> str:
+    """Classify text before applying legacy-path rules.
+
+    Research, migration documentation, validator diagnostics, and explicitly
+    marked negative fixtures are evidence-bearing scopes. They may quote old
+    paths without becoming operational authority.
+    """
+    resolved = path.resolve()
+    root = repo_root.resolve()
+    try:
+        relative = resolved.relative_to(root)
+    except ValueError:
+        return "outside"
+    parts = relative.parts
+    if (
+        "research" in parts
+        or "diagnostics" in parts
+        or ("docs" in parts and "migration" in path.name.lower())
+        or relative.as_posix() in {"tools/validate.py", "skills/flow/references/validate.md"}
+    ):
+        return "migration_evidence"
+    for parent in (resolved, *resolved.parents):
+        if parent == root.parent:
+            break
+        if (parent / ".flow-negative-fixture").is_file():
+            return "negative_fixture"
+        if parent == root:
+            break
+    return "operational"
+
+
+def validate_migration_path_references(
+    path: Path,
+    repo_root: Path,
+    *,
+    allow_negative_fixture: bool = True,
+) -> list[Violation]:
+    """Reject legacy authority references only when they are live instructions."""
+    scope = classify_migration_content(path, repo_root)
+    if scope == "migration_evidence" or (
+        scope == "negative_fixture" and allow_negative_fixture
+    ):
+        return []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return []
+    violations: list[Violation] = []
+    for line_number, line in enumerate(text.splitlines(), start=1):
+        for pattern, label in _LEGACY_OPERATIONAL_REFERENCES:
+            if pattern.search(line):
+                violations.append(
+                    Violation(
+                        path,
+                        line_number,
+                        f"operational content references legacy path or authority ({label})",
+                    )
+                )
+                break
+    return violations
+
+
+def _migration_source_defaults(source: str) -> tuple[str, str] | None:
+    if source.startswith(".agents/specs/archive/"):
+        name = source.rsplit("/", 1)[-1]
+        return (f".agents/bundles/knowledge/{name}.md", "synthesize")
+    if source.startswith(".agents/specs/"):
+        name = source.rsplit("/", 1)[-1]
+        return (f".agents/bundles/specs/{name}", "migrate")
+    if source.startswith(".agents/bundles/skills/"):
+        name = source.rsplit("/", 1)[-1]
+        return (f".agents/skills/{name}", "migrate")
+    return {
+        ".agents/product.md": (
+            ".agents/bundles/product/product.md",
+            "remove_after_verify",
+        ),
+        ".agents/workflow.md": (
+            ".agents/bundles/knowledge/workflow.md",
+            "remove_after_verify",
+        ),
+        ".agents/patterns.md": (
+            ".agents/bundles/knowledge/patterns.md",
+            "remove_after_verify",
+        ),
+        ".agents/knowledge": (".agents/bundles/knowledge", "synthesize"),
+        ".agents/beads.json": (
+            ".agents/setup-state.json",
+            "preserve_local_policy",
+        ),
+    }.get(source)
+
+
+def _discover_migration_sources(repo_root: Path) -> list[MigrationInventoryItem]:
+    agents = repo_root / ".agents"
+    sources: list[str] = []
+    specs = agents / "specs"
+    if specs.is_dir():
+        for candidate in sorted(path for path in specs.iterdir() if path.is_dir()):
+            if candidate.name == "archive":
+                for archived in sorted(path for path in candidate.iterdir() if path.is_dir()):
+                    sources.append(f".agents/specs/archive/{archived.name}")
+            else:
+                sources.append(f".agents/specs/{candidate.name}")
+    for source in (
+        ".agents/product.md",
+        ".agents/workflow.md",
+        ".agents/patterns.md",
+        ".agents/knowledge",
+        ".agents/beads.json",
+    ):
+        if (repo_root / source).exists():
+            sources.append(source)
+    legacy_skills = agents / "bundles" / "skills"
+    if legacy_skills.is_dir():
+        for skill in sorted(path for path in legacy_skills.iterdir() if path.is_dir()):
+            sources.append(f".agents/bundles/skills/{skill.name}")
+    items: list[MigrationInventoryItem] = []
+    for source in sorted(set(sources)):
+        default = _migration_source_defaults(source)
+        if default is not None:
+            items.append(MigrationInventoryItem(source, default[0], default[1]))
+    return items
+
+
+def _load_migration_report(
+    repo_root: Path,
+) -> tuple[list[MigrationInventoryItem], dict[str, Any], list[Violation]]:
+    path = repo_root / ".agents" / "migration-inventory.json"
+    if not path.is_file():
+        return [], {}, [Violation(path, None, "migration inventory report is missing")]
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        return [], {}, [Violation(path, 1, f"migration inventory report is invalid: {exc}")]
+    if not isinstance(data, dict) or data.get("version") != 1:
+        return [], {}, [Violation(path, 1, "migration inventory report must use version 1")]
+    raw_items = data.get("items")
+    violations: list[Violation] = []
+    items: list[MigrationInventoryItem] = []
+    if not isinstance(raw_items, list):
+        violations.append(Violation(path, 1, "migration inventory items must be a list"))
+        raw_items = []
+    for raw in raw_items:
+        if not isinstance(raw, dict):
+            violations.append(Violation(path, 1, "migration inventory item must be an object"))
+            continue
+        source = raw.get("source")
+        destination = raw.get("destination")
+        disposition = raw.get("disposition")
+        if (
+            not isinstance(source, str)
+            or not source.startswith(".agents/")
+            or Path(source).is_absolute()
+            or ".." in Path(source).parts
+            or not isinstance(destination, str)
+            or not destination.startswith(".agents/")
+            or Path(destination).is_absolute()
+            or ".." in Path(destination).parts
+            or disposition not in _MIGRATION_DISPOSITIONS
+        ):
+            violations.append(
+                Violation(path, 1, "migration inventory item has an invalid source, destination, or disposition")
+            )
+            continue
+        items.append(MigrationInventoryItem(source, destination, disposition))
+    sources = [item.source for item in items]
+    if sources != sorted(sources) or len(sources) != len(set(sources)):
+        violations.append(
+            Violation(path, 1, "migration inventory sources must be unique and sorted")
+        )
+    semantic = data.get("semantic_mappings")
+    return items, semantic if isinstance(semantic, dict) else {}, violations
+
+
+def _iter_migration_operational_files(repo_root: Path) -> Iterator[Path]:
+    seen: set[Path] = set()
+    fixed = (
+        "AGENTS.md",
+        "plugin.json",
+        ".claude-plugin/plugin.json",
+        ".codex-plugin/plugin.json",
+        ".agents/setup-state.json",
+        ".agents/bundles/knowledge/workflow.md",
+    )
+    for relative in fixed:
+        path = repo_root / relative
+        if path.is_file():
+            seen.add(path.resolve())
+            yield path
+    for relative in (
+        "hooks",
+        "skills",
+        "templates",
+        ".agents/skills",
+        ".agents/bundles/skills",
+        ".cursor/rules",
+        ".github/agents",
+        ".opencode/agents",
+    ):
+        root = repo_root / relative
+        if not root.is_dir():
+            continue
+        for path in sorted(candidate for candidate in root.rglob("*") if candidate.is_file()):
+            if path.resolve() not in seen:
+                seen.add(path.resolve())
+                yield path
+
+
+def _has_full_migrated_worksheet(flow_root: Path) -> bool:
+    tasks = flow_root / "tasks"
+    if not (flow_root / "spec.md").is_file() or not tasks.is_dir():
+        return False
+    task_files = sorted(tasks.glob("*.md"))
+    if not task_files:
+        return False
+    for task in task_files:
+        sections = _parse_h2_sections(_markdown_body(task))
+        if any(not sections.get(heading) for heading in _WORKSHEET_HEADINGS):
+            return False
+    return True
+
+
+def validate_migration_integrity(repo_root: Path) -> MigrationValidationResult:
+    """Inventory and validate a consumer migration without changing it."""
+    discovered = _discover_migration_sources(repo_root)
+    reported, semantic, violations = _load_migration_report(repo_root)
+    warnings: list[Violation] = []
+    report_path = repo_root / ".agents" / "migration-inventory.json"
+    reported_by_source = {item.source: item for item in reported}
+    discovered_by_source = {item.source: item for item in discovered}
+
+    for source, expected in discovered_by_source.items():
+        actual = reported_by_source.get(source)
+        if actual is None:
+            violations.append(
+                Violation(repo_root / source, None, "migration inventory omits live source")
+            )
+        elif actual != expected:
+            violations.append(
+                Violation(
+                    report_path,
+                    1,
+                    f"migration inventory mapping for {source} must be {expected.destination} ({expected.disposition})",
+                )
+            )
+
+    for field in _MIGRATION_SEMANTIC_FIELDS:
+        mapping = semantic.get(field)
+        if (
+            not isinstance(mapping, dict)
+            or mapping.get("status") not in {"mapped", "warning"}
+            or not isinstance(mapping.get("detail"), str)
+            or not mapping["detail"].strip()
+        ):
+            violations.append(
+                Violation(report_path, 1, f"semantic mapping is missing for {field}")
+            )
+        elif mapping["status"] == "warning":
+            warnings.append(
+                Violation(report_path, 1, f"semantic migration warning for {field}: {mapping['detail']}")
+            )
+
+    agents = repo_root / ".agents"
+    bundles = agents / "bundles"
+    legacy_specs = [
+        item for item in discovered if item.source.startswith(".agents/specs/") and "/archive/" not in item.source
+    ]
+    for item in legacy_specs:
+        destination = repo_root / item.destination
+        if not _has_full_migrated_worksheet(destination):
+            violations.append(
+                Violation(
+                    repo_root / item.source,
+                    None,
+                    "active legacy spec has no migrated bundle destination with full task worksheets",
+                )
+            )
+
+    authority_pairs = (
+        (agents / "product.md", bundles / "product" / "product.md", "product"),
+        (agents / "workflow.md", bundles / "knowledge" / "workflow.md", "workflow"),
+        (agents / "patterns.md", bundles / "knowledge" / "patterns.md", "knowledge"),
+        (agents / "knowledge", bundles / "knowledge", "knowledge"),
+    )
+    for legacy, current, label in authority_pairs:
+        if legacy.exists() and current.exists():
+            violations.append(
+                Violation(legacy, None, f"legacy and bundle {label} authorities coexist")
+            )
+
+    legacy_skill_root = bundles / "skills"
+    if legacy_skill_root.is_dir() and any(legacy_skill_root.iterdir()):
+        violations.append(
+            Violation(
+                legacy_skill_root,
+                None,
+                "operational skill is installed under .agents/bundles/skills instead of .agents/skills",
+            )
+        )
+    if (bundles / "specs" / "archive").exists():
+        violations.append(
+            Violation(
+                bundles / "specs" / "archive",
+                None,
+                "completed history remains in an archive tree instead of contraction-compliant knowledge and log",
+            )
+        )
+
+    for path in _iter_migration_operational_files(repo_root):
+        violations.extend(
+            validate_migration_path_references(
+                path, repo_root, allow_negative_fixture=False
+            )
+        )
+
+    for item in reported:
+        destination = repo_root / item.destination
+        source = repo_root / item.source
+        if item.disposition in _MIGRATION_DISPOSITIONS and not destination.exists():
+            violations.append(
+                Violation(destination, None, f"migration destination is missing for {item.source}")
+            )
+        if item.disposition == "remove_after_verify" and source.exists():
+            violations.append(
+                Violation(source, None, "legacy source remains after its destination was recorded for verification")
+            )
+        if item.disposition == "migrate" and item.source.startswith(".agents/specs/") and not _has_full_migrated_worksheet(destination):
+            violations.append(
+                Violation(destination, None, "migrated active work is missing full task worksheets")
+            )
+
+    setup_path = agents / "setup-state.json"
+    setup: dict[str, Any] = {}
+    if setup_path.is_file():
+        try:
+            loaded = json.loads(setup_path.read_text(encoding="utf-8"))
+            setup = loaded if isinstance(loaded, dict) else {}
+        except (json.JSONDecodeError, OSError):
+            pass
+    if setup.get("beads_backend") not in {None, "none", "disabled"}:
+        violations.append(
+            Violation(setup_path, 1, "setup retains contradictory Beads backend authority")
+        )
+    if setup.get("setup_status") == "complete" and violations:
+        violations.append(
+            Violation(setup_path, 1, "setup claims completion while migration postconditions fail")
+        )
+
+    log_path = bundles / "log.md"
+    if log_path.is_file() and violations:
+        log_text = log_path.read_text(encoding="utf-8")
+        if re.search(r"\b(?:migrated|migration|archived)\b", log_text, re.IGNORECASE):
+            violations.append(
+                Violation(log_path, None, "bundle log claims migration completion while postconditions fail")
+            )
+
+    inventory_by_source = {item.source: item for item in reported}
+    inventory_by_source.update(discovered_by_source)
+    inventory = [inventory_by_source[source] for source in sorted(inventory_by_source)]
+    return MigrationValidationResult(inventory, violations, warnings)
+
+
+_PARTIAL_MIGRATION_EXPECTATIONS = (
+    "active legacy spec has no migrated bundle destination",
+    "legacy and bundle product authorities coexist",
+    "legacy and bundle workflow authorities coexist",
+    "legacy and bundle knowledge authorities coexist",
+    "operational skill is installed under .agents/bundles/skills",
+    "setup claims completion while migration postconditions fail",
+    "setup retains contradictory Beads backend authority",
+    "bundle log claims migration completion while postconditions fail",
+    "migration inventory omits live source",
+    "semantic mapping is missing",
+)
+
+
+def validate_migration_fixtures(repo_root: Path = REPO_ROOT) -> list[Violation]:
+    """Validate the negative/positive migration fixture pair as a contract."""
+    fixture_root = repo_root / "tests" / "fixtures" / "migrations"
+    partial = fixture_root / "beekeeper-partial"
+    corrected = fixture_root / "beekeeper-corrected"
+    violations: list[Violation] = []
+    if not (partial / ".flow-negative-fixture").is_file():
+        violations.append(Violation(partial, None, "partial migration fixture is not explicitly marked negative"))
+    partial_result = validate_migration_integrity(partial)
+    partial_messages = "\n".join(item.message for item in partial_result.violations)
+    for expected in _PARTIAL_MIGRATION_EXPECTATIONS:
+        if expected not in partial_messages:
+            violations.append(
+                Violation(partial, None, f"partial migration fixture does not prove: {expected}")
+            )
+    corrected_result = validate_migration_integrity(corrected)
+    for violation in corrected_result.violations:
+        violations.append(
+            Violation(violation.path, violation.line, f"corrected migration fixture: {violation.message}")
+        )
+    for violation in validate_okf_bundle_root(corrected):
+        violations.append(
+            Violation(violation.path, violation.line, f"corrected migration fixture: {violation.message}")
+        )
+    for bundle_path in iter_okf_bundles(corrected):
+        for violation in validate_okf_bundle(bundle_path, corrected):
+            violations.append(
+                Violation(violation.path, violation.line, f"corrected migration fixture: {violation.message}")
+            )
+    for path in partial.rglob("*"):
+        if path.is_file():
+            violations.extend(
+                validate_migration_path_references(
+                    path, partial, allow_negative_fixture=True
+                )
+            )
+    return violations
 
 
 def _print_violations(violations: list[Violation]) -> None:
@@ -2319,6 +2779,47 @@ _RUNTIME_CODE = re.compile(
     re.IGNORECASE,
 )
 _HOOK_SCRIPT_SUFFIXES = {".sh", ".ps1", ".cmd", ".bat"}
+_HOOK_MAINTAINER_DIAGNOSTICS = {"hooks/detect-env.sh", "hooks/detect-env.ps1"}
+_HOOK_TARGET_FORBIDDEN = re.compile(
+    r"(?:\|\||&&|;|(?<!\|)\|(?!\|)|detect-env|python|node|bun|pwsh|powershell|\.ps1|\.cmd|\.bat)",
+    re.IGNORECASE,
+)
+
+
+def _hook_script_is_direct_static(path: Path, text: str) -> bool:
+    """Return whether a hook entrypoint only emits one fixed envelope."""
+    suffix = path.suffix.lower()
+    significant = [
+        line.strip()
+        for line in text.splitlines()
+        if line.strip() and not line.lstrip().startswith(("#", "REM "))
+    ]
+    if suffix == ".sh" or text.startswith(("#!/bin/sh", "#!/usr/bin/env bash", "#!/bin/bash")):
+        return bool(significant) and all(
+            line in {"set -eu", "set -e", "set -u"}
+            or bool(re.fullmatch(r"printf\s+'%s\\n'\s+'[^']*'", line))
+            for line in significant
+        )
+    if suffix == ".ps1":
+        return len(significant) == 1 and bool(
+            re.fullmatch(r"\[Console\]::Out\.WriteLine\('[^']*'\)", significant[0])
+        )
+    if suffix in {".cmd", ".bat"}:
+        executable = [line for line in significant if line.lower() != "@echo off"]
+        return len(executable) == 1 and executable[0].lower().startswith("echo {")
+    return False
+
+
+def _iter_hook_manifest_commands(value: object) -> Iterator[str]:
+    if isinstance(value, dict):
+        command = value.get("command")
+        if isinstance(command, str):
+            yield command
+        for nested in value.values():
+            yield from _iter_hook_manifest_commands(nested)
+    elif isinstance(value, list):
+        for nested in value:
+            yield from _iter_hook_manifest_commands(nested)
 
 def _runtime_fingerprint(
     relative: str, category: str, evidence: str, occurrence: int
@@ -2328,25 +2829,10 @@ def _runtime_fingerprint(
     return f"{relative}:{category}:{digest}"
 
 
-# Task 2.4 removes these exact installed runtime invocations. Fingerprints bind
-# each allowance to one stable invocation and deliberately become stale when
-# that invocation changes or disappears.
+# Only unrelated legacy command guidance remains transitional. Task 2.4's
+# dynamic hook/plugin entries have expired; direct static emitters need no
+# exception and are validated structurally below.
 _RUNTIME_TRANSITION_ALLOWLIST = {
-    ".opencode/plugins/flow.js:runtime_code:ddc5846ffa466e97",
-    ".opencode/plugins/flow.js:runtime_code:6b35da74d620c100",
-    "hooks/agy-pre-invocation.ps1:hook_script:f3cd328ea2743137",
-    "hooks/agy-pre-invocation.sh:hook_script:86e155ef1940acda",
-    "hooks/detect-env.ps1:hook_script:7f44ad6f7614e393",
-    "hooks/detect-env.sh:hook_script:02b616946f3afc1f",
-    "hooks/hooks-agy.json:hook_target:6372b9e41dd8e712",
-    "hooks/hooks-claude.json:hook_target:f1f73f106d37591c",
-    "hooks/hooks-codex.json:hook_target:b5bbee601285f75e",
-    "hooks/hooks-cursor.json:hook_target:c8fd69038ec5f262",
-    "hooks/session-start.cmd:hook_script:6ff2a1fd14e0d3ef",
-    "hooks/session-start.js:runtime_code:dd0d694e3b0460b4",
-    "hooks/session-start.js:runtime_code:e0291a0a474dbb68",
-    "hooks/session-start.ps1:hook_script:a088526198f47ec3",
-    "hooks/session-start.sh:hook_script:3409c97e20c172d7",
     "skills/flow/references/revert.md:runtime_command:b06ba3730e38798d",
     "skills/flow/references/task.md:runtime_command:7ff76bdaf45c86e9",
 }
@@ -2382,40 +2868,46 @@ def validate_installed_runtime_dependencies(
         except (OSError, UnicodeDecodeError):
             continue
         relative = path.relative_to(repo_root).as_posix()
-        opaque_runtime_surface = False
+        if relative in _HOOK_MAINTAINER_DIAGNOSTICS:
+            continue
         if relative.startswith("hooks/") and (
             path.suffix.lower() in _HOOK_SCRIPT_SUFFIXES
             or text.startswith(("#!/bin/sh", "#!/usr/bin/env bash", "#!/bin/bash"))
         ):
-            raw_findings.append(
-                (
-                    relative,
-                    "hook_script",
-                    text.replace("\r\n", "\n"),
-                    Violation(path, 1, "installed SessionStart hook requires a runtime script"),
+            if not _hook_script_is_direct_static(path, text):
+                raw_findings.append(
+                    (
+                        relative,
+                        "hook_script",
+                        text.replace("\r\n", "\n"),
+                        Violation(
+                            path,
+                            1,
+                            "installed hook script is not a direct static envelope emitter",
+                        ),
+                    )
                 )
-            )
-            opaque_runtime_surface = True
+            continue
         if path.suffix.lower() == ".json" and relative.startswith("hooks/"):
             try:
                 parsed = json.loads(text)
             except json.JSONDecodeError:
                 parsed = None
-            if parsed is not None and re.search(
-                r"(?:\.sh|\.ps1|\.cmd|\.bat|\.js|python3?|pwsh|powershell)",
-                json.dumps(parsed),
-                re.IGNORECASE,
-            ):
-                raw_findings.append(
-                    (
-                        relative,
-                        "hook_target",
-                        json.dumps(parsed, sort_keys=True, separators=(",", ":")),
-                        Violation(path, 1, "installed hook JSON targets a runtime script"),
-                    )
-                )
-                opaque_runtime_surface = True
-        if opaque_runtime_surface:
+            if parsed is not None:
+                for command in _iter_hook_manifest_commands(parsed):
+                    if _HOOK_TARGET_FORBIDDEN.search(command):
+                        raw_findings.append(
+                            (
+                                relative,
+                                "hook_target",
+                                command,
+                                Violation(
+                                    path,
+                                    1,
+                                    "installed hook target delegates, falls back, or invokes a forbidden runtime",
+                                ),
+                            )
+                        )
             continue
         in_fence = False
         runtime_fence = False
@@ -2435,6 +2927,12 @@ def validate_installed_runtime_dependencies(
                 continue
             if re.search(
                 r"\b(?:never|must not|do not|does not|forbidden|reject)\b", lowered
+            ):
+                continue
+            if (
+                relative == "skills/flow/references/validate.md"
+                and stripped
+                == "uv run python tools/validate.py --scope migration-fixtures"
             ):
                 continue
             if _RUNTIME_CODE.search(line):
@@ -5387,7 +5885,24 @@ def assess_markdown_transactions(repo_root: Path = REPO_ROOT) -> dict[str, str]:
     return results
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--scope",
+        choices=("all", "migration-fixtures"),
+        default="all",
+        help="limit validation to one committed fixture contract",
+    )
+    args = parser.parse_args(argv)
+    if args.scope == "migration-fixtures":
+        migration_violations = validate_migration_fixtures(REPO_ROOT)
+        if migration_violations:
+            _print_violations(migration_violations)
+            print(f"\n{len(migration_violations)} violation(s)", file=sys.stderr)
+            return 1
+        print("[ OK ] migration fixtures: beekeeper-partial rejected; beekeeper-corrected accepted")
+        return 0
+
     all_violations: list[Violation] = []
     skills = list(iter_skills())
     commands = list(iter_commands())
@@ -5455,6 +5970,7 @@ def main() -> int:
             REPO_ROOT, transition_allowlist=_RUNTIME_TRANSITION_ALLOWLIST
         )
     )
+    all_violations.extend(validate_migration_fixtures(REPO_ROOT))
         
     if all_violations:
         _print_violations(all_violations)
