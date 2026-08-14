@@ -4200,6 +4200,10 @@ def _quality_report(value: object, base_commit: object, head_commit: object) -> 
             {"reviewer", "base_commit", "head_commit", "debloat_source", "findings"},
         )
         and value["reviewer"] == "quality-reviewer"
+        and all(
+            re.fullmatch(r"[0-9a-f]{7,40}", str(value[key]))
+            for key in ("base_commit", "head_commit")
+        )
         and value["base_commit"] == base_commit
         and value["head_commit"] == head_commit
         and value["debloat_source"]

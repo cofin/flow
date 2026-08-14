@@ -1573,6 +1573,8 @@ def test_quality_evidence_requires_exact_range_and_debloat_source() -> None:
     }
     report["findings"] = [finding]
     assert validate._quality_report(report, "abc1234", "def5678")
+    invalid_range_report = dict(report, base_commit="not-a-sha")
+    assert not validate._quality_report(invalid_range_report, "not-a-sha", "def5678")
     assert not validate._quality_waivers([], "abc1234", "def5678", report["findings"])
     assert not validate._quality_waivers(
         [
