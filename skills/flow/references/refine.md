@@ -52,9 +52,12 @@ Read the relevant artifacts before refining:
 For each task, apply the **Stateless Executor Test**:
 `If I handed this task to an agent with zero project context, could they implement it 100% correctly based ONLY on this text and the provided code samples?`
 
-Also require every requirement to map to a task and test scenario; every task
-to declare `verification_strategy`, exact verification commands/outcomes, and
-exclusive file ownership; and each task to fit one invocation and one commit.
+Also require every requirement to map to a task and verification scenario;
+every task to declare and justify `verification_strategy`, exact verification
+commands/outcomes, and exclusive file ownership; and each task to fit one
+invocation and one commit. Select the strategy from the change class using
+`skills/flow/references/discipline.md`; never manufacture a red test for work
+whose strategy begins from a green or native-validation baseline.
 If the answer is "No" or "Maybe," classify the gap and iterate.
 
 ### Step 3: Research-and-Refine Loop (Iterative)
@@ -82,7 +85,7 @@ Rewrite the `Implementation Plan` section in `spec.md` into a **Worksheet**. Eve
   - [ ] Specific change 1
   - [ ] Specific change 2
   - [ ] Verification step
-- **Test-First Instructions**: Exact failure reason for the initial failing test.
+- **Strategy Instructions**: Exact initial proof, expected result, and final evidence required by the selected strategy. For `behavior_tdd` and `regression_tdd`, include the intended failing symptom. For other strategies, name the green/native baseline or negative-state gate proof instead.
 
 ### Step 5: Close Research Gaps Before Approval
 
@@ -140,7 +143,7 @@ Before declaring a refined plan ready, verify:
 - [ ] File or module targets are specific with line numbers where applicable.
 - [ ] Code samples or snippets are provided for complex logic.
 - [ ] Dependencies and ordering are explicit.
-- [ ] Test-first expectations are written into implementation tasks.
+- [ ] Strategy-appropriate initial evidence is written into every task; failing-test expectations appear only for behavior and regression TDD.
 - [ ] Verification steps are concrete.
 - [ ] Every task declares a verification strategy and exact expected outcome.
 - [ ] Requirement-to-task/test traceability is complete.

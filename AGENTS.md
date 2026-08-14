@@ -8,7 +8,7 @@ This file provides guidance to AI coding agents working with code in this reposi
 
 **Flow** is a unified toolkit for **Context-Driven Development** combining:
 
-- **Flow Framework**: Spec-first planning, human-readable context, TDD workflow
+- **Flow Framework**: Spec-first planning, human-readable context, change-appropriate verification
 - **Open Knowledge Format (OKF) bundles**: Local specifications (`spec.md`), task files (`tasks/*.md`), and knowledge chapters with YAML frontmatter under `.agents/bundles/`.
 
 ## The Task-First Mandate
@@ -332,7 +332,7 @@ When execution is delegated to a subagent (any harness — Antigravity, Claude, 
 
 1. **One task per subagent invocation.** Never batch multiple tasks or a whole phase into one dispatch.
 2. **Feed only the chunk it needs:** the task worksheet verbatim, the spec's relevant phase excerpt, applicable patterns/knowledge excerpts, and the canonical verification commands — never the entire PRD or spec tree.
-3. **The subagent follows the worksheet exactly.** No improvisation, no scope changes, no descoping. If the worksheet is wrong or insufficient, the subagent STOPS and reports the gap for refinement instead of guessing.
+3. **The subagent follows the worksheet and declared verification strategy exactly.** No improvisation, scope changes, or descoping. If the worksheet is wrong or insufficient, the subagent STOPS and reports the gap for refinement instead of guessing.
 4. After each task returns: verify evidence, reconcile the checklist, then dispatch the next task.
 
 ### Task Notes & Discoveries
@@ -438,14 +438,21 @@ Phases can annotate parallel execution:
 
 State tracked in `parallel_state.json`. Uses the `invoke_subagent` tool to spawn sub-agents.
 
-## Task Workflow (TDD)
+## Task Workflow
 
 1. **Select task**: a task is ready when its `state` is `open` and every `depends_on` task is `closed`.
 2. **Claim task**: set `state: in_progress` (and bump `updated_at`) in the task file.
 3. **Investigate & Note**: Record findings under the task file's `## Notes & Discoveries`.
-4. **Write failing tests** (Red).
-5. **Implement to pass** (Green).
-6. **Refactor** while green.
+4. **Follow `verification_strategy`** from the worksheet:
+   - `behavior_tdd`: prove new observable behavior red before implementation.
+   - `regression_tdd`: reproduce the defect red before the fix.
+   - `characterization`: capture a green baseline before behavior-preserving refactor/deletion.
+   - `static_validation`: use parser/lint/type/build evidence and prove a replacement gate with an isolated violation.
+   - `documentation_validation`: use docs-native link/example/build/structure checks.
+   - `integration_acceptance`: start from a green focused baseline, compose existing contracts, and inject negative states; route implementation gaps through revise.
+   A waiver never replaces the strategy and requires rationale, approver, and compensating evidence. Do not manufacture a failing test for static, documentation, generated, prose-only, or behavior-preserving work.
+5. **Implement minimally** and obtain the strategy's required final evidence.
+6. **Refactor** only while focused evidence remains green.
 7. **Commit**: `<type>(<scope>): <description>`.
 8. **Close task**: set `state: closed` and record the commit SHA in the task file's `commit:` field.
 9. **Sync to spec**: run `/flow:sync` (or apply the reconciler rules inline) so the `spec.md` checklist reflects task-file state.

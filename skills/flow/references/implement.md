@@ -1,7 +1,7 @@
 
 # Flow Implement
 
-Execute tasks from a flow's plan using TDD workflow.
+Execute each task exactly from its worksheet using the declared verification strategy.
 
 ## Usage
 
@@ -170,9 +170,9 @@ Check `.agents/bundles/specs/{flow_id}/tasks/` for any task file with `state: in
 2. **Parse & Resolve Dependencies**: Parse the YAML frontmatter of each task. A task is ready if its `state` is `"open"` and all dependencies listed in `depends_on` have `state` set to `"closed"`.
 3. **Select**: Sort the ready tasks by priority (`P0` > `P1` > `P2` > `P3` > `P4`), then select the first one.
 
-## Phase 3: Task Execution (TDD)
+## Phase 3: Task execution
 
-**See `references/discipline.md` for full TDD discipline rules, rationalization tables, and red flags.**
+**See `references/discipline.md` for the normative verification-strategy matrix, low-signal-test policy, debugging discipline, and fresh-evidence rules.**
 
 ### 3.0 Subagent Execution Preference (MANDATORY)
 
@@ -181,21 +181,15 @@ If `superpowers:subagent-driven-development` is available, you **MUST** recommen
 - Each task should be dispatched to a subagent.
 - Before delegating, you MUST ensure the task has undergone iterative refinement (see `references/refine.md`). If the task detail is too coarse for a lightweight executor, you MUST run iterative refinement and update the plan before dispatch.
 - Review implementation between tasks.
-- Follow the TDD discipline inside each subagent.
+- Follow the worksheet's declared verification strategy inside each subagent.
 - Do not silently descope if the task is larger than expected. Refine it or ask the user how to prioritize.
 
 Fallback: only if unavailable, execute the same steps in single-agent mode.
-Even in fallback mode, preserve the same task context bundle, run iterative refinement on coarse tasks first, keep TDD discipline, and review work between tasks.
+Even in fallback mode, preserve the same task context bundle, run iterative refinement on coarse tasks first, keep the declared verification strategy, and review work between tasks.
 
 ### 3.0.1 API Lookup Preference
 
 If implementation depends on external framework/API behavior, versions, migrations, or release changes, invoke `flow:apilookup` before making implementation decisions.
-
-```text
-IRON LAW: NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST
-```
-
-Write code before the test? Delete it. Start over. No exceptions.
 
 ### 3.1 Mark In Progress
 
@@ -204,43 +198,24 @@ then request `claim` from `flow-reconciler`, including the expected plan
 identity, expected spec state revision, explicit task target, and exact first
 worksheet step. Reread the committed result before any production edit.
 
-### 3.2 Red Phase — Write Failing Tests
+### 3.2 Execute the declared strategy
 
-1. Write one minimal test showing the expected behavior
-2. **Run tests — MANDATORY. Never skip.**
-3. **Confirm the test FAILS for the right reason** (feature missing, not typo/error)
-   - Test passes? You're testing existing behavior. Fix the test.
-   - Test errors? Fix error, re-run until it fails correctly.
+Use exactly one branch. If the worksheet's change class and strategy disagree, stop under the mismatch route before production mutation.
 
-```bash
-# Run the canonical test command from .agents/workflow.md and READ the output
-npm test  # or pytest, cargo test, etc.
-```
+| Strategy | Initial evidence | Execution and final evidence |
+| --- | --- | --- |
+| `behavior_tdd` | Run one focused behavioral test and confirm it fails because the behavior is absent. | Implement minimally, rerun green, refactor while green, then run relevant aggregate verification. |
+| `regression_tdd` | Reproduce the reported defect and confirm the focused regression fails for that symptom. | Implement the narrow fix, rerun the regression green, then run relevant aggregate verification. |
+| `characterization` | Run and record a focused green baseline for the behavior being preserved. | Refactor/delete minimally, rerun the same behavior evidence unchanged, and compare affected coverage when behavioral execution could be lost. |
+| `static_validation` | Run the native parser, lint, type, build, or generator check baseline. | For a new or replacement gate, inject a representative violation only in a temporary tree/isolated fixture, require non-zero plus the expected diagnostic, restore it, then require the gate and aggregate verification green. |
+| `documentation_validation` | Run the applicable links, examples, docs-build, spelling, or structure baseline. | Edit the documentation, rerun the docs-native checks, and validate examples where promised. Never create an artificial unit-test failure for prose. |
+| `integration_acceptance` | Run the focused integration baseline for already-implemented contracts. | Compose the end-to-end scenario and inject negative states to prove refusal paths. A missing implementation is a `revise` mismatch, not work to absorb into this task. |
 
-### 3.3 Green Phase — Implement
+A waiver never changes the declared strategy. Require its rationale, approver, and compensating evidence before continuing; otherwise stop. Make the minimum targeted change and do not add unrelated cleanup.
 
-1. Write the **simplest code** to pass the test. No extras, no "improvements."
-2. Make the minimum targeted change set needed for the task. Do not add unrelated cleanup without approval.
-3. **Run tests — MANDATORY.**
-4. **Confirm ALL tests pass.** Output must be pristine (no errors, warnings).
-   - Test still fails? Fix implementation code, not the test.
-   - Other tests broke? Fix regressions now.
+### 3.3 Refactor and compare
 
-### 3.4 Refactor Phase
-
-1. Clean up while tests pass — remove duplication, improve names, extract helpers
-2. Apply patterns from patterns.md
-3. **Run tests after refactoring** — must stay green
-4. Don't add behavior during refactor
-
-### 3.5 Verify Coverage
-
-```bash
-npm test -- --coverage
-```
-
-Target: 80% minimum
-Prefer the repo's canonical verification or coverage command from `.agents/workflow.md` when present.
+Refactor only while the strategy's focused evidence remains green. Apply repository patterns, review the diff for semantic drift, and rerun the affected checks. Coverage is required when the repository or worksheet defines it, or when comparison is necessary to show test deletion did not lose behavioral execution; there is no universal percentage mandate.
 
 ### 3.6 When Tests Fail — Systematic Debugging
 
@@ -313,7 +288,7 @@ IRON LAW: NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
 At the end of each phase:
 
 1. **Run full test suite** — read output, confirm 0 failures.
-2. **Run coverage check** — confirm target met.
+2. **Run any repository- or worksheet-defined coverage check** and compare affected coverage when the selected strategy requires it.
 3. **Dispatch code review** (recommended for multi-task phases):
    - Get the git range from the task file commit history (e.g. comparing the last checkpoint commit to HEAD).
    - Dispatch review subagent with: `spec.md` requirements, `patterns.md`, and the git range.
@@ -368,7 +343,7 @@ If continuing, loop back to Phase 2.
 
 ## Critical Rules
 
-1. **TDD IRON LAW** — No production code without a failing test first. Delete and start over if violated.
+1. **DECLARED STRATEGY** — Follow the worksheet's change-appropriate verification strategy exactly. Failing tests are mandatory for behavior/regression TDD and artificial for static/docs/characterization work.
 2. **DEBUGGING IRON LAW** — No fixes without root cause investigation. No guessing.
 3. **VERIFICATION IRON LAW** — No completion claims without fresh evidence. Run the command, read the output.
 4. **SMALL COMMITS** — One task = one commit

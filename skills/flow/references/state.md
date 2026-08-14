@@ -81,7 +81,18 @@ commit: null
 
 Task `state` is exactly `open|in_progress|closed|blocked|skipped`. Priority is the closed enum `P0|P1|P2|P3|P4`, defaults to `P2`, and is ordered in that sequence. Any other value refuses validation. Ready tasks are open tasks whose dependencies are all closed, ordered `(priority, created_at, task_id)`. Nullable claim, block, next-step, operation, verification, and commit fields default to `null`; `operation_targets` defaults to `[]`; `state_revision` starts at `0`.
 
-`verification_strategy` is exactly one of `behavior_tdd|regression_tdd|characterization|static_validation|documentation_validation|integration_acceptance`. Observable behavior/regression work begins with a focused failing test; behavior-preserving cleanup establishes characterization first; generated/configuration/static documentation work uses native validation without manufacturing a low-signal red test; integration acceptance runs its declared end-to-end evidence.
+`verification_strategy` is exactly one of `behavior_tdd|regression_tdd|characterization|static_validation|documentation_validation|integration_acceptance`. The worksheet justifies the selected strategy from the change class and names its initial and final evidence:
+
+| Strategy | Change class | Required initial proof |
+| --- | --- | --- |
+| `behavior_tdd` | new observable behavior | a focused behavioral test fails because the behavior is absent |
+| `regression_tdd` | defect correction | a focused reproduction fails with the reported defect |
+| `characterization` | behavior-preserving refactor or deletion | a focused behavior baseline is green before the change |
+| `static_validation` | manifest, configuration, generated surface, or tooling | the native parser/lint/type/build baseline plus an isolated representative violation proving a new or replacement gate fails with the expected diagnostic |
+| `documentation_validation` | links, examples, or documentation structure | the applicable docs-native baseline |
+| `integration_acceptance` | end-to-end composition of already-implemented contracts | a focused green baseline plus injected negative states proving refusal paths |
+
+Never manufacture a failing unit test for documentation, configuration, generated output, prose, or behavior-preserving cleanup. Integration acceptance never absorbs a newly discovered implementation gap; record and route it through `revise`. A verification waiver does not replace the required strategy. It records an explicit rationale, approver, and compensating evidence in the worksheet and close evidence; a missing element refuses completion.
 
 ### Required bodies
 
