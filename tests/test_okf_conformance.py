@@ -388,7 +388,7 @@ def test_flow_operation_payload_and_predicate_contracts_are_complete() -> None:
     ]
     assert archive_destinations == {
         "paths": [{"base": "bundle_root", "path": "log.md"}],
-        "globs": [{"base": "bundle_root", "glob": "knowledge/*.md"}],
+        "globs": [{"base": "bundle_root", "glob": "knowledge/**/*.md"}],
     }
     assert all(
         "|" not in entry["glob"]
