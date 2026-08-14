@@ -11,22 +11,22 @@ Flow ships OpenCode-compatible project files and Agent Skills. It does not adver
 ### Project-local skills
 
 OpenCode also discovers skills from `.agents/skills/`, `.claude/skills/`, and `.opencode/skills/`.
-Use those project-local paths when you want Flow-related skills without a global plugin install.
+Flow consumer projects use `.agents/skills/` as the sole operational
+project-skill authority; the other roots are harness discovery locations, not
+Flow's project-state authority.
+
+### Project commands
+
+The `/flow-*` commands require project command files generated from
+`templates/opencode/commands/`. Install those templates through a supported
+OpenCode project configuration. Without them, use the discovered Flow skill or
+plugin context in natural language.
 
 ### Restart
 
 Restart OpenCode after updating project plugin files.
 
 Verify by asking: `What is your Flow configuration?`
-
-## Migrating from Legacy Install
-
-If you previously installed Flow with older single-agent command files, remove them:
-
-```bash
-rm -f ~/.config/opencode/agents/flow.md
-rm -f ~/.config/opencode/commands/flow-*.md
-```
 
 The plugin handles context injection. Flow's repo-local `.opencode/agents/*.md` files provide optional native subagents for harnesses that read project agent files.
 
@@ -35,14 +35,20 @@ The plugin handles context injection. Flow's repo-local `.opencode/agents/*.md` 
 Use OpenCode's native skill system:
 
 ```
-/flow:setup    — Initialize project
-/flow:prd      — Create feature roadmap
-/flow:plan     — Plan single flow
-/flow:implement — Execute tasks (TDD)
-/flow:sync     — Reconcile spec checklist with task files
-/flow:status   — Show progress
-/flow:refresh  — Refresh context from codebase
+/flow-setup     — Initialize project
+/flow-prd       — Create feature roadmap
+/flow-plan      — Plan single flow
+/flow-implement — Execute tasks
+/flow-sync      — Reconcile spec checklist with task files
+/flow-status    — Show progress
+/flow-refresh   — Refresh context from codebase
 ```
+
+OpenCode's verified `question` tool supports Flow binary, single-select, and
+multi-select decisions with 2-4 domain choices. Flow uses it only when declared,
+allowed, and compatible; otherwise it renders the same request sequentially in
+text. State and recovery always use direct Markdown reads plus ordinary file
+tools, with no consumer state runtime.
 
 ## Tool Mapping
 

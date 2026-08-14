@@ -139,7 +139,17 @@ PACKAGE_DIRS = (
     "commands",
     ".codex",
     "hooks",
+    "rules",
 )
+_PACKAGE_EXACT_MIRRORS = (
+    "skills/flow/references/interaction.md",
+    "skills/flow-state/SKILL.md",
+    "skills/flow-state/references/state.md",
+    "skills/debloat/SKILL.md",
+    "rules/flow-core.md",
+    "rules/flow-antigravity.md",
+)
+_PACKAGE_HOOK_FILES = frozenset({"hooks.json", "session-start.sh"})
 
 
 class Violation(NamedTuple):
@@ -1645,6 +1655,47 @@ def validate_codex_package_layout(repo_root: Path) -> list[Violation]:
     for stray in sorted(actual_names - expected_names):
         violations.append(Violation(package / stray, None, f"unexpected file/directory in package: {stray}"))
 
+    return violations
+
+
+def validate_codex_package_contract(repo_root: Path) -> list[Violation]:
+    """Validate package-only surfaces that broad manifest checks cannot express."""
+    package = repo_root / PACKAGE_ROOT
+    if not package.is_dir() or package.is_symlink():
+        return []
+
+    violations: list[Violation] = []
+    for relative in _PACKAGE_EXACT_MIRRORS:
+        source = repo_root / relative
+        packaged = package / relative
+        if not packaged.is_file():
+            violations.append(Violation(packaged, None, "required package mirror is missing"))
+        elif not source.is_file() or packaged.read_bytes() != source.read_bytes():
+            violations.append(Violation(packaged, None, f"package mirror differs from {relative}"))
+
+    state_scripts = package / "skills" / "flow-state" / "scripts"
+    if state_scripts.exists():
+        violations.append(
+            Violation(
+                state_scripts,
+                None,
+                "packaged flow-state must be file-tool-only and contain no scripts directory",
+            )
+        )
+
+    hooks = package / "hooks"
+    if hooks.is_dir():
+        actual_hooks = {path.name for path in hooks.iterdir()}
+        for extra in sorted(actual_hooks - _PACKAGE_HOOK_FILES):
+            violations.append(
+                Violation(
+                    hooks / extra,
+                    None,
+                    "Codex package may contain only the direct fixed-envelope SessionStart surface",
+                )
+            )
+        for missing in sorted(_PACKAGE_HOOK_FILES - actual_hooks):
+            violations.append(Violation(hooks / missing, None, "required Codex hook surface is missing"))
     return violations
 
 
@@ -5954,6 +6005,7 @@ def main(argv: list[str] | None = None) -> int:
     for path in discover_codex_plugin_manifests(REPO_ROOT):
         all_violations.extend(validate_codex_plugin_manifest(path))
     all_violations.extend(validate_codex_package_layout(REPO_ROOT))
+    all_violations.extend(validate_codex_package_contract(REPO_ROOT))
     all_violations.extend(validate_codex_hook_commands(REPO_ROOT))
     
     # Repository-local .agents/ is ignored working state, not a shipped fixture.

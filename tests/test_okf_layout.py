@@ -1,29 +1,46 @@
+from __future__ import annotations
+
+import json
 from pathlib import Path
+import tomllib
+
+from tools.flow_contract import load_contract
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
-def test_flow_archive_is_beads_free_and_uses_okf_paths() -> None:
-    target_files = [
-        "commands/flow-archive.md",
-        "commands/flow/archive.toml",
-        "skills/flow/references/archive.md",
-        "templates/opencode/commands/flow-archive.md",
-    ]
-    for rel_path in target_files:
-        file_path = REPO_ROOT / rel_path
-        assert file_path.is_file(), f"{rel_path} does not exist"
-        text = file_path.read_text(encoding="utf-8")
-        
-        # Assert Beads-free
-        assert "bd " not in text.lower(), f"Beads command found in {rel_path}"
-        assert "beads" not in text.lower(), f"Beads reference found in {rel_path}"
-        
-        # Assert old layout path references are removed
-        assert ".agents/specs/" not in text, f"Old spec path found in {rel_path}"
-        assert ".agents/patterns.md" not in text, f"Old patterns path found in {rel_path}"
-        assert ".agents/knowledge/" not in text, f"Old knowledge path found in {rel_path}"
-        assert ".agents/flows.md" not in text, f"Old flows registry found in {rel_path}"
-        assert ".agents/archive/" not in text, f"Old archive directory found in {rel_path}"
-        
-        # Assert new layout paths are referenced
-        assert ".agents/bundles/specs/" in text or ".agents/bundles/knowledge/" in text
+
+def _adapter(path: Path) -> dict[str, object]:
+    text = path.read_text(encoding="utf-8")
+    if path.suffix == ".toml":
+        return json.loads(tomllib.loads(text)["prompt"])
+    return json.loads(text.split("```json\n", 1)[1].split("\n```", 1)[0])
+
+
+def test_flow_archive_adapters_route_to_the_canonical_okf_contract() -> None:
+    contract = load_contract(REPO_ROOT / "contracts" / "flow.yaml")
+    archive = contract.commands["flow/archive"]
+    assert archive.procedure_source == "skills/flow/references/archive.md"
+    assert archive.runtime_dependency == "agent_file_tools_only"
+    assert archive.state_operations == ("note", "archive")
+    assert archive.completion_gates == (
+        "archive_candidate",
+        "verification",
+        "code_review",
+        "quality_review",
+        "archive",
+    )
+    assert (REPO_ROOT / archive.procedure_source).is_file()
+
+    adapters = (
+        REPO_ROOT / "commands" / "flow-archive.md",
+        REPO_ROOT / "commands" / "flow" / "archive.toml",
+        REPO_ROOT / "templates" / "opencode" / "commands" / "flow-archive.md",
+    )
+    for path in adapters:
+        record = _adapter(path)
+        assert record["canonical_id"] == archive.id
+        assert record["procedure_source"] == archive.procedure_source
+        assert record["runtime_dependency"] == archive.runtime_dependency
+        assert tuple(record["state_operations"]) == archive.state_operations
+        assert tuple(record["completion_gates"]) == archive.completion_gates

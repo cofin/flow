@@ -19,7 +19,6 @@
     "skills"
   ],
   "skills": "./skills/",
-  "commands": "./commands/",
   "interface": {
     "displayName": "Flow",
     "shortDescription": "Context-driven planning, TDD implementation, and OKF bundle memory",

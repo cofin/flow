@@ -15,7 +15,8 @@ Control your code. By treating context as a managed artifact alongside your code
 - **Task-Centric Filesystem Engine (OKF)**: Persistent task files and specs that survive context compaction and are git-tracked
 - **Multi-Harness Support**: Works with Antigravity, Codex CLI, Claude Code, OpenCode, VS Code / Copilot, Cursor, and OpenClaw
 - **Spec-First Development**: Create specs and task lists before writing code
-- **TDD Workflow**: Red-Green-Refactor with >80% coverage requirements
+- **Change-appropriate verification**: TDD for behavior changes, with static,
+  documentation, characterization, and integration strategies for other work
 - **Knowledge Flywheel**: Capture and elevate patterns across flows (Ralph-style)
 - **Flow Management**: Revise, archive, and revert with full audit trail
 - **Git-Aware Revert**: Reverts logical units of work (tasks or phases), not just raw commits
@@ -23,11 +24,15 @@ Control your code. By treating context as a managed artifact alongside your code
 
 ## Install
 
-Use each harness's native plugin, marketplace, rules, or skills mechanism. Flow no longer ships a multi-harness installer or symlink-based install path.
+Use each harness's native plugin, marketplace, rules, or skills mechanism. The
+[harness conformance matrix](docs/harness-conformance-matrix.md) records exact
+invocations, capabilities, and reload behavior.
 
 ### Antigravity
 
-Install Flow through Antigravity's native Plugins & Skills flow from the `cofin/flow` repository. Flow ships the Antigravity plugin manifest at `plugin.json` and the root SessionStart hook manifest at `hooks.json`.
+Install Flow through Antigravity's native Plugins & Skills flow. Flow ships the
+plugin manifest at `plugin.json`, the model-decision rule under `rules/`, and
+the static PreInvocation routing manifest at `hooks/hooks-agy.json`.
 
 After installing or updating the plugin, restart Antigravity so the plugin manifest, skills, agents, and hooks are reloaded.
 
@@ -38,7 +43,9 @@ claude plugin marketplace add cofin/flow
 claude plugin install flow@flow-marketplace
 ```
 
-This installs Flow at user scope (`~/.claude/plugins/...`). Restart Claude Code after install. The plugin ships skills, commands, and hooks; Claude-specific subagents remain optional and are not bundled in the current release.
+This installs Flow at user scope (`~/.claude/plugins/...`). Restart Claude Code
+after install. The plugin ships skills, commands, hooks, and all current Flow
+subagents, including the read-only quality reviewer.
 
 <!-- markdownlint-disable -->
 <details>
@@ -110,6 +117,10 @@ OpenCode supports npm plugins and local plugin files. Flow currently ships OpenC
 
 OpenCode also discovers skills from `.opencode/skills/`, `.claude/skills/`, and `.agents/skills/`, so Flow-compatible project-local skills do not require a global plugin install.
 
+OpenCode Flow slash commands require the project templates under
+`templates/opencode/commands/`. Without configured templates, invoke the
+discovered Flow skill in natural language.
+
 <!-- markdownlint-disable -->
 <details>
 <summary>Recommended OpenCode settings</summary>
@@ -136,7 +147,7 @@ Cursor consumes Flow through project rules and shared repository instructions:
 
 - `.cursor/rules/flow.mdc`
 - `AGENTS.md`
-- project-local skills when copied or linked into `.agents/skills/`
+- project-local operational skills in `.agents/skills/`
 
 Do not install Flow through a repository `.cursor-plugin/plugin.json`; Flow does not ship a Cursor plugin manifest until Cursor exposes a stable documented plugin API for this use case.
 
@@ -170,8 +181,8 @@ OpenClaw should consume Flow through runtime skill discovery and its native `ses
 # Claude Code
 /flow-setup
 
-# Antigravity / OpenCode
-/flow:setup
+# Antigravity / configured OpenCode command templates
+/flow-setup
 ```
 
 In Codex CLI, ask: `Use Flow to set up this project`
@@ -189,8 +200,8 @@ Flow will:
 # Claude Code
 /flow-prd "Add user authentication"
 
-# Antigravity / OpenCode
-/flow:prd "Add user authentication"
+# Antigravity / configured OpenCode command templates
+/flow-prd "Add user authentication"
 ```
 
 In Codex CLI, ask: `Use Flow to create a PRD for add user authentication`
@@ -201,7 +212,9 @@ This creates a new specification bundle under `.agents/bundles/specs/<flow_id>/`
 - `learnings.md` (per-flow discoveries log)
 - `tasks/` directory to store individual task markdown files
 
-> Flow uses a unified `spec.md` implementation plan. Task statuses are tracked inside individual task files under `tasks/*.md` using YAML frontmatter. Run `/flow:sync` to reconcile `spec.md` checklists with the task files.
+> Flow uses a unified `spec.md` implementation plan. Task state lives in the
+> individual `tasks/*.md` files and is reconciled through the file-tool-only
+> `flow-reconciler`; no Flow executable is installed.
 
 ### Implement
 
@@ -209,23 +222,23 @@ This creates a new specification bundle under `.agents/bundles/specs/<flow_id>/`
 # Claude Code
 /flow-implement auth
 
-# Antigravity / OpenCode
-/flow:implement auth
+# Antigravity / configured OpenCode command templates
+/flow-implement auth
 ```
 
 In Codex CLI, ask: `Use Flow to implement auth`
 
 Flow follows a TDD workflow:
 
-1. Select the next ready task from `spec.md`
-2. Claim the task: update `state` to `in_progress` in `tasks/<short_id>.md` and immediately reconcile `spec.md` (`/flow:sync`)
+1. Select the next ready authoritative task worksheet
+2. Claim it through a revision-guarded `flow-reconciler` transaction
 3. Write failing tests (Red)
 4. Implement code to pass tests (Green)
 5. Refactor while tests pass
 6. Commit the task changes: `<type>(<scope>): <description>`
-7. Close the task: update `state` to `closed` and set `commit: <sha>` in the task frontmatter
+7. Close the task through the state sidecar and record the commit
 8. Record learnings inside the task file under `## Notes & Discoveries`
-9. Immediately reconcile the checklist (`/flow:sync`), appending the commit SHA `[<sha>]` to the `spec.md` task entry — the markdown task list is always kept current
+9. Reconcile the derived checklist in the same task-first/spec-last transaction
 
 ## Commands
 
@@ -249,24 +262,18 @@ Codex plugins do not currently expose plugin-defined `/flow:*` slash commands. O
 ```text
 project/
 ├── .agents/
-│   ├── product.md           # Product vision and goals
-│   ├── product-guidelines.md # Brand/style guidelines
-│   ├── tech-stack.md        # Technology choices
-│   ├── workflow.md          # Development workflow (TDD, commits)
-│   ├── patterns.md          # Consolidated learnings
 │   ├── index.md             # File resolution index
-│   ├── code-styleguides/    # Language style guides
 │   ├── bundles/
-│   │   ├── knowledge/       # Persistent knowledge base
-│   │   │   ├── index.md      # Quick reference index
-│   │   │   └── {flow_id}.md  # Per-flow detailed learnings
+│   │   ├── product/         # Product identity and technology
+│   │   ├── knowledge/       # Recursively nested current-state knowledge
+│   │   ├── research/        # Pre-plan research
 │   │   └── specs/
 │   │       └── <flow_id>/   # e.g., user-auth/
 │   │           ├── spec.md   # Unified spec + plan
 │   │           ├── learnings.md
 │   │           └── tasks/    # Task definitions
 │   │               └── 1.1.md
-│   └── archive/             # Completed flows
+│   └── skills/              # Sole project operational-skill root
 ```
 
 </details>
@@ -349,18 +356,10 @@ If `.agents/skills/flow-memory-keeper/SKILL.md` exists, use it at sync, archive,
 <summary>Skills library</summary>
 <!-- markdownlint-restore -->
 
-Flow includes 50+ technology-specific skills in `skills/`:
-
-| Category | Skills |
-|----------|--------|
-| **Frontend** | React, Vue, Svelte, Angular, TanStack |
-| **Backend** | Litestar, Rust, PyO3, napi-rs |
-| **Database** | SQLSpec, Advanced Alchemy, pytest-databases |
-| **Testing** | pytest, Vitest, testing patterns |
-| **Infrastructure** | GKE, Cloud Run, Railway |
-| **Tools** | Vite, Tailwind, Shadcn, HTMX |
-
-Copy to your CLI's skills directory for auto-activation.
+Flow's `skills/` tree is the canonical packaged skill source. In consumer
+projects, `.agents/skills/` is the sole operational project-skill authority;
+`.agents/bundles/` remains reserved for OKF product, knowledge, research, and
+specification documents.
 
 </details>
 

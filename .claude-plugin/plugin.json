@@ -32,6 +32,7 @@
     "./agents/executor.md",
     "./agents/flow-reconciler.md",
     "./agents/plan-generator.md",
-    "./agents/prd-orchestrator.md"
+    "./agents/prd-orchestrator.md",
+    "./agents/quality-reviewer.md"
   ]
 }

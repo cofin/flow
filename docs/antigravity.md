@@ -1,64 +1,57 @@
 # Installing Flow for Antigravity
 
-Flow treats Antigravity as a first-class plugin harness.
+Flow is a first-class Antigravity plugin. Install it through Antigravity's
+native Plugins & Skills installer, then restart Antigravity after installation
+or update so the manifest, rule, hook, agents, and skills reload.
 
-## Shipped plugin files
+## Shipped surfaces
 
-| Asset | File | Purpose |
+| Asset | Source | Purpose |
 |---|---|---|
-| Plugin manifest | `plugin.json` | Antigravity plugin identity and metadata |
-| Hook manifest | `hooks/hooks-agy.json` | `PreInvocation` priming hook registration |
-| Hook implementation | `hooks/agy-pre-invocation.sh` (+ `.ps1` twin) | Once-per-conversation OKF bundle context injection |
-| Context generator | `hooks/detect-env.sh` (+ `.ps1` twin) | Renders project purpose, invariants, active flows, and skills from `.agents/bundles/` |
-| Subagents | `agents/*.md` + `templates/antigravity/agents/flow-reconciler.md` | Flow lifecycle agents and the reconciler sidecar |
-| Skills | `skills/**/SKILL.md` | Agent Skills-compatible Flow and technology skills |
+| Plugin manifest | `plugin.json` | plugin identity and metadata |
+| Operational rule | `rules/flow-antigravity.md` | `model_decision` activation and structured-choice view |
+| Hook manifest | `hooks/hooks-agy.json` | static `PreInvocation` routing registration |
+| Hook emitter | `hooks/agy-pre-invocation.sh` | one bounded fixed JSON envelope |
+| Subagents | `agents/*.md` | canonical lifecycle, state, correctness, and quality agents |
+| Skills | `skills/**/SKILL.md` | Flow router and lifecycle procedures |
 
-## How priming works
+Antigravity has no SessionStart event, so Flow uses `PreInvocation`. The
+manifest target emits a fixed instruction to read the configured Flow index and
+state contract. It does not scan tasks, read project state, call a helper, or
+synthesize a continuation packet. Agents reconstruct continuity directly from
+tracked Markdown.
 
-Antigravity has **no SessionStart hook event** — its events are `PreToolUse`, `PostToolUse`, `PreInvocation`, `PostInvocation`, and `Stop`. Flow therefore registers a `PreInvocation` hook. On the conversation's first model invocation it emits:
+## Structured decisions
 
-```json
-{"injectSteps": [{"ephemeralMessage": "<project context markdown>"}]}
-```
+Antigravity's verified native question tool is `ask_question`. For every
+Flow-normalized binary, single-select, or multi-select decision with 2-4 domain
+choices, custom input, omit-disabled behavior, and valid bounds, Flow **must
+use** `ask_question` when the tool is declared and allowed.
 
-and on every later invocation an empty `injectSteps` array. Idempotence comes from the stdin payload's `invocationNum` plus a marker file keyed by `conversationId` under `artifactDirectoryPath`. The hook is pure shell (sh on POSIX, PowerShell on Windows), always exits 0, and stays well inside the default 30-second hook timeout.
+If `ask_question` is absent, denied, or incompatible with the request, Flow
+renders the same `structured-choice-v1` request sequentially in text and waits
+for the answer. The fallback preserves the recommended-first choice,
+descriptions, multi-select bounds, disabled-choice omission, and `Other` custom
+answer. Open input is always sequential text. Flow never invents a tool
+argument or batches logical decisions.
 
-The hook manifest uses Antigravity's named-hook format:
+## Project authority and state
 
-```json
-{
-  "flow-priming": {
-    "PreInvocation": [
-      {
-        "type": "command",
-        "command": "bash \"${PLUGIN_ROOT:-${ANTIGRAVITY_PLUGIN_ROOT:-.}}/hooks/agy-pre-invocation.sh\"",
-        "timeout": 25
-      }
-    ]
-  }
-}
-```
+Operational project skills live only under `.agents/skills/`. Product,
+knowledge, research, and specs live under the configured OKF bundle root;
+knowledge chapters may be recursively nested. The `flow-reconciler` applies
+`flow-state-v1` with ordinary file read/write/edit tools. Consumer state has no
+Python, shell, PowerShell, database, daemon, or Flow executable dependency.
 
-## Install
+## Usage and validation
 
-Antigravity has two surfaces, installed differently:
+Antigravity's exact command spellings are the `/flow-*` values in the
+[harness conformance matrix](harness-conformance-matrix.md). After correctness
+review, finish and archive always require a fresh read-only quality review on
+the exact Git range.
 
-- **Antigravity CLI**: install Flow through the CLI's extension/plugin installer — hooks, agents, and skills ship with the plugin; no manual file placement.
-- **Antigravity IDE**: use the native Plugins & Skills installer for the `cofin/flow` repository. Do not install Flow by copying directories or creating symlinks.
-
-Workspace-level pieces live in Antigravity's customization directory, which is `.agents/` — the same root Flow already uses:
-
-- hook config (IDE/workspace): `.agents/hooks.json` (contents of `hooks/hooks-agy.json`), or globally at `~/.gemini/config/`; a nonstandard location can be set via `hooks_dir` in `.agents/config.json`
-- subagents: `.agents/agents/<name>.md` (workspace) or `~/.gemini/config/agents/` (global)
-
-Install the `flow-reconciler` sidecar from `templates/antigravity/agents/flow-reconciler.md` into `.agents/agents/` so `/flow:sync` and `/flow:status` work can run in a clean-context subagent instead of the main conversation.
-
-After install or update, restart Antigravity so it reloads `plugin.json`, hooks, agents, and skills.
-
-## Validate
+Repository maintainers validate the shipped surfaces with:
 
 ```bash
 make validate
 ```
-
-The consolidated validator checks the Antigravity plugin manifest, the named-hook config (including that only real Antigravity events are registered and no hook command requires Python), and the shared agent surfaces.

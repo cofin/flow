@@ -77,7 +77,10 @@ Documents such as `workflow.md`, `patterns.md`, and `tech-stack.md` SHOULD use m
 - **Start Marker:** `<!-- truth: start -->`
 - **End Marker:** `<!-- truth: end -->`
 
-The `SessionStart` hook (`detect-env.sh`) prioritized content between these markers. If missing, it falls back to basic extraction (e.g., first 10 list items).
+SessionStart-compatible hooks emit only a bounded static instruction to read the
+configured index and state contract. They do not inspect truth markers, scan
+tasks, or synthesize continuity. Antigravity uses an equivalent direct static
+PreInvocation envelope because it has no SessionStart event.
 
 ### Project Identity & Index
 
@@ -146,7 +149,7 @@ Every harness falls into one of three tiers:
 
 | Harness | Tier | Entry Point | Notes |
 | --- | --- | --- | --- |
-| **Antigravity** | first-class | `plugin.json` + `hooks.json` + `agents/*.md` + `skills/` | Primary plugin surface with skills, hooks, and shared Markdown subagents. |
+| **Antigravity** | first-class | `plugin.json` + `rules/` + `hooks/hooks-agy.json` + `agents/*.md` + `skills/` | Primary plugin surface with model-decision rules, static routing, skills, and shared Markdown subagents. |
 | **Claude Code** | first-class | `.claude-plugin/plugin.json` + `.claude-plugin/marketplace.json` + `agents/*.md` | Full plugin with skills, commands, hooks, and shared Markdown subagents. |
 | **Codex CLI** | first-class | `.codex-plugin/plugin.json` + `.codex/agents/*.toml` + `.codex/config.toml` | Custom agents ship as pure TOML (tools inherited from session). |
 | **OpenCode** | compatible bundle | `.opencode/plugins/flow.js` + `.opencode/agents/*.md` + native `.claude/skills/` / `.agents/skills/` reads | Project files and skills; no global install is advertised until an npm plugin is published. |
@@ -166,7 +169,7 @@ Every harness falls into one of three tiers:
 | Subagents (Antigravity / Claude Code plugin) | `agents/<agent-name>.md` (portable Markdown, slug `name`, required `description`, harness-specific tool lists omitted) |
 | Subagents (OpenCode) | `.opencode/agents/<agent-name>.md` (`tools` as dict mapping + `mode: subagent`) |
 | Subagents (VS Code / Copilot) | `.github/agents/<agent-name>.agent.md` |
-| Hooks | `hooks/*.json` + `hooks/session-start` |
+| Hooks | host manifests under `hooks/*.json` plus direct fixed-envelope entrypoints |
 | Templates | `templates/skill-template/` |
 
 ## First-Party Skill Repositories
@@ -192,7 +195,12 @@ The following external repositories provide comprehensive, harness-verified skil
 
 ## Commands
 
-**Harness note:** Claude Code exposes `commands/flow-*.md` as `/flow-*`. Antigravity derives slash commands from installed skills. Harnesses that consume `commands/flow/*.toml` use `/flow:<command>` semantics. OpenCode uses project command files or config-defined commands when installed, and otherwise receives Flow through the plugin context and skills. Codex currently runs the same workflows through the installed Flow skill and plain-language requests rather than plugin-defined slash commands.
+**Harness note:** Claude Code and Antigravity use the contract spellings
+`/flow-*`. OpenCode uses those spellings only when the project installs the
+templates under `templates/opencode/commands/`; otherwise it receives Flow
+through plugin context and skills. Codex has no plugin-defined Flow slash
+commands and uses the contract's natural-language requests. Cursor, VS Code /
+Copilot, and OpenClaw also use natural-language requests.
 
 **Lifecycle routing:** Keep `flow` as the small router skill. After it triggers, load the specific lifecycle skill: `flow-setup` for initialization and validation, `flow-planning` for PRD/spec/refine/revise/research/task work, `flow-execution` for implementation and TDD, `flow-sync-status` for sync/status/refresh/cleanup, and `flow-completion` for review/finish/archive/revert/docs.
 
