@@ -10,16 +10,25 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = []
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
-  "ruff>=0.7",
+  { include-group = "lint" },
+  { include-group = "test" },
+  { include-group = "build" },
+]
+lint = [
   "mypy>=1.11",
   "pyright>=1.1.380",
+  "ruff>=0.7",
+  "types-pyyaml>=6.0",
+]
+test = [
   "pytest>=8.0",
   "pytest-cov>=5.0",
-  "bump-my-version>=0.28",
   "pyyaml>=6.0",
-  "types-pyyaml>=6.0",
+]
+build = [
+  "bump-my-version>=0.28",
 ]
 
 [tool.bumpversion]
