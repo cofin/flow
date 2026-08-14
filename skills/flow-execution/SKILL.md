@@ -10,9 +10,9 @@ Use this lifecycle skill when implementation starts after a Flow plan or ready t
 ## Workflow
 
 1. **Read Configuration:** Check `use_branched_workspaces` in `.agents/config.json` (default to `false` if missing).
-2. **Select Ready Work:** Select ready work from `.agents/bundles/specs/<flow_id>/tasks/*.md` (YAML frontmatter `state: open` and dependencies resolved) and claim it (state to `in_progress`).
+2. **Select Ready Work:** Select ready work from `.agents/bundles/specs/<flow_id>/tasks/*.md` (YAML frontmatter `state: open` and dependencies resolved). **Refinement gate:** if the task file is a stub (missing its Objective/Context/Steps/Verification/Acceptance Criteria worksheet sections), do NOT execute it — route through `flow-refine` first. Claim the task (state to `in_progress`) only once its worksheet is Ready.
 3. **Determine Execution Strategy:**
-   - **Branched Workspace (Delegated):** If `use_branched_workspaces` is `true` and the harness supports it, spawn a subagent with `Workspace='branch'`. Pass the selected task, spec, and project context. The subagent follows the same rules as inline execution — TDD, notes in the task file, close with `state: closed` + commit SHA, immediate checklist reconciliation — and reports back.
+   - **Branched Workspace (Delegated):** If `use_branched_workspaces` is `true` and the harness supports it, spawn a subagent with `Workspace='branch'`. Dispatch ONE task per subagent — feed it only the task worksheet verbatim, the spec's relevant phase excerpt, applicable patterns/knowledge excerpts, and the canonical verification commands (never the whole spec tree). The subagent follows the worksheet exactly — no improvisation or scope changes; if the worksheet is insufficient it stops and reports the gap — plus the same rules as inline execution: TDD, notes in the task file, close with `state: closed` + commit SHA, immediate checklist reconciliation. Verify its evidence before dispatching the next task.
    - **Inline Execution:** Otherwise, proceed with inline execution in the current workspace:
      - Read the relevant spec, task notes, patterns, affected files, and validation commands.
      - Record investigation findings directly inside the task file's `## Notes & Discoveries` section.

@@ -296,6 +296,40 @@ commit: null                    # 7+ hex commit SHA once closed
 - **`created_at` / `updated_at`**: Valid ISO-8601 timestamps.
 - **`commit`**: The commit SHA once the task is `closed`.
 
+### Worksheet Standard (task file body)
+
+The frontmatter carries state; the body is the **worksheet** — the complete instructions for executing the task. A planning artifact (PRD or plan) is NOT finished while any of its tasks is an unrefined stub: every task file must carry a worksheet with these sections before the flow may be implemented:
+
+```markdown
+# Task <short_id>: <title>
+
+## Objective
+One or two sentences defining what done means.
+
+## Context
+Exact files to touch (paths), relevant patterns/knowledge excerpts, and prior decisions the executor needs.
+
+## Steps
+Numbered, exact implementation steps — file-level edits, function/symbol names, code snippets or line references where they remove ambiguity.
+
+## Verification
+Exact commands to run and their expected outcomes; tests to add or update.
+
+## Acceptance Criteria
+Checkable statements a reviewer can verify without asking questions.
+```
+
+**Ready gate (Stateless Executor Test):** a task is *Ready* only when a zero-context agent could implement it 100% correctly from the worksheet alone. Task files scaffolded by sync (frontmatter + title only) are stubs, not Ready — they must pass through refinement before execution.
+
+### Subagent Dispatch Protocol (small chunks, follow the script)
+
+When execution is delegated to a subagent (any harness — Antigravity, Claude, Codex, OpenCode):
+
+1. **One task per subagent invocation.** Never batch multiple tasks or a whole phase into one dispatch.
+2. **Feed only the chunk it needs:** the task worksheet verbatim, the spec's relevant phase excerpt, applicable patterns/knowledge excerpts, and the canonical verification commands — never the entire PRD or spec tree.
+3. **The subagent follows the worksheet exactly.** No improvisation, no scope changes, no descoping. If the worksheet is wrong or insufficient, the subagent STOPS and reports the gap for refinement instead of guessing.
+4. After each task returns: verify evidence, reconcile the checklist, then dispatch the next task.
+
 ### Task Notes & Discoveries
 
 To capture learnings and debug findings, append notes to the bottom of the task file under a `## Notes & Discoveries` heading:

@@ -14,6 +14,7 @@ Use this lifecycle skill for PRDs, research, single-flow planning, refinement, r
 3. Create PRDs as roadmap epics and single-flow specs as implementation worksheets.
 4. Refine until tasks include concrete files, behavior, tests, commands, and acceptance criteria.
 5. Write the spec checklist and one `tasks/<short_id>.md` file per task (OKF frontmatter: `type: Task`, `id`, `title`, `state: open`, `depends_on`, `files`, `tests`, timestamps), then reconcile the checklist markers.
+6. **Refine every task before declaring the plan done (MANDATORY):** each task file's body must be a complete worksheet (Objective, Context, Steps, Verification, Acceptance Criteria) that passes the Stateless Executor Test. A PRD or plan with stub task files is unfinished — do not present it as ready.
 
 ## Interrogate Before Finalizing (Grill)
 
@@ -30,6 +31,7 @@ Before locking a PRD, spec, or refined worksheet, interrogate the plan until eve
 ## Guardrails
 
 - Planning must be decision-complete; do not defer obvious research to implementation.
+- A plan is not Ready while any task file lacks its worksheet sections; refinement is part of planning, not an optional follow-up.
 - Ask only product or tradeoff questions that cannot be answered from the repo.
 - Store plans under `.agents/bundles/specs/<flow_id>/`, not ad hoc docs paths.
 - Do not modify production code during planning.
@@ -37,7 +39,8 @@ Before locking a PRD, spec, or refined worksheet, interrogate the plan until eve
 ## Validation
 
 - Confirm every requirement maps to an implementation task and test scenario.
-- Confirm tasks are small enough for a low-context executor to complete without guessing.
+- Confirm tasks are small enough for a low-context executor to complete without guessing — each task is one small, dispatchable chunk.
+- Confirm every task file carries Objective, Context, Steps, Verification, and Acceptance Criteria sections.
 - Run spec review or code-reviewer validation before presenting final planning artifacts when available.
 
 ## References Index
