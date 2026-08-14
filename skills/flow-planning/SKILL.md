@@ -5,12 +5,11 @@ description: "Use when drafting PRDs, researching, planning, refining, revising,
 
 # Flow Planning
 
-Use this lifecycle skill for PRDs, research, single-flow planning, refinement, revisions, and task creation.
+<!-- lifecycle-ownership: owner=flow-planning; operations=prd,plan,refine,revise,research,task -->
 
-`skills/flow/references/interaction.md` is the sole procedure authority for
-every human decision and approval/refinement gate. `skills/flow/references/state.md`
-is the authority for plan identity and Markdown mutations. Apply both with
-ordinary agent tools; installed workflows never call a planning evaluator.
+## Trigger
+
+Use for `prd|plan|refine|revise|research|task`.
 
 <!-- planning-contract: structured-choice-v1 -->
 ```yaml
@@ -30,86 +29,47 @@ planning_loop:
 
 ## Workflow
 
-1. **Close research.** Read project context, knowledge, existing specs, source,
-   tests, CI, and relevant current external documentation. Resolve
-   repository-answerable questions instead of deferring them to implementation.
-   Ask only product/trade-off decisions, one at a time, through
-   `structured-choice-v1`.
-2. **Draft.** Create PRDs as roadmap specs and single-flow specs as executable
-   worksheets. Include explicit requirement-to-task/test traceability and one
-   complete authoritative task file per checklist item.
-3. **Scan gaps.** Deterministically reject deferred research, unresolved
-   decisions, stub bodies, vague verification, missing verification strategies,
-   overlapping ownership, missing requirement coverage, or a task too large
-   for one invocation and one commit.
-4. **Refine.** Resolve one gap at a time. Research facts, ask the next
-   structured decision when required, and split/rewrite tasks until all include
-   concrete files, behavior, tests, commands, expected outcomes, and acceptance
-   criteria.
-5. **Update revision.** When plan-bearing content changes, apply one `revise`
-   transaction: increment `plan_revision`, copy it to the spec and every task,
-   clear `plan_commit`, and rerun validation. Preserve identity when no plan
-   content changed; only a verified plan-bind checkpoint updates `plan_commit`.
-6. **Review.** Request a fresh `code-reviewer` result, apply all actionable
-   findings, update/revalidate, and request fresh review. Stop after three
-   external rounds; unresolved Critical/Important findings return `blocked`
-   with their exact list and require user direction. Never label that plan
-   Ready.
-7. **Gate with the user.** Before quality passes offer only `Revise|Refine`;
-   after it passes offer exactly `Approve|Revise|Refine`. Put the contextual
-   recommendation first. Approve advances; Revise asks one
-   `open(revision_details)` follow-up; Refine asks the next structured gap; both
-   edit, update identity as applicable, revalidate, and re-present. Cancellation
-   stops without approval.
-8. Reconcile `spec.md` checklist state from authoritative task files. Never
-   persist an unapproved crucial artifact as approved.
-
-## Interrogate Before Finalizing (Grill)
-
-Before locking a PRD, spec, or refined worksheet, interrogate the plan until every decision branch is resolved. This is how Flow meets the Zero-Ambiguity Standard and the Stateless Executor Test — apply it in `flow-prd`, `flow-plan`, and especially `flow-refine`.
-
-- Ask **one question at a time** through `structured-choice-v1` and wait for its
-  normalized result before the next. Walk the decision tree top-down.
-- For **every** question, give your **recommended answer** and the trade-off, so the user confirms rather than composes from scratch.
-- If a question is answerable from the repo, **explore the codebase / `patterns.md` / `knowledge/` / `tech-stack.md` instead of asking**. Only ask product or trade-off questions a human must decide.
-- Challenge the plan against the project's **domain language**: reuse the terminology already in `patterns.md` and `knowledge/` chapters, and flag/resolve term conflicts before finalizing.
-- Record decisions that are **hard to reverse, surprising, and a real trade-off** into `knowledge/` (or `learnings.md`); skip low-value notes.
-- Stop only when no open branch remains, a zero-context executor could
-  implement from the artifact alone, the current revision has passed review,
-  and the user selected Approve.
-- The finished spec/worksheet doubles as a **handoff**: reference existing artifacts (PRD, patterns, knowledge, affected files) rather than duplicating them, and name the next skill to invoke. (If the harness exposes `grill-me` / `grill-with-docs` / `handoff` skills, you may invoke them to drive these steps; otherwise apply the discipline directly.)
+1. Close repository-answerable research; ask only unresolved product or
+   trade-off decisions through `structured-choice-v1`, one at a time.
+2. Draft traceable PRDs or executable specs with complete authoritative task
+   worksheets and exclusive one-invocation/one-commit ownership.
+3. Reject deferred facts, unresolved decisions, stubs, vague verification,
+   missing strategies, ownership overlap, coverage gaps, and oversized tasks.
+4. Refine one gap at a time. A plan-bearing change applies one `revise`
+   transaction, increments plan identity, updates every task, and revalidates.
+5. Request fresh review. Three rounds with unresolved Critical/Important
+   findings block Ready. Present `Approve|Revise|Refine` only after quality
+   passes; approval advances, revision/refinement loops and revalidates.
 
 ## Guardrails
 
-- Planning must be decision-complete; do not defer obvious research to implementation.
-- A plan is not Ready while any task file lacks its worksheet sections; refinement is part of planning, not an optional follow-up.
-- A task is not Ready without a declared verification strategy, exact
-  verification outcome, exclusive file ownership, and one-invocation/one-commit
-  scope.
-- Ask only product or tradeoff questions that cannot be answered from the repo.
-- Store plans under `.agents/bundles/specs/<flow_id>/`, not ad hoc docs paths.
-- Do not modify production code during planning.
+- Store plans only under `.agents/bundles/specs/<flow_id>/`.
+- Never modify production code or defer obvious research to implementation.
+- Do not label a plan Ready until a zero-context executor could run it exactly.
+
+## Output
+
+Return the current plan identity, review result, unresolved decisions, and exact
+next lifecycle action. Approved work names `flow-execution` as the handoff.
 
 ## Validation
 
-- Confirm every requirement maps to an implementation task and test scenario.
-- Confirm tasks are small enough for a low-context executor to complete without guessing — each task is one small, dispatchable chunk.
-- Confirm every task file carries Objective, Context, Steps, Verification, and Acceptance Criteria sections.
-- Run validation and a fresh code-reviewer round on the current plan revision.
-  Three unresolved Critical/Important rounds hard-block Ready.
+Confirm requirement-to-task/test traceability, worksheet completeness,
+verification strategy, exclusive ownership, bounded task size, fresh review,
+and explicit approval on the current revision.
 
-## References Index
+## Conditional References
 
 - [PRD](../flow/references/prd.md)
 - [Plan](../flow/references/plan.md)
 - [Research](../flow/references/research.md)
 - [Refine](../flow/references/refine.md)
-- [Interaction](../flow/references/interaction.md)
 - [Revise](../flow/references/revise.md)
 - [Task](../flow/references/task.md)
+- [Interaction](../flow/references/interaction.md)
+- [State](../flow/references/state.md)
 
 ## Example
 
-User: "Plan skill trigger optimization."
-
-Action: inspect current skills and validators, ask unresolved product tradeoffs, create a Flow spec with per-task bundle files, and refine until the implementation path is explicit.
+For a feature plan, close factual gaps, write complete worksheets, refine until
+the gap scan and review pass, then ask for approval on that exact revision.

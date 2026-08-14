@@ -2,6 +2,12 @@
 
 This document describes the lookup strategy used by the `apilookup` skill to answer API and documentation queries efficiently. The goal is to prefer fast, local knowledge first and escalate to web lookups only when necessary.
 
+## Contents
+
+- [Tier 1: local references](#tier-1-local-skill-references-instant-no-network)
+- [Tier 2: targeted lookup](#tier-2-targeted-web-lookup-stale-or-insufficient-local-refs)
+- [Tier 3: arbitrary lookup](#tier-3-arbitrary-lookup-no-matching-skill)
+
 ---
 
 ## Tier 1: Local Skill References (instant, no network)

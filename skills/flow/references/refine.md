@@ -6,6 +6,13 @@ Use `skills/flow/references/interaction.md` as the sole procedure authority for
 human decisions and approval/refinement gates. Execute the Markdown loop
 directly; never invoke a planning evaluator.
 
+## Contents
+
+- [Overview](#overview)
+- [Workflow](#workflow)
+- [Guardrails](#guardrails)
+- [Validation checkpoint](#validation-checkpoint)
+
 <!-- planning-contract: structured-choice-v1 -->
 ```yaml
 interaction_authority: skills/flow/references/interaction.md

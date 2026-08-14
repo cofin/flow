@@ -8,6 +8,14 @@ human decisions and approval/refinement gates. Execute these Markdown
 procedures directly with agent file/question tools; never route an installed
 workflow through a Python evaluator.
 
+## Contents
+
+- [Directive and workspace safety](#10-system-directive)
+- [Planning-only and integration constraints](#critical-constraint-planning-only---no-code-modification)
+- [Intelligence loop](#20-intelligence-injection-the-ralph-loop)
+- [Flow initialization](#30-new-flow-initialization)
+- [Critical rules](#critical-rules)
+
 <!-- planning-contract: structured-choice-v1 -->
 ```yaml
 interaction_authority: skills/flow/references/interaction.md

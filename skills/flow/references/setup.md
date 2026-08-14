@@ -5,6 +5,14 @@ Initialize a project for context-driven development backed by OKF v0.2 knowledge
 
 Use `presenting-install-menus` for concise install prompts.
 
+## Contents
+
+- [Environment detection and alignment](#phase-0-environment-detection)
+- [Project and context discovery](#phase-1-project-detection)
+- [Bundle creation and Git policy](#phase-4-create-the-bundle-skeleton)
+- [Harness policy and first flow](#phase-75-harness-policy-bootstrap-cross-harness)
+- [State, summary, and rules](#phase-9-save-state)
+
 ## Phase 0: Environment Detection
 
 **PROTOCOL: Before starting, check if the environment has already been detected via hooks.**

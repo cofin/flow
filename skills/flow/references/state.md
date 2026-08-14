@@ -7,6 +7,14 @@ Consumer agents perform every state operation and recovery with ordinary file re
 Completion and archive quality evidence follows `quality-review-v1` in
 [review.md](review.md). There is no installed quality-gate/evaluator module.
 
+## Contents
+
+- [Roots, enums, and documents](#root-resolution)
+- [Git note evidence and identity](#supplementary-git-note-evidence)
+- [Operations and identifiers](#exact-operation-contract)
+- [Journal and payload schemas](#journal-contract)
+- [Continuity and transaction protocol](#direct-read-continuity-contract)
+
 ## Root resolution
 
 `<configured-root>` is the normalized repository-relative `root_directory` read from `.agents/setup-state.json`, or `.agents/` when that file is absent. `<bundle-root>` is `bundles_dir` from `<configured-root>/config.json`, resolved relative to `<configured-root>`, or `<configured-root>/bundles` by default. `<flow-root>` is `<bundle-root>/specs/<flow_id>`.

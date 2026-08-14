@@ -7,6 +7,14 @@ human decisions and approval/refinement gates, and
 Execute the procedure directly with agent file/question tools; never route an
 installed workflow through a Python evaluator.
 
+## Contents
+
+- [Directive and workspace safety](#10-system-directive)
+- [Complexity and intelligence](#20-complexity-analysis)
+- [Problem analysis](#35-problem-analysis-interactive)
+- [Roadmap and bundle creation](#40-roadmap-generation)
+- [Artifact creation and rules](#70-artifact-creation)
+
 <!-- planning-contract: structured-choice-v1 -->
 ```yaml
 interaction_authority: skills/flow/references/interaction.md

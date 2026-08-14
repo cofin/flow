@@ -437,21 +437,28 @@ def test_repo_uses_supported_cursor_surface() -> None:
 
 
 def test_repo_harness_native_agent_surfaces_validate() -> None:
-    expected = {
+    generated_expected = {
         "code-reviewer",
         "executor",
         "flow-reconciler",
         "plan-generator",
         "prd-orchestrator",
     }
+    canonical_expected = generated_expected | {"quality-reviewer"}
 
-    assert {path.stem for path in validate_skills.iter_antigravity_agents()} == expected
-    assert {path.stem for path in validate_skills.iter_codex_agents()} == expected
-    assert {path.stem for path in validate_skills.iter_opencode_agents()} == expected
+    assert {
+        path.stem for path in validate_skills.iter_antigravity_agents()
+    } == canonical_expected
+    assert {
+        path.stem for path in validate_skills.iter_codex_agents()
+    } == generated_expected
+    assert {
+        path.stem for path in validate_skills.iter_opencode_agents()
+    } == generated_expected
     assert {
         path.stem.removesuffix(".agent")
         for path in validate_skills.iter_vscode_agents()
-    } == expected
+    } == generated_expected
 
     violations = []
     for agent_path in validate_skills.iter_antigravity_agents():

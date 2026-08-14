@@ -5,52 +5,49 @@ description: "Use when a repository has .agents, when the user asks for Flow lif
 
 # Flow Router
 
-Flow coordinates Context-Driven Development in `.agents/` repositories. Keep this skill small: use it to identify the active lifecycle phase, enforce the bundle-first invariants, and load the matching lifecycle skill.
+<!-- lifecycle-ownership: owner=flow; operations= -->
 
-> **Flow is a skill, not a CLI.** There is no `flow` executable. Never run `flow`, `flow sync`, `flow prd`, etc. as shell commands. Invoke this skill (or the matching lifecycle skill), or use the `/flow:*` slash commands where the harness supports them.
->
-> **Task state lives in files.** Specs and tasks are OKF v0.2 bundle files under `.agents/bundles/specs/<flow_id>/` (`spec.md` + `tasks/<short_id>.md`). Task files are the source of truth; the `spec.md` checklist is a synchronized view. There is no task database or CLI.
+## Trigger
+
+Use Flow when `.agents/` exists, task bundles live under
+`.agents/bundles/specs/`, or the request names a Flow lifecycle action. Flow is
+a skill, not a CLI; never run `flow` as a shell command.
 
 ## Workflow
 
-1. Resolve the configured Flow root and read the project index. After compaction, handoff, or session loss, reconstruct authority by following the [normative state contract](references/state.md) directly; hook/plugin context is routing only.
-2. Route the request:
-   - Setup, validation, install, context initialization: use `flow-setup`.
-   - PRD, research, plan, refine, revise, task creation: use `flow-planning`.
-   - Implement, claim ready tasks, TDD, commit, task close: use `flow-execution`.
-   - Sync, status, refresh, cleanup, context drift: use `flow-sync-status`.
-   - Review, finish, archive, revert, docs, phase completion: use `flow-completion`.
-3. Record durable discoveries in the owning task file's `## Notes & Discoveries` section and task state in its `state:` frontmatter.
-4. Prefer repo-native commands from `.agents/bundles/knowledge/workflow.md` or hook context for validation.
+Route exactly one operation family to its owning lifecycle skill:
+
+- `setup` -> `flow-setup`
+- `prd|plan|refine|revise|research|task` -> `flow-planning`
+- `implement` -> `flow-execution`
+- `sync|status|refresh` -> `flow-sync-status`
+- `review|finish|archive|revert|docs|cleanup|validate` -> `flow-completion`
+
+The router owns no operation and performs no lifecycle procedure.
 
 ## Guardrails
 
-- Never edit task markers (`[ ]`, `[~]`, `[x]`, `[!]`, `[-]`) in `spec.md` without the matching task-file `state:` change; reconcile via `/flow:sync` rules.
-- Store Flow specs and planning artifacts under `.agents/bundles/specs/<flow_id>/`.
-- Workflow state belongs in the `state:` frontmatter key; the OKF `status:` key is reserved for document lifecycle (draft, stable, deprecated).
-- Never substitute hook, plugin, interpreter, or synthesized context for the direct reads required by the [state contract](references/state.md).
-- Make minimal targeted changes and record findings in the task file when work exceeds a quick fix.
-- Do not commit, stage, or push automatically unless the user asks.
+- Load only the selected lifecycle skill; let it link the required contracts.
+- Treat hook or conversation context as routing hints, never task-state authority.
+- Preserve unrelated work and never push or mutate Git tags automatically.
+
+## Output
+
+Name the selected lifecycle skill and hand off the unchanged request.
 
 ## Validation
 
-- For planning: verify the plan is decision-complete before presenting it.
-- For implementation: verify red-green-refactor evidence, full relevant tests, and task-file closure (`state: closed` + commit SHA) before claiming completion.
-- For sync/status: read the bundle files first and report drift instead of guessing.
-- For this repository: run `make validate` and `make codex-package-check` after skill or command changes.
+Confirm exactly one lifecycle owner matches the requested operation.
 
-## References Index
+## Conditional References
 
 - [Setup](../flow-setup/SKILL.md)
 - [Planning](../flow-planning/SKILL.md)
 - [Execution](../flow-execution/SKILL.md)
-- [Sync and Status](../flow-sync-status/SKILL.md)
+- [Sync and status](../flow-sync-status/SKILL.md)
 - [Completion](../flow-completion/SKILL.md)
-- [Discipline](references/discipline.md)
-- [Normative state and continuity contract](references/state.md)
 
 ## Example
 
-User: "Use Flow to implement the current spec."
-
-Action: load `flow-execution`, claim a ready task by setting its file to `state: in_progress`, add investigation notes, follow TDD, close the task with evidence and the commit SHA, then reconcile the spec checklist.
+For “implement the current spec,” route to `flow-execution` without applying a
+claim, editing a task, or loading completion procedures in the router.

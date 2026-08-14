@@ -3,6 +3,14 @@
 
 Execute each task exactly from its worksheet using the declared verification strategy.
 
+## Contents
+
+- [Worksheet execution contract](#worksheet-execution-contract)
+- [Context and task selection](#phase-1-load-context)
+- [Task execution and commit](#phase-3-task-execution)
+- [Close and checkpoint](#phase-5-close-task)
+- [Parallel mode and critical rules](#parallel-task-execution-mode)
+
 ## Usage
 
 `flow-implement {flow_id}` or `flow-implement` (uses current flow)
@@ -136,8 +144,7 @@ stale target fails closed.
 
 Every lifecycle mutation is an explicit request to `flow-reconciler` under the
 Flow state contract. The executor never edits task/spec state fields or
-checklist markers directly and never stores an `implement_state.json` or other
-hidden execution-state copy.
+checklist markers directly and never stores a hidden execution-state copy.
 
 ## Phase 1: Load Context
 
@@ -154,7 +161,7 @@ hidden execution-state copy.
     - Scan task files under `.agents/bundles/specs/{flow_id}/tasks/*.md`.
 
 **CRITICAL:** Before starting, check whether `.agents/` is ignored by git. If it is ignored via `.gitignore`, `.git/info/exclude`, or global ignores, do NOT commit changes to artifacts inside it using git. Update them on disk only.
-Extract canonical repo commands from `.agents/workflow.md` before coding. Prefer the documented setup, lint, test, typecheck, and full verification commands when they exist.
+Extract canonical repo commands from `.agents/bundles/knowledge/workflow.md` before coding. Prefer the documented setup, lint, test, typecheck, and full verification commands when they exist.
 
 ## Phase 2: Select Task
 
@@ -352,5 +359,5 @@ If continuing, loop back to Phase 2.
 7. **LOG LEARNINGS** — Capture patterns as you go
 8. **LOCAL ONLY** — Never push automatically
 9. **CODE REVIEW** — Dispatch review at phase checkpoints. Fix Critical/Important before proceeding.
-10. **USE CANONICAL REPO COMMANDS** — Prefer the commands documented in `.agents/workflow.md`
+10. **USE CANONICAL REPO COMMANDS** — Prefer the commands documented in `.agents/bundles/knowledge/workflow.md`
 11. **BE COLLABORATIVE** — Describe unrelated blockers factually and constructively; never use dismissive ownership-deflecting language

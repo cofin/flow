@@ -3,6 +3,14 @@
 
 Consolidated enforcement rules for change-appropriate verification, debugging, and fresh evidence. Every task declares and justifies one strategy before implementation.
 
+## Contents
+
+- [Verification strategies](#verification-strategy-contract)
+- [Debugging](#debugging-iron-law)
+- [Fresh evidence](#verification-iron-law)
+- [Critical thinking and review](#critical-thinking-iron-law)
+- [Subagent orchestration](#subagent-orchestration)
+
 ## Verification strategy contract
 
 <!-- verification-strategy-contract: start -->

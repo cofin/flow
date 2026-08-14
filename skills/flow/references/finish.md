@@ -3,6 +3,14 @@
 
 Complete a flow's development work by verifying, reviewing, and integrating.
 
+## Contents
+
+- [Load context and verify](#phase-1-load-context)
+- [Correctness and quality review](#phase-3-correctness-review)
+- [Complete and choose an outcome](#phase-5-complete-the-flow)
+- [Worktree cleanup](#phase-8-worktree-cleanup)
+- [Critical rules](#critical-rules)
+
 ## Usage
 
 `flow-finish {flow_id}` or `flow-finish` (uses current flow)

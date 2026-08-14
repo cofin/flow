@@ -3,6 +3,14 @@
 
 Validate project integrity and fix issues. All checks are file checks — read the bundle files directly.
 
+## Contents
+
+- [Structure](#phase-1-structure-validation)
+- [Frontmatter and content](#phase-2-frontmatter-validation)
+- [Git state](#phase-4-git-state)
+- [Verification](#phase-5-verification-gate)
+- [Report and fix](#phase-6-report--fix)
+
 ## Usage
 
 `flow-validate`

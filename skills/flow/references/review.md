@@ -3,6 +3,14 @@
 
 Dispatch correctness review followed by mandatory read-only quality review for a flow's exact Git range.
 
+## Contents
+
+- [Quality review contract](#quality-review-contract)
+- [Context and Git range](#phase-1-load-context)
+- [Correctness and quality dispatch](#phase-3-dispatch-correctness-review)
+- [Results and feedback](#phase-5-present-results)
+- [Critical rules](#critical-rules)
+
 ## Quality review contract
 
 <!-- quality-review-contract: start -->

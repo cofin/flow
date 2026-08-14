@@ -4,6 +4,13 @@ This file is the sole procedure authority for Flow's `structured-choice-v1`
 request, transport, rendering, and result contract. Planning agents link here
 and do not restate or weaken the union.
 
+## Contents
+
+- [Request union](#request-union)
+- [Sequencing and transport](#one-decision-sequencing-and-transport)
+- [Result union](#result-union)
+- [Draft approval loop](#draft-approval-loop)
+
 <!-- planning-contract: structured-choice-v1 -->
 ```yaml
 contract_id: structured-choice-v1

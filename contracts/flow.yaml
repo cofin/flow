@@ -389,7 +389,7 @@ commands:
       vscode_copilot: {spelling: "Use Flow to revert the named target", fallback: "Use Flow to revert the named target"}
       openclaw: {spelling: "Use Flow to revert the named target", fallback: "Use Flow to revert the named target"}
   - id: flow/validate
-    lifecycle_owner: flow-setup
+    lifecycle_owner: flow-completion
     agent: null
     shared_contracts: [flow-state-v1]
     state_operations: [status]
