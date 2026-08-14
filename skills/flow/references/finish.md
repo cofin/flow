@@ -11,7 +11,7 @@ Complete a flow's development work by verifying, reviewing, and integrating.
 
 1. **Read Flow Artifacts:**
    - `.agents/bundles/specs/{flow_id}/spec.md` (frontmatter carries the flow metadata)
-2. **Verify all tasks completed:** Read all task files under `.agents/bundles/specs/{flow_id}/tasks/*.md` and ensure their frontmatter `state` is `closed` or `skipped`. If any tasks are open or in_progress, warn and confirm with the user before proceeding.
+2. **Verify all tasks completed:** Read all task files under `.agents/bundles/specs/{flow_id}/tasks/*.md` and ensure their frontmatter `state` is `closed` or `skipped`. If any task is open, in progress, or blocked, stop; `complete` cannot bypass terminal task state.
 
 ## Phase 2: Verification Gate
 
@@ -28,7 +28,7 @@ IRON LAW: NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
 
 **If any check fails:** Report actual results. Do NOT proceed until issues resolved.
 
-## Phase 3: Code Review
+## Phase 3: Correctness Review
 
 Dispatch final comprehensive code review:
 
@@ -53,7 +53,36 @@ Dispatch final comprehensive code review:
 
 **Reference:** `superpowers:requesting-code-review` for dispatch pattern
 
-## Phase 4: Present Options
+## Phase 4: Mandatory Quality Review
+
+After correctness review passes, follow the `quality-review-v1` contract in
+[Review](review.md):
+
+1. Freeze the exact final `base_commit` and `head_commit`. For a one-commit
+   change, use that commit's parent as base and the commit as head.
+2. Load `.agents/skills/debloat/SKILL.md`, else packaged
+   `skills/debloat/SKILL.md`, else the synchronized inline fallback and record
+   `debloat_source: inline_fallback`.
+3. Dispatch the read-only `quality-reviewer` on that exact range after the
+   correctness reviewer. A waiver never substitutes for dispatch.
+4. Require an exact-range `QualityReport`. Reject stale base/head evidence.
+5. If any Critical/Important finding remains, stop and route through `revise`
+   to create or adjust a remediation task. Execute it, rerun affected
+   verification and correctness review, then always dispatch a fresh quality
+   review on the new exact range.
+6. A fresh explicit user waiver may address one named finding only after
+   review ran. Record finding id, rationale, approval text/time, compensating
+   evidence, and exact range. Other findings remain active.
+
+## Phase 5: Complete the Flow
+
+Request the spec-only `complete` operation only after the ordered gates
+`verification -> code_review -> quality_review -> finish` pass. Include the
+final functional commit, exact verification and correctness-review evidence,
+the fresh `QualityReport`, and any finding-specific waivers. The state sidecar
+sets `state: completed`; never edit that field directly.
+
+## Phase 6: Present Options
 
 Present exactly these 4 options:
 
@@ -68,7 +97,7 @@ Flow '{flow_id}' implementation complete and verified. What would you like to do
 Which option?
 ```
 
-## Phase 5: Execute Choice
+## Phase 7: Execute Choice
 
 ### Option 1: Merge Locally
 
@@ -127,7 +156,7 @@ git checkout {base_branch}
 git branch -D {feature_branch}
 ```
 
-## Phase 6: Worktree Cleanup
+## Phase 8: Worktree Cleanup
 
 If working in a git worktree:
 
@@ -142,9 +171,10 @@ git worktree list | grep {feature_branch}
 ## Critical Rules
 
 1. **VERIFY BEFORE OPTIONS** — Never present options with failing tests
-2. **CODE REVIEW FIRST** — Dispatch review before presenting options
+2. **ORDERED GATES** — Verification, correctness review, and mandatory quality review all pass on the same fresh exact range before finish/options
 3. **CONFIRM DISCARD** — Require typed "discard" for Option 4
 4. **SUGGEST ARCHIVE** — After merge/PR, prompt for `flow-archive`
-5. **UPDATE SPEC STATUS** — Mark the spec's status to completed in spec.md on successful finish.
+5. **UPDATE SPEC STATE THROUGH SIDECAR** — Request `complete`; never edit `state`/`status` directly.
 6. **MARKDOWN AUTHORITY** — Completion and recovery use the sidecar-written checkpoint and task evidence; optional Git notes never replace it.
 7. **NO GIT TAGS** — Never create or mutate Git tags for completion evidence or as a notes fallback.
+8. **NO REVIEW WAIVER** — A finding-specific waiver cannot replace quality-review dispatch or waive another/stale finding.

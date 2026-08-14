@@ -42,6 +42,14 @@ def test_agent_records_are_canonical_and_typed() -> None:
         if agent.interaction_requirement == "structured_choice_optional":
             assert "structured-choice-v1" in agent.invariant_ids
 
+    quality = contract.agents["quality-reviewer"]
+    assert quality.canonical_source == "agents/quality-reviewer.md"
+    assert all(
+        "file_write" not in requirements
+        for requirements in quality.tool_requirements.values()
+    )
+    assert quality.generation.outputs["opencode"].edit_permission == "deny"
+
 
 def test_agent_rendering_is_deterministic_and_adapter_only(tmp_path: Path) -> None:
     generator = _generator()

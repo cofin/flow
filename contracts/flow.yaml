@@ -28,6 +28,7 @@ shared_contracts:
   - {id: flow-state-v1, source: skills/flow/references/state.md, runtime_dependency: agent_file_tools_only}
   - {id: structured-choice-v1, source: skills/flow/references/interaction.md, runtime_dependency: agent_file_tools_only}
   - {id: worksheet-execution-v1, source: skills/flow/references/implement.md, runtime_dependency: agent_file_tools_only}
+  - {id: quality-review-v1, source: skills/flow/references/review.md, runtime_dependency: agent_file_tools_only}
 
 interaction_contracts:
   structured-choice-v1:
@@ -432,7 +433,7 @@ commands:
   - id: flow/archive
     lifecycle_owner: flow-completion
     agent: null
-    shared_contracts: [flow-state-v1, structured-choice-v1]
+    shared_contracts: [flow-state-v1, structured-choice-v1, quality-review-v1]
     state_operations: [note, archive]
     procedure_source: skills/flow/references/archive.md
     argument_schema: {syntax: "<flow_id>", required: [flow_id], optional: []}
@@ -440,7 +441,7 @@ commands:
     interaction_mode: structured_choice
     question_capability: structured-choice-v1
     plan_capability: none
-    completion_gates: [quality_review, archive_manifest, contraction_postconditions]
+    completion_gates: [archive_candidate, verification, code_review, quality_review, archive]
     runtime_dependency: agent_file_tools_only
     invocations:
       antigravity: {spelling: /flow-archive, fallback: "Use Flow to archive the completed flow"}
@@ -495,7 +496,7 @@ commands:
   - id: flow/finish
     lifecycle_owner: flow-completion
     agent: code-reviewer
-    shared_contracts: [flow-state-v1, structured-choice-v1]
+    shared_contracts: [flow-state-v1, structured-choice-v1, quality-review-v1]
     state_operations: [checkpoint, complete, archive, note]
     procedure_source: skills/flow/references/finish.md
     argument_schema: {syntax: "<flow_id>", required: [flow_id], optional: []}
@@ -503,7 +504,7 @@ commands:
     interaction_mode: structured_choice
     question_capability: structured-choice-v1
     plan_capability: none
-    completion_gates: [full_verification, code_review, quality_review, user_choice]
+    completion_gates: [verification, code_review, quality_review, finish]
     runtime_dependency: agent_file_tools_only
     invocations:
       antigravity: {spelling: /flow-finish, fallback: "Use Flow to finish the current flow"}
@@ -516,7 +517,7 @@ commands:
   - id: flow/review
     lifecycle_owner: flow-completion
     agent: code-reviewer
-    shared_contracts: [flow-state-v1]
+    shared_contracts: [flow-state-v1, quality-review-v1]
     state_operations: [status, note]
     procedure_source: skills/flow/references/review.md
     argument_schema: {syntax: "[flow_id]", required: [], optional: [flow_id]}
@@ -524,7 +525,7 @@ commands:
     interaction_mode: none
     question_capability: null
     plan_capability: none
-    completion_gates: [review_bound_to_range]
+    completion_gates: [code_review, quality_review]
     runtime_dependency: agent_file_tools_only
     invocations:
       antigravity: {spelling: /flow-review, fallback: "Use Flow to review the current flow"}
@@ -537,7 +538,7 @@ commands:
   - id: flow/cleanup
     lifecycle_owner: flow-completion
     agent: flow-reconciler
-    shared_contracts: [flow-state-v1]
+    shared_contracts: [flow-state-v1, quality-review-v1]
     state_operations: [status, archive, recover]
     procedure_source: skills/flow/references/cleanup.md
     argument_schema: {syntax: "[scope]", required: [], optional: [scope]}
@@ -545,7 +546,7 @@ commands:
     interaction_mode: none
     question_capability: null
     plan_capability: none
-    completion_gates: [quality_review, contraction_postconditions]
+    completion_gates: [archive_candidate, verification, code_review, quality_review, archive]
     runtime_dependency: agent_file_tools_only
     invocations:
       antigravity: {spelling: /flow-cleanup, fallback: "Use Flow to clean up completed flows"}
@@ -576,6 +577,25 @@ agents:
         codex_cli: {path: .codex/agents/code-reviewer.toml, format: codex_toml, mode: null, edit_permission: null, bash_permission: null, web_permission: null}
         opencode: {path: .opencode/agents/code-reviewer.md, format: opencode_markdown, mode: subagent, edit_permission: deny, bash_permission: allow, web_permission: allow}
         vscode_copilot: {path: .github/agents/code-reviewer.agent.md, format: vscode_markdown, mode: null, edit_permission: null, bash_permission: null, web_permission: null}
+  - id: quality-reviewer
+    canonical_source: agents/quality-reviewer.md
+    supported_host_adapters: [antigravity, claude_code, codex_cli, opencode, vscode_copilot]
+    invariant_ids: [quality-review-mandatory-v1, quality-review-read-only-v1, quality-findings-evidence-v1, quality-behavior-preservation-v1, quality-test-gate-debloat-v1, quality-review-range-v1, quality-no-opportunism-v1, git-no-tags-v1]
+    interaction_requirement: none
+    tool_requirements:
+      antigravity: [file_read, repository_diff]
+      claude_code: [file_read, repository_diff]
+      codex_cli: [file_read, repository_diff]
+      opencode: [file_read, repository_diff]
+      vscode_copilot: [file_read, repository_diff]
+    generation:
+      description: Review an exact Git range for unnecessary semantic surface and weak tests or gates without editing the repository.
+      nickname_candidates: [quality reviewer, debloat reviewer]
+      outputs:
+        antigravity: {path: templates/antigravity/agents/quality-reviewer.md, format: antigravity_markdown, mode: null, edit_permission: null, bash_permission: null, web_permission: null}
+        codex_cli: {path: .codex/agents/quality-reviewer.toml, format: codex_toml, mode: null, edit_permission: null, bash_permission: null, web_permission: null}
+        opencode: {path: .opencode/agents/quality-reviewer.md, format: opencode_markdown, mode: subagent, edit_permission: deny, bash_permission: allow, web_permission: deny}
+        vscode_copilot: {path: .github/agents/quality-reviewer.agent.md, format: vscode_markdown, mode: null, edit_permission: null, bash_permission: null, web_permission: null}
   - id: executor
     canonical_source: agents/executor.md
     supported_host_adapters: [antigravity, claude_code, codex_cli, opencode, vscode_copilot]

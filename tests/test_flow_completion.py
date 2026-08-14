@@ -1,9 +1,51 @@
 from pathlib import Path
+import re
 import pytest
 from unittest.mock import patch, MagicMock
 import textwrap
+from typing import Any
+
+import yaml
 
 from tools import flow_completion
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _marked_yaml(path: Path, name: str) -> dict[str, Any]:
+    content = path.read_text(encoding="utf-8")
+    match = re.search(
+        rf"<!-- {re.escape(name)}: start -->\s*```yaml\s*(.*?)\s*```\s*"
+        rf"<!-- {re.escape(name)}: end -->",
+        content,
+        re.DOTALL,
+    )
+    assert match is not None, f"missing {name} block in {path}"
+    parsed = yaml.safe_load(match.group(1))
+    assert isinstance(parsed, dict)
+    return parsed
+
+
+def test_completion_policy_orders_mandatory_quality_gate() -> None:
+    policy = _marked_yaml(
+        REPO_ROOT / "skills" / "flow-completion" / "SKILL.md",
+        "quality-completion-policy",
+    )
+
+    assert policy == {
+        "contract": "quality-completion-v1",
+        "authority": "skills/flow/references/review.md",
+        "finish_gates": ["verification", "code_review", "quality_review", "finish"],
+        "archive_gates": [
+            "archive_candidate",
+            "verification",
+            "code_review",
+            "quality_review",
+            "archive",
+        ],
+        "runtime_dependency": "agent_file_tools_only",
+        "evaluator_module": "forbidden",
+    }
 
 def _write_okf_file(path: Path, frontmatter: str, content: str = "") -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
