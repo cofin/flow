@@ -7,6 +7,138 @@ Execute tasks from a flow's plan using TDD workflow.
 
 `flow-implement {flow_id}` or `flow-implement` (uses current flow)
 
+## Worksheet execution contract
+
+<!-- flow-execution-policy: start -->
+```yaml
+contract: worksheet-execution-v1
+invariants:
+  - worksheet-first
+  - fail-closed-no-production-mutation
+  - fresh-validated-plan-resume
+transitions:
+  - preflight-claim
+  - mismatch-discover-block
+  - nonblocking-discover-release
+  - revised-plan-resume
+authority: skills/flow/references/implement.md
+```
+<!-- flow-execution-policy: end -->
+
+<!-- flow-execution-contract: start -->
+```yaml
+contract: worksheet-execution-v1
+preflight:
+  checks:
+    - dependencies_closed
+    - worksheet_complete
+    - verification_strategy_declared
+    - plan_identity_matches
+    - state_revision_matches
+  before_operation: claim
+  failure_transition: mismatch-discover-block
+mismatch_classes:
+  - code_drift
+  - missing_decision
+  - invalid_file_symbol_or_test_target
+  - acceptance_contradiction
+  - scope_expansion
+  - invalid_verification_command
+mismatch_report:
+  required:
+    - mismatch_class
+    - evidence
+    - impact
+    - task_operation
+    - unblock_condition
+    - next_exact_planning_action
+  unknown_fields: refuse
+transitions:
+  preflight-claim:
+    operations: [claim]
+    production_mutations: [worksheet_changes_only]
+  mismatch-discover-block:
+    operations: [discover, block]
+    production_mutations: []
+  nonblocking-discover-release:
+    operations: [discover, release]
+    production_mutations: []
+  revised-plan-resume:
+    operations: [claim]
+    production_mutations: [worksheet_changes_only]
+mismatch_routes:
+  code_drift:
+    transition: mismatch-discover-block
+    task_operation: block
+    handoff: revise
+    unblock_condition: drift_resolved_in_new_validated_plan
+    next_exact_planning_action: revise_then_refine_and_validate
+  missing_decision:
+    transition: mismatch-discover-block
+    task_operation: block
+    handoff: refine
+    unblock_condition: decision_recorded_in_new_validated_plan
+    next_exact_planning_action: refine_then_revise_and_validate
+  invalid_file_symbol_or_test_target:
+    transition: mismatch-discover-block
+    task_operation: block
+    handoff: revise
+    unblock_condition: target_corrected_in_new_validated_plan
+    next_exact_planning_action: revise_then_refine_and_validate
+  acceptance_contradiction:
+    transition: mismatch-discover-block
+    task_operation: block
+    handoff: revise
+    unblock_condition: contradiction_resolved_in_new_validated_plan
+    next_exact_planning_action: revise_then_refine_and_validate
+  scope_expansion:
+    transition: mismatch-discover-block
+    task_operation: block
+    handoff: revise
+    unblock_condition: scope_decision_recorded_in_new_validated_plan
+    next_exact_planning_action: revise_then_refine_and_validate
+  invalid_verification_command:
+    transition: mismatch-discover-block
+    task_operation: block
+    handoff: revise
+    unblock_condition: verification_corrected_in_new_validated_plan
+    next_exact_planning_action: revise_then_refine_and_validate
+resume:
+  transition: revised-plan-resume
+  requires:
+    - plan_identity_changed
+    - plan_validation_passed
+    - tracked_markdown_reloaded
+    - preflight_repeated
+  otherwise: stop_without_production_mutation
+```
+<!-- flow-execution-contract: end -->
+
+The symbolic values above are the closed, testable execution policy. The
+executor reports them together with concrete repository evidence and exact
+commands or paths; it does not call a policy evaluator.
+
+| Situation | Allowed work | State-sidecar operations | Planning handoff |
+| --- | --- | --- | --- |
+| All five preflight checks pass | Request `claim`, then execute only the selected worksheet | `claim` | none |
+| A declared mismatch invalidates the worksheet | Read and reproduce only; make no production edit | `discover`, then `block` | the exact `revise` or `refine` route in `mismatch_routes` |
+| A read-only discovery does not invalidate the worksheet, but the claimant stops | Make no further production edit | `discover`, then `release` | the release payload's exact next step |
+| A revised task is ready to resume | Reload tracked Markdown and repeat all five checks | `claim` only after every resume guard passes | none |
+
+The preflight reads the spec, task, dependencies, declared targets, and
+canonical workflow. `plan_identity_matches` means the task and spec carry the
+same `plan_revision` and `plan_commit`. `state_revision_matches` means the
+executor uses the freshly read spec revision as the request's expected revision
+and verifies the task revision is legal under the state contract. Worksheet
+completeness includes its named files, symbols, tests, commands, acceptance
+criteria, and selected `verification_strategy`; a syntactically complete but
+stale target fails closed.
+
+Every lifecycle mutation is an explicit request to `flow-reconciler` under the
+Flow state contract. The executor never edits task/spec state fields or
+checklist markers directly and never stores an `implement_state.json` or other
+hidden execution-state copy.
+
 ## Phase 1: Load Context
 
 **PROTOCOL: Load Flow, Project, and Parent Context.**
@@ -67,11 +199,10 @@ Write code before the test? Delete it. Start over. No exceptions.
 
 ### 3.1 Mark In Progress
 
-Edit the selected task's file (e.g. `.agents/bundles/specs/{flow_id}/tasks/{task_id}.md`):
-
-1. Set `state: in_progress` in the YAML frontmatter.
-2. Set `updated_at` to the current ISO-8601 timestamp.
-3. Immediately reconcile the `spec.md` checklist marker to `[~]` — the markdown task list must never lag the task files.
+Complete the five-check preflight above against freshly loaded Markdown. Only
+then request `claim` from `flow-reconciler`, including the expected plan
+identity, expected spec state revision, explicit task target, and exact first
+worksheet step. Reread the committed result before any production edit.
 
 ### 3.2 Red Phase — Write Failing Tests
 
@@ -148,31 +279,17 @@ Never force-add ignored Flow artifacts.
 
 ## Phase 5: Close Task
 
-Edit the task file:
-
-1. Set `state: closed` in the YAML frontmatter.
-2. Set `commit: <sha>` where `<sha>` is the commit hash retrieved from the recent git commit (`git log -n 1 --format="%H"`).
-3. Set `updated_at` to the current ISO-8601 timestamp.
-4. Immediately reconcile the `spec.md` checklist marker to `[x]` with the commit SHA appended (`[<sha>]`). Reconciliation after EVERY task state change (claim, block, skip, close) is mandatory, never deferred.
+After fresh verification, request `close` from `flow-reconciler` with the exact
+commit, command/result evidence, acceptance-criterion ids, expected plan
+identity, expected spec state revision, and explicit task target. The sidecar
+updates the task first and derived spec state last. Reread the terminal result;
+do not close or reconcile Markdown directly.
 
 ### 5.1 Log Learnings
 
 If any patterns were discovered, append them to `.agents/bundles/specs/{flow_id}/learnings.md` using the Ralph format.
 
 If `.agents/skills/flow-memory-keeper/SKILL.md` exists, invoke it so learnings, failures, sync cleanup, and archive prep are refined consistently.
-
-## Phase 6: Save State
-
-Save progress to `.agents/bundles/specs/{flow_id}/implement_state.json`:
-
-```json
-{
-  "current_phase": 1,
-  "current_task": "1.2",
-  "last_commit": "abc1234",
-  "timestamp": "ISO timestamp"
-}
-```
 
 ## Phase 7: Phase Checkpoint
 
@@ -241,8 +358,8 @@ If continuing, loop back to Phase 2.
 2. **DEBUGGING IRON LAW** — No fixes without root cause investigation. No guessing.
 3. **VERIFICATION IRON LAW** — No completion claims without fresh evidence. Run the command, read the output.
 4. **SMALL COMMITS** — One task = one commit
-5. **TASK FILES ARE SOURCE OF TRUTH** — Maintain task status and SHAs in the task files frontmatter.
-6. **ALWAYS-SYNCED TASK LIST** — Reconcile the `spec.md` checklist marker immediately after every task state change (claim → `[~]`, close → `[x]` + `[<sha>]`); never defer it.
+5. **TASK FILES ARE SOURCE OF TRUTH** — Read task status and SHAs from task Markdown; mutate them only through `flow-reconciler`.
+6. **ALWAYS-SYNCED TASK LIST** — Every task state request must include the derived checklist/spec update in the same sidecar transaction.
 7. **LOG LEARNINGS** — Capture patterns as you go
 8. **LOCAL ONLY** — Never push automatically
 9. **CODE REVIEW** — Dispatch review at phase checkpoints. Fix Critical/Important before proceeding.

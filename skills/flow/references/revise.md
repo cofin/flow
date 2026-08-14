@@ -3,6 +3,22 @@
 
 Update spec or plan when implementation reveals issues.
 
+<!-- flow-execution-policy: start -->
+```yaml
+contract: worksheet-execution-v1
+invariants:
+  - worksheet-first
+  - fail-closed-no-production-mutation
+  - fresh-validated-plan-resume
+transitions:
+  - preflight-claim
+  - mismatch-discover-block
+  - nonblocking-discover-release
+  - revised-plan-resume
+authority: skills/flow/references/implement.md
+```
+<!-- flow-execution-policy: end -->
+
 ## Usage
 
 ```text
@@ -19,6 +35,10 @@ Read `.agents/bundles/specs/{flow_id}/`:
 - tasks/*.md
 - learnings.md
 
+Also load the blocking task's `discover` and `block` evidence, exact unblock
+condition, next planning action, current plan identity, and current spec state
+revision. Refuse an unclassified or incomplete mismatch report.
+
 ### Phase 2: Identify Revision Need (Critical Thinking)
 
 Follow the **Critical Thinking Iron Law** to evaluate the implementation issue:
@@ -30,36 +50,46 @@ Follow the **Critical Thinking Iron Law** to evaluate the implementation issue:
 
 Ask user for guidance on the proposed revision.
 
+Classify the handoff using the execution contract:
+
+| Mismatch | Required planning route |
+| --- | --- |
+| Missing decision or incomplete executable detail | `refine`, then include the approved worksheet change in `revise` |
+| Code drift, invalid file/symbol/test target, acceptance contradiction, scope expansion, or invalid verification command | `revise`; use `refine` to make the replacement worksheet pass the Stateless Executor Test |
+
+Do not authorize the executor to patch around a mismatch. Until a new plan is
+validated, only planning Markdown may change.
+
 ### Phase 3: Document Reason
 
 Log why revision is needed based on your investigation. **Deliver honest assessment** of the original spec's flaws.
 
-### Phase 4: Make Changes
+### Phase 4: Refine and Validate the Replacement
 
-Update spec.md as needed.
+Produce exact task/spec diffs that correct the reported mismatch. The affected
+worksheet must again pass Objective, Context, Steps, Verification, Acceptance
+Criteria, target, dependency, strategy, and contradiction checks. Validate the
+complete plan before requesting a mutation.
 
-### Phase 5: Log Revision
+### Phase 5: Apply One Revision Transaction
 
-Append to `.agents/bundles/specs/{flow_id}/revisions.md`:
+Request `revise` from `flow-reconciler` with exact plan diffs, rationale,
+reviewer findings, `new_plan_revision = expected_plan_revision + 1`, every
+affected task target sorted, and any explicit legal state adjustments. The
+sidecar updates every task's copied plan identity before the spec, clears the
+shared `plan_commit`, reconciles derived content, and records the decision note.
+Never write plan/state fields or maintain `revisions.md` as a second authority.
 
-```markdown
-## [YYYY-MM-DD HH:MM] Revision {N}
+### Phase 6: Resume Handoff
 
-**Type:** {spec|plan|both}
-**Reason:** {reason}
-**Changes:** {description}
-```
-
-### Phase 6: Update Task Files
-
-- **Affected tasks:** append `- [timestamp] Revised: {reason}` to each affected task file's `## Notes & Discoveries` section and refresh `updated_at`.
-- **New tasks:** add a `- [ ] Task {short_id}: {title}` checklist line to the spec's Implementation Plan, then create `tasks/{short_id}.md` with full frontmatter (`type: Task`, `id: {flow_id}:{short_id}`, `title`, `state: open`, `depends_on`, `files`, `tests`, `created_at`, `updated_at`, `commit: null`), a body describing what changed and why, and a note `- [timestamp] Added during revision. Created by flow-revise`.
-- **Removed tasks** (not started): set `state: skipped` and note `- [timestamp] Removed in revision`. Never delete task files.
-
-Run `/flow:sync` (reconcile checklist markers with task-file `state`) after task files change.
+Return the new plan identity and validation evidence. The executor must reload
+the tracked spec/task Markdown and repeat its complete preflight. A released or
+blocked task is not resumable merely because prose changed: the plan identity
+must differ from the stopped execution and validation must pass.
 
 ## Critical Rules
 
-1. **LOG EVERYTHING** - All revisions documented
-2. **TASK FILES FIRST** - Update task files, then reconcile the checklist
-3. **PRESERVE HISTORY** - Never delete, only append
+1. **FAIL CLOSED** - No executor production mutation while a mismatch is unresolved
+2. **ONE PLAN IDENTITY** - Apply approved plan-bearing edits through one `revise` transaction
+3. **FRESH RESUME** - Require changed identity, passed validation, Markdown reload, and repeated preflight
+4. **NO RUNTIME EVALUATOR** - Interpret the Markdown contracts directly; installed workflows never call Python or another evaluator
