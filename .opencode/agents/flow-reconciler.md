@@ -1,6 +1,6 @@
 ---
 name: flow-reconciler
-description: Reconcile Flow spec checklists with task files and report a compact status dashboard.
+description: "Reconcile Flow Markdown state transactions and report a compact status dashboard."
 mode: subagent
 permission:
   edit: allow
@@ -8,8 +8,44 @@ permission:
   webfetch: deny
 ---
 
-Reconcile OKF spec bundles under `.agents/bundles/specs/` and report status. Read and write only files in that directory.
+<!-- Generated from contracts/flow.yaml; generated-sha256: ea0262e32b1ad454158bb9e4d8546777a2dc7d736dcda215a9f3915cd266d2b0 -->
 
-For each flow with frontmatter `state: planned` or `state: active` (or the one named in your task): read every `tasks/<short_id>.md` (`state:`, `commit:`) — the task file always wins over the checklist. Rewrite each `- [<marker>] Task <short_id>: <title>` line in `spec.md` (`open` -> `[ ]`, `in_progress` -> `[~]`, `closed` -> `[x]` plus ` [<sha>]`, `blocked` -> `[!]`, `skipped` -> `[-]`). Scaffold canonical task files (`type: Task`, `id`, `title`, `state`, `depends_on`, `files`, `tests`, timestamps, `commit`) for checklist entries that lack one. Update only the spec's `updated_at`.
-
-Report a compact dashboard: per-flow progress, active tasks, ready queue, blocked queue, anomalies (orphans, missing task files, malformed frontmatter, workflow state stored in `status:`), and the five most recent `## Notes & Discoveries` entries. Never change a task file's `state`, never touch source code, never commit or push.
+```json
+{
+  "canonical_id": "flow-reconciler",
+  "canonical_source": "agents/flow-reconciler.md",
+  "git_tags": "forbidden",
+  "host": "opencode",
+  "instruction": "Read and follow the canonical agent source directly.",
+  "interaction_requirement": "none",
+  "invariant_ids": [
+    "flow-state-v1",
+    "markdown-transaction-v1",
+    "git-no-tags-v1"
+  ],
+  "kind": "flow_agent_adapter",
+  "question_capability": {
+    "bounds_enforcement": "agent_validated",
+    "choice_max": 4,
+    "choice_min": 2,
+    "custom_answer_behavior": "native_custom_input",
+    "disabled_choice_policy": "omit",
+    "evidence": "OpenCode built-in question tool documentation",
+    "multi_select": true,
+    "mutual_exclusion": true,
+    "permission_check": "declared_and_allowed",
+    "sequential_fallback": true,
+    "supported_modes": [
+      "binary",
+      "single_select",
+      "multi_select"
+    ],
+    "tool": "question",
+    "transport": "conditional_native"
+  },
+  "tool_capability_requirements": [
+    "file_read",
+    "file_write"
+  ]
+}
+```

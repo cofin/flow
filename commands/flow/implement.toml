@@ -1,21 +1,4 @@
-description = "Execute tasks from plan (context-aware)"
-prompt = """
-## Lifecycle Skill
-Use the `flow-execution` lifecycle skill through the `flow` router before carrying out this command.
-
-## 1.0 SYSTEM DIRECTIVE
-You are a delegator for the Flow framework. Your task is to transition the current request to the high-reasoning "Executor" subagent to ensure proper model routing and TDD discipline.
-
-## 1.1 DELEGATION STRATEGY
-1. **Read Configuration**: Read `use_branched_workspaces` from `.agents/config.json` (default to `false` if missing).
-2. **Delegate**:
-   - If `use_branched_workspaces` is `true` and the harness supports it, spawn/invoke `@executor` in a branched workspace (`Workspace='branch'`) with the user's request: `{{args}}`. The executor follows the same rules either way: TDD, notes in the task file, close with `state: closed` + commit SHA, immediate spec checklist reconciliation.
-   - Otherwise, invoke `@executor` in the current workspace.
-
-## 1.2 CONTEXT PASS-THROUGH
-Ensure the subagent receives:
-- The Flow ID or request: `{{args}}`
-- Reference to current `.agents/bundles/specs/` state and active `spec.md`.
-- Instruction to follow the TDD protocol and invoke Superpowers skills (tdd, verification-before-completion).
-- Instruction to reconcile the `spec.md` checklist marker IMMEDIATELY after EVERY task state change (claim, block, skip, close) — mandatory, never deferred. Claiming reconciles the marker to `[~]`; closing reconciles it to `[x]` with the commit SHA appended (`[<sha>]`).
-"""
+# Generated from contracts/flow.yaml
+# generated-sha256: 2eff7fe298f5749c018cb974b5376082818cded16ce879228da810f70c72d5b3
+description = "Run the canonical flow/implement Flow lifecycle."
+prompt = "{\n  \"agent\": \"executor\",\n  \"argument_schema\": {\n    \"optional\": [\n      \"flow_id\"\n    ],\n    \"required\": [],\n    \"syntax\": \"[flow_id]\"\n  },\n  \"bounds_enforcement\": \"unsupported\",\n  \"canonical_id\": \"flow/implement\",\n  \"capability_evidence\": \"Codex request_user_input schema advertised by the active session\",\n  \"choice_max\": 3,\n  \"choice_min\": 2,\n  \"completion_gates\": [\n    \"red_green_refactor\",\n    \"fresh_verification\",\n    \"scoped_commit\"\n  ],\n  \"custom_answer_behavior\": \"native_custom_input\",\n  \"disabled_choice_policy\": \"omit\",\n  \"fallback\": \"Use Flow to implement the current task\",\n  \"git_tags\": \"forbidden\",\n  \"host\": \"codex_cli\",\n  \"instruction\": \"Load the lifecycle owner and follow the canonical procedure source directly.\",\n  \"interaction_mode\": \"none\",\n  \"invocation\": \"Use Flow to implement the current task\",\n  \"kind\": \"flow_command_adapter\",\n  \"lifecycle_owner\": \"flow-execution\",\n  \"multi_select\": false,\n  \"mutability\": \"repository_write\",\n  \"mutual_exclusion\": true,\n  \"plan_capability\": \"none\",\n  \"procedure_source\": \"skills/flow/references/implement.md\",\n  \"question_capability\": null,\n  \"question_permission_check\": \"declared_and_allowed\",\n  \"question_tool\": \"request_user_input\",\n  \"question_transport\": \"conditional_native\",\n  \"runtime_dependency\": \"agent_file_tools_only\",\n  \"sequential_fallback\": true,\n  \"shared_contracts\": [\n    \"flow-state-v1\",\n    \"worksheet-execution-v1\"\n  ],\n  \"state_operations\": [\n    \"status\",\n    \"claim\",\n    \"discover\",\n    \"block\",\n    \"release\",\n    \"checkpoint\",\n    \"close\"\n  ],\n  \"supported_selection_modes\": [\n    \"binary\",\n    \"single_select\"\n  ]\n}"

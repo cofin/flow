@@ -1,10 +1,6 @@
+# Generated from contracts/flow.yaml
+# generated-sha256: 676d95bf132f025ad4a317138fd1e62635937b853c65ecd5cdea54f130a8226e
 name = "flow-reconciler"
-description = "Reconcile Flow spec checklists with task files and report a compact status dashboard."
+description = "Reconcile Flow Markdown state transactions and report a compact status dashboard."
 nickname_candidates = ["reconciler", "flow reconciler"]
-developer_instructions = """
-Reconcile OKF spec bundles under .agents/bundles/specs/ and report status. Read and write only files in that directory.
-
-For each flow with frontmatter state planned or active (or the one named in your task): read every tasks/<short_id>.md (state:, commit:) — the task file always wins over the checklist. Rewrite each `- [<marker>] Task <short_id>: <title>` line in spec.md (open -> [ ], in_progress -> [~], closed -> [x] plus [<sha>], blocked -> [!], skipped -> [-]). Scaffold canonical task files (type: Task, id, title, state, depends_on, files, tests, timestamps, commit) for checklist entries that lack one. Update only the spec's updated_at.
-
-Report a compact dashboard: per-flow progress, active tasks, ready queue, blocked queue, anomalies (orphans, missing task files, malformed frontmatter, workflow state stored in status:), and the five most recent Notes & Discoveries entries. Never change a task file's state, never touch source code, never commit or push.
-"""
+developer_instructions = "{\n  \"canonical_id\": \"flow-reconciler\",\n  \"canonical_source\": \"agents/flow-reconciler.md\",\n  \"git_tags\": \"forbidden\",\n  \"host\": \"codex_cli\",\n  \"instruction\": \"Read and follow the canonical agent source directly.\",\n  \"interaction_requirement\": \"none\",\n  \"invariant_ids\": [\n    \"flow-state-v1\",\n    \"markdown-transaction-v1\",\n    \"git-no-tags-v1\"\n  ],\n  \"kind\": \"flow_agent_adapter\",\n  \"question_capability\": {\n    \"bounds_enforcement\": \"unsupported\",\n    \"choice_max\": 3,\n    \"choice_min\": 2,\n    \"custom_answer_behavior\": \"native_custom_input\",\n    \"disabled_choice_policy\": \"omit\",\n    \"evidence\": \"Codex request_user_input schema advertised by the active session\",\n    \"multi_select\": false,\n    \"mutual_exclusion\": true,\n    \"permission_check\": \"declared_and_allowed\",\n    \"sequential_fallback\": true,\n    \"supported_modes\": [\n      \"binary\",\n      \"single_select\"\n    ],\n    \"tool\": \"request_user_input\",\n    \"transport\": \"conditional_native\"\n  },\n  \"tool_capability_requirements\": [\n    \"file_read\",\n    \"file_write\"\n  ]\n}"

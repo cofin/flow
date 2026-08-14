@@ -1,90 +1,65 @@
 ---
-description: Synthesize a completed flow into knowledge chapters, log it, and remove its spec bundle
-argument-hint: <flow_id>
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, WebSearch
+description: "Run the canonical flow/archive Flow lifecycle."
 ---
 
-# Flow Archive
+<!-- Generated from contracts/flow.yaml; generated-sha256: 459338091d0f0d453524b305e5cf3b77273c4650e96e42e9a0ac69ef77cf364c -->
 
-> Lifecycle skill: use `flow-completion` through the `flow` router.
-
-Archiving flow: **$ARGUMENTS**
-
-Archiving is a contraction: the flow's durable knowledge moves into the knowledge chapters, one line lands in the bundle log, and the spec directory is deleted. Git history is the archive — `specs/` never accumulates completed flows.
-
-## Phase 1: Validation
-
-### 1.1 Resolve Flow ID
-
-If not provided, scan `.agents/bundles/specs/*/spec.md` frontmatter for flows with `state: completed` and ask the user to select. If none are completed, list active flows and confirm intent.
-
-### 1.2 Verify Completion
-
-Read `.agents/bundles/specs/{flow_id}/spec.md` frontmatter.
-
-- If `state` is not `completed` (e.g. `active`, `planned`), warn: "Warning: Flow is not marked as completed. Continue? (y/n)" → Halt if 'n'.
-- Verify every task file under `tasks/*.md` has `state: closed` or `skipped`. If not, abort and report the open tasks.
-
-### 1.3 Verify Recoverability
-
-Check whether the bundle is tracked: `git ls-files --error-unmatch .agents/bundles/specs/{flow_id}/spec.md`.
-
-- **Tracked**: deletion is safe — git history preserves the full spec.
-- **Untracked**: warn that deletion is unrecoverable and require explicit confirmation before proceeding (or suggest committing the bundle first).
-
----
-
-## Phase 2: Knowledge Synthesis (RE-synthesis, not appending)
-
-1. **Consolidate**: read every task file's `## Notes & Discoveries` (plus `learnings.md` if present), sorted by timestamp. Work from this consolidated view — a temporary scratch list, not a persisted file.
-2. **Map each durable learning to its chapter**: conventions and gotchas → `knowledge/patterns.md`; workflow/command changes → `knowledge/workflow.md`; architectural facts → `knowledge/architecture.md` (create the chapter if the topic warrants one); style rules → the matching `knowledge/<topic>-style.md` chapter; product-level changes → `product/` docs.
-3. **Rewrite the chapter, don't append to it**: integrate each learning into the existing prose where it belongs — update stale statements, merge duplicates, restructure sections if needed. The chapter must read as coherent current-state documentation afterwards. NEVER add dated entries, "from: {flow_id}" attributions, changelog lines, or completion notes to a knowledge chapter.
-4. **Interactive gate**: present the proposed chapter edits (what's being added, updated, or dropped as low-value) and let the user approve or trim before writing.
-5. Delete `extracted_learnings.md` if a previous run left one — consolidated views are transient.
-
----
-
-## Phase 3: Log the Archive
-
-Add ONE entry to `.agents/bundles/log.md` under today's ISO date (newest first):
-
-```markdown
-## {YYYY-MM-DD}
-
-**Archive** {flow_id}: {one-line outcome}. Final commit {sha}. {N} learnings synthesized into {chapters}.
+```json
+{
+  "agent": null,
+  "argument_schema": {
+    "optional": [],
+    "required": [
+      "flow_id"
+    ],
+    "syntax": "<flow_id>"
+  },
+  "bounds_enforcement": "agent_validated",
+  "canonical_id": "flow/archive",
+  "capability_evidence": "Claude Code declared AskUserQuestion contract",
+  "choice_max": 4,
+  "choice_min": 2,
+  "completion_gates": [
+    "archive_candidate",
+    "verification",
+    "code_review",
+    "quality_review",
+    "archive"
+  ],
+  "custom_answer_behavior": "native_custom_input",
+  "disabled_choice_policy": "omit",
+  "fallback": "Use Flow to archive the completed flow",
+  "git_tags": "forbidden",
+  "host": "claude_code",
+  "instruction": "Load the lifecycle owner and follow the canonical procedure source directly.",
+  "interaction_mode": "structured_choice",
+  "invocation": "/flow-archive",
+  "kind": "flow_command_adapter",
+  "lifecycle_owner": "flow-completion",
+  "multi_select": true,
+  "mutability": "repository_write",
+  "mutual_exclusion": true,
+  "plan_capability": "none",
+  "procedure_source": "skills/flow/references/archive.md",
+  "question_capability": "structured-choice-v1",
+  "question_permission_check": "declared_and_allowed",
+  "question_tool": "AskUserQuestion",
+  "question_transport": "conditional_native",
+  "runtime_dependency": "agent_file_tools_only",
+  "sequential_fallback": true,
+  "shared_contracts": [
+    "flow-state-v1",
+    "structured-choice-v1",
+    "quality-review-v1"
+  ],
+  "state_operations": [
+    "note",
+    "archive"
+  ],
+  "supported_selection_modes": [
+    "binary",
+    "single_select",
+    "multi_select"
+  ]
+}
 ```
-
-Update `.agents/bundles/index.md` if it lists the flow.
-
----
-
-## Phase 4: Delete the Spec Bundle
-
-Delete `.agents/bundles/specs/{flow_id}/` from the filesystem (it passed the safety checks in Phase 1).
-
----
-
-## Phase 5: Git Commit
-
-If the bundle is tracked:
-
-```bash
-git add .agents/bundles/
-git rm -r --quiet .agents/bundles/specs/{flow_id}/ 2>/dev/null || true
-git commit -m "chore(archive): synthesize {flow_id} into knowledge and remove its spec"
-```
-
-If the bundle is local-only, skip the commit.
-
----
-
-## Phase 6: Completion
-
-> "Flow '{flow_id}' archived.
->
-> **Summary:**
->
-> - Knowledge chapters updated: {list}
-> - Log entry added; spec directory removed ({tracked: recoverable via git | untracked: confirmed unrecoverable})
->
-> Ready for next flow: `/flow-prd`"

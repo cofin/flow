@@ -1,59 +1,61 @@
 ---
-description: Dispatch code review for a flow using the git range from its task-file commits
+description: "Run the canonical flow/review Flow lifecycle."
 ---
 
-# Flow Review
+<!-- Generated from contracts/flow.yaml; generated-sha256: dbac97549bca4b29218c89275bbf68132c9a4673551ee58778c716008848cd31 -->
 
-Dispatch a code review for a Flow's implementation using the git range derived from its task-file commits.
-
-## Usage
-`/flow-review {flow_id}`
-
-## Phase 1: Load Context
-
-1. **Flow ID:** Use argument or auto-discover by scanning `.agents/bundles/specs/*/spec.md` frontmatter for `state: active`.
-2. **Read Artifacts:** `.agents/bundles/specs/<flow_id>/spec.md` (requirements), `.agents/bundles/knowledge/patterns.md` (conventions).
-3. **Read Task Files:** All of `.agents/bundles/specs/<flow_id>/tasks/*.md`, collecting `commit:` SHAs from tasks with `state: closed`.
-
-## Phase 2: Determine Git Range
-
-1. **From Task Files:** Use the `commit:` SHAs collected from closed task files. Base = before earliest, Head = latest or HEAD.
-2. **Fallback:** `git merge-base HEAD main`
-3. **Confirm:** Show `git log --oneline <base>..<head>` and ask user to confirm range.
-
-## Phase 3: Dispatch Review
-
-Dispatch code review subagent with:
-- What was implemented (from spec.md)
-- Requirements (from spec.md)
-- Git range
-- Project conventions (from knowledge/patterns.md)
-
-For targeted analysis, consider dispatching specialized reviewers alongside the general review:
-
-- `flow:security-auditor` — auth, user input, secrets, external API calls
-- `flow:architecture-critic` — new components, boundary changes, system structure
-- `flow:performance-analyst` — hot paths, database queries, latency-sensitive operations
-- `flow:devils-advocate` — large changes or unchallenged structural assumptions
-
-## Phase 4: Present Results
-
-Format by severity: Critical, Important, Minor, Strengths.
-Overall assessment: Ready to proceed or Issues need attention.
-
-## Phase 5: Handle Feedback
-
-- No performative agreement. Technical evaluation only.
-- Verify suggestions against codebase before implementing.
-- Push back with reasoning if wrong. YAGNI check for unrequested features.
-- Fix Critical immediately. Fix Important before next phase. Note Minor in learnings.md.
-
-## Phase 6: Log
-
-Append review summary to `.agents/bundles/specs/<flow_id>/learnings.md`.
-
-## Critical Rules
-
-1. **TASK-FILE-AWARE** - Use task-file `commit:` records for the git range
-2. **ACTIONABLE** - Severity-based, not nit-picking
-3. **LOG EVERYTHING** - Review findings go to learnings.md
+```json
+{
+  "agent": "code-reviewer",
+  "argument_schema": {
+    "optional": [
+      "flow_id"
+    ],
+    "required": [],
+    "syntax": "[flow_id]"
+  },
+  "bounds_enforcement": "agent_validated",
+  "canonical_id": "flow/review",
+  "capability_evidence": "OpenCode built-in question tool documentation",
+  "choice_max": 4,
+  "choice_min": 2,
+  "completion_gates": [
+    "code_review",
+    "quality_review"
+  ],
+  "custom_answer_behavior": "native_custom_input",
+  "disabled_choice_policy": "omit",
+  "fallback": "Use Flow to review the current flow",
+  "git_tags": "forbidden",
+  "host": "opencode",
+  "instruction": "Load the lifecycle owner and follow the canonical procedure source directly.",
+  "interaction_mode": "none",
+  "invocation": "/flow-review",
+  "kind": "flow_command_adapter",
+  "lifecycle_owner": "flow-completion",
+  "multi_select": true,
+  "mutability": "state_write",
+  "mutual_exclusion": true,
+  "plan_capability": "none",
+  "procedure_source": "skills/flow/references/review.md",
+  "question_capability": null,
+  "question_permission_check": "declared_and_allowed",
+  "question_tool": "question",
+  "question_transport": "conditional_native",
+  "runtime_dependency": "agent_file_tools_only",
+  "sequential_fallback": true,
+  "shared_contracts": [
+    "flow-state-v1",
+    "quality-review-v1"
+  ],
+  "state_operations": [
+    "status",
+    "note"
+  ],
+  "supported_selection_modes": [
+    "binary",
+    "single_select",
+    "multi_select"
+  ]
+}
+```

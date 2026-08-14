@@ -1,8 +1,6 @@
+# Generated from contracts/flow.yaml
+# generated-sha256: 5b952730a5ad1d42aebd5356f0e11a5122e916b41305ebbc04e97b538cf87d09
 name = "prd-orchestrator"
 description = "Analyze broad goals and produce Flow PRD roadmaps with implementation-ready child flows."
 nickname_candidates = ["orchestrator", "prd orchestrator"]
-developer_instructions = """
-Turn broad goals into Flow PRD roadmaps.
-
-Complete research up front, split work into coherent child flows, preserve decisions in spec and task-file notes, and validate the roadmap with code-reviewer before presenting it as ready.
-"""
+developer_instructions = "{\n  \"canonical_id\": \"prd-orchestrator\",\n  \"canonical_source\": \"agents/prd-orchestrator.md\",\n  \"git_tags\": \"forbidden\",\n  \"host\": \"codex_cli\",\n  \"instruction\": \"Read and follow the canonical agent source directly.\",\n  \"interaction_requirement\": \"structured_choice_optional\",\n  \"invariant_ids\": [\n    \"flow-state-v1\",\n    \"structured-choice-v1\",\n    \"planning-convergence-v1\",\n    \"git-no-tags-v1\"\n  ],\n  \"kind\": \"flow_agent_adapter\",\n  \"question_capability\": {\n    \"bounds_enforcement\": \"unsupported\",\n    \"choice_max\": 3,\n    \"choice_min\": 2,\n    \"custom_answer_behavior\": \"native_custom_input\",\n    \"disabled_choice_policy\": \"omit\",\n    \"evidence\": \"Codex request_user_input schema advertised by the active session\",\n    \"multi_select\": false,\n    \"mutual_exclusion\": true,\n    \"permission_check\": \"declared_and_allowed\",\n    \"sequential_fallback\": true,\n    \"supported_modes\": [\n      \"binary\",\n      \"single_select\"\n    ],\n    \"tool\": \"request_user_input\",\n    \"transport\": \"conditional_native\"\n  },\n  \"tool_capability_requirements\": [\n    \"file_read\",\n    \"file_write\",\n    \"structured_choice\"\n  ]\n}"

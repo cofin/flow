@@ -1,26 +1,31 @@
 ---
-name: executor
-description: "Execute Flow implementation tasks with TDD, task file notes, verification, and sync discipline."
+name: quality-reviewer
+description: "Review an exact Git range for unnecessary semantic surface and weak tests or gates without editing the repository."
 mode: subagent
 permission:
-  edit: allow
+  edit: deny
   bash: allow
-  webfetch: allow
+  webfetch: deny
 ---
 
-<!-- Generated from contracts/flow.yaml; generated-sha256: 7b9c89c8e011a495ee3145e804821eb3bdbe9ba06f59ca405e025fc060fdf2e4 -->
+<!-- Generated from contracts/flow.yaml; generated-sha256: cc0e5951b5554dd3dad57d50494190b60b0af9c9002aed5c93e5f21948c5b0d9 -->
 
 ```json
 {
-  "canonical_id": "executor",
-  "canonical_source": "agents/executor.md",
+  "canonical_id": "quality-reviewer",
+  "canonical_source": "agents/quality-reviewer.md",
   "git_tags": "forbidden",
   "host": "opencode",
   "instruction": "Read and follow the canonical agent source directly.",
   "interaction_requirement": "none",
   "invariant_ids": [
-    "worksheet-execution-v1",
-    "flow-state-v1",
+    "quality-review-mandatory-v1",
+    "quality-review-read-only-v1",
+    "quality-findings-evidence-v1",
+    "quality-behavior-preservation-v1",
+    "quality-test-gate-debloat-v1",
+    "quality-review-range-v1",
+    "quality-no-opportunism-v1",
     "git-no-tags-v1"
   ],
   "kind": "flow_agent_adapter",
@@ -45,8 +50,7 @@ permission:
   },
   "tool_capability_requirements": [
     "file_read",
-    "file_write",
-    "repository_commands"
+    "repository_diff"
   ]
 }
 ```

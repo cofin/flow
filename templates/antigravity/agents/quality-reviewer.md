@@ -1,25 +1,30 @@
 ---
-name: flow-reconciler
-description: "Reconcile Flow Markdown state transactions and report a compact status dashboard."
+name: quality-reviewer
+description: "Review an exact Git range for unnecessary semantic surface and weak tests or gates without editing the repository."
 subagent: true
 mainAgent: false
 model: inherit
 commandExecutionPolicy: off
 ---
 
-<!-- Generated from contracts/flow.yaml; generated-sha256: dccb879d63f0046f3c72a3b56e0e0c2789fe057f6f418a8a8b9cbff209a63eeb -->
+<!-- Generated from contracts/flow.yaml; generated-sha256: eb34e2138e7d1a0babfce5cbf3172d0eec590cea65c6cce18267f3dc053899a6 -->
 
 ```json
 {
-  "canonical_id": "flow-reconciler",
-  "canonical_source": "agents/flow-reconciler.md",
+  "canonical_id": "quality-reviewer",
+  "canonical_source": "agents/quality-reviewer.md",
   "git_tags": "forbidden",
   "host": "antigravity",
   "instruction": "Read and follow the canonical agent source directly.",
   "interaction_requirement": "none",
   "invariant_ids": [
-    "flow-state-v1",
-    "markdown-transaction-v1",
+    "quality-review-mandatory-v1",
+    "quality-review-read-only-v1",
+    "quality-findings-evidence-v1",
+    "quality-behavior-preservation-v1",
+    "quality-test-gate-debloat-v1",
+    "quality-review-range-v1",
+    "quality-no-opportunism-v1",
     "git-no-tags-v1"
   ],
   "kind": "flow_agent_adapter",
@@ -44,7 +49,7 @@ commandExecutionPolicy: off
   },
   "tool_capability_requirements": [
     "file_read",
-    "file_write"
+    "repository_diff"
   ]
 }
 ```

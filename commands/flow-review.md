@@ -1,77 +1,61 @@
 ---
-description: Dispatch code review for a flow using the git range from its task-file commits
-argument-hint: <flow_id>
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Agent
+description: "Run the canonical flow/review Flow lifecycle."
 ---
 
-# Flow Review
+<!-- Generated from contracts/flow.yaml; generated-sha256: 838974abf6840f6bf55a966b311d0f691a8227523f1cb6ebc08d9c3a9984f859 -->
 
-> Lifecycle skill: use `flow-completion` through the `flow` router.
-
-Reviewing flow: **$ARGUMENTS**
-
-## 1.0 SYSTEM DIRECTIVE
-
-You are dispatching a code review for a Flow's implementation. Your task is to determine the correct git range from the flow's task files, dispatch a review subagent, and present actionable results.
-
----
-
-## 2.0 LOAD CONTEXT
-
-1. **Flow ID:** Use `$ARGUMENTS` or auto-discover by scanning `.agents/bundles/specs/*/spec.md` frontmatter for `state: active`.
-2. **Read Artifacts:** `.agents/bundles/specs/<flow_id>/spec.md` (requirements), `.agents/bundles/knowledge/patterns.md` (conventions).
-3. **Read Task Files:** All of `.agents/bundles/specs/<flow_id>/tasks/*.md`, collecting `commit:` SHAs from tasks with `state: closed`.
-
----
-
-## 3.0 DETERMINE GIT RANGE
-
-1. **From Task Files:** Use the `commit:` SHAs collected from closed task files. Base = before earliest, Head = latest or HEAD.
-2. **Fallback:** `git merge-base HEAD main`
-3. **Confirm:** Show `git log --oneline <base>..<head>` and ask user to confirm range.
-
----
-
-## 4.0 DISPATCH REVIEW
-
-Dispatch code review subagent with:
-
-- What was implemented (from spec.md)
-- Requirements (from spec.md)
-- Git range
-- Project conventions (from patterns.md)
-
-### Specialized Reviewers
-
-For targeted analysis, consider dispatching specialized reviewer subagents alongside the general code review:
-
-- `flow:security-auditor` — when changes touch authentication, authorization, user input handling, secrets, or external API calls
-- `flow:architecture-critic` — when changes introduce new components, modify boundaries, or affect system structure
-- `flow:performance-analyst` — when changes affect hot paths, database queries, or latency-sensitive operations
-- `flow:devils-advocate` — when changes are large or make structural assumptions that haven't been challenged
-
----
-
-## 5.0 PRESENT RESULTS
-
-Format by severity: Critical, Important, Minor, Strengths.
-Overall assessment: Ready to proceed or Issues need attention.
-
----
-
-## 6.0 HANDLE FEEDBACK
-
-- No performative agreement. Technical evaluation only.
-- Verify suggestions against codebase before implementing.
-- Push back with reasoning if wrong. YAGNI check for unrequested features.
-- Fix Critical immediately. Fix Important before next phase. Note Minor in learnings.md.
-
-### Feedback Evaluation
-
-Apply `flow:challenge` when evaluating review findings. Do not reflexively accept or dismiss feedback — use structured critical reassessment to determine whether each finding is valid, actionable, and correctly scoped before implementing changes.
-
----
-
-## 7.0 LOG
-
-Append review summary to `.agents/bundles/specs/<flow_id>/learnings.md`.
+```json
+{
+  "agent": "code-reviewer",
+  "argument_schema": {
+    "optional": [
+      "flow_id"
+    ],
+    "required": [],
+    "syntax": "[flow_id]"
+  },
+  "bounds_enforcement": "agent_validated",
+  "canonical_id": "flow/review",
+  "capability_evidence": "Claude Code declared AskUserQuestion contract",
+  "choice_max": 4,
+  "choice_min": 2,
+  "completion_gates": [
+    "code_review",
+    "quality_review"
+  ],
+  "custom_answer_behavior": "native_custom_input",
+  "disabled_choice_policy": "omit",
+  "fallback": "Use Flow to review the current flow",
+  "git_tags": "forbidden",
+  "host": "claude_code",
+  "instruction": "Load the lifecycle owner and follow the canonical procedure source directly.",
+  "interaction_mode": "none",
+  "invocation": "/flow-review",
+  "kind": "flow_command_adapter",
+  "lifecycle_owner": "flow-completion",
+  "multi_select": true,
+  "mutability": "state_write",
+  "mutual_exclusion": true,
+  "plan_capability": "none",
+  "procedure_source": "skills/flow/references/review.md",
+  "question_capability": null,
+  "question_permission_check": "declared_and_allowed",
+  "question_tool": "AskUserQuestion",
+  "question_transport": "conditional_native",
+  "runtime_dependency": "agent_file_tools_only",
+  "sequential_fallback": true,
+  "shared_contracts": [
+    "flow-state-v1",
+    "quality-review-v1"
+  ],
+  "state_operations": [
+    "status",
+    "note"
+  ],
+  "supported_selection_modes": [
+    "binary",
+    "single_select",
+    "multi_select"
+  ]
+}
+```

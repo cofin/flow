@@ -1,21 +1,20 @@
 ---
 name: executor
 description: "Execute Flow implementation tasks with TDD, task file notes, verification, and sync discipline."
-mode: subagent
-permission:
-  edit: allow
-  bash: allow
-  webfetch: allow
+subagent: true
+mainAgent: false
+model: inherit
+commandExecutionPolicy: off
 ---
 
-<!-- Generated from contracts/flow.yaml; generated-sha256: 7b9c89c8e011a495ee3145e804821eb3bdbe9ba06f59ca405e025fc060fdf2e4 -->
+<!-- Generated from contracts/flow.yaml; generated-sha256: 87a065897b71896d54fd9b9ceadb2749ca85c08936e8ecf7fffbe3c0cdc816d6 -->
 
 ```json
 {
   "canonical_id": "executor",
   "canonical_source": "agents/executor.md",
   "git_tags": "forbidden",
-  "host": "opencode",
+  "host": "antigravity",
   "instruction": "Read and follow the canonical agent source directly.",
   "interaction_requirement": "none",
   "invariant_ids": [
@@ -30,7 +29,7 @@ permission:
     "choice_min": 2,
     "custom_answer_behavior": "native_custom_input",
     "disabled_choice_policy": "omit",
-    "evidence": "OpenCode built-in question tool documentation",
+    "evidence": "Antigravity allowed-tool contract for ask_question",
     "multi_select": true,
     "mutual_exclusion": true,
     "permission_check": "declared_and_allowed",
@@ -40,7 +39,7 @@ permission:
       "single_select",
       "multi_select"
     ],
-    "tool": "question",
+    "tool": "ask_question",
     "transport": "conditional_native"
   },
   "tool_capability_requirements": [

@@ -1,87 +1,62 @@
 ---
-description: Git-aware revert of flows, phases, or tasks
-argument-hint: <flow_id|phase|task> [target]
-allowed-tools: Read, Write, Edit, Bash
+description: "Run the canonical flow/revert Flow lifecycle."
 ---
 
-# Flow Revert
+<!-- Generated from contracts/flow.yaml; generated-sha256: 2d56bc2e1483268a1b61bebd0ad906ffe1b4bfa38ca0f2b2051ade5a73986b7a -->
 
-> Lifecycle skill: use `flow-completion` through the `flow` router.
-
-Reverting: **$ARGUMENTS**
-
-## Phase 1: Parse Target
-
-Determine revert scope:
-
-- `flow {flow_id}` - Revert entire flow spec and folder (if deleted)
-- `phase {flow_id} {N}` - Revert phase N commits
-- `task {flow_id} {N}` - Revert single task commit
-
----
-
-## Phase 2: Find Commits
-
-1. **Reverting a Flow (Restoring Specs)**: If the spec directory is deleted, restore it from Git:
-
-   ```bash
-   git checkout HEAD -- .agents/bundles/specs/{flow_id}
-   ```
-
-   And set the spec's status to `in_progress` in `.agents/bundles/specs/{flow_id}/spec.md`.
-
-2. **Reverting a Task**: Read `.agents/bundles/specs/{flow_id}/tasks/{task_id}.md` to extract `commit: <sha>` from YAML frontmatter.
-
-3. **Reverting a Phase**: Read `.agents/bundles/specs/{flow_id}/spec.md` to identify the task IDs in the target phase, and read each corresponding task file under `tasks/` to extract their commit SHAs.
-
----
-
-## Phase 3: Confirmation
-
-Show what will be reverted:
-
-```text
-Revert Target: {scope}
-
-Commits to revert:
-  - abc1234: feat(auth): Add login endpoint
-
-Files affected:
-  - src/auth/login.ts
-  - tests/auth/login.test.ts
-
-Proceed with revert? (yes/no)
+```json
+{
+  "agent": null,
+  "argument_schema": {
+    "optional": [],
+    "required": [
+      "target"
+    ],
+    "syntax": "<target>"
+  },
+  "bounds_enforcement": "agent_validated",
+  "canonical_id": "flow/revert",
+  "capability_evidence": "Claude Code declared AskUserQuestion contract",
+  "choice_max": 4,
+  "choice_min": 2,
+  "completion_gates": [
+    "explicit_scope",
+    "post_revert_validation"
+  ],
+  "custom_answer_behavior": "native_custom_input",
+  "disabled_choice_policy": "omit",
+  "fallback": "Use Flow to revert the named target",
+  "git_tags": "forbidden",
+  "host": "claude_code",
+  "instruction": "Load the lifecycle owner and follow the canonical procedure source directly.",
+  "interaction_mode": "structured_choice",
+  "invocation": "/flow-revert",
+  "kind": "flow_command_adapter",
+  "lifecycle_owner": "flow-completion",
+  "multi_select": true,
+  "mutability": "repository_write",
+  "mutual_exclusion": true,
+  "plan_capability": "preferred",
+  "procedure_source": "skills/flow/references/revert.md",
+  "question_capability": "structured-choice-v1",
+  "question_permission_check": "declared_and_allowed",
+  "question_tool": "AskUserQuestion",
+  "question_transport": "conditional_native",
+  "runtime_dependency": "agent_file_tools_only",
+  "sequential_fallback": true,
+  "shared_contracts": [
+    "flow-state-v1",
+    "structured-choice-v1"
+  ],
+  "state_operations": [
+    "reopen",
+    "revise",
+    "reconcile"
+  ],
+  "supported_selection_modes": [
+    "binary",
+    "single_select",
+    "multi_select"
+  ]
+}
 ```
-
----
-
-## Phase 4: Execute Revert
-
-1. **Revert Commits**: Run git revert for the resolved commit(s) in reverse chronological order:
-
-   ```bash
-   git revert --no-commit {commits}
-   ```
-
-2. **Commit Reversal**: Commit the revert changes:
-
-   ```bash
-   git commit -m "revert({scope}): Revert changes for {target}"
-   ```
-
----
-
-## Phase 5: Update Metadata & Sync
-
-1. **Reset Task Status**: For reverted tasks, edit their task files under `tasks/*.md`:
-   - `state: open`
-   - `commit: null`
-2. **Sync**: Run `/flow:sync` to update `spec.md` task checklists to match the reverted task states.
-
----
-
-## Critical Rules
-
-1. **CONFIRM FIRST** - Always show what will be reverted before running git revert
-2. **NO FORCE** - Use git revert, not git reset
-3. **METADATA FIRST** - Reset task file status and run sync after committing the revert

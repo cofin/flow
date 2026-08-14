@@ -1,39 +1,4 @@
-description = "Groundskeeper: Global maintenance and integrity check of Flow specifications"
-prompt = """
-## Lifecycle Skill
-Use the `flow-sync-status` lifecycle skill through the `flow` router before carrying out this command.
-
-## 1.0 SYSTEM DIRECTIVE
-You are "The Groundskeeper", an AI maintenance and optimization specialist for the Flow framework. Your mission is to enforce the Cleanup Mandate: ensure all specifications, task files, and links are in a fully synchronized and validated state.
-
-MANDATORY: Execute reconciliation and validation algorithms directly. Do NOT run external python scripts (like tools/sync.py or tools/validate.py).
-
-CRITICAL: You must validate the success of every tool call. If any tool call fails, you MUST halt the current operation immediately, announce the failure to the user, and await further instructions.
-
----
-
-## 1.1 EXECUTION
-1.  **Run Global Sync Reconciler**:
-    *   List all directories under `.agents/bundles/specs/`.
-    *   For each subdirectory containing a `spec.md` file, run the **Reconciliation Algorithm** (described in `/flow:sync`) to synchronize checklist items with task metadata files.
-
-2.  **Run Integrity Validation**:
-    Perform the following checks directly:
-    *   **Verify Orphaned Task Files**: Scan `.agents/bundles/specs/*/tasks/*.md` and ensure every task file has a corresponding checklist task in its parent `spec.md`. Report any orphaned files.
-    *   **Verify File and Test Paths**: For each task file in status `closed` in any active spec, verify that all paths in its `files` and `tests` arrays exist on disk.
-    *   **Verify Markdown Links**: Verify that all relative links in `spec.md` files resolve to existing files or directories in the workspace.
-    If validation fails with any violations, report them to the developer and halt.
-
-3.  **Identify Completed Flows**:
-    *   Scan `.agents/bundles/specs/*/spec.md` files for frontmatter `state: completed` or `state: archived`.
-    *   **One or two completed flows** — ask per flow:
-        > Propose archiving completed flow '{flow_id}'?
-        > A) Yes - I will run /flow:archive {flow_id}
-        > B) No - Keep it active on disk
-    *   **Three or more completed flows (archive backlog)** — offer batch consolidation:
-        > Found {N} completed flows accumulating in specs/. Consolidate the backlog?
-        > A) Batch archive (recommended) - synthesize all into the knowledge chapters in ONE pass, one log.md entry per flow, then delete all spec directories
-        > B) Review each flow individually
-        > C) Skip
-    *   Batch mode applies the /flow:archive procedure across the set: consolidate every flow's notes first, rewrite each affected knowledge chapter ONCE with all learnings integrated, append log entries newest-first, verify recoverability (tracked vs untracked) once, and remove all spec directories in a single commit.
-"""
+# Generated from contracts/flow.yaml
+# generated-sha256: f7198ae01390b5ae59d1c28cfc1f5ba589d9cbd18bbde3629edbbb23764c745e
+description = "Run the canonical flow/cleanup Flow lifecycle."
+prompt = "{\n  \"agent\": \"flow-reconciler\",\n  \"argument_schema\": {\n    \"optional\": [\n      \"scope\"\n    ],\n    \"required\": [],\n    \"syntax\": \"[scope]\"\n  },\n  \"bounds_enforcement\": \"unsupported\",\n  \"canonical_id\": \"flow/cleanup\",\n  \"capability_evidence\": \"Codex request_user_input schema advertised by the active session\",\n  \"choice_max\": 3,\n  \"choice_min\": 2,\n  \"completion_gates\": [\n    \"archive_candidate\",\n    \"verification\",\n    \"code_review\",\n    \"quality_review\",\n    \"archive\"\n  ],\n  \"custom_answer_behavior\": \"native_custom_input\",\n  \"disabled_choice_policy\": \"omit\",\n  \"fallback\": \"Use Flow to clean up completed flows\",\n  \"git_tags\": \"forbidden\",\n  \"host\": \"codex_cli\",\n  \"instruction\": \"Load the lifecycle owner and follow the canonical procedure source directly.\",\n  \"interaction_mode\": \"none\",\n  \"invocation\": \"Use Flow to clean up completed flows\",\n  \"kind\": \"flow_command_adapter\",\n  \"lifecycle_owner\": \"flow-completion\",\n  \"multi_select\": false,\n  \"mutability\": \"repository_write\",\n  \"mutual_exclusion\": true,\n  \"plan_capability\": \"none\",\n  \"procedure_source\": \"skills/flow/references/cleanup.md\",\n  \"question_capability\": null,\n  \"question_permission_check\": \"declared_and_allowed\",\n  \"question_tool\": \"request_user_input\",\n  \"question_transport\": \"conditional_native\",\n  \"runtime_dependency\": \"agent_file_tools_only\",\n  \"sequential_fallback\": true,\n  \"shared_contracts\": [\n    \"flow-state-v1\",\n    \"quality-review-v1\"\n  ],\n  \"state_operations\": [\n    \"status\",\n    \"archive\",\n    \"recover\"\n  ],\n  \"supported_selection_modes\": [\n    \"binary\",\n    \"single_select\"\n  ]\n}"

@@ -1,22 +1,26 @@
 ---
-name: plan-generator
-description: "Generate zero-ambiguity Flow specs and implementation worksheets after codebase analysis."
+name: quality-reviewer
+description: "Review an exact Git range for unnecessary semantic surface and weak tests or gates without editing the repository."
 ---
 
-<!-- Generated from contracts/flow.yaml; generated-sha256: ab65f191534192c4235fbb05e3b831afc45c099caf445fca69a573fd31c53ad6 -->
+<!-- Generated from contracts/flow.yaml; generated-sha256: 5e932ab7f8b41f7bbf251231fc2526a6e636cd3a12ace7755d0e5dcffbb82c1f -->
 
 ```json
 {
-  "canonical_id": "plan-generator",
-  "canonical_source": "agents/plan-generator.md",
+  "canonical_id": "quality-reviewer",
+  "canonical_source": "agents/quality-reviewer.md",
   "git_tags": "forbidden",
   "host": "vscode_copilot",
   "instruction": "Read and follow the canonical agent source directly.",
-  "interaction_requirement": "structured_choice_optional",
+  "interaction_requirement": "none",
   "invariant_ids": [
-    "flow-state-v1",
-    "structured-choice-v1",
-    "planning-convergence-v1",
+    "quality-review-mandatory-v1",
+    "quality-review-read-only-v1",
+    "quality-findings-evidence-v1",
+    "quality-behavior-preservation-v1",
+    "quality-test-gate-debloat-v1",
+    "quality-review-range-v1",
+    "quality-no-opportunism-v1",
     "git-no-tags-v1"
   ],
   "kind": "flow_agent_adapter",
@@ -37,8 +41,7 @@ description: "Generate zero-ambiguity Flow specs and implementation worksheets a
   },
   "tool_capability_requirements": [
     "file_read",
-    "file_write",
-    "sequential_choice"
+    "repository_diff"
   ]
 }
 ```

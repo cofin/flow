@@ -1,27 +1,4 @@
-description = "Complete flow work - verify, review, merge/PR/keep/discard"
-prompt = """
-## Lifecycle Skill
-Use the `flow-completion` lifecycle skill through the `flow` router before carrying out this command.
-
-## 1.0 SYSTEM DIRECTIVE
-You are completing a Flow's development work. Your task is to verify all tests pass, validate the OKF task files status, and help the user integrate their work.
-
-CRITICAL: You must have FRESH VERIFICATION EVIDENCE before claiming anything passes.
-
----
-
-## 3.0 VERIFICATION & SYNC
-**PROTOCOL: Validate Tasks and Sync Markdown.**
-
-1.  **Final Verification:** Run all tests and check coverage.
-2.  **Task Validation:** Read all files under `.agents/bundles/specs/{flow_id}/tasks/*.md` to ensure they are marked as closed or skipped.
-3.  **Sync:** Run `/flow:sync` to reconcile `spec.md` task checklists with task files.
-
----
-
-## 7.0 CLEANUP
-**PROTOCOL: Update Spec Status.**
-
-1.  **Update Spec Status:** Mark spec complete by editing the frontmatter of `.agents/bundles/specs/{flow_id}/spec.md` to `state: completed` and updating `updated_at`.
-2.  **Archive:** Recommend `/flow:archive` to synthesize learnings and clean up the active spec bundle directory.
-"""
+# Generated from contracts/flow.yaml
+# generated-sha256: 5ca9daab36e8fb3e538b209cd7ea30cf91e632f44b54c9659ae19988a6c4293a
+description = "Run the canonical flow/finish Flow lifecycle."
+prompt = "{\n  \"agent\": \"code-reviewer\",\n  \"argument_schema\": {\n    \"optional\": [],\n    \"required\": [\n      \"flow_id\"\n    ],\n    \"syntax\": \"<flow_id>\"\n  },\n  \"bounds_enforcement\": \"unsupported\",\n  \"canonical_id\": \"flow/finish\",\n  \"capability_evidence\": \"Codex request_user_input schema advertised by the active session\",\n  \"choice_max\": 3,\n  \"choice_min\": 2,\n  \"completion_gates\": [\n    \"verification\",\n    \"code_review\",\n    \"quality_review\",\n    \"finish\"\n  ],\n  \"custom_answer_behavior\": \"native_custom_input\",\n  \"disabled_choice_policy\": \"omit\",\n  \"fallback\": \"Use Flow to finish the current flow\",\n  \"git_tags\": \"forbidden\",\n  \"host\": \"codex_cli\",\n  \"instruction\": \"Load the lifecycle owner and follow the canonical procedure source directly.\",\n  \"interaction_mode\": \"structured_choice\",\n  \"invocation\": \"Use Flow to finish the current flow\",\n  \"kind\": \"flow_command_adapter\",\n  \"lifecycle_owner\": \"flow-completion\",\n  \"multi_select\": false,\n  \"mutability\": \"repository_write\",\n  \"mutual_exclusion\": true,\n  \"plan_capability\": \"none\",\n  \"procedure_source\": \"skills/flow/references/finish.md\",\n  \"question_capability\": \"structured-choice-v1\",\n  \"question_permission_check\": \"declared_and_allowed\",\n  \"question_tool\": \"request_user_input\",\n  \"question_transport\": \"conditional_native\",\n  \"runtime_dependency\": \"agent_file_tools_only\",\n  \"sequential_fallback\": true,\n  \"shared_contracts\": [\n    \"flow-state-v1\",\n    \"structured-choice-v1\",\n    \"quality-review-v1\"\n  ],\n  \"state_operations\": [\n    \"checkpoint\",\n    \"complete\",\n    \"archive\",\n    \"note\"\n  ],\n  \"supported_selection_modes\": [\n    \"binary\",\n    \"single_select\"\n  ]\n}"

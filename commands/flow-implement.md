@@ -1,74 +1,67 @@
 ---
-description: Execute tasks from plan (context-aware)
-argument-hint: <flow_id>
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, WebSearch
+description: "Run the canonical flow/implement Flow lifecycle."
 ---
 
-# Flow Implement
+<!-- Generated from contracts/flow.yaml; generated-sha256: 43dbec7e875e71ba01de722650b0f7d4f21207b54ec69b47636fa3e8eea01caa -->
 
-> Lifecycle skill: use `flow-execution` through the `flow` router.
-
-Implementing flow: **$ARGUMENTS**
-
-## The Executor Mandate
-
-**CRITICAL:** `/flow:implement` is the TDD engine. It uses local task files under `.agents/bundles/specs/<flow_id>/tasks/` as the authority for what to work on next. Every discovery and decision MUST be noted directly inside the active task markdown file.
-
----
-
-## Phase 0: Environment Detection
-
-**PROTOCOL: Check hook context for environment metadata.**
-
-1. **Check Hook Context:** Scan `<hook_context>` for `## Flow Environment Context` to resolve the flow root.
-
----
-
-## Phase 1: Workspace Strategy
-
-**PROTOCOL: Determine if task execution should run in a branched workspace.**
-
-1. **Read Configuration:** Read `use_branched_workspaces` from `.agents/config.json` (default to `false` if missing).
-2. **Determine Strategy:**
-   - If `use_branched_workspaces` is `true` AND the harness supports it, spawn a subagent with `Workspace='branch'` to execute the task. The subagent must follow the same rules as inline execution: TDD, notes in the task file, close with `state: closed` + commit SHA, and immediate spec checklist reconciliation.
-   - Otherwise, execute the task inline in the current workspace.
-
----
-
-## Phase 2: Task Selection
-
-**PROTOCOL: Scan and select the next pending task from the filesystem.**
-
-1. **Scan**: Scan task files under `.agents/bundles/specs/<flow_id>/tasks/*.md`.
-2. **Parse & Resolve Dependencies**: Parse the YAML frontmatter of each task. A task is ready if its `state` is `"open"` and all dependencies listed in `depends_on` have `state` set to `"closed"`.
-3. **Select**: Sort the ready tasks by priority (`P0` > `P1` > `P2` > `P3` > `P4`), then select the first one.
-4. **Claim**: Update the selected task's frontmatter: set `state: in_progress` and `updated_at` to the current ISO-8601 timestamp. Immediately reconcile the spec checklist marker to `[~]` — the markdown task list must never lag the task files.
-
----
-
-## Phase 3: Task Execution Loop (TDD)
-
-For the selected task:
-
-1. **Investigate & Note**: Trace the code and append findings to the task markdown file under a `## Notes & Discoveries` heading, prefixed with a timestamp.
-2. **Write Failing Tests (Red Phase)**: Write unit tests to confirm failure for the right reason.
-3. **Implement (Green Phase)**: Write minimal code to pass the tests.
-4. **Refactor**: Clean up code and test structure while remaining green.
-5. **Commit**: Git commit the changes: `<type>(<scope>): <description>`. Retrieve the commit SHA.
-6. **Close Task**: Update the task's frontmatter: set `state: closed`, `commit: <sha>`, and `updated_at` to the current ISO-8601 timestamp. Immediately reconcile the spec checklist marker to `[x] ... [<sha>]`. Reconciliation after every state change (claim, block, skip, close) is mandatory, not deferred.
-
----
-
-## Phase 4: Phase Completion Protocol
-
-1. **Verify**: Run the full test suite and check coverage requirements.
-2. **Commit**: Ensure all changes are committed.
-
----
-
-## Critical Rules
-
-1. **TDD MANDATORY** - Failing test first.
-2. **TASK FILES AS SOURCE OF TRUTH** - Keep task status and SHAs in the task files frontmatter.
-3. **NOTE IMMEDIATELY** - Record discoveries directly into the task file's `## Notes & Discoveries` section.
-4. **NO DIRECT SPEC EDITS** - Status markers in `spec.md` should only be updated automatically or via synchronization.
+```json
+{
+  "agent": "executor",
+  "argument_schema": {
+    "optional": [
+      "flow_id"
+    ],
+    "required": [],
+    "syntax": "[flow_id]"
+  },
+  "bounds_enforcement": "agent_validated",
+  "canonical_id": "flow/implement",
+  "capability_evidence": "Claude Code declared AskUserQuestion contract",
+  "choice_max": 4,
+  "choice_min": 2,
+  "completion_gates": [
+    "red_green_refactor",
+    "fresh_verification",
+    "scoped_commit"
+  ],
+  "custom_answer_behavior": "native_custom_input",
+  "disabled_choice_policy": "omit",
+  "fallback": "Use Flow to implement the current task",
+  "git_tags": "forbidden",
+  "host": "claude_code",
+  "instruction": "Load the lifecycle owner and follow the canonical procedure source directly.",
+  "interaction_mode": "none",
+  "invocation": "/flow-implement",
+  "kind": "flow_command_adapter",
+  "lifecycle_owner": "flow-execution",
+  "multi_select": true,
+  "mutability": "repository_write",
+  "mutual_exclusion": true,
+  "plan_capability": "none",
+  "procedure_source": "skills/flow/references/implement.md",
+  "question_capability": null,
+  "question_permission_check": "declared_and_allowed",
+  "question_tool": "AskUserQuestion",
+  "question_transport": "conditional_native",
+  "runtime_dependency": "agent_file_tools_only",
+  "sequential_fallback": true,
+  "shared_contracts": [
+    "flow-state-v1",
+    "worksheet-execution-v1"
+  ],
+  "state_operations": [
+    "status",
+    "claim",
+    "discover",
+    "block",
+    "release",
+    "checkpoint",
+    "close"
+  ],
+  "supported_selection_modes": [
+    "binary",
+    "single_select",
+    "multi_select"
+  ]
+}
+```
