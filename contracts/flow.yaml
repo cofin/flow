@@ -1,0 +1,654 @@
+schema_version: 1
+
+git_policy:
+  tags: forbidden
+  allowed_local_operations: [notes, branches, worktrees]
+
+state_operations:
+  - create
+  - activate
+  - claim
+  - release
+  - note
+  - discover
+  - block
+  - unblock
+  - checkpoint
+  - close
+  - skip
+  - reopen
+  - revise
+  - reconcile
+  - complete
+  - archive
+  - recover
+  - status
+
+shared_contracts:
+  - {id: flow-state-v1, source: skills/flow/references/state.md, runtime_dependency: agent_file_tools_only}
+  - {id: structured-choice-v1, source: skills/flow/references/interaction.md, runtime_dependency: agent_file_tools_only}
+  - {id: worksheet-execution-v1, source: skills/flow/references/implement.md, runtime_dependency: agent_file_tools_only}
+
+interaction_contracts:
+  structured-choice-v1:
+    procedure_source: skills/flow/references/interaction.md
+    request:
+      exact_keys: [contract_id, decision_id, selection_mode, question, disabled_choice_policy, choices, recommended_choice_id, allow_custom, min_selections, max_selections, free_form_reason, input_guidance]
+      exact_choice_keys: [id, label, description]
+      variants:
+        binary: {choice_count: [2, 2], recommendation: first_choice, allow_custom: true, bounds: forbidden}
+        single_select: {choice_count: [2, 4], recommendation: first_choice, allow_custom: true, bounds: forbidden}
+        multi_select: {choice_count: [2, 4], recommendation: first_choice, allow_custom: true, bounds: required}
+        open:
+          choice_count: [0, 0]
+          recommendation: null
+          allow_custom: false
+          bounds: forbidden
+          free_form_reasons: [user_defined_identifier, revision_details, other_constraint]
+    result:
+      exact_keys: [decision_id, selection_mode, outcome, selected_choice_ids, custom_text, open_text, transport, tool_name, fallback_reasons]
+      outcomes:
+        binary: [selected, custom, cancelled]
+        single_select: [selected, custom, cancelled]
+        multi_select: [selected, selected_with_custom, cancelled]
+        open: [submitted, cancelled]
+    fallback_reason_order: [tool_absent, tool_denied, mode_unsupported, choice_count_unsupported, bounds_unsupported, custom_unsupported, disabled_policy_unsupported]
+    planning_gates:
+      pre_quality: [revise, refine]
+      post_quality: [approve, revise, refine]
+    transition_effects:
+      approve: [advance]
+      revise: [collect_open_revision_details, apply_changes, increment_plan_identity_if_plan_bearing, revalidate, represent_gate]
+      refine: [ask_next_structured_gap, update, revalidate, represent_gate]
+      cancelled: [stop_without_approval_or_mutation]
+
+harnesses:
+  - id: antigravity
+    transport: conditional_native
+    verified_tool: ask_question
+    permission_check: declared_and_allowed
+    supported_modes: [binary, single_select, multi_select]
+    choice_min: 2
+    choice_max: 4
+    mutual_exclusion: true
+    multi_select: true
+    bounds_enforcement: agent_validated
+    custom_answer_behavior: native_custom_input
+    disabled_choice_policy: omit
+    sequential_fallback: true
+    evidence: "Antigravity allowed-tool contract for ask_question"
+    command_surface: skill_derived
+    plan_capability: native
+  - id: claude_code
+    transport: conditional_native
+    verified_tool: AskUserQuestion
+    permission_check: declared_and_allowed
+    supported_modes: [binary, single_select, multi_select]
+    choice_min: 2
+    choice_max: 4
+    mutual_exclusion: true
+    multi_select: true
+    bounds_enforcement: agent_validated
+    custom_answer_behavior: native_custom_input
+    disabled_choice_policy: omit
+    sequential_fallback: true
+    evidence: "Claude Code declared AskUserQuestion contract"
+    command_surface: slash_command
+    plan_capability: native
+  - id: codex_cli
+    transport: conditional_native
+    verified_tool: request_user_input
+    permission_check: declared_and_allowed
+    supported_modes: [binary, single_select]
+    choice_min: 2
+    choice_max: 3
+    mutual_exclusion: true
+    multi_select: false
+    bounds_enforcement: unsupported
+    custom_answer_behavior: native_custom_input
+    disabled_choice_policy: omit
+    sequential_fallback: true
+    evidence: "Codex request_user_input schema advertised by the active session"
+    command_surface: natural_language
+    plan_capability: native
+  - id: opencode
+    transport: conditional_native
+    verified_tool: question
+    permission_check: declared_and_allowed
+    supported_modes: [binary, single_select, multi_select]
+    choice_min: 2
+    choice_max: 4
+    mutual_exclusion: true
+    multi_select: true
+    bounds_enforcement: agent_validated
+    custom_answer_behavior: native_custom_input
+    disabled_choice_policy: omit
+    sequential_fallback: true
+    evidence: "OpenCode built-in question tool documentation"
+    command_surface: optional_slash_command
+    plan_capability: reasoning_only
+  - id: cursor
+    transport: sequential_text
+    verified_tool: null
+    permission_check: not_applicable
+    supported_modes: []
+    choice_min: null
+    choice_max: null
+    mutual_exclusion: false
+    multi_select: false
+    bounds_enforcement: unsupported
+    custom_answer_behavior: sequential_text_only
+    disabled_choice_policy: omit
+    sequential_fallback: true
+    evidence: "No verified Flow-native Cursor question tool"
+    command_surface: natural_language
+    plan_capability: reasoning_only
+  - id: vscode_copilot
+    transport: sequential_text
+    verified_tool: null
+    permission_check: not_applicable
+    supported_modes: []
+    choice_min: null
+    choice_max: null
+    mutual_exclusion: false
+    multi_select: false
+    bounds_enforcement: unsupported
+    custom_answer_behavior: sequential_text_only
+    disabled_choice_policy: omit
+    sequential_fallback: true
+    evidence: "No verified Flow-native VS Code Copilot question tool"
+    command_surface: natural_language
+    plan_capability: reasoning_only
+  - id: openclaw
+    transport: sequential_text
+    verified_tool: null
+    permission_check: not_applicable
+    supported_modes: []
+    choice_min: null
+    choice_max: null
+    mutual_exclusion: false
+    multi_select: false
+    bounds_enforcement: unsupported
+    custom_answer_behavior: sequential_text_only
+    disabled_choice_policy: omit
+    sequential_fallback: true
+    evidence: "No verified Flow-native OpenClaw question tool"
+    command_surface: natural_language
+    plan_capability: none
+
+commands:
+  - id: flow/setup
+    lifecycle_owner: flow-setup
+    agent: null
+    shared_contracts: [flow-state-v1, structured-choice-v1]
+    state_operations: [create, activate, revise, reconcile]
+    procedure_source: skills/flow/references/setup.md
+    argument_schema: {syntax: "[goal]", required: [], optional: [goal]}
+    mutability: repository_write
+    interaction_mode: structured_choice
+    question_capability: structured-choice-v1
+    plan_capability: preferred
+    completion_gates: [setup_validation, migration_integrity]
+    runtime_dependency: agent_file_tools_only
+    invocations:
+      antigravity: {spelling: /flow-setup, fallback: "Use Flow to set up this repository"}
+      claude_code: {spelling: /flow-setup, fallback: "Use Flow to set up this repository"}
+      codex_cli: {spelling: "Use Flow to set up this repository", fallback: "Use Flow to set up this repository"}
+      opencode: {spelling: /flow-setup, fallback: "Use Flow to set up this repository"}
+      cursor: {spelling: "Use Flow to set up this repository", fallback: "Use Flow to set up this repository"}
+      vscode_copilot: {spelling: "Use Flow to set up this repository", fallback: "Use Flow to set up this repository"}
+      openclaw: {spelling: "Use Flow to set up this repository", fallback: "Use Flow to set up this repository"}
+  - id: flow/prd
+    lifecycle_owner: flow-planning
+    agent: prd-orchestrator
+    shared_contracts: [flow-state-v1, structured-choice-v1]
+    state_operations: [create, revise, checkpoint]
+    procedure_source: skills/flow/references/prd.md
+    argument_schema: {syntax: "<goal>", required: [goal], optional: []}
+    mutability: planning_write
+    interaction_mode: structured_choice
+    question_capability: structured-choice-v1
+    plan_capability: required
+    completion_gates: [research_closed, gap_scan, code_review, user_approval]
+    runtime_dependency: agent_file_tools_only
+    invocations:
+      antigravity: {spelling: /flow-prd, fallback: "Use Flow to create a PRD"}
+      claude_code: {spelling: /flow-prd, fallback: "Use Flow to create a PRD"}
+      codex_cli: {spelling: "Use Flow to create a PRD", fallback: "Use Flow to create a PRD"}
+      opencode: {spelling: /flow-prd, fallback: "Use Flow to create a PRD"}
+      cursor: {spelling: "Use Flow to create a PRD", fallback: "Use Flow to create a PRD"}
+      vscode_copilot: {spelling: "Use Flow to create a PRD", fallback: "Use Flow to create a PRD"}
+      openclaw: {spelling: "Use Flow to create a PRD", fallback: "Use Flow to create a PRD"}
+  - id: flow/plan
+    lifecycle_owner: flow-planning
+    agent: plan-generator
+    shared_contracts: [flow-state-v1, structured-choice-v1]
+    state_operations: [create, revise, checkpoint]
+    procedure_source: skills/flow/references/plan.md
+    argument_schema: {syntax: "<goal>", required: [goal], optional: []}
+    mutability: planning_write
+    interaction_mode: structured_choice
+    question_capability: structured-choice-v1
+    plan_capability: required
+    completion_gates: [research_closed, gap_scan, code_review, user_approval]
+    runtime_dependency: agent_file_tools_only
+    invocations:
+      antigravity: {spelling: /flow-plan, fallback: "Use Flow to plan this work"}
+      claude_code: {spelling: /flow-plan, fallback: "Use Flow to plan this work"}
+      codex_cli: {spelling: "Use Flow to plan this work", fallback: "Use Flow to plan this work"}
+      opencode: {spelling: /flow-plan, fallback: "Use Flow to plan this work"}
+      cursor: {spelling: "Use Flow to plan this work", fallback: "Use Flow to plan this work"}
+      vscode_copilot: {spelling: "Use Flow to plan this work", fallback: "Use Flow to plan this work"}
+      openclaw: {spelling: "Use Flow to plan this work", fallback: "Use Flow to plan this work"}
+  - id: flow/refine
+    lifecycle_owner: flow-planning
+    agent: plan-generator
+    shared_contracts: [flow-state-v1, structured-choice-v1]
+    state_operations: [discover, revise, checkpoint]
+    procedure_source: skills/flow/references/refine.md
+    argument_schema: {syntax: "<flow_id>", required: [flow_id], optional: []}
+    mutability: planning_write
+    interaction_mode: structured_choice
+    question_capability: structured-choice-v1
+    plan_capability: required
+    completion_gates: [gap_scan, code_review, user_approval]
+    runtime_dependency: agent_file_tools_only
+    invocations:
+      antigravity: {spelling: /flow-refine, fallback: "Use Flow to refine the plan"}
+      claude_code: {spelling: /flow-refine, fallback: "Use Flow to refine the plan"}
+      codex_cli: {spelling: "Use Flow to refine the plan", fallback: "Use Flow to refine the plan"}
+      opencode: {spelling: /flow-refine, fallback: "Use Flow to refine the plan"}
+      cursor: {spelling: "Use Flow to refine the plan", fallback: "Use Flow to refine the plan"}
+      vscode_copilot: {spelling: "Use Flow to refine the plan", fallback: "Use Flow to refine the plan"}
+      openclaw: {spelling: "Use Flow to refine the plan", fallback: "Use Flow to refine the plan"}
+  - id: flow/sync
+    lifecycle_owner: flow-sync-status
+    agent: flow-reconciler
+    shared_contracts: [flow-state-v1]
+    state_operations: [reconcile]
+    procedure_source: skills/flow/references/sync.md
+    argument_schema: {syntax: "[flow_id]", required: [], optional: [flow_id]}
+    mutability: state_write
+    interaction_mode: none
+    question_capability: null
+    plan_capability: none
+    completion_gates: [transaction_reread]
+    runtime_dependency: agent_file_tools_only
+    invocations:
+      antigravity: {spelling: /flow-sync, fallback: "Use Flow to sync task state"}
+      claude_code: {spelling: /flow-sync, fallback: "Use Flow to sync task state"}
+      codex_cli: {spelling: "Use Flow to sync task state", fallback: "Use Flow to sync task state"}
+      opencode: {spelling: /flow-sync, fallback: "Use Flow to sync task state"}
+      cursor: {spelling: "Use Flow to sync task state", fallback: "Use Flow to sync task state"}
+      vscode_copilot: {spelling: "Use Flow to sync task state", fallback: "Use Flow to sync task state"}
+      openclaw: {spelling: "Use Flow to sync task state", fallback: "Use Flow to sync task state"}
+  - id: flow/research
+    lifecycle_owner: flow-planning
+    agent: null
+    shared_contracts: [flow-state-v1, structured-choice-v1]
+    state_operations: [note, discover]
+    procedure_source: skills/flow/references/research.md
+    argument_schema: {syntax: "<topic>", required: [topic], optional: []}
+    mutability: planning_write
+    interaction_mode: structured_choice
+    question_capability: structured-choice-v1
+    plan_capability: preferred
+    completion_gates: [evidence_captured]
+    runtime_dependency: agent_file_tools_only
+    invocations:
+      antigravity: {spelling: /flow-research, fallback: "Use Flow to research this topic"}
+      claude_code: {spelling: /flow-research, fallback: "Use Flow to research this topic"}
+      codex_cli: {spelling: "Use Flow to research this topic", fallback: "Use Flow to research this topic"}
+      opencode: {spelling: /flow-research, fallback: "Use Flow to research this topic"}
+      cursor: {spelling: "Use Flow to research this topic", fallback: "Use Flow to research this topic"}
+      vscode_copilot: {spelling: "Use Flow to research this topic", fallback: "Use Flow to research this topic"}
+      openclaw: {spelling: "Use Flow to research this topic", fallback: "Use Flow to research this topic"}
+  - id: flow/docs
+    lifecycle_owner: flow-completion
+    agent: null
+    shared_contracts: [flow-state-v1]
+    state_operations: [note, checkpoint]
+    procedure_source: skills/flow/references/docs.md
+    argument_schema: {syntax: "[scope]", required: [], optional: [scope]}
+    mutability: repository_write
+    interaction_mode: none
+    question_capability: null
+    plan_capability: preferred
+    completion_gates: [documentation_validation]
+    runtime_dependency: agent_file_tools_only
+    invocations:
+      antigravity: {spelling: /flow-docs, fallback: "Use Flow to update documentation"}
+      claude_code: {spelling: /flow-docs, fallback: "Use Flow to update documentation"}
+      codex_cli: {spelling: "Use Flow to update documentation", fallback: "Use Flow to update documentation"}
+      opencode: {spelling: /flow-docs, fallback: "Use Flow to update documentation"}
+      cursor: {spelling: "Use Flow to update documentation", fallback: "Use Flow to update documentation"}
+      vscode_copilot: {spelling: "Use Flow to update documentation", fallback: "Use Flow to update documentation"}
+      openclaw: {spelling: "Use Flow to update documentation", fallback: "Use Flow to update documentation"}
+  - id: flow/implement
+    lifecycle_owner: flow-execution
+    agent: executor
+    shared_contracts: [flow-state-v1, worksheet-execution-v1]
+    state_operations: [status, claim, discover, block, release, checkpoint, close]
+    procedure_source: skills/flow/references/implement.md
+    argument_schema: {syntax: "[flow_id]", required: [], optional: [flow_id]}
+    mutability: repository_write
+    interaction_mode: none
+    question_capability: null
+    plan_capability: none
+    completion_gates: [red_green_refactor, fresh_verification, scoped_commit]
+    runtime_dependency: agent_file_tools_only
+    invocations:
+      antigravity: {spelling: /flow-implement, fallback: "Use Flow to implement the current task"}
+      claude_code: {spelling: /flow-implement, fallback: "Use Flow to implement the current task"}
+      codex_cli: {spelling: "Use Flow to implement the current task", fallback: "Use Flow to implement the current task"}
+      opencode: {spelling: /flow-implement, fallback: "Use Flow to implement the current task"}
+      cursor: {spelling: "Use Flow to implement the current task", fallback: "Use Flow to implement the current task"}
+      vscode_copilot: {spelling: "Use Flow to implement the current task", fallback: "Use Flow to implement the current task"}
+      openclaw: {spelling: "Use Flow to implement the current task", fallback: "Use Flow to implement the current task"}
+  - id: flow/status
+    lifecycle_owner: flow-sync-status
+    agent: flow-reconciler
+    shared_contracts: [flow-state-v1]
+    state_operations: [status]
+    procedure_source: skills/flow/references/status.md
+    argument_schema: {syntax: "[flow_id]", required: [], optional: [flow_id]}
+    mutability: read_only
+    interaction_mode: none
+    question_capability: null
+    plan_capability: none
+    completion_gates: [direct_markdown_read]
+    runtime_dependency: agent_file_tools_only
+    invocations:
+      antigravity: {spelling: /flow-status, fallback: "Use Flow to report status"}
+      claude_code: {spelling: /flow-status, fallback: "Use Flow to report status"}
+      codex_cli: {spelling: "Use Flow to report status", fallback: "Use Flow to report status"}
+      opencode: {spelling: /flow-status, fallback: "Use Flow to report status"}
+      cursor: {spelling: "Use Flow to report status", fallback: "Use Flow to report status"}
+      vscode_copilot: {spelling: "Use Flow to report status", fallback: "Use Flow to report status"}
+      openclaw: {spelling: "Use Flow to report status", fallback: "Use Flow to report status"}
+  - id: flow/revert
+    lifecycle_owner: flow-completion
+    agent: null
+    shared_contracts: [flow-state-v1, structured-choice-v1]
+    state_operations: [reopen, revise, reconcile]
+    procedure_source: skills/flow/references/revert.md
+    argument_schema: {syntax: "<target>", required: [target], optional: []}
+    mutability: repository_write
+    interaction_mode: structured_choice
+    question_capability: structured-choice-v1
+    plan_capability: preferred
+    completion_gates: [explicit_scope, post_revert_validation]
+    runtime_dependency: agent_file_tools_only
+    invocations:
+      antigravity: {spelling: /flow-revert, fallback: "Use Flow to revert the named target"}
+      claude_code: {spelling: /flow-revert, fallback: "Use Flow to revert the named target"}
+      codex_cli: {spelling: "Use Flow to revert the named target", fallback: "Use Flow to revert the named target"}
+      opencode: {spelling: /flow-revert, fallback: "Use Flow to revert the named target"}
+      cursor: {spelling: "Use Flow to revert the named target", fallback: "Use Flow to revert the named target"}
+      vscode_copilot: {spelling: "Use Flow to revert the named target", fallback: "Use Flow to revert the named target"}
+      openclaw: {spelling: "Use Flow to revert the named target", fallback: "Use Flow to revert the named target"}
+  - id: flow/validate
+    lifecycle_owner: flow-setup
+    agent: null
+    shared_contracts: [flow-state-v1]
+    state_operations: [status]
+    procedure_source: skills/flow/references/validate.md
+    argument_schema: {syntax: "[scope]", required: [], optional: [scope]}
+    mutability: read_only
+    interaction_mode: none
+    question_capability: null
+    plan_capability: none
+    completion_gates: [validation_passed]
+    runtime_dependency: agent_file_tools_only
+    invocations:
+      antigravity: {spelling: /flow-validate, fallback: "Use Flow to validate this repository"}
+      claude_code: {spelling: /flow-validate, fallback: "Use Flow to validate this repository"}
+      codex_cli: {spelling: "Use Flow to validate this repository", fallback: "Use Flow to validate this repository"}
+      opencode: {spelling: /flow-validate, fallback: "Use Flow to validate this repository"}
+      cursor: {spelling: "Use Flow to validate this repository", fallback: "Use Flow to validate this repository"}
+      vscode_copilot: {spelling: "Use Flow to validate this repository", fallback: "Use Flow to validate this repository"}
+      openclaw: {spelling: "Use Flow to validate this repository", fallback: "Use Flow to validate this repository"}
+  - id: flow/revise
+    lifecycle_owner: flow-planning
+    agent: plan-generator
+    shared_contracts: [flow-state-v1, structured-choice-v1]
+    state_operations: [discover, block, release, revise, checkpoint]
+    procedure_source: skills/flow/references/revise.md
+    argument_schema: {syntax: "<flow_id> [changes]", required: [flow_id], optional: [changes]}
+    mutability: planning_write
+    interaction_mode: structured_choice
+    question_capability: structured-choice-v1
+    plan_capability: required
+    completion_gates: [gap_scan, code_review, user_approval]
+    runtime_dependency: agent_file_tools_only
+    invocations:
+      antigravity: {spelling: /flow-revise, fallback: "Use Flow to revise the plan"}
+      claude_code: {spelling: /flow-revise, fallback: "Use Flow to revise the plan"}
+      codex_cli: {spelling: "Use Flow to revise the plan", fallback: "Use Flow to revise the plan"}
+      opencode: {spelling: /flow-revise, fallback: "Use Flow to revise the plan"}
+      cursor: {spelling: "Use Flow to revise the plan", fallback: "Use Flow to revise the plan"}
+      vscode_copilot: {spelling: "Use Flow to revise the plan", fallback: "Use Flow to revise the plan"}
+      openclaw: {spelling: "Use Flow to revise the plan", fallback: "Use Flow to revise the plan"}
+  - id: flow/archive
+    lifecycle_owner: flow-completion
+    agent: null
+    shared_contracts: [flow-state-v1, structured-choice-v1]
+    state_operations: [note, archive]
+    procedure_source: skills/flow/references/archive.md
+    argument_schema: {syntax: "<flow_id>", required: [flow_id], optional: []}
+    mutability: repository_write
+    interaction_mode: structured_choice
+    question_capability: structured-choice-v1
+    plan_capability: none
+    completion_gates: [quality_review, archive_manifest, contraction_postconditions]
+    runtime_dependency: agent_file_tools_only
+    invocations:
+      antigravity: {spelling: /flow-archive, fallback: "Use Flow to archive the completed flow"}
+      claude_code: {spelling: /flow-archive, fallback: "Use Flow to archive the completed flow"}
+      codex_cli: {spelling: "Use Flow to archive the completed flow", fallback: "Use Flow to archive the completed flow"}
+      opencode: {spelling: /flow-archive, fallback: "Use Flow to archive the completed flow"}
+      cursor: {spelling: "Use Flow to archive the completed flow", fallback: "Use Flow to archive the completed flow"}
+      vscode_copilot: {spelling: "Use Flow to archive the completed flow", fallback: "Use Flow to archive the completed flow"}
+      openclaw: {spelling: "Use Flow to archive the completed flow", fallback: "Use Flow to archive the completed flow"}
+  - id: flow/refresh
+    lifecycle_owner: flow-sync-status
+    agent: flow-reconciler
+    shared_contracts: [flow-state-v1]
+    state_operations: [discover, revise, reconcile]
+    procedure_source: skills/flow/references/refresh.md
+    argument_schema: {syntax: "[flow_id]", required: [], optional: [flow_id]}
+    mutability: planning_write
+    interaction_mode: none
+    question_capability: null
+    plan_capability: preferred
+    completion_gates: [drift_inventory, transaction_reread]
+    runtime_dependency: agent_file_tools_only
+    invocations:
+      antigravity: {spelling: /flow-refresh, fallback: "Use Flow to refresh project context"}
+      claude_code: {spelling: /flow-refresh, fallback: "Use Flow to refresh project context"}
+      codex_cli: {spelling: "Use Flow to refresh project context", fallback: "Use Flow to refresh project context"}
+      opencode: {spelling: /flow-refresh, fallback: "Use Flow to refresh project context"}
+      cursor: {spelling: "Use Flow to refresh project context", fallback: "Use Flow to refresh project context"}
+      vscode_copilot: {spelling: "Use Flow to refresh project context", fallback: "Use Flow to refresh project context"}
+      openclaw: {spelling: "Use Flow to refresh project context", fallback: "Use Flow to refresh project context"}
+  - id: flow/task
+    lifecycle_owner: flow-planning
+    agent: executor
+    shared_contracts: [flow-state-v1, worksheet-execution-v1]
+    state_operations: [create, claim, discover, release, close]
+    procedure_source: skills/flow/references/task.md
+    argument_schema: {syntax: "<exploration>", required: [exploration], optional: []}
+    mutability: planning_write
+    interaction_mode: none
+    question_capability: null
+    plan_capability: preferred
+    completion_gates: [worksheet_complete, evidence_captured]
+    runtime_dependency: agent_file_tools_only
+    invocations:
+      antigravity: {spelling: /flow-task, fallback: "Use Flow to create an exploration task"}
+      claude_code: {spelling: /flow-task, fallback: "Use Flow to create an exploration task"}
+      codex_cli: {spelling: "Use Flow to create an exploration task", fallback: "Use Flow to create an exploration task"}
+      opencode: {spelling: /flow-task, fallback: "Use Flow to create an exploration task"}
+      cursor: {spelling: "Use Flow to create an exploration task", fallback: "Use Flow to create an exploration task"}
+      vscode_copilot: {spelling: "Use Flow to create an exploration task", fallback: "Use Flow to create an exploration task"}
+      openclaw: {spelling: "Use Flow to create an exploration task", fallback: "Use Flow to create an exploration task"}
+  - id: flow/finish
+    lifecycle_owner: flow-completion
+    agent: code-reviewer
+    shared_contracts: [flow-state-v1, structured-choice-v1]
+    state_operations: [checkpoint, complete, archive, note]
+    procedure_source: skills/flow/references/finish.md
+    argument_schema: {syntax: "<flow_id>", required: [flow_id], optional: []}
+    mutability: repository_write
+    interaction_mode: structured_choice
+    question_capability: structured-choice-v1
+    plan_capability: none
+    completion_gates: [full_verification, code_review, quality_review, user_choice]
+    runtime_dependency: agent_file_tools_only
+    invocations:
+      antigravity: {spelling: /flow-finish, fallback: "Use Flow to finish the current flow"}
+      claude_code: {spelling: /flow-finish, fallback: "Use Flow to finish the current flow"}
+      codex_cli: {spelling: "Use Flow to finish the current flow", fallback: "Use Flow to finish the current flow"}
+      opencode: {spelling: /flow-finish, fallback: "Use Flow to finish the current flow"}
+      cursor: {spelling: "Use Flow to finish the current flow", fallback: "Use Flow to finish the current flow"}
+      vscode_copilot: {spelling: "Use Flow to finish the current flow", fallback: "Use Flow to finish the current flow"}
+      openclaw: {spelling: "Use Flow to finish the current flow", fallback: "Use Flow to finish the current flow"}
+  - id: flow/review
+    lifecycle_owner: flow-completion
+    agent: code-reviewer
+    shared_contracts: [flow-state-v1]
+    state_operations: [status, note]
+    procedure_source: skills/flow/references/review.md
+    argument_schema: {syntax: "[flow_id]", required: [], optional: [flow_id]}
+    mutability: state_write
+    interaction_mode: none
+    question_capability: null
+    plan_capability: none
+    completion_gates: [review_bound_to_range]
+    runtime_dependency: agent_file_tools_only
+    invocations:
+      antigravity: {spelling: /flow-review, fallback: "Use Flow to review the current flow"}
+      claude_code: {spelling: /flow-review, fallback: "Use Flow to review the current flow"}
+      codex_cli: {spelling: "Use Flow to review the current flow", fallback: "Use Flow to review the current flow"}
+      opencode: {spelling: /flow-review, fallback: "Use Flow to review the current flow"}
+      cursor: {spelling: "Use Flow to review the current flow", fallback: "Use Flow to review the current flow"}
+      vscode_copilot: {spelling: "Use Flow to review the current flow", fallback: "Use Flow to review the current flow"}
+      openclaw: {spelling: "Use Flow to review the current flow", fallback: "Use Flow to review the current flow"}
+  - id: flow/cleanup
+    lifecycle_owner: flow-completion
+    agent: flow-reconciler
+    shared_contracts: [flow-state-v1]
+    state_operations: [status, archive, recover]
+    procedure_source: skills/flow/references/cleanup.md
+    argument_schema: {syntax: "[scope]", required: [], optional: [scope]}
+    mutability: repository_write
+    interaction_mode: none
+    question_capability: null
+    plan_capability: none
+    completion_gates: [quality_review, contraction_postconditions]
+    runtime_dependency: agent_file_tools_only
+    invocations:
+      antigravity: {spelling: /flow-cleanup, fallback: "Use Flow to clean up completed flows"}
+      claude_code: {spelling: /flow-cleanup, fallback: "Use Flow to clean up completed flows"}
+      codex_cli: {spelling: "Use Flow to clean up completed flows", fallback: "Use Flow to clean up completed flows"}
+      opencode: {spelling: /flow-cleanup, fallback: "Use Flow to clean up completed flows"}
+      cursor: {spelling: "Use Flow to clean up completed flows", fallback: "Use Flow to clean up completed flows"}
+      vscode_copilot: {spelling: "Use Flow to clean up completed flows", fallback: "Use Flow to clean up completed flows"}
+      openclaw: {spelling: "Use Flow to clean up completed flows", fallback: "Use Flow to clean up completed flows"}
+
+agents:
+  - id: code-reviewer
+    canonical_source: agents/code-reviewer.md
+    supported_host_adapters: [antigravity, claude_code, codex_cli, opencode, vscode_copilot]
+    invariant_ids: [review-findings-v1, git-no-tags-v1]
+    interaction_requirement: none
+    tool_requirements:
+      antigravity: [file_read, repository_diff]
+      claude_code: [file_read, repository_diff]
+      codex_cli: [file_read, repository_diff]
+      opencode: [file_read, repository_diff]
+      vscode_copilot: [file_read, repository_diff]
+    generation:
+      description: Review Flow specs, plans, and implementation changes for correctness, risk, and missing verification.
+      nickname_candidates: [code reviewer, reviewer]
+      outputs:
+        antigravity: {path: templates/antigravity/agents/code-reviewer.md, format: antigravity_markdown, mode: null, edit_permission: null, bash_permission: null, web_permission: null}
+        codex_cli: {path: .codex/agents/code-reviewer.toml, format: codex_toml, mode: null, edit_permission: null, bash_permission: null, web_permission: null}
+        opencode: {path: .opencode/agents/code-reviewer.md, format: opencode_markdown, mode: subagent, edit_permission: deny, bash_permission: allow, web_permission: allow}
+        vscode_copilot: {path: .github/agents/code-reviewer.agent.md, format: vscode_markdown, mode: null, edit_permission: null, bash_permission: null, web_permission: null}
+  - id: executor
+    canonical_source: agents/executor.md
+    supported_host_adapters: [antigravity, claude_code, codex_cli, opencode, vscode_copilot]
+    invariant_ids: [worksheet-execution-v1, flow-state-v1, git-no-tags-v1]
+    interaction_requirement: none
+    tool_requirements:
+      antigravity: [file_read, file_write, repository_commands]
+      claude_code: [file_read, file_write, repository_commands]
+      codex_cli: [file_read, file_write, repository_commands]
+      opencode: [file_read, file_write, repository_commands]
+      vscode_copilot: [file_read, file_write, repository_commands]
+    generation:
+      description: Execute Flow implementation tasks with TDD, task file notes, verification, and sync discipline.
+      nickname_candidates: [executor, flow executor]
+      outputs:
+        antigravity: {path: templates/antigravity/agents/executor.md, format: antigravity_markdown, mode: null, edit_permission: null, bash_permission: null, web_permission: null}
+        codex_cli: {path: .codex/agents/executor.toml, format: codex_toml, mode: null, edit_permission: null, bash_permission: null, web_permission: null}
+        opencode: {path: .opencode/agents/executor.md, format: opencode_markdown, mode: subagent, edit_permission: allow, bash_permission: allow, web_permission: allow}
+        vscode_copilot: {path: .github/agents/executor.agent.md, format: vscode_markdown, mode: null, edit_permission: null, bash_permission: null, web_permission: null}
+  - id: flow-reconciler
+    canonical_source: agents/flow-reconciler.md
+    supported_host_adapters: [antigravity, claude_code, codex_cli, opencode, vscode_copilot]
+    invariant_ids: [flow-state-v1, markdown-transaction-v1, git-no-tags-v1]
+    interaction_requirement: none
+    tool_requirements:
+      antigravity: [file_read, file_write]
+      claude_code: [file_read, file_write]
+      codex_cli: [file_read, file_write]
+      opencode: [file_read, file_write]
+      vscode_copilot: [file_read, file_write]
+    generation:
+      description: Reconcile Flow Markdown state transactions and report a compact status dashboard.
+      nickname_candidates: [reconciler, flow reconciler]
+      outputs:
+        antigravity: {path: templates/antigravity/agents/flow-reconciler.md, format: antigravity_markdown, mode: null, edit_permission: null, bash_permission: null, web_permission: null}
+        codex_cli: {path: .codex/agents/flow-reconciler.toml, format: codex_toml, mode: null, edit_permission: null, bash_permission: null, web_permission: null}
+        opencode: {path: .opencode/agents/flow-reconciler.md, format: opencode_markdown, mode: subagent, edit_permission: allow, bash_permission: deny, web_permission: deny}
+        vscode_copilot: {path: .github/agents/flow-reconciler.agent.md, format: vscode_markdown, mode: null, edit_permission: null, bash_permission: null, web_permission: null}
+  - id: plan-generator
+    canonical_source: agents/plan-generator.md
+    supported_host_adapters: [antigravity, claude_code, codex_cli, opencode, vscode_copilot]
+    invariant_ids: [flow-state-v1, structured-choice-v1, planning-convergence-v1, git-no-tags-v1]
+    interaction_requirement: structured_choice_optional
+    tool_requirements:
+      antigravity: [file_read, file_write, structured_choice]
+      claude_code: [file_read, file_write, structured_choice]
+      codex_cli: [file_read, file_write, structured_choice]
+      opencode: [file_read, file_write, structured_choice]
+      vscode_copilot: [file_read, file_write, sequential_choice]
+    generation:
+      description: Generate zero-ambiguity Flow specs and implementation worksheets after codebase analysis.
+      nickname_candidates: [planner, plan generator]
+      outputs:
+        antigravity: {path: templates/antigravity/agents/plan-generator.md, format: antigravity_markdown, mode: null, edit_permission: null, bash_permission: null, web_permission: null}
+        codex_cli: {path: .codex/agents/plan-generator.toml, format: codex_toml, mode: null, edit_permission: null, bash_permission: null, web_permission: null}
+        opencode: {path: .opencode/agents/plan-generator.md, format: opencode_markdown, mode: subagent, edit_permission: allow, bash_permission: allow, web_permission: allow}
+        vscode_copilot: {path: .github/agents/plan-generator.agent.md, format: vscode_markdown, mode: null, edit_permission: null, bash_permission: null, web_permission: null}
+  - id: prd-orchestrator
+    canonical_source: agents/prd-orchestrator.md
+    supported_host_adapters: [antigravity, claude_code, codex_cli, opencode, vscode_copilot]
+    invariant_ids: [flow-state-v1, structured-choice-v1, planning-convergence-v1, git-no-tags-v1]
+    interaction_requirement: structured_choice_optional
+    tool_requirements:
+      antigravity: [file_read, file_write, structured_choice]
+      claude_code: [file_read, file_write, structured_choice]
+      codex_cli: [file_read, file_write, structured_choice]
+      opencode: [file_read, file_write, structured_choice]
+      vscode_copilot: [file_read, file_write, sequential_choice]
+    generation:
+      description: Analyze broad goals and produce Flow PRD roadmaps with implementation-ready child flows.
+      nickname_candidates: [orchestrator, prd orchestrator]
+      outputs:
+        antigravity: {path: templates/antigravity/agents/prd-orchestrator.md, format: antigravity_markdown, mode: null, edit_permission: null, bash_permission: null, web_permission: null}
+        codex_cli: {path: .codex/agents/prd-orchestrator.toml, format: codex_toml, mode: null, edit_permission: null, bash_permission: null, web_permission: null}
+        opencode: {path: .opencode/agents/prd-orchestrator.md, format: opencode_markdown, mode: subagent, edit_permission: allow, bash_permission: allow, web_permission: allow}
+        vscode_copilot: {path: .github/agents/prd-orchestrator.agent.md, format: vscode_markdown, mode: null, edit_permission: null, bash_permission: null, web_permission: null}

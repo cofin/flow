@@ -70,6 +70,30 @@ codex-package-check:                               ## Verify plugins/flow/ match
 	@uv run --extra dev tools/sync-codex-package.py --check
 	@echo "${OK} Codex marketplace package is current"
 
+.PHONY: sync-command-surfaces
+sync-command-surfaces:                             ## Generate host command adapters from contracts/flow.yaml
+	@echo "${INFO} Syncing Flow command surfaces..."
+	@uv run --extra dev python tools/sync-command-surfaces.py --write
+	@echo "${OK} Flow command surfaces synced"
+
+.PHONY: command-surfaces-check
+command-surfaces-check:                            ## Verify generated Flow command adapters are current
+	@echo "${INFO} Checking Flow command surfaces..."
+	@uv run --extra dev python tools/sync-command-surfaces.py --check
+	@echo "${OK} Flow command surfaces are current"
+
+.PHONY: sync-agent-surfaces
+sync-agent-surfaces:                               ## Generate host-agent adapters from contracts/flow.yaml
+	@echo "${INFO} Syncing Flow agent surfaces..."
+	@uv run --extra dev python tools/sync-agent-surfaces.py --write
+	@echo "${OK} Flow agent surfaces synced"
+
+.PHONY: agent-surfaces-check
+agent-surfaces-check:                              ## Verify generated Flow host-agent adapters are current
+	@echo "${INFO} Checking Flow agent surfaces..."
+	@uv run --extra dev python tools/sync-agent-surfaces.py --check
+	@echo "${OK} Flow agent surfaces are current"
+
 .PHONY: sync-manifests
 sync-manifests:                                    ## Sync version strings across all manifests
 	@echo "${INFO} Syncing version strings..."
