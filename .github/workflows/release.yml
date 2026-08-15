@@ -26,8 +26,8 @@ jobs:
 
       - name: Validate shipped manifests
         run: |
-          uv run --extra dev tools/sync-codex-package.py
-          uv run --extra dev tools/validate.py
+          uv run tools/sync-codex-package.py
+          uv run tools/validate.py
 
       - name: Build package
         run: make build

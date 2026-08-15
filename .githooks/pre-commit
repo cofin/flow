@@ -11,5 +11,5 @@ set -euo pipefail
 
 staged="$(git diff --cached --name-only --diff-filter=ACMR)"
 if printf '%s\n' "$staged" | grep -Eq '^(skills/|hooks/|\.codex/|\.codex-plugin/|commands/)'; then
-    uv run --extra dev tools/sync-codex-package.py >/dev/null
+    uv run tools/sync-codex-package.py >/dev/null
 fi

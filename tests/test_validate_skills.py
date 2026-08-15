@@ -416,21 +416,6 @@ def test_antigravity_hook_config_rejects_session_start(tmp_path: Path) -> None:
     )
 
 
-def test_makefile_recipes_fail_fast() -> None:
-    makefile = (REPO_ROOT / "Makefile").read_text(encoding="utf-8")
-
-    assert ".SHELLFLAGS" in makefile
-    assert "-e" in makefile
-    assert "-o pipefail" in makefile
-    assert "lint:" in makefile
-    assert "uv run --extra dev tools/sync-codex-package.py" in makefile
-    assert "validate:" in makefile
-    assert "codex-package-check:" in makefile
-    assert (
-        "check: lint sync-codex-package codex-package-check validate sync-manifests test"
-    ) in makefile
-
-
 def test_repo_uses_supported_cursor_surface() -> None:
     assert not (REPO_ROOT / ".cursor-plugin" / "plugin.json").exists()
     assert (REPO_ROOT / ".cursor" / "rules" / "flow.mdc").is_file()

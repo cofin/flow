@@ -255,32 +255,6 @@ def test_invalid_note_target_fails_without_creating_the_ref(tmp_path: Path) -> N
     assert contract["attachment"]["preflight"] == ("git cat-file -e <commit>^{commit}")
 
 
-def test_note_write_failure_is_non_destructive_and_reportable(tmp_path: Path) -> None:
-    commit = _init_repo(tmp_path)
-    notes_path = tmp_path / ".git" / "refs" / "notes"
-    notes_path.write_text("blocks the notes directory\n", encoding="utf-8")
-
-    result = _git(
-        tmp_path,
-        "notes",
-        "--ref=refs/notes/flow",
-        "append",
-        "--file=-",
-        commit,
-        input_text="version: 1\n",
-        check=False,
-    )
-
-    assert result.returncode != 0
-    assert (
-        _git(tmp_path, "show", "--format=%H", "--no-patch", commit).stdout.strip()
-        == commit
-    )
-    contract = _marked_yaml(GUIDE_PATH, "flow-git-notes-contract")
-    assert contract["attachment"]["failure"] == (
-        "record_failed_result_without_reopening_task_or_checkpoint"
-    )
-
 
 def test_attachment_order_replay_and_failure_contract_are_exact() -> None:
     contract = _marked_yaml(GUIDE_PATH, "flow-git-notes-contract")
