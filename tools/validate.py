@@ -524,6 +524,7 @@ def validate_antigravity_hook_config(path: Path) -> list[Violation]:
 
 
 def extract_frontmatter(text: str) -> tuple[dict[str, Any], int, str]:
+    text = text.replace("\r\n", "\n")
     if not text.startswith("---\n"):
         msg = "missing YAML frontmatter"
         raise ValueError(msg)
@@ -1903,6 +1904,7 @@ def validate_claude_manifests_with_cli(repo_root: Path) -> list[Violation]:
             encoding="utf-8",
             errors="replace",
             check=False,
+            shell=(sys.platform == "win32"),
         )
         if result.returncode != 0:
             msg = result.stdout + result.stderr
@@ -2914,7 +2916,7 @@ def validate_okf_bundle(
     spec_task_short_ids = set()
     if spec_path.is_file():
         try:
-            content = spec_path.read_text(encoding="utf-8")
+            content = spec_path.read_text(encoding="utf-8").replace("\r\n", "\n")
             parts = content.split("---\n", 2)
             body = parts[2] if len(parts) >= 3 else content
             pattern = re.compile(

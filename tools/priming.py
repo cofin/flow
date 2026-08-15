@@ -22,6 +22,7 @@ def find_project_root() -> Path:
 
 def parse_frontmatter(text: str) -> dict:
     fm = {}
+    text = text.replace("\r\n", "\n")
     if not text.startswith("---\n"):
         return fm
     try:
@@ -41,6 +42,7 @@ def _state_of(fm: dict, default: str) -> str:
 
 
 def strip_frontmatter(text: str) -> str:
+    text = text.replace("\r\n", "\n")
     if not text.startswith("---\n"):
         return text
     try:

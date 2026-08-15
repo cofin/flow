@@ -2783,10 +2783,11 @@ def test_installed_runtime_scan_detects_structural_invocations(
     tmp_path: Path, relative: str, content: str
 ) -> None:
     _write(tmp_path / relative, content)
-    assert relative in "\n".join(
-        str(item.path.relative_to(tmp_path))
-        for item in validate.validate_installed_runtime_dependencies(tmp_path)
-    )
+    violations = validate.validate_installed_runtime_dependencies(tmp_path)
+    violation_paths = [
+        item.path.relative_to(tmp_path).as_posix() for item in violations
+    ]
+    assert relative in violation_paths
 
 
 def test_installed_runtime_scan_allows_explicit_maintainer_surfaces(

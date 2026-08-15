@@ -22,6 +22,7 @@ NOTE_LINE_PATTERN = re.compile(r"^\s*-\s*\[(.*?)\]\s*(.*)$")
 
 
 def _parse_yaml_frontmatter(content: str) -> tuple[dict[str, Any] | None, int]:
+    content = content.replace("\r\n", "\n")
     if not content.startswith("---\n"):
         return None, 0
     parts = content.split("---\n", 2)
