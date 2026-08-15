@@ -97,8 +97,12 @@ If a referenced companion skill is unavailable in the current harness, perform t
 ## 3.0 INTELLIGENCE INJECTION
 
 1. **Read History:** Scan `.agents/bundles/knowledge/` chapters, especially `patterns/patterns.md` (learnings elevated from past flows).
-2. **Velocity Check:** Estimate how many tasks fit in a context window based on past flows.
-3. **Strategy:** Determine the *order* of execution to maximize context recovery.
+2. **Read Research:** Scan `.agents/bundles/research/` for documents relevant to
+   this goal. Existing research is a first-class input to the Zero-Ambiguity
+   Mandate — read it before starting fresh investigation, and reconcile it
+   against current source rather than trusting it blindly.
+3. **Velocity Check:** Estimate how many tasks fit in a context window based on past flows.
+4. **Strategy:** Determine the *order* of execution to maximize context recovery.
 
 ---
 
@@ -190,6 +194,14 @@ If a referenced companion skill is unavailable in the current harness, perform t
     - What this chapter accomplishes
     - Key deliverables
     - Any prerequisites or dependencies
+
+3. **Promote Adopted Research:**
+    Research that informed this roadmap is promoted, not merely cited — follow
+    the Promotion Contract in [Research](research.md). Chapter-scoped research
+    moves into that chapter's bundle; cross-chapter research moves into the
+    roadmap bundle. Research produced by the Research Closure Loop (§6.0.4) is
+    written directly into its owning bundle. Nothing the PRD consumed stays
+    under `bundles/research/`.
 
 ---
 
@@ -317,10 +329,22 @@ For each flow, create in `.agents/bundles/specs/<flow_id>/`:
     created_at: ISO timestamp
     updated_at: ISO timestamp
     description: <flow_description>
+    tags: [<work-kind>, <domain>, ...]
+    parent_prd: <prd_id|null>
+    research: []
     ---
     ```
 
+    Populate every field — no empty `tags: []`, no placeholder descriptions.
+    Tags are one Work Kind plus 1–4 domain tags per
+    [OKF tagging](../../okf/references/frontmatter-and-tagging.md); tasks inherit
+    the spec's Work Kind unless their own differs.
+
 2. **tasks/<short_id>.md:** One task file per checklist entry in the Implementation Plan.
+
+3. **research/ (when research was adopted or produced):** the promoted research
+    directory. Present only for flows that have research; never an empty
+    placeholder.
 
 ### 7.2 Flow Discovery
 
@@ -338,4 +362,5 @@ There is no registry file. Flows (and their parent roadmap) are discovered by sc
 6. **AUTO-PLAN** - Create unified spec.md for first flow (NOT implementation)
 7. **UNIFIED SPEC** - Single `spec.md` contains both requirements and plan. No separate `plan.md`.
 8. **SPECS DIRECTORY** - All artifacts go in `.agents/bundles/specs/`
-9. **HARD STOP** - End with explicit instruction to run `flow-implement`
+9. **PROMOTE RESEARCH** - Research the PRD consumed moves into the owning bundle; `bundles/research/` holds un-promoted work only
+10. **HARD STOP** - End with explicit instruction to run `flow-implement`

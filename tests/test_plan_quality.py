@@ -166,7 +166,7 @@ def test_checkpoint_scope_controls_operation_targets(
     _replace(
         spec, 'operation_targets: ["1.2"]', f"operation_targets: {json.dumps(targets)}"
     )
-    transaction = root / ".agents/tasks/transactions" / operation_id / "journal.md"
+    transaction = root / ".agents/transactions" / operation_id / "journal.md"
     transaction.parent.mkdir(parents=True)
     transaction.write_text(
         "---\n"

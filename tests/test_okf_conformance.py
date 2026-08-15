@@ -339,7 +339,7 @@ def test_flow_transaction_contract_has_constructible_exact_shapes() -> None:
     }
     assert predicates["no_other_unresolved_journal"]["directory"] == {
         "base": "configured_root",
-        "path": "tasks/transactions",
+        "path": "transactions",
     }
     assert predicates["all_dependencies_closed"]["target"]["base"] == "flow_root"
     assert predicates["no_other_in_progress_claim"]["scope"] == {
@@ -1057,7 +1057,7 @@ def _journal(operation_id: str, *, state: str = "prepared") -> dict:
                 "predicate": "no_other_unresolved_journal",
                 "directory": {
                     "base": "configured_root",
-                    "path": "tasks/transactions",
+                    "path": "transactions",
                 },
                 "excluding_operation_id": operation_id,
                 "observed_operation_ids": [],
@@ -1362,7 +1362,7 @@ def _as_archive(journal: dict, root: Path | None = None) -> None:
     journal["read_set"] = [
         {
             "predicate": "no_other_unresolved_journal",
-            "directory": {"base": "configured_root", "path": "tasks/transactions"},
+            "directory": {"base": "configured_root", "path": "transactions"},
             "excluding_operation_id": journal["operation_id"],
             "observed_operation_ids": [],
         },
@@ -1504,7 +1504,6 @@ def _write_journal(root: Path, journal: dict, configured_root: str = ".agents") 
     path = (
         root
         / configured_root
-        / "tasks"
         / "transactions"
         / journal["operation_id"]
         / "journal.md"
@@ -2310,7 +2309,7 @@ def _create_directory_journal() -> dict:
     journal["read_set"] = [
         {
             "predicate": "no_other_unresolved_journal",
-            "directory": {"base": "configured_root", "path": "tasks/transactions"},
+            "directory": {"base": "configured_root", "path": "transactions"},
             "excluding_operation_id": journal["operation_id"],
             "observed_operation_ids": [],
         },
@@ -3010,7 +3009,7 @@ def test_journal_rejects_symlink_traversal_in_every_namespace(
     bundle_root = root / journal["bundle_root"]
     (flow_root / "linked").symlink_to(flow_root / "tasks", target_is_directory=True)
     (configured_root / "linked-transactions").symlink_to(
-        configured_root / "tasks/transactions", target_is_directory=True
+        configured_root / "transactions", target_is_directory=True
     )
     (bundle_root / "linked-flow").symlink_to(flow_root, target_is_directory=True)
     records = {

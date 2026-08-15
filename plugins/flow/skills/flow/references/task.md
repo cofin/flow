@@ -26,12 +26,15 @@ Tasks have NO audit trail - meant to be discarded.
 1. Generate `task_id` in the format `task_shortname` (e.g., `task_fix_login`).
 2. Record the exploration goal in the task's `notes.md`.
 
-### Phase 2: Task Directory
+### Phase 2: Scratch Directory
 
-Create `.agents/tasks/{task_id}/`:
+Create `<configured-root>/scratch/{task_id}/`:
 
 - `notes.md` - Scratch notes
 - `findings.md` - What you learned
+
+Scratch is ephemeral, untracked, and deliberately not OKF. Never create it under
+`<bundle-root>`.
 
 ### Phase 3: Work Freely
 
@@ -54,19 +57,19 @@ flow-prd "{description}"
 **Discard** - Delete everything:
 
 ```bash
-rm -rf .agents/tasks/{task_id}
+rm -rf <configured-root>/scratch/{task_id}
 git checkout .
 ```
 
-**Keep Notes** - Delete code, keep findings:
-
-```bash
-mv .agents/tasks/{task_id}/findings.md .agents/bundles/research/
-rm -rf .agents/tasks/{task_id}
-```
+**Keep Notes** - Delete code, author a research bundle per
+[Research](research.md), then delete the scratch directory. Rewrite the
+findings into the research sections; never move `findings.md` into `bundles/`
+as-is.
 
 ## Critical Rules
 
 1. **NO AUDIT** - Tasks are temporary
 2. **LOW CEREMONY** - Minimal process
 3. **EXPLICIT END** - Must promote, discard, or keep
+4. **NEVER WRITE SCRATCH INTO BUNDLES** - Anything entering `bundles/` is a
+   well-formed OKF document, authored as such, never a moved scratch file

@@ -121,8 +121,14 @@ To find a file (e.g., "**Product Definition**") within a specific context:
 | **Bundle Root Index** | `.agents/bundles/index.md` |
 | **Project Skills** | `.agents/skills/` (the only consumer operational skill root) |
 | **Layout Overrides** | `.agents/config.json` (`bundles_dir`, `knowledge_dir`) |
-| **Research Directory** | `.agents/bundles/research/` |
-| **Task Directory** | `.agents/tasks/` (ephemeral scratch, never tracked) |
+| **Research Directory** | `.agents/bundles/research/` (un-promoted research only; adopted research moves into its flow bundle) |
+| **Promoted Research** | `.agents/bundles/specs/<flow_id>/research/` |
+| **Scratch Directory** | `.agents/scratch/<task_id>/` (ephemeral `flow-task` workspace, never tracked, never OKF) |
+| **Transaction Journals** | `.agents/transactions/<operation-id>/journal.md` (runtime recovery state, never tracked) |
+
+**Bundle purity:** everything under `.agents/bundles/` is a well-formed OKF v0.2
+document. Runtime and ephemeral state lives at the configured root *outside*
+`bundles/` and is never moved into it as-is.
 
 **Standard Default Paths (Flow):**
 

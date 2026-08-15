@@ -30,7 +30,7 @@ Use non-interactive modes in automation. Before claiming a result, run the exact
 ## Direct-read continuity
 
 1. Resolve `.agents/setup-state.json:root_directory`, defaulting to `.agents/`.
-2. Read unresolved transaction journals under `<configured-root>/tasks/transactions/` before normal work.
+2. Read unresolved transaction journals under `<configured-root>/transactions/` before normal work.
 3. Read active/completed spec frontmatter and Continuity Snapshot, then all task frontmatter.
 4. Verify plan identity, state revision bounds, current claim, dependencies, and checklist agreement.
 5. Select an explicit task, the sole in-progress task, or the first ready task ordered by priority, creation time, and id.

@@ -100,7 +100,11 @@ If a referenced companion skill is unavailable in the current harness, perform t
 
 3. **Read Research:**
     - Check `.agents/bundles/research/`. If relevant research exists, ask to use it.
+    - If adopted, promote it per the Promotion Contract in
+      [Research](research.md).
     - If important requirements still depend on unresolved docs, versions, migrations, marketplaces, or harness behavior, continue researching until those gaps are closed before declaring planning complete.
+    - Research produced during planning is written straight into the flow's own
+      `research/` directory.
 
 ---
 
@@ -303,10 +307,17 @@ If a referenced companion skill is unavailable in the current harness, perform t
     created_at: ISO timestamp
     updated_at: ISO timestamp
     description: <flow_description>
+    tags: [<work-kind>, <domain>, ...]
+    parent_prd: <prd_id|null>
+    research: []
     ---
     ```
 
-5. **Task Files:** Create one task file per checklist entry at `.agents/bundles/specs/<flow_id>/tasks/<short_id>.md` (frontmatter `type: Task`, `id: <flow_id>:<short_id>`, `title`, `state: open`, `depends_on`, `files`, `tests`, `created_at`, `updated_at`).
+    Populate every field — no empty `tags: []`, no placeholder descriptions. One
+    Work Kind plus 1-4 domain tags per
+    [OKF tagging](../../okf/references/frontmatter-and-tagging.md).
+
+5. **Task Files:** Create one task file per checklist entry at `.agents/bundles/specs/<flow_id>/tasks/<short_id>.md` (frontmatter `type: Task`, `id: <flow_id>:<short_id>`, `title`, `description`, `state: open`, `tags`, `depends_on`, `files`, `tests`, `created_at`, `updated_at`).
 
 ---
 
