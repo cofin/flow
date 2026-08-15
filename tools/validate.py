@@ -6430,7 +6430,7 @@ def _anchor_fields(
         return _frontmatter_fields(target, fields)
     if not target.is_file():
         return None
-    text = target.read_text(encoding="utf-8")
+    text = target.read_text(encoding="utf-8").replace("\r\n", "\n")
     if anchor.startswith("implementation-plan-task-"):
         short_id = anchor.removeprefix("implementation-plan-task-")
         match = re.search(
@@ -6585,7 +6585,7 @@ def _live_mutation_images(
         target = base_path / key[1] if base_path is not None else None
         live = {
             "exists": bool(target and target.is_file()),
-            "content_utf8_lf": target.read_text(encoding="utf-8")
+            "content_utf8_lf": target.read_text(encoding="utf-8").replace("\r\n", "\n")
             if target and target.is_file()
             else None,
         }

@@ -110,5 +110,5 @@ def test_write_is_scoped_to_the_explicit_output_root(tmp_path: Path) -> None:
     victim = paths[0]
     victim.write_text("hand edited\n", encoding="utf-8")
     assert generator.check_surfaces(CONTRACT_PATH, tmp_path) == [
-        f"stale agent output: {victim.relative_to(tmp_path)}"
+        f"stale agent output: {victim.relative_to(tmp_path).as_posix()}"
     ]

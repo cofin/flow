@@ -531,6 +531,6 @@ def test_command_generator_is_deterministic_and_check_is_non_destructive(
     victim = first[0]
     victim.write_text("user-owned\n", encoding="utf-8")
     assert generator.check_surfaces(CONTRACT_PATH, tmp_path) == [
-        f"stale command output: {victim.relative_to(tmp_path)}"
+        f"stale command output: {victim.relative_to(tmp_path).as_posix()}"
     ]
     assert victim.read_text(encoding="utf-8") == "user-owned\n"
