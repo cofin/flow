@@ -99,6 +99,8 @@ ipython_config.py
 #   This is especially recommended for binary packages to ensure reproducibility, and is more
 #   commonly ignored for libraries.
 #uv.lock
+uv.toml
+.npmrc
 
 # poetry
 #   Similar to Pipfile.lock, it is generally recommended to include poetry.lock in version control.
@@ -214,24 +216,17 @@ ref/
 docs/superpowers/
 .claude/settings.local.json
 .codex/config.toml
-.vscode/mcp.json
 opencode.json
-gemini.mcp.json
-cline.mcp.json
-cursor.mcp.json
-windsurf.mcp.json
-
-# Beads / Dolt files (added by bd init)
-.dolt/
 *.db
-.beads-credential-key
 .worktrees/
+
+# Flow's own planning bundles stay local-only; user repos choose their own policy at setup
 .agents/*
-# Ship the Codex marketplace manifest even though .agents/ is otherwise local-only.
-# Codex requires this file at .agents/plugins/marketplace.json for `codex plugin marketplace add`.
-# Use .agents/* (not .agents/) so git descends into the directory and honors the re-includes below.
 !.agents/plugins/
-.agents/plugins/*
 !.agents/plugins/marketplace.json
-!.agents/plugins/plugins/
-.beads/
+
+# Codex package build directory
+plugins/flow/
+
+# Local-only environment bridge notes (never committed)
+docs/*-bridge.md

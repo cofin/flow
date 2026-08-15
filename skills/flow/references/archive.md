@@ -1,132 +1,48 @@
 
 # Flow Archive
 
-> **Beads mode:** Skip every `bd` invocation below when the SessionStart hook reports `Beads Backend: Missing (None)` or `Disabled via plugin config (useBeads=false)`. Treat `spec.md` markers as fallback source of truth and skip `/flow:sync`. Never halt for missing Beads. See `discipline.md`.
+Archiving is a contraction: durable knowledge moves into the knowledge chapters, one line lands in the bundle log, and the spec directory is deleted. Git history is the archive — `.agents/bundles/specs/` holds only planned and active flows.
 
-Archive completed flow and elevate patterns to project level.
+Git notes under `refs/notes/flow` are supplementary audit evidence only. Their
+absence or an attachment failure never changes archive eligibility: canonical
+Markdown and the archive journal are sufficient for recovery. Archive never
+pushes, copies, rewrites, prunes, or requires the notes ref.
+Never create or mutate Git tags for archive evidence or as a notes fallback.
 
-## Usage
+Archive follows the ordered gates `archive_candidate -> verification ->
+code_review -> quality_review -> archive`. The quality gate is mandatory and
+uses the `quality-review-v1` contract in [Review](review.md).
 
-`flow-archive {flow_id}`
+## Procedure
 
-## Phase 1: Validate
+1. **Validate**: resolve the flow id (scan spec frontmatter for `state: completed` when not given). Confirm every task file is `state: closed` or `skipped`; abort otherwise. Check recoverability with `git ls-files --error-unmatch` — if the bundle is untracked, deletion is unrecoverable and needs explicit user confirmation.
+2. **Render candidate (no live contraction yet)**:
+   - Consolidate all task `## Notes & Discoveries` and `learnings.md` content into a transient working list.
+   - Map each durable learning to its existing project-shaped chapter recursively under `knowledge/`: conventions/gotchas → `knowledge/patterns.md`; workflow changes → `knowledge/workflow.md`; architecture → the relevant nested architecture chapter; style/domain rules → the matching nested topic chapter; product changes → `product/` docs. Never flatten nested knowledge into invented top-level files.
+   - Rewrite each affected chapter as coherent current-state documentation: integrate into existing prose, update stale statements, merge duplicates. No dated entries, no flow attributions, no changelog lines, no "completed X" notes in knowledge chapters — history belongs in `log.md` only.
+   - Present proposed chapter edits for user approval before writing. Skip low-value notes rather than hoarding them.
+   - Delete any leftover `extracted_learnings.md` — consolidated views are transient.
+   - Render the complete archive request: knowledge destinations and full before/after bytes, log entry, notes incorporation, sorted archive inventory, and full file fragments for every spec deletion.
+3. **Create disposable local review range**: apply only the rendered candidate in a disposable local branch/worktree and commit it. Its parent is `base_commit`; the candidate commit is `head_commit`. This range must contain the exact knowledge, log, and deletion bytes from the rendered manifest. Never use a Git tag and never push the candidate.
+4. **Review exact candidate**:
+   - Run archive-relevant verification on `base_commit..head_commit`.
+   - Run correctness review on that exact range.
+   - Always dispatch the read-only `quality-reviewer` afterward on the same range. Resolve `.agents/skills/debloat/SKILL.md`, then packaged `skills/debloat/SKILL.md`, then the inline fallback.
+   - Critical/Important findings block archive. Route remediation through `revise`, execute it, render a new candidate, and rerun verification, correctness review, and a fresh quality review.
+   - A fresh user waiver applies to one named finding and this range only; it cannot replace dispatch.
+5. **Bind candidate**: compare the requested `archive_candidate_manifest` and every before/after fragment byte-for-byte with the reviewed candidate. Any changed knowledge, log, inventory, deletion, base, or head invalidates the report; render and review a new candidate range.
+6. **Request archive**: submit the exact range, byte-identical manifest, verification/code/quality evidence, and finding-specific waivers to the state sidecar. The sidecar journals and applies knowledge first, log second, and spec deletion last. Do not delete the live spec directory directly.
+7. **Commit** (tracked bundles only): after the archive transaction commits and postconditions pass, stage only its recorded bundle paths and create one `chore(archive)` commit.
 
-### 1.1 Verification Gate
-
-```text
-IRON LAW: NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
-```
-
-1. **Run full test suite** — read output, confirm 0 failures
-2. **Check Beads** for completion status:
-
-   ```bash
-   bd show {epic_id}
-   ```
-
-3. **Verify** all tasks are completed or explicitly skipped — read `spec.md` Implementation Plan section
-4. If incomplete tasks or failing tests exist, warn and confirm.
-
-### 1.2 Optional Code Review
-
-For flows being archived without prior `flow-review`:
-
-- Dispatch final code review subagent with full flow git range
-- Log findings to `learnings.md` (will be archived with flow)
-- Fix Critical issues before archiving
-
-## Phase 2: Extract Learnings
-
-### 2.1 Read Flow Learnings
-
-Parse `.agents/specs/{flow_id}/learnings.md`
-
-### 2.2 Identify Patterns for Elevation
-
-Present discovered patterns:
-
-```text
-Patterns from {flow_id}:
-
-1. [Code] Use Zod for form validation
-2. [Gotcha] Must update barrel exports after adding files
-3. [Testing] Mock external APIs in integration tests
-
-Which patterns should be elevated to project-level? [all/select/none]
-```
-
-### 2.3 Merge to Project Patterns
-
-Append selected patterns to `.agents/patterns.md`:
-
-```markdown
-## Code Conventions
-- Use Zod for form validation (from: {flow_id})
-
-## Gotchas
-- Must update barrel exports after adding files (from: {flow_id})
-```
-
-## Phase 3: Knowledge Synthesis (The Synthesis Mandate)
-
-You are responsible for the formal evolution of the project's knowledge base. It is NOT a manual copy-paste; it is a **Synthesis**.
-
-1. **Identify**: Read `learnings.md`, `spec.md`, and `metadata.json` from the flow. Identify which discoveries are one-off observations and which represent **Core Patterns** or **Architectural Shifts**.
-2. **Synthesize**: Integrate these discoveries directly into cohesive, logically organized knowledge base chapters in `.agents/knowledge/` (e.g., `architecture.md`, `conventions.md`).
-3. **Update the State**: Revise these chapters to reflect the *current* authoritative state of the codebase.
-4. **No History Logs**: Do NOT outline history or create per-flow logs in the knowledge base. The chapters must provide the high-definition implementation details needed for a new agent to become an instant expert on the current state.
-
-## Phase 4: Close Beads Epic
+## Verification
 
 ```bash
-bd close {epic_id} --reason "Flow archived"
+ls .agents/bundles/specs/          # archived flow gone; only planned/active remain
+head -20 .agents/bundles/log.md    # new archive entry at the top
 ```
 
-## Phase 5: Move to Archive
+Knowledge chapters must read as if written fresh today — an agent reading `knowledge/` should learn how the codebase works now, never which flow taught us.
 
-1. Move directory:
-
-   ```text
-   .agents/specs/{flow_id}/ -> .agents/archive/{flow_id}/
-   ```
-
-2. Update `.agents/flows.md`:
-   - Remove from Active section
-   - Add to Archived section with completion date
-
-## Phase 6: Create Archive Summary
-
-Create `.agents/archive/{flow_id}/summary.md`:
-
-```markdown
-# Archive Summary: {flow_id}
-
-**Completed:** {date}
-**Duration:** {days} days
-**Tasks:** {completed}/{total}
-**Commits:** {count}
-
-## Key Deliverables
-- {deliverable 1}
-- {deliverable 2}
-
-## Patterns Elevated
-- {pattern 1}
-- {pattern 2}
-
-## Final State
-All tests passing, coverage at {X}%
-```
-
-## Final Output
-
-```text
-Flow Archived: {flow_id}
-
-Location: .agents/archive/{flow_id}/
-Patterns Elevated: {count}
-Epic Closed: {epic_id}
-
-Project patterns updated. View with:
-cat .agents/patterns.md
-```
+The postcondition bytes must equal the reviewed candidate manifest exactly. A
+different archive fragment is not a small follow-up; it is a new candidate that
+requires a fresh range and all three review gates.

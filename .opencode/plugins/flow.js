@@ -1,89 +1,23 @@
-/**
- * Flow Framework plugin for OpenCode.ai
- *
- * Injects Flow context into the system prompt via experimental.chat.system.transform
- * (the supported injection point as of @opencode-ai/plugin@1.3.6 — there is no
- * SessionStart hook). Also exposes FLOW_PLUGIN_ROOT to spawned shells.
- *
- * Honors MDM-managed config (ai.opencode.managed PayloadType): when an admin
- * has marked Flow disabled or restricted via the managed-config layer, this
- * plugin no-ops its system-prompt injection. Managed config has the highest
- * precedence and cannot be overridden by user/project config.
- */
-
-import path from 'path';
-import fs from 'fs';
-import { fileURLToPath } from 'url';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const PLUGIN_ROOT = path.resolve(__dirname, '../..');
-
-let cachedContext = null;
+/** Generated from rules/flow-core.md and contracts/flow.yaml. */
+// generated-sha256: 2f641c6de16e5d03c295b083788ca43152c0347938af660a89ed0967bd80897b
+// flow-rule-adapter:start
+const FLOW_RULE_ADAPTER = Object.freeze({"activation":"The system transform and discovered Agent Skills activate Flow.","automatic_push":false,"canonical_sha256":"ca56d471abc7fc69ff5d5d6317035e62f557cb786e07b64c9236917281ee2a25","canonical_source":"rules/flow-core.md","contract_sha256":"d6006f25602084ed88d9af2099cd3bce17bfeabd4cb56eff85c22aa9c8de7b05","contract_source":"contracts/flow.yaml","git_tags":"forbidden","host":"opencode","interaction_contract":{"choice_keys":["id","label","description"],"custom_label":"Other","fallback_reason_order":["tool_absent","tool_denied","mode_unsupported","choice_count_unsupported","bounds_unsupported","custom_unsupported","disabled_policy_unsupported"],"id":"structured-choice-v1","one_decision_at_a_time":true,"post_quality":["approve","revise","refine"],"pre_quality":["revise","refine"],"procedure_source":"skills/flow/references/interaction.md","recommended_choice":"first_with_suffix","recommended_suffix":" (Recommended)"},"kind":"flow_rule_adapter","lifecycle_skills":["flow-setup","flow-planning","flow-execution","flow-sync-status","flow-completion"],"nested_knowledge":true,"question_capability":{"bounds_enforcement":"agent_validated","choice_max":4,"choice_min":2,"custom_answer_behavior":"native_custom_input","disabled_choice_policy":"omit","multi_select":true,"permission_check":"declared_and_allowed","sequential_fallback":true,"supported_modes":["binary","single_select","multi_select"],"tool":"question","transport":"conditional_native"},"rule_id":"flow-operational-v1","rule_revision":1,"shared_contracts":["flow-state-v1","structured-choice-v1","worksheet-execution-v1","quality-review-v1"]});
+// flow-rule-adapter:end
+const FLOW_RULE_PROMPT = "Flow rule v1 is rules/flow-core.md. When .agents exists, rules precede skills; load the router/lifecycle skill and the journal-first direct-read continuity contract in skills/flow/references/state.md. For structured-choice-v1, inspect allowed tools and use verified question only for compatible binary/single_select/multi_select requests with 2-4 choices, recommended first, Other, omitted disabled choices, and valid bounds; otherwise ask sequentially. Read nested knowledge. Never auto-push or mutate Git tags.";
 
 function isFlowDisabledByManagedConfig(ctx) {
-  // Managed config is merged into context.config and has read-only highest precedence.
-  // Plugins that respect MDM should early-return when an admin has restricted them.
   const managed = ctx?.config?.managedConfig ?? ctx?.config?.managed ?? null;
   if (!managed) return false;
-  if (managed.disabledPlugins && managed.disabledPlugins.includes('flow')) return true;
-  if (managed.allowedPlugins && !managed.allowedPlugins.includes('flow')) return true;
-  return false;
-}
-
-function getFlowContext() {
-  const contextPath = path.join(PLUGIN_ROOT, 'AGENTS.md');
-  if (!fs.existsSync(contextPath)) return null;
-  return fs.readFileSync(contextPath, 'utf8');
-}
-
-function buildSessionContext() {
-  if (cachedContext !== null) return cachedContext;
-
-  const agentsContent = getFlowContext();
-  if (!agentsContent) {
-    cachedContext = '';
-    return cachedContext;
-  }
-
-  cachedContext = [
-    'You are operating within the **Flow Framework** for Context-Driven Development.',
-    '',
-    'Flow is installed and MUST be used for all development work in projects with a .agents/ directory.',
-    'Use official Beads (`bd`) when persistence is needed; allow no-Beads degraded mode when the user wants less admin.',
-    '',
-    'AUTO-TRIGGER RULES:',
-    '- When .agents/ directory exists: ALWAYS invoke the flow skill at session start',
-    '- When user says "implement", "plan", "spec", "prd", "sync", "status": immediately invoke the matching Flow workflow rather than staying in generic chat mode',
-    '- When editing files in .agents/specs/: invoke flow skill for context',
-    '- When user mentions "beads", "bd", or backend migration: invoke flow skill',
-    '- Route lifecycle detail through flow-setup, flow-planning, flow-execution, flow-sync-status, or flow-completion after the flow router skill triggers',
-    '- When a spec or PRD exists but task detail is coarse: invoke flow-refine before implementation or subagent dispatch',
-    '- Do not finish PRD or planning work while obvious research gaps remain',
-    '',
-    'Key commands: /flow:setup, /flow:prd, /flow:plan, /flow:implement, /flow:sync, /flow:status, /flow:refresh',
-    'Lifecycle skills: flow-setup, flow-planning, flow-execution, flow-sync-status, flow-completion.',
-    '',
-    'All spec/design docs go in .agents/specs/ (not docs/superpowers/specs/).',
-    'Before dispatching subagents, preserve context with the relevant spec/PRD, patterns, knowledge chapters, learnings, affected files, and verification requirements.',
-    '',
-    agentsContent,
-  ].join('\n');
-
-  return cachedContext;
+  if (managed.disabledPlugins?.includes('flow')) return true;
+  return Boolean(managed.allowedPlugins && !managed.allowedPlugins.includes('flow'));
 }
 
 export default async (ctx) => {
-  if (isFlowDisabledByManagedConfig(ctx)) {
-    return {};
-  }
+  if (isFlowDisabledByManagedConfig(ctx)) return {};
+
   return {
     'experimental.chat.system.transform': async (_input, output) => {
-      const context = buildSessionContext();
-      if (context) output.system.push(context);
+      output.system.push(FLOW_RULE_PROMPT);
     },
-
-    'shell.env': async () => ({
-      env: { FLOW_PLUGIN_ROOT: PLUGIN_ROOT },
-    }),
   };
 };

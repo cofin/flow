@@ -12,10 +12,14 @@ from dataclasses import dataclass
 from pathlib import Path
 
 PACKAGE_ROOT = Path("plugins/flow")
-DIRECTORY_ENTRIES = (".codex-plugin", "skills", "hooks")
-CODEX_ENTRIES = ("INSTALL.md", "agents", "hooks.json")
+DIRECTORY_ENTRIES = (".codex-plugin", "skills", "rules")
+CODEX_ENTRIES = ("INSTALL.md", "agents")
 COMMANDS_ROOT = Path("commands")
 COMMANDS_GLOB = "flow-*.md"
+CODEX_COMMANDS_DIR = Path("commands/flow")
+CODEX_COMMANDS_GLOB = "*.toml"
+CODEX_HOOK_MANIFEST = Path("hooks/hooks-codex.json")
+CODEX_HOOK_ENTRYPOINT = Path("hooks/session-start.sh")
 STALE_HINT = "run `make sync-codex-package`"
 IGNORED_NAMES = {
     ".DS_Store",
@@ -85,17 +89,20 @@ def _build_package(repo_root: Path, package_root: Path) -> None:
 
 
 def _emit_codex_hooks_manifest(repo_root: Path, package_root: Path) -> None:
-    """Make the package's auto-discovered hooks manifest Codex-native.
+    """Copy only Codex's direct, fixed-envelope SessionStart surface."""
+    manifest_source = repo_root / CODEX_HOOK_MANIFEST
+    entrypoint_source = repo_root / CODEX_HOOK_ENTRYPOINT
+    for source in (manifest_source, entrypoint_source):
+        if not source.is_file():
+            raise RuntimeError(f"Missing canonical Codex hook source: {source}")
 
-    Codex auto-discovers ``<plugin>/hooks/hooks.json`` and runs the command
-    through a shell. ``plugins/flow`` is the Codex/marketplace artifact, so
-    overwrite the package copy with the Codex-native manifest
-    (``hooks/hooks-codex.json``), which uses ``${PLUGIN_ROOT}``.
-    """
-    codex_source = repo_root / "hooks" / "hooks-codex.json"
-    if not codex_source.is_file():
-        raise RuntimeError(f"Missing canonical Codex hooks manifest: {codex_source}")
-    shutil.copy2(codex_source, package_root / "hooks" / "hooks.json")
+    hooks_root = package_root / "hooks"
+    codex_root = package_root / ".codex"
+    hooks_root.mkdir(parents=True, exist_ok=True)
+    codex_root.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(manifest_source, hooks_root / "hooks.json")
+    shutil.copy2(entrypoint_source, hooks_root / entrypoint_source.name)
+    shutil.copy2(manifest_source, codex_root / "hooks.json")
 
 
 def _copy_codex_directory(repo_root: Path, package_root: Path) -> None:
@@ -124,10 +131,25 @@ def _copy_codex_commands(repo_root: Path, package_root: Path) -> None:
     for source in sorted(source_root.glob(COMMANDS_GLOB)):
         if source.is_file():
             shutil.copy2(source, destination_root / source.name)
+    toml_root = repo_root / CODEX_COMMANDS_DIR
+    if not toml_root.is_dir():
+        raise RuntimeError(f"Missing canonical source directory: {toml_root}")
+    toml_destination = package_root / CODEX_COMMANDS_DIR
+    toml_destination.mkdir(parents=True, exist_ok=True)
+    for source in sorted(toml_root.glob(CODEX_COMMANDS_GLOB)):
+        if source.is_file():
+            shutil.copy2(source, toml_destination / source.name)
 
 
 def _ignore_names(_directory: str, names: list[str]) -> set[str]:
-    return {name for name in names if name in IGNORED_NAMES or name.endswith((".pyc", ".pyo"))}
+    ignored = {
+        name
+        for name in names
+        if name in IGNORED_NAMES or name.endswith((".pyc", ".pyo"))
+    }
+    if Path(_directory).name == "flow-state" and "scripts" in names:
+        ignored.add("scripts")
+    return ignored
 
 
 def _remove_existing(path: Path) -> None:

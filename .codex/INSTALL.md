@@ -5,7 +5,6 @@ Flow ships as a native Codex plugin via marketplace.
 ## Prerequisites
 
 - Codex CLI 0.117.0+ (with marketplace support; verify with `codex --version`)
-- [Beads CLI](https://github.com/gastownhall/beads)
 
 ## Install
 
@@ -20,6 +19,9 @@ In a Codex session, run `/plugins` and enable Flow.
 ```bash
 codex plugin marketplace upgrade flow-marketplace
 ```
+
+The marketplace catalog and the installed plugin cache are distinct. Restart
+the Codex session after upgrading so the refreshed package is loaded.
 
 ## Uninstall
 
@@ -37,9 +39,21 @@ Use Flow to create a PRD for user authentication
 Use Flow to implement the current flow with TDD
 ```
 
-The Flow skill responds to all `/flow:*` intents (`setup`, `prd`, `plan`, `implement`, `sync`, `status`, `refresh`, `research`, `docs`, etc.).
+The Flow skill routes the equivalent setup, planning, implementation, sync,
+status, completion, and archive intents without advertising unavailable plugin
+slash commands.
 
 Repo-local subagents live in `.codex/agents/*.toml`. They are pure TOML, inherit tools from the active Codex session, and do not define a per-agent `tools` allowlist.
+
+Codex's verified `request_user_input` transport supports binary and
+single-select requests with 2-3 domain choices. Flow uses it only while the
+tool is declared, allowed, and compatible; four-choice, multi-select, open, or
+otherwise incompatible decisions use the equivalent sequential-text request.
+
+Consumer operational skills resolve only from `.agents/skills/`. Continuity is
+recovered by reading tracked Markdown, and the `flow-reconciler` applies state
+transactions through ordinary file tools. The plugin installs no state runtime
+service or Flow executable.
 
 ## Recommended Codex settings
 
@@ -47,14 +61,4 @@ In `~/.codex/config.toml`, set plan-mode reasoning effort high:
 
 ```toml
 plan_mode_reasoning_effort = "high"
-```
-
-## Migrating from older pre-marketplace installs
-
-If you previously installed Flow via symlinks under `~/.codex/prompts/` or `~/.codex/skills/`, remove the old artifacts before running the marketplace install:
-
-```bash
-rm -f ~/.codex/prompts/flow-*.md
-rm -rf ~/.codex/skills/flow ~/.codex/skills/beads
-sed -i '/^# Flow Framework/,$d' ~/.codex/AGENTS.md 2>/dev/null
 ```

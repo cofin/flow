@@ -1,95 +1,44 @@
+# Flow Status Reference
 
-# Flow Status
+Status is the specialized read-only state operation. It reconstructs authority from Markdown and journals and never creates transaction state. After compaction, handoff, or session loss, follow the [normative state contract](state.md) directly for continuity and ready-task rules; hook/plugin context is routing only.
 
-> **Beads mode:** Skip every `bd` invocation below when the SessionStart hook reports `Beads Backend: Missing (None)` or `Disabled via plugin config (useBeads=false)`. Treat `spec.md` markers as fallback source of truth and skip `/flow:sync`. Never halt for missing Beads. See `discipline.md`.
-
-Display progress overview for all active flows.
-
-## Phase 1: Load Registry
-
-Read `.agents/flows.md` to get list of active flows.
-
-## Phase 2: Beads Status (Source of Truth)
-
-```bash
-bd status                     # Workspace overview
-bd ready --json               # Unblocked tasks ready to work
-bd list --status in_progress  # Resume active work
+<!-- flow-status-contract: start -->
+```yaml
+operation: status
+request:
+  required: [operation, flow_id, task_ids]
+  flow_id: one_or_null
+  task_ids: unique_sorted_empty_means_all
+writes: none
+operation_id: none
+journal: none
+ready_order: [priority, created_at, task_id]
 ```
+<!-- flow-status-contract: end -->
 
-## Phase 3: Flow Summary (Beads-First)
+## Discover
 
-For each active flow:
+1. Resolve and validate the configured and bundle roots. Read every nonterminal transaction journal before requiring a resident spec. Jointly classify simultaneous journals; surface zero/applied/rollback/conflict outcomes rather than choosing by scan order.
+2. Apply the optional flow/task filter. With no flow filter, read every planned, active, and completed resident spec plus its Continuity Snapshot. A removed flow is visible only through an unresolved archive journal.
+3. Read all selected task frontmatter. Verify plan identity, state-revision bounds, current-task/claim agreement, dependencies, checklist projections, and snapshot state identity. Read complete task bodies only when needed for the selected current/ready task or requested details.
 
-### Primary: Get Status from Beads
+## Aggregate
 
-```bash
-bd show {epic_id} --json
-```
+For each flow report:
 
-Parse JSON to count:
+- lifecycle and exact plan/state identity;
+- unresolved transaction classification and required recovery action;
+- total, closed, skipped, and progress `closed / (total - skipped)` with the empty denominator reported explicitly;
+- current task and claimant;
+- ready tasks: open with all dependencies closed, sorted `(priority, created_at, task_id)` where priority is `P0` through `P4`;
+- blocked tasks: explicit blocked state plus open tasks waiting on dependencies;
+- the five newest timestamped Notes & Discoveries entries;
+- malformed identity, duplicate claim, dependency, checklist, snapshot, and journal anomalies.
 
-- `open` tasks
-- `in_progress` tasks
-- `closed` tasks
-- `blocked` tasks
+## Recommend
 
-Calculate progress: `closed / total * 100`
+Recommend only a caller decision: recover a selected journal, resume the sole valid claim, claim the first ready task, address blockers, activate a planned flow, or archive a completed flow. Status itself never chooses or submits a mutation.
 
-### Fallback: Parse spec.md
+## Validate
 
-If Beads unavailable:
-
-1. Read `.agents/specs/{flow_id}/spec.md` (unified spec+plan)
-2. Parse Implementation Plan section
-3. Count tasks by status
-
-## Phase 4: Display Dashboard
-
-```text
-Flow Status Dashboard
-
-=== Active Flows ===
-
-[~] auth - Add user authentication
-    Progress: 5/12 tasks (41%)
-    Current: Phase 2, Task 6
-    Blockers: 0
-
-[ ] dark-mode - Add dark mode toggle
-    Progress: 0/8 tasks (0%)
-    Status: Not started
-
-=== Beads Ready ===
-
-Ready tasks (no blockers):
-  - auth: Task 6 - Implement login endpoint
-
-=== Beads Blocked ===
-
-Blocked tasks:
-  - auth: Task 8 - Waiting for API keys [!]
-
-=== Quality Gates ===
-
-Last Test Run: PASSED
-Coverage: 82%
-
-=== Recent Activity ===
-
-- 14:30 - auth: Task 5 completed [abc1234]
-```
-
-## Phase 5: Recommendations
-
-Based on status, suggest next action:
-
-- If blocked: "Run `flow-block` to document blockers"
-- If no in-progress: "Run `flow-implement {flow_id}`"
-- If complete: "Run `flow-archive {flow_id}`"
-
-## Critical Rules
-
-1. **READ ONLY** - This command only displays information
-2. **BEADS IS SOURCE OF TRUTH** - Pull task status from Beads, not spec.md
-3. **ACTIONABLE** - Provide next step suggestions
+Before returning the dashboard, reread any journal/spec/task whose value controls the recommendation. Confirm the request filter was applied exactly, ready ordering is stable, and no file, operation id, journal, or revision was created.

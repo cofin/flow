@@ -1,65 +1,64 @@
 ---
-description: Create ephemeral exploration flow (no audit trail)
-agent: flow
+description: "Run the canonical flow/task Flow lifecycle."
 ---
 
-# Flow Task
+<!-- Generated from contracts/flow.yaml; generated-sha256: f5e9486752ddaf9c14eac13ef3c54698db1b4b0adc9e3d6d2056d79541baf37c -->
 
-Creating ephemeral exploration: $ARGUMENTS
-
-## Overview
-
-A "task" is a lightweight, temporary flow for:
-- Proof of concept exploration
-- Quick experiments
-- Research spikes
-
-Tasks have NO audit trail - meant to be discarded.
-
-## Phase 1: Create Task
-
-```bash
-bd create "Task: {description}" -t task -p 4 \
-  --description="{exploration_goal}"
-bd update {task_task_id} --notes "Ephemeral exploration. Created by /flow-task"
+```json
+{
+  "agent": "executor",
+  "argument_schema": {
+    "optional": [],
+    "required": [
+      "exploration"
+    ],
+    "syntax": "<exploration>"
+  },
+  "bounds_enforcement": "agent_validated",
+  "canonical_id": "flow/task",
+  "capability_evidence": "OpenCode built-in question tool documentation",
+  "choice_max": 4,
+  "choice_min": 2,
+  "completion_gates": [
+    "worksheet_complete",
+    "evidence_captured"
+  ],
+  "custom_answer_behavior": "native_custom_input",
+  "disabled_choice_policy": "omit",
+  "fallback": "Use Flow to create an exploration task",
+  "git_tags": "forbidden",
+  "host": "opencode",
+  "instruction": "Load the lifecycle owner and follow the canonical procedure source directly.",
+  "interaction_mode": "none",
+  "invocation": "/flow-task",
+  "kind": "flow_command_adapter",
+  "lifecycle_owner": "flow-planning",
+  "multi_select": true,
+  "mutability": "planning_write",
+  "mutual_exclusion": true,
+  "plan_capability": "preferred",
+  "procedure_source": "skills/flow/references/task.md",
+  "question_capability": null,
+  "question_permission_check": "declared_and_allowed",
+  "question_tool": "question",
+  "question_transport": "conditional_native",
+  "runtime_dependency": "agent_file_tools_only",
+  "sequential_fallback": true,
+  "shared_contracts": [
+    "flow-state-v1",
+    "worksheet-execution-v1"
+  ],
+  "state_operations": [
+    "create",
+    "claim",
+    "discover",
+    "release",
+    "close"
+  ],
+  "supported_selection_modes": [
+    "binary",
+    "single_select",
+    "multi_select"
+  ]
+}
 ```
-
-## Phase 2: Task Directory
-
-Create `.agents/tasks/{task_id}/`:
-- `notes.md` - Scratch notes
-- `findings.md` - What you learned
-
-## Phase 3: Work Freely
-
-During task:
-- No TDD required
-- No commit conventions
-- Just explore and learn
-
-## Phase 4: Resolution
-
-When done, choose:
-
-**Promote** - Convert to a real flow:
-```bash
-/flow-prd "{description}"
-```
-
-**Discard** - Delete everything:
-```bash
-rm -rf .agents/tasks/{task_id}
-git checkout .
-```
-
-**Keep Notes** - Delete code, keep findings:
-```bash
-mv .agents/tasks/{task_id}/findings.md .agents/research/
-rm -rf .agents/tasks/{task_id}
-```
-
-## Critical Rules
-
-1. **NO AUDIT** - Tasks are temporary
-2. **LOW CEREMONY** - Minimal process
-3. **EXPLICIT END** - Must promote, discard, or keep

@@ -1,49 +1,60 @@
 ---
-description: Conduct pre-PRD research
-agent: flow
+description: "Run the canonical flow/research Flow lifecycle."
 ---
 
-# Flow Research
+<!-- Generated from contracts/flow.yaml; generated-sha256: e2b46dfe3245bffe6c0ee0b950dc050dd4b5a7cfdb37b5618c399a61d67a38d7 -->
 
-Conducting research for: $ARGUMENTS
-
-## Phase 1: Research Initialization
-
-1. **Define Topic:** Use provided argument or ask user
-2. **Classify Type:** New Feature, Bug Investigation, Integration, Refactoring, Performance
-
-## Phase 2: Codebase Exploration
-
-1. Map relevant modules and files
-2. Identify existing patterns
-3. Analyze dependencies
-
-## Phase 3: External Documentation
-
-1. Lookup relevant library documentation
-2. Note APIs, best practices, gotchas
-
-## Phase 4: Prior Art
-
-1. Check git history for similar work
-2. Research external patterns
-
-## Phase 5: Risk Assessment
-
-1. Identify technical risks
-2. Plan recovery strategy
-
-## Phase 6: Create Research Document
-
-Create `.agents/research/{research_id}/research.md` with:
-- Executive Summary
-- Codebase Analysis
-- Library Documentation
-- Prior Art
-- Risk Assessment
-- Recommended Approach
-
-## Critical Rules
-
-1. **THOROUGH EXPLORATION** - Analyze codebase before external research
-2. **ACTIONABLE OUTPUT** - Research should inform PRD creation
+```json
+{
+  "agent": null,
+  "argument_schema": {
+    "optional": [],
+    "required": [
+      "topic"
+    ],
+    "syntax": "<topic>"
+  },
+  "bounds_enforcement": "agent_validated",
+  "canonical_id": "flow/research",
+  "capability_evidence": "OpenCode built-in question tool documentation",
+  "choice_max": 4,
+  "choice_min": 2,
+  "completion_gates": [
+    "evidence_captured"
+  ],
+  "custom_answer_behavior": "native_custom_input",
+  "disabled_choice_policy": "omit",
+  "fallback": "Use Flow to research this topic",
+  "git_tags": "forbidden",
+  "host": "opencode",
+  "instruction": "Load the lifecycle owner and follow the canonical procedure source directly.",
+  "interaction_mode": "structured_choice",
+  "invocation": "/flow-research",
+  "kind": "flow_command_adapter",
+  "lifecycle_owner": "flow-planning",
+  "multi_select": true,
+  "mutability": "planning_write",
+  "mutual_exclusion": true,
+  "plan_capability": "preferred",
+  "procedure_source": "skills/flow/references/research.md",
+  "question_capability": "structured-choice-v1",
+  "question_permission_check": "declared_and_allowed",
+  "question_tool": "question",
+  "question_transport": "conditional_native",
+  "runtime_dependency": "agent_file_tools_only",
+  "sequential_fallback": true,
+  "shared_contracts": [
+    "flow-state-v1",
+    "structured-choice-v1"
+  ],
+  "state_operations": [
+    "note",
+    "discover"
+  ],
+  "supported_selection_modes": [
+    "binary",
+    "single_select",
+    "multi_select"
+  ]
+}
+```

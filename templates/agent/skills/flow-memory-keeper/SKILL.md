@@ -21,16 +21,16 @@ Before claiming a task, phase, or flow is complete:
 2. Capture concrete learnings in the flow's `learnings.md`.
 3. Capture failures, false starts, blockers, and recovery notes when they would help a future session.
 4. If the user had to repeat a correction or showed frustration that something was forgotten, flag that as a workflow gap and capture it explicitly.
-5. Elevate durable patterns to `.agents/patterns.md`.
-6. Update `.agents/knowledge/` chapters when the current-state knowledge base changed.
+5. Elevate durable patterns to `.agents/bundles/knowledge/patterns.md`.
+6. Update chapters recursively under `.agents/bundles/knowledge/` when the current-state knowledge base changed, preserving project-shaped relative paths, indexes, and links.
 7. If the flow is complete, archive it cleanly and leave the active spec area uncluttered.
-8. Capture validated repo-native commands and verification workflows in `.agents/workflow.md` when they were discovered or corrected during the work.
+8. Capture validated repo-native commands and verification workflows in `.agents/bundles/knowledge/workflow.md` when they were discovered or corrected during the work.
 
 ## Completion Protocol
 
 ### Task or Phase Completion
 
-1. Append a concise entry to `.agents/specs/<flow_id>/learnings.md`:
+1. Append a concise entry to `.agents/bundles/specs/<flow_id>/learnings.md`:
    - what changed
    - why it changed
    - files touched
@@ -38,8 +38,8 @@ Before claiming a task, phase, or flow is complete:
    - canonical repo commands that future agents should reuse
    - gotchas, failures, and recoveries worth remembering
    - any repeated user correction or frustration that revealed a missing default, checklist item, or workflow rule
-2. Move reusable guidance into `.agents/patterns.md`.
-3. If the work changed architecture, conventions, tooling, operational behavior, or canonical project commands, update the relevant `.agents/knowledge/*.md` chapter and `.agents/workflow.md`.
+2. Move reusable guidance into `.agents/bundles/knowledge/patterns.md`.
+3. If the work changed architecture, conventions, tooling, operational behavior, or canonical project commands, recursively locate and update the relevant chapter under `.agents/bundles/knowledge/` at its existing project-shaped relative path; keep `.agents/bundles/knowledge/workflow.md` as the stable command default.
 4. Promote repeated user corrections or frustration into an obvious durable rule instead of leaving it as a one-off note.
 5. Run the normal Flow sync step so `spec.md` reflects the latest state.
 
@@ -60,11 +60,14 @@ Failure notes belong in `learnings.md`, but keep them short and reusable. Focus 
 
 When a flow is finished:
 
-1. Confirm the final sync/export step ran.
+1. Confirm final reconciliation and verification ran through the Flow state contract.
 2. Ensure `learnings.md` is not missing critical discoveries.
 3. Elevate the stable patterns and current-state knowledge before archiving.
-4. Move the flow folder into `.agents/archive/` according to the Flow archive workflow.
-5. Remove or avoid leaving stale scratch files in the active specs area.
+4. Apply the archive state operation: synthesize current-state knowledge, append
+   one bundle-log entry, then delete the completed spec directory recorded by
+   the approved archive inventory. Do not create a resident archive tree.
+5. Confirm the completed spec directory is absent and no stale scratch file
+   remains in the active specs area.
 
 </workflow>
 
@@ -99,14 +102,16 @@ Before claiming a task, phase, or flow is complete, verify:
 
 - [ ] `spec.md` was synced through the normal Flow process
 - [ ] `learnings.md` captures the durable lessons, failures, and recoveries
-- [ ] reusable guidance was elevated to `.agents/patterns.md` when appropriate
-- [ ] `.agents/knowledge/` reflects current-state knowledge when it changed
+- [ ] reusable guidance was elevated to `.agents/bundles/knowledge/patterns.md` when appropriate
+- [ ] nested chapters, indexes, and links under `.agents/bundles/knowledge/` reflect current-state knowledge without flattening
 - [ ] repeated user corrections or frustration were promoted into an explicit rule when applicable
 - [ ] canonical repo commands and verification flows were captured when they were learned or corrected
-- [ ] completed flows are archived cleanly without leaving stale active-spec clutter
+- [ ] completed flows were contracted without a resident archive tree or stale active-spec clutter
 
 </validation>
 
 ## Project Nuances
 
+- This consumer skill is installed at `.agents/skills/flow-memory-keeper/SKILL.md`;
+  `.agents/skills/` is the only operational project-skill authority.
 - Add short, durable project-specific reminders here as they are discovered.

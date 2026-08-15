@@ -2,7 +2,7 @@
 
 **Measure twice, code once.**
 
-Flow is a unified toolkit for **Context-Driven Development** that works with **Antigravity**, **Codex CLI**, **Claude Code**, **OpenCode**, **VS Code / Copilot**, **Cursor**, and **OpenClaw**. It combines spec-first planning with **Beads** for persistent cross-session memory, enabling AI-assisted development with deep, persistent project awareness.
+Flow is a unified toolkit for **Context-Driven Development** that works with **Antigravity**, **Codex CLI**, **Claude Code**, **OpenCode**, **VS Code / Copilot**, **Cursor**, and **OpenClaw**. It combines spec-first planning with a local, task-centric filesystem engine (OKF) to track task state and learnings, enabling AI-assisted development with deep, persistent project awareness.
 
 ## Philosophy
 
@@ -12,22 +12,27 @@ Control your code. By treating context as a managed artifact alongside your code
 
 ## Key Features
 
-- **Beads Integration**: Persistent task memory that survives context compaction
+- **Task-Centric Filesystem Engine (OKF)**: Persistent task files and specs that survive context compaction and are git-tracked
 - **Multi-Harness Support**: Works with Antigravity, Codex CLI, Claude Code, OpenCode, VS Code / Copilot, Cursor, and OpenClaw
-- **Spec-First Development**: Create specs and plans before writing code
-- **TDD Workflow**: Red-Green-Refactor with >80% coverage requirements
+- **Spec-First Development**: Create specs and task lists before writing code
+- **Change-appropriate verification**: TDD for behavior changes, with static,
+  documentation, characterization, and integration strategies for other work
 - **Knowledge Flywheel**: Capture and elevate patterns across flows (Ralph-style)
 - **Flow Management**: Revise, archive, and revert with full audit trail
-- **Git-Aware Revert**: Understands logical units of work, not just commits
+- **Git-Aware Revert**: Reverts logical units of work (tasks or phases), not just raw commits
 - **Parallel Execution**: Phase-level task parallelism via sub-agents
 
 ## Install
 
-Use each harness's native plugin, marketplace, rules, or skills mechanism. Flow no longer ships a multi-harness installer or symlink-based install path.
+Use each harness's native plugin, marketplace, rules, or skills mechanism. The
+[harness conformance matrix](docs/harness-conformance-matrix.md) records exact
+invocations, capabilities, and reload behavior.
 
 ### Antigravity
 
-Install Flow through Antigravity's native Plugins & Skills flow from the `cofin/flow` repository. Flow ships the Antigravity plugin manifest at `plugin.json` and the root SessionStart hook manifest at `hooks.json`.
+Install Flow through Antigravity's native Plugins & Skills flow. Flow ships the
+plugin manifest at `plugin.json`, the model-decision rule under `rules/`, and
+the static PreInvocation routing manifest at `hooks/hooks-agy.json`.
 
 After installing or updating the plugin, restart Antigravity so the plugin manifest, skills, agents, and hooks are reloaded.
 
@@ -38,7 +43,9 @@ claude plugin marketplace add cofin/flow
 claude plugin install flow@flow-marketplace
 ```
 
-This installs Flow at user scope (`~/.claude/plugins/...`). Restart Claude Code after install. The plugin ships skills, commands, and hooks; Claude-specific subagents remain optional and are not bundled in the current release.
+This installs Flow at user scope (`~/.claude/plugins/...`). Restart Claude Code
+after install. The plugin ships skills, commands, hooks, and all current Flow
+subagents, including the read-only quality reviewer.
 
 <!-- markdownlint-disable -->
 <details>
@@ -57,11 +64,11 @@ claude plugin update flow@flow-marketplace
 <summary>Recommended Claude Code settings</summary>
 <!-- markdownlint-restore -->
 
-Claude Code does not let plugin authors pre-declare a plan-artifact directory. To keep plan artifacts under Flow's canonical `.agents/specs/` directory, set this in your project `.claude/settings.json`:
+Claude Code does not let plugin authors pre-declare a plan-artifact directory. To keep plan artifacts under Flow's canonical `.agents/bundles/specs/` directory, set this in your project `.claude/settings.json`:
 
 ```json
 {
-  "plansDirectory": ".agents/specs"
+  "plansDirectory": ".agents/bundles/specs"
 }
 ```
 
@@ -110,6 +117,10 @@ OpenCode supports npm plugins and local plugin files. Flow currently ships OpenC
 
 OpenCode also discovers skills from `.opencode/skills/`, `.claude/skills/`, and `.agents/skills/`, so Flow-compatible project-local skills do not require a global plugin install.
 
+OpenCode Flow slash commands require the project templates under
+`templates/opencode/commands/`. Without configured templates, invoke the
+discovered Flow skill in natural language.
+
 <!-- markdownlint-disable -->
 <details>
 <summary>Recommended OpenCode settings</summary>
@@ -136,7 +147,7 @@ Cursor consumes Flow through project rules and shared repository instructions:
 
 - `.cursor/rules/flow.mdc`
 - `AGENTS.md`
-- project-local skills when copied or linked into `.agents/skills/`
+- project-local operational skills in `.agents/skills/`
 
 Do not install Flow through a repository `.cursor-plugin/plugin.json`; Flow does not ship a Cursor plugin manifest until Cursor exposes a stable documented plugin API for this use case.
 
@@ -170,20 +181,18 @@ OpenClaw should consume Flow through runtime skill discovery and its native `ses
 # Claude Code
 /flow-setup
 
-# Antigravity / OpenCode
-/flow:setup
+# Antigravity / configured OpenCode command templates
+/flow-setup
 ```
 
 In Codex CLI, ask: `Use Flow to set up this project`
 
 Flow will:
 
-1. Detect the preferred persistence mode: official Beads (`bd`) or no-Beads degraded mode
-2. Initialize the selected backend in low-admin mode
-3. Default local-only ignores to `.git/info/exclude`
-4. Create project context files
-5. Guide you through product, tech stack, and workflow setup
-6. Create your first flow
+1. Create the Flow directory (defaults to `.agents/`)
+2. Configure local ignores in `.git/info/exclude` to keep specifications local-only
+3. Create project context files (`product.md`, `tech-stack.md`, `workflow.md`, `patterns.md`)
+4. Guide you through product vision, tech stack configuration, and repository-native workflow commands setup
 
 ### Create a flow
 
@@ -191,15 +200,21 @@ Flow will:
 # Claude Code
 /flow-prd "Add user authentication"
 
-# Antigravity / OpenCode
-/flow:prd "Add user authentication"
+# Antigravity / configured OpenCode command templates
+/flow-prd "Add user authentication"
 ```
 
 In Codex CLI, ask: `Use Flow to create a PRD for add user authentication`
 
-This creates `spec.md` (unified spec + plan), `learnings.md` (pattern capture log), `.agents/skills/flow-memory-keeper/SKILL.md` (project-local sync/archive/learnings/refinement skill), and a Beads epic with tasks for cross-session persistence.
+This creates a new specification bundle under `.agents/bundles/specs/<flow_id>/`:
 
-> Flow uses a unified `spec.md` (no separate `plan.md`). Beads is the source of truth for task status. Use `/flow:sync` to export Beads state to `spec.md` after state changes when `.agents/beads.json` has `syncPolicy.flowSyncAfterMutation` enabled.
+- `spec.md` (unified spec + implementation plan)
+- `learnings.md` (per-flow discoveries log)
+- `tasks/` directory to store individual task markdown files
+
+> Flow uses a unified `spec.md` implementation plan. Task state lives in the
+> individual `tasks/*.md` files and is reconciled through the file-tool-only
+> `flow-reconciler`; no Flow executable is installed.
 
 ### Implement
 
@@ -207,15 +222,23 @@ This creates `spec.md` (unified spec + plan), `learnings.md` (pattern capture lo
 # Claude Code
 /flow-implement auth
 
-# Antigravity / OpenCode
-/flow:implement auth
+# Antigravity / configured OpenCode command templates
+/flow-implement auth
 ```
 
 In Codex CLI, ask: `Use Flow to implement auth`
 
-Flow follows a TDD workflow with a backend adapter: detect persistence mode, select the next task, write failing tests → implement → refactor → verify coverage → commit (conventional format) → record completion → capture learnings → `/flow-sync`.
+Flow follows a TDD workflow:
 
-> **CRITICAL:** Never write `[x]`, `[~]`, `[!]`, or `[-]` markers directly to `spec.md`. Beads is the source of truth. The default `syncPolicy.flowSyncAfterMutation` setting makes agents run `/flow-sync` after Beads state changes to update `spec.md`.
+1. Select the next ready authoritative task worksheet
+2. Claim it through a revision-guarded `flow-reconciler` transaction
+3. Write failing tests (Red)
+4. Implement code to pass tests (Green)
+5. Refactor while tests pass
+6. Commit the task changes: `<type>(<scope>): <description>`
+7. Close the task through the state sidecar and record the commit
+8. Record learnings inside the task file under `## Notes & Discoveries`
+9. Reconcile the derived checklist in the same task-first/spec-last transaction
 
 ## Commands
 
@@ -239,28 +262,18 @@ Codex plugins do not currently expose plugin-defined `/flow:*` slash commands. O
 ```text
 project/
 ├── .agents/
-│   ├── product.md           # Product vision and goals
-│   ├── product-guidelines.md # Brand/style guidelines
-│   ├── tech-stack.md        # Technology choices
-│   ├── workflow.md          # Development workflow (TDD, commits)
-│   ├── flows.md             # Flow registry with status
-│   ├── patterns.md          # Consolidated learnings
-│   ├── beads.json           # Beads configuration
 │   ├── index.md             # File resolution index
-│   ├── code-styleguides/    # Language style guides
-│   ├── knowledge/           # Persistent knowledge base
-│   │   ├── index.md          # Quick reference index
-│   │   └── {flow_id}.md      # Per-flow detailed learnings
-│   ├── skills/
-│   │   └── flow-memory-keeper/
-│   │       └── SKILL.md      # Local memory/refinement skill
-│   ├── specs/
-│   │   └── <flow_id>/       # e.g., user-auth/
-│   │       ├── spec.md       # Unified spec + plan
-│   │       ├── learnings.md
-│   │       └── metadata.json
-│   └── archive/             # Completed flows
-└── .beads/                  # Beads data (local-only)
+│   ├── bundles/
+│   │   ├── product/         # Product identity and technology
+│   │   ├── knowledge/       # Recursively nested current-state knowledge
+│   │   ├── research/        # Pre-plan research
+│   │   └── specs/
+│   │       └── <flow_id>/   # e.g., user-auth/
+│   │           ├── spec.md   # Unified spec + plan
+│   │           ├── learnings.md
+│   │           └── tasks/    # Task definitions
+│   │               └── 1.1.md
+│   └── skills/              # Sole project operational-skill root
 ```
 
 </details>
@@ -277,76 +290,26 @@ Flows use format `shortname` — examples: `user-auth`, `dark-mode`, `api-v2`.
 | `[ ]` | Pending | Not started |
 | `[~]` | In Progress | Currently working |
 | `[x]` | Completed | Done with commit SHA |
-| `[!]` | Blocked | Cannot proceed (logged in `blockers.md`) |
-| `[-]` | Skipped | Intentionally bypassed (logged in `skipped.md`) |
+| `[!]` | Blocked | Cannot proceed (status: blocked in task file) |
+| `[-]` | Skipped | Intentionally bypassed (status: skipped in task file) |
 
 </details>
 
 <!-- markdownlint-disable -->
 <details>
-<summary>Beads integration (modes, init, ignore policy)</summary>
+<summary>Local Specs ignore guidelines</summary>
 <!-- markdownlint-restore -->
 
-Flow supports two persistence modes:
+By default, the `.agents/` directory is checked into Git so that specifications, implementation plans, and task histories are version-controlled alongside your code.
 
-- **Official Beads (`bd`)**: default
-- **No Beads**: degraded mode for docs, planning, and lightweight local work
+If you prefer to keep all Flow specifications and task files local-only (e.g. to avoid committing agent metadata to your repository), you can ignore the `.agents/` directory locally.
 
-**Default initialization.** Flow defaults to stealth mode and derives a slugged prefix from the repo name:
-
-```bash
-repo_slug="$(basename "$(git rev-parse --show-toplevel 2>/dev/null || pwd)" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-' | sed 's/^-//; s/-$//')"
-bd init --non-interactive --stealth --prefix "$repo_slug" --skip-agents
-bd config set no-git-ops true
-bd config set export.auto false
-bd config set export.git-add false
-```
-
-Flow writes `.agents/beads.json` with local-only defaults:
-
-```json
-{
-  "localOnly": true,
-  "sync": "manual",
-  "bdConfig": {
-    "no-git-ops": true,
-    "export.auto": false,
-    "export.git-add": false
-  },
-  "syncPolicy": {
-    "flowSyncAfterMutation": true,
-    "autoExport": false,
-    "autoGitAdd": false,
-    "allowDoltPush": false
-  },
-  "dolt": {
-    "push": "never"
-  }
-}
-```
-
-Do not run `bd dolt push` unless the user explicitly requests it or `.agents/beads.json` opts in with `syncPolicy.allowDoltPush: true`.
-
-**Install paths.**
+**Local Ignore Configuration**:
+To ignore the `.agents/` directory only in your local clone without affecting other developers, append it to `.git/info/exclude` instead of `.gitignore`:
 
 ```bash
-# Official Beads (bd)
-curl -fsSL https://raw.githubusercontent.com/gastownhall/beads/main/scripts/install.sh | bash
+printf '\n# Flow specifications (local-only)\n.agents/\n' >> .git/info/exclude
 ```
-
-**Memory policy.** Use `bd note <task-id> "..."` for task-local findings. Use `bd remember "..." --key <repo>:<topic>` for durable facts that should prime future sessions. Prefer structured task creation fields such as `--context`, `--design`, `--acceptance`, `--metadata`, `--skills`, and `--spec-id`.
-
-**Session priming.** Hooks should inject `bd prime --mcp` where the harness supports MCP-aware context injection; otherwise run `bd prime` at session start or after compaction.
-
-**Local-only ignore policy.** Prefer `.git/info/exclude`:
-
-```bash
-printf '\n# Flow local-only artifacts\n.beads/\n.agents/\n' >> .git/info/exclude
-```
-
-Only update `.gitignore` when the user explicitly wants a shared repo policy.
-
-**Session protocol.** Start: detect active backend and load workspace state. Work: update task status as you progress. Learn: add notes for important discoveries. End: persist backend state when enabled, or rely on `.agents/specs/` + git history in degraded mode.
 
 </details>
 
@@ -393,25 +356,16 @@ If `.agents/skills/flow-memory-keeper/SKILL.md` exists, use it at sync, archive,
 <summary>Skills library</summary>
 <!-- markdownlint-restore -->
 
-Flow includes 50+ technology-specific skills in `skills/`:
-
-| Category | Skills |
-|----------|--------|
-| **Frontend** | React, Vue, Svelte, Angular, TanStack |
-| **Backend** | Litestar, Rust, PyO3, napi-rs |
-| **Database** | SQLSpec, Advanced Alchemy, pytest-databases |
-| **Testing** | pytest, Vitest, testing patterns |
-| **Infrastructure** | GKE, Cloud Run, Railway |
-| **Tools** | Vite, Tailwind, Shadcn, HTMX |
-
-Copy to your CLI's skills directory for auto-activation.
+Flow's `skills/` tree is the canonical packaged skill source. In consumer
+projects, `.agents/skills/` is the sole operational project-skill authority;
+`.agents/bundles/` remains reserved for OKF product, knowledge, research, and
+specification documents.
 
 </details>
 
 ## Resources
 
 - [GitHub Issues](https://github.com/cofin/flow/issues) — Report bugs or request features
-- [Beads CLI](https://github.com/gastownhall/beads) — Official `bd` task persistence layer
 
 ## License
 

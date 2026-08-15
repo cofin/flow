@@ -1,0 +1,11 @@
+{
+  "flow-priming": {
+    "PreInvocation": [
+      {
+        "type": "command",
+        "command": "bash \"${PLUGIN_ROOT:-${ANTIGRAVITY_PLUGIN_ROOT:-.}}/hooks/agy-pre-invocation.sh\"",
+        "timeout": 25
+      }
+    ]
+  }
+}

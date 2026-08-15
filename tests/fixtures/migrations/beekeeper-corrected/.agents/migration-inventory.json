@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "items": [
+    {"source": ".agents/beads.json", "destination": ".agents/setup-state.json", "disposition": "preserve_local_policy"},
+    {"source": ".agents/bundles/skills/flow-memory-keeper", "destination": ".agents/skills/flow-memory-keeper", "disposition": "migrate"},
+    {"source": ".agents/knowledge", "destination": ".agents/bundles/knowledge", "disposition": "synthesize"},
+    {"source": ".agents/patterns.md", "destination": ".agents/bundles/knowledge/patterns.md", "disposition": "remove_after_verify"},
+    {"source": ".agents/product.md", "destination": ".agents/bundles/product/product.md", "disposition": "remove_after_verify"},
+    {"source": ".agents/specs/beekeeper-convergence", "destination": ".agents/bundles/specs/beekeeper-convergence", "disposition": "migrate"},
+    {"source": ".agents/specs/queues-prerequisites", "destination": ".agents/bundles/specs/queues-prerequisites", "disposition": "migrate"},
+    {"source": ".agents/workflow.md", "destination": ".agents/bundles/knowledge/workflow.md", "disposition": "remove_after_verify"}
+  ],
+  "semantic_mappings": {
+    "priority": {"status": "mapped", "detail": "legacy priorities copied into task frontmatter"},
+    "dependencies": {"status": "mapped", "detail": "dependencies normalized to short task ids"},
+    "claims": {"status": "mapped", "detail": "the active claim and timestamp were retained"},
+    "blockers": {"status": "mapped", "detail": "blocked reason and unblock condition were retained"},
+    "notes": {"status": "mapped", "detail": "discoveries were copied into task worksheets"},
+    "commit_evidence": {"status": "mapped", "detail": "closed-task commit and verification evidence were retained"},
+    "history": {"status": "mapped", "detail": "completed history was synthesized and logged, then contracted"},
+    "local_only_policy": {"status": "mapped", "detail": "local-only and no-auto-push policy was retained"}
+  }
+}

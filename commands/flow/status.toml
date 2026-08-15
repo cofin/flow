@@ -1,44 +1,4 @@
-description = "Display progress overview with Beads status"
-prompt = """
-## Lifecycle Skill
-Use the `flow-sync-status` lifecycle skill through the `flow` router before carrying out this command.
-
-## Beads Mode Gate
-Skip every `bd` invocation below when the SessionStart hook reports `Beads Backend: Missing (None)` or `Disabled via plugin config (useBeads=false)`. Report status from `spec.md` markers as fallback source of truth and skip `/flow:sync`. Never halt for missing Beads. See `skills/flow/references/discipline.md`.
-
-## 1.0 SYSTEM DIRECTIVE
-You are an AI agent assistant for the Flow spec-driven development framework. Your task is to report the status of active flows using Beads as the primary source of truth.
-
-CRITICAL: You must validate the success of every tool call.
-
----
-
-## 1.1 INITIALIZATION
-**PROTOCOL: Load the Flow context.**
-
-1.  **Check for User Input:** If `{{args}}` provided, report detailed status for that `flow_id`.
-2.  **Load Registry:** Read the Flow Registry from `.agents/flows.md`.
-
----
-
-## 2.0 BEADS STATUS (SOURCE OF TRUTH)
-**PROTOCOL: Query the active backend for live state.**
-
-1.  **Pull State:** Run `bd ready` and `bd status`.
-2.  **Match:** Cross-reference Beads epics with the Flow registry.
-
----
-
-## 3.0 DISPLAY DASHBOARD
-**PROTOCOL: Show progress, ready tasks, and recent notes.**
-
-1.  **Summary:** Show % completion and current phase for active flows.
-2.  **Ready Queue:** List tasks from `bd ready` that are unblocked and ready to claim.
-3.  **Recent Notes:** Display the 3-5 most recent `bd note` entries to maintain context awareness.
-4.  **Sync Check:** If Markdown markers in `spec.md` don't match Beads status, suggest running `/flow:sync`.
-
----
-
-## 4.0 NEXT ACTIONS
-Based on the current status, suggest the next command (e.g., `/flow:implement <flow_id>` or `/flow:sync`).
-"""
+# Generated from contracts/flow.yaml
+# generated-sha256: ad6ea553f93ceb83486345679c31c1ef8e3daf43b8b20d3b51f8fa89292f285e
+description = "Run the canonical flow/status Flow lifecycle."
+prompt = "{\n  \"agent\": \"flow-reconciler\",\n  \"argument_schema\": {\n    \"optional\": [\n      \"flow_id\"\n    ],\n    \"required\": [],\n    \"syntax\": \"[flow_id]\"\n  },\n  \"bounds_enforcement\": \"unsupported\",\n  \"canonical_id\": \"flow/status\",\n  \"capability_evidence\": \"Codex request_user_input schema advertised by the active session\",\n  \"choice_max\": 3,\n  \"choice_min\": 2,\n  \"completion_gates\": [\n    \"direct_markdown_read\"\n  ],\n  \"custom_answer_behavior\": \"native_custom_input\",\n  \"disabled_choice_policy\": \"omit\",\n  \"fallback\": \"Use Flow to report status\",\n  \"git_tags\": \"forbidden\",\n  \"host\": \"codex_cli\",\n  \"instruction\": \"Load the lifecycle owner and follow the canonical procedure source directly.\",\n  \"interaction_mode\": \"none\",\n  \"invocation\": \"Use Flow to report status\",\n  \"kind\": \"flow_command_adapter\",\n  \"lifecycle_owner\": \"flow-sync-status\",\n  \"multi_select\": false,\n  \"mutability\": \"read_only\",\n  \"mutual_exclusion\": true,\n  \"plan_capability\": \"none\",\n  \"procedure_source\": \"skills/flow/references/status.md\",\n  \"question_capability\": null,\n  \"question_permission_check\": \"declared_and_allowed\",\n  \"question_tool\": \"request_user_input\",\n  \"question_transport\": \"conditional_native\",\n  \"runtime_dependency\": \"agent_file_tools_only\",\n  \"sequential_fallback\": true,\n  \"shared_contracts\": [\n    \"flow-state-v1\"\n  ],\n  \"state_operations\": [\n    \"status\"\n  ],\n  \"supported_selection_modes\": [\n    \"binary\",\n    \"single_select\"\n  ]\n}"

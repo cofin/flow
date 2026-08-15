@@ -3,6 +3,14 @@
 
 Five-phase documentation workflow with validation, knowledge capture, and cleanup.
 
+## Contents
+
+- [Setup and mode selection](#phase-0-setup-check)
+- [Validation](#mode-a-validation)
+- [Knowledge capture](#mode-b-knowledge-capture)
+- [Archive and cleanup](#mode-c-archive)
+- [Full cycle and rules](#mode-e-full-cycle)
+
 ## Usage
 
 `flow-docs [validate|capture|archive|cleanup|full]`
@@ -11,10 +19,10 @@ Five-phase documentation workflow with validation, knowledge capture, and cleanu
 
 Verify Flow environment:
 
-- **Product Definition** (`.agents/product.md`)
-- **Tech Stack** (`.agents/tech-stack.md`)
-- **Workflow** (`.agents/workflow.md`)
-- **Flow Registry** (`.agents/flows.md`)
+- **Product Definition** (`.agents/bundles/product/product.md`)
+- **Tech Stack** (`.agents/bundles/product/tech-stack.md`)
+- **Workflow** (`.agents/bundles/knowledge/workflow.md`)
+- **Specs Directory** (`.agents/bundles/specs/` — flows are discovered by scanning spec frontmatter)
 
 If ANY missing: "Flow not set up. Run `flow-setup` first." -> HALT
 
@@ -38,8 +46,8 @@ If ANY missing: "Flow not set up. Run `flow-setup` first." -> HALT
 Identify all docs:
 
 - Flow specs (`.agents/`)
-- Flow folders (`.agents/specs/*/`)
-- Research folders (`.agents/research/*/`)
+- Flow folders (`.agents/bundles/specs/*/`)
+- Research folders (`.agents/bundles/research/*/`)
 
 ### Quality Gate Checks
 
@@ -76,13 +84,16 @@ Generated: [timestamp]
 
 ### Identify Knowledge Sources
 
-1. **Completed Flows:** Scan for flows marked `[x]`
+1. **Completed Flows:** Read resident specs with `state: completed` and verify
+   every task file is `closed` or `skipped`.
 2. **Git History:** Analyze commits for context
 3. **Research Documents:** Extract validated patterns
 
 ### Generate Knowledge Summary
 
-Create/update `.agents/knowledge-base.md`
+Re-synthesize current-state guidance into the best matching chapter under
+`.agents/bundles/knowledge/**/*.md`. Preserve project-shaped relative paths,
+indexes, and links; never flatten the knowledge tree.
 
 ### Pattern Library Update
 
@@ -92,15 +103,15 @@ Identify recurring patterns (used in 2+ flows) and propose styleguide updates.
 
 ### Identify Archive Candidates
 
-- Completed flows (status `[x]`)
+- Completed flows (`state: completed`)
 - Old research (linked to completed flows or >30 days without flow)
 
 ### Execute Archive
 
-1. Move to `.agents/archive/`
-2. Remove from flow registry
-3. Add to archive index
-4. Commit: `chore(flow): Archive [item_id]`
+1. Re-synthesize task notes and learnings into project-shaped knowledge.
+2. Add one `.agents/bundles/log.md` entry with date, flow id, outcome, and final SHA.
+3. Delete the reviewed completed spec directory; Git history is the archive.
+4. Commit the tracked contraction locally without pushing or mutating Git tags.
 
 ## Mode D: Cleanup
 

@@ -1,141 +1,58 @@
 ---
-description: Export Beads state to spec.md (source of truth sync)
-argument-hint: [flow_id]
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash
+description: "Run the canonical flow/sync Flow lifecycle."
 ---
 
-# Flow Sync
+<!-- Generated from contracts/flow.yaml; generated-sha256: 7ce2df183d2ce17f70a9df42e32c766af6009aad94ab680c4e5cfb4f7935080a -->
 
-> Lifecycle skill: use `flow-sync-status` through the `flow` router.
-
-Syncing active backend state to disk for flow: **$ARGUMENTS**
-
-## The Bridge Mandate
-
-**CRITICAL:** `/flow:sync` is the primary bridge between the **Beads Source of Truth** and the **Markdown View**. Default setup runs it after task completion, note addition, or status changes when `syncPolicy.flowSyncAfterMutation` is enabled.
-
-**What sync means here (and what it does NOT):**
-
-- `/flow:sync` **ALWAYS writes the reconciled markdown to disk** — updating **every markdown file in `.agents/specs/<flow_id>/`** (`spec.md`, `learnings.md`, and any other tracked markdown in the flow folder), not just `spec.md`, so they all match Beads exactly. This write is **mandatory**; sync is never read-only/dry-run and must never finish without persisting the markdown.
-- "Sync" / "export" in Flow means **making the markdown files and Beads reflect identical reality on disk** — nothing more.
-- It does **NOT** mean Dolt. **NEVER run `bd dolt push` or `bd dolt pull`** (Beads' Dolt remote sync) as part of sync, and never run `bd export` (the optional `.beads/issues.jsonl` snapshot), regardless of phrasing. Those are out of scope for `/flow:sync` and only run if the user explicitly and separately asks for Dolt operations.
-
----
-
-## Phase 0: Environment Detection
-
-**PROTOCOL: Check hook context for environment metadata.**
-
-1. **Check Hook Context:** Scan `<hook_context>` for `## Flow Environment Context`.
-    - Use the injected **Flow Root** for all artifact paths.
-    - Use the injected **Beads Backend** for sync and task management.
-2. **Fallback (if context missing):** Use `.agents/` as the default root.
-3. **Read Beads Config:** Load `<root_directory>/beads.json` if present.
-    - Respect `syncPolicy.flowSyncAfterMutation` when deciding whether a sync should run automatically.
-    - Respect `syncPolicy.autoExport` and `syncPolicy.autoGitAdd` before running any Beads export or staging command.
-    - Respect `syncPolicy.allowDoltPush` and `dolt.push` before any Dolt push operation.
-
----
-
-## Phase 1: Resolve Flow
-
-1. **Check for User Input:** If `$ARGUMENTS` is provided, use it as `flow_id`.
-2. **Auto-Discovery (No Argument):**
-    - Read `<root_directory>/flows.md` for active flows.
-    - If exactly one active flow, select it.
-    - If multiple, choose most recently modified.
-    - If none, report "No active flows to sync."
-
----
-
-## Phase 2: Load Flow Metadata
-
-1. Read `<root_directory>/specs/{flow_id}/metadata.json`.
-2. Read `<root_directory>/workflow.md` and `<root_directory>/tech-stack.md`.
-3. Extract backend linkage such as `beads_epic_id`.
-
----
-
-## Phase 3: Fetch Active Backend State
-
-Resolve the active backend first (check hook context or beads.json):
-
-- `bd`: read state with the official Beads query commands (`bd show <id> --json`, `bd list`). **CRITICAL:** Pull all `notes` for the epic and its tasks.
-- no-Beads: skip the backend read and preserve markdown-only task state.
-
-If `syncPolicy.autoExport` is false, do not run Beads export commands as a side effect of `/flow:sync`; read from the backend and update Flow markdown views only. Do not run `bd dolt push` unless the user explicitly requests it or `.agents/beads.json` sets `syncPolicy.allowDoltPush` to `true`.
-
-Parse the backend output. Map statuses to markdown markers:
-
-| Backend Status | Marker |
-|----------------|--------|
-| `open` / `pending` | `[ ]` |
-| `in_progress` | `[~]` |
-| `closed` / `completed` | `[x]` |
-| `blocked` | `[!]` |
-| `skipped` / `deferred` | `[-]` |
-
----
-
-## Phase 4: Regenerate spec.md and learnings.md
-
-1. **Update spec.md**:
-   - Find the `## Implementation Plan` section.
-   - For each task line matching `- [ ] ...`, `- [x] ...`, etc.:
-     - Match the task to the corresponding backend task by title.
-     - Replace the status marker with the current backend status.
-     - If the backend completion reason contains a commit SHA, append it: `[abc1234]`.
-   - Write updated `spec.md`.
-
-2. **Update learnings.md**:
-   - Extract all `notes`/`comments` from the backend for the current flow.
-   - Categorize by task ID and timestamp.
-   - Append NEW notes to `.agents/specs/{flow_id}/learnings.md` in Ralph-style format.
-   - Synthesize notes into patterns where appropriate.
-
----
-
-## Phase 5: Context Drift Check
-
-1. Compare dependency files (`package.json`, `pyproject.toml`, etc.) with `.agents/tech-stack.md`.
-2. Inspect workflow drift across `Makefile`, `justfile`, etc.
-3. If drift detected, report and ask to revalidate `.agents/workflow.md`.
-
----
-
-## Phase 6: Update Metadata
-
-Update `.agents/specs/{flow_id}/metadata.json`:
-
-- Set `"synced_at": "{ISO timestamp}"`
-- Set `"updated_at": "{ISO timestamp}"`
-
----
-
-## Phase 7: Summary
-
-```text
-Flow Sync Complete: {flow_id}
-
-Backend: {bd|none}
-Tasks synced from backend record: {beads_epic_id|none}
-  Pending:     {count}
-  In Progress: {count}
-  Completed:   {count}
-  Blocked:     {count}
-  Skipped:     {count}
-
-Notes synced: {count} new notes added to learnings.md
-Updated: .agents/specs/{flow_id}/spec.md
+```json
+{
+  "agent": "flow-reconciler",
+  "argument_schema": {
+    "optional": [
+      "flow_id"
+    ],
+    "required": [],
+    "syntax": "[flow_id]"
+  },
+  "bounds_enforcement": "agent_validated",
+  "canonical_id": "flow/sync",
+  "capability_evidence": "Claude Code declared AskUserQuestion contract",
+  "choice_max": 4,
+  "choice_min": 2,
+  "completion_gates": [
+    "transaction_reread"
+  ],
+  "custom_answer_behavior": "native_custom_input",
+  "disabled_choice_policy": "omit",
+  "fallback": "Use Flow to sync task state",
+  "git_tags": "forbidden",
+  "host": "claude_code",
+  "instruction": "Load the lifecycle owner and follow the canonical procedure source directly.",
+  "interaction_mode": "none",
+  "invocation": "/flow-sync",
+  "kind": "flow_command_adapter",
+  "lifecycle_owner": "flow-sync-status",
+  "multi_select": true,
+  "mutability": "state_write",
+  "mutual_exclusion": true,
+  "plan_capability": "none",
+  "procedure_source": "skills/flow/references/sync.md",
+  "question_capability": null,
+  "question_permission_check": "declared_and_allowed",
+  "question_tool": "AskUserQuestion",
+  "question_transport": "conditional_native",
+  "runtime_dependency": "agent_file_tools_only",
+  "sequential_fallback": true,
+  "shared_contracts": [
+    "flow-state-v1"
+  ],
+  "state_operations": [
+    "reconcile"
+  ],
+  "supported_selection_modes": [
+    "binary",
+    "single_select",
+    "multi_select"
+  ]
+}
 ```
-
----
-
-## Critical Rules
-
-1. **READ-ONLY ON BACKEND** - Only read from the active backend during sync; do not mutate tasks here.
-2. **PRESERVE SPEC CONTENT** - Only update task status markers and append notes, not requirements text.
-3. **MATCH CAREFULLY** - Match tasks by title.
-4. **IDEMPOTENT** - Running sync multiple times produces the same result.
-5. **NO HARDCODED BACKEND** - Support `bd` and markdown-only mode gracefully.
-6. **NO IMPLICIT EXPORT OR PUSH** - Do not export, auto-stage, or run `bd dolt push` unless `.agents/beads.json` explicitly allows it or the user asks for it.

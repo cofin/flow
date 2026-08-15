@@ -1,46 +1,60 @@
 ---
 name: flow-sync-status
-description: "Use when syncing Beads state to markdown, checking Flow status, refreshing context docs, validating task markers, or reporting ready/blocked Flow work."
+description: "Use when reconciling Flow task truth into a spec, displaying status queues, refreshing project context, or checking bundle state anomalies."
 ---
 
 # Flow Sync And Status
 
-Use this lifecycle skill for status dashboards, sync, context refresh, cleanup checks, and drift reporting.
+<!-- lifecycle-ownership: owner=flow-sync-status; operations=sync,status,refresh -->
 
-> **Beads mode:** Skip every `bd` invocation when the SessionStart hook reports `Beads Backend: Missing (None)` or `Disabled via plugin config (useBeads=false)`. With no backend, `/flow:sync` is a no-op (announce and exit) and status falls back to `spec.md` markers. Never halt for missing Beads. See `../flow/references/discipline.md`.
+## Trigger
+
+Use for `sync|status|refresh`.
+
+<!-- flow-sync-status-routing: start -->
+```yaml
+sync: typed_reconcile_request
+status: typed_read_only_status_request
+state_mutations: flow-reconciler_via_flow-state
+```
+<!-- flow-sync-status-routing: end -->
 
 ## Workflow
 
-1. Read `.agents/beads.json` before any sync/export decision.
-2. Pull Beads state and notes as the source of truth.
-3. Regenerate synchronized markdown views without changing requirement text.
-4. Detect drift in workflow commands, tech stack, patterns, knowledge chapters, and references.
-5. Report ready, blocked, in-progress, and stale work with clear next actions.
+1. Resolve configured roots and read nonterminal journals before normal work.
+2. For sync, compare task truth with checklist/snapshot projections, submit one
+   exact `reconcile` request, then reread the result.
+3. For status, submit the read-only status request and render current, ready,
+   blocked, and conflict queues in priority/creation/id order.
+4. For refresh, rescan live project context, update only derived knowledge, and
+   preserve active plan/task state.
 
 ## Guardrails
 
-- **`/flow:sync` ALWAYS writes the reconciled markdown to disk.** It is mandatory: regenerate **every markdown file in `.agents/specs/<flow_id>/`** (`spec.md`, `learnings.md`, and any other tracked markdown in the flow folder) — not just `spec.md` — so they all match Beads exactly, and persist them. Sync is never read-only/dry-run and must never finish without writing the markdown.
-- **"Sync"/"export" means reconciling markdown ↔ Beads to identical reality on disk — NOT Dolt.** NEVER run `bd dolt push`/`bd dolt pull` (Dolt remote sync) or `bd export` (the optional JSONL snapshot) as part of sync. They are out of scope and only run if the user explicitly and separately asks for them.
-- Sync reads backend state; do not close, block, or mutate tasks during status reporting.
-- Do not auto-stage/commit unless policy or the user explicitly allows it.
-- Preserve human-written spec content; only update synchronized task/status regions.
-- Ask before applying context-doc updates when sync detects drift.
+- Task files are authoritative; only reconcile projects them into the spec.
+- Status performs no write, revision, journal, or operation-id allocation.
+- Use ordinary file tools; never infer targets, scaffold worksheets, mutate plan
+  content, or stage/commit automatically.
+
+## Output
+
+Return exact mismatches and new state identity for sync, sorted queues for
+status, or changed context and preserved state identity for refresh.
 
 ## Validation
 
-- Confirm status comes from Beads, not markdown markers.
-- Confirm broken file references, workflow drift, and sync policy decisions are reported.
-- For this repo, run `make validate-skills` after skill or command sync changes.
+Reread every affected projection and require task agreement, unchanged plan
+identity, typed affected ids, and a valid terminal journal. Status proves a
+complete read with no writes.
 
-## References Index
+## Conditional References
 
 - [Sync](../flow/references/sync.md)
 - [Status](../flow/references/status.md)
 - [Refresh](../flow/references/refresh.md)
-- [Cleanup](../flow/references/cleanup.md)
+- [State](../flow/references/state.md)
 
 ## Example
 
-User: "Flow status."
-
-Action: read Beads state, summarize active flows, ready tasks, blockers, recent notes, and whether markdown views need sync.
+For a marker mismatch, reconcile from task truth and reread. For “show status,”
+return sorted queues without changing Markdown.

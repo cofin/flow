@@ -1,73 +1,48 @@
-
 # Flow Sync
 
-Sync active backend task state to on-disk spec.md for a flow.
+Sync is the canonical `reconcile` state operation. It projects authoritative task-file state into derived spec checklist and Continuity Snapshot fields through a revision-guarded, spec-only Markdown transaction. Read the canonical [`skills/flow/references/state.md`](state.md) contract for the exact request, payload, predicate, fragment, journal, and validation schemas.
 
-## Phase 1: Resolve Flow
-
-1. If arguments provided, use as `flow_id`.
-2. Otherwise, read `.agents/flows.md` for the active flow.
-3. If no active flows, report "No active flows to sync."
-
-## Phase 2: Load Metadata
-
-1. Read `.agents/specs/{flow_id}/metadata.json`
-2. Read `.agents/workflow.md` and `.agents/tech-stack.md`
-3. Extract backend linkage such as `beads_epic_id`
-4. If missing, continue in markdown-only mode instead of erroring
-
-## Phase 3: Fetch Active Backend State
-
-Use the active backend:
-
-- `bd`: read task state with `bd show`/`bd list`/`bd ready` (not `bd export` — that is a separate JSONL snapshot)
-- no-Beads: skip backend reads and preserve markdown-only state
-
-Map backend status to markdown markers:
-
-| Beads Status   | Marker |
-|----------------|--------|
-| `open` / `pending` | `[ ]` |
-| `in_progress` | `[~]` |
-| `closed` / `completed` | `[x]` |
-| `blocked` | `[!]` |
-| `skipped` / `deferred` | `[-]` |
-
-## Phase 4: Update spec.md
-
-1. Read `.agents/specs/{flow_id}/spec.md`
-2. Find the Implementation Plan / task list section
-3. Replace task status markers with current backend status when backend state is available
-4. Preserve existing markdown-only markers when no backend is configured
-5. Append commit SHAs from backend completion reasons where available
-6. Write updated spec.md
-
-**Only update task markers. Do NOT modify requirements sections.**
-
-## Phase 5: Update Metadata
-
-Set `"synced_at"` and `"updated_at"` in metadata.json.
-
-## Phase 6: Synthesis Check (The Synthesis Mandate)
-
-1. **Identify**: Inspect `learnings.md` and the `Implementation Plan` for new architectural patterns, conventions, or non-obvious technical discoveries.
-2. **Propose**: If a significant pattern is found, propose its immediate elevation to `.agents/patterns.md` or its synthesis into a chapter in `.agents/knowledge/`.
-3. **Execute**: If the user confirms, integrate the knowledge now. Do NOT wait for archive if the pattern is foundational for the current or upcoming flows.
-
-## Phase 7: Context Drift Check
-
-1. Compare dependency files with `.agents/tech-stack.md`
-2. Inspect workflow drift across `Makefile`, `justfile`, `Taskfile.yml`, package scripts, `.pre-commit-config.yaml`, and CI files
-3. If commands or backend assumptions are stale, report that `.agents/workflow.md` should be revalidated
-
-## Final Output
-
-```text
-Flow Sync Complete: {flow_id}
-
-Backend: {bd|br|none}
-Synced from backend record: {beads_epic_id|none}
-  Pending: {n}  In Progress: {n}  Completed: {n}  Blocked: {n}
-Updated: .agents/specs/{flow_id}/spec.md
-workflow.md: {revalidated-needed|unchanged}
+<!-- flow-sync-contract: start -->
+```yaml
+operation: reconcile
+mutation_authority: flow-reconciler_via_flow-state
+targets: []
+payload:
+  required: [mismatches, affected_task_ids]
+  affected_task_ids: unique_sorted
+identity:
+  expected_plan_revision: exact_live_value
+  expected_plan_commit: exact_live_value_or_null
+  expected_state_revision: exact_live_value
+effects:
+  tasks: unchanged
+  plan_identity: unchanged
+  spec: derived_checklist_snapshot_status_only
+  operation_targets: []
+  evidence: typed_affected_task_ids
 ```
+<!-- flow-sync-contract: end -->
+
+## Prepare
+
+1. Resolve and validate the configured, bundle, and flow roots. Read all nonterminal transaction journals before the spec; unresolved work blocks reconcile.
+2. Read the complete spec and every task frontmatter. Verify plan identity agreement, state-revision bounds, unique current claim, dependency references, checklist task ids, and snapshot identity.
+3. Compare each task with its checklist/snapshot projection. Record every mismatch as the exact canonical `{path, field, spec_value, task_value}` payload item and collect affected task ids in sorted unique order.
+4. Missing task files, orphan tasks, malformed frontmatter, incomplete worksheets, identity drift, and lifecycle inconsistencies are reported as anomalies. Reconcile does not scaffold, repair, or infer them; use a separately authorized operation after refinement.
+
+## Apply
+
+Submit the complete typed request to the `flow-reconciler`. Its read set includes the spec identity, all task identities, transaction-directory predicate, and exact mismatch predicate. It prepares only spec fragments, uses empty targets, increments the global state revision once, and records affected ids as typed evidence. The task files remain byte-for-byte unchanged and may retain older state revisions.
+
+The reconciler updates only derived values:
+
+- checklist marker from task state: `open -> [ ]`, `in_progress -> [~]`, `closed -> [x]` plus its commit, `blocked -> [!]`, `skipped -> [-]`;
+- checklist task title only when it is already a derived projection covered by the recorded mismatch;
+- Continuity Snapshot fields that are direct projections of current task truth;
+- spec `state_revision`, `last_operation`, `operation_targets: []`, and `updated_at`.
+
+It never changes task metadata, worksheet content, task lifecycle, plan revision/commit, flow lifecycle, approval, or verification evidence.
+
+## Validate
+
+Reread the journal, spec, and all task frontmatter. Require every recorded mismatch resolved to task truth, no unrecorded derived change, exact spec-only identity, unchanged tasks/plan, stable transaction arbitration, and the canonical terminal validation event before committed. Any new mismatch or contender invalidates the attempt and requires fresh arbitration.

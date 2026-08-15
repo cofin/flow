@@ -1,116 +1,67 @@
 ---
-description: Update spec/plan when implementation reveals issues
-argument-hint: <flow_id>
-allowed-tools: Read, Write, Edit, Bash, AskUserQuestion
+description: "Run the canonical flow/revise Flow lifecycle."
 ---
 
-# Flow Revise
+<!-- Generated from contracts/flow.yaml; generated-sha256: 8988792b2a0b828ce94a54c0d1ef3cd77502dd99181ad3bc7e591ad1214d8207 -->
 
-> **Beads mode:** Skip every `bd` invocation below when the SessionStart hook reports `Beads Backend: Missing (None)` or `Disabled via plugin config (useBeads=false)`. Treat `spec.md` markers as fallback source of truth and skip `/flow:sync`. Never halt for missing Beads. See `skills/flow/references/discipline.md`.
->
-> Lifecycle skill: use `flow-planning` through the `flow` router.
-
-Revising flow: **$ARGUMENTS**
-
-## Phase 1: Load Current State
-
-Read:
-
-- `.agents/specs/{flow_id}/spec.md`
-- `.agents/specs/{flow_id}/learnings.md`
-
----
-
-## Phase 2: Identify Revision Type
-
-Ask user:
-
-> **What needs to be revised?**
->
-> - Spec - Requirements changed
-> - Plan - Tasks need adjustment
-> - Both - Significant pivot
-
----
-
-## Phase 3: Document Reason
-
-> **Why is this revision needed?**
-> (This will be logged in revisions.md)
-
----
-
-## Phase 4: Make Changes
-
-Based on revision type:
-
-### Spec Revision
-
-1. Open spec.md in editor mode
-2. User makes changes
-3. Validate acceptance criteria still testable
-
-### Plan Revision
-
-1. Show current task status
-2. Allow adding/removing/reordering tasks
-3. Update task numbers and dependencies
-
----
-
-## Phase 5: Log Revision
-
-Append to `.agents/specs/{flow_id}/revisions.md`:
-
-```markdown
-## [YYYY-MM-DD HH:MM] Revision {N}
-
-**Type:** {spec|plan|both}
-**Reason:** {user provided reason}
-
-**Changes:**
-- {description of change}
-
-**Impact:**
-- Tasks affected: {list}
-- Completion estimate change: {if any}
+```json
+{
+  "agent": "plan-generator",
+  "argument_schema": {
+    "optional": [
+      "changes"
+    ],
+    "required": [
+      "flow_id"
+    ],
+    "syntax": "<flow_id> [changes]"
+  },
+  "bounds_enforcement": "agent_validated",
+  "canonical_id": "flow/revise",
+  "capability_evidence": "Claude Code declared AskUserQuestion contract",
+  "choice_max": 4,
+  "choice_min": 2,
+  "completion_gates": [
+    "gap_scan",
+    "code_review",
+    "user_approval"
+  ],
+  "custom_answer_behavior": "native_custom_input",
+  "disabled_choice_policy": "omit",
+  "fallback": "Use Flow to revise the plan",
+  "git_tags": "forbidden",
+  "host": "claude_code",
+  "instruction": "Load the lifecycle owner and follow the canonical procedure source directly.",
+  "interaction_mode": "structured_choice",
+  "invocation": "/flow-revise",
+  "kind": "flow_command_adapter",
+  "lifecycle_owner": "flow-planning",
+  "multi_select": true,
+  "mutability": "planning_write",
+  "mutual_exclusion": true,
+  "plan_capability": "required",
+  "procedure_source": "skills/flow/references/revise.md",
+  "question_capability": "structured-choice-v1",
+  "question_permission_check": "declared_and_allowed",
+  "question_tool": "AskUserQuestion",
+  "question_transport": "conditional_native",
+  "runtime_dependency": "agent_file_tools_only",
+  "sequential_fallback": true,
+  "shared_contracts": [
+    "flow-state-v1",
+    "structured-choice-v1"
+  ],
+  "state_operations": [
+    "discover",
+    "block",
+    "release",
+    "revise",
+    "checkpoint"
+  ],
+  "supported_selection_modes": [
+    "binary",
+    "single_select",
+    "multi_select"
+  ]
+}
 ```
-
----
-
-## Phase 6: Sync Beads
-
-If plan changed:
-
-```bash
-# Update existing tasks with revision notes
-bd update {affected_task_ids} --notes "Revised: {reason}"
-
-# If NEW tasks were added during revision, create with FULL CONTEXT:
-bd create "{new_task}" --parent {epic_id} -p 2 \
-  --description="{what_changed_and_why}"
-bd update {new_task_id} --notes "Added during revision. Reason: {reason}. Created by /flow-revise on {date}"
-```
-
-**CRITICAL:** Always include `--description` when creating tasks, then add `--notes` via `bd update`.
-
----
-
-### Markdown Sync (Manual)
-
-**CRITICAL:** Do NOT write markers directly to spec.md. Follow `syncPolicy.flowSyncAfterMutation`; when enabled, run `/flow-sync` to update the markdown state after task completion or status changes.
-
-## Phase 8: Commit Revision
-
-```bash
-git add .agents/specs/{flow_id}/
-git commit -m "chore(revise): {flow_id} - {brief description}"
-```
-
----
-
-## Critical Rules
-
-1. **LOG EVERYTHING** - All revisions documented
-2. **BEADS FIRST** - Update Beads before syncing markdown
-3. **PRESERVE HISTORY** - Never delete, only append

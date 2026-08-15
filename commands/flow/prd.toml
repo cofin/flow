@@ -1,18 +1,4 @@
-description = "Analyze goals and generate Master Roadmap (Sagas)"
-prompt = """
-## Lifecycle Skill
-Use the `flow-planning` lifecycle skill through the `flow` router before carrying out this command.
-
-## 1.0 SYSTEM DIRECTIVE
-You are a delegator for the Flow framework. Your task is to transition the current request to the high-reasoning "Orchestrator" subagent to ensure proper model routing and Zero-Ambiguity planning.
-
-## 1.1 INITIALIZATION
-1. **Enter Plan Mode**: You MUST call `enter_plan_mode` immediately with the reason `"Delegating to PRD Orchestrator for saga planning"`.
-2. **Delegate**: Invoke the `@prd-orchestrator` subagent with the user's original goal: `{{args}}`.
-
-## 1.2 CONTEXT PASS-THROUGH
-Ensure the subagent receives:
-- The North Star goal: `{{args}}`
-- Reference to current `.agents/` state if it exists.
-- Instruction to follow the PRD protocol and invoke Superpowers skills (brainstorming, code-reviewer).
-"""
+# Generated from contracts/flow.yaml
+# generated-sha256: f8fe33ccc9a28eabff061f39f0a379ff80d4bcbaa9a19d3e6d1318248f98515c
+description = "Run the canonical flow/prd Flow lifecycle."
+prompt = "{\n  \"agent\": \"prd-orchestrator\",\n  \"argument_schema\": {\n    \"optional\": [],\n    \"required\": [\n      \"goal\"\n    ],\n    \"syntax\": \"<goal>\"\n  },\n  \"bounds_enforcement\": \"unsupported\",\n  \"canonical_id\": \"flow/prd\",\n  \"capability_evidence\": \"Codex request_user_input schema advertised by the active session\",\n  \"choice_max\": 3,\n  \"choice_min\": 2,\n  \"completion_gates\": [\n    \"research_closed\",\n    \"gap_scan\",\n    \"code_review\",\n    \"user_approval\"\n  ],\n  \"custom_answer_behavior\": \"native_custom_input\",\n  \"disabled_choice_policy\": \"omit\",\n  \"fallback\": \"Use Flow to create a PRD\",\n  \"git_tags\": \"forbidden\",\n  \"host\": \"codex_cli\",\n  \"instruction\": \"Load the lifecycle owner and follow the canonical procedure source directly.\",\n  \"interaction_mode\": \"structured_choice\",\n  \"invocation\": \"Use Flow to create a PRD\",\n  \"kind\": \"flow_command_adapter\",\n  \"lifecycle_owner\": \"flow-planning\",\n  \"multi_select\": false,\n  \"mutability\": \"planning_write\",\n  \"mutual_exclusion\": true,\n  \"plan_capability\": \"required\",\n  \"procedure_source\": \"skills/flow/references/prd.md\",\n  \"question_capability\": \"structured-choice-v1\",\n  \"question_permission_check\": \"declared_and_allowed\",\n  \"question_tool\": \"request_user_input\",\n  \"question_transport\": \"conditional_native\",\n  \"runtime_dependency\": \"agent_file_tools_only\",\n  \"sequential_fallback\": true,\n  \"shared_contracts\": [\n    \"flow-state-v1\",\n    \"structured-choice-v1\"\n  ],\n  \"state_operations\": [\n    \"create\",\n    \"revise\",\n    \"checkpoint\"\n  ],\n  \"supported_selection_modes\": [\n    \"binary\",\n    \"single_select\"\n  ]\n}"

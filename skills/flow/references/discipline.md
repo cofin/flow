@@ -1,51 +1,76 @@
 
 # Flow Discipline Rules
 
-Consolidated enforcement rules for TDD, debugging, and verification. These iron laws apply across all flow commands. For detailed education and examples, see the referenced superpowers skills.
+Consolidated enforcement rules for change-appropriate verification, debugging, and fresh evidence. Every task declares and justifies one strategy before implementation.
 
-## TDD Iron Law
+## Contents
 
-```text
-NO PRODUCTION CODE WITHOUT A FAILING TEST FIRST
+- [Verification strategies](#verification-strategy-contract)
+- [Debugging](#debugging-iron-law)
+- [Fresh evidence](#verification-iron-law)
+- [Critical thinking and review](#critical-thinking-iron-law)
+- [Subagent orchestration](#subagent-orchestration)
+
+## Verification strategy contract
+
+<!-- verification-strategy-contract: start -->
+```yaml
+contract: verification-strategy-v1
+required_task_field: verification_strategy
+strategies:
+  behavior_tdd:
+    change_class: new_observable_behavior
+    initial_evidence: focused_behavioral_test_fails_for_missing_behavior
+  regression_tdd:
+    change_class: defect_correction
+    initial_evidence: focused_reproduction_fails_for_reported_defect
+  characterization:
+    change_class: behavior_preserving_refactor_or_deletion
+    initial_evidence: focused_behavior_baseline_passes_before_change
+  static_validation:
+    change_class: manifest_config_generated_or_tooling
+    initial_evidence: native_parser_lint_type_or_build_baseline
+    gate_proof: isolated_representative_violation_fails_with_expected_diagnostic
+  documentation_validation:
+    change_class: links_examples_or_document_structure
+    initial_evidence: docs_native_baseline
+  integration_acceptance:
+    change_class: composition_of_existing_contracts
+    initial_evidence: focused_integration_baseline_passes
+    gate_proof: injected_negative_states_prove_refusal_paths
+waiver:
+  strategy_still_required: true
+  required: [rationale, approver, compensating_evidence]
+  missing_fields: refuse
+low_signal_tests:
+  reject:
+    - incidental_prompt_phrase
+    - private_implementation_shape
+    - duplicate_snapshot
+    - file_existence_without_operational_contract
+    - source_scanner_when_native_gate_exists
+  retain:
+    - observable_behavior
+    - public_contract
+    - proven_regression
+    - operationally_meaningful_structure
 ```
+<!-- verification-strategy-contract: end -->
 
-Write code before the test? Delete it. Start over.
+The planner and refiner choose the strategy from the actual change class, state why it fits, and name exact commands and expected results. A waiver does not replace the declared strategy; it records why one required proof cannot run, who approved that exception, and what compensating evidence remains.
 
-**No exceptions:**
+### Strategy execution
 
-- Don't keep it as "reference"
-- Don't "adapt" it while writing tests
-- Delete means delete
+- **Behavior TDD:** write one minimal behavioral test, run it, and confirm it fails because the behavior is absent. Implement minimally, rerun green, then refactor while green.
+- **Regression TDD:** reproduce the reported defect first, verify the intended failing symptom, implement the narrow fix, and rerun the regression plus relevant suite.
+- **Characterization:** record a green focused baseline before behavior-preserving cleanup, make the smallest change, and require unchanged behavior afterward. Do not manufacture a red test.
+- **Static validation:** run the native parser, lint, type, or build baseline. Prove a new or replacement gate with a representative isolated violation, require the expected failure/diagnostic, restore it, and require green.
+- **Documentation validation:** use link, example, docs-build, spelling, or structure checks appropriate to the documentation. Do not invent a unit-test failure for prose.
+- **Integration acceptance:** begin from a green focused baseline for the already-implemented contracts, compose the end-to-end scenario, and inject negative states to prove refusal paths. If implementation is missing, stop and route the gap through revise; do not repair it inside the acceptance task.
 
-**Violating the letter of the rules is violating the spirit of the rules.**
+### Low-signal test policy
 
-### Red-Green-Refactor
-
-1. **RED** — Write one minimal failing test. Run it. Confirm it fails for the right reason (feature missing, not typo).
-2. **GREEN** — Write simplest code to pass. No extras. Run tests, confirm all pass.
-3. **REFACTOR** — Clean up while green. Remove duplication, improve names. Run tests again.
-4. **REPEAT** — Next failing test for next behavior.
-
-### TDD Rationalizations
-
-| Excuse | Reality |
-|--------|---------|
-| "Too simple to test" | Simple code breaks. Test takes 30 seconds. |
-| "I'll test after" | Tests passing immediately prove nothing. |
-| "Already manually tested" | Ad-hoc is not systematic. No record, can't re-run. |
-| "Deleting X hours is wasteful" | Sunk cost fallacy. Keeping unverified code is technical debt. |
-| "TDD will slow me down" | TDD is faster than debugging. |
-| "Need to explore first" | Fine. Throw away exploration, start with TDD. |
-
-### TDD Red Flags — STOP and Start Over
-
-- Code written before test
-- Test passes immediately (testing existing behavior)
-- Can't explain why test failed
-- Rationalizing "just this once"
-- "Keep as reference" or "adapt existing code"
-
-**Full reference:** `superpowers:test-driven-development`
+Reject assertions over incidental prompt phrases, private implementation shape, duplicate snapshots, and pure file existence when no operational contract depends on the path. Prefer configured parsers, linters, type checkers, and build tools to ad hoc source scanners when they express the rule. Retain meaningful structural tests when layout, signatures, exports, immutability, memory, compilation, reflection, serialization, or isolation is the contract.
 
 ---
 
@@ -57,13 +82,13 @@ NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST
 
 If you haven't completed Phase 1, you cannot propose fixes.
 
-### The Beads-First Investigation Mandate
+### The Task-First Investigation Mandate
 
-**CRITICAL:** Every investigation finding, root cause discovery, and hypothesis test MUST be recorded in Beads as a note on the active task.
+**CRITICAL:** Every investigation finding, root cause discovery, and hypothesis test MUST be recorded directly in the active task file (e.g. `.agents/bundles/specs/<flow_id>/tasks/<task_id>.md`) under the `## Notes & Discoveries` heading, prefixed with a timestamp.
 
 1. **Investigate**: Trace data flow, read errors, reproduce.
-2. **Note**: `bd note <id> "Root cause: [Description]. Found in [file:line]."`
-3. **Commit**: Decisions stored in Beads survive context compaction and session resets. Markdown is for the final "Learnings" summary.
+2. **Note**: Append to `## Notes & Discoveries`: `[YYYY-MM-DD HH:MM] Root cause: [Description]. Found in [file:line].`
+3. **Commit**: Discoveries and decisions recorded in the task file survive context compaction and session resets. Learnings should be consolidated in `learnings.md` at the end of the task.
 
 ### Four-Phase Protocol
 
@@ -134,26 +159,6 @@ BEFORE claiming any status:
 - Trusting agent success reports without independent check
 
 **Full reference:** `superpowers:verification-before-completion`
-
----
-
-## Beads Mode Iron Law
-
-```text
-NO `bd` INVOCATIONS WHEN BEADS IS DISABLED OR MISSING
-```
-
-The SessionStart hook (`hooks/detect-env.sh`) emits one of three Beads-backend signals into the agent context:
-
-| Hook signal | Action |
-|---|---|
-| `Beads Backend: Official (bd)` | Proceed normally — `bd` is the source of truth. |
-| `Beads Backend: Missing (None)` | Skip every `bd` invocation. Treat `spec.md` markers as fallback source of truth. |
-| `Beads Backend: Disabled via plugin config (useBeads=false)` | Skip every `bd` invocation. Treat `spec.md` markers as fallback source of truth. |
-
-**Never halt for missing Beads.** Degrade gracefully: read state from `spec.md` markers (`[ ]`, `[~]`, `[x]`, `[!]`, `[-]`), record progress by editing those markers directly, skip notes/learnings that would otherwise go into Beads, and skip `/flow:sync` (it's a no-op without a backend).
-
-**Why this exists:** The plugin manifest exposes a `useBeads` userConfig toggle and the harness can also lack `bd` entirely. Before this rule, every flow command shelled out to `bd` unconditionally — toggling `useBeads=false` only suppressed SessionStart context while every command still emitted "command not found" or stored garbage.
 
 ---
 

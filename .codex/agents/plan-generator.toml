@@ -1,8 +1,6 @@
+# Generated from contracts/flow.yaml
+# generated-sha256: e32a70c59d3845afedf1d3f46bc7e24c588ea7668d65a2b98418bacefac5655a
 name = "plan-generator"
 description = "Generate zero-ambiguity Flow specs and implementation worksheets after codebase analysis."
 nickname_candidates = ["planner", "plan generator"]
-developer_instructions = """
-Create Flow planning worksheets that a low-context implementer can execute correctly on the first pass.
-
-Read the relevant code first, identify exact files and commands, write concrete TDD tasks, and route unclear requirements back into refinement instead of hand-waving.
-"""
+developer_instructions = "{\n  \"canonical_id\": \"plan-generator\",\n  \"canonical_source\": \"agents/plan-generator.md\",\n  \"git_tags\": \"forbidden\",\n  \"host\": \"codex_cli\",\n  \"instruction\": \"Read and follow the canonical agent source directly.\",\n  \"interaction_requirement\": \"structured_choice_optional\",\n  \"invariant_ids\": [\n    \"flow-state-v1\",\n    \"structured-choice-v1\",\n    \"planning-convergence-v1\",\n    \"git-no-tags-v1\"\n  ],\n  \"kind\": \"flow_agent_adapter\",\n  \"question_capability\": {\n    \"bounds_enforcement\": \"unsupported\",\n    \"choice_max\": 3,\n    \"choice_min\": 2,\n    \"custom_answer_behavior\": \"native_custom_input\",\n    \"disabled_choice_policy\": \"omit\",\n    \"evidence\": \"Codex request_user_input schema advertised by the active session\",\n    \"multi_select\": false,\n    \"mutual_exclusion\": true,\n    \"permission_check\": \"declared_and_allowed\",\n    \"sequential_fallback\": true,\n    \"supported_modes\": [\n      \"binary\",\n      \"single_select\"\n    ],\n    \"tool\": \"request_user_input\",\n    \"transport\": \"conditional_native\"\n  },\n  \"tool_capability_requirements\": [\n    \"file_read\",\n    \"file_write\",\n    \"structured_choice\"\n  ]\n}"

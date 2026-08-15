@@ -1,3 +1,8 @@
+---
+type: Learnings
+title: Flow Learnings
+---
+
 # Track Learnings
 
 > Append-only log of patterns, gotchas, and context discovered during implementation.

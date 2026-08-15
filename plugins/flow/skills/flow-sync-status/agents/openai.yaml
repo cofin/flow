@@ -1,3 +1,0 @@
-interface:
-  display_name: "Flow Sync And Status"
-  short_description: "Sync Beads state, report status, refresh context, and detect drift"

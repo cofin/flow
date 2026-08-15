@@ -1,49 +1,61 @@
 ---
-description: Sync context with codebase after external changes
+description: "Run the canonical flow/refresh Flow lifecycle."
 ---
 
-# Flow Refresh
+<!-- Generated from contracts/flow.yaml; generated-sha256: bbca6cf023b018b130d75761b08837ed759bd6d9a57ebeabb5a161e72cc7cdcf -->
 
-Refresh context files by re-scanning the codebase.
-
-## Phase 1: Load Context
-
-1. Read `.agents/flows.md` for active flow.
-2. Read `.agents/specs/{flow_id}/metadata.json` for last sync timestamp.
-3. Read `.agents/tech-stack.md`.
-4. Read `.agents/workflow.md`.
-
-## Phase 2: Scan for Drift
-
-1. Run `git log --oneline` since last sync.
-2. Check dependency files for changes.
-3. Compare with `.agents/tech-stack.md`.
-4. Inspect workflow drift across `Makefile`, `justfile`, `Taskfile.yml`, `package.json`, `pyproject.toml`, `Cargo.toml`, `.pre-commit-config.yaml`, and CI files.
-5. Compare those command surfaces with `.agents/workflow.md`.
-
-## Phase 3: Update Context
-
-1. Update `.agents/tech-stack.md` if dependencies changed.
-2. If workflow settings or canonical commands changed, prompt to revalidate `.agents/workflow.md` and refresh only the affected sections.
-3. Prefer repo-native aggregate commands such as `make lint`, `make test`, `make check`, `just check`, `task test`, package scripts, and pre-commit entrypoints when updating workflow guidance.
-4. Sync externally completed tasks through the active backend, not a hardcoded backend.
-5. Refresh `.agents/index.md` if needed.
-
-## Phase 4: Sync with Beads
-
-Use the active backend:
-
-- `bd`: official Beads sync/status flow
-- no-Beads: skip backend sync
-
-## Final Output
-
-```
-Flow Refresh Complete
-─────────────────────
-Since last sync ({timestamp}):
-  • {N} commits
-  • Dependencies: {changes}
-  • tech-stack.md: {updated/unchanged}
-  • workflow.md: {revalidated/unchanged}
+```json
+{
+  "agent": "flow-reconciler",
+  "argument_schema": {
+    "optional": [
+      "flow_id"
+    ],
+    "required": [],
+    "syntax": "[flow_id]"
+  },
+  "bounds_enforcement": "agent_validated",
+  "canonical_id": "flow/refresh",
+  "capability_evidence": "OpenCode built-in question tool documentation",
+  "choice_max": 4,
+  "choice_min": 2,
+  "completion_gates": [
+    "drift_inventory",
+    "transaction_reread"
+  ],
+  "custom_answer_behavior": "native_custom_input",
+  "disabled_choice_policy": "omit",
+  "fallback": "Use Flow to refresh project context",
+  "git_tags": "forbidden",
+  "host": "opencode",
+  "instruction": "Load the lifecycle owner and follow the canonical procedure source directly.",
+  "interaction_mode": "none",
+  "invocation": "/flow-refresh",
+  "kind": "flow_command_adapter",
+  "lifecycle_owner": "flow-sync-status",
+  "multi_select": true,
+  "mutability": "planning_write",
+  "mutual_exclusion": true,
+  "plan_capability": "preferred",
+  "procedure_source": "skills/flow/references/refresh.md",
+  "question_capability": null,
+  "question_permission_check": "declared_and_allowed",
+  "question_tool": "question",
+  "question_transport": "conditional_native",
+  "runtime_dependency": "agent_file_tools_only",
+  "sequential_fallback": true,
+  "shared_contracts": [
+    "flow-state-v1"
+  ],
+  "state_operations": [
+    "discover",
+    "revise",
+    "reconcile"
+  ],
+  "supported_selection_modes": [
+    "binary",
+    "single_select",
+    "multi_select"
+  ]
+}
 ```

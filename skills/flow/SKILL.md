@@ -1,53 +1,53 @@
 ---
 name: flow
-description: "Use when a repository has .agents, when the user asks for Flow lifecycle routing, Beads-backed task memory, spec-first planning, TDD implementation, sync/status, review, finish, archive, or /flow:* help."
+description: "Use when a repository has .agents, when the user asks for Flow lifecycle routing, OKF bundle task tracking, spec-first planning, TDD implementation, sync/status, review, finish, archive, or /flow:* help."
 ---
 
 # Flow Router
 
-Flow coordinates Context-Driven Development in `.agents/` repositories. Keep this skill small: use it to identify the active lifecycle phase, enforce the Beads-first invariants, and load the matching lifecycle skill.
+<!-- lifecycle-ownership: owner=flow; operations= -->
 
-> **Flow is a skill, not a CLI.** There is no `flow` executable. Never run `flow`, `flow sync`, `flow prd`, etc. as shell commands. Invoke this skill (or the matching lifecycle skill), or use the `/flow:*` slash commands where the harness supports them.
->
-> **Beads mode:** Skip every `bd` invocation when the SessionStart hook reports `Beads Backend: Missing (None)` or `Disabled via plugin config (useBeads=false)`. Treat `spec.md` markers as fallback source of truth and skip `/flow:sync`. Never halt for missing Beads. See `references/discipline.md`.
+## Trigger
+
+Use Flow when `.agents/` exists, task bundles live under
+`.agents/bundles/specs/`, or the request names a Flow lifecycle action. Flow is
+a skill, not a CLI; never run `flow` as a shell command.
 
 ## Workflow
 
-1. Check hook-provided Flow context first; otherwise detect `.agents/`, Beads (`bd`), git branch, and repo-native commands.
-2. Route the request:
-   - Setup, validation, install, context initialization: use `flow-setup`.
-   - PRD, research, plan, refine, revise, task creation: use `flow-planning`.
-   - Implement, claim ready tasks, TDD, commit, task close: use `flow-execution`.
-   - Sync, status, refresh, cleanup, context drift: use `flow-sync-status`.
-   - Review, finish, archive, revert, docs, phase completion: use `flow-completion`.
-3. Record durable discoveries and task state in Beads. Markdown files are synchronized views.
-4. Prefer repo-native commands from `.agents/workflow.md` or hook context for validation.
+Route exactly one operation family to its owning lifecycle skill:
+
+- `setup` -> `flow-setup`
+- `prd|plan|refine|revise|research|task` -> `flow-planning`
+- `implement` -> `flow-execution`
+- `sync|status|refresh` -> `flow-sync-status`
+- `review|finish|archive|revert|docs|cleanup|validate` -> `flow-completion`
+
+The router owns no operation and performs no lifecycle procedure.
 
 ## Guardrails
 
-- Never edit task markers (`[ ]`, `[~]`, `[x]`, `[!]`, `[-]`) manually in `spec.md`.
-- Do not run `bd export`, auto-stage, `bd dolt push`, or git operations through Beads unless `.agents/beads.json` allows it or the user asks.
-- Store Flow specs and planning artifacts under `.agents/specs/<flow_id>/`.
-- Make minimal targeted changes and record findings with `bd note <id> "..."` when work exceeds a quick fix.
+- Load only the selected lifecycle skill; let it link the required contracts.
+- Treat hook or conversation context as routing hints, never task-state authority.
+- Preserve unrelated work and never push or mutate Git tags automatically.
+
+## Output
+
+Name the selected lifecycle skill and hand off the unchanged request.
 
 ## Validation
 
-- For planning: verify the plan is decision-complete before presenting it.
-- For implementation: verify red-green-refactor evidence, full relevant tests, and Beads task closure before claiming completion.
-- For sync/status: read backend state first and report drift instead of guessing.
-- For this repository: run `make validate-skills` and `make validate-codex-manifest` after skill or command changes.
+Confirm exactly one lifecycle owner matches the requested operation.
 
-## References Index
+## Conditional References
 
 - [Setup](../flow-setup/SKILL.md)
 - [Planning](../flow-planning/SKILL.md)
 - [Execution](../flow-execution/SKILL.md)
-- [Sync and Status](../flow-sync-status/SKILL.md)
+- [Sync and status](../flow-sync-status/SKILL.md)
 - [Completion](../flow-completion/SKILL.md)
-- [Discipline](references/discipline.md)
 
 ## Example
 
-User: "Use Flow to implement the current spec."
-
-Action: load `flow-execution`, claim a ready Beads task, add investigation notes, follow TDD, close the task with evidence, then sync according to policy.
+For “implement the current spec,” route to `flow-execution` without applying a
+claim, editing a task, or loading completion procedures in the router.

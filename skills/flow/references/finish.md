@@ -1,9 +1,15 @@
 
 # Flow Finish
 
-> **Beads mode:** Skip every `bd` invocation below when the SessionStart hook reports `Beads Backend: Missing (None)` or `Disabled via plugin config (useBeads=false)`. Treat `spec.md` markers as fallback source of truth and skip `/flow:sync`. Never halt for missing Beads. See `discipline.md`.
-
 Complete a flow's development work by verifying, reviewing, and integrating.
+
+## Contents
+
+- [Load context and verify](#phase-1-load-context)
+- [Correctness and quality review](#phase-3-correctness-review)
+- [Complete and choose an outcome](#phase-5-complete-the-flow)
+- [Worktree cleanup](#phase-8-worktree-cleanup)
+- [Critical rules](#critical-rules)
 
 ## Usage
 
@@ -12,21 +18,8 @@ Complete a flow's development work by verifying, reviewing, and integrating.
 ## Phase 1: Load Context
 
 1. **Read Flow Artifacts:**
-   - `.agents/specs/{flow_id}/spec.md`
-   - `.agents/specs/{flow_id}/metadata.json`
-2. **Load Beads context:**
-
-   ```bash
-   bd show {epic_id}
-   ```
-
-3. **Verify all tasks completed** — check Beads for any open tasks:
-
-   ```bash
-   bd list --parent {epic_id} --status open
-   ```
-
-   If open tasks remain, warn and confirm with user before proceeding.
+   - `.agents/bundles/specs/{flow_id}/spec.md` (frontmatter carries the flow metadata)
+2. **Verify all tasks completed:** Read all task files under `.agents/bundles/specs/{flow_id}/tasks/*.md` and ensure their frontmatter `state` is `closed` or `skipped`. If any task is open, in progress, or blocked, stop; `complete` cannot bypass terminal task state.
 
 ## Phase 2: Verification Gate
 
@@ -37,44 +30,67 @@ IRON LAW: NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
 1. **Run full test suite** — read output, confirm 0 failures
 2. **Run coverage check** — confirm target met with actual numbers
 3. **Run linter/formatter** — confirm clean output
-4. **Sync Beads to spec.md:**
-
-   ```bash
-   # Ensure spec.md reflects current state
-   ```
-
-   Follow `syncPolicy.flowSyncAfterMutation`; when enabled, run `/flow:sync` to update spec.md from Beads.
+4. **Sync Spec Checklist:** Run `/flow:sync` to reconcile spec.md task checklists with task files.
+5. **Record phase evidence:** Put the exact command/results and affected task ids in a spec-only phase `checkpoint` payload targeting the last functional commit. Never create an empty checkpoint commit.
+6. **Optional detailed evidence:** Only after the checkpoint succeeds, append a `flow-git-note-v1` record to that same commit and record `attached|failed` through the idempotent `note(category=git_note_attachment)` state operation. Git notes remain supplementary; never push them automatically.
 
 **If any check fails:** Report actual results. Do NOT proceed until issues resolved.
 
-## Phase 3: Code Review
+## Phase 3: Correctness Review
 
 Dispatch final comprehensive code review:
 
-1. **Get git range** from Beads task completion records:
+1. **Get git range:** Locate the Git range by finding the merge-base between main and the current branch:
 
    ```bash
-   # Base: commit before first task started
-   # Head: current HEAD
-   git log --oneline {base_sha}..HEAD
+   git log --oneline $(git merge-base main HEAD)..HEAD
    ```
 
 2. **Dispatch code review subagent** with:
    - What was implemented (from spec.md Specification section)
    - Requirements (from spec.md Requirements section)
    - Git range (base to HEAD)
-   - Project patterns (from `.agents/patterns.md`)
+   - Project patterns (from `.agents/bundles/knowledge/patterns.md`)
 
 3. **Handle results:**
    - **Critical issues** → must fix before proceeding
    - **Important issues** → should fix, confirm with user
    - **Minor issues** → note in learnings.md
 
-4. **Log review findings** to `.agents/specs/{flow_id}/learnings.md`
+4. **Log review findings** to `.agents/bundles/specs/{flow_id}/learnings.md`
 
 **Reference:** `superpowers:requesting-code-review` for dispatch pattern
 
-## Phase 4: Present Options
+## Phase 4: Mandatory Quality Review
+
+After correctness review passes, follow the `quality-review-v1` contract in
+[Review](review.md):
+
+1. Freeze the exact final `base_commit` and `head_commit`. For a one-commit
+   change, use that commit's parent as base and the commit as head.
+2. Load `.agents/skills/debloat/SKILL.md`, else packaged
+   `skills/debloat/SKILL.md`, else the synchronized inline fallback and record
+   `debloat_source: inline_fallback`.
+3. Dispatch the read-only `quality-reviewer` on that exact range after the
+   correctness reviewer. A waiver never substitutes for dispatch.
+4. Require an exact-range `QualityReport`. Reject stale base/head evidence.
+5. If any Critical/Important finding remains, stop and route through `revise`
+   to create or adjust a remediation task. Execute it, rerun affected
+   verification and correctness review, then always dispatch a fresh quality
+   review on the new exact range.
+6. A fresh explicit user waiver may address one named finding only after
+   review ran. Record finding id, rationale, approval text/time, compensating
+   evidence, and exact range. Other findings remain active.
+
+## Phase 5: Complete the Flow
+
+Request the spec-only `complete` operation only after the ordered gates
+`verification -> code_review -> quality_review -> finish` pass. Include the
+final functional commit, exact verification and correctness-review evidence,
+the fresh `QualityReport`, and any finding-specific waivers. The state sidecar
+sets `state: completed`; never edit that field directly.
+
+## Phase 6: Present Options
 
 Present exactly these 4 options:
 
@@ -89,7 +105,7 @@ Flow '{flow_id}' implementation complete and verified. What would you like to do
 Which option?
 ```
 
-## Phase 5: Execute Choice
+## Phase 7: Execute Choice
 
 ### Option 1: Merge Locally
 
@@ -118,7 +134,7 @@ gh pr create --title "{pr_title}" --body "$(cat <<'EOF'
 
 ## Flow
 - Flow ID: {flow_id}
-- Spec: .agents/specs/{flow_id}/spec.md
+- Spec: .agents/bundles/specs/{flow_id}/spec.md
 EOF
 )"
 ```
@@ -148,21 +164,7 @@ git checkout {base_branch}
 git branch -D {feature_branch}
 ```
 
-## Phase 6: Beads Cleanup
-
-For Options 1, 2 (successful completion):
-
-```bash
-bd close {epic_id} --reason "Flow finished: {option_chosen}"
-```
-
-For Option 4 (discard):
-
-```bash
-bd close {epic_id} --reason "Flow discarded"
-```
-
-## Phase 7: Worktree Cleanup
+## Phase 8: Worktree Cleanup
 
 If working in a git worktree:
 
@@ -177,7 +179,10 @@ git worktree list | grep {feature_branch}
 ## Critical Rules
 
 1. **VERIFY BEFORE OPTIONS** — Never present options with failing tests
-2. **CODE REVIEW FIRST** — Dispatch review before presenting options
+2. **ORDERED GATES** — Verification, correctness review, and mandatory quality review all pass on the same fresh exact range before finish/options
 3. **CONFIRM DISCARD** — Require typed "discard" for Option 4
 4. **SUGGEST ARCHIVE** — After merge/PR, prompt for `flow-archive`
-5. **SYNC BEADS** — Close epic after executing choice
+5. **UPDATE SPEC STATE THROUGH SIDECAR** — Request `complete`; never edit `state`/`status` directly.
+6. **MARKDOWN AUTHORITY** — Completion and recovery use the sidecar-written checkpoint and task evidence; optional Git notes never replace it.
+7. **NO GIT TAGS** — Never create or mutate Git tags for completion evidence or as a notes fallback.
+8. **NO REVIEW WAIVER** — A finding-specific waiver cannot replace quality-review dispatch or waive another/stale finding.

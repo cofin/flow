@@ -1,49 +1,63 @@
 ---
-description: Refine coarse tasks into implementation-ready plans
-argument-hint: [flow_id]
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, WebSearch
+description: "Run the canonical flow/refine Flow lifecycle."
 ---
 
-# Flow Refine
+<!-- Generated from contracts/flow.yaml; generated-sha256: 99fc249d64c3077c0862ebd491416d705b1c64741d67a25831c88f66bc9d6637 -->
 
-> **Beads mode:** Skip every `bd` invocation below when the SessionStart hook reports `Beads Backend: Missing (None)` or `Disabled via plugin config (useBeads=false)`. Treat `spec.md` markers as fallback source of truth and skip `/flow:sync`. Never halt for missing Beads. See `skills/flow/references/discipline.md`.
->
-> Lifecycle skill: use `flow-planning` through the `flow` router.
->
-> **Grill before finalizing:** interrogate every open decision one question at a time (each with your recommended answer + trade-off), and explore the repo / `patterns.md` / `knowledge/` instead of asking when the answer is in the code. Refinement is done only when a zero-context executor could implement from the worksheet alone. See `flow-planning` → "Interrogate Before Finalizing".
-
-Refining flow: **$ARGUMENTS**
-
-## The Refiner Mandate
-
-**CRITICAL:** `/flow:refine` is the quality gate. Its primary role is to ensure every task in **Beads** has sufficient detail (files, lines, snippets) for a "stateless" executor.
-
----
-
-## 3.0 Refinement Workflow
-
-**PROTOCOL: Update Beads tasks with high-definition detail.**
-
-1. **Deep Code Dive**: Read more code until affected surfaces (file:line) are known.
-2. **Update Beads**: Use `bd note` to attach:
-    - Exact file/line targets.
-    - Implementation strategy (code snippets).
-    - Expected failure reason for TDD.
-3. **Sync Markdown**: Follow `syncPolicy.flowSyncAfterMutation`; when enabled, run `/flow:sync` to reflect these details in `spec.md`.
-
----
-
-## 4.0 Completion
-
-**PROTOCOL: Finalize and sync.**
-
-1. **Sync**: Follow `syncPolicy.flowSyncAfterMutation`; when enabled, run `/flow:sync` to ensure `spec.md` acts as a perfect worksheet.
-2. **Hard Stop**: End with explicit instruction to run `/flow:implement`.
-
----
-
-## Critical Rules
-
-1. **NO GUESSWORK** - Forbid vague instructions like "wire up".
-2. **BEADS FIRST** - Store refined detail in Beads notes/descriptions.
-3. **SYNC AFTER REFINE** - Follow `syncPolicy.flowSyncAfterMutation`; default setup runs `/flow:sync` to generate the worksheet.
+```json
+{
+  "agent": "plan-generator",
+  "argument_schema": {
+    "optional": [],
+    "required": [
+      "flow_id"
+    ],
+    "syntax": "<flow_id>"
+  },
+  "bounds_enforcement": "agent_validated",
+  "canonical_id": "flow/refine",
+  "capability_evidence": "Claude Code declared AskUserQuestion contract",
+  "choice_max": 4,
+  "choice_min": 2,
+  "completion_gates": [
+    "gap_scan",
+    "code_review",
+    "user_approval"
+  ],
+  "custom_answer_behavior": "native_custom_input",
+  "disabled_choice_policy": "omit",
+  "fallback": "Use Flow to refine the plan",
+  "git_tags": "forbidden",
+  "host": "claude_code",
+  "instruction": "Load the lifecycle owner and follow the canonical procedure source directly.",
+  "interaction_mode": "structured_choice",
+  "invocation": "/flow-refine",
+  "kind": "flow_command_adapter",
+  "lifecycle_owner": "flow-planning",
+  "multi_select": true,
+  "mutability": "planning_write",
+  "mutual_exclusion": true,
+  "plan_capability": "required",
+  "procedure_source": "skills/flow/references/refine.md",
+  "question_capability": "structured-choice-v1",
+  "question_permission_check": "declared_and_allowed",
+  "question_tool": "AskUserQuestion",
+  "question_transport": "conditional_native",
+  "runtime_dependency": "agent_file_tools_only",
+  "sequential_fallback": true,
+  "shared_contracts": [
+    "flow-state-v1",
+    "structured-choice-v1"
+  ],
+  "state_operations": [
+    "discover",
+    "revise",
+    "checkpoint"
+  ],
+  "supported_selection_modes": [
+    "binary",
+    "single_select",
+    "multi_select"
+  ]
+}
+```

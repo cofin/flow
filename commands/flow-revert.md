@@ -1,83 +1,62 @@
 ---
-description: Git-aware revert of flows, phases, or tasks
-argument-hint: <flow_id|phase|task> [target]
-allowed-tools: Read, Write, Edit, Bash
+description: "Run the canonical flow/revert Flow lifecycle."
 ---
 
-# Flow Revert
+<!-- Generated from contracts/flow.yaml; generated-sha256: 2d56bc2e1483268a1b61bebd0ad906ffe1b4bfa38ca0f2b2051ade5a73986b7a -->
 
-> **Beads mode:** Skip every `bd` invocation below when the SessionStart hook reports `Beads Backend: Missing (None)` or `Disabled via plugin config (useBeads=false)`. Treat `spec.md` markers as fallback source of truth and skip `/flow:sync`. Never halt for missing Beads. See `skills/flow/references/discipline.md`.
->
-> Lifecycle skill: use `flow-completion` through the `flow` router.
-
-Reverting: **$ARGUMENTS**
-
-## Phase 1: Parse Target
-
-Determine revert scope:
-
-- `flow {flow_id}` - Revert entire flow
-- `phase {flow_id} {N}` - Revert phase N
-- `task {flow_id} {N}` - Revert single task
-
----
-
-## Phase 2: Find Commits
-
-Use git notes to find related commits:
-
-```bash
-git log --notes --grep="flow.*{flow_id}" --oneline
+```json
+{
+  "agent": null,
+  "argument_schema": {
+    "optional": [],
+    "required": [
+      "target"
+    ],
+    "syntax": "<target>"
+  },
+  "bounds_enforcement": "agent_validated",
+  "canonical_id": "flow/revert",
+  "capability_evidence": "Claude Code declared AskUserQuestion contract",
+  "choice_max": 4,
+  "choice_min": 2,
+  "completion_gates": [
+    "explicit_scope",
+    "post_revert_validation"
+  ],
+  "custom_answer_behavior": "native_custom_input",
+  "disabled_choice_policy": "omit",
+  "fallback": "Use Flow to revert the named target",
+  "git_tags": "forbidden",
+  "host": "claude_code",
+  "instruction": "Load the lifecycle owner and follow the canonical procedure source directly.",
+  "interaction_mode": "structured_choice",
+  "invocation": "/flow-revert",
+  "kind": "flow_command_adapter",
+  "lifecycle_owner": "flow-completion",
+  "multi_select": true,
+  "mutability": "repository_write",
+  "mutual_exclusion": true,
+  "plan_capability": "preferred",
+  "procedure_source": "skills/flow/references/revert.md",
+  "question_capability": "structured-choice-v1",
+  "question_permission_check": "declared_and_allowed",
+  "question_tool": "AskUserQuestion",
+  "question_transport": "conditional_native",
+  "runtime_dependency": "agent_file_tools_only",
+  "sequential_fallback": true,
+  "shared_contracts": [
+    "flow-state-v1",
+    "structured-choice-v1"
+  ],
+  "state_operations": [
+    "reopen",
+    "revise",
+    "reconcile"
+  ],
+  "supported_selection_modes": [
+    "binary",
+    "single_select",
+    "multi_select"
+  ]
+}
 ```
-
-For phase/task, filter by specific markers.
-
----
-
-## Phase 3: Confirmation
-
-Show what will be reverted:
-
-```text
-Revert Target: {scope}
-
-Commits to revert:
-  - abc1234: feat(auth): Add login endpoint
-  - def5678: feat(auth): Add user model
-
-Files affected:
-  - src/auth/login.ts
-  - src/auth/user.ts
-  - tests/auth/login.test.ts
-
-Proceed with revert? (yes/no)
-```
-
----
-
-## Phase 4: Execute Revert
-
-```bash
-git revert --no-commit {commits}
-git commit -m "revert({scope}): Revert {description}"
-```
-
----
-
-## Phase 5: Sync Beads (Source of Truth)
-
-```bash
-bd update {task_ids} --status open
-```
-
----
-
-### Markdown Sync (Manual)
-
-**CRITICAL:** Do NOT write markers directly to spec.md. Follow `syncPolicy.flowSyncAfterMutation`; when enabled, run `/flow-sync` to update the markdown state after task completion or status changes.
-
-## Critical Rules
-
-1. **CONFIRM FIRST** - Always show what will be reverted
-2. **NO FORCE** - Use revert, not reset
-3. **BEADS FIRST** - Update Beads before syncing markdown

@@ -6,8 +6,7 @@ Use the Flow skill for context-driven development workflows in repos that use `.
 
 ## Defaults
 
-- Use official Beads (`bd`) when task persistence is needed.
-- Default initialization should use stealth mode and a prefix derived from the repo name.
+- Task persistence lives in OKF bundle files under `.agents/bundles/specs/<flow_id>/` (spec.md + tasks/*.md). There is no task database or CLI.
 - Prefer `.git/info/exclude` for local-only ignores.
 - Use `.gitignore` only when the user explicitly wants a shared repo policy.
 
@@ -39,11 +38,11 @@ When Flow implementation is active:
 - prefer refined tasks before dispatching lighter-weight agents
 - use TDD and verification workflows before claiming completion
 - make minimal targeted changes, avoid opportunistic unrelated edits, and never silently descope
-- be collaborative when blockers appear; describe them factually and avoid blamey ownership-deflecting language
+- be collaborative when blockers appear; describe them factually and avoid blame-shifting, ownership-deflecting language
 
 ## Harness Notes
 
 - Use `claude plugin marketplace add` and `claude plugin install` for extension lifecycle work.
 - Restart the Claude Code session after plugin management operations.
-- Flow artifacts belong in `.agents/specs/`, not `docs/superpowers/`.
+- Flow artifacts belong in `.agents/bundles/specs/`, not `docs/superpowers/`.
 - Prefer refined tasks before dispatching lighter-weight agents.

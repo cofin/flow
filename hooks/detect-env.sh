@@ -1,283 +1,263 @@
 #!/usr/bin/env bash
 #
-# detect-env.sh - Core logic for Flow environment detection.
+# detect-env.sh - Maintainer/test-only Flow priming diagnostic.
 #
-# This script identifies the project context, beads backend, tooling,
-# git status, and project identity to provide priming context for AI agents.
-#
-# Usage:
-#   ./detect-env.sh
+# Output mirrors `tools/priming.py --markdown` for repository tests. Installed
+# hooks and plugins never invoke this diagnostic; it is not a continuity path.
 #
 set -euo pipefail
-IFS=$'\n\t'
 
-# --- Configuration ---
-# CLAUDE_PLUGIN_OPTION_* are injected by the Claude Code harness from
-# plugin.json userConfig. Other harnesses leave these unset, so default-fallback.
-readonly DEFAULT_ROOT_DIR="${CLAUDE_PLUGIN_OPTION_AGENTSDIR:-.agents}"
-readonly USE_BEADS="${CLAUDE_PLUGIN_OPTION_USEBEADS:-true}"
-
-# Opt into the bd v2.0 JSON envelope so `bd --json` stops emitting the
-# deprecation notice into the SessionStart context block. Bridges until
-# beads wires this through Viper config; flow's parsers below are
-# envelope-aware either way.
-export BD_JSON_ENVELOPE=1
-
-# --- Functions ---
-
-# Helper to safely run a command with timeout and return its output
-# Usage: safe_run <timeout> <command> [args...]
-safe_run() {
-    local timeout_val="$1"
-    shift
-    local timeout_cmd="timeout"
-    if ! command -v timeout >/dev/null 2>&1; then
-        if command -v gtimeout >/dev/null 2>&1; then
-            timeout_cmd="gtimeout"
-        else
-            timeout_cmd=""
-        fi
-    fi
-
-    if [[ -n "${timeout_cmd}" ]]; then
-        "${timeout_cmd}" "${timeout_val}" "$@" 2>/dev/null || true
-    else
-        "$@" 2>/dev/null || true
-    fi
-}
-
-detect_beads() {
-    echo "## Flow Environment Context"
-    echo "- **Flow is a SKILL, not a CLI**: there is no \`flow\` executable. NEVER run \`flow\`, \`flow sync\`, \`flow prd\`, \`flow status\`, etc. as shell commands. Invoke the Flow skill, or use the \`/flow:*\` (e.g. \`/flow:sync\`) slash commands where the harness supports them."
-    if [[ "${USE_BEADS}" != "true" ]]; then
-        echo "- **Beads Backend**: Disabled via plugin config (useBeads=false)"
-        return
-    fi
-    if command -v bd >/dev/null 2>&1; then
-        echo "- **Beads Backend**: Official (bd)"
-    else
-        echo "- **Beads Backend**: Missing (None)"
-        if command -v br >/dev/null 2>&1; then
-            echo "- **Migration Notice**: Detected legacy \`br\` (beads_rust). Flow no longer supports br. Install official Beads: curl -fsSL https://raw.githubusercontent.com/gastownhall/beads/main/scripts/install.sh | bash"
-        fi
-    fi
-}
-
-detect_project_root() {
-    local root_dir="${DEFAULT_ROOT_DIR}"
-    local msg=""
-    local state_file="${DEFAULT_ROOT_DIR}/setup-state.json"
-    # Backward-compat: if the configured root has no setup-state but the
-    # default .agents/ does, read from there. Helps users who switched
-    # agentsDir after an existing setup.
-    if [[ ! -f "${state_file}" && -f ".agents/setup-state.json" ]]; then
-        state_file=".agents/setup-state.json"
-    fi
-    if [[ -f "${state_file}" ]]; then
-        local found_root
-        found_root=$(grep -o '"root_directory": "[^"]*"' "${state_file}" | cut -d'"' -f4 || true)
-        found_root="${found_root%/}"
-        if [[ -n "${found_root}" ]]; then
-            root_dir="${found_root}"
-            msg="- **Flow Root**: ${root_dir}"
-        else
-            msg="- **Flow Root**: ${root_dir} (default, missing in setup-state)"
-        fi
-    else
-        msg="- **Flow Root**: ${root_dir} (default)"
-    fi
-    # machine-readable path on stdout, message on stderr (or captured separately)
-    # Actually, let's just echo the msg and then the path, but ensure main parses it correctly.
-    echo "${msg}"
-    echo "${root_dir}"
-}
-
-check_tooling() {
-    local tools=("uv" "bun" "ruff" "make" "railway")
-    local available=()
-    for tool in "${tools[@]}"; do
-        if command -v "${tool}" >/dev/null 2>&1; then
-            available+=("${tool}")
-        fi
-    done
-
-    printf '%s' "- **Tooling**: "
-    if [[ ${#available[@]} -eq 0 ]]; then
-        echo "None"
-    else
-        (IFS=' '; echo "${available[*]}")
-    fi
-
-}
-
-git_context() {
-    local root_dir="$1"
-    if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-        local branch
-        branch=$(git symbolic-ref --short HEAD 2>/dev/null || echo "unborn")
-        echo "- **Git Branch**: ${branch}"
-        if git check-ignore -q "${root_dir}/" 2>/dev/null; then
-            echo "- **Git Visibility**: ${root_dir}/ is GIT-IGNORED (Use 'cat' or bypass ignore filters)"
-        else
-            echo "- **Git Visibility**: ${root_dir}/ is Tracked"
-        fi
-    fi
-}
-
-project_identity() {
-    local root_dir="$1"
-    if [[ -f "${root_dir}/product.md" ]]; then
-        echo ""
-        echo "### Project Identity"
-        if ! extract_truths "${root_dir}/product.md"; then
-            grep -m 5 "^[^#<]" "${root_dir}/product.md" | head -n 5 | sed 's/^/  /' || true
-        fi
-    fi
-}
-
-context_index() {
-    local root_dir="$1"
-    echo ""
-    echo "### Project Context Index"
-    echo "- **Product Definition**: ${root_dir}/product.md"
-    echo "- **Tech Stack**: ${root_dir}/tech-stack.md"
-    echo "- **Workflow**: ${root_dir}/workflow.md"
-    echo "- **Patterns**: ${root_dir}/patterns.md"
-    echo "- **Flow Registry**: ${root_dir}/flows.md"
-}
-
-active_work() {
-    echo ""
-    echo "### Active Work"
-    if [[ "${USE_BEADS}" != "true" ]]; then
-        echo "- **Status**: Beads disabled via plugin config (useBeads=false)."
-        return
-    fi
-    if command -v bd >/dev/null 2>&1; then
-        local ready
-        ready=$(safe_run 2s bd ready --json)
-        if [[ -n "${ready}" ]] && [[ "${ready}" != "[]" ]]; then
-            # Attempt to parse and truncate with python if available
-            if command -v python3 >/dev/null 2>&1; then
-                local truncated
-                truncated=$(echo "${ready}" | python3 -c 'import json, sys
-d = json.load(sys.stdin)
-if isinstance(d, dict) and "data" in d:
-    d = d["data"]
-print(json.dumps(d[:3]))' 2>/dev/null || true)
-                if [[ -n "${truncated}" ]]; then
-                    echo "- **Ready Tasks (Top 3)**: ${truncated}"
-                    return
-                fi
-            fi
-            echo "- **Ready Tasks**: ${ready}"
-        else
-            echo "- **Ready Tasks**: None"
-        fi
-    else
-        echo "- **Status**: No active backend for task tracking."
-    fi
-}
-
-extract_truths() {
-    local file="$1"
-    if [[ -f "${file}" ]]; then
-        local truths
-        # Extract between truth markers, capped at 40 lines so broadly-wrapped sections cannot flood session context
-        truths=$(sed -n '/<!-- truth: start -->/,/<!-- truth: end -->/p' "${file}" | grep -v "<!--" | head -n 40 || true)
-        if [[ -n "${truths}" ]]; then
-            printf '%s\n' "  ${truths//$'\n'/$'\n'  }"
+find_project_root() {
+    local dir
+    dir="$(pwd)"
+    while [[ -n "${dir}" && "${dir}" != "/" ]]; do
+        if [[ -d "${dir}/.agents" ]]; then
+            printf '%s\n' "${dir}"
             return 0
         fi
-    fi
-    return 1
+        dir="$(dirname "${dir}")"
+    done
+    pwd
 }
 
-essential_truths() {
-    local root_dir="$1"
-    echo ""
-    echo "### Core Project Truths"
-
-    local tech_stack="${root_dir}/tech-stack.md"
-    if [[ -f "${tech_stack}" ]]; then
-        echo "- **Tech Stack Summary**:"
-        if ! extract_truths "${tech_stack}"; then
-            grep -m 10 "^-" "${tech_stack}" | sed 's/^/  /' || true
-        fi
-    fi
-
-    local workflow="${root_dir}/workflow.md"
-    if [[ -f "${workflow}" ]]; then
-        echo "- **Canonical Commands**:"
-        if ! extract_truths "${workflow}"; then
-            grep -A 15 "## Development Commands" "${workflow}" | grep -v "^#" | grep -v "^$" | sed 's/^/  /' || true
-        fi
-    fi
-
-    local patterns="${root_dir}/patterns.md"
-    if [[ -f "${patterns}" ]]; then
-        echo "- **Critical Patterns**:"
-        if ! extract_truths "${patterns}"; then
-            grep -m 10 "^-" "${patterns}" | sed 's/^/  /' || true
-        fi
-    fi
+# Read a top-level string value from .agents/config.json without a JSON parser.
+config_value() {
+    local file="$1" key="$2"
+    [[ -f "${file}" ]] || return 0
+    sed -n 's/.*"'"${key}"'"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' "${file}" | head -n1
 }
 
-knowledge_inventory() {
-    local root_dir="$1"
-    if [[ -d "${root_dir}/knowledge" ]] || [[ -f "${root_dir}/patterns.md" ]]; then
-        echo ""
-        echo "### Knowledge Base"
-        if [[ -f "${root_dir}/patterns.md" ]]; then
-            echo "- **Consolidated Patterns**: ${root_dir}/patterns.md"
-        fi
-        if [[ -d "${root_dir}/knowledge" ]]; then
-            local chapters
-            chapters=$(find "${root_dir}/knowledge" -name "*.md" -exec basename {} \; 2>/dev/null | tr '\n' ' ' || true)
-            if [[ -n "${chapters}" ]]; then
-                echo "- **Knowledge Chapters**: ${chapters}"
-            fi
-        fi
-    fi
+# Print frontmatter value for a key (first match), stripped of quotes.
+fm_get() {
+    local file="$1" key="$2"
+    awk -v key="${key}" '
+        NR == 1 && $0 != "---" { exit }
+        NR > 1 && $0 == "---" { exit }
+        NR > 1 {
+            prefix = key ":"
+            if (index($0, prefix) == 1) {
+                value = substr($0, length(prefix) + 1)
+                gsub(/^[[:space:]]+|[[:space:]]+$/, "", value)
+                gsub(/^["'\'']|["'\'']$/, "", value)
+                print value
+                exit
+            }
+        }
+    ' "${file}"
 }
 
-flow_mandate() {
-    local root_dir="$1"
-    echo ""
-    echo "### Flow Mandate"
-    cat <<EOF
-- **Zero-Ambiguity Standard**: All PRDs MUST be Master Roadmaps (Sagas). ALL child plans MUST be 'High-Definition Worksheets' with exact line numbers and code snippets.
-- **Synthesis Mandate**: You are responsible for the knowledge lifecycle. Autonomously identify patterns and synthesize learnings into formal guides in \`${root_dir}/knowledge/\`.
-- **Cleanup Mandate**: Regularly run \`/flow:cleanup\` to re-assess, reorganize, and optimize the project context. Verify task status against SOURCE CODE.
-- **Inherit First**: READ \`patterns.md\` and \`knowledge/\` chapters before planning. Adhere to current state truth.
-- **Deep Research First**: Do NOT defer research to implementation. ALL analysis and architectural decisions MUST be completed upfront.
-- **Stateless Executor Test**: A plan is only 'Ready' if an agent with ZERO context can implement it 100% correctly based ONLY on the worksheet.
-- **TDD Discipline**: Follow the Red-Green-Refactor cycle and verify coverage as outlined in the \`flow\` skill.
-- **Sync Requirement**: Follow \`${root_dir}/beads.json\` \`syncPolicy.flowSyncAfterMutation\`; default setup runs \`/flow:sync\` after Beads changes but does not auto-export, auto-stage, or run \`bd dolt push\`.
-EOF
+# Print file body with the leading frontmatter block removed.
+strip_frontmatter() {
+    awk '
+        NR == 1 && $0 == "---" { in_fm = 1; next }
+        in_fm && $0 == "---" { in_fm = 0; body = 1; next }
+        in_fm { next }
+        { print }
+    ' "$1"
+}
+
+# First 5 non-empty, non-heading body lines.
+extract_identity() {
+    local file="$1"
+    [[ -f "${file}" ]] || return 0
+    strip_frontmatter "${file}" | awk '
+        {
+            line = $0
+            gsub(/^[[:space:]]+|[[:space:]]+$/, "", line)
+            if (line == "" || line ~ /^#/) next
+            print line
+            if (++count == 5) exit
+        }
+    '
+}
+
+# Truth markers block, else first 10 list items, else first 200 chars of prose.
+extract_truths() {
+    local file="$1"
+    [[ -f "${file}" ]] || return 0
+    strip_frontmatter "${file}" | awk '
+        /<!-- truth: start -->/ { in_truth = 1; has_truth = 1; next }
+        /<!-- truth: end -->/ { in_truth = 0; next }
+        in_truth { truth = truth $0 "\n" }
+        {
+            line = $0
+            gsub(/^[[:space:]]+|[[:space:]]+$/, "", line)
+            if (line ~ /^(- |\* |1\. )/ && list_count < 10) {
+                list[list_count++] = line
+            }
+            if (line !~ /^#/) plain = plain $0 "\n"
+        }
+        END {
+            if (has_truth) {
+                gsub(/^[\n[:space:]]+|[\n[:space:]]+$/, "", truth)
+                print truth
+            } else if (list_count > 0) {
+                for (i = 0; i < list_count; i++) print list[i]
+            } else {
+                gsub(/^[\n[:space:]]+|[\n[:space:]]+$/, "", plain)
+                print substr(plain, 1, 200)
+            }
+        }
+    '
+}
+
+state_of() {
+    local file="$1" fallback="$2" value
+    value="$(fm_get "${file}" "state")"
+    if [[ -z "${value}" ]]; then
+        value="$(fm_get "${file}" "status")"
+    fi
+    printf '%s\n' "${value:-${fallback}}"
 }
 
 main() {
-    detect_beads
-    local root_dir
-    local root_info
-    root_info=$(detect_project_root)
-    # Use sed '$d' instead of head -n -1 for macOS portability
-    printf '%s\n' "${root_info}" | sed '$d'
-    root_dir=$(printf '%s\n' "${root_info}" | tail -n 1)
-    # Ensure root_dir is not empty
-    if [[ -z "${root_dir}" ]]; then
-        root_dir="${DEFAULT_ROOT_DIR}"
+    local project_root bundles_dir knowledge_dir config_file
+    project_root="$(find_project_root)"
+    config_file="${project_root}/.agents/config.json"
+
+    bundles_dir="${project_root}/.agents/bundles"
+    knowledge_dir="${bundles_dir}/knowledge"
+    local cfg_bundles cfg_knowledge
+    cfg_bundles="$(config_value "${config_file}" "bundles_dir")"
+    cfg_knowledge="$(config_value "${config_file}" "knowledge_dir")"
+    if [[ -n "${cfg_bundles}" ]]; then
+        bundles_dir="${project_root}/${cfg_bundles}"
+        knowledge_dir="${bundles_dir}/knowledge"
+    fi
+    if [[ -n "${cfg_knowledge}" ]]; then
+        knowledge_dir="${project_root}/${cfg_knowledge}"
     fi
 
-    check_tooling
-    git_context "${root_dir}"
-    project_identity "${root_dir}"
-    context_index "${root_dir}"
-    active_work
-    essential_truths "${root_dir}"
-    knowledge_inventory "${root_dir}"
-    flow_mandate "${root_dir}"
+    local blocks=()
+
+    # --- Project Purpose ---
+    local identity
+    identity="$(extract_identity "${bundles_dir}/product/product.md")"
+    if [[ -n "${identity}" ]]; then
+        blocks+=("## Project Purpose
+${identity}")
+    fi
+
+    # --- Core Project Invariants ---
+    local truths="" filename source_path heading file_truths
+    for filename in tech-stack.md workflow.md patterns.md; do
+        if [[ "${filename}" == "tech-stack.md" ]]; then
+            source_path="${bundles_dir}/product/${filename}"
+        else
+            source_path="${knowledge_dir}/${filename}"
+        fi
+        file_truths="$(extract_truths "${source_path}")"
+        if [[ -n "${file_truths}" ]]; then
+            # Mirror Python str.capitalize(): first char upper, rest unchanged-lower
+            heading="$(printf '%s' "${filename:0:1}" | tr '[:lower:]' '[:upper:]')${filename:1}"
+            if [[ -n "${truths}" ]]; then
+                truths="${truths}
+
+"
+            fi
+            truths="${truths}### ${heading} Invariants
+${file_truths}"
+        fi
+    done
+    if [[ -n "${truths}" ]]; then
+        blocks+=("## Core Project Invariants
+${truths}")
+    fi
+
+    # --- Active Flows & Tasks ---
+    local flow_lines="" spec_dir spec_file flow_state flow_id flow_title flow_desc rel_spec
+    if [[ -d "${bundles_dir}/specs" ]]; then
+        for spec_dir in $(find "${bundles_dir}/specs" -mindepth 1 -maxdepth 1 -type d | sort); do
+            spec_file="${spec_dir}/spec.md"
+            [[ -f "${spec_file}" ]] || continue
+            flow_state="$(state_of "${spec_file}" "planned")"
+            case "${flow_state}" in
+                planned|active) ;;
+                *) continue ;;
+            esac
+            flow_id="$(fm_get "${spec_file}" "flow_id")"
+            [[ -z "${flow_id}" ]] && flow_id="$(fm_get "${spec_file}" "id")"
+            [[ -z "${flow_id}" ]] && flow_id="$(basename "${spec_dir}")"
+            flow_title="$(fm_get "${spec_file}" "title")"
+            [[ -z "${flow_title}" ]] && flow_title="${flow_id}"
+            flow_desc="$(fm_get "${spec_file}" "description")"
+            rel_spec="${spec_file#"${project_root}"/}"
+
+            flow_lines="${flow_lines}
+### Flow: [${flow_title}](${rel_spec}) (${flow_state})"
+            if [[ -n "${flow_desc}" ]]; then
+                flow_lines="${flow_lines}
+*${flow_desc}*"
+            fi
+
+            local task_lines="" task_file task_state task_title task_priority rel_task
+            if [[ -d "${spec_dir}/tasks" ]]; then
+                for task_file in $(find "${spec_dir}/tasks" -mindepth 1 -maxdepth 1 -name '*.md' -type f | sort); do
+                    task_state="$(state_of "${task_file}" "open")"
+                    case "${task_state}" in
+                        open|in_progress|blocked) ;;
+                        *) continue ;;
+                    esac
+                    task_title="$(fm_get "${task_file}" "title")"
+                    [[ -z "${task_title}" ]] && task_title="$(basename "${task_file}" .md)"
+                    task_priority="$(fm_get "${task_file}" "priority")"
+                    [[ -z "${task_priority}" ]] && task_priority="P2"
+                    rel_task="${task_file#"${project_root}"/}"
+                    task_lines="${task_lines}
+- [${task_priority}] [${task_title}](${rel_task}) (${task_state})"
+                done
+            fi
+            if [[ -n "${task_lines}" ]]; then
+                flow_lines="${flow_lines}
+Pending Tasks:${task_lines}"
+            else
+                flow_lines="${flow_lines}
+No active tasks."
+            fi
+        done
+    fi
+    if [[ -n "${flow_lines}" ]]; then
+        blocks+=("## Active Flows & Tasks${flow_lines}")
+    fi
+
+    # --- Custom Project Skills ---
+    local skill_lines="" skill_root skill_dir skill_file skill_name skill_desc rel_skill seen=""
+    for skill_root in "${project_root}/.agents/skills" "${bundles_dir}/skills"; do
+        [[ -d "${skill_root}" ]] || continue
+        for skill_dir in $(find "${skill_root}" -mindepth 1 -maxdepth 1 -type d | sort); do
+            local dir_name
+            dir_name="$(basename "${skill_dir}")"
+            case " ${seen} " in
+                *" ${dir_name} "*) continue ;;
+            esac
+            skill_file="${skill_dir}/SKILL.md"
+            [[ -f "${skill_file}" ]] || continue
+            skill_name="$(fm_get "${skill_file}" "name")"
+            [[ -z "${skill_name}" ]] && skill_name="${dir_name}"
+            skill_desc="$(fm_get "${skill_file}" "description")"
+            rel_skill="${skill_file#"${project_root}"/}"
+            skill_lines="${skill_lines}
+- **[${skill_name}](${rel_skill})**: ${skill_desc}"
+            seen="${seen} ${dir_name}"
+        done
+    done
+    if [[ -n "${skill_lines}" ]]; then
+        blocks+=("## Custom Project Skills${skill_lines}")
+    fi
+
+    # --- Emit ---
+    if [[ ${#blocks[@]} -eq 0 ]]; then
+        printf 'No project context resolved.\n'
+        return 0
+    fi
+    local i
+    for i in "${!blocks[@]}"; do
+        if [[ "${i}" -gt 0 ]]; then
+            printf '\n\n'
+        fi
+        printf '%s' "${blocks[${i}]}"
+    done
+    printf '\n'
 }
 
 main "$@"

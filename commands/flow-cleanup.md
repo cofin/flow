@@ -1,56 +1,65 @@
 ---
-description: Re-assess, reorganize, and optimize project context for implementation-readiness
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash
+description: "Run the canonical flow/cleanup Flow lifecycle."
 ---
 
-# flow:cleanup
+<!-- Generated from contracts/flow.yaml; generated-sha256: 05fb0d70cca22d154dec6baeab5e9ef38544ecbbe5e4dd4b5001c3a7098d7391 -->
 
-**Role:** The Groundskeeper
-**Reference:** `references/cleanup.md`
-**Mandate:** Cleanup Mandate
-
-## Overview
-
-Re-assess, reorganize, and optimize the entire project context to ensure it is in its most authoritative and implementation-ready state.
-
-## The Cleanup Mandate
-
-**CRITICAL:** The `.agents/` directory must be in its most authoritative and implementation-ready state.
-
-- **Knowledge Re-synthesis**: Consolidate `.agents/knowledge/` into a single, unified, authoritative "Current State" guide. Focus on "how," not "why" or history.
-- **Spec & Beads Integrity**: Audit all flows in `.agents/specs/`. Verify task status against SOURCE CODE. Sync status with Beads (create if missing).
-- **Archive & Git**: Every completed flow MUST be archived and moved out of the `specs/` folder following the archive policy. Ensure all changes are git-tracked.
-- **Artifact Consolidation**: Synthesize stale `.agents/research/` and `.agents/plans/` into active specs or knowledge chapters.
-- **Pattern Optimization**: Reorganize, index, and synthesize `.agents/patterns.md` and `learnings.md` into high-fidelity guidance.
-
-## Workflow
-
-### 1. Preparation & Inventory
-
-Map all files in `.agents/` and detect the active Beads backend.
-
-### 2. Knowledge Re-synthesis
-
-Consolidate knowledge into a single, unified, authoritative "Current State" guide. Strip away history and "why" to focus on the current "how."
-
-### 3. Spec & Beads Integrity Audit
-
-Audit all flows in `.agents/specs/`. **Verify status against actual source code.** Sync with Beads and archive completed flows.
-
-### 4. Artifact Consolidation
-
-Synthesize stale `.agents/research/` and `.agents/plans/` into active specs or knowledge chapters. No stale artifacts should remain.
-
-### 5. Pattern & Learning Optimization
-
-Reorganize and re-index `.agents/patterns.md` and `learnings.md` into cohesive, high-quality guidance.
-
-### 6. Final Sync & Validation
-
-Perform a global `/flow:sync` and update the registry `.agents/flows.md`.
-
-## Usage
-
-```bash
-/flow:cleanup
+```json
+{
+  "agent": "flow-reconciler",
+  "argument_schema": {
+    "optional": [
+      "scope"
+    ],
+    "required": [],
+    "syntax": "[scope]"
+  },
+  "bounds_enforcement": "agent_validated",
+  "canonical_id": "flow/cleanup",
+  "capability_evidence": "Claude Code declared AskUserQuestion contract",
+  "choice_max": 4,
+  "choice_min": 2,
+  "completion_gates": [
+    "archive_candidate",
+    "verification",
+    "code_review",
+    "quality_review",
+    "archive"
+  ],
+  "custom_answer_behavior": "native_custom_input",
+  "disabled_choice_policy": "omit",
+  "fallback": "Use Flow to clean up completed flows",
+  "git_tags": "forbidden",
+  "host": "claude_code",
+  "instruction": "Load the lifecycle owner and follow the canonical procedure source directly.",
+  "interaction_mode": "none",
+  "invocation": "/flow-cleanup",
+  "kind": "flow_command_adapter",
+  "lifecycle_owner": "flow-completion",
+  "multi_select": true,
+  "mutability": "repository_write",
+  "mutual_exclusion": true,
+  "plan_capability": "none",
+  "procedure_source": "skills/flow/references/cleanup.md",
+  "question_capability": null,
+  "question_permission_check": "declared_and_allowed",
+  "question_tool": "AskUserQuestion",
+  "question_transport": "conditional_native",
+  "runtime_dependency": "agent_file_tools_only",
+  "sequential_fallback": true,
+  "shared_contracts": [
+    "flow-state-v1",
+    "quality-review-v1"
+  ],
+  "state_operations": [
+    "status",
+    "archive",
+    "recover"
+  ],
+  "supported_selection_modes": [
+    "binary",
+    "single_select",
+    "multi_select"
+  ]
+}
 ```

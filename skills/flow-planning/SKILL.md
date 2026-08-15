@@ -1,46 +1,64 @@
 ---
 name: flow-planning
-description: "Use when drafting PRDs, researching, planning, refining, revising, or creating .agents/specs/<flow_id>/spec.md worksheets for Flow."
+description: "Use when drafting PRDs, researching, planning, refining, revising, or creating .agents/bundles/specs/<flow_id>/spec.md worksheets for Flow."
 ---
 
 # Flow Planning
 
-Use this lifecycle skill for PRDs, research, single-flow planning, refinement, revisions, and task creation.
+<!-- lifecycle-ownership: owner=flow-planning; operations=prd,plan,refine,revise,research,task -->
+
+## Trigger
+
+Use for `prd|plan|refine|revise|research|task`.
+
+<!-- planning-contract: structured-choice-v1 -->
+```yaml
+interaction_authority: skills/flow/references/interaction.md
+planning_loop:
+  phases: [research_closed, draft, gap_scan, refine, revision_update, review, approved, revise, blocked]
+  gap_scan:
+    reject: [deferred_research, unresolved_decisions, stub_body, vague_verification, missing_verification_strategy, overlapping_ownership, oversized_task]
+    require: [requirement_to_task_traceability, one_invocation_per_task, one_commit_per_task]
+  revision_update:
+    on_plan_change: [increment_plan_revision_once, copy_revision_to_spec_and_all_tasks, clear_plan_commit, rerun_validation]
+  review:
+    max_external_rounds: 3
+    blocking_severities: [Critical, Important]
+    on_limit: blocked
+```
 
 ## Workflow
 
-1. Read project context, patterns, knowledge chapters, and relevant existing specs before asking questions.
-2. Research code paths and external APIs before locking implementation decisions.
-3. Create PRDs as roadmap epics and single-flow specs as implementation worksheets.
-4. Refine until tasks include concrete files, behavior, tests, commands, and acceptance criteria.
-5. Create Beads epics/tasks and sync markdown views according to policy.
-
-## Interrogate Before Finalizing (Grill)
-
-Before locking a PRD, spec, or refined worksheet, interrogate the plan until every decision branch is resolved. This is how Flow meets the Zero-Ambiguity Standard and the Stateless Executor Test — apply it in `flow-prd`, `flow-plan`, and especially `flow-refine`.
-
-- Ask **one question at a time** and wait for the answer before the next. Walk the decision tree top-down, resolving dependencies between decisions in order.
-- For **every** question, give your **recommended answer** and the trade-off, so the user confirms rather than composes from scratch.
-- If a question is answerable from the repo, **explore the codebase / `patterns.md` / `knowledge/` / `tech-stack.md` instead of asking**. Only ask product or trade-off questions a human must decide.
-- Challenge the plan against the project's **domain language**: reuse the terminology already in `patterns.md` and `knowledge/` chapters, and flag/resolve term conflicts before finalizing.
-- Record decisions that are **hard to reverse, surprising, and a real trade-off** into `knowledge/` (or `learnings.md`); skip low-value notes.
-- Stop only when no open branch remains and a zero-context executor could implement from the artifact alone.
-- The finished spec/worksheet doubles as a **handoff**: reference existing artifacts (PRD, patterns, knowledge, affected files) rather than duplicating them, and name the next skill to invoke. (If the harness exposes `grill-me` / `grill-with-docs` / `handoff` skills, you may invoke them to drive these steps; otherwise apply the discipline directly.)
+1. Close repository-answerable research; ask only unresolved product or
+   trade-off decisions through `structured-choice-v1`, one at a time.
+2. Draft traceable PRDs or executable specs with complete authoritative task
+   worksheets and exclusive one-invocation/one-commit ownership.
+3. Reject deferred facts, unresolved decisions, stubs, vague verification,
+   missing strategies, ownership overlap, coverage gaps, and oversized tasks.
+4. Refine one gap at a time. A plan-bearing change applies one `revise`
+   transaction, increments plan identity, updates every task, and revalidates.
+5. Request fresh review. Three rounds with unresolved Critical/Important
+   findings block Ready. Present `Approve|Revise|Refine` only after quality
+   passes; approval advances, revision/refinement loops and revalidates.
 
 ## Guardrails
 
-- Planning must be decision-complete; do not defer obvious research to implementation.
-- Ask only product or tradeoff questions that cannot be answered from the repo.
-- Store plans under `.agents/specs/<flow_id>/`, not ad hoc docs paths.
-- Do not modify production code during planning.
+- Store plans only under `.agents/bundles/specs/<flow_id>/`.
+- Never modify production code or defer obvious research to implementation.
+- Do not label a plan Ready until a zero-context executor could run it exactly.
+
+## Output
+
+Return the current plan identity, review result, unresolved decisions, and exact
+next lifecycle action. Approved work names `flow-execution` as the handoff.
 
 ## Validation
 
-- Confirm every requirement maps to an implementation task and test scenario.
-- Confirm tasks are small enough for a low-context executor to complete without guessing.
-- Run spec review or code-reviewer validation before presenting final planning artifacts when available.
+Confirm requirement-to-task/test traceability, worksheet completeness,
+verification strategy, exclusive ownership, bounded task size, fresh review,
+and explicit approval on the current revision.
 
-## References Index
+## Conditional References
 
 - [PRD](../flow/references/prd.md)
 - [Plan](../flow/references/plan.md)
@@ -48,9 +66,10 @@ Before locking a PRD, spec, or refined worksheet, interrogate the plan until eve
 - [Refine](../flow/references/refine.md)
 - [Revise](../flow/references/revise.md)
 - [Task](../flow/references/task.md)
+- [Interaction](../flow/references/interaction.md)
+- [State](../flow/references/state.md)
 
 ## Example
 
-User: "Plan skill trigger optimization."
-
-Action: inspect current skills and validators, ask unresolved product tradeoffs, create a Flow spec with Beads tasks, and refine until the implementation path is explicit.
+For a feature plan, close factual gaps, write complete worksheets, refine until
+the gap scan and review pass, then ask for approval on that exact revision.

@@ -1,0 +1,3 @@
+interface:
+  display_name: "Debloat"
+  short_description: "Simplify code, tests, prose, and gates without semantic drift"

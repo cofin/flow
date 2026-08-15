@@ -1,7 +1,7 @@
 {
   "name": "flow-marketplace",
   "metadata": {
-    "description": "The Flow Framework Marketplace — context-driven development tools, skills, and agents"
+    "description": "The Flow Framework Marketplace \u2014 context-driven development tools, skills, and agents"
   },
   "owner": {
     "name": "cofin",
@@ -10,7 +10,7 @@
   "plugins": [
     {
       "name": "flow",
-      "description": "Unified toolkit for Context-Driven Development with spec-first planning, TDD workflow, and Beads integration",
+      "description": "Unified toolkit for Context-Driven Development with spec-first planning, TDD workflow, and OKF knowledge bundles.",
       "version": "0.22.0",
       "source": "./",
       "author": {

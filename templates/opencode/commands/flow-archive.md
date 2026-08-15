@@ -1,58 +1,65 @@
 ---
-description: Archive completed flows + elevate patterns
+description: "Run the canonical flow/archive Flow lifecycle."
 ---
 
-# Flow Archive
+<!-- Generated from contracts/flow.yaml; generated-sha256: 668bb334cfe75e84accb36d0a22c528fbc84c7ffb52a248f76a593c24da9b4de -->
 
-Archive completed flow and elevate patterns.
-
-## Usage
-`/flow-archive {flow_id}`
-
-## Phase 1: Validate
-
-### 1.1 Validate Flow
-
-Check Beads for completion:
-
-```bash
-bd show {epic_id}
-```
-
-Or verify all tasks completed in spec.md Implementation Plan section.
-
-## Phase 2: Extract Learnings
-
-### 2.1 Read Flow Learnings
-Parse `.agents/specs/{flow_id}/learnings.md`
-
-### 2.2 Merge to Project Patterns
-Append selected patterns to `.agents/patterns.md`
-
-## Phase 3: Knowledge Synthesis
-
-1. Create `.agents/knowledge/` if missing.
-2. Read `learnings.md`, `spec.md` header, and `metadata.json` from the flow.
-3. Synthesize learnings directly into cohesive, logically organized knowledge base chapters in `.agents/knowledge/` (e.g., `architecture.md`, `conventions.md`).
-4. Update the current state of these documents. Do NOT outline history or create per-flow logs. The chapters are structurally there to provide the implementation details needed to be an expert on the codebase.
-
-## Phase 4: Close Beads Epic
-
-```bash
-bd close {epic_id} --reason "Flow archived"
-```
-
-## Phase 5: Move to Archive
-
-Move `.agents/specs/{flow_id}/` → `.agents/archive/{flow_id}/`
-
-Update `.agents/flows.md`
-
-## Final Output
-
-```
-Flow Archived: {flow_id}
-
-Location: .agents/archive/{flow_id}/
-Patterns Elevated: {count}
+```json
+{
+  "agent": null,
+  "argument_schema": {
+    "optional": [],
+    "required": [
+      "flow_id"
+    ],
+    "syntax": "<flow_id>"
+  },
+  "bounds_enforcement": "agent_validated",
+  "canonical_id": "flow/archive",
+  "capability_evidence": "OpenCode built-in question tool documentation",
+  "choice_max": 4,
+  "choice_min": 2,
+  "completion_gates": [
+    "archive_candidate",
+    "verification",
+    "code_review",
+    "quality_review",
+    "archive"
+  ],
+  "custom_answer_behavior": "native_custom_input",
+  "disabled_choice_policy": "omit",
+  "fallback": "Use Flow to archive the completed flow",
+  "git_tags": "forbidden",
+  "host": "opencode",
+  "instruction": "Load the lifecycle owner and follow the canonical procedure source directly.",
+  "interaction_mode": "structured_choice",
+  "invocation": "/flow-archive",
+  "kind": "flow_command_adapter",
+  "lifecycle_owner": "flow-completion",
+  "multi_select": true,
+  "mutability": "repository_write",
+  "mutual_exclusion": true,
+  "plan_capability": "none",
+  "procedure_source": "skills/flow/references/archive.md",
+  "question_capability": "structured-choice-v1",
+  "question_permission_check": "declared_and_allowed",
+  "question_tool": "question",
+  "question_transport": "conditional_native",
+  "runtime_dependency": "agent_file_tools_only",
+  "sequential_fallback": true,
+  "shared_contracts": [
+    "flow-state-v1",
+    "structured-choice-v1",
+    "quality-review-v1"
+  ],
+  "state_operations": [
+    "note",
+    "archive"
+  ],
+  "supported_selection_modes": [
+    "binary",
+    "single_select",
+    "multi_select"
+  ]
+}
 ```

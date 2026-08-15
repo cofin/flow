@@ -19,15 +19,22 @@ def _write_fake_repo(root: Path) -> None:
         ".codex-plugin/plugin.json": '{"name": "flow"}\n',
         ".codex/INSTALL.md": "# Installing Flow for Codex\n",
         ".codex/agents/executor.toml": 'name = "executor"\n',
+        ".codex/agents/quality-reviewer.toml": 'name = "quality-reviewer"\n',
         ".codex/config.toml": "[profiles.flow]\n",
-        ".codex/hooks.json": "{}\n",
+        "rules/flow-core.md": "# Flow rule\n",
+        "rules/flow-antigravity.md": "# Generated Flow rule\n",
+        "skills/debloat/SKILL.md": "---\nname: debloat\n---\n",
         "skills/flow/SKILL.md": "---\nname: flow\n---\n",
+        "skills/flow/references/interaction.md": "# Structured decisions\n",
         "skills/flow/references/status.md": "# Status\n",
+        "skills/flow-planning/SKILL.md": "[Interaction](../flow/references/interaction.md)\n",
+        "skills/flow-state/SKILL.md": "---\nname: flow-state\n---\n",
+        "skills/flow-state/references/state.md": "# State\n",
+        "skills/flow-state/scripts/state.py": "raise SystemExit('not packaged')\n",
         "commands/flow-setup.md": "# Setup\n",
         "commands/flow/sync.toml": 'description = "Harness-specific command source"\n',
-        "hooks/hooks-dev.json": '{"dev": true}\n',
         "hooks/hooks-codex.json": '{"codex": true}\n',
-        "hooks/lib/skill-map.json": "{}\n",
+        "hooks/detect-env.sh": "#!/usr/bin/env bash\nexit 99\n",
         "hooks/session-start.sh": "#!/usr/bin/env bash\n",
     }
     for rel_path, content in files.items():
@@ -63,16 +70,20 @@ def test_sync_creates_real_package_tree_from_flow_sources(fake_repo: Path) -> No
     package = fake_repo / "plugins" / "flow"
     assert (package / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8") == '{"name": "flow"}\n'
     assert (package / "skills" / "flow" / "SKILL.md").read_text(encoding="utf-8") == "---\nname: flow\n---\n"
+    assert (package / "skills" / "flow" / "references" / "interaction.md").read_text(encoding="utf-8") == "# Structured decisions\n"
+    assert (package / "skills" / "debloat" / "SKILL.md").is_file()
+    assert not (package / "skills" / "flow-state" / "scripts").exists()
+    assert (package / "rules" / "flow-core.md").read_text(encoding="utf-8") == "# Flow rule\n"
+    assert (package / "rules" / "flow-antigravity.md").read_text(encoding="utf-8") == "# Generated Flow rule\n"
     assert (package / "commands" / "flow-setup.md").read_text(encoding="utf-8") == "# Setup\n"
-    assert not (package / "commands" / "flow" / "sync.toml").exists()
+    assert (package / "commands" / "flow" / "sync.toml").read_text(encoding="utf-8") == 'description = "Harness-specific command source"\n'
     assert (package / ".codex" / "agents" / "executor.toml").is_file()
-    assert (package / ".codex" / "hooks.json").is_file()
+    assert (package / ".codex" / "agents" / "quality-reviewer.toml").is_file()
+    assert (package / ".codex" / "hooks.json").read_text(encoding="utf-8") == '{"codex": true}\n'
     assert not (package / ".codex" / "config.toml").exists()
-    assert (package / "hooks" / "lib" / "skill-map.json").is_file()
-    # The package's auto-discovered hooks/hooks.json is overwritten with the
-    # Codex-native manifest.
     assert (package / "hooks" / "hooks.json").read_text(encoding="utf-8") == '{"codex": true}\n'
-    assert (package / "hooks" / "hooks-codex.json").read_text(encoding="utf-8") == '{"codex": true}\n'
+    assert (package / "hooks" / "session-start.sh").is_file()
+    assert not (package / "hooks" / "detect-env.sh").exists()
     _assert_no_symlinks(package)
 
 
@@ -88,8 +99,18 @@ def _make_stale(package: Path) -> None:
     (package / "skills" / "flow" / "SKILL.md").write_text("stale\n", encoding="utf-8")
 
 
+def _make_interaction_stale(package: Path) -> None:
+    (package / "skills" / "flow" / "references" / "interaction.md").write_text(
+        "stale interaction contract\n", encoding="utf-8"
+    )
+
+
 def _remove_file(package: Path) -> None:
-    (package / "hooks" / "hooks-codex.json").unlink()
+    (package / "hooks" / "session-start.sh").unlink()
+
+
+def _remove_rule(package: Path) -> None:
+    (package / "rules" / "flow-antigravity.md").unlink()
 
 
 def _add_extra(package: Path) -> None:
@@ -107,7 +128,9 @@ def _add_symlink(package: Path) -> None:
     "mutate",
     [
         pytest.param(_make_stale, id="stale"),
+        pytest.param(_make_interaction_stale, id="stale-interaction"),
         pytest.param(_remove_file, id="missing"),
+        pytest.param(_remove_rule, id="missing-rule"),
         pytest.param(_add_extra, id="extra"),
         pytest.param(_add_symlink, id="symlink"),
     ],

@@ -1,0 +1,6 @@
+{
+  "root_directory": ".agents",
+  "setup_status": "complete",
+  "workflow_revision": "flow-0.22.0",
+  "migration_report": ".agents/migration-inventory.json"
+}

@@ -23,6 +23,13 @@ SHELL := /bin/bash
 .EXPORT_ALL_VARIABLES:
 MAKEFLAGS += --no-print-directory
 
+# Detect Rodete and configure NPM registry for Bun/NPM
+ifneq ($(shell grep -s -q "rodete" /etc/os-release && echo "yes"),)
+export NPM_CONFIG_REGISTRY=https://registry.npmjs.org
+export PIP_INDEX_URL=https://pypi.org/simple
+export UV_INDEX_URL=https://pypi.org/simple
+endif
+
 # Define colors and formatting
 BLUE := $(shell printf "\033[1;34m")
 GREEN := $(shell printf "\033[1;32m")
@@ -37,6 +44,38 @@ ERROR := $(shell printf "$(RED)✖$(NC)")
 .PHONY: help
 help:                                               ## Display this help text for Makefile
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z0-9_-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
+
+# =============================================================================
+# Developer Utils
+# =============================================================================
+.PHONY: setup-env
+setup-env:                                          ## Configure local environment (e.g. Rodete)
+	@./tools/scripts/setup-env.sh
+
+.PHONY: install
+install: destroy clean setup-env install-hooks      ## Install the project and dependencies for local development
+	@echo "${INFO} Starting fresh installation..."
+	@uv sync --all-groups
+	@echo "${OK} Installation complete! 🎉"
+
+.PHONY: upgrade
+upgrade: setup-env                                  ## Upgrade all dependencies to the latest stable versions
+	@echo "${INFO} Updating all dependencies... 🔄"
+	@uv lock --upgrade
+	@uv sync --all-groups
+	@echo "${OK} Dependencies updated 🔄"
+
+.PHONY: destroy
+destroy:                                            ## Destroy the virtual environment
+	@echo "${INFO} Destroying virtual environment... 🗑️"
+	@rm -rf .venv
+	@echo "${OK} Virtual environment destroyed 🗑️"
+
+.PHONY: lock
+lock: setup-env                                     ## Rebuild lockfiles from scratch, updating all dependencies
+	@echo "${INFO} Rebuilding lockfiles... 🔄"
+	@uv lock --upgrade
+	@echo "${OK} Python lockfiles updated"
 
 .PHONY: clean
 clean:                                              ## Cleanup temporary build artifacts
@@ -55,53 +94,66 @@ lint:                                               ## Lint markdown and refresh
 	@echo "${INFO} Linting and fixing markdown files..."
 	@npx markdownlint-cli2 --fix "skills/**/*.md" "commands/**/*.md" "docs/**/*.md" "AGENTS.md" "README.md"
 	@echo "${INFO} Refreshing generated Codex package..."
-	@uv run --extra dev tools/sync-codex-package.py
+	@uv run tools/sync-codex-package.py
 	@echo "${OK} Markdown linting passed"
-
-.PHONY: validate-skills
-validate-skills:                                   ## Validate skill / command / agent manifests
-	@echo "${INFO} Validating skill manifests..."
-	@uv run --extra dev tools/validate-skills.py
-	@echo "${OK} Skill manifests valid"
-
-.PHONY: validate-codex-manifest
-validate-codex-manifest:                           ## Validate Codex marketplace and plugin manifests
-	@echo "${INFO} Validating Codex manifests..."
-	@uv run --extra dev tools/validate-codex-manifest.py
-	@echo "${OK} Codex manifests valid"
 
 .PHONY: sync-codex-package
 sync-codex-package:                                ## Assemble the committed Codex marketplace package at plugins/flow/
 	@echo "${INFO} Syncing Codex marketplace package..."
-	@uv run --extra dev tools/sync-codex-package.py
+	@uv run tools/sync-codex-package.py
 	@echo "${OK} Codex marketplace package synced"
 
 .PHONY: codex-package-check
 codex-package-check:                               ## Verify plugins/flow/ matches generated Codex package payload
 	@echo "${INFO} Checking Codex marketplace package..."
-	@uv run --extra dev tools/sync-codex-package.py --check
+	@uv run tools/sync-codex-package.py --check
 	@echo "${OK} Codex marketplace package is current"
 
-.PHONY: validate-claude-manifest
-validate-claude-manifest:                          ## Validate Claude Code plugin/marketplace manifests
-	@echo "${INFO} Validating Claude manifests..."
-	@uv run --extra dev tools/validate-claude-manifest.py
-	@echo "${OK} Claude manifests valid"
+.PHONY: sync-command-surfaces
+sync-command-surfaces:                             ## Generate host command adapters from contracts/flow.yaml
+	@echo "${INFO} Syncing Flow command surfaces..."
+	@uv run python tools/sync-command-surfaces.py --write
+	@echo "${OK} Flow command surfaces synced"
 
-.PHONY: validate-antigravity-manifest
-validate-antigravity-manifest:                      ## Validate Antigravity plugin and hook manifests
-	@echo "${INFO} Validating Antigravity manifests..."
-	@uv run --extra dev tools/validate-antigravity-manifest.py
-	@echo "${OK} Antigravity manifests valid"
+.PHONY: command-surfaces-check
+command-surfaces-check:                            ## Verify generated Flow command adapters are current
+	@echo "${INFO} Checking Flow command surfaces..."
+	@uv run python tools/sync-command-surfaces.py --check
+	@echo "${OK} Flow command surfaces are current"
+
+.PHONY: sync-agent-surfaces
+sync-agent-surfaces:                               ## Generate host-agent adapters from contracts/flow.yaml
+	@echo "${INFO} Syncing Flow agent surfaces..."
+	@uv run python tools/sync-agent-surfaces.py --write
+	@echo "${OK} Flow agent surfaces synced"
+
+.PHONY: agent-surfaces-check
+agent-surfaces-check:                              ## Verify generated Flow host-agent adapters are current
+	@echo "${INFO} Checking Flow agent surfaces..."
+	@uv run python tools/sync-agent-surfaces.py --check
+	@echo "${OK} Flow agent surfaces are current"
 
 .PHONY: sync-manifests
 sync-manifests:                                    ## Sync version strings across all manifests
 	@echo "${INFO} Syncing version strings..."
-	@uv run --extra dev tools/sync-manifests.py
+	@uv run tools/sync-manifests.py
 	@echo "${OK} Version strings in sync"
 
 .PHONY: check
-check: lint validate-skills codex-package-check validate-codex-manifest validate-claude-manifest validate-antigravity-manifest sync-manifests ## Run all quality checks (lint + validate)
+
+.PHONY: validate
+validate:                                          ## Validate all manifests, skills, commands, and agents
+	@echo "${INFO} Running consolidated validation..."
+	@uv run tools/validate.py
+	@echo "${OK} Validation passed"
+
+.PHONY: test
+test:                                              ## Run the Python test suite
+	@echo "${INFO} Running tests..."
+	@uv run pytest
+	@echo "${OK} Tests passed"
+
+check: lint sync-codex-package codex-package-check validate sync-manifests test ## Run all quality checks (lint + validate + tests)
 	@echo "${OK} All checks passed"
 
 .PHONY: build
@@ -113,7 +165,7 @@ build:                                              ## Build the package
 release:                                           ## Bump version and create release tag (e.g. make release bump=patch)
 	@echo "${INFO} Preparing for release... 📦"
 	@make clean
-	@uv run --extra dev bump-my-version bump $(bump)
+	@uv run bump-my-version bump $(bump)
 	@make build
 	@echo "${OK} Release complete 🎉"
 
@@ -121,6 +173,6 @@ release:                                           ## Bump version and create re
 pre-release:                                       ## Start/advance a pre-release (e.g. make pre-release version=1.1.0a1)
 	@echo "${INFO} Preparing pre-release $(version)... 📦"
 	@make clean
-	@uv run --extra dev bump-my-version bump --new-version $(version) patch
+	@uv run bump-my-version bump --new-version $(version) patch
 	@make build
 	@echo "${OK} Pre-release $(version) complete 🎉"

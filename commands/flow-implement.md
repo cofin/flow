@@ -1,66 +1,67 @@
 ---
-description: Execute tasks from plan (context-aware)
-argument-hint: <flow_id>
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash, Task, WebSearch
+description: "Run the canonical flow/implement Flow lifecycle."
 ---
 
-# Flow Implement
+<!-- Generated from contracts/flow.yaml; generated-sha256: 43dbec7e875e71ba01de722650b0f7d4f21207b54ec69b47636fa3e8eea01caa -->
 
-> **Beads mode:** Skip every `bd` invocation below when the SessionStart hook reports `Beads Backend: Missing (None)` or `Disabled via plugin config (useBeads=false)`. Treat `spec.md` markers as fallback source of truth and skip `/flow:sync`. Never halt for missing Beads. See `skills/flow/references/discipline.md`.
->
-> Lifecycle skill: use `flow-execution` through the `flow` router.
-
-Implementing flow: **$ARGUMENTS**
-
-## The Executor Mandate
-
-**CRITICAL:** `/flow:implement` is the TDD engine. It uses **Beads** as the authority for what to work on next. Every discovery and decision MUST be noted in Beads.
-
----
-
-## Phase 0: Environment Detection
-
-**PROTOCOL: Check hook context for environment metadata.**
-
-1. **Check Hook Context:** Scan `<hook_context>` for `## Flow Environment Context`.
-2. **Verify Backend:** Use the injected Beads Backend.
-
----
-
-## Phase 2: Task Selection (Beads-First)
-
-**CRITICAL:** Beads is the source of truth for task status. Do NOT update spec.md markers manually.
-
-1. **Selection**: Select task from the active backend's ready queue (`bd ready`).
-2. **Claim**: Mark the task in progress and claim it (`bd update <id> --claim`).
-
----
-
-## Phase 3: Task Execution Loop (TDD)
-
-For each selected task:
-
-1. **Investigate & Note**: Trace the code and record findings in Beads (`bd note <id> "..."`).
-2. **Write Failing Tests (Red Phase)**: MUST confirm failure for the right reason.
-3. **Implement (Green Phase)**: Minimal code to pass tests.
-4. **Refactor**: Clean up while remaining green.
-5. **Commit**: `<type>(<scope>): <description>`.
-6. **Close Task**: Close in Beads with the commit SHA (`bd close <id> --reason "[abc1234]..."`).
-7. **Sync**: Follow `syncPolicy.flowSyncAfterMutation`; when enabled, run `/flow:sync` to update the Markdown view.
-
----
-
-## Phase 4: Phase Completion Protocol
-
-1. **Verify**: Run full test suite and check coverage.
-2. **Note**: Record phase completion in Beads notes.
-3. **Sync**: Follow `syncPolicy.flowSyncAfterMutation`; when enabled, run `/flow:sync` to ensure Markdown is up to date.
-
----
-
-## Critical Rules
-
-1. **TDD MANDATORY** - Failing test first.
-2. **BEADS IS SOURCE OF TRUTH** - No manual `[x]` edits in spec.md.
-3. **NOTE EVERYTHING** - Record discoveries in Beads notes immediately.
-4. **SYNC POLICY** - Follow `.agents/beads.json` `syncPolicy.flowSyncAfterMutation`; default setup runs `/flow:sync` after every task.
+```json
+{
+  "agent": "executor",
+  "argument_schema": {
+    "optional": [
+      "flow_id"
+    ],
+    "required": [],
+    "syntax": "[flow_id]"
+  },
+  "bounds_enforcement": "agent_validated",
+  "canonical_id": "flow/implement",
+  "capability_evidence": "Claude Code declared AskUserQuestion contract",
+  "choice_max": 4,
+  "choice_min": 2,
+  "completion_gates": [
+    "red_green_refactor",
+    "fresh_verification",
+    "scoped_commit"
+  ],
+  "custom_answer_behavior": "native_custom_input",
+  "disabled_choice_policy": "omit",
+  "fallback": "Use Flow to implement the current task",
+  "git_tags": "forbidden",
+  "host": "claude_code",
+  "instruction": "Load the lifecycle owner and follow the canonical procedure source directly.",
+  "interaction_mode": "none",
+  "invocation": "/flow-implement",
+  "kind": "flow_command_adapter",
+  "lifecycle_owner": "flow-execution",
+  "multi_select": true,
+  "mutability": "repository_write",
+  "mutual_exclusion": true,
+  "plan_capability": "none",
+  "procedure_source": "skills/flow/references/implement.md",
+  "question_capability": null,
+  "question_permission_check": "declared_and_allowed",
+  "question_tool": "AskUserQuestion",
+  "question_transport": "conditional_native",
+  "runtime_dependency": "agent_file_tools_only",
+  "sequential_fallback": true,
+  "shared_contracts": [
+    "flow-state-v1",
+    "worksheet-execution-v1"
+  ],
+  "state_operations": [
+    "status",
+    "claim",
+    "discover",
+    "block",
+    "release",
+    "checkpoint",
+    "close"
+  ],
+  "supported_selection_modes": [
+    "binary",
+    "single_select",
+    "multi_select"
+  ]
+}
+```

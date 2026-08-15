@@ -2,10 +2,10 @@
   "name": "flow-marketplace",
   "interface": {
     "displayName": "Flow",
-    "shortDescription": "Context-Driven Development with spec-first planning, TDD workflow, and Beads integration"
+    "shortDescription": "Context-Driven Development with spec-first planning, TDD workflow, and OKF knowledge bundles"
   },
   "metadata": {
-    "description": "The Flow Framework Marketplace — context-driven development tools, skills, and agents"
+    "description": "The Flow Framework Marketplace \u2014 context-driven development tools, skills, and agents"
   },
   "owner": {
     "name": "cofin",
@@ -14,15 +14,20 @@
   "plugins": [
     {
       "name": "flow",
-      "description": "Unified toolkit for Context-Driven Development with spec-first planning, TDD workflow, and Beads integration",
+      "description": "Unified toolkit for Context-Driven Development with spec-first planning, TDD workflow, and OKF knowledge bundles.",
       "version": "0.22.0",
-      "source": { "source": "local", "path": "./plugins/flow" },
-      "policy": { 
+      "source": {
+        "source": "local",
+        "path": "./plugins/flow"
+      },
+      "policy": {
         "installation": "AVAILABLE",
         "authentication": "ON_INSTALL"
       },
       "category": "Development",
-      "author": { "name": "cofin" }
+      "author": {
+        "name": "cofin"
+      }
     }
   ]
 }

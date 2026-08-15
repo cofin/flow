@@ -1,8 +1,6 @@
 
 # Flow Task
 
-> **Beads mode:** Skip every `bd` invocation below when the SessionStart hook reports `Beads Backend: Missing (None)` or `Disabled via plugin config (useBeads=false)`. Treat `spec.md` markers as fallback source of truth and skip `/flow:sync`. Never halt for missing Beads. See `discipline.md`.
-
 Create ephemeral exploration flow (no audit trail).
 
 ## Usage
@@ -25,11 +23,8 @@ Tasks have NO audit trail - meant to be discarded.
 
 ### Phase 1: Create Task
 
-```bash
-bd create "Task: {description}" -t task -p 4 \
-  --description="{exploration_goal}"
-bd update {task_task_id} --notes "Ephemeral exploration. Created by flow-task"
-```
+1. Generate `task_id` in the format `task_shortname` (e.g., `task_fix_login`).
+2. Record the exploration goal in the task's `notes.md`.
 
 ### Phase 2: Task Directory
 
@@ -66,7 +61,7 @@ git checkout .
 **Keep Notes** - Delete code, keep findings:
 
 ```bash
-mv .agents/tasks/{task_id}/findings.md .agents/research/
+mv .agents/tasks/{task_id}/findings.md .agents/bundles/research/
 rm -rf .agents/tasks/{task_id}
 ```
 

@@ -1,83 +1,58 @@
 ---
-description: Display progress overview with Beads status
+description: "Run the canonical flow/status Flow lifecycle."
 ---
 
-# Flow Status
+<!-- Generated from contracts/flow.yaml; generated-sha256: 8df297847fc6a2ac6d4788107babdd2359f1c645265ba8c447d1b1614e3465b2 -->
 
-Display progress overview for all active flows.
-
-## Phase 1: Load Registry
-
-Read `.agents/flows.md` to get list of active flows.
-
-## Phase 2: Beads Status (Source of Truth)
-
-```bash
-bd status                          # Workspace overview
-bd ready --json                    # Unblocked tasks ready to work
-bd list --status in_progress       # Active work
-bd list --status blocked           # Blocked tasks
+```json
+{
+  "agent": "flow-reconciler",
+  "argument_schema": {
+    "optional": [
+      "flow_id"
+    ],
+    "required": [],
+    "syntax": "[flow_id]"
+  },
+  "bounds_enforcement": "agent_validated",
+  "canonical_id": "flow/status",
+  "capability_evidence": "OpenCode built-in question tool documentation",
+  "choice_max": 4,
+  "choice_min": 2,
+  "completion_gates": [
+    "direct_markdown_read"
+  ],
+  "custom_answer_behavior": "native_custom_input",
+  "disabled_choice_policy": "omit",
+  "fallback": "Use Flow to report status",
+  "git_tags": "forbidden",
+  "host": "opencode",
+  "instruction": "Load the lifecycle owner and follow the canonical procedure source directly.",
+  "interaction_mode": "none",
+  "invocation": "/flow-status",
+  "kind": "flow_command_adapter",
+  "lifecycle_owner": "flow-sync-status",
+  "multi_select": true,
+  "mutability": "read_only",
+  "mutual_exclusion": true,
+  "plan_capability": "none",
+  "procedure_source": "skills/flow/references/status.md",
+  "question_capability": null,
+  "question_permission_check": "declared_and_allowed",
+  "question_tool": "question",
+  "question_transport": "conditional_native",
+  "runtime_dependency": "agent_file_tools_only",
+  "sequential_fallback": true,
+  "shared_contracts": [
+    "flow-state-v1"
+  ],
+  "state_operations": [
+    "status"
+  ],
+  "supported_selection_modes": [
+    "binary",
+    "single_select",
+    "multi_select"
+  ]
+}
 ```
-
-## Phase 3: Flow Summary (Beads-First)
-
-For each active flow:
-
-### Primary: Get Status from Beads
-
-```bash
-bd show {epic_id} --json
-```
-
-Count tasks by status: pending, in_progress, completed, blocked
-
-### Fallback: Parse spec.md
-
-If Beads unavailable:
-1. Read `.agents/specs/{flow_id}/spec.md`
-2. Parse Implementation Plan section
-
-## Phase 4: Display Dashboard
-
-```
-Flow Status Dashboard
-
-=== Active Flows ===
-
-[~] auth - Add user authentication
-    Progress: 5/12 tasks (41%)
-    Current: Phase 2, Task 6
-    Blockers: 0
-
-[ ] dark-mode - Add dark mode toggle
-    Progress: 0/8 tasks (0%)
-    Status: Not started
-
-=== Beads Ready ===
-
-Ready tasks (no blockers):
-  - auth: Task 6 - Implement login endpoint
-
-=== Beads Blocked ===
-
-Blocked tasks:
-  - auth: Task 8 - Waiting for API keys [!]
-
-=== Recent Activity ===
-
-- 14:30 - auth: Task 5 completed [abc1234]
-```
-
-## Phase 5: Recommendations
-
-Based on status, suggest next action:
-
-- If blocked: "Document blockers with `bd update {id} --status blocked --notes \"BLOCKED: {reason}\"`"
-- If no in-progress: "Run `/flow-implement {flow_id}`"
-- If complete: "Run `/flow-archive {flow_id}`"
-
-## Critical Rules
-
-1. **READ ONLY** - This command only displays information
-2. **BEADS IS SOURCE OF TRUTH** - Pull task status from Beads
-3. **ACTIONABLE** - Provide next step suggestions

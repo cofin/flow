@@ -1,104 +1,58 @@
 ---
-description: Validate project integrity and fix issues
-allowed-tools: Read, Write, Edit, Glob, Grep, Bash
+description: "Run the canonical flow/validate Flow lifecycle."
 ---
 
-# Flow Validate
+<!-- Generated from contracts/flow.yaml; generated-sha256: d02399f248bbccb7226c0461084acaa26652336aef6fce941de4cdc727ca6b38 -->
 
-> **Beads mode:** Skip every `bd` invocation below when the SessionStart hook reports `Beads Backend: Missing (None)` or `Disabled via plugin config (useBeads=false)`. Treat `spec.md` markers as fallback source of truth and skip `/flow:sync`. Never halt for missing Beads. See `skills/flow/references/discipline.md`.
->
-> Lifecycle skill: use `flow-setup` through the `flow` router.
-
-Validate Flow project integrity and optionally fix issues.
-
-## Phase 1: Directory Structure
-
-Check required files exist:
-
-- [ ] `.agents/product.md`
-- [ ] `.agents/tech-stack.md`
-- [ ] `.agents/workflow.md`
-- [ ] `.agents/beads.json`
-- [ ] `.agents/flows.md`
-- [ ] `.agents/patterns.md`
-- [ ] `.beads/` directory
-
----
-
-## Phase 2: Beads Health
-
-```bash
-bd --version
-bd status
+```json
+{
+  "agent": null,
+  "argument_schema": {
+    "optional": [
+      "scope"
+    ],
+    "required": [],
+    "syntax": "[scope]"
+  },
+  "bounds_enforcement": "agent_validated",
+  "canonical_id": "flow/validate",
+  "capability_evidence": "Claude Code declared AskUserQuestion contract",
+  "choice_max": 4,
+  "choice_min": 2,
+  "completion_gates": [
+    "validation_passed"
+  ],
+  "custom_answer_behavior": "native_custom_input",
+  "disabled_choice_policy": "omit",
+  "fallback": "Use Flow to validate this repository",
+  "git_tags": "forbidden",
+  "host": "claude_code",
+  "instruction": "Load the lifecycle owner and follow the canonical procedure source directly.",
+  "interaction_mode": "none",
+  "invocation": "/flow-validate",
+  "kind": "flow_command_adapter",
+  "lifecycle_owner": "flow-completion",
+  "multi_select": true,
+  "mutability": "read_only",
+  "mutual_exclusion": true,
+  "plan_capability": "none",
+  "procedure_source": "skills/flow/references/validate.md",
+  "question_capability": null,
+  "question_permission_check": "declared_and_allowed",
+  "question_tool": "AskUserQuestion",
+  "question_transport": "conditional_native",
+  "runtime_dependency": "agent_file_tools_only",
+  "sequential_fallback": true,
+  "shared_contracts": [
+    "flow-state-v1"
+  ],
+  "state_operations": [
+    "status"
+  ],
+  "supported_selection_modes": [
+    "binary",
+    "single_select",
+    "multi_select"
+  ]
+}
 ```
-
-Check Beads is operational.
-
----
-
-## Phase 3: Flow Consistency
-
-For each flow in `.agents/flows.md`:
-
-1. Verify directory exists: `.agents/specs/{flow_id}/`
-2. Verify required files: spec.md, metadata.json
-3. Verify Beads epic exists
-4. Check task count matches spec
-
----
-
-## Phase 4: Spec Integrity
-
-For each spec.md:
-
-- Task IDs are sequential
-- Status markers are valid: `[ ]`, `[~]`, `[x]`, `[!]`, `[-]`
-- Checkpoint SHAs exist in git history
-
----
-
-## Phase 5: Git Notes
-
-Verify git notes exist for completed tasks.
-
----
-
-## Phase 6: Report
-
-```text
-Flow Validation Report
-
-=== Structure ===
-[x] .agents/ directory complete
-[x] Beads initialized
-
-=== Flows ===
-[x] auth: 12 tasks, 5 complete
-[!] dark-mode: Missing spec.md
-
-=== Issues Found ===
-1. dark-mode: Missing spec.md
-2. auth: Task 3 marked complete but no commit SHA
-
-=== Recommendations ===
-- Run with --fix to auto-repair issues
-- Manually review dark-mode
-```
-
----
-
-## Phase 7: Auto-Fix (if --fix)
-
-If `--fix` argument provided:
-
-- Create missing files from templates
-- Sync Beads task counts
-- Add missing index files
-
----
-
-## Critical Rules
-
-1. **NON-DESTRUCTIVE** - Only report by default
-2. **FIX ON REQUEST** - Only modify with --fix flag
-3. **COMPREHENSIVE** - Check everything
