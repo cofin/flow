@@ -2248,40 +2248,23 @@ def iter_okf_bundles(repo_root: Path = REPO_ROOT) -> Iterator[Path]:
             yield path
 
 
-def validate_okf_bundle_root(repo_root: Path = REPO_ROOT) -> list[Violation]:
-    """Check the bundle root index declares its OKF version."""
-    try:
-        bundles_dir = resolve_okf_layout(repo_root).bundle_root
-    except ValueError as exc:
-        return [Violation(repo_root / ".agents" / "setup-state.json", 1, str(exc))]
-    if not bundles_dir.is_dir():
-        return []
-    index_path = bundles_dir / "index.md"
-    if not index_path.is_file():
-        return [
-            Violation(
-                index_path,
-                None,
-                "bundle root is missing index.md (should carry okf_version)",
-            )
-        ]
-    content = index_path.read_text(encoding="utf-8")
-    if (
-        not content.startswith("---\n")
-        or "okf_version" not in content.split("---\n", 2)[1]
-    ):
-        return [
-            Violation(
-                index_path,
-                1,
-                "bundle root index.md must declare okf_version in frontmatter",
-            )
-        ]
-    return []
+_OKF_LIFECYCLE_STATUSES = frozenset({"draft", "stable", "deprecated"})
+_WORKFLOW_STATES = frozenset(
+    {
+        "planned",
+        "active",
+        "completed",
+        "open",
+        "in_progress",
+        "closed",
+        "blocked",
+        "skipped",
+    }
+)
 
 
 def _validate_iso_timestamp(timestamp: Any) -> bool:
-    # PyYAML parses unquoted ISO-8601 stamps into datetime/date objects
+    """Validate that timestamp is a UTC ISO-8601 string or UTC datetime object."""
     if isinstance(timestamp, datetime.datetime):
         return (
             timestamp.tzinfo is not None
@@ -2291,6 +2274,206 @@ def _validate_iso_timestamp(timestamp: Any) -> bool:
         return False
     pattern = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$")
     return bool(pattern.match(str(timestamp)))
+
+
+def _validate_iso_date_or_timestamp(val: Any) -> bool:
+    """Validate that value is a valid ISO-8601 date or timestamp."""
+    if isinstance(val, (datetime.date, datetime.datetime)):
+        return True
+    if isinstance(val, str):
+        date_pattern = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+        ts_pattern = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$")
+        return bool(date_pattern.match(val) or ts_pattern.match(val))
+    return False
+
+
+def _validate_okf_frontmatter(
+    path: Path,
+    data: dict[str, Any],
+) -> list[Violation]:
+    """Validate standard OKF v0.2 frontmatter fields for any non-reserved OKF document."""
+    violations: list[Violation] = []
+
+    if "type" not in data or data["type"] is None or data["type"] == "":
+        violations.append(
+            Violation(path, 1, "missing required OKF frontmatter field: 'type'")
+        )
+    elif not isinstance(data["type"], str) or not data["type"].strip():
+        violations.append(
+            Violation(path, 1, "OKF field 'type' must be a non-empty string")
+        )
+
+    if "title" in data and data["title"] is not None:
+        if not isinstance(data["title"], str):
+            violations.append(
+                Violation(
+                    path,
+                    1,
+                    f"OKF field 'title' must be a string (got {type(data['title']).__name__})",
+                )
+            )
+
+    if "description" in data and data["description"] is not None:
+        if not isinstance(data["description"], str):
+            violations.append(
+                Violation(
+                    path,
+                    1,
+                    f"OKF field 'description' must be a string (got {type(data['description']).__name__})",
+                )
+            )
+
+    if "resource" in data and data["resource"] is not None:
+        if not isinstance(data["resource"], str):
+            violations.append(
+                Violation(
+                    path,
+                    1,
+                    f"OKF field 'resource' must be a string URI (got {type(data['resource']).__name__})",
+                )
+            )
+
+    if "tags" in data and data["tags"] is not None:
+        if not isinstance(data["tags"], list):
+            violations.append(
+                Violation(
+                    path,
+                    1,
+                    f"OKF field 'tags' must be a list (got {type(data['tags']).__name__})",
+                )
+            )
+        else:
+            for item in data["tags"]:
+                if not isinstance(item, str):
+                    violations.append(
+                        Violation(
+                            path,
+                            1,
+                            f"OKF field 'tags' items must be strings (got {type(item).__name__})",
+                        )
+                    )
+                    break
+
+    if data.get("status") is not None:
+        status_val = data["status"]
+        if status_val in _WORKFLOW_STATES:
+            violations.append(
+                Violation(
+                    path,
+                    1,
+                    f"field 'status' is the OKF lifecycle (draft|stable|deprecated); workflow state belongs in 'state' (got '{status_val}')",
+                )
+            )
+        elif status_val not in _OKF_LIFECYCLE_STATUSES:
+            violations.append(
+                Violation(
+                    path,
+                    1,
+                    f"field 'status' has invalid OKF lifecycle value '{status_val}' (expected draft|stable|deprecated)",
+                )
+            )
+
+    if data.get("stale_after") is not None:
+        val = data["stale_after"]
+        if not _validate_iso_date_or_timestamp(val):
+            violations.append(
+                Violation(
+                    path,
+                    1,
+                    f"OKF field 'stale_after' must be a valid ISO-8601 date/timestamp (got '{val}')",
+                )
+            )
+
+    for ts_field in ("created_at", "updated_at"):
+        if ts_field in data and data[ts_field] is not None:
+            val = data[ts_field]
+            if not _validate_iso_timestamp(val):
+                violations.append(
+                    Violation(
+                        path,
+                        1,
+                        f"field '{ts_field}' must be a valid ISO-8601 timestamp (got '{val}')",
+                    )
+                )
+
+    if "sources" in data and data["sources"] is not None:
+        if not isinstance(data["sources"], list):
+            violations.append(
+                Violation(
+                    path,
+                    1,
+                    f"OKF field 'sources' must be a list (got {type(data['sources']).__name__})",
+                )
+            )
+
+    return violations
+
+
+def validate_okf_bundle_root(repo_root: Path = REPO_ROOT) -> list[Violation]:
+    """Validate bundle root index, reserved files, and all OKF document frontmatter."""
+    violations: list[Violation] = []
+    try:
+        bundles_dir = resolve_okf_layout(repo_root).bundle_root
+    except ValueError as exc:
+        return [Violation(repo_root / ".agents" / "setup-state.json", 1, str(exc))]
+    if not bundles_dir.is_dir():
+        return []
+    index_path = bundles_dir / "index.md"
+    if not index_path.is_file():
+        violations.append(
+            Violation(
+                index_path,
+                None,
+                "bundle root is missing index.md (should carry okf_version)",
+            )
+        )
+    else:
+        index_data, index_errs = _parse_yaml_frontmatter(index_path)
+        if index_errs or index_data is None or "okf_version" not in index_data:
+            violations.append(
+                Violation(
+                    index_path,
+                    1,
+                    "bundle root index.md must declare okf_version in frontmatter",
+                )
+            )
+        elif str(index_data.get("okf_version")) not in ("0.1", "0.2", "0.3"):
+            violations.append(
+                Violation(
+                    index_path,
+                    1,
+                    f"unsupported okf_version '{index_data.get('okf_version')}' (expected '0.2' or '0.1')",
+                )
+            )
+
+    for md_path in sorted(bundles_dir.rglob("*.md")):
+        rel_to_bundle = md_path.relative_to(bundles_dir)
+        if rel_to_bundle == Path("index.md"):
+            continue
+        if rel_to_bundle == Path("log.md") or md_path.name == "index.md":
+            try:
+                text = md_path.read_text(encoding="utf-8")
+                if text.startswith("---\n"):
+                    _, reserved_errs = _parse_yaml_frontmatter(md_path)
+                    violations.extend(reserved_errs)
+            except OSError as exc:
+                violations.append(
+                    Violation(md_path, None, f"Failed to read file: {exc}")
+                )
+            continue
+
+        data, errs = _parse_yaml_frontmatter(md_path)
+        if errs:
+            violations.extend(errs)
+            continue
+        if data is None:
+            violations.append(Violation(md_path, 1, "missing YAML frontmatter"))
+            continue
+
+        violations.extend(_validate_okf_frontmatter(md_path, data))
+        violations.extend(_validate_markdown_links(md_path, repo_root, strict=False))
+
+    return violations
 
 
 def _parse_yaml_frontmatter(

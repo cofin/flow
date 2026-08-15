@@ -87,6 +87,153 @@ def test_workflow_state_in_status_is_flagged(tmp_path: Path) -> None:
     assert any("OKF lifecycle" in v.message for v in violations)
 
 
+def test_okf_concept_document_with_tags_and_provenance_passes(
+    tmp_path: Path,
+) -> None:
+    """A concept document with tags, sources, resource, and description passes."""
+    bundles = _build_canonical_bundle(tmp_path)
+    concept_file = bundles / "knowledge" / "orders.md"
+    concept_file.parent.mkdir(parents=True, exist_ok=True)
+    concept_file.write_text(
+        """---
+type: BigQuery Table
+title: Customer Orders
+description: One row per completed customer order across all channels.
+resource: https://console.cloud.google.com/bigquery?p=acme&d=sales&t=orders
+tags: [sales, orders, revenue]
+status: stable
+stale_after: 2026-12-31
+sources:
+  - id: bq-schema
+    resource: https://console.cloud.google.com/bigquery
+    author: team:data-eng
+    usage_count: 5000
+    last_modified: 2026-05-30
+---
+
+# Customer Orders Schema
+""",
+        encoding="utf-8",
+    )
+    violations = validate.validate_okf_bundle_root(tmp_path)
+    assert violations == [], "\n".join(str(v) for v in violations)
+
+
+def test_okf_concept_document_missing_type_is_flagged(tmp_path: Path) -> None:
+    """A non-reserved document without type field is flagged."""
+    bundles = _build_canonical_bundle(tmp_path)
+    concept_file = bundles / "knowledge" / "bad.md"
+    concept_file.parent.mkdir(parents=True, exist_ok=True)
+    concept_file.write_text(
+        """---
+title: Missing Type Doc
+tags: [test]
+---
+
+# Bad Document
+""",
+        encoding="utf-8",
+    )
+    violations = validate.validate_okf_bundle_root(tmp_path)
+    assert any(
+        "missing required OKF frontmatter field: 'type'" in v.message
+        for v in violations
+    )
+
+
+def test_okf_concept_document_invalid_tags_type_is_flagged(
+    tmp_path: Path,
+) -> None:
+    """A concept document where tags is not a list is flagged."""
+    bundles = _build_canonical_bundle(tmp_path)
+    concept_file = bundles / "knowledge" / "bad_tags.md"
+    concept_file.parent.mkdir(parents=True, exist_ok=True)
+    concept_file.write_text(
+        """---
+type: Pattern
+title: Bad Tags
+tags: "not-a-list"
+---
+
+# Bad Tags
+""",
+        encoding="utf-8",
+    )
+    violations = validate.validate_okf_bundle_root(tmp_path)
+    assert any("OKF field 'tags' must be a list" in v.message for v in violations)
+
+
+def test_okf_concept_document_invalid_tags_items_flagged(
+    tmp_path: Path,
+) -> None:
+    """A concept document where tags contains non-string items is flagged."""
+    bundles = _build_canonical_bundle(tmp_path)
+    concept_file = bundles / "knowledge" / "bad_tags_items.md"
+    concept_file.parent.mkdir(parents=True, exist_ok=True)
+    concept_file.write_text(
+        """---
+type: Pattern
+title: Bad Tag Items
+tags: [123, 456]
+---
+
+# Bad Tag Items
+""",
+        encoding="utf-8",
+    )
+    violations = validate.validate_okf_bundle_root(tmp_path)
+    assert any(
+        "OKF field 'tags' items must be strings" in v.message for v in violations
+    )
+
+
+def test_okf_concept_document_workflow_state_in_status_flagged(
+    tmp_path: Path,
+) -> None:
+    """A concept document storing workflow state in status is flagged."""
+    bundles = _build_canonical_bundle(tmp_path)
+    concept_file = bundles / "knowledge" / "bad_status.md"
+    concept_file.parent.mkdir(parents=True, exist_ok=True)
+    concept_file.write_text(
+        """---
+type: Guide
+title: Bad Status
+status: in_progress
+---
+
+# Bad Status
+""",
+        encoding="utf-8",
+    )
+    violations = validate.validate_okf_bundle_root(tmp_path)
+    assert any("OKF lifecycle" in v.message for v in violations)
+
+
+def test_okf_concept_document_unknown_type_and_custom_fields_tolerated(
+    tmp_path: Path,
+) -> None:
+    """Unknown type values and custom producer fields are tolerated per OKF spec."""
+    bundles = _build_canonical_bundle(tmp_path)
+    concept_file = bundles / "knowledge" / "custom.md"
+    concept_file.parent.mkdir(parents=True, exist_ok=True)
+    concept_file.write_text(
+        """---
+type: CustomDomainConcept
+title: Domain Entity
+tags: [custom, domain]
+confidence: 0.99
+custom_owner: team-alpha
+computation_target: bigquery
+---
+
+# Custom Concept
+""",
+        encoding="utf-8",
+    )
+    violations = validate.validate_okf_bundle_root(tmp_path)
+    assert violations == [], "\n".join(str(v) for v in violations)
+
+
 def test_flow_lifecycle_references_share_closed_state_enums_and_defaults() -> None:
     state_contract = REPO_ROOT / "skills" / "flow" / "references" / "state.md"
     assert state_contract.is_file()
