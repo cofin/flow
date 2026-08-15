@@ -97,7 +97,9 @@ def _run(
         "source": source,
         "contamination": "RAW PARTIAL OUTPUT\nSECRET DIAGNOSTIC",
     }
-    env = {**os.environ, "PATH": str(stub_dir), **(extra_env or {})}
+    original_path = os.environ.get("PATH", "")
+    test_path = os.pathsep.join(filter(None, (str(stub_dir), original_path)))
+    env = {**os.environ, "PATH": test_path, **(extra_env or {})}
     return subprocess.run(
         command,
         cwd=cwd,
