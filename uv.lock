@@ -264,7 +264,7 @@ toml = [
 
 [[package]]
 name = "flow"
-version = "0.22.1"
+version = "0.22.2"
 source = { virtual = "." }
 
 [package.dev-dependencies]

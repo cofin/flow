@@ -47,7 +47,8 @@ Identify all docs:
 
 - Flow specs (`.agents/`)
 - Flow folders (`.agents/bundles/specs/*/`)
-- Research folders (`.agents/bundles/research/*/`)
+- Un-promoted research (`.agents/bundles/research/*/`)
+- Promoted research (`.agents/bundles/specs/*/research/`)
 
 ### Quality Gate Checks
 

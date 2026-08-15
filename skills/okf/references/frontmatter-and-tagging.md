@@ -183,6 +183,10 @@ Tags enable multi-dimensional discovery, faceted search, and cross-cutting categ
 | **Asset Kind** | Layer or architecture tier | `api`, `database`, `pipeline`, `service`, `ui` |
 | **Operation** | Lifecycle or procedural role | `oncall`, `incident`, `triage`, `migration`, `deployment` |
 | **Compliance** | Security, privacy, governance | `pii`, `audit`, `sox`, `gdpr`, `security` |
+| **Work Kind** | Nature of the change (Flow specs/tasks) | `feature`, `bugfix`, `refactor`, `migration`, `performance`, `security`, `docs`, `test`, `chore` |
+
+Flow specs and tasks carry exactly one **Work Kind** tag plus 1–4 domain tags,
+so `state:` answers "what is current" and tags answer "what kind of work".
 
 ### 3.3 Anti-Patterns to Avoid
 

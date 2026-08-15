@@ -19,7 +19,7 @@ Completion and archive quality evidence follows `quality-review-v1` in
 
 `<configured-root>` is the normalized repository-relative `root_directory` read from `.agents/setup-state.json`, or `.agents/` when that file is absent. `<bundle-root>` is `bundles_dir` from `<configured-root>/config.json`, resolved relative to `<configured-root>`, or `<configured-root>/bundles` by default. `<flow-root>` is `<bundle-root>/specs/<flow_id>`.
 
-All three roots must remain inside the repository, contain no `..`, and traverse no symlink. Absolute, escaping, or invalid roots refuse before any state read or write. A journal records all three resolved repository-relative roots before a spec can disappear. Transaction journals live only at `<configured-root>/tasks/transactions/<operation-id>/journal.md`; there is no fixed `.agents/tasks/` exception.
+All three roots must remain inside the repository, contain no `..`, and traverse no symlink. Absolute, escaping, or invalid roots refuse before any state read or write. A journal records all three resolved repository-relative roots before a spec can disappear. Transaction journals live only at `<configured-root>/transactions/<operation-id>/journal.md`; there is no fixed `.agents/transactions/` exception. Journals are runtime recovery state, not knowledge: they never live under `<bundle-root>`, which holds OKF documents only.
 
 ## Contract enums and defaults
 
@@ -234,7 +234,7 @@ ordered_writes:
   - {base: flow_root, path: spec.md}
 read_set:
   - predicate: no_other_unresolved_journal
-    directory: {base: configured_root, path: tasks/transactions}
+    directory: {base: configured_root, path: transactions}
     excluding_operation_id: 20260813T203342Z-flow-executor-claim-1-1-00
     observed_operation_ids: []
   - base: flow_root
@@ -458,7 +458,7 @@ The matrix is exact. Each listed name expands to a complete namespaced read-set 
 
 ```yaml
 predicate_shapes:
-  transaction_directory_clear: {predicate: no_other_unresolved_journal, directory: {base: configured_root, path: tasks/transactions}, keys: [excluding_operation_id, observed_operation_ids]}
+  transaction_directory_clear: {predicate: no_other_unresolved_journal, directory: {base: configured_root, path: transactions}, keys: [excluding_operation_id, observed_operation_ids]}
   flow_absent: {predicate: flow_absent, target: {base: bundle_root, path: specs/<flow_id>}}
   spec_identity: {base: flow_root, path: spec.md, fields: [state, state_revision, current_task, plan_revision, plan_commit, last_operation, operation_targets]}
   all_task_identities: {predicate: all_task_identities, scope: {base: flow_root, glob: tasks/*.md}, fields: [id, state, state_revision, plan_revision, plan_commit, claimed_by, claimed_at, blocked_reason, unblock_condition, commit]}
@@ -490,9 +490,9 @@ predicate_shapes:
   completion_evidence_valid: {predicate: completion_evidence_valid, spec: {base: flow_root, path: spec.md}, evidence: "exact verification/code/quality/waiver payload"}
   archive_candidate_exact: {predicate: archive_candidate_exact, root: {base: flow_root, glob: "**/*"}, destinations: {paths: [{base: bundle_root, path: log.md}], globs: [{base: bundle_root, glob: knowledge/**/*.md}]}, manifest: "exact payload manifest"}
   archive_evidence_valid: {predicate: archive_evidence_valid, candidate: "exact payload archive_candidate_manifest", quality: "exact payload quality_report", waivers: "exact payload waivers"}
-  selected_journal_recoverable: {predicate: selected_journal_recoverable, directory: {base: configured_root, path: tasks/transactions}, operation_id: "payload journal_operation_id", states: [prepared, task_writes_started, recovery_required, rollback_in_progress]}
-  journal_arbitration_single_candidate: {predicate: journal_arbitration_single_candidate, directory: {base: configured_root, path: tasks/transactions}, observed_operation_ids: "complete sorted nonterminal ids"}
-  stage_read_set_matches: {predicate: stage_read_set_matches, journal: {base: configured_root, path: tasks/transactions/<operation-id>/journal.md}, recorded_read_set: "complete journal read_set"}
+  selected_journal_recoverable: {predicate: selected_journal_recoverable, directory: {base: configured_root, path: transactions}, operation_id: "payload journal_operation_id", states: [prepared, task_writes_started, recovery_required, rollback_in_progress]}
+  journal_arbitration_single_candidate: {predicate: journal_arbitration_single_candidate, directory: {base: configured_root, path: transactions}, observed_operation_ids: "complete sorted nonterminal ids"}
+  stage_read_set_matches: {predicate: stage_read_set_matches, journal: {base: configured_root, path: transactions/<operation-id>/journal.md}, recorded_read_set: "complete journal read_set"}
 operations:
   create.flow: [transaction_directory_clear, flow_absent]
   create.task: [transaction_directory_clear, spec_identity, all_task_identities, target_absent, dependencies_exist_and_acyclic]
@@ -741,7 +741,7 @@ Ordered writes are sorted knowledge files, `log.md`, sorted task/other flow file
 
 After compaction, handoff, or session loss, reconstruct authority with file tools in this exact order. Do not trust a hook, plugin, interpreter, synthesized packet, or prior conversation.
 
-1. Resolve/validate configured root, then read `<configured-root>/tasks/transactions/*/journal.md` before requiring any spec. A nonterminal journal blocks normal work; jointly arbitrate multiples. A sole/applied archive candidate selects its recorded flow even with no spec. Terminal journals are history only.
+1. Resolve/validate configured root, then read `<configured-root>/transactions/*/journal.md` and the retired `<configured-root>/tasks/transactions/*/journal.md` before requiring any spec. A nonterminal journal blocks normal work; jointly arbitrate multiples. A sole/applied archive candidate selects its recorded flow even with no spec. Terminal journals are history only.
 2. If no journal selected the flow, resolve bundle/index/spec paths through the index contract. Read every planned/active/completed spec frontmatter and Continuity Snapshot. Respect explicit user target; otherwise require exactly one active flow, or if none active exactly one completed flow awaiting archive; otherwise stop with candidates.
 3. For an existing spec, read all task frontmatter and verify equal plan revision/commit, revision bounds, current-task agreement, unique claim, dependencies, and checklist. For a deleted archive target, validate complete inventory/file-fragment live before/after states.
 4. For active work choose explicit requested task, else sole valid in-progress claim, else first ready `(priority, created_at, task_id)`. Read its complete worksheet and direct dependencies. For planned/completed flows, report activate/archive rather than selecting task work.

@@ -2736,7 +2736,7 @@ def _recorded_operation_request(
     except ValueError:
         return None
     journal = (
-        layout.configured_root / "tasks" / "transactions" / operation_id / "journal.md"
+        layout.configured_root / "transactions" / operation_id / "journal.md"
     )
     data, errors = _parse_yaml_frontmatter(journal)
     request = data.get("request") if data is not None and not errors else None
@@ -3999,7 +3999,7 @@ def _iter_transaction_journals(repo_root: Path) -> Iterator[Path]:
         layout = resolve_okf_layout(repo_root)
     except ValueError:
         return
-    directory = layout.configured_root / "tasks" / "transactions"
+    directory = layout.configured_root / "transactions"
     if directory.is_dir():
         yield from sorted(directory.glob("*/journal.md"))
 
@@ -4864,7 +4864,7 @@ def _validate_read_predicates(
         if predicate == "no_other_unresolved_journal":
             if (
                 not path_record(item.get("directory"), "path", "configured_root")
-                or item["directory"].get("path") != "tasks/transactions"
+                or item["directory"].get("path") != "transactions"
                 or item.get("excluding_operation_id") != data.get("operation_id")
                 or not _unique_strings(
                     item.get("observed_operation_ids"), sorted_values=True

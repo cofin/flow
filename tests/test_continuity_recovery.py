@@ -56,7 +56,7 @@ def _roots(repo: Path) -> tuple[Path, Path]:
 def _direct_reconstruct(repo: Path) -> dict[str, object]:
     configured, bundle = _roots(repo)
     journals = []
-    for path in sorted((configured / "tasks" / "transactions").glob("*/journal.md")):
+    for path in sorted((configured / "transactions").glob("*/journal.md")):
         values = _frontmatter(path)
         if values.get("state") in NONTERMINAL:
             values["path"] = path
@@ -176,7 +176,7 @@ def _write_journal(
     flow_root: str,
     selected: str | None = None,
 ) -> None:
-    directory = configured / "tasks" / "transactions" / operation_id
+    directory = configured / "transactions" / operation_id
     directory.mkdir(parents=True)
     selected_line = f"recovery_selected: {selected}\n" if selected else ""
     (directory / "journal.md").write_text(

@@ -62,6 +62,10 @@ one read-only pass before proposing or applying any write:
   duplicates across flat and bundle locations;
 - every file and directory recursively below each knowledge authority, preserving
   its nested relative path, index membership, and inbound/outbound relative links;
+- every research directory under `bundles/research/`, with the flow (if any)
+  that consumed it and whether it is already promoted;
+- transaction journals under `<configured-root>/transactions/`, recording
+  each journal's `state`;
 - both historical project-skill roots: legacy `.agents/bundles/skills/` and
   canonical `.agents/skills/`;
 - legacy tracker data and configuration, including `.agents/beads.json`,
@@ -205,7 +209,74 @@ For each migrated `planned`/`active` spec, verify task `state` values against so
 
 ### 0.1.5 Bundle Integrity Check
 
-Confirm `.agents/bundles/index.md` declares `okf_version: "0.2"`, `log.md` exists, every non-reserved bundle markdown file has a non-empty `type:`, and no spec or task file stores workflow state in `status:` (move such values to `state:`).
+Confirm `.agents/bundles/index.md` declares `okf_version: "0.2"` and `log.md`
+exists. Alignment then repairs what it finds rather than only reporting it.
+Propose all corrections as one approval, then apply:
+
+- **OKF frontmatter:** backfill every field the document's type defines, across
+  *all* existing bundle files including already-planned/active/completed specs
+  and their tasks. Derive values from the document's own content. Never invent a
+  `generated:` attribution.
+  - `type:`, `title:`, `description:` — no placeholders, no empty strings.
+  - `tags:` — never `[]`. One Work Kind plus 1–4 domain tags per
+    [OKF tagging](../../okf/references/frontmatter-and-tagging.md), so specs and
+    tasks are filterable by kind of work.
+  - Spec/Task identity and lifecycle fields (`flow_id`/`id`, `state`,
+    `created_at`, `updated_at`, plan and state revisions, `research`,
+    `parent_prd`) — reconstruct from file content, task files, and Git history;
+    where a value is genuinely unknowable, set the contract's null default
+    rather than omitting the key.
+  - Fix any workflow state found in `status:` by moving it to `state:`.
+- **Indexes:** every `index.md` lists its real members; every relative link
+  resolves.
+- **Retired roots:** remove files at superseded paths once the canonical copy is
+  confirmed current. If approval is withheld, record the refusal in
+  `setup-state.json` and mark alignment incomplete so the next run resumes here.
+
+### 0.1.5b Research Reorganization
+
+`bundles/research/` holds un-promoted research only. Reconcile it against the
+Promotion Contract in [Research](research.md):
+
+1. **Match research to flows.** For each directory under `bundles/research/`,
+   determine whether a spec bundle already consumed it — by explicit reference,
+   by overlapping subject matter, or by the user's confirmation.
+2. **Promote the matched.** Move each into
+   `.agents/bundles/specs/<flow_id>/research/`, set `state: promoted` and
+   `promoted_to:`, add `research:` to the receiving `spec.md`, and repair
+   inbound links. Use `git mv` under the `shared` policy.
+3. **Adopt the orphans.** Research with no flow that still describes work worth
+   doing gets one: derive `<slug>_<YYYYMMDD>` from its title, create
+   `bundles/specs/<flow_id>/spec.md` with `state: planned` seeded from the
+   research's summary and recommended approach, then promote into it. Confirm
+   the derived id; do not invent tasks — refinement happens later.
+4. **Contract the spent.** Research whose flow is archived, or whose subject the
+   codebase has resolved, is consolidated into the relevant `knowledge/` chapter
+   and deleted.
+5. **Normalize the rest.** Genuinely open research keeps its directory, renamed
+   to `<slug>_<YYYYMMDD>`, with complete OKF frontmatter and `state: open`.
+6. **Rebuild `bundles/research/index.md`.**
+
+Present the per-directory disposition for approval first. Never delete research
+without showing what was salvaged into `knowledge/`.
+
+### 0.1.5c Retired Root Migration
+
+Move retired paths to current ones, then remove the empty
+`<configured-root>/tasks/`:
+
+- `tasks/transactions/` → `transactions/` (journals)
+- `tasks/<task_id>/` → `scratch/<task_id>/` (ephemeral scratch)
+
+Arbitrate nonterminal journals before relocating them. Confirm both targets are
+Git-excluded.
+
+### 0.1.5d Transaction Journal Sweep
+
+Every session's continuity scan reads `<configured-root>/transactions/`, so
+spent journals are pure drag. Delete terminal journals (`committed`,
+`rolled_back`) and report the count. Recover or arbitrate nonterminal ones per
+[State](state.md) first; never delete those.
 
 ### 0.1.6 Policy & Context Validation
 
@@ -220,7 +291,10 @@ Each prompt remains opt-in (Yes/Skip). Reruns are idempotent - every Phase 7.5 s
 
 ### 0.1.7 Alignment Summary
 
-Provide a clear summary of all updates performed, including bundle integrity, workflow sync status, spec migration counts, policy/context updates, and validation results.
+Provide a clear summary of all updates performed, including bundle integrity, OKF frontmatter repairs, research promote/contract/rename counts, journals swept, workflow sync status, spec migration counts, policy/context updates, and validation results.
+
+Any repair the user declined is recorded in `setup-state.json` with the reason
+so a later run resumes it rather than re-proposing from scratch.
 
 **After alignment, HALT (don't continue to full setup).**
 
@@ -271,12 +345,25 @@ Copy `templates/agent/skills/flow-memory-keeper/SKILL.md` into `.agents/skills/f
 
 ## Phase 5: Git Configuration
 
-**PROTOCOL: Ask whether the knowledge bundle is shared (tracked) or private (local-only). Prefer `.git/info/exclude` for local-only entries; touch `.gitignore` only for explicit shared policy.**
+**PROTOCOL: Ask whether the knowledge bundle is shared (tracked) or private (stealth mode). Prefer `.git/info/exclude` for local-only entries; touch `.gitignore` only for explicit shared policy.**
 
-- **Shared** (recommended for teams): track `.agents/bundles/` (and `.agents/config.json`); exclude the rest of `.agents/` locally.
-- **Local-only:** append `.agents/` to `.git/info/exclude`.
+Ask this as a single `structured-choice-v1` question and persist the answer to
+`setup-state.json` as `workflow_preferences.ignore_policy`. Downstream
+lifecycles read that value instead of re-asking.
+
+- **`shared`** (recommended for teams): track `.agents/bundles/` (and `.agents/config.json`); exclude the rest of `.agents/` locally. Git history is the archive.
+- **`local-only` — stealth mode:** append `.agents/` to `.git/info/exclude`. Flow
+  runs normally and writes nothing to Git. State the trade-off plainly when
+  asking: planning artifacts stay private and out of the team's history, and in
+  exchange archived flows are gone for good — the knowledge chapters and
+  `log.md` are the only durable record. Some users want exactly this; it is a
+  supported mode, not a degraded one.
 
 Always APPEND, never overwrite. Never force-add ignored Flow files.
+
+Whichever mode is chosen, transaction journals under
+`<configured-root>/transactions/` are always untracked — they are
+crash-recovery state, not history.
 
 ---
 
@@ -442,4 +529,6 @@ Next Steps:
 7. **SAVE STATE** - Enable resume if interrupted
 8. **NO FORCE-ADD** - If a Flow file is ignored, do not force-add it to a commit
 9. **REVALIDATE EXISTING INSTALLS** - Existing installs must be offered workflow refresh/update, not just syntax checks
-10. **PREFER REPO-NATIVE COMMANDS** - Capture and reuse canonical commands like `make lint`, `make test`, `make check`, `just check`, or equivalent wrappers
+10. **ALIGNMENT REPAIRS** - Alignment fixes OKF frontmatter, indexes, research placement, and terminal journals; it does not merely report them
+11. **RESEARCH IS UN-PROMOTED ONLY** - Research consumed by a flow lives in that flow's bundle; orphaned research is contracted into `knowledge/`, not hoarded
+12. **PREFER REPO-NATIVE COMMANDS** - Capture and reuse canonical commands like `make lint`, `make test`, `make check`, `just check`, or equivalent wrappers
