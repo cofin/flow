@@ -30,7 +30,11 @@ invocations, capabilities, and reload behavior.
 
 ### Antigravity
 
-Install Flow through Antigravity's native Plugins & Skills flow. Flow ships the
+```bash
+agy plugin install https://github.com/cofin/flow
+```
+
+This uses Antigravity's documented Plugins & Skills installer. Flow ships the
 plugin manifest at `plugin.json`, the model-decision rule under `rules/`, and
 the static PreInvocation routing manifest at `hooks/hooks-agy.json`.
 

@@ -1,0 +1,3 @@
+interface:
+  display_name: "Flow State"
+  short_description: "Apply and recover deterministic Flow Markdown state transactions"

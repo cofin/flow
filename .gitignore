@@ -225,8 +225,5 @@ opencode.json
 !.agents/plugins/
 !.agents/plugins/marketplace.json
 
-# Codex package build directory
-plugins/flow/
-
 # Local-only environment bridge notes (never committed)
 docs/*-bridge.md
