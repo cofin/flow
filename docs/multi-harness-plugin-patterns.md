@@ -24,7 +24,7 @@ Reference for Flow-family repositories that ship skills, commands, hooks, or age
 
 Use the harness's primary mechanism:
 
-- Antigravity: native Plugins & Skills installer for the repository.
+- Antigravity: `agy plugin install https://github.com/cofin/flow`.
 - Claude Code: `claude plugin marketplace add <owner>/<repo>` followed by `claude plugin install <plugin>@<marketplace>`.
 - Codex CLI: `codex plugin marketplace add <owner>/<repo>` and enable through `/plugins`.
 - Cursor, VS Code / Copilot, and OpenClaw: supported rules, custom agents, and Agent Skills discovery.

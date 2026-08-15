@@ -78,8 +78,8 @@ commands; the natural-language spellings above are its public interface.
 
 ## Install, cache, and reload behavior
 
-- Antigravity uses its native Plugins & Skills installer. Restart after install
-  or update so plugin rules, hooks, agents, and skills reload.
+- Antigravity uses `agy plugin install https://github.com/cofin/flow`. Restart
+  after install or update so plugin rules, hooks, agents, and skills reload.
 - Claude Code uses `claude plugin marketplace add`, `claude plugin install`,
   `claude plugin marketplace update`, and `claude plugin update`. Updating the
   catalog and the installed plugin are separate steps; restart afterward.

@@ -133,7 +133,7 @@ def revert_flow_bundle_delete(flow_id: str, repo_root: Path = REPO_ROOT) -> None
 
     try:
         subprocess.run(
-            ["git", "checkout", "HEAD", "--", str(target_rel_path)],
+            ["git", "checkout", "HEAD", "--", target_rel_path.as_posix()],
             cwd=str(repo_root),
             check=True,
             capture_output=True,

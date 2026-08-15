@@ -1,0 +1,3 @@
+interface:
+  display_name: "Security Auditor"
+  short_description: "Security review for auth, input, secrets, sessions, injection, files, and APIs"

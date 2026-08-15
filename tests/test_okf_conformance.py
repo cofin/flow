@@ -1788,8 +1788,8 @@ def test_journal_rejects_missing_wrong_or_escaping_bases(
     messages = "\n".join(
         item.message for item in validate.validate_markdown_transactions(root)
     )
-    assert str(path.relative_to(root)) in "\n".join(
-        str(item.path.relative_to(root))
+    assert path.relative_to(root).as_posix() in "\n".join(
+        item.path.relative_to(root).as_posix()
         for item in validate.validate_markdown_transactions(root)
     )
     assert "base" in messages or "escapes" in messages

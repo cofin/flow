@@ -76,10 +76,6 @@ def _stub_commands(root: Path) -> tuple[Path, Path]:
         "python3",
         "sed",
         "awk",
-        "sh",
-        "bash",
-        "pwsh",
-        "powershell",
         "node",
         "arbitrary-child",
     ):

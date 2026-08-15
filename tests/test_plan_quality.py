@@ -39,7 +39,9 @@ def _replace(path: Path, old: str, new: str) -> None:
 
 
 def _messages(violations) -> str:
-    return "\n".join(f"{item.path}:{item.line}: {item.message}" for item in violations)
+    return "\n".join(
+        f"{item.path.as_posix()}:{item.line}: {item.message}" for item in violations
+    )
 
 
 def test_complete_executable_plan_and_continuity_pass(tmp_path: Path) -> None:

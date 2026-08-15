@@ -30,6 +30,12 @@ def test_codex_manifest_discovery_excludes_claude_marketplace() -> None:
     assert REPO_ROOT / ".codex-plugin" / "plugin.json" in plugin_manifests
 
 
+def test_codex_marketplace_source_is_a_shipped_plugin_package() -> None:
+    marketplace = REPO_ROOT / ".agents" / "plugins" / "marketplace.json"
+
+    assert validate_codex_manifest.validate_codex_marketplace(marketplace, REPO_ROOT) == []
+
+
 def test_codex_package_layout_accepts_real_package_directories(tmp_path: Path) -> None:
     package = tmp_path / "plugins" / "flow"
     for name in validate_codex_manifest.PACKAGE_DIRS:

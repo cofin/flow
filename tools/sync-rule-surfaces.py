@@ -43,6 +43,11 @@ def _digest(payload: str) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+def _digest_file(path: Path) -> str:
+    """Hash source bytes without platform newline translation."""
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
 def _strings(value: Any, context: str) -> tuple[str, ...]:
     if not isinstance(value, list) or not value:
         raise ContractError(f"{context} must be a non-empty list")
@@ -94,7 +99,7 @@ def load_core_rule(path: Path) -> CoreRule:
         lifecycle,
         dict(activation),
         body,
-        _digest(source),
+        _digest_file(path),
     )
 
 
@@ -157,7 +162,7 @@ def semantic_records(
         )
     if core.shared_contracts != tuple(contract.shared_contracts):
         raise ContractError("canonical rule shared contracts must match the contract")
-    contract_sha256 = _digest(contract_path.read_text(encoding="utf-8"))
+    contract_sha256 = _digest_file(contract_path)
     return {
         harness_id: _adapter_record(contract, core, harness_id, contract_sha256)
         for harness_id in contract.harnesses

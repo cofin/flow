@@ -7000,8 +7000,8 @@ def validate_markdown_transactions(repo_root: Path = REPO_ROOT) -> list[Violatio
         layout = resolve_okf_layout(repo_root)
     except ValueError as exc:
         return [Violation(repo_root / ".agents" / "setup-state.json", 1, str(exc))]
-    configured_rel = str(layout.configured_root.relative_to(repo_root.resolve()))
-    bundle_rel = str(layout.bundle_root.relative_to(repo_root.resolve()))
+    configured_rel = layout.configured_root.relative_to(repo_root.resolve()).as_posix()
+    bundle_rel = layout.bundle_root.relative_to(repo_root.resolve()).as_posix()
     journal_records: list[tuple[Path, dict[str, Any]]] = []
     for path in _iter_transaction_journals(repo_root):
         data, errors = _journal_data(path)

@@ -1,8 +1,12 @@
 # Installing Flow for Antigravity
 
-Flow is a first-class Antigravity plugin. Install it through Antigravity's
-native Plugins & Skills installer, then restart Antigravity after installation
+Flow is a first-class Antigravity plugin. Install it with Antigravity's
+documented Plugins & Skills command, then restart Antigravity after installation
 or update so the manifest, rule, hook, agents, and skills reload.
+
+```bash
+agy plugin install https://github.com/cofin/flow
+```
 
 ## Shipped surfaces
 

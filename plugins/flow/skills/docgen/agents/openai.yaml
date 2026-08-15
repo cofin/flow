@@ -1,0 +1,3 @@
+interface:
+  display_name: "Documentation Generation"
+  short_description: "Systematic codebase, API, module, component, and reference documentation"
