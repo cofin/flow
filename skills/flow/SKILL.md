@@ -1,7 +1,6 @@
 ---
 name: flow
 description: "Use when a repository has .agents, when the user asks for Flow lifecycle routing, OKF bundle task tracking, spec-first planning, TDD implementation, sync/status, review, finish, archive, or /flow:* help."
-disable-model-invocation: true
 ---
 
 # Flow Router
@@ -36,7 +35,9 @@ Identify the selected lifecycle skill and hand off the request immediately.
 
 ## Validation
 
-Confirm exactly one lifecycle owner matches the requested operation.
+Confirm exactly one lifecycle owner matches the requested operation and that
+the active host exposes its `/flow:<operation>` command or can load the named
+owner skill directly.
 
 ## Example
 

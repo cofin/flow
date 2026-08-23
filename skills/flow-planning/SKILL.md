@@ -41,6 +41,23 @@ planning_loop:
 - Planning modifies files exclusively under `.agents/bundles/specs/<flow_id>/`. Never edit application source code during planning.
 - A plan is Ready only when a zero-context agent can implement every task correctly from the worksheet alone.
 - Every task must be sized for exactly one subagent invocation and one atomic Git commit.
+- Select exactly one verification strategy from the maintained matrix below.
+
+## Verification Strategy Selection
+
+| Strategy | Change class | Required initial evidence | Required final evidence |
+| --- | --- | --- | --- |
+| `behavior_tdd` | New observable behavior | Focused behavior test fails because the behavior is absent. | Focused test and relevant aggregate verification pass. |
+| `regression_tdd` | Defect correction | Focused reproduction fails with the reported symptom. | Regression and relevant aggregate verification pass. |
+| `characterization` | Behavior-preserving refactor or deletion | Focused behavior baseline passes before the change. | The same behavior evidence passes unchanged; compare affected coverage when execution could be lost. |
+| `static_validation` | Manifest, config, generated output, or tooling | Native parser, lint, type, build, or generator baseline runs. | An isolated representative violation fails with the expected diagnostic, then restored focused and aggregate gates pass. |
+| `documentation_validation` | Links, examples, or document structure | Applicable documentation-native baseline runs. | Documentation-native checks and promised examples pass. |
+| `integration_acceptance` | Composition of existing contracts | Focused integration baseline passes. | End-to-end scenario passes and injected negative states prove refusal paths. |
+
+Put the selected `verification_strategy` in task frontmatter. In `## Verification`,
+name the exact initial and final commands, expected result, and any required
+diagnostic. A waiver must retain the strategy and record rationale, approver,
+and compensating evidence.
 
 ## Output
 
@@ -48,7 +65,9 @@ Return the finalized spec path, child tasks, review findings, and the next lifec
 
 ## Validation
 
-Confirm requirement-to-task traceability, complete worksheets, test command specifications, and user approval.
+Confirm requirement-to-task traceability, complete worksheets, an allowed
+verification strategy with concrete initial/final evidence, test command
+specifications, and user approval.
 
 ## Example
 

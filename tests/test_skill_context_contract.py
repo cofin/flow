@@ -10,6 +10,24 @@ AUDIT_PATH = REPO_ROOT / "tools" / "audit-skill-contracts.py"
 REVIEWER_AUTHORITIES = {
     "okf": ("spec.md", "frontmatter-and-tagging.md"),
 }
+ROOT_INSTRUCTION_WORD_LIMIT = 180
+MODEL_DESCRIPTION_WORD_LIMIT = 45
+LIFECYCLE_SKILLS = (
+    "flow",
+    "flow-setup",
+    "flow-planning",
+    "flow-execution",
+    "flow-sync-status",
+    "flow-completion",
+)
+VERIFICATION_STRATEGIES = (
+    "behavior_tdd",
+    "regression_tdd",
+    "characterization",
+    "static_validation",
+    "documentation_validation",
+    "integration_acceptance",
+)
 
 
 def _copy_audit_tree(tmp_path: Path) -> Path:
@@ -73,6 +91,55 @@ def test_repository_skill_context_contract_passes() -> None:
 
     assert result.returncode == 0, result.stdout + result.stderr
     assert result.stdout == "Skill context contracts pass.\n"
+
+
+def test_always_loaded_root_instructions_have_a_separate_word_budget() -> None:
+    roots = (REPO_ROOT / "AGENTS.md", REPO_ROOT / "CLAUDE.md")
+    counts = {path.name: len(path.read_text(encoding="utf-8").split()) for path in roots}
+
+    assert sum(counts.values()) <= ROOT_INSTRUCTION_WORD_LIMIT, counts
+    for path in roots:
+        text = path.read_text(encoding="utf-8")
+        assert "type: Spec" not in text
+        assert "type: Task" not in text
+
+
+def test_model_invoked_descriptions_have_their_own_budget_and_are_reachable() -> None:
+    for skill_name in LIFECYCLE_SKILLS:
+        path = REPO_ROOT / "skills" / skill_name / "SKILL.md"
+        text = path.read_text(encoding="utf-8")
+        description = next(
+            line.removeprefix("description:").strip().strip('"')
+            for line in text.splitlines()
+            if line.startswith("description:")
+        )
+        assert len(description.split()) <= MODEL_DESCRIPTION_WORD_LIMIT, skill_name
+    router = (REPO_ROOT / "skills" / "flow" / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
+    assert "disable-model-invocation: true" not in router
+
+
+def test_router_reaches_every_lifecycle_owner_semantically() -> None:
+    router = (REPO_ROOT / "skills" / "flow" / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
+    for skill_name in LIFECYCLE_SKILLS[1:]:
+        assert f"`{skill_name}`" in router
+
+
+def test_planning_and_execution_preserve_every_verification_strategy() -> None:
+    planning = (REPO_ROOT / "skills" / "flow-planning" / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
+    execution = (REPO_ROOT / "skills" / "flow-execution" / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
+    for strategy in VERIFICATION_STRATEGIES:
+        assert strategy in planning
+        assert strategy in execution
+    assert "Initial evidence" in execution
+    assert "Final evidence" in execution
 
 
 def test_reviewer_authority_map_is_direct_and_singular() -> None:

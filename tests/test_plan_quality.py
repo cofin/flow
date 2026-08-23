@@ -385,6 +385,30 @@ def test_timestamps_priority_and_verification_strategy_use_closed_contracts(
     assert "claimed_at" in messages and "UTC" in messages
 
 
+@pytest.mark.parametrize(
+    "strategy",
+    [
+        "behavior_tdd",
+        "regression_tdd",
+        "characterization",
+        "static_validation",
+        "documentation_validation",
+        "integration_acceptance",
+    ],
+)
+def test_every_verification_strategy_is_valid_in_a_task_example(
+    tmp_path: Path, strategy: str
+) -> None:
+    root, bundle = _fixture(tmp_path)
+    _replace(
+        bundle / "tasks" / "1.2.md",
+        "verification_strategy: behavior_tdd",
+        f"verification_strategy: {strategy}",
+    )
+
+    assert validate.validate_okf_bundle(bundle, root) == []
+
+
 def test_activate_is_spec_only_and_snapshot_checkpoint_must_match(
     tmp_path: Path,
 ) -> None:
