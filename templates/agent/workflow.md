@@ -30,13 +30,13 @@ Use non-interactive modes in automation. Before claiming a result, run the exact
 ## Direct-read continuity
 
 1. Resolve `.agents/setup-state.json:root_directory`, defaulting to `.agents/`.
-2. Read unresolved transaction journals under `<configured-root>/transactions/` before normal work.
-3. Read active/completed spec frontmatter and Continuity Snapshot, then all task frontmatter.
-4. Verify plan identity, state revision bounds, current claim, dependencies, and checklist agreement.
-5. Select an explicit task, the sole in-progress task, or the first ready task ordered by priority, creation time, and id.
-6. Read the complete worksheet, direct dependencies, newest discoveries, and only the relevant project-shaped knowledge chapters.
+2. Read `.agents/bundles/index.md` and active spec frontmatter under `.agents/bundles/specs/<flow_id>/`.
+3. Read authoritative task frontmatter in `tasks/*.md`.
+4. Verify task dependencies, claims, and checklist agreement.
+5. Select an explicit task, the sole in-progress task, or the first ready task.
+6. Read the complete worksheet, direct dependencies, newest discoveries, and relevant knowledge chapters.
 
-Hooks and prior conversation are routing hints, not authority. State operations use ordinary file tools and the packaged Flow state contract; there is no Flow CLI or consumer Python runtime.
+Hooks and prior conversation are routing hints, not authority. Task files are the single authority for task state.
 
 ## Task and state operations
 
@@ -44,18 +44,15 @@ A task is ready when `state: open`, all `depends_on` tasks are `closed`, its wor
 
 | Operation | Purpose |
 | --- | --- |
-| `claim` | Move one ready task to `in_progress` and set the spec current task. |
-| `discover` | Append investigation evidence without changing the worksheet. |
+| `claim` | Move one ready task to `in_progress`. |
+| `note` | Append investigation findings to `## Notes & Discoveries`. |
 | `block` / `unblock` | Record or resolve an exact blocker and next step. |
 | `release` | Return an in-progress task to open when the claimant stops. |
-| `checkpoint` | Bind fresh task, phase, or plan evidence. |
-| `close` | Close the sole claimed task with commit-bound evidence. |
-| `revise` | Change approved plan-bearing content and increment plan identity. |
-| `reconcile` | Update derived spec checklist/snapshot from task-file truth. |
-| `complete` / `archive` | Finish verified work, synthesize knowledge, log, then contract the spec directory. |
-| `recover` | Resume or roll back one recorded interrupted transaction. |
+| `close` | Close the sole claimed task with recorded commit SHA. |
+| `reconcile` | Update spec checklist markers from task-file frontmatter via `/flow:sync`. |
+| `archive` | Finish verified work, elevate knowledge, log summary, then contract spec directory. |
 
-Never edit task/spec state or checklist markers independently. Apply task changes before spec changes in one journaled state transaction and reread the result. A worksheet mismatch stops production mutation and routes through `discover`, `block`, and `revise` or `refine`.
+Use `/flow:sync` to reconcile `spec.md` checklist markers from task files. Task files remain authoritative for state. A worksheet mismatch stops production mutation and routes through refinement.
 
 ## Verification strategies
 

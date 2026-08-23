@@ -1,6 +1,7 @@
 ---
 name: flow-execution
 description: "Use when implementing Flow tasks from local task files under `.agents/bundles/specs/<flow_id>/tasks/`, claiming ready work, applying the declared verification strategy, recording task notes, committing, and updating task file state."
+disable-model-invocation: true
 ---
 
 # Flow Execution
@@ -9,7 +10,7 @@ description: "Use when implementing Flow tasks from local task files under `.age
 
 ## Trigger
 
-Use for `implement` only, after a validated plan contains a ready worksheet.
+Use for `implement` only, after a validated plan contains ready task worksheets.
 
 <!-- flow-execution-policy: start -->
 ```yaml
@@ -29,44 +30,27 @@ authority: skills/flow/references/implement.md
 
 ## Workflow
 
-1. Read `use_branched_workspaces` from `.agents/config.json` (default `false`).
-2. Preflight one open task: closed dependencies, complete worksheet, live
-   targets, declared strategy, matching plan identity, and fresh state revision.
-3. Claim through `flow-reconciler`. For delegated branched work, dispatch one
-   worksheet only; otherwise execute inline with the same contract.
-4. Record discoveries, obtain the strategy's required initial evidence, make
-   the minimum task-owned change, and keep focused evidence green while
-   refactoring.
-5. Run fresh verification, stage exact paths, create one local commit, and send
-   commit-bound close evidence to `flow-reconciler`.
-6. A worksheet mismatch permits read-only reproduction only; discover and
-   block or release, then resume only after revised identity and fresh preflight.
+1. **Preflight**: Inspect `.agents/bundles/specs/<flow_id>/tasks/<short_id>.md`, verify dependencies are `closed`, and set `state: in_progress`.
+2. **Red-First Verification**: Run the declared test command and confirm it fails (red) on the missing behavior.
+3. **Minimal Implementation**: Write minimal production code to pass the verification test (green, exit code 0).
+4. **Quality Gates**: Run repository linters and typecheckers while tests remain green.
+5. **Atomic Commit & Close**: Stage exact files, commit with signed Git commit, update task frontmatter (`state: closed`, `commit: <sha>`), and reconcile `spec.md` checklist via `/flow:sync`.
 
 ## Guardrails
 
-- Never edit task/spec state or checklist markers outside the state contract.
-- Use red-green-refactor only for behavior/regression strategies; do not invent
-  a RED result for static, documentation, characterization, or integration work.
-- Preserve unrelated work and never push automatically. Never create or mutate Git tags.
+- Execute exactly one task per subagent dispatch.
+- Never mark a task `closed` without running the test command and observing exit code 0.
+- Stage only task-owned files; never perform opportunistic unrelated edits.
+- Work on the active branch. Never create or mutate Git tags.
 
 ## Output
 
-Return initial and final evidence, changed/staged paths, local commit SHA,
-discoveries, close result, and every verification limitation.
+Return the executed task ID, test command output, git commit SHA, and recorded discoveries.
 
 ## Validation
 
-Require the declared strategy's initial proof, focused and aggregate evidence,
-acceptance-criteria checks, no foreign staged paths, and a fresh close result.
-
-## Conditional References
-
-- [Implement](../flow/references/implement.md) — load for preflight and mismatch routes.
-- [Discipline](../flow/references/discipline.md) — load for the declared strategy.
-- [State](../flow/references/state.md) — load before any state request.
-- [Git Notes](../../docs/git-notes.md) — load only for optional post-close notes.
+Confirm the test command produced exit code 0 and the commit SHA is recorded in task frontmatter.
 
 ## Example
 
-For one ready task, preflight, claim, collect required initial evidence,
-implement minimally, verify, commit locally, and request close.
+For a task adding a route handler, write a failing endpoint test, implement the route to pass the test, commit locally, and close the task worksheet.

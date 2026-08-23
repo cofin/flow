@@ -13,6 +13,20 @@
           }
         ]
       }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "name": "flow-git-guardrail",
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-.}}/hooks/block-dangerous-git.sh\"",
+            "timeout": 10,
+            "description": "Intercept and block destructive Git operations."
+          }
+        ]
+      }
     ]
   }
 }

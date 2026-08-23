@@ -159,7 +159,7 @@ def test_manifest_targets_resolve_to_direct_emitters() -> None:
         for command in commands:
             assert "||" not in command and "&&" not in command and "|" not in command
             matches = re.findall(
-                r"hooks/(session-start|agy-pre-invocation)\.(sh|ps1|js|cmd)", command
+                r"hooks/(session-start|agy-pre-invocation|block-dangerous-git)\.(sh|ps1|js|cmd)", command
             )
             assert len(matches) == 1, (manifest, command)
             stem, suffix = matches[0]

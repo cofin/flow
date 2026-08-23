@@ -1,48 +1,28 @@
 # Flow for Claude Code
 
-Use the Flow skill for context-driven development workflows in repos that use `.agents/`.
+Use the Flow skill for context-driven development workflows in repositories that use `.agents/`.
 
-> **Flow is a skill, not a CLI.** There is no `flow` executable. Never run `flow`, `flow sync`, `flow prd`, `flow status`, etc. as shell commands — they will fail. Invoke the Flow skill, or use the `/flow:*` slash commands (e.g. `/flow:sync`, `/flow:prd`).
+> **Flow is a skill, not a CLI.** There is no `flow` executable. Never run `flow` as a shell command. Invoke the Flow skill or use slash commands (e.g. `/flow:plan`, `/flow:implement`, `/flow:sync`, `/flow:review`).
 
-## Defaults
+## Core Conventions
 
-- Task persistence lives in OKF bundle files under `.agents/bundles/specs/<flow_id>/` (spec.md + tasks/*.md). There is no task database or CLI.
-- Prefer `.git/info/exclude` for local-only ignores.
-- Use `.gitignore` only when the user explicitly wants a shared repo policy.
+- **Task Persistence**: All planning artifacts and task files live under `.agents/bundles/specs/<flow_id>/` (`spec.md` and `tasks/*.md`).
+- **Direct Frontmatter Sync**: Reconcile `spec.md` checklist markers directly from task file frontmatter via `/flow:sync`.
+- **Knowledge Base**: Project context and conventions live in `.agents/bundles/knowledge/` and `.agents/bundles/product/`.
 
-## Flow Intent Triggers
+## Lifecycle Routing
 
-Use Flow when the user asks to:
+Route operations to the dedicated Flow lifecycle skills:
 
-- set up a project
-- plan or revise a flow
-- research or document a flow
-- implement a flow
-- sync status or refresh context
-- review, finish, archive, or revert a flow
+- **Setup & Alignment**: `skills/flow-setup/SKILL.md` (`/flow:setup`)
+- **Planning & Refinement**: `skills/flow-planning/SKILL.md` (`/flow:prd`, `/flow:plan`, `/flow:refine`, `/flow:revise`)
+- **Implementation & TDD**: `skills/flow-execution/SKILL.md` (`/flow:implement`)
+- **Sync & Status**: `skills/flow-sync-status/SKILL.md` (`/flow:sync`, `/flow:status`, `/flow:refresh`)
+- **Review, Docs & Finish**: `skills/flow-completion/SKILL.md` (`/flow:review`, `/flow:finish`, `/flow:archive`, `/flow:docs`, `/flow:validate`)
 
-When Flow planning is active:
+## Operational Protocol
 
-- route setup work through `flow-setup`, PRD/spec/refine work through `flow-planning`, implementation through `flow-execution`, sync/status through `flow-sync-status`, and review/finish/archive work through `flow-completion`
-- automatically use the matching Flow workflow instead of staying in generic chat mode
-- keep the workflow in research/planning mode while researching, questioning, drafting, and revising planning artifacts
-- refine coarse tasks before implementation so lighter-weight executors do not have to guess
-- do not finish PRD/planning while obvious research gaps remain
-- revalidate `workflow.md` on existing installs when workflow settings or canonical commands may be stale
-
-When Flow implementation is active:
-
-- load `flow-execution` after the `flow` router skill so the monolithic Flow skill does not carry implementation-only detail into unrelated requests
-- read `.agents/workflow.md` and prefer the repo's canonical commands for setup, lint, test, typecheck, and full verification
-- preserve context for subagents with `spec.md`, parent PRD context, `patterns.md`, relevant `knowledge/` chapters, `learnings.md`, affected files, and verification requirements
-- prefer refined tasks before dispatching lighter-weight agents
-- use TDD and verification workflows before claiming completion
-- make minimal targeted changes, avoid opportunistic unrelated edits, and never silently descope
-- be collaborative when blockers appear; describe them factually and avoid blame-shifting, ownership-deflecting language
-
-## Harness Notes
-
-- Use `claude plugin marketplace add` and `claude plugin install` for extension lifecycle work.
-- Restart the Claude Code session after plugin management operations.
-- Flow artifacts belong in `.agents/bundles/specs/`, not `docs/superpowers/`.
-- Prefer refined tasks before dispatching lighter-weight agents.
+- **Refined Tasks First**: Refine task worksheets with concrete public seams, test commands, and steps before dispatching executors.
+- **Seam-First TDD**: Run failing verification tests (red) before writing code, and pass tests cleanly (green) before closing tasks.
+- **Atomic Commits**: Stage touched files and create signed Git commits with the recorded commit SHA.
+- **Git Boundaries**: Work on the active branch; never push force or mutate Git tags.

@@ -3453,7 +3453,11 @@ _RUNTIME_CODE = re.compile(
     re.IGNORECASE,
 )
 _HOOK_SCRIPT_SUFFIXES = {".sh", ".ps1", ".cmd", ".bat"}
-_HOOK_MAINTAINER_DIAGNOSTICS = {"hooks/detect-env.sh", "hooks/detect-env.ps1"}
+_HOOK_MAINTAINER_DIAGNOSTICS = {
+    "hooks/detect-env.sh",
+    "hooks/detect-env.ps1",
+    "hooks/block-dangerous-git.sh",
+}
 _HOOK_TARGET_FORBIDDEN = re.compile(
     r"(?:\|\||&&|;|(?<!\|)\|(?!\|)|detect-env|python|node|bun|pwsh|powershell|\.ps1|\.cmd|\.bat)",
     re.IGNORECASE,

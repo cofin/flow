@@ -2,11 +2,11 @@
 description: "Run the canonical flow/sync Flow lifecycle."
 ---
 
-<!-- Generated from contracts/flow.yaml; generated-sha256: d58f235e5978ab2bbb18ecd85849387d8e3f474618363e5552a5fd6c0c124459 -->
+<!-- Generated from contracts/flow.yaml; generated-sha256: 9f16cc9d9f4ec7d41385216362418d7b0cf4f89932166d972ceb0735968dd966 -->
 
 ```json
 {
-  "agent": "flow-reconciler",
+  "agent": null,
   "argument_schema": {
     "optional": [
       "flow_id"

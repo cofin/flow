@@ -9,8 +9,8 @@ from pathlib import Path
 
 
 APPROVED_SKILL_FILES: dict[str, tuple[str, ...]] = {
-    "debloat": ("SKILL.md", "references/test-and-gate-debloat.md"),
-    "flow-state": ("SKILL.md", "references/state.md"),
+    "debloat": ("SKILL.md",),
+    "flow-state": ("SKILL.md",),
 }
 DEFAULT_TEMPLATE_PATH = Path("templates/agent/skills")
 

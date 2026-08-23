@@ -8,16 +8,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 AUDIT_PATH = REPO_ROOT / "tools" / "audit-skill-contracts.py"
 REVIEWER_AUTHORITIES = {
-    "architecture-critic": ("persona.md", "checklist.md"),
-    "challenge": ("challenge-strategy.md",),
-    "consensus": ("consensus-strategy.md", "stance-rotation.md"),
-    "deepthink": ("reasoning-strategy.md", "confidence-tracking.md"),
-    "devils-advocate": ("persona.md", "checklist.md"),
-    "docgen": ("docgen-strategy.md", "component-template.md"),
-    "performance-analyst": ("persona.md", "checklist.md"),
-    "perspectives": ("critical-thinking.md", "stances.md"),
-    "security-auditor": ("persona.md", "checklist.md"),
-    "tracer": ("tracing-strategy.md", "trace-modes.md"),
+    "okf": ("spec.md", "frontmatter-and-tagging.md"),
 }
 
 
@@ -90,11 +81,11 @@ def test_reviewer_authority_map_is_direct_and_singular() -> None:
 
 def test_reviewer_authority_check_rejects_duplicate_detail(tmp_path: Path) -> None:
     root = _copy_audit_tree(tmp_path)
-    skill = root / "skills" / "architecture-critic" / "SKILL.md"
-    persona = skill.parent / "references" / "persona.md"
+    skill = root / "skills" / "okf" / "SKILL.md"
+    spec = skill.parent / "references" / "spec.md"
     duplicated = next(
         line
-        for line in persona.read_text(encoding="utf-8").splitlines()
+        for line in spec.read_text(encoding="utf-8").splitlines()
         if len(line.strip()) >= 60 and not line.startswith("#")
     )
     skill.write_text(
@@ -153,23 +144,11 @@ def test_audit_rejects_long_reference_without_contents(tmp_path: Path) -> None:
 
 def test_audit_rejects_indirect_only_reference(tmp_path: Path) -> None:
     root = _copy_audit_tree(tmp_path)
-    skill = root / "skills" / "apilookup" / "SKILL.md"
+    skill = root / "skills" / "okf" / "SKILL.md"
     skill.write_text(
         skill.read_text(encoding="utf-8")
-        .replace(
-            "See `references/lookup-strategy.md` for the full decision tree. Key principles:\n",
-            "Use the full decision tree when escalation is required. Key principles:\n",
-        )
-        .replace(
-            "- **[Lookup Strategy](references/lookup-strategy.md)** — Detailed three-tier resolution instructions\n",
-            "",
-        ),
-        encoding="utf-8",
-    )
-    bridge = root / "skills" / "apilookup" / "references" / "registry-schema.md"
-    bridge.write_text(
-        bridge.read_text(encoding="utf-8")
-        + "\nSee [Lookup Strategy](lookup-strategy.md).\n",
+        .replace("- [OKF Specification Reference](references/spec.md)\n", "")
+        .replace("- [Frontmatter and Tagging Guide](references/frontmatter-and-tagging.md)\n", ""),
         encoding="utf-8",
     )
 

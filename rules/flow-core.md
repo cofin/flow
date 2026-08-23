@@ -30,16 +30,15 @@ before acting. Operational skills resolve only from `.agents/skills/`.
 
 Route through the `flow` skill and exactly one lifecycle skill. Refine plans
 until every worksheet is executable, follow the selected worksheet without
-improvising, and route contradictions through revise/refine. Apply explicit,
-revision-guarded, recoverable Markdown state operations and reconcile task-first.
+improvising, and route contradictions through revise/refine. Apply direct Markdown
+frontmatter state synchronization and reconcile task-first.
 
 Use `structured-choice-v1` for unresolved decisions: one decision at a time,
 only through a currently allowed compatible native tool or the equivalent
 sequential-text fallback. Run correctness review and then the mandatory fresh
 quality review before finish/archive.
 
-Commits and optional Git notes remain local unless the user explicitly asks for
-delivery. Never create, move, force-update, or delete Git tags.
+Commits remain local unless the user explicitly asks for delivery. Never create, move, force-update, or delete Git tags.
 
 ## Host activation
 

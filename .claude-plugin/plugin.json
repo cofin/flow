@@ -30,9 +30,9 @@
   "agents": [
     "./agents/code-reviewer.md",
     "./agents/executor.md",
-    "./agents/flow-reconciler.md",
     "./agents/plan-generator.md",
     "./agents/prd-orchestrator.md",
-    "./agents/quality-reviewer.md"
+    "./agents/quality-reviewer.md",
+    "./agents/researcher.md"
   ]
 }

@@ -2,11 +2,11 @@
 description: "Run the canonical flow/refresh Flow lifecycle."
 ---
 
-<!-- Generated from contracts/flow.yaml; generated-sha256: bbca6cf023b018b130d75761b08837ed759bd6d9a57ebeabb5a161e72cc7cdcf -->
+<!-- Generated from contracts/flow.yaml; generated-sha256: f3407ce6cfabf37435131e7ade3fa10c37770eb23267347741bc8347b76084ac -->
 
 ```json
 {
-  "agent": "flow-reconciler",
+  "agent": null,
   "argument_schema": {
     "optional": [
       "flow_id"

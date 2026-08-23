@@ -28,7 +28,6 @@ TEMPLATE_STATE_REFERENCE_PATH = (
     / "references"
     / "state.md"
 )
-AGENT_PATH = REPO_ROOT / "agents" / "flow-reconciler.md"
 SYNC_SKILL_PATH = REPO_ROOT / "skills" / "flow-sync-status" / "SKILL.md"
 SYNC_REFERENCE_PATH = REPO_ROOT / "skills" / "flow" / "references" / "sync.md"
 STATUS_REFERENCE_PATH = REPO_ROOT / "skills" / "flow" / "references" / "status.md"
@@ -250,9 +249,6 @@ def test_packaged_state_reference_is_self_contained_and_in_sync() -> None:
 
 def test_sidecar_result_union_is_closed_and_shared() -> None:
     skill_union = _contract(SKILL_PATH)["result_union"]
-    agent_union = _contract(AGENT_PATH, "flow-sidecar-protocol")["result_union"]
-
-    assert agent_union == skill_union
     assert skill_union["keyset"] == [
         "outcome",
         "operation",
@@ -567,27 +563,12 @@ def test_lifecycle_guard_scenarios(operation: str, state: str, outcome: str) -> 
 
 def test_sidecar_scope_and_runtime_are_file_tool_only() -> None:
     contract = _contract(SKILL_PATH)
-    protocol = _contract(AGENT_PATH, "flow-sidecar-protocol")
 
     assert contract["roots"] == {
         "configured": "setup_state_or_default",
         "bundle": "config_or_default",
         "flow": "bundle_specs_flow_id",
         "paths": "namespaced_relative_no_symlink_or_escape",
-    }
-    assert protocol["scope"] == {
-        "allowed": ["flow_markdown", "untracked_markdown_transaction_journal"],
-        "forbidden": ["source_files", "tracked_runtime_state", "database", "service"],
-        "consumer_execution": "ordinary_file_read_write_edit_tools_only",
-    }
-    assert protocol["ready_order"] == ["priority", "created_at", "task_id"]
-    assert protocol["write_order"] == "directories_then_tasks_sorted_then_spec_last"
-    assert protocol["namespaces"] == {
-        "configured_root": "transaction_journals",
-        "bundle_root": "knowledge_log_archive",
-        "flow_root": "spec_tasks",
-        "custom_roots": "resolve_from_live_setup_and_config",
-        "path_rule": "exactly_one_relative_path_or_glob_no_symlink_or_escape",
     }
 
 
@@ -609,7 +590,6 @@ def test_sync_and_status_route_through_the_sidecar_contract() -> None:
 
 def test_owned_consumer_surfaces_have_zero_runtime_dependencies(tmp_path: Path) -> None:
     for source in [
-        AGENT_PATH,
         SKILL_PATH,
         SYNC_SKILL_PATH,
         SYNC_REFERENCE_PATH,
