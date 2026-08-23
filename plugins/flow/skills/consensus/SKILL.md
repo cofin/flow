@@ -1,59 +1,32 @@
 ---
 name: consensus
-description: "Use when choosing among architectural, technology, build-vs-buy, or feature alternatives with meaningful tradeoffs, especially high-impact, multi-team, hard-to-reverse, or risk-heavy decisions."
+description: "Use when comparing two or more distinct architectural/technical approaches, evaluating build-vs-buy options, or resolving high-impact design disagreements."
 ---
 
-# Consensus
+# Technical Consensus & Trade-Off Analysis
 
-Choose among alternatives through structured comparison and stance rotation.
-
-<workflow>
+Evaluate competing architectural designs, technology choices, or library selections through structured multi-criteria trade-off matrices.
 
 ## Workflow
 
-1. Load the comparison procedure and stance-rotation method below.
-2. Select sequential or isolated-subagent mode from the decision's scope and
-   reversibility.
-3. Compare the alternatives, rotate through the required stances, and
-   synthesize a recommendation.
-
-</workflow>
-
-<guardrails>
+1. **Define Candidate Approaches**: Frame 2 to 3 viable alternatives with clear boundary descriptions.
+2. **Establish Evaluation Criteria**: Select relevant axes (e.g. Ergonomics, Type Safety, Runtime Performance, Team Cognitive Load).
+3. **Construct Comparison Matrix**: Compare options side by side with concrete trade-off assessments.
+4. **Formulate Recommendation**: State the winning approach with justification and reversal triggers.
 
 ## Guardrails
 
-Require genuine differences between views. Do not manufacture disagreement or
-let one stance contaminate the others when isolated analysis is required.
-
-</guardrails>
+- Avoid false balance when one approach is objectively superior for the stack.
+- Weigh reversibility (one-way door vs two-way door decisions).
 
 ## Output
 
-State the decision, points of agreement and disagreement, a recommendation
-with low/medium/high confidence, conditions that would change it, and concrete
-next steps.
-
-<validation>
+Return the decision context, comparison matrix, recommended path, and reversal triggers.
 
 ## Validation
 
-Confirm each stance contributed distinct evidence and the confidence level is
-proportional to the comparison.
-
-</validation>
-
-<example>
+Confirm criteria alignment with repository patterns and tech stack constraints.
 
 ## Example
 
-Compare two API approaches, identify their operational and migration costs,
-then recommend one with explicit reversal conditions.
-
-</example>
-
-## References
-
-- [Consensus strategy](references/consensus-strategy.md) — comparison procedure and mode selection.
-- [Stance rotation](references/stance-rotation.md) — alternative-stance method and isolation rules.
-- [Stance definitions](../perspectives/references/stances.md) — advocate, critic, and neutral views.
+Compare choosing an embedded SQLite database versus PostgreSQL for local test fixtures, evaluating spin-up time and feature parity.

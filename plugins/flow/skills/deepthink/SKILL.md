@@ -1,59 +1,33 @@
 ---
 name: deepthink
-description: "Use when a problem resists quick answers, debugging stalls, analysis feels shallow, confidence is low, hypotheses are competing, reasoning loops repeat, or a hard problem needs evidence tracking."
+description: "Use when a complex bug resists initial investigation, debugging progress has stalled, or multiple competing hypotheses require structured evidence tracking."
 ---
 
-# Deepthink
+# Deepthink & Root Cause Isolation
 
-Use hypothesis tracking to turn a resistant problem into an evidence-backed,
-actionable conclusion.
-
-<workflow>
+Investigate hard-to-diagnose bugs, race conditions, and architectural dilemmas through systematic hypothesis tracking and falsifiable predictions.
 
 ## Workflow
 
-1. Load the reasoning strategy and confidence ledger below.
-2. Frame one testable hypothesis, gather relevant evidence, and update the
-   hypothesis and ledger after each investigation step.
-3. Continue until the completion criteria are met or the evidence establishes
-   exactly what remains unknowable.
-
-</workflow>
-
-<guardrails>
+1. **State the Anomaly**: Define the observed failure, error trace, and reproduction conditions.
+2. **Formulate Competing Hypotheses**: Generate 2 to 4 distinct root causes.
+3. **Design Discriminating Predictions**: State verifiable predictions for each hypothesis.
+4. **Execute Tests & Record Evidence**: Run commands and update hypothesis statuses.
+5. **Isolate Root Cause**: Confirm the supported root cause with empirical data.
 
 ## Guardrails
 
-Do not hoard evidence, loop over the same checks, or present a hypothesis as a
-conclusion. Reassess after three steps without confidence progress.
-
-</guardrails>
+- Do not modify production code until a discriminating test isolates the failure.
+- If three tests produce ambiguous results, step back and re-examine foundational assumptions.
 
 ## Output
 
-Return the final hypothesis, evidence for and against it, confidence and its
-basis, remaining uncertainty, and the resulting action.
-
-<validation>
+Return the anomaly summary, hypothesis ledger, confirmed root cause, and minimal fix strategy.
 
 ## Validation
 
-Confirm the hypothesis evolved with evidence and the conclusion meets the
-reference completion criteria.
-
-</validation>
-
-<example>
+Confirm the root cause by reproducing the failure and demonstrating a passing test with the fix.
 
 ## Example
 
-For a CI-only failure, revise a flakiness hypothesis as deterministic environment
-evidence appears, then report the verified configuration cause.
-
-</example>
-
-## References
-
-- [Reasoning strategy](references/reasoning-strategy.md) — investigation loop and anti-patterns.
-- [Confidence tracking](references/confidence-tracking.md) — confidence and evidence ledger.
-- [Critical thinking](../perspectives/references/critical-thinking.md) — optional reframing when progress stalls.
+For an intermittent async race condition, log timestamps and task ids to isolate order-of-execution violations.

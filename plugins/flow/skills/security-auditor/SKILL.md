@@ -1,60 +1,31 @@
 ---
 name: security-auditor
-description: "Use when reviewing authentication, authorization, user input, secrets, API keys, database queries, file uploads, session management, external API calls, OWASP risks, or data handling attack surface."
+description: "Use when auditing authentication, authorization, cryptographic operations, secrets handling, untrusted input validation, database query injection, or OWASP vulnerabilities."
 ---
 
 # Security Auditor
 
-Review security-sensitive code for realistic exploit paths and proportionate
-defenses. Use directly or as a security-focused review subagent.
-
-<workflow>
+Audit code changes, configurations, and system boundaries for security vulnerabilities, secrets exposure, and authorization flaws.
 
 ## Workflow
 
-1. Load the security persona and threat checklist below.
-2. Inspect the actual entry points, trust boundaries, data flows, and deployed
-   controls.
-3. Apply every relevant threat category and report evidence-backed findings.
-
-</workflow>
-
-<guardrails>
+1. **Map Attack Surface**: Identify external inputs, authentication checkpoints, database queries, and file system operations.
+2. **Evaluate Core Checks**: Check auth guards, input validation, parameterized queries, secret leaks, and CORS/CSRF headers.
+3. **Formulate Assessment**: Report vulnerabilities with reproduction preconditions, evidence, and remediation.
 
 ## Guardrails
 
-Follow the persona boundaries. Do not inflate theoretical weaknesses, omit
-realistic attack preconditions, or provide exploit instructions beyond what is
-needed to explain and remediate the risk.
-
-</guardrails>
+- Every finding must demonstrate a feasible vulnerability path in the examined code.
+- Avoid theoretical concerns when robust framework guards are actively in place.
 
 ## Output
 
-For each finding, state the category, calibrated severity, realistic attack
-vector, evidence, and fix. Briefly acknowledge reviewed categories with no
-finding.
-
-<validation>
+Return the security audit report with findings by severity, threat vectors, impact, and remediation steps.
 
 ## Validation
 
-Confirm severity follows exploitability and impact, and each fix addresses the
-described attack path.
-
-</validation>
-
-<example>
+Confirm vulnerability findings against specific code locations, parameter types, and route handler configurations.
 
 ## Example
 
-Report an object-level authorization gap with the attacker precondition,
-affected resource, severity, and server-side ownership check required.
-
-</example>
-
-## References
-
-- [Persona](references/persona.md) — security role, severity model, and boundaries.
-- [Threat checklist](references/checklist.md) — OWASP-oriented evidence checks.
-- [Critic stance](../perspectives/references/stances.md) — optional adversarial framing.
+Inspect a new file upload handler to verify that uploaded file paths cannot escape the designated storage root directory.
