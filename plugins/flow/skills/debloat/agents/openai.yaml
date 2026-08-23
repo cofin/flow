@@ -1,3 +1,3 @@
 interface:
   display_name: "Debloat"
-  short_description: "Prune redundant code, dead abstractions, and low-signal tests while preserving invariants."
+  short_description: "Simplify code, tests, prose, and gates without semantic drift"

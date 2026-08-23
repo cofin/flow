@@ -1,31 +1,58 @@
 ---
 name: tracer
-description: "Use when tracing execution call paths from a known entry point, mapping inward/outward module dependencies, or analyzing data flow across multiple components."
+description: "Use when tracing execution paths, mapping dependencies, understanding unfamiliar code, following data flow, investigating end-to-end behavior, debugging call chains, or deciding which files to read next."
 ---
 
-# Code Tracer
+# Tracer
 
-Trace execution paths, map module dependency graphs, and follow data flows across system boundaries.
+Trace code from a known entry point, following evidence-linked edges until the
+question is answered.
+
+<workflow>
 
 ## Workflow
 
-1. **Identify Entry Point**: Pin the initial function, HTTP route handler, or event listener.
-2. **Execute Traversal**: Trace call paths downward, map required dependencies, and track parameter transformations.
-3. **Map Boundaries**: Note where control crosses module or process boundaries.
+1. Load the tracing strategy and mode-selection reference below.
+2. Select execution, dependency, or data mode from the question.
+3. Follow and record relevant edges, then synthesize the resulting map at the
+   documented stop condition.
+
+</workflow>
+
+<guardrails>
 
 ## Guardrails
 
-- Terminate trace at standard library, third-party framework primitives, or raw drivers.
-- Trace actual code paths on disk rather than hypothetical routing.
+Do not open unrelated files, trace every branch indiscriminately, or cross a
+third-party boundary unless the question requires it.
+
+</guardrails>
 
 ## Output
 
-Return the execution path trace, call graph, persistent state mutations, and cross-module couplings.
+Return the selected mode, an ordered path or dependency/data map with file and
+symbol locations, transformations and side effects, and a concise answer to the
+original question.
+
+<validation>
 
 ## Validation
 
-Verify that all traced function names, filenames, and import symbols exist in the repository.
+Confirm every inspected node follows from a recorded edge and the trace stops
+only after the question or critical path is resolved.
+
+</validation>
+
+<example>
 
 ## Example
 
-Trace an authentication request from the route handler down through session verification to the database query.
+Map an HTTP handler through its service and repository to the database call,
+annotating the data transformation at each node.
+
+</example>
+
+## References
+
+- [Tracing strategy](references/tracing-strategy.md) — traversal and evidence procedure.
+- [Trace modes](references/trace-modes.md) — mode selection and combination.

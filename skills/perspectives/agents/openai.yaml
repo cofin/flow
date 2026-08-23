@@ -1,3 +1,3 @@
 interface:
   display_name: "Perspectives"
-  short_description: "Analyze complex engineering decisions across multiple stances."
+  short_description: "Shared stance prompts for tradeoff analysis, risks, assumptions, and decisions"

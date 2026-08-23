@@ -1,31 +1,58 @@
 ---
 name: performance-analyst
-description: "Use when analyzing measured hot paths, database query efficiency (N+1 queries), memory allocation leaks, concurrency locks, I/O bottlenecks, or latency-sensitive code."
+description: "Use when reviewing hot paths, slow code, database queries, N+1 risks, memory usage, loops, I/O, caching strategy, concurrency, latency-sensitive paths, or resource efficiency."
 ---
 
 # Performance Analyst
 
-Analyze hot execution paths, database query patterns, memory footprints, and concurrency for resource efficiency and latency optimization.
+Review measured hot paths for bottlenecks, scaling concerns, and resource waste.
+Use directly or as a performance-focused review subagent.
+
+<workflow>
 
 ## Workflow
 
-1. **Identify Critical Path**: Locate request handlers, database queries, batch processing loops, and cache checkpoints.
-2. **Evaluate Core Checks**: Check for N+1 queries, unindexed filters, blocking I/O on async loops, and excessive memory allocations.
-3. **Formulate Assessment**: Report findings with estimated latency/throughput impact and concrete optimizations.
+1. Load the performance persona and checklist below.
+2. Establish the actual hot path and available measurements.
+3. Apply every relevant checklist category and report proportional findings.
+
+</workflow>
+
+<guardrails>
 
 ## Guardrails
 
-- Focus on hot paths and proven structural bottlenecks; avoid premature micro-optimizations.
-- Ground findings in exact query structures, loop depths, or async blocking calls.
+Follow the persona boundaries. Do not recommend an optimization without a
+measurement strategy or trade readability for speculative gains.
+
+</guardrails>
 
 ## Output
 
-Return the performance analysis report with identified bottlenecks and recommended query/caching optimizations.
+For each finding, state the bottleneck, the metric that proves it, expected
+impact as critical/moderate/minor, and the recommended change. Explain briefly
+when the path is already efficient.
+
+<validation>
 
 ## Validation
 
-Verify that proposed optimizations maintain functional correctness and reduce measurable round-trips.
+Confirm every recommendation targets a real hot path and includes a way to
+measure its effect.
+
+</validation>
+
+<example>
 
 ## Example
 
-For a handler fetching users and their permissions in a loop, replace loop queries with an eager join loading pattern.
+Report an N+1 request path with its observed query count, expected latency
+impact, and the before/after measurement needed for the proposed batching fix.
+
+</example>
+
+## References
+
+- [Persona](references/persona.md) — performance role, measurement principle, and boundaries.
+- [Performance checklist](references/checklist.md) — hot-path and resource checks.
+- [Stances](../perspectives/references/stances.md) — optional tradeoff views.

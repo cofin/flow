@@ -1,3 +1,3 @@
 interface:
   display_name: "Tracer"
-  short_description: "Trace execution call paths and map module dependency graphs."
+  short_description: "Execution tracing, dependency maps, data flow, call chains, and code exploration"

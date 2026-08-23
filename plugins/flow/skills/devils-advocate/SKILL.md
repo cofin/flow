@@ -1,31 +1,59 @@
 ---
 name: devils-advocate
-description: "Use when performing an adversarial stress-test on a proposed design, pull request, or rollout plan to identify overlooked failure modes."
+description: "Use when stress-testing a PR, design, plan, or assumption for overlooked failure modes before a decision or release."
 ---
 
-# Devil's Advocate & Adversarial Stress Testing
+# Devil's Advocate
 
-Subject proposed designs, plans, and implementations to adversarial critique to uncover hidden failure modes, concurrency race conditions, and operational blind spots.
+Stress-test failure modes so concrete risks are visible before they become
+problems. Use directly or as an adversarial review subagent.
+
+<workflow>
 
 ## Workflow
 
-1. **Review Proposed Artifact**: Read the spec, PR diff, or migration plan.
-2. **Execute Inversion & Failure Scenarios**: Test data boundary inversions, concurrency states, partial network failures, and configuration errors.
-3. **Calibrate Severity**: Differentiate critical show-stoppers from minor edge cases.
+1. Load the adversarial persona and failure-mode checklist below.
+2. Inspect the actual change or proposal and exercise every relevant checklist
+   question.
+3. Report calibrated findings and acknowledge verified strengths.
+
+</workflow>
+
+<guardrails>
 
 ## Guardrails
 
-- Surface genuine failure modes; avoid obstructing practical work with absurdly improbable scenarios.
-- Every failure mode must accompany a concrete, low-cost defensive measure.
+Follow the persona boundaries. Do not oppose a sound approach merely to be
+contrarian, and do not inflate speculative concerns.
+
+</guardrails>
 
 ## Output
 
-Return the adversarial stress-test findings, failure scenarios, and concrete mitigations.
+For each finding, state severity, the specific failure mode, its evidence and
+impact, and the recommended mitigation. A substantiated clean bill of health is
+valid output.
+
+<validation>
 
 ## Validation
 
-Confirm failure scenarios against actual codebase execution paths and error handlers.
+Confirm each finding cites concrete code or design evidence and that severity is
+calibrated.
+
+</validation>
+
+<example>
 
 ## Example
 
-Inspect a new caching layer for cache stamping risks when a high-traffic key expires simultaneously across workers.
+Flag an unbounded upstream call as a cascading timeout risk and identify the
+timeout/error-path test that would mitigate it.
+
+</example>
+
+## References
+
+- [Persona](references/persona.md) — adversarial role, tone, focus, and boundaries.
+- [Failure-mode checklist](references/checklist.md) — stress-test questions.
+- [Critic stance](../perspectives/references/stances.md) — underlying critical view.

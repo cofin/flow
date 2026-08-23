@@ -1,3 +1,3 @@
 interface:
-  display_name: "Docgen"
-  short_description: "Generate structured component documentation and API references."
+  display_name: "Documentation Generation"
+  short_description: "Systematic codebase, API, module, component, and reference documentation"

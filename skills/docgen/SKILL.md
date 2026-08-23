@@ -1,32 +1,58 @@
 ---
 name: docgen
-description: "Use when generating structured API references, component documentation, or README guides across a batch of files using an explicit coverage manifest."
+description: "Use when generating documentation, writing API docs, documenting modules or components, creating README content, building reference guides, or documenting many files with explicit coverage tracking."
 ---
 
-# Documentation Generator
+# Docgen
 
-Generate accurate, structured component documentation, API reference guides, and system overviews directly from codebase source truth.
+Generate complete documentation from inspected source with explicit coverage
+tracking. Use standalone or as the analysis engine for Flow documentation work.
+
+<workflow>
 
 ## Workflow
 
-1. **Build Coverage Manifest**: List target source files to document.
-2. **Extract Symbol Metadata**: Inspect classes, methods, docstrings, type annotations, and module exports.
-3. **Generate Documentation**: Write Component Overview, Public API Reference, and configuration tables.
-4. **Verify Links & Syntax**: Confirm all code fences, markdown links, and symbol names are valid.
+1. Load the documentation strategy and component template below.
+2. Execute the manifest-driven coverage workflow against the exact source scope.
+3. Cross-reference the documented components and synthesize the requested
+   consumer-facing document.
+
+</workflow>
+
+<guardrails>
 
 ## Guardrails
 
-- Document actual signatures and return types directly from source files.
-- Track documented files via an explicit manifest to ensure complete coverage.
+Read every in-scope file. Do not infer behavior from names, skip small files,
+or claim completeness while manifest entries remain unresolved.
+
+</guardrails>
 
 ## Output
 
-Return structured Markdown documentation with accurate type signatures and runnable examples.
+Return the completed/total manifest count, module overview, scaled
+per-component documentation, verified cross-references, usage examples, and a
+dependency map when the scope contains multiple components.
+
+<validation>
 
 ## Validation
 
-Verify that all documented symbols and relative file links exist and resolve accurately.
+Confirm every manifest item is covered and every documentation claim comes
+from freshly inspected source.
+
+</validation>
+
+<example>
 
 ## Example
 
-Generate a markdown reference for a service module, extracting public functions, argument types, and docstrings.
+For a four-file module, report `[4/4 files documented]`, describe each public
+interface, and show the verified dependency direction between components.
+
+</example>
+
+## References
+
+- [Docgen strategy](references/docgen-strategy.md) — coverage workflow and progress rules.
+- [Component template](references/component-template.md) — generated document structure.

@@ -1,31 +1,57 @@
 ---
 name: challenge
-description: "Use when verifying a technical claim, conducting a sanity check, testing an unproven assumption, or answering 'are you sure?' with concrete evidence."
+description: "Use when a claim or confident assertion needs evidence-based verification, including assumption checks, sanity checks, or an answer to questions like \"are you sure?\""
 ---
 
-# Technical Claim Challenge
+# Challenge
 
-Rigorously verify technical assumptions, claims, and sanity-check questions with empirical evidence and code citations.
+Verify a claim without reflexive agreement or manufactured disagreement.
+
+<workflow>
 
 ## Workflow
 
-1. **Identify the Core Claim**: Formulate the assertion as a testable proposition.
-2. **Execute Empirical Investigation**: Inspect source files, types, and compiler behaviors, running verification commands to test edge cases.
-3. **Render Verdict**: Determine whether the claim Holds, Partially Holds, or Fails.
+1. Load the challenge strategy and critical-thinking framework below.
+2. Identify the exact claim, investigate available evidence, and apply the
+   verification procedure.
+3. Deliver the resulting verdict without narrating the challenge process.
+
+</workflow>
+
+<guardrails>
 
 ## Guardrails
 
-- Never validate a claim simply because it was proposed; evaluate facts independently.
-- Every verdict must quote exact file lines, command outputs, or documentation references.
+Verify when evidence is available. Do not hedge, soften the verdict through
+sycophancy, or manufacture doubt about a verified claim.
+
+</guardrails>
 
 ## Output
 
-Return the claim under review, verdict, empirical evidence, and actionable corrections.
+State whether the claim holds, partially holds, or fails; cite the decisive
+evidence, identify any unsupported assumption, and give the smallest warranted
+next action.
+
+<validation>
 
 ## Validation
 
-Confirm the verdict by citing exact code lines, compiler outputs, or test results.
+Confirm the verdict follows from inspected evidence and contains no
+meta-commentary.
+
+</validation>
+
+<example>
 
 ## Example
 
-When asked if a framework supports async generators, run a test or check the type declarations to provide empirical proof.
+For a claimed performance bottleneck, compare the claim with measurements and
+name the actual bottleneck when the evidence contradicts it.
+
+</example>
+
+## References
+
+- [Challenge strategy](references/challenge-strategy.md) — evidence and challenge procedure.
+- [Critical-thinking framework](../perspectives/references/critical-thinking.md) — claim reassessment method.
