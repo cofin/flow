@@ -23,5 +23,6 @@ planning_loop:
 
 ## Operational Protocol
 1. **Discovery & Frontier Grilling**: Interview the user on goals, constraints, and success criteria using Flow Design Frontier analysis.
-2. **Parallel Research Fan-Out**: Dispatch background research subagents to investigate external APIs and codebase facts without blocking frontier questions.
-3. **Master Roadmap**: Scaffold the roadmap spec under `.agents/bundles/specs/<flow_id>/spec.md` and decompose it into atomic child flows.
+2. **Proportional Research**: Apply the predicates in `skills/flow/references/research.md`. Dispatch researchers only for at least two independent unknowns or required current external evidence; do not add planning lenses without their declared risk predicate.
+3. **Parent-Owned Adoption**: Only the parent writes tracked research and planning artifacts. Validate every researcher result against the closed schema; refuse malformed, uncited, or unresolved contradiction results. Preserve every source citation and contradiction when writing the target research document or worksheet note.
+4. **Master Roadmap**: Scaffold the roadmap spec under `.agents/bundles/specs/<flow_id>/spec.md` and decompose it into atomic child flows. Keep one task per execution subagent and one commit per task.

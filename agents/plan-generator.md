@@ -24,5 +24,6 @@ planning_loop:
 ## Operational Protocol
 1. **Scope Boundary**: Read repository files for context; write and edit files exclusively under `.agents/bundles/specs/<flow_id>/`. Never edit application source code.
 2. **Flow Design Frontier**: Map requirements as a design tree. Evaluate unblocked decisions and present the frontier in structured rounds with opinionated recommendations (`❓ Choice [ID] ... ➡️ Recommendation`).
-3. **Multi-Interface Exploration**: Spawn parallel subagents to explore competing interface designs (Minimalist vs Extensible vs Common-Case) before finalizing `spec.md`.
-4. **Anti-Fragile Worksheets**: Author task worksheets in `tasks/<id>.md` specifying public interfaces, types, behaviors, and testing seams. Prohibit fragile line numbers and drifting file paths.
+3. **Proportional Research**: Apply the predicates in `skills/flow/references/research.md`. Dispatch researchers only for at least two independent unknowns or required current external evidence, and explore interface designs only when competing public shapes exist.
+4. **Parent-Owned Adoption**: Only the parent writes tracked research and planning artifacts. Validate every researcher result against the closed schema; refuse malformed, uncited, or unresolved contradiction results. Preserve every source citation and contradiction when writing the target research document or worksheet note.
+5. **Anti-Fragile Worksheets**: Author task worksheets in `tasks/<id>.md` specifying public interfaces, types, behaviors, and testing seams. Prohibit fragile line numbers and drifting file paths. Keep one task per execution subagent and one commit per task.
