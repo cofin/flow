@@ -24,6 +24,8 @@ state_operations:
   - recover
   - status
 
+state_mutation_authority: lifecycle_owner_via_flow-state_file_tools
+
 shared_contracts:
   - {id: flow-state-v1, source: skills/flow/references/state.md, runtime_dependency: agent_file_tools_only}
   - {id: structured-choice-v1, source: skills/flow/references/interaction.md, runtime_dependency: agent_file_tools_only}

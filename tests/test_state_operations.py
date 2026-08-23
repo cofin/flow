@@ -29,6 +29,8 @@ TEMPLATE_STATE_REFERENCE_PATH = (
     / "state.md"
 )
 SYNC_SKILL_PATH = REPO_ROOT / "skills" / "flow-sync-status" / "SKILL.md"
+COMPLETION_SKILL_PATH = REPO_ROOT / "skills" / "flow-completion" / "SKILL.md"
+ARCHIVE_REFERENCE_PATH = REPO_ROOT / "skills" / "flow" / "references" / "archive.md"
 SYNC_REFERENCE_PATH = REPO_ROOT / "skills" / "flow" / "references" / "sync.md"
 STATUS_REFERENCE_PATH = REPO_ROOT / "skills" / "flow" / "references" / "status.md"
 
@@ -572,20 +574,42 @@ def test_sidecar_scope_and_runtime_are_file_tool_only() -> None:
     }
 
 
-def test_sync_and_status_route_through_the_sidecar_contract() -> None:
+def test_sync_and_status_use_direct_lifecycle_owned_state() -> None:
     sync_contract = _contract(SYNC_REFERENCE_PATH, "flow-sync-contract")
     status_contract = _contract(STATUS_REFERENCE_PATH, "flow-status-contract")
     skill_contract = _contract(SYNC_SKILL_PATH, "flow-sync-status-routing")
 
     assert sync_contract["operation"] == "reconcile"
     assert sync_contract["targets"] == []
-    assert sync_contract["mutation_authority"] == "flow-reconciler_via_flow-state"
+    assert sync_contract["mutation_authority"] == "lifecycle_owner_via_flow-state"
     assert status_contract["operation"] == "status"
     assert status_contract["writes"] == "none"
     assert status_contract["ready_order"] == ["priority", "created_at", "task_id"]
     assert skill_contract["sync"] == "typed_reconcile_request"
     assert skill_contract["status"] == "typed_read_only_status_request"
-    assert skill_contract["state_mutations"] == "flow-reconciler_via_flow-state"
+    assert skill_contract["state_mutations"] == "lifecycle_owner_via_flow-state"
+
+
+def test_owned_state_surfaces_have_no_runtime_reconciler_dependency() -> None:
+    for source in [
+        SKILL_PATH,
+        SOURCE_STATE_REFERENCE_PATH,
+        SYNC_REFERENCE_PATH,
+        SYNC_SKILL_PATH,
+    ]:
+        assert "flow-reconciler" not in source.read_text(encoding="utf-8")
+
+
+def test_archive_is_a_contraction_without_a_resident_archive_tree() -> None:
+    archive = ARCHIVE_REFERENCE_PATH.read_text(encoding="utf-8")
+    completion = COMPLETION_SKILL_PATH.read_text(encoding="utf-8")
+
+    assert "delete" in archive.lower()
+    assert "terminal journal" in archive.lower()
+    assert "bundles/archive" not in archive
+    assert "archive/<year>" not in archive
+    assert "bundles/archive" not in completion
+    assert "archive/<year>" not in completion
 
 
 def test_owned_consumer_surfaces_have_zero_runtime_dependencies(tmp_path: Path) -> None:

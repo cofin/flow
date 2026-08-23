@@ -27,12 +27,13 @@ evaluator_module: forbidden
 
 1. **Two-Axis Review (`/flow:review`)**: Run parallel reviewers evaluating Standards/Smells (Security, Performance, Debloat lenses) and Spec Conformance against `git diff <base>...HEAD`.
 2. **Finish Flow (`/flow:finish`)**: Run full test verification suite and record single-paragraph ADRs in `knowledge/decisions/`.
-3. **Archive Flow (`/flow:archive`)**: Synthesize discoveries into `knowledge/patterns.md`, prune `.agents/scratch/`, log in `log.md`, and move spec to `.agents/bundles/archive/<year>/<flow_id>/`.
+3. **Archive Flow (`/flow:archive`)**: Synthesize discoveries into project-shaped knowledge, append one `log.md` entry, and delete the reviewed completed spec inventory through a journaled archive operation.
 4. **Revert or Validate**: Revert designated changes or run repository validation checks.
 
 ## Guardrails
 
 - Reviews are read-only; report concrete evidence with file/symbol references.
+- Archive leaves a terminal journal outside the bundle and no resident archived spec.
 - Preserve Git history. Never create or mutate Git tags.
 
 ## Output

@@ -43,7 +43,7 @@ argument or batches logical decisions.
 
 Operational project skills live only under `.agents/skills/`. Product,
 knowledge, research, and specs live under the configured OKF bundle root;
-knowledge chapters may be recursively nested. The `flow-reconciler` applies
+knowledge chapters may be recursively nested. The active lifecycle owner applies
 `flow-state-v1` with ordinary file read/write/edit tools. Consumer state has no
 Python, shell, PowerShell, database, daemon, or Flow executable dependency.
 

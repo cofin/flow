@@ -1,7 +1,7 @@
 
 # Flow Archive
 
-Archiving is a contraction: durable knowledge moves into the knowledge chapters, one line lands in the bundle log, and the spec directory is deleted — including the flow's promoted `research/`. `.agents/bundles/specs/` holds only planned and active flows.
+Archiving is a contraction: durable knowledge moves into the knowledge chapters, one line lands in the bundle log, and the spec directory is deleted — including the flow's promoted `research/`. `.agents/bundles/specs/` holds only planned and active flows. The terminal journal remains outside the bundle under the configured transaction directory; no resident archive tree is created.
 
 ## Tracking Policy (Stealth Mode)
 

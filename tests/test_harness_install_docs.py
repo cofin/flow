@@ -87,6 +87,8 @@ def test_capability_matrix_projects_the_contract() -> None:
         "Quality gate",
     ]
     by_id = {row[0]: row for row in rows}
+    state_contract = CONTRACT.shared_contracts["flow-state-v1"]
+    assert state_contract.runtime_dependency == "agent_file_tools_only"
     assert set(by_id) == set(CONTRACT.harnesses)
     for harness_id, capability in CONTRACT.harnesses.items():
         row = by_id[harness_id]
@@ -104,8 +106,19 @@ def test_capability_matrix_projects_the_contract() -> None:
         assert row[8] == str(capability.sequential_fallback).lower()
         assert row[9] == capability.plan_capability
         assert "direct Markdown read" in row[10]
-        assert row[11] == "flow-reconciler with file tools"
+        assert row[11] == CONTRACT.state_mutation_authority.replace("_", " ")
         assert "mandatory fresh quality review" in row[12]
+
+
+def test_public_docs_have_no_operational_reconciler_route() -> None:
+    for relative_path in (
+        "README.md",
+        "docs/antigravity.md",
+        "docs/harness-conformance-matrix.md",
+    ):
+        assert "flow-reconciler" not in (REPO_ROOT / relative_path).read_text(
+            encoding="utf-8"
+        )
 
 
 def test_invocation_matrix_projects_every_contract_spelling() -> None:

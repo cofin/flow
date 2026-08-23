@@ -73,7 +73,7 @@ complete plan before requesting a mutation.
 
 ### Phase 5: Apply One Revision Transaction
 
-Request `revise` from `flow-reconciler` with exact plan diffs, rationale,
+Apply a journaled `revise` through `flow-state` with exact plan diffs, rationale,
 reviewer findings, `new_plan_revision = expected_plan_revision + 1`, every
 affected task target sorted, and any explicit legal state adjustments. The
 sidecar updates every task's copied plan identity before the spec, clears the

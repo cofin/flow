@@ -217,8 +217,9 @@ This creates a new specification bundle under `.agents/bundles/specs/<flow_id>/`
 - `tasks/` directory to store individual task markdown files
 
 > Flow uses a unified `spec.md` implementation plan. Task state lives in the
-> individual `tasks/*.md` files and is reconciled through the file-tool-only
-> `flow-reconciler`; no Flow executable is installed.
+> individual `tasks/*.md` files. The active lifecycle owner applies the
+> revision-guarded `flow-state` contract with ordinary file tools; no Flow
+> executable or separate reconciler is installed.
 
 ### Implement
 
@@ -235,7 +236,7 @@ In Codex CLI, ask: `Use Flow to implement auth`
 Flow follows a TDD workflow:
 
 1. Select the next ready authoritative task worksheet
-2. Claim it through a revision-guarded `flow-reconciler` transaction
+2. Claim it through a revision-guarded `flow-state` transaction applied by the lifecycle owner
 3. Write failing tests (Red)
 4. Implement code to pass tests (Green)
 5. Refactor while tests pass

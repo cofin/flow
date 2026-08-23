@@ -34,13 +34,13 @@ Record architectural decisions in `.agents/bundles/knowledge/decisions/` only wh
 
 Format: `# Title` followed by 1 to 3 concise sentences (Context, Decision, Why).
 
-## Bloat-Free Archiving Protocol
+## Contraction Archive Protocol
 
 1. **Verify Full Suite**: Run aggregate verification commands.
 2. **Elevate Knowledge**: Synthesize discoveries from `learnings.md` into `knowledge/patterns.md` and domain chapters.
 3. **Log Contraction**: Append a concise date-grouped entry to `log.md`.
 4. **Prune Scratch**: Delete ephemeral task files in `.agents/scratch/`.
-5. **Archive Spec**: Move completed spec bundle to `.agents/bundles/archive/<year>/<flow_id>/`.
+5. **Delete Reviewed Inventory**: Apply the byte-identical journaled archive request, writing knowledge first, the log second, and deleting the completed spec inventory last. Leave the terminal journal outside the bundle and no resident archived spec.
 
 <!-- project-customization: start -->
 ## Custom Completion Checks

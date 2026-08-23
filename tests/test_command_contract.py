@@ -139,6 +139,10 @@ def test_contract_has_exact_namespaces(contract) -> None:
         "status",
     )
     assert (
+        contract.state_mutation_authority
+        == "lifecycle_owner_via_flow-state_file_tools"
+    )
+    assert (
         contract.interaction.procedure_source == "skills/flow/references/interaction.md"
     )
     assert contract.interaction.planning_gates == {
@@ -462,6 +466,9 @@ def test_contract_loader_rejects_alias_unknown_version_and_duplicate_ids(
     unknown = deepcopy(data)
     unknown["unknown"] = True
     mutations.append(unknown)
+    missing_state_authority = deepcopy(data)
+    del missing_state_authority["state_mutation_authority"]
+    mutations.append(missing_state_authority)
     duplicate = deepcopy(data)
     duplicate["commands"].append(deepcopy(duplicate["commands"][0]))
     mutations.append(duplicate)
@@ -484,6 +491,7 @@ def test_contract_loader_rejects_alias_unknown_version_and_duplicate_ids(
     "mutate",
     [
         lambda data: data["git_policy"].update(tags="allowed"),
+        lambda data: data.update(state_mutation_authority="flow-reconciler"),
         lambda data: data["harnesses"][-1].update(supported_modes=["binary"]),
         lambda data: data["harnesses"][-1].update(plan_capability="native"),
         lambda data: data["harnesses"][2].update(command_surface="slash_command"),
