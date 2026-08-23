@@ -11,7 +11,6 @@ from pathlib import Path
 
 import pytest
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 HOOKS = REPO_ROOT / "hooks"
 SESSION_ENTRYPOINTS = (
@@ -25,6 +24,7 @@ MANIFESTS = tuple(sorted(HOOKS.glob("hooks-*.json")))
 POWERSHELL = shutil.which("pwsh") or shutil.which("powershell")
 NODE = shutil.which("node")
 BASH = shutil.which("bash")
+JQ = shutil.which("jq")
 
 STATIC_ROUTING = (
     "Flow continuity is direct Markdown. Resolve the configured root from "
@@ -159,7 +159,8 @@ def test_manifest_targets_resolve_to_direct_emitters() -> None:
         for command in commands:
             assert "||" not in command and "&&" not in command and "|" not in command
             matches = re.findall(
-                r"hooks/(session-start|agy-pre-invocation|block-dangerous-git)\.(sh|ps1|js|cmd)", command
+                r"hooks/(session-start|agy-pre-invocation|block-dangerous-git)\.(sh|ps1|js|cmd)",
+                command,
             )
             assert len(matches) == 1, (manifest, command)
             stem, suffix = matches[0]
@@ -261,4 +262,154 @@ def test_non_flow_root_is_static_and_successful(tmp_path: Path) -> None:
         stub_dir=stub_dir,
     )
     _assert_session_payload(result)
+    assert not sentinel.exists()
+
+
+def _run_git_guardrail(
+    payload: object | str,
+    *,
+    path: str | None = None,
+) -> subprocess.CompletedProcess[str]:
+    env = os.environ.copy()
+    if path is not None:
+        env["PATH"] = path
+    return subprocess.run(
+        [BASH, str(HOOKS / "block-dangerous-git.sh")],
+        cwd=REPO_ROOT,
+        input=payload if isinstance(payload, str) else json.dumps(payload),
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=10,
+        check=False,
+    )
+
+
+@pytest.mark.skipif(BASH is None or JQ is None, reason="Bash and jq are required")
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git push origin main",
+        "git push --force-with-lease origin main",
+        "git reset --hard HEAD~1",
+        "git clean -fdx",
+        "git tag v1.2.3",
+        "git tag -d v1.2.3",
+        "git branch -D obsolete",
+        "git -C ./repo push origin main",
+        "git --no-pager -C ./repo reset --hard HEAD",
+        "git status && git push origin main",
+        "git status;git push origin main",
+        "git status\ngit push origin main",
+        "git -c alias.ship=push ship origin main",
+        "git -c alias.release=tag release v1.2.3",
+        "git -c alias.prune=branch prune -D obsolete",
+        "git -c alias.scrub=clean scrub -fdx",
+        "git -c alias.rewind=reset rewind --hard HEAD~1",
+        "git -calias.ship=push ship origin main",
+        "git clean",
+        "git clean -i",
+        "git clean --interactive",
+        "git clean --dry-run --interactive",
+        "git -c clean.requireForce=false clean",
+        "git frobnicate",
+        "git -C ./repo frobnicate",
+        "git `printf push` origin main",
+        "git $(printf push) origin main",
+        "git $FLOW_GIT_COMMAND origin main",
+        "g'i't push origin main",
+        'g""it push origin main',
+        "env g'i't push origin main",
+        "/usr/bin/g'i't push origin main",
+        "/usr/bin/g?t push origin main",
+        "/usr/bin/g[i]t push origin main",
+    ],
+)
+def test_git_guardrail_blocks_nested_destructive_commands(command: str) -> None:
+    result = _run_git_guardrail({"tool_input": {"command": command}})
+
+    assert result.returncode == 2, result
+    assert "Blocked by Flow Git guardrail:" in result.stderr
+    assert result.stdout == ""
+
+
+@pytest.mark.skipif(BASH is None or JQ is None, reason="Bash and jq are required")
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git status --short",
+        "git -C ./repo diff --check",
+        "git reset --soft HEAD~1",
+        "git clean -n",
+        "git clean --dry-run -dX",
+        "git tag --list 'v*'",
+        "git branch --list",
+        "printf safe",
+        "printf '%s' literal",
+    ],
+)
+def test_git_guardrail_allows_parsed_safe_commands(command: str) -> None:
+    result = _run_git_guardrail({"tool_input": {"command": command}})
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == ""
+    assert result.stderr == ""
+
+
+@pytest.mark.skipif(BASH is None or JQ is None, reason="Bash and jq are required")
+@pytest.mark.parametrize(
+    ("payload", "diagnostic"),
+    [
+        ("not-json", "expected a non-empty string at .tool_input.command"),
+        ({}, "expected a non-empty string at .tool_input.command"),
+        ({"tool_input": {}}, "expected a non-empty string at .tool_input.command"),
+        (
+            {"tool_input": {"command": ""}},
+            "expected a non-empty string at .tool_input.command",
+        ),
+        (
+            {"tool_input": {"command": "   \t"}},
+            "expected a non-empty string at .tool_input.command",
+        ),
+        (
+            {"tool_input": {"command": 7}},
+            "expected a non-empty string at .tool_input.command",
+        ),
+    ],
+)
+def test_git_guardrail_fails_closed_for_invalid_payloads(
+    payload: object | str, diagnostic: str
+) -> None:
+    result = _run_git_guardrail(payload)
+
+    assert result.returncode == 2
+    assert diagnostic in result.stderr
+    assert result.stdout == ""
+
+
+@pytest.mark.skipif(BASH is None, reason="Bash not available")
+def test_git_guardrail_fails_closed_without_jq(tmp_path: Path) -> None:
+    result = _run_git_guardrail(
+        {"tool_input": {"command": "git status"}},
+        path=str(tmp_path),
+    )
+
+    assert result.returncode == 2
+    assert (
+        result.stderr
+        == "Blocked by Flow Git guardrail: jq is required to parse the hook payload\n"
+    )
+
+
+@pytest.mark.skipif(BASH is None or JQ is None, reason="Bash and jq are required")
+def test_git_guardrail_never_executes_payload(tmp_path: Path) -> None:
+    sentinel = tmp_path / "executed"
+    result = _run_git_guardrail(
+        {"tool_input": {"command": f"printf unsafe > {sentinel}"}}
+    )
+
+    assert result.returncode == 2
+    assert (
+        "shell expansion or metacharacters cannot be classified safely" in result.stderr
+    )
     assert not sentinel.exists()

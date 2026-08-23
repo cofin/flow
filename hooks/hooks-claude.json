@@ -23,7 +23,7 @@
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-.}}/hooks/block-dangerous-git.sh\"",
             "timeout": 10,
-            "description": "Intercept and block destructive Git operations."
+            "description": "Use the Bash and jq guardrail to block prohibited Git operations."
           }
         ]
       }
