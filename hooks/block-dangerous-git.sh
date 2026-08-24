@@ -258,6 +258,16 @@ scan_arguments_for() {
     fi
 
     case "$command_name" in
+      push)
+        case "$token" in
+          --force|--force=*|--force-with-lease*|--force-if-includes|--delete|--mirror|--prune|--all|--tags|--follow-tags|+*|:*|*tags/*)
+            deny "destructive or tag-affecting git push is prohibited; plain pushes are allowed"
+            ;;
+        esac
+        if [[ "$token" =~ ^-[^-]*[fd] ]]; then
+          deny "destructive or tag-affecting git push is prohibited; plain pushes are allowed"
+        fi
+        ;;
       reset)
         if [[ "$token" == "--hard" || "$token" == --hard=* ]]; then
           deny "git reset --hard is prohibited"
@@ -375,10 +385,7 @@ classify_git_subcommand() {
   local argument_start=$2
 
   case "$subcommand" in
-    push)
-      deny "git push requires an explicit user action"
-      ;;
-    reset|clean|tag|branch|fetch|pull|remote|config|symbolic-ref)
+    push|reset|clean|tag|branch|fetch|pull|remote|config|symbolic-ref)
       scan_arguments_for "$subcommand" "$argument_start"
       ;;
   esac

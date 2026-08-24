@@ -121,11 +121,8 @@ After merge: suggest running `flow-archive {flow_id}` to elevate patterns.
 
 ### Option 2: Push and Create PR
 
-The Git guardrail never pushes on the agent's behalf. Ask the user to run the
-push themselves, then create the PR once the branch is on the remote:
-
 ```bash
-# User runs: git push -u origin {feature_branch}
+git push -u origin {feature_branch}
 gh pr create --title "{pr_title}" --body "$(cat <<'EOF'
 ## Summary
 {bullets from spec.md}
