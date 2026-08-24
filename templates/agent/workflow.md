@@ -30,17 +30,20 @@ Use non-interactive modes in automation. Before claiming a result, run the exact
 ## Direct-read continuity
 
 1. Resolve `.agents/setup-state.json:root_directory`, defaulting to `.agents/`.
-2. Read `.agents/bundles/index.md` and active spec frontmatter under `.agents/bundles/specs/<flow_id>/`.
-3. Read authoritative task frontmatter in `tasks/*.md`.
-4. Verify task dependencies, claims, and checklist agreement.
-5. Select an explicit task, the sole in-progress task, or the first ready task.
-6. Read the complete worksheet, direct dependencies, newest discoveries, and relevant knowledge chapters.
+2. Before selecting a flow or doing normal work, scan `<configured-root>/transactions/*/journal.md` and the retired `<configured-root>/tasks/transactions/*/journal.md`. Jointly arbitrate every nonterminal journal (`prepared`, `task_writes_started`, `recovery_required`, `contended`, or `rollback_in_progress`); recover the selected transaction from its recorded fragments, or stop on unresolved conflict.
+3. Resolve the configured bundle root, then read its index and candidate spec frontmatter under `specs/<flow_id>/`.
+4. Read authoritative task frontmatter in `tasks/*.md`.
+5. Verify plan/state identity, task dependencies, claims, and checklist agreement.
+6. Select an explicit task, the sole in-progress task, or the first ready task.
+7. Read the complete worksheet, direct dependencies, newest discoveries, and relevant knowledge chapters.
 
 Hooks and prior conversation are routing hints, not authority. Task files are the single authority for task state.
 
 ## Task and state operations
 
 A task is ready when `state: open`, all `depends_on` tasks are `closed`, its worksheet is complete, and its plan identity matches the spec.
+
+The shipped local state authority is `.agents/skills/flow-state/references/state.md`; follow it with ordinary file read/write/edit tools, whether Flow is installed standalone or through a plugin. Every existing-flow mutation must carry the exact observed `expected_plan_revision`, `expected_plan_commit`, and `expected_state_revision`. Refuse stale identity or unresolved journals without tracked writes. For an accepted mutation, create the prepared transaction journal before tracked state changes, write in its canonical task-first/spec-last order, reread the journal and semantic read set around each write, and record final validation before marking the journal terminal. Recovery resumes the selected journal's recorded finish-or-rollback direction; it never starts a replacement mutation.
 
 | Operation | Purpose |
 | --- | --- |

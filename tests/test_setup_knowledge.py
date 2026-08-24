@@ -129,3 +129,44 @@ def test_public_guidance_never_advertises_a_flat_pattern_default() -> None:
     assert "knowledge/patterns/**/*.md" in (REPO_ROOT / "AGENTS.md").read_text(
         encoding="utf-8"
     )
+
+
+def test_workflow_template_preserves_state_recovery_and_mutation_contract() -> None:
+    workflow = (REPO_ROOT / "templates" / "agent" / "workflow.md").read_text(
+        encoding="utf-8"
+    )
+    continuity = workflow.split("## Direct-read continuity", maxsplit=1)[1].split(
+        "## Task and state operations", maxsplit=1
+    )[0]
+    operations = workflow.split("## Task and state operations", maxsplit=1)[1].split(
+        "## Verification strategies", maxsplit=1
+    )[0]
+
+    journal_scan = continuity.index("transactions/*/journal.md")
+    normal_work = continuity.index("Before selecting a flow or doing normal work")
+    spec_read = continuity.index("candidate spec frontmatter")
+    assert normal_work <= journal_scan < spec_read
+    for state in (
+        "prepared",
+        "task_writes_started",
+        "recovery_required",
+        "contended",
+        "rollback_in_progress",
+    ):
+        assert state in continuity
+    assert "Jointly arbitrate every nonterminal journal" in continuity
+    assert "recover the selected transaction from its recorded fragments" in continuity
+
+    assert ".agents/skills/flow-state/references/state.md" in operations
+    for guard in (
+        "expected_plan_revision",
+        "expected_plan_commit",
+        "expected_state_revision",
+    ):
+        assert guard in operations
+    journal_first = operations.index("prepared transaction journal")
+    tracked_write = operations.index("before tracked state changes")
+    assert journal_first < tracked_write
+    assert "task-first/spec-last" in operations
+    assert "record final validation before marking the journal terminal" in operations
+    assert "never starts a replacement mutation" in operations
