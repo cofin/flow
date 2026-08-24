@@ -51,8 +51,8 @@ tool is declared, allowed, and compatible; four-choice, multi-select, open, or
 otherwise incompatible decisions use the equivalent sequential-text request.
 
 Consumer operational skills resolve only from `.agents/skills/`. Continuity is
-recovered by reading tracked Markdown, and the `flow-reconciler` applies state
-transactions through ordinary file tools. The plugin installs no state runtime
+recovered by reading tracked Markdown, and state transactions are applied
+through ordinary file tools under the state contract. The plugin installs no state runtime
 service or Flow executable.
 
 ## Recommended Codex settings

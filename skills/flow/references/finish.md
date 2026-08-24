@@ -121,8 +121,11 @@ After merge: suggest running `flow-archive {flow_id}` to elevate patterns.
 
 ### Option 2: Push and Create PR
 
+The Git guardrail never pushes on the agent's behalf. Ask the user to run the
+push themselves, then create the PR once the branch is on the remote:
+
 ```bash
-git push -u origin {feature_branch}
+# User runs: git push -u origin {feature_branch}
 gh pr create --title "{pr_title}" --body "$(cat <<'EOF'
 ## Summary
 {bullets from spec.md}
@@ -161,8 +164,11 @@ Wait for exact confirmation. If confirmed:
 
 ```bash
 git checkout {base_branch}
-git branch -D {feature_branch}
+git branch -d {feature_branch}
 ```
+
+`git branch -d` refuses an unmerged branch; if the user wants to discard
+unmerged work, ask them to run `git branch -D {feature_branch}` themselves.
 
 ## Phase 8: Worktree Cleanup
 

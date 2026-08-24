@@ -53,7 +53,9 @@ Resolve the canonical state authority through the active Flow installation. In p
 | `release` | Return an in-progress task to open when the claimant stops. |
 | `close` | Close the sole claimed task with recorded commit SHA. |
 | `reconcile` | Update spec checklist markers from task-file frontmatter via `/flow:sync`. |
-| `archive` | Finish verified work, elevate knowledge, log summary, then contract spec directory. |
+| `complete` | Move an active spec whose tasks are all closed or skipped to `completed` after verification and review. |
+| `archive` | Finish a completed spec: elevate knowledge, log summary, then contract the spec directory. |
+| `recover` | Resume an unresolved transaction journal in its recorded finish-or-rollback direction. |
 
 Use `/flow:sync` to reconcile `spec.md` checklist markers from task files. Task files remain authoritative for state. A worksheet mismatch stops production mutation and routes through refinement.
 

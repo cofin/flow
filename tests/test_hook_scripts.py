@@ -312,27 +312,16 @@ def _run_git_guardrail(
         "git clean --interactive",
         "git clean --dry-run --interactive",
         "git -c clean.requireForce=false clean",
-        "git frobnicate",
-        "git -C ./repo frobnicate",
-        "git `printf push` origin main",
-        "git $(printf push) origin main",
-        "git $FLOW_GIT_COMMAND origin main",
         "g'i't push origin main",
         'g""it push origin main',
         "env g'i't push origin main",
         "/usr/bin/g'i't push origin main",
-        "/usr/bin/g?t push origin main",
-        "/usr/bin/g[i]t push origin main",
         "printf safe | git push origin main",
         "make lint && g'i't push origin main",
-        "value=$HOME /usr/bin/g?t push origin main",
         '"/usr/bin/git" push origin main',
-        "alias ship='git push'; ship origin main",
-        r"g\it push origin main",
         'g"i"t push origin main',
         'gi""t push origin main',
         "'g'it push origin main",
-        r"G=g\it; $G push origin main",
         "! git push origin main",
         "time git push origin main",
         "exec git push origin main",
@@ -342,37 +331,7 @@ def _run_git_guardrail(
         "2>/dev/null git push origin main",
         "{ git push origin main; }",
         "if true; then git push origin main; fi",
-        "$CMD push origin main",
-        "${CMD} push origin main",
-        '"${CMD}" push origin main',
-        "`printf git` push origin main",
-        "$'git' push origin main",
-        "./[g]it push origin main",
-        'eval "$CMD push origin main"',
-        'eval "${CMD} push origin main"',
-        'bash -c "$CMD push origin main"',
-        "sh -c '$CMD push origin main'",
-        "env bash -c '\"$CMD push origin main\"'",
         "bash -c 'git push origin main'",
-        '/bin/bash -c "$CMD push origin main"',
-        '/bin/sh -c "$CMD push origin main"',
-        'bash -lc "$CMD push origin main"',
-        'bash -xec "$CMD push origin main"',
-        'dash -c "$CMD push origin main"',
-        'env /bin/bash -c "$CMD push origin main"',
-        'ksh -c "$CMD push origin main"',
-        'zsh -lc "$CMD push origin main"',
-        'env -i bash -c "$CMD push origin main"',
-        'env --ignore-environment bash -c "$CMD push origin main"',
-        'sudo -u root bash -c "$CMD push origin main"',
-        'nice -n 5 bash -c "$CMD push origin main"',
-        'command -- bash -c "$CMD push origin main"',
-        'builtin eval "$CMD push origin main"',
-        'nohup bash -c "$CMD push origin main"',
-        'timeout 5 bash -c "$CMD push origin main"',
-        'setsid bash -c "$CMD push origin main"',
-        'X="$($CMD)" printf safe',
-        "X=`$CMD` printf safe",
         "git-push origin main",
         "/usr/lib/git-core/git-push origin main",
         "git-reset --hard HEAD",
@@ -383,8 +342,6 @@ def _run_git_guardrail(
         "/usr/lib/git-core/git-tag v1.2.3",
         "git-branch -D obsolete",
         "/usr/lib/git-core/git-branch -D obsolete",
-        "git-frobnicate unsafe",
-        "/usr/lib/git-core/git-frobnicate unsafe",
         "git fetch --tags origin",
         "git fetch -t origin",
         "git fetch --prune-tags origin",
@@ -411,10 +368,32 @@ def _run_git_guardrail(
         "git fetch --prune-tag origin",
         "git fetch -pt origin",
         "git pull -t origin main",
-        "source ./commands.sh",
-        ". ./commands.sh",
-        'source "$COMMAND_FILE"',
-        'printf "%s" "$HOME"',
+        "git tag --ignore-case v1.0",
+        "git tag --sort=refname v1.0",
+        "git tag --column v1.0",
+        "git fetch -P origin",
+        "git fetch --ta origin",
+        "git fetch --prune- origin",
+        "git -c fetch.pruneTags=yes fetch origin",
+        "git -c fetch.pruneTags fetch origin",
+        "git -c remote.origin.tagOpt=--tags pull origin main",
+        "git config remote.origin.tagOpt --tags",
+        "git config fetch.pruneTags true",
+        "GIT_CONFIG_PARAMETERS=remote.origin.tagopt=--tags git fetch origin",
+        "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=remote.origin.tagopt GIT_CONFIG_VALUE_0=--tags git fetch origin",
+        "git symbolic-ref refs/tags/v1 refs/heads/main",
+        "git fetch origin tags/v3.0:tags/v3.0",
+        "git remote add --tags origin https://example.invalid/repo.git",
+        "git branch -Df obsolete",
+        "git branch -fD obsolete",
+        "git clean -n -f -d --no-dry-run",
+        "git.exe push origin main",
+        "Git push origin main",
+        "git Push origin main",
+        "git status &&\ngit push origin main",
+        "(git push origin main)",
+        "git status || git push origin main",
+        "git fetch origin && git tag v1.2.3",
     ],
 )
 def test_git_guardrail_blocks_nested_destructive_commands(command: str) -> None:
@@ -463,6 +442,41 @@ def test_git_guardrail_blocks_nested_destructive_commands(command: str) -> None:
         "git-fetch origin main",
         "/usr/lib/git-core/git-pull origin main",
         "git -c 'remote.origin.fetch=+refs/heads/*:refs/remotes/origin/*' fetch origin",
+        "git status && git diff --stat",
+        "git log --oneline | head -5",
+        "git status; git diff --check",
+        "(git status)",
+        "{ git status; }",
+        'git commit -m "fix(hooks): block abbreviated tag fetch options"',
+        "git commit -m 'costs $5 (roughly)'",
+        "git grep 'foo\\.bar'",
+        "git tag --sort=refname",
+        "git tag --ignore-case --list 'v*'",
+        "GIT_CONFIG_GLOBAL=/dev/null git status",
+        "git fetch --prune origin",
+        "git clean --no-dry-run -n",
+        "git branch -d merged-topic",
+        "git remote -v",
+        "git config user.name",
+        "git symbolic-ref HEAD",
+        "make lint && git status --short",
+        "echo $HOME",
+        'printf "%s" "$HOME"',
+        "ls *.py",
+        "uv run pytest tests/test_x.py::test_y[0]",
+        "git status > /dev/null",
+        "git log --format=%h 2>&1 | head -3",
+        "git log --grep='a|b'",
+        'git commit -m "fix(hooks): x; y | z"',
+        "git commit -m \"$(cat <<'EOF'\nfeat: add thing\nEOF\n)\"",
+        "source ./env.sh && git status",
+        'for f in *.py; do git add "$f"; done',
+        "v=$(git rev-parse HEAD); echo $v",
+        "echo `git rev-parse HEAD`",
+        "GIT_CONFIG_GLOBAL=/dev/null git config user.name",
+        "git frobnicate",
+        "git --unknown-global status",
+        "git tag --unknown-option",
     ],
 )
 def test_git_guardrail_allows_parsed_safe_commands(command: str) -> None:
@@ -471,6 +485,53 @@ def test_git_guardrail_allows_parsed_safe_commands(command: str) -> None:
     assert result.returncode == 0, result.stderr
     assert result.stdout == ""
     assert result.stderr == ""
+
+@pytest.mark.skipif(BASH is None or JQ is None, reason="Bash and jq are required")
+@pytest.mark.parametrize(
+    ("command", "returncode"),
+    [
+        ('git commit -m "' + "word " * 4000 + '"', 0),
+        ('git commit -m "' + "word " * 4000 + '" && git push origin main', 2),
+        ("git log " + " ".join(f"--grep=t{i}" for i in range(1500)), 0),
+        ("cat > f.py <<'EOF'\n" + "x = 1  # comment\n" * 800 + "EOF", 0),
+    ],
+)
+def test_git_guardrail_classifies_large_commands_within_timeout(
+    command: str, returncode: int
+) -> None:
+    result = _run_git_guardrail({"tool_input": {"command": command}})
+
+    assert result.returncode == returncode, result
+
+@pytest.mark.skipif(BASH is None or JQ is None, reason="Bash and jq are required")
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git $FLOW_GIT_COMMAND origin main",
+        "git $(printf push) origin main",
+        "$CMD push origin main",
+        '"${CMD}" push origin main',
+        "/usr/bin/g?t push origin main",
+        "./[g]it push origin main",
+        r"g\it push origin main",
+        "$'git' push origin main",
+        'bash -c "$CMD push origin main"',
+        'eval "$CMD push origin main"',
+        'timeout 5 bash -c "$CMD push origin main"',
+        "alias ship='git push'; ship origin main",
+        "source ./commands.sh",
+        'source "$COMMAND_FILE"',
+        "bash -c \"g''it push\"",
+        "git-frobnicate unsafe",
+    ],
+)
+def test_git_guardrail_allows_unclassifiable_commands(command: str) -> None:
+    """The guardrail catches literal mistakes; obfuscated or dynamic Git is out of scope."""
+    result = _run_git_guardrail({"tool_input": {"command": command}})
+
+    assert result.returncode == 0, result
+
+
 
 
 @pytest.mark.skipif(BASH is None or JQ is None, reason="Bash and jq are required")
@@ -505,17 +566,17 @@ def test_git_guardrail_fails_closed_for_invalid_payloads(
 
 
 @pytest.mark.skipif(BASH is None, reason="Bash not available")
-def test_git_guardrail_fails_closed_without_jq(tmp_path: Path) -> None:
+def test_git_guardrail_skips_classification_without_jq(tmp_path: Path) -> None:
     result = _run_git_guardrail(
         {"tool_input": {"command": "git status"}},
         path=str(tmp_path),
     )
 
-    assert result.returncode == 2
-    assert (
-        result.stderr
-        == "Blocked by Flow Git guardrail: jq is required to parse the hook payload\n"
+    assert result.returncode == 0
+    assert result.stderr == (
+        "Flow Git guardrail: jq is unavailable; skipping Git classification\n"
     )
+    assert result.stdout == ""
 
 
 @pytest.mark.skipif(BASH is None or JQ is None, reason="Bash and jq are required")

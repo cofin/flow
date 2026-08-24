@@ -344,7 +344,7 @@ Create:
 mkdir -p .agents/bundles/{specs,product,knowledge,research} .agents/skills/flow-memory-keeper
 ```
 
-Copy `templates/agent/skills/flow-memory-keeper/SKILL.md` into `.agents/skills/flow-memory-keeper/SKILL.md`.
+Copy `templates/agent/skills/flow-memory-keeper/SKILL.md` into `.agents/skills/flow-memory-keeper/SKILL.md`; the standalone installer (Phase 7.6) adopts an identical copy as a managed file.
 
 ---
 

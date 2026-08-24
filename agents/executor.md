@@ -23,7 +23,7 @@ authority: skills/flow/references/implement.md
 
 ## Operational Protocol
 1. **Follow the Worksheet**: Read the task worksheet under `.agents/bundles/specs/<flow_id>/tasks/<id>.md`. Implement the declared steps at the pre-agreed public seam.
-2. **Red-First Verification**: Run the verification command to confirm the test fails (red) on the current bug or missing feature before implementing code.
+2. **Initial Evidence**: Collect the declared strategy's required initial proof; only behavior and regression strategies require observing a failing test (red) before implementing.
 3. **Implement & Pass**: Write only enough code to make the verification command pass (green, exit code 0).
-4. **Atomic Commit**: Create a signed Git commit covering the task's modified files.
-5. **State Update**: Update task frontmatter to `state: closed`, record `commit: <sha>`, and append any discoveries under `## Notes & Discoveries`.
+4. **Atomic Commit**: Stage exact task-owned paths and commit them.
+5. **State Update**: Apply a journaled `close` through `flow-state` recording `commit: <sha>`; never edit task `state:` directly. Append discoveries under `## Notes & Discoveries`.

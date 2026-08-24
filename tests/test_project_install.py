@@ -51,6 +51,10 @@ def _state(project: Path) -> dict[str, object]:
 def _replace_with_unsafe_object(
     target: Path, kind: str, tmp_path: Path
 ) -> tuple[socket.socket | None, Path | None]:
+    if kind == "fifo" and not hasattr(os, "mkfifo"):
+        pytest.skip("named pipes are unavailable on this platform")
+    if kind == "socket" and not hasattr(socket, "AF_UNIX"):
+        pytest.skip("Unix domain sockets are unavailable on this platform")
     content = target.read_bytes()
     target.unlink()
     if kind == "fifo":
@@ -156,6 +160,50 @@ def test_graph_sources_and_edges_fail_before_writes(
             project, source_root=source, mode="install", host="codex_cli"
         )
     assert not (project / ".agents").exists()
+
+
+def test_install_adopts_an_identical_unmanaged_copy_and_keeps_its_customization(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source"
+    project = tmp_path / "project"
+    _write_source(source)
+    existing = project / ".agents/skills/flow/references/setup.md"
+    existing.parent.mkdir(parents=True)
+    existing.write_bytes(
+        (source / "skills/flow/references/setup.md")
+        .read_bytes()
+        .replace(
+            b"<!-- project-customization: end -->",
+            b"keep me\n<!-- project-customization: end -->",
+        )
+    )
+
+    result = install_project_flow(
+        project, source_root=source, mode="install", host="codex_cli"
+    )
+
+    assert result.action == "installed"
+    assert b"keep me" in existing.read_bytes()
+    managed = {entry["path"] for entry in _state(project)["project_install"]["managed_files"]}
+    assert ".agents/skills/flow/references/setup.md" in managed
+
+
+def test_installed_files_honor_the_process_umask(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    project = tmp_path / "project"
+    _write_source(source)
+    project.mkdir()
+    previous = os.umask(0o022)
+    try:
+        install_project_flow(
+            project, source_root=source, mode="install", host="codex_cli"
+        )
+    finally:
+        os.umask(previous)
+
+    mode = (project / ".agents/skills/flow/SKILL.md").stat().st_mode
+    assert mode & 0o444 == 0o444
 
 
 def test_install_conflicts_and_global_plugin_transition_are_confirmed(
@@ -273,6 +321,59 @@ def test_install_update_and_uninstall_are_idempotent_and_path_confirmed(
     assert (
         install_project_flow(project, source_root=source, mode="uninstall").action
         == "unchanged"
+    )
+
+
+def test_crlf_sources_install_idempotently_and_match_canonical_mirrors(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source"
+    project = tmp_path / "project"
+    _write_source(source)
+    canonical = source / "skills/completion/SKILL.md"
+    canonical.parent.mkdir(parents=True)
+    canonical.write_bytes(b"# Completion\r\n\r\nRun the checks.\r\n")
+    generated = source / "templates/skills/completion/SKILL.md"
+    generated.parent.mkdir(parents=True)
+    generated.write_bytes(
+        b"# Completion\r\n\r\nRun the checks.\r\n\r\n"
+        b"<!-- project-customization: start -->\r\n"
+        b"## Local Notes\r\n"
+        b"<!-- project-customization: end -->\r\n"
+    )
+    setup = source / "skills/flow/references/setup.md"
+    setup.write_bytes(setup.read_bytes().replace(b"\n", b"\r\n"))
+    graph_path = source / INSTALLER.INSTALL_GRAPH_PATH
+    graph = json.loads(graph_path.read_text())
+    graph["nodes"]["skill:completion"] = {
+        "source": "templates/skills/completion",
+        "canonical": "skills/completion",
+        "customized": True,
+        "destination": ".agents/skills/completion",
+        "dependencies": [],
+    }
+    graph["nodes"]["skill:flow"]["dependencies"] = ["skill:completion"]
+    graph_path.write_text(json.dumps(graph))
+    project.mkdir()
+
+    first = install_project_flow(
+        project, source_root=source, mode="install", host="codex_cli"
+    )
+    second = install_project_flow(
+        project, source_root=source, mode="install", host="codex_cli"
+    )
+    assert (first.action, second.action) == ("installed", "unchanged")
+    installed = (project / ".agents/skills/completion/SKILL.md").read_bytes()
+    assert installed == generated.read_bytes()
+
+    lf_path = project / ".agents/skills/completion/SKILL.md"
+    lf_path.write_bytes(installed.replace(b"\r\n", b"\n"))
+    result = install_project_flow(
+        project, source_root=source, mode="update", host="codex_cli"
+    )
+    assert result.action == "updated"
+    assert lf_path.read_bytes() == installed.replace(
+        b"## Local Notes\r\n", b"## Local Notes\n"
     )
 
 

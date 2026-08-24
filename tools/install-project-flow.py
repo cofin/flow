@@ -47,7 +47,8 @@ def _sha256(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
 
 
-def _customization_parts(text: str, *, path: Path) -> tuple[str, str, str] | None:
+def _customization_parts(text: str, *, path: Path) -> tuple[str, str, str, str] | None:
+    """Split ``text`` into (before, custom, after, newline) around the markers."""
     lines = text.splitlines(keepends=True)
     starts = [index for index, line in enumerate(lines) if line.strip() == CUSTOM_START]
     ends = [index for index, line in enumerate(lines) if line.strip() == CUSTOM_END]
@@ -55,23 +56,27 @@ def _customization_parts(text: str, *, path: Path) -> tuple[str, str, str] | Non
         return None
     if len(starts) != 1 or len(ends) != 1 or ends[0] < starts[0]:
         raise InstallError(f"invalid customization block in {path.as_posix()}")
+    start_line = lines[starts[0]]
+    newline = start_line[len(start_line.rstrip("\r\n")) :] or "\n"
     return (
         "".join(lines[: starts[0]]),
         "".join(lines[starts[0] + 1 : ends[0]]),
         "".join(lines[ends[0] + 1 :]),
+        newline,
     )
 
 
 def _normalized_content(data: bytes, *, path: Path) -> bytes:
+    """Return ``data`` with the custom block emptied and line endings unified."""
     try:
         text = data.decode("utf-8")
     except UnicodeDecodeError:
         return data
     parts = _customization_parts(text, path=path)
-    if parts is None:
-        return data
-    before, _, after = parts
-    return f"{before}{CUSTOM_START}\n{CUSTOM_END}\n{after}".encode()
+    if parts is not None:
+        before, _, after, _ = parts
+        text = f"{before}{CUSTOM_START}\n{CUSTOM_END}\n{after}"
+    return text.replace("\r\n", "\n").encode()
 
 
 def _content_hash(data: bytes, *, path: Path) -> str:
@@ -88,9 +93,11 @@ def _merge_customization(canonical: bytes, current: bytes, *, path: Path) -> byt
     current_parts = _customization_parts(current_text, path=path)
     if canonical_parts is None or current_parts is None:
         return canonical
-    before, _, after = canonical_parts
-    _, custom, _ = current_parts
-    return f"{before}{CUSTOM_START}\n{custom}{CUSTOM_END}\n{after}".encode()
+    before, _, after, newline = canonical_parts
+    _, custom, _, _ = current_parts
+    return (
+        f"{before}{CUSTOM_START}{newline}{custom}{CUSTOM_END}{newline}{after}".encode()
+    )
 
 
 def _has_customization(data: bytes, *, path: Path) -> bool:
@@ -378,6 +385,12 @@ def _installed_host(state: dict[str, object]) -> str | None:
     return host if isinstance(host, str) else None
 
 
+def _current_umask() -> int:
+    value = os.umask(0)
+    os.umask(value)
+    return value
+
+
 def _write_transaction(
     project_root: Path, changes: dict[Path, bytes | None]
 ) -> tuple[str, ...]:
@@ -412,6 +425,7 @@ def _write_transaction(
                     temporary.write(content)
                     temporary.flush()
                     os.fsync(temporary.fileno())
+                os.chmod(temporary_name, 0o666 & ~_current_umask())
                 os.replace(temporary_name, path)
             finally:
                 if os.path.exists(temporary_name):
@@ -528,9 +542,11 @@ def install_project_flow(
         canonical_hash = _content_hash(canonical, path=target)
         if target.exists():
             current = target.read_bytes()
+            current_hash = _content_hash(current, path=target)
             if relative not in previous:
-                raise InstallError(f"unmanaged target collision: {relative}")
-            if _content_hash(current, path=target) != previous[relative]:
+                if current_hash != canonical_hash:
+                    raise InstallError(f"unmanaged target collision: {relative}")
+            elif current_hash != previous[relative]:
                 raise InstallError(f"stale managed hash: {relative}")
             output = _merge_customization(canonical, current, path=target)
         else:

@@ -30,11 +30,11 @@ authority: skills/flow/references/implement.md
 
 ## Workflow
 
-1. **Preflight**: Inspect `.agents/bundles/specs/<flow_id>/tasks/<short_id>.md`, verify dependencies are `closed`, and set `state: in_progress`.
+1. **Preflight**: Inspect `.agents/bundles/specs/<flow_id>/tasks/<short_id>.md`, verify dependencies are `closed`, and apply a journaled `claim` through `flow-state` with the expected plan identity and spec state revision.
 2. **Initial Evidence**: Collect the declared strategy's required initial proof; only behavior and regression strategies require red.
 3. **Minimal Implementation**: Make the smallest task-owned change while keeping focused evidence green.
 4. **Quality Gates**: Run repository linters and typecheckers while tests remain green.
-5. **Atomic Commit & Close**: Stage exact files, commit with signed Git commit, update task frontmatter (`state: closed`, `commit: <sha>`), and reconcile `spec.md` checklist via `/flow:sync`.
+5. **Atomic Commit & Close**: Stage exact files, commit, apply a journaled `close` through `flow-state` recording `commit: <sha>`, and reconcile the `spec.md` checklist via `/flow:sync`.
 
 ## Guardrails
 
