@@ -32,6 +32,7 @@ evaluator_mode=''
 evaluator_nested_git=0
 evaluator_unknown=0
 git_boundary_pattern='(^|[=/[:space:]])git($|[/:[:space:]])'
+simple_parameter_assignment_pattern='^[a-zA-Z_][a-zA-Z0-9_]*=\$([a-zA-Z_][a-zA-Z0-9_]*|\{[a-zA-Z_][a-zA-Z0-9_]*\})$'
 
 classify_relevance_token() {
   local token=$relevance_token
@@ -46,7 +47,7 @@ classify_relevance_token() {
     g\?t|g\[i\]t) contains_git=1 ;;
   esac
   if ((relevance_dynamic)); then
-    if ((expect_executable)) && [[ "$token" =~ ^[a-zA-Z_][a-zA-Z0-9_]*= ]]; then
+    if ((expect_executable)) && [[ "$token" =~ $simple_parameter_assignment_pattern ]]; then
       return 0
     fi
     possible_git=1

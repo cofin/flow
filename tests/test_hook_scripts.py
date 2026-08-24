@@ -371,6 +371,8 @@ def _run_git_guardrail(
         'nohup bash -c "$CMD push origin main"',
         'timeout 5 bash -c "$CMD push origin main"',
         'setsid bash -c "$CMD push origin main"',
+        'X="$($CMD)" printf safe',
+        "X=`$CMD` printf safe",
     ],
 )
 def test_git_guardrail_blocks_nested_destructive_commands(command: str) -> None:
