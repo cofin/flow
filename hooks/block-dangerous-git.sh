@@ -45,6 +45,13 @@ classify_relevance_token() {
   case "$basename" in
     g\?t|g\[i\]t) contains_git=1 ;;
   esac
+  if ((relevance_dynamic)); then
+    if ((expect_executable)) && [[ "$token" =~ ^[a-zA-Z_][a-zA-Z0-9_]*= ]]; then
+      return 0
+    fi
+    possible_git=1
+    return 0
+  fi
   if [[ -n "$evaluator_mode" ]]; then
     possible_git=1
     ((contains_git)) && evaluator_nested_git=1
