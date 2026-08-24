@@ -27,43 +27,66 @@ case "$COMMAND" in
     ;;
 esac
 
-# Split for classification only. The payload is data and is never evaluated or executed.
-read -r -a TOKENS <<< "$COMMAND"
+# Lex for classification only. This recognizes plain tokens and whole-token single or
+# double quotes without evaluating escapes, expansions, substitutions, or shell syntax.
+TOKENS=()
+TOKEN_QUOTED=()
+current=''
+quote=''
+quoted=0
+command_length=${#COMMAND}
 
-for raw_token in "${TOKENS[@]}"; do
-  case "$raw_token" in
-    *\'*|*\"*)
-      token_length=${#raw_token}
-      ((token_length >= 2)) || deny "shell quote concatenation cannot be classified safely"
-      first_character=${raw_token:0:1}
-      last_character=${raw_token: -1}
-      interior=${raw_token:1:token_length-2}
-      if [[ "$first_character" == "'" && "$last_character" == "'" ]]; then
-        [[ "$interior" != *\'* && "$interior" != *\"* ]] || deny "shell quote concatenation cannot be classified safely"
-      elif [[ "$first_character" == '"' && "$last_character" == '"' ]]; then
-        [[ "$interior" != *\'* && "$interior" != *\"* ]] || deny "shell quote concatenation cannot be classified safely"
-      else
-        deny "shell quote concatenation cannot be classified safely"
+for ((position = 0; position < command_length; position++)); do
+  character=${COMMAND:position:1}
+  if [[ -n "$quote" ]]; then
+    if [[ "$character" == "$quote" ]]; then
+      quote=''
+      if ((position + 1 < command_length)); then
+        next_character=${COMMAND:position+1:1}
+        [[ "$next_character" == ' ' || "$next_character" == $'\t' ]] ||
+          deny "shell quote concatenation cannot be classified safely"
       fi
-      ;;
-  esac
-  case "$raw_token" in
-    \'*\'|\"*\")
-      ;;
-    *'*'*|*'?'*|*'['*|*']'*)
-      deny "unquoted pathname expansion cannot be classified safely"
-      ;;
-  esac
+    elif [[ "$character" == "'" || "$character" == '"' ]]; then
+      deny "shell quote concatenation cannot be classified safely"
+    else
+      current+=$character
+    fi
+  elif [[ "$character" == ' ' || "$character" == $'\t' ]]; then
+    if [[ -n "$current" || "$quoted" == 1 ]]; then
+      TOKENS+=("$current")
+      TOKEN_QUOTED+=("$quoted")
+      current=''
+      quoted=0
+    fi
+  elif [[ "$character" == "'" || "$character" == '"' ]]; then
+    [[ -z "$current" ]] || deny "shell quote concatenation cannot be classified safely"
+    quote=$character
+    quoted=1
+  else
+    current+=$character
+  fi
+done
+
+[[ -z "$quote" ]] || deny "shell quote concatenation cannot be classified safely"
+if [[ -n "$current" || "$quoted" == 1 ]]; then
+  TOKENS+=("$current")
+  TOKEN_QUOTED+=("$quoted")
+fi
+
+for ((token_index = 0; token_index < ${#TOKENS[@]}; token_index++)); do
+  if [[ "${TOKEN_QUOTED[token_index]}" == 0 ]]; then
+    case "${TOKENS[token_index]}" in
+      *'*'*|*'?'*|*'['*|*']'*)
+        deny "unquoted pathname expansion cannot be classified safely"
+        ;;
+    esac
+  fi
 done
 
 normalize_token() {
   local token=$1
-  token=${token#\'}
-  token=${token#\"}
   token=${token##+([\;&\|\(])}
   token=${token%%+([\;&\|\)])}
-  token=${token%\'}
-  token=${token%\"}
   printf '%s' "$token"
 }
 

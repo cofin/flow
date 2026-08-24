@@ -339,6 +339,10 @@ def test_git_guardrail_blocks_nested_destructive_commands(command: str) -> None:
     [
         "git status --short",
         "git -C ./repo diff --check",
+        'git commit -m "fix parser bug"',
+        "git commit -m 'preserve quoted words'",
+        'git commit --trailer "Reviewed-by: Flow Maintainer"',
+        'git grep "literal multi word pattern"',
         "git reset --soft HEAD~1",
         "git clean -n",
         "git clean --dry-run -dX",
