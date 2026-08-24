@@ -68,8 +68,8 @@ one read-only pass before proposing or applying any write:
   each journal's `state`;
 - both historical project-skill roots: legacy `.agents/bundles/skills/` and
   canonical `.agents/skills/`;
-- legacy tracker data and configuration, including `.agents/beads.json`,
-  `.beads/`, and every legacy `metadata.json` slated for migration or removal;
+- legacy tracker data and configuration, including every legacy
+  `metadata.json` slated for migration or removal;
 - hooks, policies, setup state, ignore/tracking policy, and root instruction files
   (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, OpenCode config, and Cursor rules).
 
@@ -175,11 +175,17 @@ transaction, and changes neither `plan_revision` nor `plan_commit`.
 
 ### 0.1.1b Remove Legacy Tracker Machinery
 
-Offer each removal explicitly: delete `.git/hooks/pre-commit` when it contains tracker sync logic; delete `.beads/` and `.agents/beads.json` after confirmation; note the legacy `bd` binary is no longer used and may be uninstalled.
+Offer each removal explicitly: delete `.git/hooks/pre-commit` when it contains
+tracker sync logic, and delete obsolete tracker data and configuration only
+after confirmation.
 
 ### 0.1.1c Scrub Tracker Instructions from Context Files
 
-Scan `AGENTS.md`/`CLAUDE.md`/`GEMINI.md`, `.claude/settings.local.json` (`Bash(bd:*)` allowlist entries), `opencode.json`, and `.cursor/rules/*.mdc` for tracker-era instructions or legacy `.agents/specs/` paths. Show each proposed edit; replace with bundle equivalents or remove on approval (merge, back up, never clobber).
+Scan `AGENTS.md`/`CLAUDE.md`/`GEMINI.md`, `.claude/settings.local.json`,
+`opencode.json`, and `.cursor/rules/*.mdc` for tracker-era instructions,
+obsolete command allowlists, or superseded project-layout paths. Show each
+proposed edit; replace with bundle equivalents or remove on approval (merge,
+back up, never clobber).
 
 ### 0.1.2 Learnings Ingestion
 
