@@ -26,35 +26,7 @@ HOST_MARKERS = {
     "openclaw": (),
     "vscode_copilot": (".github/copilot-instructions.md",),
 }
-PORTABLE_SKILLS = (
-    "apilookup",
-    "architecture-critic",
-    "challenge",
-    "consensus",
-    "debloat",
-    "deepthink",
-    "devils-advocate",
-    "docgen",
-    "flow",
-    "flow-completion",
-    "flow-execution",
-    "flow-memory-keeper",
-    "flow-planning",
-    "flow-setup",
-    "flow-state",
-    "flow-sync-status",
-    "performance-analyst",
-    "perspectives",
-    "security-auditor",
-    "tracer",
-)
-GENERATED_STANDALONE_SKILLS = frozenset(PORTABLE_SKILLS).difference(
-    {
-        "debloat",
-        "flow-memory-keeper",
-        "flow-state",
-    }
-)
+INSTALL_GRAPH_PATH = Path("contracts/standalone-install.json")
 VALID_MODES = frozenset({"skip", "install", "update", "uninstall"})
 
 
@@ -196,76 +168,167 @@ def _detect_host(project_root: Path) -> str:
     return detected[0]
 
 
-def _standalone_files(source_root: Path, host: str) -> dict[str, bytes]:
-    """Return portable skills/roles and only the selected host's adapters."""
-    desired: dict[str, bytes] = {}
+def _load_install_graph(source_root: Path) -> dict[str, object]:
+    graph_path = source_root / INSTALL_GRAPH_PATH
+    try:
+        graph = json.loads(graph_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise InstallError(
+            f"invalid standalone dependency graph: {graph_path}"
+        ) from exc
+    if not isinstance(graph, dict) or set(graph) != {
+        "version",
+        "roots",
+        "nodes",
+        "hosts",
+    }:
+        raise InstallError("standalone dependency graph has an invalid top-level shape")
+    if graph["version"] != 1 or not isinstance(graph["roots"], list):
+        raise InstallError(
+            "standalone dependency graph has an unsupported version or roots"
+        )
+    if not isinstance(graph["nodes"], dict) or not isinstance(graph["hosts"], dict):
+        raise InstallError(
+            "standalone dependency graph nodes and hosts must be objects"
+        )
+    return graph
 
-    for skill in GENERATED_STANDALONE_SKILLS:
-        canonical_root = source_root / "skills" / skill
-        template_root = source_root / "templates" / "agent" / "skills" / skill
-        canonical = {
-            path.relative_to(canonical_root): path.read_bytes()
-            for path in canonical_root.rglob("*")
-            if path.is_file()
-        }
-        generated = {
-            path.relative_to(template_root): path.read_bytes()
-            for path in template_root.rglob("*")
-            if path.is_file()
-        }
-        if not canonical:
-            raise InstallError(f"missing canonical standalone skill: {skill}")
-        if skill in {"flow-completion", "flow-sync-status"}:
-            canonical[Path("SKILL.md")] = (
-                canonical[Path("SKILL.md")].rstrip()
-                + f"\n\n{CUSTOM_START}\n{CUSTOM_END}\n".encode()
-            )
-            generated = {
-                relative: _normalized_content(content, path=template_root / relative)
-                for relative, content in generated.items()
-            }
-        if generated != canonical:
-            raise InstallError(f"stale generated standalone skill: {skill}")
 
-    def include_tree(source: Path, destination: PurePosixPath) -> None:
-        if not source.is_dir():
-            raise InstallError(f"missing generated standalone source: {source}")
-        for path in sorted(item for item in source.rglob("*") if item.is_file()):
-            relative = destination / PurePosixPath(path.relative_to(source).as_posix())
-            desired[relative.as_posix()] = path.read_bytes()
-
-    for skill in PORTABLE_SKILLS:
-        include_tree(
-            source_root / "templates" / "agent" / "skills" / skill,
-            PurePosixPath(".agents/skills") / skill,
-        )
-    include_tree(source_root / "agents", PurePosixPath(".agents/flow/agents"))
-
-    if host == "antigravity":
-        include_tree(
-            source_root / "templates" / "antigravity" / "agents",
-            PurePosixPath(".agents/agents"),
-        )
-    elif host == "codex_cli":
-        include_tree(source_root / ".codex" / "agents", PurePosixPath(".codex/agents"))
-    elif host == "opencode":
-        include_tree(
-            source_root / ".opencode" / "agents", PurePosixPath(".opencode/agents")
-        )
-        include_tree(
-            source_root / "templates" / "opencode" / "commands",
-            PurePosixPath(".opencode/commands"),
-        )
-    elif host == "vscode_copilot":
-        include_tree(
-            source_root / ".github" / "agents", PurePosixPath(".github/agents")
-        )
-    elif host == "claude_code":
-        commands = source_root / "commands"
-        for path in sorted(commands.glob("flow-*.md")):
-            desired[f".claude/commands/{path.name}"] = path.read_bytes()
-    elif host not in {"cursor", "openclaw"}:
+def _graph_closure(graph: dict[str, object], host: str) -> tuple[str, ...]:
+    nodes = graph["nodes"]
+    hosts = graph["hosts"]
+    assert isinstance(nodes, dict) and isinstance(hosts, dict)
+    if host not in hosts or not isinstance(hosts[host], list):
         raise InstallError(f"unsupported active host: {host}")
+    roots = graph["roots"]
+    assert isinstance(roots, list)
+    visiting: list[str] = []
+    visited: set[str] = set()
+
+    def visit(node_id: str) -> None:
+        if node_id in visiting:
+            raise InstallError(
+                f"cyclic standalone dependency: {' -> '.join((*visiting, node_id))}"
+            )
+        if node_id in visited:
+            return
+        node = nodes.get(node_id)
+        if not isinstance(node, dict) or not isinstance(node.get("dependencies"), list):
+            raise InstallError(
+                f"missing or invalid standalone dependency node: {node_id}"
+            )
+        visiting.append(node_id)
+        for dependency in node["dependencies"]:
+            if not isinstance(dependency, str):
+                raise InstallError(f"invalid dependency edge from {node_id}")
+            visit(dependency)
+        visiting.pop()
+        visited.add(node_id)
+
+    for root in (*roots, *hosts[host]):
+        if not isinstance(root, str):
+            raise InstallError("standalone dependency roots must be strings")
+        visit(root)
+    return tuple(sorted(visited))
+
+
+def _node_files(
+    source_root: Path, node_id: str, node: dict[str, object]
+) -> dict[str, bytes]:
+    allowed = {
+        "source",
+        "destination",
+        "dependencies",
+        "canonical",
+        "customized",
+        "include",
+    }
+    if not set(node).issubset(allowed):
+        raise InstallError(f"standalone dependency node has unknown fields: {node_id}")
+    source_value, destination_value = node.get("source"), node.get("destination")
+    if not isinstance(source_value, str) or not isinstance(destination_value, str):
+        raise InstallError(
+            f"standalone dependency node lacks source/destination: {node_id}"
+        )
+    source = _contained(
+        source_root, source_root / source_value, description="dependency source"
+    )
+    destination = PurePosixPath(destination_value)
+    if destination.is_absolute() or ".." in destination.parts:
+        raise InstallError(f"invalid standalone destination: {node_id}")
+    include = node.get("include")
+    if include is not None and not isinstance(include, str):
+        raise InstallError(f"invalid standalone include pattern: {node_id}")
+    if source.is_file():
+        files = (source,)
+    elif source.is_dir():
+        files = tuple(
+            sorted(
+                source.glob(include)
+                if include
+                else (p for p in source.rglob("*") if p.is_file())
+            )
+        )
+    else:
+        raise InstallError(f"missing standalone dependency source: {source_value}")
+    if not files:
+        raise InstallError(f"empty standalone dependency source: {source_value}")
+    result: dict[str, bytes] = {}
+    for path in files:
+        relative = Path(path.name) if source.is_file() else path.relative_to(source)
+        target = (
+            destination
+            if source.is_file()
+            else destination / PurePosixPath(relative.as_posix())
+        )
+        result[target.as_posix()] = path.read_bytes()
+    return result
+
+
+def _standalone_files(
+    source_root: Path, host: str, *, graph: dict[str, object] | None = None
+) -> dict[str, bytes]:
+    """Return the declared minimal lifecycle closure for the selected host."""
+    selected_graph = _load_install_graph(source_root) if graph is None else graph
+    nodes = selected_graph["nodes"]
+    assert isinstance(nodes, dict)
+    desired: dict[str, bytes] = {}
+    for node_id in _graph_closure(selected_graph, host):
+        node = nodes[node_id]
+        assert isinstance(node, dict)
+        generated = _node_files(source_root, node_id, node)
+        canonical_value = node.get("canonical")
+        if canonical_value is not None:
+            if not isinstance(canonical_value, str):
+                raise InstallError(f"invalid canonical source: {node_id}")
+            canonical_node = dict(node)
+            canonical_node["source"] = canonical_value
+            canonical_node["destination"] = node["destination"]
+            canonical_node.pop("canonical", None)
+            canonical_node.pop("include", None)
+            canonical = _node_files(source_root, node_id, canonical_node)
+            if node.get("customized"):
+                canonical = {
+                    path: content.rstrip()
+                    + f"\n\n{CUSTOM_START}\n{CUSTOM_END}\n".encode()
+                    if path.endswith("/SKILL.md")
+                    else content
+                    for path, content in canonical.items()
+                }
+            normalized_generated = {
+                path: _normalized_content(content, path=Path(path))
+                for path, content in generated.items()
+            }
+            normalized_canonical = {
+                path: _normalized_content(content, path=Path(path))
+                for path, content in canonical.items()
+            }
+            if normalized_generated != normalized_canonical:
+                raise InstallError(f"stale generated standalone node: {node_id}")
+        overlap = set(desired).intersection(generated)
+        if overlap:
+            raise InstallError(f"duplicate standalone destination: {min(overlap)}")
+        desired.update(generated)
     return desired
 
 

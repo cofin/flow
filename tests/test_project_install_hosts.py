@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+from copy import deepcopy
 from pathlib import Path
 
 import pytest
@@ -53,13 +54,29 @@ def test_clean_plugin_free_host_gets_complete_selected_surface(
     assert result.action == "installed"
     assert (project / present).is_file()
     assert not (project / absent).exists()
-    for skill in INSTALLER.PORTABLE_SKILLS:
-        assert (project / ".agents" / "skills" / skill / "SKILL.md").is_file()
-    for role in ("executor", "plan-generator", "quality-reviewer", "researcher"):
-        assert (project / ".agents" / "flow" / "agents" / f"{role}.md").is_file()
+    graph = INSTALLER._load_install_graph(REPO_ROOT)
+    closure = INSTALLER._graph_closure(graph, host)
+    nodes = graph["nodes"]
+    expected = {}
+    for node_id in closure:
+        expected.update(INSTALLER._node_files(REPO_ROOT, node_id, nodes[node_id]))
+    state = json.loads((project / ".agents/setup-state.json").read_text())
+    installed = {entry["path"] for entry in state["project_install"]["managed_files"]}
+    assert installed == set(expected)
+    assert "skill:okf" in closure
+    assert (project / ".agents/skills/okf/SKILL.md").is_file()
+    assert any(node_id.startswith("agent:") for node_id in closure)
+    if host == "codex_cli":
+        assert "host:codex-agents" in closure
+        assert any(path.endswith(".toml") for path in installed)
+
+    unreachable = set(nodes).difference(closure)
+    for node_id in unreachable:
+        paths = INSTALLER._node_files(REPO_ROOT, node_id, nodes[node_id])
+        assert installed.isdisjoint(paths), f"unreachable node installed: {node_id}"
+
     researcher = (project / ".agents/flow/agents/researcher.md").read_text()
     assert "structured-result-v1" in researcher
-    state = json.loads((project / ".agents/setup-state.json").read_text())
     assert state["project_install"]["active_host"] == host
 
     completion = (project / ".agents/skills/flow-completion/SKILL.md").read_text()
@@ -126,7 +143,7 @@ def test_generated_template_gate_reports_missing_stale_and_unmanaged(
     )
 
 
-def test_installer_refuses_stale_generated_skill_before_writes(
+def test_installer_refuses_stale_generated_graph_node_before_writes(
     tmp_path: Path,
 ) -> None:
     source = tmp_path / "source"
@@ -136,18 +153,56 @@ def test_installer_refuses_stale_generated_skill_before_writes(
     generated.parent.mkdir(parents=True)
     canonical.write_text("canonical\n")
     generated.write_text("stale\n")
-    original = INSTALLER.PORTABLE_SKILLS
-    original_generated = INSTALLER.GENERATED_STANDALONE_SKILLS
-    INSTALLER.PORTABLE_SKILLS = ("example",)
-    INSTALLER.GENERATED_STANDALONE_SKILLS = frozenset({"example"})
-    try:
-        with pytest.raises(
-            INSTALLER.InstallError, match="stale generated standalone skill: example"
-        ):
-            INSTALLER._standalone_files(source, "cursor")
-    finally:
-        INSTALLER.PORTABLE_SKILLS = original
-        INSTALLER.GENERATED_STANDALONE_SKILLS = original_generated
+    graph = {
+        "version": 1,
+        "roots": ["skill:example"],
+        "nodes": {
+            "skill:example": {
+                "source": "templates/agent/skills/example",
+                "destination": ".agents/skills/example",
+                "canonical": "skills/example",
+                "dependencies": [],
+            }
+        },
+        "hosts": {"cursor": []},
+    }
+    with pytest.raises(
+        INSTALLER.InstallError, match="stale generated standalone node: skill:example"
+    ):
+        INSTALLER._standalone_files(source, "cursor", graph=graph)
+
+
+def test_declared_graph_is_complete_and_all_non_host_nodes_are_reachable() -> None:
+    graph = INSTALLER._load_install_graph(REPO_ROOT)
+    nodes = graph["nodes"]
+    all_closures = {
+        host: set(INSTALLER._graph_closure(graph, host)) for host in graph["hosts"]
+    }
+    reachable = set().union(*all_closures.values())
+
+    assert set(graph["roots"]) == {"skill:flow"}
+    assert set(nodes).issubset(reachable)
+    assert "skill:okf" in reachable
+    assert any(node_id.startswith("agent:") for node_id in reachable)
+    codex_files = {
+        path
+        for node_id in all_closures["codex_cli"]
+        for path in INSTALLER._node_files(REPO_ROOT, node_id, nodes[node_id])
+    }
+    assert any(path.endswith(".toml") for path in codex_files)
+
+
+def test_declared_graph_refuses_missing_and_cyclic_edges() -> None:
+    graph = INSTALLER._load_install_graph(REPO_ROOT)
+    missing = deepcopy(graph)
+    del missing["nodes"]["skill:okf"]
+    with pytest.raises(INSTALLER.InstallError, match="missing or invalid.*skill:okf"):
+        INSTALLER._graph_closure(missing, "cursor")
+
+    cyclic = deepcopy(graph)
+    cyclic["nodes"]["skill:flow-state"]["dependencies"] = ["skill:flow"]
+    with pytest.raises(INSTALLER.InstallError, match="cyclic standalone dependency"):
+        INSTALLER._graph_closure(cyclic, "cursor")
 
 
 def test_unsupported_host_and_duplicate_authority_refuse_without_writes(
