@@ -20,6 +20,21 @@ if ! COMMAND=$(printf '%s' "$INPUT" | jq -er '
   deny "expected a non-empty string at .tool_input.command"
 fi
 
+# The Bash hook matcher sees every shell command. Only invoke the strict Git
+# classifier when the text contains a Git command token or a known disguise.
+git_token_pattern="(^|[[:space:];&|()=/\"'])git($|[[:space:];&|()\"'])"
+possible_git=0
+if [[ "$COMMAND" =~ $git_token_pattern ]]; then
+  possible_git=1
+else
+  case "$COMMAND" in
+    *"g'i't"*|*'g""it'*|*'/g?t'*|*'/g[i]t'*|*'"git"'*|*"'git'"*|*'$GIT'*|*'${GIT'*)
+      possible_git=1
+      ;;
+  esac
+fi
+((possible_git)) || exit 0
+
 # Fail closed rather than trying to partially parse shell syntax or expansion.
 case "$COMMAND" in
   *'$'*|*'`'*|*';'*|*'&'*|*'|'*|*'<'*|*'>'*|*'('*|*')'*|*'{'*|*'}'*|*'\'*|*$'\n'*|*$'\r'*)

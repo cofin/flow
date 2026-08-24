@@ -323,6 +323,11 @@ def _run_git_guardrail(
         "/usr/bin/g'i't push origin main",
         "/usr/bin/g?t push origin main",
         "/usr/bin/g[i]t push origin main",
+        "printf safe | git push origin main",
+        "make lint && g'i't push origin main",
+        "value=$HOME /usr/bin/g?t push origin main",
+        '"/usr/bin/git" push origin main',
+        "alias ship='git push'; ship origin main",
     ],
 )
 def test_git_guardrail_blocks_nested_destructive_commands(command: str) -> None:
@@ -352,6 +357,9 @@ def test_git_guardrail_blocks_nested_destructive_commands(command: str) -> None:
         "git branch --list",
         "printf safe",
         "printf '%s' literal",
+        "printf safe | wc -c",
+        "value=$HOME printf safe",
+        "make lint && make test",
     ],
 )
 def test_git_guardrail_allows_parsed_safe_commands(command: str) -> None:
@@ -408,14 +416,15 @@ def test_git_guardrail_fails_closed_without_jq(tmp_path: Path) -> None:
 
 
 @pytest.mark.skipif(BASH is None or JQ is None, reason="Bash and jq are required")
-def test_git_guardrail_never_executes_payload(tmp_path: Path) -> None:
+def test_git_guardrail_allows_unrelated_redirection_without_execution(
+    tmp_path: Path,
+) -> None:
     sentinel = tmp_path / "executed"
     result = _run_git_guardrail(
         {"tool_input": {"command": f"printf unsafe > {sentinel}"}}
     )
 
-    assert result.returncode == 2
-    assert (
-        "shell expansion or metacharacters cannot be classified safely" in result.stderr
-    )
+    assert result.returncode == 0
+    assert result.stdout == ""
+    assert result.stderr == ""
     assert not sentinel.exists()
