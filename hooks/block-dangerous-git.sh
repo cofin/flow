@@ -313,7 +313,7 @@ scan_arguments_for() {
         ;;
       fetch|pull)
         case "$token" in
-          --tags|--prune-tags|-t|*refs/tags/*)
+          --tags|--prune-tags|-t|tag|*refs/tags/*)
             deny "explicit tag fetching or pruning is prohibited"
             ;;
         esac
@@ -334,7 +334,7 @@ scan_arguments_for() {
 is_tag_fetch_config() {
   local config=${1,,}
   case "$config" in
-    remote.*.tagopt=--tags|remote.*.prunetags=true|fetch.prunetags=true)
+    remote.*.tagopt=--tags|remote.*.prunetags=true|fetch.prunetags=true|remote.*.fetch=*refs/tags/*)
       return 0
       ;;
     *)
@@ -346,7 +346,7 @@ is_tag_fetch_config() {
 is_tag_fetch_config_env() {
   local config=${1,,}
   case "$config" in
-    remote.*.tagopt=*|remote.*.prunetags=*|fetch.prunetags=*) return 0 ;;
+    remote.*.tagopt=*|remote.*.prunetags=*|fetch.prunetags=*|remote.*.fetch=*) return 0 ;;
     *) return 1 ;;
   esac
 }

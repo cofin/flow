@@ -399,6 +399,12 @@ def _run_git_guardrail(
         "git-fetch --tags origin",
         "/usr/lib/git-core/git-fetch origin refs/tags/v1.2.3",
         "git-pull --tags origin main",
+        "git fetch origin tag v1.2.3",
+        "git pull origin tag v1.2.3",
+        "git-fetch origin tag v1.2.3",
+        "git -c 'remote.origin.fetch=+refs/tags/*:refs/tags/*' fetch origin",
+        "git -c remote.origin.fetch=refs/heads/main:refs/tags/release fetch origin",
+        "git --config-env=remote.origin.fetch=FETCH_SPEC fetch origin",
         "source ./commands.sh",
         ". ./commands.sh",
         'source "$COMMAND_FILE"',
@@ -450,6 +456,7 @@ def test_git_guardrail_blocks_nested_destructive_commands(command: str) -> None:
         "git -c remote.origin.tagOpt=--no-tags fetch origin main",
         "git-fetch origin main",
         "/usr/lib/git-core/git-pull origin main",
+        "git -c 'remote.origin.fetch=+refs/heads/*:refs/remotes/origin/*' fetch origin",
     ],
 )
 def test_git_guardrail_allows_parsed_safe_commands(command: str) -> None:
