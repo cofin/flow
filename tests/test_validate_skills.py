@@ -2,14 +2,10 @@ from __future__ import annotations
 
 import importlib.util
 import json
-import subprocess
-import sys
 from pathlib import Path
-
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 MODULE_PATH = REPO_ROOT / "tools" / "validate.py"
-SYNC_LOCAL_SKILLS_PATH = REPO_ROOT / "tools" / "sync-local-skill-templates.py"
 
 
 def _load_validate_skills_module():
@@ -22,20 +18,6 @@ def _load_validate_skills_module():
 
 
 validate_skills = _load_validate_skills_module()
-
-
-def _load_sync_local_skills_module():
-    spec = importlib.util.spec_from_file_location(
-        "sync_local_skill_templates", SYNC_LOCAL_SKILLS_PATH
-    )
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-sync_local_skills = _load_sync_local_skills_module()
 
 
 def _write_json(path: Path, payload: object) -> None:
@@ -141,59 +123,15 @@ def test_repo_has_flow_lifecycle_skill_split() -> None:
     )
 
 
-def test_repo_local_skill_templates_are_generated_and_current() -> None:
-    output_root = REPO_ROOT / "templates" / "agent" / "skills"
-    result = subprocess.run(
-        [
-            sys.executable,
-            str(SYNC_LOCAL_SKILLS_PATH),
-            "--check",
-            "--repo-root",
-            str(REPO_ROOT),
-            "--output-root",
-            str(output_root),
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
+def test_unchanged_project_skills_install_from_canonical_graph_sources() -> None:
+    graph = json.loads(
+        (REPO_ROOT / "contracts/standalone-install.json").read_text(encoding="utf-8")
     )
 
-    assert result.returncode == 0, result.stdout + result.stderr
-    assert result.stdout == "Local skill templates are current.\n"
-    assert set(sync_local_skills.APPROVED_SKILL_FILES) == {"debloat", "flow-state"}
-    assert all(
-        not relative.startswith("scripts/")
-        for files in sync_local_skills.APPROVED_SKILL_FILES.values()
-        for relative in files
-    )
-
-
-def test_local_skill_template_check_rejects_isolated_mutation(tmp_path: Path) -> None:
-    output_root = tmp_path / "templates" / "agent" / "skills"
-    sync_local_skills.write_templates(REPO_ROOT, output_root)
-    mutated = output_root / "debloat" / "SKILL.md"
-    mutated.write_text(
-        mutated.read_text(encoding="utf-8") + "\nmutation\n", encoding="utf-8"
-    )
-    result = subprocess.run(
-        [
-            sys.executable,
-            str(SYNC_LOCAL_SKILLS_PATH),
-            "--check",
-            "--repo-root",
-            str(REPO_ROOT),
-            "--output-root",
-            str(output_root),
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-
-    assert result.returncode == 1
-    assert result.stdout == (
-        f"Local skill templates are stale:\n  - stale local skill template: {mutated}\n"
-    )
+    assert graph["nodes"]["skill:debloat"]["source"] == "skills/debloat"
+    assert graph["nodes"]["skill:flow-state"]["source"] == "skills/flow-state"
+    assert not (REPO_ROOT / "templates/agent/skills/debloat/SKILL.md").exists()
+    assert not (REPO_ROOT / "templates/agent/skills/flow-state/SKILL.md").exists()
 
 
 def test_claude_manifest_rejects_invalid_hooks_shape(tmp_path: Path) -> None:

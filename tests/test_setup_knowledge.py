@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import shutil
 from pathlib import Path
 
@@ -115,7 +116,6 @@ def test_public_guidance_never_advertises_a_flat_pattern_default() -> None:
         "skills/flow/references/setup.md",
         "skills/okf/SKILL.md",
         "templates/agent/knowledge/index.md",
-        "templates/agent/skills/flow/references/setup.md",
     }
 
     violations = []
@@ -196,7 +196,8 @@ def test_workflow_template_resolves_standalone_state_authority() -> None:
     assert ".agents/skills/flow-state/SKILL.md" in operations
     assert "resolve `references/state.md` relative to it" in operations
     assert "If neither authority is available, stop before mutation" in operations
-    assert (
-        REPO_ROOT
-        / "templates/agent/skills/flow-state/references/state.md"
-    ).is_file()
+    graph = json.loads(
+        (REPO_ROOT / "contracts/standalone-install.json").read_text(encoding="utf-8")
+    )
+    assert graph["nodes"]["skill:flow-state"]["source"] == "skills/flow-state"
+    assert (REPO_ROOT / "skills/flow-state/references/state.md").is_file()

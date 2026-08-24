@@ -477,10 +477,17 @@ including when a prior standalone installation exists. The optional packaging
 utility is `tools/install-project-flow.py`; its default `mode` is `skip`.
 
 Install and update require one unambiguous active host. Pass `--host` when
-multiple host markers exist. The installer discovers the complete dependency
-closure from canonical local Markdown links, validates every dependency and
-repository-contained destination before writing, and refuses missing, cyclic,
-or escaping dependencies and unmanaged collisions without partial writes.
+multiple host markers exist. `contracts/standalone-install.json` is the sole
+dependency authority: the installer resolves its lifecycle-rooted graph,
+selects only the active host's closure, and reads unchanged skills directly
+from canonical `skills/` sources. Generated project templates exist only for
+declared project-specific skills or bounded customization regions. Before any
+write, the installer validates every graph edge, source, repository-contained
+destination, collision, and managed hash; missing, cyclic, duplicate, escaping,
+stale, or unmanaged inputs refuse without partial writes.
+When the graph retires a managed path, update removes it only if its recorded
+hash still matches and its customization block is empty; otherwise it stops and
+requires the same exact path-scoped uninstall confirmation used below.
 
 Its explicit lifecycle modes are `install`, `update`, and `uninstall`; `host`
 declares the active adapter when detection is ambiguous.

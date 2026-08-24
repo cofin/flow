@@ -16,7 +16,6 @@ from typing import NamedTuple
 
 CUSTOM_START = "<!-- project-customization: start -->"
 CUSTOM_END = "<!-- project-customization: end -->"
-LINK_RE = re.compile(r"(?<!!)\[[^]]*]\(([^)\s]+)(?:\s+[^)]*)?\)")
 HOST_MARKERS = {
     "antigravity": (".agents/hooks.json",),
     "claude_code": (".claude", "CLAUDE.md"),
@@ -110,51 +109,6 @@ def _contained(root: Path, candidate: Path, *, description: str) -> Path:
     return resolved
 
 
-def _dependency_closure(source_root: Path, seeds: Sequence[str]) -> tuple[Path, ...]:
-    skills_root = (source_root / "skills").resolve()
-    canonical_root = source_root.resolve()
-    if not skills_root.is_dir():
-        raise InstallError(f"canonical skills root is missing: {skills_root}")
-    visiting: list[Path] = []
-    visited: set[Path] = set()
-    ordered: list[Path] = []
-
-    def visit(path: Path) -> None:
-        resolved = _contained(canonical_root, path, description="dependency")
-        if resolved in visiting:
-            cycle = " -> ".join(
-                item.relative_to(canonical_root).as_posix()
-                for item in (*visiting, resolved)
-            )
-            raise InstallError(f"cyclic dependency: {cycle}")
-        if resolved in visited:
-            return
-        if not resolved.is_file():
-            raise InstallError(f"missing dependency: {resolved}")
-        visiting.append(resolved)
-        if resolved.suffix.lower() == ".md":
-            text = resolved.read_text(encoding="utf-8")
-            for raw_target in LINK_RE.findall(text):
-                target = raw_target.split("#", 1)[0]
-                if not target or "://" in target or target.startswith("mailto:"):
-                    continue
-                dependency = resolved.parent / target
-                _contained(canonical_root, dependency, description="dependency")
-                visit(dependency)
-        visiting.pop()
-        visited.add(resolved)
-        ordered.append(resolved)
-
-    for seed in sorted(set(seeds)):
-        pure = PurePosixPath(seed)
-        if pure.is_absolute() or ".." in pure.parts:
-            raise InstallError(f"invalid dependency seed: {seed}")
-        visit(skills_root / pure)
-    return tuple(
-        sorted(ordered, key=lambda path: path.relative_to(canonical_root).as_posix())
-    )
-
-
 def _detect_host(project_root: Path) -> str:
     detected = [
         host
@@ -170,8 +124,20 @@ def _detect_host(project_root: Path) -> str:
 
 def _load_install_graph(source_root: Path) -> dict[str, object]:
     graph_path = source_root / INSTALL_GRAPH_PATH
+
+    def reject_duplicates(pairs: list[tuple[str, object]]) -> dict[str, object]:
+        result: dict[str, object] = {}
+        for key, value in pairs:
+            if key in result:
+                raise InstallError(f"duplicate standalone graph key: {key}")
+            result[key] = value
+        return result
+
     try:
-        graph = json.loads(graph_path.read_text(encoding="utf-8"))
+        graph = json.loads(
+            graph_path.read_text(encoding="utf-8"),
+            object_pairs_hook=reject_duplicates,
+        )
     except (OSError, json.JSONDecodeError) as exc:
         raise InstallError(
             f"invalid standalone dependency graph: {graph_path}"
@@ -217,10 +183,13 @@ def _graph_closure(graph: dict[str, object], host: str) -> tuple[str, ...]:
             raise InstallError(
                 f"missing or invalid standalone dependency node: {node_id}"
             )
+        dependencies = node["dependencies"]
+        if not all(isinstance(dependency, str) for dependency in dependencies):
+            raise InstallError(f"invalid dependency edge from {node_id}")
+        if len(dependencies) != len(set(dependencies)):
+            raise InstallError(f"duplicate dependency edge from {node_id}")
         visiting.append(node_id)
-        for dependency in node["dependencies"]:
-            if not isinstance(dependency, str):
-                raise InstallError(f"invalid dependency edge from {node_id}")
+        for dependency in dependencies:
             visit(dependency)
         visiting.pop()
         visited.add(node_id)
@@ -275,6 +244,7 @@ def _node_files(
         raise InstallError(f"empty standalone dependency source: {source_value}")
     result: dict[str, bytes] = {}
     for path in files:
+        _contained(source_root, path, description="dependency file")
         relative = Path(path.name) if source.is_file() else path.relative_to(source)
         target = (
             destination
@@ -301,20 +271,22 @@ def _standalone_files(
         if canonical_value is not None:
             if not isinstance(canonical_value, str):
                 raise InstallError(f"invalid canonical source: {node_id}")
+            if not node.get("customized"):
+                raise InstallError(
+                    f"redundant generated canonical mirror in graph: {node_id}"
+                )
             canonical_node = dict(node)
             canonical_node["source"] = canonical_value
             canonical_node["destination"] = node["destination"]
             canonical_node.pop("canonical", None)
             canonical_node.pop("include", None)
             canonical = _node_files(source_root, node_id, canonical_node)
-            if node.get("customized"):
-                canonical = {
-                    path: content.rstrip()
-                    + f"\n\n{CUSTOM_START}\n{CUSTOM_END}\n".encode()
-                    if path.endswith("/SKILL.md")
-                    else content
-                    for path, content in canonical.items()
-                }
+            canonical = {
+                path: content.rstrip() + f"\n\n{CUSTOM_START}\n{CUSTOM_END}\n".encode()
+                if path.endswith("/SKILL.md")
+                else content
+                for path, content in canonical.items()
+            }
             normalized_generated = {
                 path: _normalized_content(content, path=Path(path))
                 for path, content in generated.items()
@@ -454,7 +426,6 @@ def install_project_flow(
     source_root: Path,
     mode: str = "skip",
     host: str | None = None,
-    seeds: Sequence[str] = ("flow/SKILL.md",),
     global_plugin_detected: bool = False,
     confirm_global_plugin: bool = False,
     confirm_customized: Sequence[str] = (),
@@ -509,27 +480,12 @@ def install_project_flow(
         return InstallResult("uninstalled", changed)
 
     active_host = host or _detect_host(project_root)
-    if active_host not in HOST_MARKERS:
-        raise InstallError(f"unsupported active host: {active_host}")
     if global_plugin_detected and not confirm_global_plugin:
         raise InstallError(
             "global Flow plugin detected; explicit transition confirmation required"
         )
 
-    if (
-        tuple(seeds) == ("flow/SKILL.md",)
-        and (source_root / "templates/agent/skills").is_dir()
-    ):
-        desired = _standalone_files(source_root, active_host)
-    else:
-        if not seeds:
-            raise InstallError("no canonical Flow skill roots were found")
-        closure = _dependency_closure(source_root, seeds)
-        desired = {}
-        for source in closure:
-            relative = source.relative_to(source_root)
-            destination = PurePosixPath(".agents") / PurePosixPath(relative.as_posix())
-            desired[destination.as_posix()] = source.read_bytes()
+    desired = _standalone_files(source_root, active_host)
 
     changes = {}
     inventory: dict[str, str] = {}
@@ -551,10 +507,20 @@ def install_project_flow(
         inventory[relative] = canonical_hash
 
     stale_paths = set(previous).difference(desired)
-    if stale_paths:
-        raise InstallError(
-            f"stale managed inventory requires uninstall: {min(stale_paths)}"
+    for relative in sorted(stale_paths):
+        target = _contained(
+            project_root, project_root / relative, description="managed path"
         )
+        if not target.exists():
+            continue
+        current = target.read_bytes()
+        if _content_hash(current, path=target) != previous[
+            relative
+        ] or _has_customization(current, path=target):
+            raise InstallError(
+                f"retired managed path requires uninstall confirmation: {relative}"
+            )
+        changes[target] = None
     changes[state_path] = _state_bytes(state, host=active_host, inventory=inventory)
     raw_changed = _write_transaction(changes)
     changed = tuple(
@@ -573,7 +539,6 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--source-root", type=Path, default=Path(__file__).parents[1])
     parser.add_argument("--mode", choices=sorted(VALID_MODES), default="skip")
     parser.add_argument("--host", choices=sorted(HOST_MARKERS))
-    parser.add_argument("--seed", action="append", dest="seeds")
     parser.add_argument("--global-plugin-detected", action="store_true")
     parser.add_argument("--confirm-global-plugin", action="store_true")
     parser.add_argument("--confirm-customized", action="append", default=[])
@@ -584,7 +549,6 @@ def main(argv: Sequence[str] | None = None) -> int:
             source_root=args.source_root,
             mode=args.mode,
             host=args.host,
-            seeds=args.seeds or ("flow/SKILL.md",),
             global_plugin_detected=args.global_plugin_detected,
             confirm_global_plugin=args.confirm_global_plugin,
             confirm_customized=args.confirm_customized,

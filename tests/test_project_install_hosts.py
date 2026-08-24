@@ -121,24 +121,25 @@ def test_generated_template_gate_reports_missing_stale_and_unmanaged(
     assert "run project audit" in customized.read_text()
     assert generator.check_templates(REPO_ROOT, output) == []
 
-    missing = output / "flow" / "SKILL.md"
+    missing = output / "flow-completion" / "SKILL.md"
     missing.unlink()
     assert any(
-        "missing standalone skill template: flow/SKILL.md" in item
+        "missing standalone skill template: flow-completion/SKILL.md" in item
         for item in generator.check_templates(REPO_ROOT, output)
     )
     generator.write_templates(REPO_ROOT, output)
-    stale = output / "flow" / "SKILL.md"
+    stale = output / "flow-completion" / "SKILL.md"
     stale.write_text("stale\n")
     assert any(
-        "stale standalone skill template: flow/SKILL.md" in item
+        "stale standalone skill template: flow-completion/SKILL.md" in item
         for item in generator.check_templates(REPO_ROOT, output)
     )
     generator.write_templates(REPO_ROOT, output)
-    unmanaged = output / "flow" / "unmanaged.md"
+    unmanaged = output / "unused" / "unmanaged.md"
+    unmanaged.parent.mkdir()
     unmanaged.write_text("unexpected\n")
     assert any(
-        "unmanaged standalone skill template: flow/unmanaged.md" in item
+        "unmanaged standalone skill template: unused/unmanaged.md" in item
         for item in generator.check_templates(REPO_ROOT, output)
     )
 
@@ -161,6 +162,7 @@ def test_installer_refuses_stale_generated_graph_node_before_writes(
                 "source": "templates/agent/skills/example",
                 "destination": ".agents/skills/example",
                 "canonical": "skills/example",
+                "customized": True,
                 "dependencies": [],
             }
         },
@@ -191,6 +193,32 @@ def test_declared_graph_is_complete_and_all_non_host_nodes_are_reachable() -> No
     }
     assert any(path.endswith(".toml") for path in codex_files)
 
+    template_prefix = "templates/agent/skills/"
+    declared_template_roots = {
+        Path(node["source"]).parts[3]
+        for node in nodes.values()
+        if node["source"].startswith(template_prefix)
+    }
+    actual_template_roots = {
+        path.relative_to(REPO_ROOT / "templates/agent/skills").parts[0]
+        for path in (REPO_ROOT / "templates/agent/skills").rglob("*")
+        if path.is_file()
+    }
+    assert (
+        actual_template_roots
+        == declared_template_roots
+        == {
+            "flow-completion",
+            "flow-memory-keeper",
+            "flow-sync-status",
+        }
+    )
+    for node_id, node in nodes.items():
+        if node_id.startswith("skill:") and not node["source"].startswith(
+            template_prefix
+        ):
+            assert node["source"].startswith("skills/")
+
 
 def test_declared_graph_refuses_missing_and_cyclic_edges() -> None:
     graph = INSTALLER._load_install_graph(REPO_ROOT)
@@ -203,6 +231,40 @@ def test_declared_graph_refuses_missing_and_cyclic_edges() -> None:
     cyclic["nodes"]["skill:flow-state"]["dependencies"] = ["skill:flow"]
     with pytest.raises(INSTALLER.InstallError, match="cyclic standalone dependency"):
         INSTALLER._graph_closure(cyclic, "cursor")
+
+    duplicate_edge = deepcopy(graph)
+    duplicate_edge["nodes"]["skill:flow"]["dependencies"].append("skill:okf")
+    with pytest.raises(INSTALLER.InstallError, match="duplicate dependency edge"):
+        INSTALLER._graph_closure(duplicate_edge, "cursor")
+
+    duplicate_destination = deepcopy(graph)
+    duplicate_destination["nodes"]["skill:duplicate"] = {
+        "source": "skills/flow",
+        "destination": ".agents/skills/flow",
+        "dependencies": [],
+    }
+    duplicate_destination["nodes"]["skill:flow"]["dependencies"].append(
+        "skill:duplicate"
+    )
+    with pytest.raises(
+        INSTALLER.InstallError, match="duplicate standalone destination"
+    ):
+        INSTALLER._standalone_files(REPO_ROOT, "cursor", graph=duplicate_destination)
+
+    redundant_mirror = deepcopy(graph)
+    del redundant_mirror["nodes"]["skill:flow-completion"]["customized"]
+    with pytest.raises(
+        INSTALLER.InstallError, match="redundant generated canonical mirror"
+    ):
+        INSTALLER._standalone_files(REPO_ROOT, "cursor", graph=redundant_mirror)
+
+
+def test_graph_loader_rejects_duplicate_json_keys(tmp_path: Path) -> None:
+    graph_path = tmp_path / INSTALLER.INSTALL_GRAPH_PATH
+    graph_path.parent.mkdir(parents=True)
+    graph_path.write_text('{"version":1,"version":1,"roots":[],"nodes":{},"hosts":{}}')
+    with pytest.raises(INSTALLER.InstallError, match="duplicate standalone graph key"):
+        INSTALLER._load_install_graph(tmp_path)
 
 
 def test_unsupported_host_and_duplicate_authority_refuse_without_writes(

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import importlib.util
 import json
 from pathlib import Path
@@ -26,6 +25,21 @@ def _write_source(root: Path) -> None:
         "<!-- project-customization: end -->\nafter\n",
         encoding="utf-8",
     )
+    graph = {
+        "version": 1,
+        "roots": ["skill:flow"],
+        "nodes": {
+            "skill:flow": {
+                "source": "skills/flow",
+                "destination": ".agents/skills/flow",
+                "dependencies": [],
+            }
+        },
+        "hosts": {host: [] for host in INSTALLER.HOST_MARKERS},
+    }
+    graph_path = root / INSTALLER.INSTALL_GRAPH_PATH
+    graph_path.parent.mkdir(parents=True)
+    graph_path.write_text(json.dumps(graph), encoding="utf-8")
 
 
 def _state(project: Path) -> dict[str, object]:
@@ -80,17 +94,20 @@ def test_install_requires_one_active_host_and_records_exact_inventory(
         assert len(entry["content_hash"]) == 64
 
 
-def test_dependency_closure_fails_before_writes_for_invalid_links(
+def test_graph_sources_and_edges_fail_before_writes(
     tmp_path: Path,
 ) -> None:
-    for invalid, message in (
-        ("[missing](references/missing.md)\n", "missing dependency"),
-        ("[escape](../../../outside.md)\n", "escapes canonical skills root"),
+    for source_value, message in (
+        ("skills/missing", "missing standalone dependency source"),
+        ("../outside", "escapes canonical skills root"),
     ):
-        source = tmp_path / hashlib.sha256(invalid.encode()).hexdigest()
+        source = tmp_path / source_value.replace("/", "-").replace("..", "escape")
         project = source / "project"
-        (source / "skills" / "flow").mkdir(parents=True)
-        (source / "skills" / "flow" / "SKILL.md").write_text(invalid)
+        _write_source(source)
+        graph_path = source / INSTALLER.INSTALL_GRAPH_PATH
+        graph = json.loads(graph_path.read_text())
+        graph["nodes"]["skill:flow"]["source"] = source_value
+        graph_path.write_text(json.dumps(graph))
         project.mkdir()
         with pytest.raises(InstallError, match=message):
             install_project_flow(
@@ -99,12 +116,19 @@ def test_dependency_closure_fails_before_writes_for_invalid_links(
         assert not (project / ".agents").exists()
 
     source = tmp_path / "cycle"
+    _write_source(source)
+    graph_path = source / INSTALLER.INSTALL_GRAPH_PATH
+    graph = json.loads(graph_path.read_text())
+    graph["nodes"]["skill:other"] = {
+        "source": "skills/flow",
+        "destination": ".agents/skills/other",
+        "dependencies": ["skill:flow"],
+    }
+    graph["nodes"]["skill:flow"]["dependencies"] = ["skill:other"]
+    graph_path.write_text(json.dumps(graph))
     project = source / "project"
-    (source / "skills" / "flow").mkdir(parents=True)
-    (source / "skills" / "flow" / "SKILL.md").write_text("[a](a.md)\n")
-    (source / "skills" / "flow" / "a.md").write_text("[root](SKILL.md)\n")
     project.mkdir()
-    with pytest.raises(InstallError, match="cyclic dependency"):
+    with pytest.raises(InstallError, match="cyclic standalone dependency"):
         install_project_flow(
             project, source_root=source, mode="install", host="codex_cli"
         )
@@ -252,3 +276,126 @@ def test_write_fault_rolls_back_the_entire_install(
             project, source_root=source, mode="install", host="codex_cli"
         )
     assert not (project / ".agents").exists()
+
+
+def test_graph_update_fault_restores_files_and_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "source"
+    project = tmp_path / "project"
+    _write_source(source)
+    project.mkdir()
+    install_project_flow(project, source_root=source, mode="install", host="cursor")
+    target = project / ".agents/skills/flow/references/setup.md"
+    state_path = project / ".agents/setup-state.json"
+    target_before = target.read_bytes()
+    state_before = state_path.read_bytes()
+    (source / "skills/flow/references/setup.md").write_text("updated\n")
+    real_replace = INSTALLER.os.replace
+    calls = 0
+
+    def fail_state_replace(source_path: str, target_path: Path) -> None:
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise OSError("injected update fault")
+        real_replace(source_path, target_path)
+
+    monkeypatch.setattr(INSTALLER.os, "replace", fail_state_replace)
+    with pytest.raises(OSError, match="injected update fault"):
+        install_project_flow(project, source_root=source, mode="update", host="cursor")
+    assert target.read_bytes() == target_before
+    assert state_path.read_bytes() == state_before
+
+
+def test_graph_uninstall_fault_restores_deleted_files_and_state(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "source"
+    project = tmp_path / "project"
+    _write_source(source)
+    project.mkdir()
+    install_project_flow(project, source_root=source, mode="install", host="cursor")
+    skill = project / ".agents/skills/flow/SKILL.md"
+    reference = project / ".agents/skills/flow/references/setup.md"
+    state_path = project / ".agents/setup-state.json"
+    state_before = state_path.read_bytes()
+
+    def fail_state_replace(_source_path: str, _target_path: Path) -> None:
+        raise OSError("injected uninstall fault")
+
+    monkeypatch.setattr(INSTALLER.os, "replace", fail_state_replace)
+    with pytest.raises(OSError, match="injected uninstall fault"):
+        install_project_flow(project, source_root=source, mode="uninstall")
+    assert skill.is_file()
+    assert reference.is_file()
+    assert state_path.read_bytes() == state_before
+
+
+def test_graph_update_removes_only_unchanged_retired_nodes(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    project = tmp_path / "project"
+    _write_source(source)
+    extra = source / "skills/extra/SKILL.md"
+    extra.parent.mkdir(parents=True)
+    extra.write_text("generated\n")
+    graph_path = source / INSTALLER.INSTALL_GRAPH_PATH
+    graph = json.loads(graph_path.read_text())
+    graph["nodes"]["skill:extra"] = {
+        "source": "skills/extra",
+        "destination": ".agents/skills/extra",
+        "dependencies": [],
+    }
+    graph["nodes"]["skill:flow"]["dependencies"] = ["skill:extra"]
+    graph_path.write_text(json.dumps(graph))
+    project.mkdir()
+    install_project_flow(project, source_root=source, mode="install", host="cursor")
+    installed_extra = project / ".agents/skills/extra/SKILL.md"
+    assert installed_extra.is_file()
+
+    graph["nodes"]["skill:flow"]["dependencies"] = []
+    del graph["nodes"]["skill:extra"]
+    graph_path.write_text(json.dumps(graph))
+    result = install_project_flow(
+        project, source_root=source, mode="update", host="cursor"
+    )
+    assert result.action == "updated"
+    assert not installed_extra.exists()
+
+
+def test_graph_update_refuses_customized_retired_nodes_without_writes(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source"
+    project = tmp_path / "project"
+    _write_source(source)
+    extra = source / "skills/extra/SKILL.md"
+    extra.parent.mkdir(parents=True)
+    extra.write_text(
+        "<!-- project-customization: start -->\n<!-- project-customization: end -->\n"
+    )
+    graph_path = source / INSTALLER.INSTALL_GRAPH_PATH
+    graph = json.loads(graph_path.read_text())
+    graph["nodes"]["skill:extra"] = {
+        "source": "skills/extra",
+        "destination": ".agents/skills/extra",
+        "dependencies": [],
+    }
+    graph["nodes"]["skill:flow"]["dependencies"] = ["skill:extra"]
+    graph_path.write_text(json.dumps(graph))
+    project.mkdir()
+    install_project_flow(project, source_root=source, mode="install", host="cursor")
+    installed_extra = project / ".agents/skills/extra/SKILL.md"
+    installed_extra.write_text(
+        "<!-- project-customization: start -->\nkeep\n"
+        "<!-- project-customization: end -->\n"
+    )
+    state_before = (project / ".agents/setup-state.json").read_bytes()
+
+    graph["nodes"]["skill:flow"]["dependencies"] = []
+    del graph["nodes"]["skill:extra"]
+    graph_path.write_text(json.dumps(graph))
+    with pytest.raises(InstallError, match="requires uninstall confirmation"):
+        install_project_flow(project, source_root=source, mode="update", host="cursor")
+    assert "keep" in installed_extra.read_text()
+    assert (project / ".agents/setup-state.json").read_bytes() == state_before
