@@ -101,3 +101,21 @@ def test_setup_never_mutates_git_tags() -> None:
         "skills/flow/references/setup.md",
     ):
         assert "git tag" not in _read(relative_path).lower()
+
+
+def test_setup_exposes_explicit_standalone_install_lifecycle() -> None:
+    skill = _read("skills/flow-setup/SKILL.md")
+    setup = _read("skills/flow/references/setup.md")
+
+    assert "defaults to skip" in skill
+    assert "tools/install-project-flow.py" in setup
+    assert "never mutates global plugin state" in setup
+    assert all(
+        field in setup
+        for field in (
+            '"mode"',
+            '"active_host"',
+            '"canonical_contract_hash"',
+            '"managed_files"',
+        )
+    )

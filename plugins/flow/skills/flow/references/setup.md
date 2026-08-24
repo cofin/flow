@@ -464,6 +464,35 @@ Codex configuration lives in the global `~/.codex/config.toml` (per-user, not pe
 
 If running under Antigravity, prefer the native plugin and skills install flow. The workspace hook config installs at `.agents/hooks.json`; subagents install at `.agents/agents/`. Flow should not write legacy extension policy files.
 
+### 7.6 Optional standalone project installation
+
+Offer a standalone project copy only when the user explicitly wants Flow to
+work without the global plugin. The choice defaults to skip. Skip is a no-op,
+including when a prior standalone installation exists. The optional packaging
+utility is `tools/install-project-flow.py`; its default `mode` is `skip`.
+
+Install and update require one unambiguous active host. Pass `--host` when
+multiple host markers exist. The installer discovers the complete dependency
+closure from canonical local Markdown links, validates every dependency and
+repository-contained destination before writing, and refuses missing, cyclic,
+or escaping dependencies and unmanaged collisions without partial writes.
+
+Its explicit lifecycle modes are `install`, `update`, and `uninstall`; `host`
+declares the active adapter when detection is ambiguous.
+
+Generated files may contain one bounded
+`<!-- project-customization: start -->` / `<!-- project-customization: end -->`
+block. Update preserves that block only when the rest of the managed file still
+matches its recorded normalized hash. Other stale edits refuse. Uninstall
+automatically removes only hash-identical files whose customization block is
+empty. It reports every preserved path; removing one requires a second call
+with the exact `--confirm-customized <repository-relative-path>` value.
+
+If the active host reports a global Flow plugin, ask before preparing the
+standalone copy and pass `--confirm-global-plugin` only after confirmation.
+Then instruct the user to disable the global plugin for later sessions in this
+project. The installer never mutates global plugin state.
+
 ---
 
 ## Phase 8: First Flow (Optional)
@@ -488,6 +517,17 @@ Save setup state to `.agents/setup-state.json`:
   "migration_approved_at": "canonical UTC timestamp",
   "project_type": "brownfield|greenfield",
   "workflow_revision": "flow-template-v2",
+  "project_install": {
+    "mode": "skip|standalone",
+    "active_host": "host id or null",
+    "canonical_contract_hash": "sha256 or null",
+    "managed_files": [
+      {
+        "path": ".agents/skills/flow/SKILL.md",
+        "content_hash": "normalized sha256"
+      }
+    ]
+  },
   "timestamp": "ISO timestamp"
 }
 ```
