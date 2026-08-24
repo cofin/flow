@@ -313,7 +313,7 @@ scan_arguments_for() {
         ;;
       fetch|pull)
         case "$token" in
-          --tags|--prune-tags|-t|tag|*refs/tags/*)
+          --tag*|--prune-t*|-t|tag|*refs/tags/*)
             deny "explicit tag fetching or pruning is prohibited"
             ;;
         esac
