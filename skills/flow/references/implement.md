@@ -154,7 +154,7 @@ execution-state copy.
 1. **Read Spec Artifacts:**
     - `.agents/bundles/specs/{flow_id}/spec.md` (unified spec+plan)
     - `.agents/bundles/specs/{flow_id}/learnings.md` (if exists)
-2. **Read Project Context:** `.agents/bundles/knowledge/patterns.md` and `.agents/bundles/knowledge/workflow.md`
+2. **Read Project Context:** `.agents/bundles/knowledge/workflow.md` and recursively relevant `.agents/bundles/knowledge/patterns/**/*.md` chapters
 3. **Read Parent Context:**
     - Check if this flow has a parent PRD/Saga.
     - If yes, read the parent roadmap's `.agents/bundles/specs/<parent_id>/spec.md`.
@@ -299,12 +299,12 @@ At the end of each phase:
 2. **Run any repository- or worksheet-defined coverage check** and compare affected coverage when the selected strategy requires it.
 3. **Dispatch code review** (recommended for multi-task phases):
    - Get the git range from the task file commit history (e.g. comparing the last checkpoint commit to HEAD).
-   - Dispatch review subagent with: `spec.md` requirements, `patterns.md`, and the git range.
+   - Dispatch review subagent with: `spec.md` requirements, relevant topic-specific pattern chapters, and the git range.
    - Fix Critical issues immediately, Important issues before proceeding.
    - Log findings to `learnings.md`.
 4. **Record a phase checkpoint**: put the affected task ids, exact command/result evidence, and last functional commit in the spec-only `checkpoint` payload. Never create an empty checkpoint commit.
 5. **Optionally attach detail**: only after checkpoint succeeds, append the detailed phase Git note to the last functional commit and report `attached|failed` through the canonical idempotent `note` operation.
-6. **Prompt for pattern elevation**: "Are there learnings from this phase to elevate to `patterns.md`?"
+6. **Prompt for pattern elevation**: "Are there evidence-backed learnings from this phase to elevate to `knowledge/patterns/<topic>.md`?"
 7. **Ask user to verify**
 
 **Verification red flags — STOP before claiming completion:**
@@ -322,7 +322,7 @@ When a phase has independent tasks that can be executed concurrently (prefer thi
    - task text and refined task instructions
    - relevant `spec.md` requirements
    - parent PRD context when applicable
-   - `patterns.md`
+   - relevant `knowledge/patterns/<topic>.md` chapters
    - relevant `knowledge/` chapters
    - recent `learnings.md` entries
    - affected files and verification requirements

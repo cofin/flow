@@ -189,7 +189,7 @@ back up, never clobber).
 
 ### 0.1.2 Learnings Ingestion
 
-Validate existing `learnings.md` files against the current codebase and merge confirmed patterns into `.agents/bundles/knowledge/patterns.md`.
+Validate existing `learnings.md` files against the current codebase and merge confirmed patterns into evidence-backed `.agents/bundles/knowledge/patterns/<topic>.md` chapters. During migration, read an existing legacy flat `knowledge/patterns.md`, but do not preserve it as the preferred destination.
 
 ### 0.1.3 Core Artifacts Check
 
@@ -325,10 +325,10 @@ Ask the user ONE AT A TIME, as in the `/flow:setup` command:
 
 ## Phase 3: Style & Convention Chapters
 
-Offer styleguides from `templates/styleguides/` for detected languages. Keep
-`knowledge/patterns.md` as the stable default, but place selected `type: Pattern`
-chapters at scope-derived relative paths when the project organization calls for
-it; setup never requires every knowledge chapter to be a root sibling.
+Offer styleguides from `templates/styleguides/` for detected languages. Create
+evidence-backed `type: Pattern` chapters at `knowledge/patterns/<topic>.md` only
+when selected or supported by the repository. Do not pre-create the namespace
+directory or a catch-all flat pattern file.
 
 ---
 
@@ -338,7 +338,6 @@ Create:
 
 - `.agents/bundles/index.md` - Bundle root index (`okf_version: "0.2"`)
 - `.agents/bundles/log.md` - Dated change log with a creation entry
-- `.agents/bundles/knowledge/patterns.md` - Patterns template (`type: Pattern`)
 - `.agents/skills/flow-memory-keeper/SKILL.md` - Project-local memory/refinement skill
 
 ```bash
@@ -553,7 +552,7 @@ Created:
 - product/product-guidelines.md
 - product/tech-stack.md
 - knowledge/workflow.md
-- knowledge/patterns.md (+ style chapters)
+- knowledge/patterns/<topic>.md chapters (only when evidence-backed)
 - `.agents/skills/flow-memory-keeper/SKILL.md`
 - specs/
 

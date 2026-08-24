@@ -25,7 +25,7 @@ Check existence of:
 - `.agents/bundles/product/product.md`
 - `.agents/bundles/product/tech-stack.md`
 - `.agents/bundles/knowledge/workflow.md`
-- `.agents/bundles/knowledge/patterns.md`
+- recursively relevant `.agents/bundles/knowledge/patterns/**/*.md` chapters
 
 ### 1.2 Flow Directories
 
@@ -63,7 +63,7 @@ For each spec.md:
 
 ### 3.2 Patterns
 
-For each pattern in `.agents/bundles/knowledge/patterns.md`:
+For each pattern in `.agents/bundles/knowledge/patterns/**/*.md` recursively:
 
 - Referenced files exist
 - Code examples still valid
@@ -147,7 +147,7 @@ Validation Results
 - Git: Clean (verified: git status output)
 
 Issues Found:
-1. patterns.md:45 - File 'src/old.ts' not found
+1. patterns/imports.md:45 - File 'src/old.ts' not found
 2. auth/spec.md - Task marker mismatch with tasks/1.3.md
 
 Auto-fix available for 2 issues. Apply? [Y/n]

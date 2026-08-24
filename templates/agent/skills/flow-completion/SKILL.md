@@ -37,7 +37,7 @@ Format: `# Title` followed by 1 to 3 concise sentences (Context, Decision, Why).
 ## Contraction Archive Protocol
 
 1. **Verify Full Suite**: Run aggregate verification commands.
-2. **Elevate Knowledge**: Synthesize discoveries from `learnings.md` into `knowledge/patterns.md` and domain chapters.
+2. **Elevate Knowledge**: Synthesize evidence-backed discoveries from `learnings.md` into topic-specific `knowledge/patterns/<topic>.md` and domain chapters; create lazy namespaces only when needed.
 3. **Log Contraction**: Append a concise date-grouped entry to `log.md`.
 4. **Prune Scratch**: Delete ephemeral task files in `.agents/scratch/`.
 5. **Delete Reviewed Inventory**: Apply the byte-identical journaled archive request, writing knowledge first, the log second, and deleting the completed spec inventory last. Leave the terminal journal outside the bundle and no resident archived spec.

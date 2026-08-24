@@ -7,7 +7,7 @@ title: Flow Learnings
 
 > Append-only log of patterns, gotchas, and context discovered during implementation.
 > Each entry includes timestamp, thread URL, files changed, commit, and learnings.
-> Patterns worth preserving should be elevated to `patterns.md` at phase/track completion.
+> Patterns worth preserving should be elevated to an evidence-backed `knowledge/patterns/<topic>.md` chapter at phase/track completion.
 
 ---
 

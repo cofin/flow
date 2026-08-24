@@ -50,7 +50,7 @@ Dispatch final comprehensive code review:
    - What was implemented (from spec.md Specification section)
    - Requirements (from spec.md Requirements section)
    - Git range (base to HEAD)
-   - Project patterns (from `.agents/bundles/knowledge/patterns.md`)
+   - Relevant project patterns (recursively from `.agents/bundles/knowledge/patterns/**/*.md`)
 
 3. **Handle results:**
    - **Critical issues** → must fix before proceeding

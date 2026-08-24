@@ -46,4 +46,4 @@ Confirm test suites pass cleanly, no blocking review findings remain, and knowle
 
 ## Example
 
-For flow completion, run tests, review diff against `main`, elevate reusable patterns to `knowledge/patterns.md`, and archive the spec directory.
+For flow completion, run tests, review the diff against `main`, elevate reusable patterns to evidence-backed `knowledge/patterns/<topic>.md` chapters, and archive the spec directory.

@@ -29,7 +29,7 @@ Refresh the flow's context files by re-scanning the codebase and updating the `.
 
 3. **Update context files**
    - Refresh `.agents/bundles/product/tech-stack.md` if dependencies changed
-   - Update `.agents/bundles/knowledge/patterns.md` if new patterns detected in recent commits
+   - Update or create an evidence-backed `.agents/bundles/knowledge/patterns/<topic>.md` chapter if recent commits establish a reusable pattern
    - Prompt to revalidate `.agents/bundles/knowledge/workflow.md` when canonical commands or ignore policy drifted
    - Prefer repo-native aggregate commands such as `make lint`, `make test`, `make check`, `just check`, `task test`, package scripts, and pre-commit entrypoints when updating workflow guidance
    - If tasks were completed externally (commits reference task ids), set `state: closed` and `commit: <sha>` in the affected task files

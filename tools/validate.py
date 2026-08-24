@@ -1374,7 +1374,7 @@ def _migration_source_defaults(source: str) -> tuple[str, str] | None:
             "remove_after_verify",
         ),
         ".agents/patterns.md": (
-            ".agents/bundles/knowledge/patterns.md",
+            ".agents/bundles/knowledge/patterns/migrated.md",
             "remove_after_verify",
         ),
         ".agents/knowledge": (".agents/bundles/knowledge", "synthesize"),
@@ -1602,7 +1602,7 @@ def validate_migration_integrity(repo_root: Path) -> MigrationValidationResult:
     authority_pairs = (
         (agents / "product.md", bundles / "product" / "product.md", "product"),
         (agents / "workflow.md", bundles / "knowledge" / "workflow.md", "workflow"),
-        (agents / "patterns.md", bundles / "knowledge" / "patterns.md", "knowledge"),
+        (agents / "patterns.md", bundles / "knowledge" / "patterns", "knowledge"),
         (agents / "knowledge", bundles / "knowledge", "knowledge"),
     )
     for legacy, current, label in authority_pairs:

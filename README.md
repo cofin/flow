@@ -195,7 +195,7 @@ Flow will:
 
 1. Create the Flow directory (defaults to `.agents/`)
 2. Configure local ignores in `.git/info/exclude` to keep specifications local-only
-3. Create project context files (`product.md`, `tech-stack.md`, `workflow.md`, `patterns.md`)
+3. Create core project context files (`product.md`, `tech-stack.md`, `workflow.md`); add evidence-backed `knowledge/patterns/<topic>.md` chapters lazily
 4. Guide you through product vision, tech stack configuration, and repository-native workflow commands setup
 
 ### Create a flow
@@ -241,7 +241,7 @@ Flow follows a TDD workflow:
 4. Implement code to pass tests (Green)
 5. Refactor while tests pass
 6. Commit the task changes: `<type>(<scope>): <description>`
-7. Close the task through the state sidecar and record the commit
+7. Close the task through the direct lifecycle-owned state operation and record the commit
 8. Record learnings inside the task file under `## Notes & Discoveries`
 9. Reconcile the derived checklist in the same task-first/spec-last transaction
 
@@ -333,10 +333,11 @@ printf '\n# Flow specifications (local-only)\n.agents/\n' >> .git/info/exclude
 - **Pattern:** Import order: external → internal → types
 ```
 
-**Project patterns** — consolidated in `patterns.md`:
+**Project patterns** — stored by topic under `knowledge/patterns/`:
 
 ```markdown
-# Code Conventions
+<!-- knowledge/patterns/imports.md -->
+# Import Conventions
 - Import order: external → internal → types
 
 # Gotchas
@@ -348,9 +349,9 @@ printf '\n# Flow specifications (local-only)\n.agents/\n' >> .git/info/exclude
 **Flywheel:**
 
 1. **Capture** — After each task, append learnings to `learnings.md`
-2. **Elevate** — At phase/flow completion, move patterns to `patterns.md`
+2. **Elevate** — At phase/flow completion, write evidence-backed patterns to `knowledge/patterns/<topic>.md`
 3. **Synthesize** — During sync and archive, integrate learnings directly into knowledge base chapters in `knowledge/` (e.g., `architecture.md`, `conventions.md`). Update current state, do not outline history.
-4. **Inherit** — New flows read `patterns.md` + scan `knowledge/` chapters.
+4. **Inherit** — New flows recursively read relevant `knowledge/patterns/` and other knowledge chapters.
 
 If `.agents/skills/flow-memory-keeper/SKILL.md` exists, use it at sync, archive, finish, revise, and failure checkpoints so spec cleanup, learnings capture, and refinement stay mandatory.
 

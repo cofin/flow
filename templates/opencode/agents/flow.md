@@ -66,7 +66,7 @@ Flow stores all planning metadata and task state as **OKF v0.2 bundles**: Markdo
     └── knowledge/
         ├── product/             # product.md, tech-stack.md
         ├── workflow/            # workflow.md
-        └── patterns/            # patterns.md + style/convention chapters
+        └── patterns/            # lazy topic-specific style/convention chapters
 ```
 
 ## Flow Commands
@@ -91,7 +91,7 @@ Use the matching Flow workflow whenever the user expresses the intent, even if t
 - `/flow-finish` - Complete flow work: verify, review, merge/PR/keep/discard
 
 ## Critical Rules
-1. **Read knowledge/patterns.md** before starting work
+1. **Read relevant `knowledge/patterns/**/*.md` chapters recursively** before starting work
 2. **Log learnings** as you discover them
 3. **Use TDD** - tests first, then implementation
 4. **Task files are source of truth** - Never hand-edit markers in spec.md; update task-file `state` and run `/flow-sync`

@@ -102,3 +102,30 @@ def test_empty_tags_do_not_satisfy_a_required_relevance_policy() -> None:
         "required_by_profile": "non_empty_lowercase_hyphenated_strings",
         "empty_list_satisfies_required": False,
     }
+
+
+def test_public_guidance_never_advertises_a_flat_pattern_default() -> None:
+    public_paths = [
+        REPO_ROOT / "AGENTS.md",
+        REPO_ROOT / "README.md",
+        *sorted((REPO_ROOT / "skills").rglob("*.md")),
+        *sorted((REPO_ROOT / "templates").rglob("*.md")),
+    ]
+    compatibility_paths = {
+        "skills/flow/references/setup.md",
+        "skills/okf/SKILL.md",
+        "templates/agent/knowledge/index.md",
+        "templates/agent/skills/flow/references/setup.md",
+    }
+
+    violations = []
+    for path in public_paths:
+        relative = path.relative_to(REPO_ROOT).as_posix()
+        text = path.read_text(encoding="utf-8")
+        if "knowledge/patterns.md" in text and relative not in compatibility_paths:
+            violations.append(path.relative_to(REPO_ROOT).as_posix())
+
+    assert violations == []
+    assert "knowledge/patterns/**/*.md" in (REPO_ROOT / "AGENTS.md").read_text(
+        encoding="utf-8"
+    )

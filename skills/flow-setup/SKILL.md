@@ -15,7 +15,7 @@ Use for `setup` only.
 ## Workflow
 
 1. **Repository & Stack Detection**: Detect language, framework, canonical commands (`test`, `lint`, `typecheck`), and existing Flow configuration.
-2. **Scaffold Hierarchical OKF Layout**: Initialize `.agents/bundles/index.md` (with `okf_version: "0.2"`) and scoped subdirectories under `knowledge/`. Create `product/product.md`, `product/tech-stack.md`, `knowledge/workflow.md`, and `knowledge/patterns.md`.
+2. **Scaffold Hierarchical OKF Layout**: Initialize `.agents/bundles/index.md` (with `okf_version: "0.2"`). Create `product/product.md`, `product/tech-stack.md`, and `knowledge/workflow.md`; create `knowledge/patterns/<topic>.md` chapters and their directory only when repository evidence supports them.
 3. **Standalone Project Skills Option**: Ask whether to install a standalone,
    project-local Flow dependency closure into `.agents/skills/`. This prompt
    defaults to skip and installation requires explicit opt-in. Treat the

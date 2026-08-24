@@ -50,7 +50,7 @@ Read the relevant artifacts before refining:
 
 - `.agents/bundles/specs/<flow_id>/spec.md` and its `tasks/*.md` files for a single flow
 - `.agents/bundles/specs/<prd_id>/spec.md` (the roadmap) plus planned child specs for a saga
-- `.agents/bundles/knowledge/patterns.md`
+- recursively relevant `.agents/bundles/knowledge/patterns/**/*.md` chapters
 - relevant `.agents/bundles/knowledge/` chapters
 - the code paths, tests, migrations, config files, or external docs that the tasks depend on
 
@@ -72,7 +72,7 @@ If the answer is "No" or "Maybe," classify the gap and iterate.
 **IRON LAW: Iterate until technical completeness is achieved.**
 
 1. **Deep Code Dive**: Read more code until the affected surfaces are known (extract exact line numbers).
-2. **Pattern Matching**: Provide code samples for the expected implementation pattern based on `patterns.md` or existing code.
+2. **Pattern Matching**: Provide code samples for the expected implementation pattern based on relevant topic-specific chapters or existing code.
 3. **Dependency Analysis**: Use `flow:tracer` if the call chain is unclear.
 4. **Autonomous Completion**: You (the agent) are responsible for determining when refinement is done. Do NOT ask the user if it's granular enough; iterate until the **Zero-Ambiguity Standard** is met.
 5. **Deterministic rejection:** Do not pass deferred research, unresolved
