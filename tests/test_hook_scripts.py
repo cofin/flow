@@ -354,6 +354,14 @@ def _run_git_guardrail(
         "sh -c '$CMD push origin main'",
         "env bash -c '\"$CMD push origin main\"'",
         "bash -c 'git push origin main'",
+        '/bin/bash -c "$CMD push origin main"',
+        '/bin/sh -c "$CMD push origin main"',
+        'bash -lc "$CMD push origin main"',
+        'bash -xec "$CMD push origin main"',
+        'dash -c "$CMD push origin main"',
+        'env /bin/bash -c "$CMD push origin main"',
+        'ksh -c "$CMD push origin main"',
+        'zsh -lc "$CMD push origin main"',
     ],
 )
 def test_git_guardrail_blocks_nested_destructive_commands(command: str) -> None:

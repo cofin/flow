@@ -88,7 +88,7 @@ classify_relevance_token() {
     fi
     executable=$token
     expect_executable=0
-  elif [[ ("$executable" == bash || "$executable" == sh) && "$token" == -c ]]; then
+  elif [[ ${executable##*/} =~ ^(bash|sh|dash|ksh|zsh)$ && "$token" =~ ^-[a-zA-Z]*c[a-zA-Z]*$ ]]; then
     possible_git=1
     evaluator_mode=command_string
   fi
