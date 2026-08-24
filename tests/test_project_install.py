@@ -399,3 +399,92 @@ def test_graph_update_refuses_customized_retired_nodes_without_writes(
         install_project_flow(project, source_root=source, mode="update", host="cursor")
     assert "keep" in installed_extra.read_text()
     assert (project / ".agents/setup-state.json").read_bytes() == state_before
+
+
+def test_install_refuses_a_symlinked_managed_parent_without_writes(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "source"
+    project = tmp_path / "project"
+    external = tmp_path / "external"
+    _write_source(source)
+    project.mkdir()
+    external.mkdir()
+    (project / ".agents").symlink_to(external, target_is_directory=True)
+
+    with pytest.raises(InstallError, match="symlinked managed path refused"):
+        install_project_flow(
+            project, source_root=source, mode="install", host="cursor"
+        )
+
+    assert list(external.iterdir()) == []
+
+
+@pytest.mark.parametrize("mode", ["update", "uninstall"])
+@pytest.mark.parametrize("link_kind", ["file", "parent"])
+def test_lifecycle_refuses_managed_symlinks_without_writes(
+    tmp_path: Path, mode: str, link_kind: str
+) -> None:
+    source = tmp_path / "source"
+    project = tmp_path / "project"
+    external = tmp_path / "external-skill.md"
+    _write_source(source)
+    project.mkdir()
+    install_project_flow(project, source_root=source, mode="install", host="cursor")
+    target = project / ".agents/skills/flow/SKILL.md"
+    if link_kind == "file":
+        external.write_bytes(target.read_bytes())
+        target.unlink()
+        target.symlink_to(external)
+        linked_path = target
+    else:
+        external = tmp_path / "external-flow"
+        target.parent.rename(external)
+        target.parent.symlink_to(external, target_is_directory=True)
+        linked_path = target.parent
+    external_file = external if external.is_file() else external / "SKILL.md"
+    state = (project / ".agents/setup-state.json").read_bytes()
+    external_before = external_file.read_bytes()
+
+    with pytest.raises(InstallError, match="symlinked managed path refused"):
+        install_project_flow(project, source_root=source, mode=mode, host="cursor")
+
+    assert linked_path.is_symlink()
+    assert external_file.read_bytes() == external_before
+    assert (project / ".agents/setup-state.json").read_bytes() == state
+
+
+def test_retired_node_cleanup_refuses_a_symlink_without_writes(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    project = tmp_path / "project"
+    _write_source(source)
+    extra = source / "skills/extra/SKILL.md"
+    extra.parent.mkdir(parents=True)
+    extra.write_text("generated\n")
+    graph_path = source / INSTALLER.INSTALL_GRAPH_PATH
+    graph = json.loads(graph_path.read_text())
+    graph["nodes"]["skill:extra"] = {
+        "source": "skills/extra",
+        "destination": ".agents/skills/extra",
+        "dependencies": [],
+    }
+    graph["nodes"]["skill:flow"]["dependencies"] = ["skill:extra"]
+    graph_path.write_text(json.dumps(graph))
+    project.mkdir()
+    install_project_flow(project, source_root=source, mode="install", host="cursor")
+    target = project / ".agents/skills/extra/SKILL.md"
+    external = tmp_path / "external-extra.md"
+    external.write_bytes(target.read_bytes())
+    target.unlink()
+    target.symlink_to(external)
+    state = (project / ".agents/setup-state.json").read_bytes()
+    graph["nodes"]["skill:flow"]["dependencies"] = []
+    del graph["nodes"]["skill:extra"]
+    graph_path.write_text(json.dumps(graph))
+
+    with pytest.raises(InstallError, match="symlinked managed path refused"):
+        install_project_flow(project, source_root=source, mode="update", host="cursor")
+
+    assert target.is_symlink()
+    assert external.read_text() == "generated\n"
+    assert (project / ".agents/setup-state.json").read_bytes() == state

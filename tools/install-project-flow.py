@@ -109,6 +109,20 @@ def _contained(root: Path, candidate: Path, *, description: str) -> Path:
     return resolved
 
 
+def _managed_path(project_root: Path, relative: str) -> Path:
+    """Return a lexical project path only when no existing component is a symlink."""
+    pure = PurePosixPath(relative)
+    if pure.is_absolute() or ".." in pure.parts:
+        raise InstallError(f"invalid managed path: {relative}")
+    target = project_root.joinpath(*pure.parts)
+    current = project_root
+    for part in pure.parts:
+        current /= part
+        if current.is_symlink():
+            raise InstallError(f"symlinked managed path refused: {relative}")
+    return target
+
+
 def _detect_host(project_root: Path) -> str:
     detected = [
         host
@@ -349,7 +363,11 @@ def _installed_host(state: dict[str, object]) -> str | None:
     return host if isinstance(host, str) else None
 
 
-def _write_transaction(changes: dict[Path, bytes | None]) -> tuple[str, ...]:
+def _write_transaction(
+    project_root: Path, changes: dict[Path, bytes | None]
+) -> tuple[str, ...]:
+    for path in changes:
+        _managed_path(project_root, path.relative_to(project_root).as_posix())
     backups = {path: path.read_bytes() if path.is_file() else None for path in changes}
     created_directories: set[Path] = set()
     for path, content in changes.items():
@@ -362,6 +380,7 @@ def _write_transaction(changes: dict[Path, bytes | None]) -> tuple[str, ...]:
     changed: list[str] = []
     try:
         for path, content in changes.items():
+            _managed_path(project_root, path.relative_to(project_root).as_posix())
             if content is None:
                 if path.exists():
                     path.unlink()
@@ -385,6 +404,7 @@ def _write_transaction(changes: dict[Path, bytes | None]) -> tuple[str, ...]:
             changed.append(path.as_posix())
     except Exception:
         for path, content in reversed(tuple(backups.items())):
+            _managed_path(project_root, path.relative_to(project_root).as_posix())
             if content is None:
                 if path.exists():
                     path.unlink()
@@ -441,6 +461,7 @@ def install_project_flow(
         raise InstallError(f"project root is not a directory: {project_root}")
 
     state_path = project_root / ".agents" / "setup-state.json"
+    _managed_path(project_root, ".agents/setup-state.json")
     state = _load_state(state_path)
     previous = _managed_inventory(state)
 
@@ -455,9 +476,7 @@ def install_project_flow(
         retained: dict[str, str] = {}
         required: list[str] = []
         for relative, expected_hash in sorted(previous.items()):
-            target = _contained(
-                project_root, project_root / relative, description="managed path"
-            )
+            target = _managed_path(project_root, relative)
             if not target.exists():
                 continue
             current = target.read_bytes()
@@ -471,7 +490,7 @@ def install_project_flow(
         changes[state_path] = _state_bytes(
             state, host=_installed_host(state), inventory=retained
         )
-        raw_changed = _write_transaction(changes)
+        raw_changed = _write_transaction(project_root, changes)
         changed = tuple(
             path.relative_to(project_root).as_posix() for path in map(Path, raw_changed)
         )
@@ -490,9 +509,7 @@ def install_project_flow(
     changes = {}
     inventory: dict[str, str] = {}
     for relative, canonical in sorted(desired.items()):
-        target = _contained(
-            project_root, project_root / relative, description="managed path"
-        )
+        target = _managed_path(project_root, relative)
         canonical_hash = _content_hash(canonical, path=target)
         if target.exists():
             current = target.read_bytes()
@@ -508,9 +525,7 @@ def install_project_flow(
 
     stale_paths = set(previous).difference(desired)
     for relative in sorted(stale_paths):
-        target = _contained(
-            project_root, project_root / relative, description="managed path"
-        )
+        target = _managed_path(project_root, relative)
         if not target.exists():
             continue
         current = target.read_bytes()
@@ -522,7 +537,7 @@ def install_project_flow(
             )
         changes[target] = None
     changes[state_path] = _state_bytes(state, host=active_host, inventory=inventory)
-    raw_changed = _write_transaction(changes)
+    raw_changed = _write_transaction(project_root, changes)
     changed = tuple(
         path.relative_to(project_root).as_posix() for path in map(Path, raw_changed)
     )
