@@ -44,7 +44,7 @@ classify_relevance_token() {
     contains_git=1
   fi
   case "$basename" in
-    g\?t|g\[i\]t) contains_git=1 ;;
+    git-*|g\?t|g\[i\]t) contains_git=1 ;;
   esac
   if ((relevance_dynamic)); then
     if ((expect_executable)) && [[ "$token" =~ $simple_parameter_assignment_pattern ]]; then
@@ -321,8 +321,32 @@ scan_arguments_for() {
   fi
 }
 
+classify_git_subcommand() {
+  local subcommand=$1
+  local argument_start=$2
+
+  case "$subcommand" in
+    push)
+      deny "git push requires an explicit user action"
+      ;;
+    reset|clean|tag|branch)
+      scan_arguments_for "$subcommand" "$argument_start"
+      ;;
+    add|am|apply|archive|bisect|blame|bundle|cat-file|checkout|cherry|cherry-pick|clone|commit|config|describe|diff|difftool|fetch|for-each-ref|format-patch|fsck|gc|grep|help|init|log|ls-files|ls-tree|maintenance|merge|merge-base|mergetool|mv|notes|pull|range-diff|rebase|reflog|remote|repack|replace|request-pull|restore|rev-list|rev-parse|revert|rm|shortlog|show|show-branch|sparse-checkout|stage|stash|status|submodule|switch|symbolic-ref|update-index|version|whatchanged|worktree)
+      ;;
+    *)
+      deny "unknown Git subcommand cannot be classified safely"
+      ;;
+  esac
+}
+
 for ((i = 0; i < ${#TOKENS[@]}; i++)); do
   token=$(normalize_token "${TOKENS[i]}")
+  executable_basename=${token##*/}
+  if [[ "$executable_basename" == git-* ]]; then
+    classify_git_subcommand "${executable_basename#git-}" "$((i + 1))"
+    continue
+  fi
   [[ "$token" == "git" || "$token" == */git ]] || continue
 
   j=$((i + 1))
@@ -364,19 +388,7 @@ for ((i = 0; i < ${#TOKENS[@]}; i++)); do
 
   ((j < ${#TOKENS[@]})) || continue
   subcommand=$(normalize_token "${TOKENS[j]}")
-  case "$subcommand" in
-    push)
-      deny "git push requires an explicit user action"
-      ;;
-    reset|clean|tag|branch)
-      scan_arguments_for "$subcommand" "$((j + 1))"
-      ;;
-    add|am|apply|archive|bisect|blame|bundle|cat-file|checkout|cherry|cherry-pick|clone|commit|config|describe|diff|difftool|fetch|for-each-ref|format-patch|fsck|gc|grep|help|init|log|ls-files|ls-tree|maintenance|merge|merge-base|mergetool|mv|notes|pull|range-diff|rebase|reflog|remote|repack|replace|request-pull|restore|rev-list|rev-parse|revert|rm|shortlog|show|show-branch|sparse-checkout|stage|stash|status|submodule|switch|symbolic-ref|update-index|version|whatchanged|worktree)
-      ;;
-    *)
-      deny "unknown Git subcommand cannot be classified safely"
-      ;;
-  esac
+  classify_git_subcommand "$subcommand" "$((j + 1))"
 done
 
 exit 0
