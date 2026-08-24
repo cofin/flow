@@ -27,21 +27,37 @@ relevance_token=''
 relevance_dynamic=0
 expect_executable=1
 skip_redirection_target=0
+executable=''
+evaluator_mode=''
+evaluator_nested_git=0
+evaluator_unknown=0
 git_boundary_pattern='(^|[=/[:space:]])git($|[/:[:space:]])'
 
 classify_relevance_token() {
   local token=$relevance_token
   local basename=${token##*/}
+  local contains_git=0
 
   [[ -n "$token" ]] || return 0
   if [[ "$token" =~ $git_boundary_pattern ]]; then
+    contains_git=1
+  fi
+  case "$basename" in
+    g\?t|g\[i\]t) contains_git=1 ;;
+  esac
+  if [[ -n "$evaluator_mode" ]]; then
+    possible_git=1
+    ((contains_git)) && evaluator_nested_git=1
+    if ((relevance_dynamic)) || [[ "$token" == *'$'* || "$token" == *'`'* ]]; then
+      evaluator_unknown=1
+    fi
+    [[ "$evaluator_mode" == command_string ]] && evaluator_mode=''
+    return 0
+  fi
+  if ((contains_git)); then
     possible_git=1
     return 0
   fi
-  case "$basename" in
-    g\?t|g\[i\]t) possible_git=1 ;;
-  esac
-  ((possible_git)) && return 0
   if ((skip_redirection_target)); then
     skip_redirection_target=0
     return 0
@@ -52,19 +68,36 @@ classify_relevance_token() {
       '!'|time|exec|nice|sudo|env|command|if|then|elif|else|while|until|do)
         return 0
         ;;
+      eval)
+        possible_git=1
+        executable=$token
+        evaluator_mode=eval_arguments
+        expect_executable=0
+        return 0
+        ;;
+      source|.)
+        possible_git=1
+        evaluator_unknown=1
+        expect_executable=0
+        return 0
+        ;;
     esac
     if ((relevance_dynamic)); then
       possible_git=1
       return 0
     fi
+    executable=$token
     expect_executable=0
+  elif [[ ("$executable" == bash || "$executable" == sh) && "$token" == -c ]]; then
+    possible_git=1
+    evaluator_mode=command_string
   fi
   return 0
 }
 
 relevance_quote=''
 command_length=${#COMMAND}
-for ((position = 0; position < command_length && !possible_git; position++)); do
+for ((position = 0; position < command_length; position++)); do
   character=${COMMAND:position:1}
   if [[ -n "$relevance_quote" ]]; then
     if [[ "$character" == "$relevance_quote" ]]; then
@@ -117,6 +150,8 @@ for ((position = 0; position < command_length && !possible_git; position++)); do
         relevance_dynamic=0
         expect_executable=1
         skip_redirection_target=0
+        executable=''
+        evaluator_mode=''
         ;;
       *)
         relevance_token+=$character
@@ -124,9 +159,11 @@ for ((position = 0; position < command_length && !possible_git; position++)); do
     esac
   fi
 done
-((possible_git)) || classify_relevance_token
+classify_relevance_token
 [[ -z "$relevance_quote" ]] || possible_git=1
 ((possible_git)) || exit 0
+((evaluator_nested_git)) && deny "nested Git evaluation cannot be classified safely"
+((evaluator_unknown)) && deny "dynamic shell evaluation cannot be classified safely"
 
 # Fail closed rather than trying to partially parse shell syntax or expansion.
 case "$COMMAND" in

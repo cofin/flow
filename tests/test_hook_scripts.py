@@ -348,6 +348,12 @@ def _run_git_guardrail(
         "`printf git` push origin main",
         "$'git' push origin main",
         "./[g]it push origin main",
+        'eval "$CMD push origin main"',
+        'eval "${CMD} push origin main"',
+        'bash -c "$CMD push origin main"',
+        "sh -c '$CMD push origin main'",
+        "env bash -c '\"$CMD push origin main\"'",
+        "bash -c 'git push origin main'",
     ],
 )
 def test_git_guardrail_blocks_nested_destructive_commands(command: str) -> None:
@@ -380,6 +386,8 @@ def test_git_guardrail_blocks_nested_destructive_commands(command: str) -> None:
         "printf safe | wc -c",
         "value=$HOME printf safe",
         "make lint && make test",
+        "eval 'printf safe'",
+        "bash -c 'printf safe'",
     ],
 )
 def test_git_guardrail_allows_parsed_safe_commands(command: str) -> None:
