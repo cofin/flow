@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import re
+import stat
 import sys
 import tempfile
 from collections.abc import Sequence
@@ -110,16 +111,30 @@ def _contained(root: Path, candidate: Path, *, description: str) -> Path:
 
 
 def _managed_path(project_root: Path, relative: str) -> Path:
-    """Return a lexical project path only when no existing component is a symlink."""
+    """Return a lexical path backed only by safe, exclusively owned objects."""
     pure = PurePosixPath(relative)
     if pure.is_absolute() or ".." in pure.parts:
         raise InstallError(f"invalid managed path: {relative}")
     target = project_root.joinpath(*pure.parts)
     current = project_root
-    for part in pure.parts:
+    for index, part in enumerate(pure.parts):
         current /= part
-        if current.is_symlink():
+        try:
+            metadata = current.lstat()
+        except FileNotFoundError:
+            break
+        if stat.S_ISLNK(metadata.st_mode):
             raise InstallError(f"symlinked managed path refused: {relative}")
+        if index < len(pure.parts) - 1:
+            if not stat.S_ISDIR(metadata.st_mode):
+                raise InstallError(
+                    f"managed parent is not an owned directory: {relative}"
+                )
+        elif not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
+            raise InstallError(
+                "managed target is not an exclusively owned regular file: "
+                f"{relative}"
+            )
     return target
 
 

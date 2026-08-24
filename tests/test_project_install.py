@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
+import socket
 from pathlib import Path
 
 import pytest
@@ -44,6 +46,27 @@ def _write_source(root: Path) -> None:
 
 def _state(project: Path) -> dict[str, object]:
     return json.loads((project / ".agents" / "setup-state.json").read_text())
+
+
+def _replace_with_unsafe_object(
+    target: Path, kind: str, tmp_path: Path
+) -> tuple[socket.socket | None, Path | None]:
+    content = target.read_bytes()
+    target.unlink()
+    if kind == "fifo":
+        os.mkfifo(target)
+        return None, None
+    if kind == "socket":
+        listener = socket.socket(socket.AF_UNIX)
+        listener.bind(str(target))
+        return listener, None
+    if kind == "directory":
+        target.mkdir()
+        return None, None
+    external = tmp_path / f"hardlink-{target.name}"
+    external.write_bytes(content)
+    os.link(external, target)
+    return None, external
 
 
 def test_default_skip_does_not_create_or_change_an_install(tmp_path: Path) -> None:
@@ -488,3 +511,150 @@ def test_retired_node_cleanup_refuses_a_symlink_without_writes(tmp_path: Path) -
     assert target.is_symlink()
     assert external.read_text() == "generated\n"
     assert (project / ".agents/setup-state.json").read_bytes() == state
+
+
+@pytest.mark.parametrize("mode", ["update", "uninstall"])
+@pytest.mark.parametrize("kind", ["fifo", "socket", "directory", "hardlink"])
+def test_lifecycle_refuses_non_owned_managed_objects_without_writes(
+    tmp_path: Path, mode: str, kind: str
+) -> None:
+    source = tmp_path / "source"
+    project = tmp_path / "project"
+    _write_source(source)
+    project.mkdir()
+    install_project_flow(project, source_root=source, mode="install", host="cursor")
+    target = project / ".agents/skills/flow/SKILL.md"
+    listener, external = _replace_with_unsafe_object(target, kind, tmp_path)
+    state = (project / ".agents/setup-state.json").read_bytes()
+    identity = target.lstat()
+    external_content = external.read_bytes() if external else None
+    try:
+        with pytest.raises(
+            InstallError, match="not an exclusively owned regular file"
+        ):
+            install_project_flow(
+                project, source_root=source, mode=mode, host="cursor"
+            )
+    finally:
+        if listener is not None:
+            listener.close()
+
+    after = target.lstat()
+    assert (after.st_mode, after.st_ino, after.st_nlink) == (
+        identity.st_mode,
+        identity.st_ino,
+        identity.st_nlink,
+    )
+    assert (project / ".agents/setup-state.json").read_bytes() == state
+    if external is not None:
+        assert external.read_bytes() == external_content
+
+
+@pytest.mark.parametrize("kind", ["fifo", "socket", "directory", "hardlink"])
+def test_install_refuses_non_owned_targets_before_creating_state(
+    tmp_path: Path, kind: str
+) -> None:
+    source = tmp_path / "source"
+    project = tmp_path / "project"
+    _write_source(source)
+    target = project / ".agents/skills/flow/SKILL.md"
+    target.parent.mkdir(parents=True)
+    target.write_text("[Setup](references/setup.md)\n")
+    listener, external = _replace_with_unsafe_object(target, kind, tmp_path)
+    identity = target.lstat()
+    try:
+        with pytest.raises(
+            InstallError, match="not an exclusively owned regular file"
+        ):
+            install_project_flow(
+                project, source_root=source, mode="install", host="cursor"
+            )
+    finally:
+        if listener is not None:
+            listener.close()
+
+    assert target.lstat().st_ino == identity.st_ino
+    assert not (project / ".agents/setup-state.json").exists()
+    if external is not None:
+        assert external.read_text() == "[Setup](references/setup.md)\n"
+
+
+@pytest.mark.parametrize("kind", ["fifo", "socket", "directory", "hardlink"])
+def test_state_inventory_refuses_non_owned_state_objects_without_writes(
+    tmp_path: Path, kind: str
+) -> None:
+    source = tmp_path / "source"
+    project = tmp_path / "project"
+    _write_source(source)
+    project.mkdir()
+    install_project_flow(project, source_root=source, mode="install", host="cursor")
+    managed = project / ".agents/skills/flow/SKILL.md"
+    managed_before = managed.read_bytes()
+    state_path = project / ".agents/setup-state.json"
+    listener, external = _replace_with_unsafe_object(state_path, kind, tmp_path)
+    identity = state_path.lstat()
+    try:
+        with pytest.raises(
+            InstallError, match="not an exclusively owned regular file"
+        ):
+            install_project_flow(
+                project, source_root=source, mode="update", host="cursor"
+            )
+    finally:
+        if listener is not None:
+            listener.close()
+
+    assert state_path.lstat().st_ino == identity.st_ino
+    assert managed.read_bytes() == managed_before
+    if external is not None:
+        assert external.is_file()
+
+
+@pytest.mark.parametrize("kind", ["fifo", "socket", "directory", "hardlink"])
+def test_retirement_refuses_non_owned_managed_objects_without_writes(
+    tmp_path: Path, kind: str
+) -> None:
+    source = tmp_path / "source"
+    project = tmp_path / "project"
+    _write_source(source)
+    extra = source / "skills/extra/SKILL.md"
+    extra.parent.mkdir(parents=True)
+    extra.write_text("generated\n")
+    graph_path = source / INSTALLER.INSTALL_GRAPH_PATH
+    graph = json.loads(graph_path.read_text())
+    graph["nodes"]["skill:extra"] = {
+        "source": "skills/extra",
+        "destination": ".agents/skills/extra",
+        "dependencies": [],
+    }
+    graph["nodes"]["skill:flow"]["dependencies"] = ["skill:extra"]
+    graph_path.write_text(json.dumps(graph))
+    project.mkdir()
+    install_project_flow(project, source_root=source, mode="install", host="cursor")
+    target = project / ".agents/skills/extra/SKILL.md"
+    listener, external = _replace_with_unsafe_object(target, kind, tmp_path)
+    state = (project / ".agents/setup-state.json").read_bytes()
+    identity = target.lstat()
+    graph["nodes"]["skill:flow"]["dependencies"] = []
+    del graph["nodes"]["skill:extra"]
+    graph_path.write_text(json.dumps(graph))
+    try:
+        with pytest.raises(
+            InstallError, match="not an exclusively owned regular file"
+        ):
+            install_project_flow(
+                project, source_root=source, mode="update", host="cursor"
+            )
+    finally:
+        if listener is not None:
+            listener.close()
+
+    after = target.lstat()
+    assert (after.st_mode, after.st_ino, after.st_nlink) == (
+        identity.st_mode,
+        identity.st_ino,
+        identity.st_nlink,
+    )
+    assert (project / ".agents/setup-state.json").read_bytes() == state
+    if external is not None:
+        assert external.read_text() == "generated\n"
