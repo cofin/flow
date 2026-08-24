@@ -311,6 +311,16 @@ scan_arguments_for() {
             ;;
         esac
         ;;
+      fetch|pull)
+        case "$token" in
+          --tags|--prune-tags|-t|*refs/tags/*)
+            deny "explicit tag fetching or pruning is prohibited"
+            ;;
+        esac
+        if [[ "$token" =~ ^-[^-]*t ]]; then
+          deny "explicit tag fetching is prohibited"
+        fi
+        ;;
     esac
   done
 
@@ -321,6 +331,26 @@ scan_arguments_for() {
   fi
 }
 
+is_tag_fetch_config() {
+  local config=${1,,}
+  case "$config" in
+    remote.*.tagopt=--tags|remote.*.prunetags=true|fetch.prunetags=true)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
+is_tag_fetch_config_env() {
+  local config=${1,,}
+  case "$config" in
+    remote.*.tagopt=*|remote.*.prunetags=*|fetch.prunetags=*) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 classify_git_subcommand() {
   local subcommand=$1
   local argument_start=$2
@@ -329,7 +359,7 @@ classify_git_subcommand() {
     push)
       deny "git push requires an explicit user action"
       ;;
-    reset|clean|tag|branch)
+    reset|clean|tag|branch|fetch|pull)
       scan_arguments_for "$subcommand" "$argument_start"
       ;;
     add|am|apply|archive|bisect|blame|bundle|cat-file|checkout|cherry|cherry-pick|clone|commit|config|describe|diff|difftool|fetch|for-each-ref|format-patch|fsck|gc|grep|help|init|log|ls-files|ls-tree|maintenance|merge|merge-base|mergetool|mv|notes|pull|range-diff|rebase|reflog|remote|repack|replace|request-pull|restore|rev-list|rev-parse|revert|rm|shortlog|show|show-branch|sparse-checkout|stage|stash|status|submodule|switch|symbolic-ref|update-index|version|whatchanged|worktree)
@@ -350,6 +380,7 @@ for ((i = 0; i < ${#TOKENS[@]}; i++)); do
   [[ "$token" == "git" || "$token" == */git ]] || continue
 
   j=$((i + 1))
+  tag_fetch_config_seen=0
   while ((j < ${#TOKENS[@]})); do
     candidate=$(normalize_token "${TOKENS[j]}")
     case "$candidate" in
@@ -363,6 +394,10 @@ for ((i = 0; i < ${#TOKENS[@]}; i++)); do
           if [[ "$config" == alias.* ]]; then
             deny "Git alias configuration cannot be classified safely"
           fi
+          is_tag_fetch_config "$config" && tag_fetch_config_seen=1
+        elif [[ "$candidate" == "--config-env" ]]; then
+          config=${TOKENS[j + 1],,}
+          is_tag_fetch_config_env "$config" && tag_fetch_config_seen=1
         fi
         ((j += 2))
         ;;
@@ -372,9 +407,15 @@ for ((i = 0; i < ${#TOKENS[@]}; i++)); do
         if [[ "$config" == alias.* ]]; then
           deny "Git alias configuration cannot be classified safely"
         fi
+        is_tag_fetch_config "$config" && tag_fetch_config_seen=1
         ((j += 1))
         ;;
-      --git-dir=*|--work-tree=*|--namespace=*|--super-prefix=*|--config-env=*)
+      --config-env=*)
+        config=${candidate#--config-env=}
+        is_tag_fetch_config_env "$config" && tag_fetch_config_seen=1
+        ((j += 1))
+        ;;
+      --git-dir=*|--work-tree=*|--namespace=*|--super-prefix=*)
         ((j += 1))
         ;;
       -*)
@@ -388,6 +429,9 @@ for ((i = 0; i < ${#TOKENS[@]}; i++)); do
 
   ((j < ${#TOKENS[@]})) || continue
   subcommand=$(normalize_token "${TOKENS[j]}")
+  if ((tag_fetch_config_seen)) && [[ "$subcommand" == fetch || "$subcommand" == pull ]]; then
+    deny "Git configuration enabling tag fetching or pruning is prohibited"
+  fi
   classify_git_subcommand "$subcommand" "$((j + 1))"
 done
 
