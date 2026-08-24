@@ -333,6 +333,15 @@ def _run_git_guardrail(
         'gi""t push origin main',
         "'g'it push origin main",
         r"G=g\it; $G push origin main",
+        "! git push origin main",
+        "time git push origin main",
+        "exec git push origin main",
+        "nice git push origin main",
+        "sudo git push origin main",
+        "</dev/null git push origin main",
+        "2>/dev/null git push origin main",
+        "{ git push origin main; }",
+        "if true; then git push origin main; fi",
     ],
 )
 def test_git_guardrail_blocks_nested_destructive_commands(command: str) -> None:
