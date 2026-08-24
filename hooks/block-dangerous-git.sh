@@ -46,8 +46,6 @@ for ((position = 0; position < command_length; position++)); do
         [[ "$next_character" == ' ' || "$next_character" == $'\t' ]] ||
           deny "shell quote concatenation cannot be classified safely"
       fi
-    elif [[ "$character" == "'" || "$character" == '"' ]]; then
-      deny "shell quote concatenation cannot be classified safely"
     else
       current+=$character
     fi
