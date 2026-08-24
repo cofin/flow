@@ -11,22 +11,12 @@ from typing import Any
 import pytest
 import yaml
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SKILL_PATH = REPO_ROOT / "skills" / "flow-state" / "SKILL.md"
-TEMPLATE_PATH = REPO_ROOT / "templates" / "agent" / "skills" / "flow-state" / "SKILL.md"
+INSTALL_GRAPH_PATH = REPO_ROOT / "contracts" / "standalone-install.json"
 SOURCE_STATE_REFERENCE_PATH = REPO_ROOT / "skills" / "flow" / "references" / "state.md"
 PACKAGED_STATE_REFERENCE_PATH = (
     REPO_ROOT / "skills" / "flow-state" / "references" / "state.md"
-)
-TEMPLATE_STATE_REFERENCE_PATH = (
-    REPO_ROOT
-    / "templates"
-    / "agent"
-    / "skills"
-    / "flow-state"
-    / "references"
-    / "state.md"
 )
 SYNC_SKILL_PATH = REPO_ROOT / "skills" / "flow-sync-status" / "SKILL.md"
 COMPLETION_SKILL_PATH = REPO_ROOT / "skills" / "flow-completion" / "SKILL.md"
@@ -211,6 +201,16 @@ def _load_validator():
     return module
 
 
+def _load_installer():
+    module_path = REPO_ROOT / "tools" / "install-project-flow.py"
+    spec = importlib.util.spec_from_file_location("state_operation_installer", module_path)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def _load_trace_oracle():
     module_path = REPO_ROOT / "tests" / "test_okf_conformance.py"
     spec = importlib.util.spec_from_file_location("state_trace_oracle", module_path)
@@ -226,16 +226,34 @@ def trace_oracle():
     return _load_trace_oracle()
 
 
-def test_state_skill_and_consumer_template_are_identical() -> None:
-    assert SKILL_PATH.read_bytes() == TEMPLATE_PATH.read_bytes()
+def test_state_skill_uses_the_canonical_graph_source() -> None:
+    graph = json.loads(INSTALL_GRAPH_PATH.read_text(encoding="utf-8"))
+    node = graph["nodes"]["skill:flow-state"]
+
+    assert node["source"] == "skills/flow-state"
+    assert node["destination"] == ".agents/skills/flow-state"
+    template = REPO_ROOT / "templates" / "agent" / "skills" / "flow-state"
+    assert not any(path.is_file() for path in template.rglob("*"))
 
 
-def test_packaged_state_reference_is_self_contained_and_in_sync() -> None:
+def test_installed_state_reference_is_self_contained_and_in_sync(
+    tmp_path: Path,
+) -> None:
     source = SOURCE_STATE_REFERENCE_PATH.read_bytes()
+    installer = _load_installer()
+    project = tmp_path / "project"
+    project.mkdir()
+    result = installer.install_project_flow(
+        project, source_root=REPO_ROOT, mode="install", host="codex_cli"
+    )
+    installed_skill = project / ".agents" / "skills" / "flow-state" / "SKILL.md"
+    installed_reference = installed_skill.parent / "references" / "state.md"
 
+    assert result.action == "installed"
     assert PACKAGED_STATE_REFERENCE_PATH.read_bytes() == source
-    assert TEMPLATE_STATE_REFERENCE_PATH.read_bytes() == source
-    skill = SKILL_PATH.read_text(encoding="utf-8")
+    assert installed_reference.read_bytes() == source
+    assert installed_skill.read_bytes() == SKILL_PATH.read_bytes()
+    skill = installed_skill.read_text(encoding="utf-8")
     assert "(references/state.md)" in skill
     assert "../flow/references/state.md" not in skill
 
