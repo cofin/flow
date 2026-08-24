@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 import sys
@@ -28,6 +29,7 @@ VERIFICATION_STRATEGIES = (
     "documentation_validation",
     "integration_acceptance",
 )
+MARKDOWN_LINK = re.compile(r"\[[^]]+\]\(([^)#]+)(?:#[^)]+)?\)")
 
 
 def _copy_audit_tree(tmp_path: Path) -> Path:
@@ -102,6 +104,23 @@ def test_always_loaded_root_instructions_have_a_separate_word_budget() -> None:
         text = path.read_text(encoding="utf-8")
         assert "type: Spec" not in text
         assert "type: Task" not in text
+
+
+def test_root_instruction_links_resolve_to_shipped_files() -> None:
+    for root_name in ("AGENTS.md", "CLAUDE.md"):
+        root = REPO_ROOT / root_name
+        for target in MARKDOWN_LINK.findall(root.read_text(encoding="utf-8")):
+            resolved = (root.parent / target).resolve()
+            relative = resolved.relative_to(REPO_ROOT).as_posix()
+            tracked = subprocess.run(
+                ["git", "ls-files", "--error-unmatch", relative],
+                cwd=REPO_ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            assert tracked.returncode == 0, f"{root_name} link is not shipped: {target}"
+            assert resolved.is_file(), f"{root_name} link does not resolve: {target}"
 
 
 def test_model_invoked_descriptions_have_their_own_budget_and_are_reachable() -> None:
