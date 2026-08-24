@@ -51,10 +51,8 @@ PORTABLE_SKILLS = (
 GENERATED_STANDALONE_SKILLS = frozenset(PORTABLE_SKILLS).difference(
     {
         "debloat",
-        "flow-completion",
         "flow-memory-keeper",
         "flow-state",
-        "flow-sync-status",
     }
 )
 VALID_MODES = frozenset({"skip", "install", "update", "uninstall"})
@@ -217,6 +215,15 @@ def _standalone_files(source_root: Path, host: str) -> dict[str, bytes]:
         }
         if not canonical:
             raise InstallError(f"missing canonical standalone skill: {skill}")
+        if skill in {"flow-completion", "flow-sync-status"}:
+            canonical[Path("SKILL.md")] = (
+                canonical[Path("SKILL.md")].rstrip()
+                + f"\n\n{CUSTOM_START}\n{CUSTOM_END}\n".encode()
+            )
+            generated = {
+                relative: _normalized_content(content, path=template_root / relative)
+                for relative, content in generated.items()
+            }
         if generated != canonical:
             raise InstallError(f"stale generated standalone skill: {skill}")
 

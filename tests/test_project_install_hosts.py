@@ -62,6 +62,23 @@ def test_clean_plugin_free_host_gets_complete_selected_surface(
     state = json.loads((project / ".agents/setup-state.json").read_text())
     assert state["project_install"]["active_host"] == host
 
+    completion = (project / ".agents/skills/flow-completion/SKILL.md").read_text()
+    review = (project / ".agents/skills/flow/references/review.md").read_text()
+    sync_status = (project / ".agents/skills/flow-sync-status/SKILL.md").read_text()
+    assert "quality-completion-v1" in completion
+    for required in ("exact_range_required", "QualityReport"):
+        assert required in review
+    assert review.index("correctness review") < review.index("quality review")
+    for required in (
+        "flow-sync-status-routing",
+        "typed_reconcile_request",
+        "typed_read_only_status_request",
+        "flow-state",
+    ):
+        assert required in sync_status
+    assert INSTALLER.CUSTOM_START in completion and INSTALLER.CUSTOM_END in completion
+    assert INSTALLER.CUSTOM_START in sync_status and INSTALLER.CUSTOM_END in sync_status
+
 
 def test_generated_template_gate_reports_missing_stale_and_unmanaged(
     tmp_path: Path,
@@ -75,6 +92,16 @@ def test_generated_template_gate_reports_missing_stale_and_unmanaged(
     spec.loader.exec_module(generator)
     output = tmp_path / "skills"
     generator.write_templates(REPO_ROOT, output)
+    assert generator.check_templates(REPO_ROOT, output) == []
+
+    customized = output / "flow-completion" / "SKILL.md"
+    customized.write_text(
+        customized.read_text().replace(
+            generator.CUSTOM_END, "run project audit\n" + generator.CUSTOM_END
+        )
+    )
+    generator.write_templates(REPO_ROOT, output)
+    assert "run project audit" in customized.read_text()
     assert generator.check_templates(REPO_ROOT, output) == []
 
     missing = output / "flow" / "SKILL.md"

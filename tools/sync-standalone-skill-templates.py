@@ -16,9 +16,11 @@ STANDALONE_SKILLS = (
     "devils-advocate",
     "docgen",
     "flow",
+    "flow-completion",
     "flow-execution",
     "flow-planning",
     "flow-setup",
+    "flow-sync-status",
     "performance-analyst",
     "perspectives",
     "security-auditor",
@@ -26,6 +28,33 @@ STANDALONE_SKILLS = (
 )
 DEFAULT_OUTPUT = Path("templates/agent/skills")
 PROJECT_ONLY_SKILLS = ("flow-memory-keeper",)
+CUSTOMIZED_SKILLS = frozenset({"flow-completion", "flow-sync-status"})
+CUSTOM_START = "<!-- project-customization: start -->"
+CUSTOM_END = "<!-- project-customization: end -->"
+
+
+def _with_customization(content: bytes) -> bytes:
+    return content.rstrip() + f"\n\n{CUSTOM_START}\n{CUSTOM_END}\n".encode()
+
+
+def _merge_customization(expected: bytes, current: bytes) -> bytes:
+    text = current.decode("utf-8")
+    if text.count(CUSTOM_START) != 1 or text.count(CUSTOM_END) != 1:
+        return expected
+    custom = text.split(CUSTOM_START, 1)[1].split(CUSTOM_END, 1)[0]
+    return expected.replace(
+        f"{CUSTOM_START}\n{CUSTOM_END}".encode(),
+        f"{CUSTOM_START}{custom}{CUSTOM_END}".encode(),
+    )
+
+
+def _normalized(content: bytes) -> bytes:
+    text = content.decode("utf-8")
+    if text.count(CUSTOM_START) != 1 or text.count(CUSTOM_END) != 1:
+        return content
+    before, rest = text.split(CUSTOM_START, 1)
+    _, after = rest.split(CUSTOM_END, 1)
+    return f"{before}{CUSTOM_START}\n{CUSTOM_END}{after}".encode()
 
 
 def render_templates(repo_root: Path) -> dict[Path, bytes]:
@@ -36,9 +65,10 @@ def render_templates(repo_root: Path) -> dict[Path, bytes]:
         if not (source_root / "SKILL.md").is_file():
             raise FileNotFoundError(f"missing canonical standalone skill: {skill_name}")
         for source in sorted(path for path in source_root.rglob("*") if path.is_file()):
-            rendered[Path(skill_name) / source.relative_to(source_root)] = (
-                source.read_bytes()
-            )
+            content = source.read_bytes()
+            if skill_name in CUSTOMIZED_SKILLS and source.name == "SKILL.md":
+                content = _with_customization(content)
+            rendered[Path(skill_name) / source.relative_to(source_root)] = content
     for skill_name in PROJECT_ONLY_SKILLS:
         source_root = repo_root / DEFAULT_OUTPUT / skill_name
         if not (source_root / "SKILL.md").is_file():
@@ -57,6 +87,8 @@ def write_templates(repo_root: Path, output_root: Path) -> list[Path]:
     for relative, content in render_templates(repo_root).items():
         target = output_root / relative
         target.parent.mkdir(parents=True, exist_ok=True)
+        if target.is_file() and relative.parts[0] in CUSTOMIZED_SKILLS:
+            content = _merge_customization(content, target.read_bytes())
         target.write_bytes(content)
         written.append(target)
     return written
@@ -72,7 +104,7 @@ def check_templates(repo_root: Path, output_root: Path) -> list[str]:
             diagnostics.append(
                 f"missing standalone skill template: {relative.as_posix()}"
             )
-        elif target.read_bytes() != content:
+        elif _normalized(target.read_bytes()) != _normalized(content):
             diagnostics.append(
                 f"stale standalone skill template: {relative.as_posix()}"
             )
