@@ -157,7 +157,6 @@ def test_workflow_template_preserves_state_recovery_and_mutation_contract() -> N
     assert "Jointly arbitrate every nonterminal journal" in continuity
     assert "recover the selected transaction from its recorded fragments" in continuity
 
-    assert ".agents/skills/flow-state/references/state.md" in operations
     for guard in (
         "expected_plan_revision",
         "expected_plan_commit",
@@ -170,3 +169,34 @@ def test_workflow_template_preserves_state_recovery_and_mutation_contract() -> N
     assert "task-first/spec-last" in operations
     assert "record final validation before marking the journal terminal" in operations
     assert "never starts a replacement mutation" in operations
+
+
+def test_workflow_template_resolves_plugin_default_skip_state_authority() -> None:
+    workflow = (REPO_ROOT / "templates" / "agent" / "workflow.md").read_text(
+        encoding="utf-8"
+    )
+    operations = workflow.split("## Task and state operations", maxsplit=1)[1].split(
+        "## Verification strategies", maxsplit=1
+    )[0]
+
+    assert "plugin/default-skip mode" in operations
+    assert "active packaged `flow-state` skill" in operations
+    assert "its sibling `references/state.md`" in operations
+    assert "do not require or synthesize a project-local skill path" in operations
+
+
+def test_workflow_template_resolves_standalone_state_authority() -> None:
+    workflow = (REPO_ROOT / "templates" / "agent" / "workflow.md").read_text(
+        encoding="utf-8"
+    )
+    operations = workflow.split("## Task and state operations", maxsplit=1)[1].split(
+        "## Verification strategies", maxsplit=1
+    )[0]
+
+    assert ".agents/skills/flow-state/SKILL.md" in operations
+    assert "resolve `references/state.md` relative to it" in operations
+    assert "If neither authority is available, stop before mutation" in operations
+    assert (
+        REPO_ROOT
+        / "templates/agent/skills/flow-state/references/state.md"
+    ).is_file()
