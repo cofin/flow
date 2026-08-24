@@ -1,0 +1,3 @@
+interface:
+  display_name: "Performance Analyst"
+  short_description: "Performance review for hot paths, queries, memory, caching, I/O, and scaling"

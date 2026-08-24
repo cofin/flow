@@ -5,9 +5,9 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
-from pathlib import Path
 import re
 import tomllib
+from pathlib import Path
 from types import ModuleType
 from typing import Any
 

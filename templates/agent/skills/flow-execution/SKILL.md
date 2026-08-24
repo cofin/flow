@@ -1,45 +1,71 @@
 ---
 name: flow-execution
-description: "Project-tailored Flow execution skill. Use when implementing tasks from .agents/bundles/specs/<flow_id>/tasks/ with repo-native TDD and verification."
+description: "Use when implementing Flow tasks from local task files under `.agents/bundles/specs/<flow_id>/tasks/`, claiming ready work, applying the declared verification strategy, recording task notes, committing, and updating task file state."
+disable-model-invocation: true
 ---
 
-# Flow Execution (Project-Tailored)
+# Flow Execution
 
 <!-- lifecycle-ownership: owner=flow-execution; operations=implement -->
 
 ## Trigger
 
-Use for `implement` only, when a validated spec has open, ready task worksheets.
+Use for `implement` only, after a validated plan contains ready task worksheets.
 
-## Project Verification Commands
-
+<!-- flow-execution-policy: start -->
 ```yaml
-canonical_commands:
-  unit_test: "{unit_test_command}"
-  focused_test: "{focused_test_command}"
-  aggregate_test: "{aggregate_test_command}"
-  lint: "{lint_command}"
-  typecheck: "{typecheck_command}"
+contract: worksheet-execution-v1
+invariants:
+  - worksheet-first
+  - fail-closed-no-production-mutation
+  - fresh-validated-plan-resume
+transitions:
+  - preflight-claim
+  - mismatch-discover-block
+  - nonblocking-discover-release
+  - revised-plan-resume
+authority: skills/flow/references/implement.md
 ```
+<!-- flow-execution-policy: end -->
 
-## Seam-First TDD Protocol
+## Workflow
 
-1. **Preflight**:
-   - Verify task dependencies are `closed`.
-   - Verify worksheet has complete steps, public seams, and concrete commands.
-   - Claim task state (`state: in_progress`).
-2. **Execute Strategy**:
-   - **RED Phase**: Run the focused test command to observe expected failure on the missing behavior.
-   - **GREEN Phase**: Write minimal production code to pass the test.
-   - **REFACTOR Phase**: Clean code, add Google-style docstrings, and run linters while tests remain green.
-3. **Atomic Commit**:
-   - Stage exact touched paths: `git add <touched_files>`
-   - Create signed commit: `git commit -S -m "feat(<scope>): <short description>"`
-4. **Close Task**:
-   - Append discoveries to task worksheet under `## Notes & Discoveries`.
-   - Record commit SHA (`commit: <sha>`) and set `state: closed`.
-   - Reconcile `spec.md` checklist marker via `/flow:sync`.
+1. **Preflight**: Inspect `.agents/bundles/specs/<flow_id>/tasks/<short_id>.md`, verify dependencies are `closed`, and set `state: in_progress`.
+2. **Initial Evidence**: Collect the declared strategy's required initial proof; only behavior and regression strategies require red.
+3. **Minimal Implementation**: Make the smallest task-owned change while keeping focused evidence green.
+4. **Quality Gates**: Run repository linters and typecheckers while tests remain green.
+5. **Atomic Commit & Close**: Stage exact files, commit with signed Git commit, update task frontmatter (`state: closed`, `commit: <sha>`), and reconcile `spec.md` checklist via `/flow:sync`.
 
-<!-- project-customization: start -->
-## Custom Execution Invariants
-<!-- project-customization: end -->
+## Guardrails
+
+- Execute exactly one task per subagent dispatch.
+- Never mark a task `closed` without running the test command and observing exit code 0.
+- Stage only task-owned files; never perform opportunistic unrelated edits.
+- Work on the active branch. Never create or mutate Git tags.
+
+## Strategy Evidence
+
+| Strategy | Initial evidence | Final evidence |
+| --- | --- | --- |
+| `behavior_tdd` | Focused behavior test fails because behavior is absent. | Focused test and relevant aggregate verification pass. |
+| `regression_tdd` | Focused reproduction fails with the reported symptom. | Regression and relevant aggregate verification pass. |
+| `characterization` | Focused behavior baseline passes before cleanup. | Same behavior passes unchanged; compare affected coverage when needed. |
+| `static_validation` | Native parser, lint, type, build, or generator baseline runs. | Isolated representative violation produces the expected diagnostic; restored focused and aggregate gates pass. |
+| `documentation_validation` | Documentation-native baseline runs. | Documentation checks and promised examples pass. |
+| `integration_acceptance` | Focused integration baseline passes. | End-to-end scenario passes; injected negative states prove refusal paths. |
+
+Do not manufacture a red result for characterization, static, documentation,
+or integration work. Follow the full discipline and waiver rules in
+[discipline.md](../flow/references/discipline.md).
+
+## Output
+
+Return the executed task ID, test command output, git commit SHA, and recorded discoveries.
+
+## Validation
+
+Confirm the test command produced exit code 0 and the commit SHA is recorded in task frontmatter.
+
+## Example
+
+For a task adding a route handler, write a failing endpoint test, implement the route to pass the test, commit locally, and close the task worksheet.

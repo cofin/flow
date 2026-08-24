@@ -23,8 +23,40 @@ HOST_MARKERS = {
     "codex_cli": (".codex",),
     "cursor": (".cursor",),
     "opencode": ("opencode.json",),
+    "openclaw": (),
     "vscode_copilot": (".github/copilot-instructions.md",),
 }
+PORTABLE_SKILLS = (
+    "apilookup",
+    "architecture-critic",
+    "challenge",
+    "consensus",
+    "debloat",
+    "deepthink",
+    "devils-advocate",
+    "docgen",
+    "flow",
+    "flow-completion",
+    "flow-execution",
+    "flow-memory-keeper",
+    "flow-planning",
+    "flow-setup",
+    "flow-state",
+    "flow-sync-status",
+    "performance-analyst",
+    "perspectives",
+    "security-auditor",
+    "tracer",
+)
+GENERATED_STANDALONE_SKILLS = frozenset(PORTABLE_SKILLS).difference(
+    {
+        "debloat",
+        "flow-completion",
+        "flow-memory-keeper",
+        "flow-state",
+        "flow-sync-status",
+    }
+)
 VALID_MODES = frozenset({"skip", "install", "update", "uninstall"})
 
 
@@ -164,6 +196,70 @@ def _detect_host(project_root: Path) -> str:
     if len(detected) > 1:
         raise InstallError(f"active host is ambiguous: {', '.join(detected)}")
     return detected[0]
+
+
+def _standalone_files(source_root: Path, host: str) -> dict[str, bytes]:
+    """Return portable skills/roles and only the selected host's adapters."""
+    desired: dict[str, bytes] = {}
+
+    for skill in GENERATED_STANDALONE_SKILLS:
+        canonical_root = source_root / "skills" / skill
+        template_root = source_root / "templates" / "agent" / "skills" / skill
+        canonical = {
+            path.relative_to(canonical_root): path.read_bytes()
+            for path in canonical_root.rglob("*")
+            if path.is_file()
+        }
+        generated = {
+            path.relative_to(template_root): path.read_bytes()
+            for path in template_root.rglob("*")
+            if path.is_file()
+        }
+        if not canonical:
+            raise InstallError(f"missing canonical standalone skill: {skill}")
+        if generated != canonical:
+            raise InstallError(f"stale generated standalone skill: {skill}")
+
+    def include_tree(source: Path, destination: PurePosixPath) -> None:
+        if not source.is_dir():
+            raise InstallError(f"missing generated standalone source: {source}")
+        for path in sorted(item for item in source.rglob("*") if item.is_file()):
+            relative = destination / PurePosixPath(path.relative_to(source).as_posix())
+            desired[relative.as_posix()] = path.read_bytes()
+
+    for skill in PORTABLE_SKILLS:
+        include_tree(
+            source_root / "templates" / "agent" / "skills" / skill,
+            PurePosixPath(".agents/skills") / skill,
+        )
+    include_tree(source_root / "agents", PurePosixPath(".agents/flow/agents"))
+
+    if host == "antigravity":
+        include_tree(
+            source_root / "templates" / "antigravity" / "agents",
+            PurePosixPath(".agents/agents"),
+        )
+    elif host == "codex_cli":
+        include_tree(source_root / ".codex" / "agents", PurePosixPath(".codex/agents"))
+    elif host == "opencode":
+        include_tree(
+            source_root / ".opencode" / "agents", PurePosixPath(".opencode/agents")
+        )
+        include_tree(
+            source_root / "templates" / "opencode" / "commands",
+            PurePosixPath(".opencode/commands"),
+        )
+    elif host == "vscode_copilot":
+        include_tree(
+            source_root / ".github" / "agents", PurePosixPath(".github/agents")
+        )
+    elif host == "claude_code":
+        commands = source_root / "commands"
+        for path in sorted(commands.glob("flow-*.md")):
+            desired[f".claude/commands/{path.name}"] = path.read_bytes()
+    elif host not in {"cursor", "openclaw"}:
+        raise InstallError(f"unsupported active host: {host}")
+    return desired
 
 
 def _load_state(state_path: Path) -> dict[str, object]:
@@ -350,14 +446,20 @@ def install_project_flow(
             "global Flow plugin detected; explicit transition confirmation required"
         )
 
-    if not seeds:
-        raise InstallError("no canonical Flow skill roots were found")
-    closure = _dependency_closure(source_root, seeds)
-    desired: dict[str, bytes] = {}
-    for source in closure:
-        relative = source.relative_to(source_root)
-        destination = PurePosixPath(".agents") / PurePosixPath(relative.as_posix())
-        desired[destination.as_posix()] = source.read_bytes()
+    if (
+        tuple(seeds) == ("flow/SKILL.md",)
+        and (source_root / "templates/agent/skills").is_dir()
+    ):
+        desired = _standalone_files(source_root, active_host)
+    else:
+        if not seeds:
+            raise InstallError("no canonical Flow skill roots were found")
+        closure = _dependency_closure(source_root, seeds)
+        desired = {}
+        for source in closure:
+            relative = source.relative_to(source_root)
+            destination = PurePosixPath(".agents") / PurePosixPath(relative.as_posix())
+            desired[destination.as_posix()] = source.read_bytes()
 
     changes = {}
     inventory: dict[str, str] = {}

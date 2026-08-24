@@ -1,48 +1,68 @@
 ---
 name: flow
-description: "Project-tailored Flow router. Use when executing lifecycle commands, task tracking, spec planning, TDD implementation, review, or status in this repository."
+description: "Use when a repository has .agents, when the user asks for Flow lifecycle routing, OKF bundle task tracking, spec-first planning, TDD implementation, sync/status, review, finish, archive, or /flow:* help."
 ---
 
-# Flow Router (Project-Tailored)
+# Flow Router
 
 <!-- lifecycle-ownership: owner=flow; operations= -->
 
-## Project Context
-
-- **Knowledge Base:** `.agents/bundles/knowledge/`
-- **Specs Directory:** `.agents/bundles/specs/`
-
 ## Trigger
 
-Use Flow whenever `.agents/` exists, spec bundles live under `.agents/bundles/specs/`, or the request names a Flow lifecycle action (`/flow-plan`, `/flow-implement`, `/flow-sync`, `/flow-finish`, etc.).
-
-> **Flow is a skill, not a CLI.** Never run `flow` as a shell command.
-
-## Routing Table
-
-Route the requested operation directly to its tailored project-local lifecycle skill:
-
-| Requested Operation | Target Project-Local Skill | File Location |
-| :--- | :--- | :--- |
-| `setup` | `flow-setup` | Global or `.agents/skills/flow-setup/` |
-| `prd`, `plan`, `refine`, `revise`, `research`, `task` | `flow-planning` | `.agents/skills/flow-planning/SKILL.md` |
-| `implement` | `flow-execution` | `.agents/skills/flow-execution/SKILL.md` |
-| `sync`, `status`, `refresh` | `flow-sync-status` | `.agents/skills/flow-sync-status/SKILL.md` |
-| `review`, `finish`, `archive`, `revert`, `docs`, `cleanup`, `validate` | `flow-completion` | `.agents/skills/flow-completion/SKILL.md` |
+Use Flow when `.agents/` exists, spec bundles live under `.agents/bundles/specs/`, or the user requests a Flow action. Flow is a skill, not a CLI; never run `flow` as a shell command.
 
 ## Workflow
 
-1. Identify the requested operation from the user prompt or slash command.
-2. Load the corresponding project-local skill from `.agents/skills/<skill-name>/SKILL.md`.
-3. Hand off the request to the owning skill.
+Route the requested operation directly to its owning lifecycle skill:
+
+- `setup` &rarr; `flow-setup`
+- `prd|plan|refine|revise|research|task` &rarr; `flow-planning`
+- `implement` &rarr; `flow-execution`
+- `sync|status|refresh` &rarr; `flow-sync-status`
+- `review|finish|archive|revert|docs|cleanup|validate` &rarr; `flow-completion`
+
+The router owns no operations and performs no disk mutations.
 
 ## Guardrails
 
-- The router owns no lifecycle operations and makes no file mutations.
-- Prefer project-local tailored skills under `.agents/skills/` over generic global skills.
+- Load only the selected lifecycle skill; let it resolve needed context.
+- Task files under `.agents/bundles/specs/<flow_id>/tasks/` are the sole authority for task state.
 - Preserve Git history and tag immutability.
 
-<!-- project-customization: start -->
-## Project Routing Nuances
-- Consult `.agents/bundles/knowledge/architecture/` for subsystem boundaries.
-<!-- project-customization: end -->
+## Output
+
+Identify the selected lifecycle skill and hand off the request immediately.
+
+## Validation
+
+Confirm exactly one lifecycle owner matches the requested operation and that
+the active host exposes its `/flow:<operation>` command or can load the named
+owner skill directly.
+
+## Example
+
+For a request like "implement the active flow", route to `flow-execution` without applying claim mutations in the router.
+
+## References
+
+- [Archive](references/archive.md)
+- [Cleanup](references/cleanup.md)
+- [Discipline](references/discipline.md)
+- [Docs](references/docs.md)
+- [Finish](references/finish.md)
+- [Implement](references/implement.md)
+- [Interaction](references/interaction.md)
+- [Plan](references/plan.md)
+- [PRD](references/prd.md)
+- [Refine](references/refine.md)
+- [Refresh](references/refresh.md)
+- [Research](references/research.md)
+- [Revert](references/revert.md)
+- [Review](references/review.md)
+- [Revise](references/revise.md)
+- [Setup](references/setup.md)
+- [State](references/state.md)
+- [Status](references/status.md)
+- [Sync](references/sync.md)
+- [Task](references/task.md)
+- [Validate](references/validate.md)

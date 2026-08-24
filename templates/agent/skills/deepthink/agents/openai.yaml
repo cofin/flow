@@ -1,0 +1,3 @@
+interface:
+  display_name: "Deepthink"
+  short_description: "Hypothesis-driven investigation for hard debugging and uncertain reasoning"
