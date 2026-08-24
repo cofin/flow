@@ -20,19 +20,106 @@ if ! COMMAND=$(printf '%s' "$INPUT" | jq -er '
   deny "expected a non-empty string at .tool_input.command"
 fi
 
-# The Bash hook matcher sees every shell command. Only invoke the strict Git
-# classifier when the text contains a Git command token or a known disguise.
-git_token_pattern="(^|[[:space:];&|()=/\"'])git($|[[:space:];&|()\"'])"
+# The Bash hook matcher sees every shell command. Structurally scan executable
+# positions without evaluating input, normalizing shell quote/backslash
+# concatenation so constructed Git command names cannot bypass classification.
 possible_git=0
-if [[ "$COMMAND" =~ $git_token_pattern ]]; then
-  possible_git=1
-else
-  case "$COMMAND" in
-    *"g'i't"*|*'g""it'*|*'/g?t'*|*'/g[i]t'*|*'"git"'*|*"'git'"*|*'$GIT'*|*'${GIT'*)
+expect_executable=1
+wrapper=''
+executable=''
+relevance_token=''
+relevance_expansion=0
+
+classify_relevance_token() {
+  local token=$relevance_token
+  local basename=${token##*/}
+
+  [[ -n "$token" ]] || return 0
+  if ((expect_executable)); then
+    if [[ "$token" =~ ^[a-zA-Z_][a-zA-Z0-9_]*= ]]; then
+      return
+    fi
+    if ((relevance_expansion)); then
       possible_git=1
-      ;;
-  esac
-fi
+      return
+    fi
+    case "$basename" in
+      git|g\?t|g\[i\]t)
+        possible_git=1
+        return
+        ;;
+    esac
+    case "$token" in
+      env|command)
+        wrapper=$token
+        return
+        ;;
+      -*)
+        [[ -n "$wrapper" ]] && return
+        ;;
+    esac
+    executable=$token
+    expect_executable=0
+  elif [[ "$executable" == alias && "$token" =~ ^[a-zA-Z_][a-zA-Z0-9_]*=git([[:space:]]|$) ]]; then
+    possible_git=1
+  fi
+  return 0
+}
+
+relevance_quote=''
+command_length=${#COMMAND}
+for ((position = 0; position < command_length && !possible_git; position++)); do
+  character=${COMMAND:position:1}
+  if [[ -n "$relevance_quote" ]]; then
+    if [[ "$character" == "$relevance_quote" ]]; then
+      relevance_quote=''
+    elif [[ "$character" == '$' || "$character" == '`' ]]; then
+      relevance_token+=$character
+      relevance_expansion=1
+    elif [[ "$character" == '\' && "$relevance_quote" == '"' ]]; then
+      if ((position + 1 < command_length)); then
+        ((position += 1))
+        relevance_token+=${COMMAND:position:1}
+      else
+        possible_git=1
+      fi
+    else
+      relevance_token+=$character
+    fi
+  else
+    case "$character" in
+      "'"|'"')
+        relevance_quote=$character
+        ;;
+      '\')
+        ((position + 1 < command_length)) || { possible_git=1; break; }
+        ((position += 1))
+        relevance_token+=${COMMAND:position:1}
+        ;;
+      '$'|'`')
+        relevance_token+=$character
+        relevance_expansion=1
+        ;;
+      ' '|$'\t')
+        classify_relevance_token
+        relevance_token=''
+        relevance_expansion=0
+        ;;
+      ';'|'&'|'|'|'('|')'|$'\n'|$'\r')
+        classify_relevance_token
+        relevance_token=''
+        relevance_expansion=0
+        expect_executable=1
+        wrapper=''
+        executable=''
+        ;;
+      *)
+        relevance_token+=$character
+        ;;
+    esac
+  fi
+done
+((possible_git)) || classify_relevance_token
 ((possible_git)) || exit 0
 
 # Fail closed rather than trying to partially parse shell syntax or expansion.

@@ -328,6 +328,11 @@ def _run_git_guardrail(
         "value=$HOME /usr/bin/g?t push origin main",
         '"/usr/bin/git" push origin main',
         "alias ship='git push'; ship origin main",
+        r"g\it push origin main",
+        'g"i"t push origin main',
+        'gi""t push origin main',
+        "'g'it push origin main",
+        r"G=g\it; $G push origin main",
     ],
 )
 def test_git_guardrail_blocks_nested_destructive_commands(command: str) -> None:
