@@ -24,6 +24,9 @@ fi
 # without evaluation and route any possible Git lexeme to strict classification.
 possible_git=0
 relevance_token=''
+relevance_dynamic=0
+expect_executable=1
+skip_redirection_target=0
 git_boundary_pattern='(^|[=/[:space:]])git($|[/:[:space:]])'
 
 classify_relevance_token() {
@@ -36,8 +39,26 @@ classify_relevance_token() {
     return 0
   fi
   case "$basename" in
-    g\?t|g\[i\]t|'$GIT'|'${GIT}'|'${GIT'*) possible_git=1 ;;
+    g\?t|g\[i\]t) possible_git=1 ;;
   esac
+  ((possible_git)) && return 0
+  if ((skip_redirection_target)); then
+    skip_redirection_target=0
+    return 0
+  fi
+  if ((expect_executable)); then
+    [[ "$token" =~ ^[a-zA-Z_][a-zA-Z0-9_]*= ]] && return 0
+    case "$token" in
+      '!'|time|exec|nice|sudo|env|command|if|then|elif|else|while|until|do)
+        return 0
+        ;;
+    esac
+    if ((relevance_dynamic)); then
+      possible_git=1
+      return 0
+    fi
+    expect_executable=0
+  fi
   return 0
 }
 
@@ -48,6 +69,9 @@ for ((position = 0; position < command_length && !possible_git; position++)); do
   if [[ -n "$relevance_quote" ]]; then
     if [[ "$character" == "$relevance_quote" ]]; then
       relevance_quote=''
+    elif [[ "$relevance_quote" == '"' && ("$character" == '$' || "$character" == '`') ]]; then
+      relevance_token+=$character
+      relevance_dynamic=1
     elif [[ "$character" == '\' && "$relevance_quote" == '"' ]]; then
       if ((position + 1 < command_length)); then
         ((position += 1))
@@ -68,13 +92,31 @@ for ((position = 0; position < command_length && !possible_git; position++)); do
         ((position += 1))
         relevance_token+=${COMMAND:position:1}
         ;;
+      '$'|'`'|'*'|'?'|'[')
+        relevance_token+=$character
+        relevance_dynamic=1
+        ;;
       ' '|$'\t')
         classify_relevance_token
         relevance_token=''
+        relevance_dynamic=0
         ;;
-      ';'|'&'|'|'|'('|')'|'{'|'}'|'<'|'>'|$'\n'|$'\r')
+      '<'|'>')
+        if [[ "$relevance_token" =~ ^[0-9]+$ && "$expect_executable" == 1 ]]; then
+          relevance_token=''
+        else
+          classify_relevance_token
+          relevance_token=''
+        fi
+        relevance_dynamic=0
+        skip_redirection_target=1
+        ;;
+      ';'|'&'|'|'|'('|')'|'{'|'}'|$'\n'|$'\r')
         classify_relevance_token
         relevance_token=''
+        relevance_dynamic=0
+        expect_executable=1
+        skip_redirection_target=0
         ;;
       *)
         relevance_token+=$character
@@ -83,6 +125,7 @@ for ((position = 0; position < command_length && !possible_git; position++)); do
   fi
 done
 ((possible_git)) || classify_relevance_token
+[[ -z "$relevance_quote" ]] || possible_git=1
 ((possible_git)) || exit 0
 
 # Fail closed rather than trying to partially parse shell syntax or expansion.

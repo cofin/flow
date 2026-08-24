@@ -342,6 +342,12 @@ def _run_git_guardrail(
         "2>/dev/null git push origin main",
         "{ git push origin main; }",
         "if true; then git push origin main; fi",
+        "$CMD push origin main",
+        "${CMD} push origin main",
+        '"${CMD}" push origin main',
+        "`printf git` push origin main",
+        "$'git' push origin main",
+        "./[g]it push origin main",
     ],
 )
 def test_git_guardrail_blocks_nested_destructive_commands(command: str) -> None:
