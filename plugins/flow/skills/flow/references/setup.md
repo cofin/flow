@@ -474,7 +474,10 @@ If running under Antigravity, prefer the native plugin and skills install flow. 
 Offer a standalone project copy only when the user explicitly wants Flow to
 work without the global plugin. The choice defaults to skip. Skip is a no-op,
 including when a prior standalone installation exists. The optional packaging
-utility is `tools/install-project-flow.py`; its default `mode` is `skip`.
+utility is `tools/install-project-flow.py`; its default `mode` is `skip`. It
+ships inside every Flow package with its graph and sources: run it from the
+package root (the directory containing `skills/`), which is its default
+`--source-root`.
 
 Install and update require one unambiguous active host. Pass `--host` when
 multiple host markers exist. `contracts/standalone-install.json` is the sole

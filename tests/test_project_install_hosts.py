@@ -97,6 +97,33 @@ def test_clean_plugin_free_host_gets_complete_selected_surface(
     assert INSTALLER.CUSTOM_START in sync_status and INSTALLER.CUSTOM_END in sync_status
 
 
+@pytest.mark.parametrize("host", sorted(INSTALLER.HOST_MARKERS))
+def test_codex_package_is_a_complete_standalone_authority(
+    tmp_path: Path, host: str
+) -> None:
+    package = REPO_ROOT / "plugins" / "flow"
+    from_repo = tmp_path / "repo"
+    from_package = tmp_path / "package"
+    from_repo.mkdir()
+    from_package.mkdir()
+
+    INSTALLER.install_project_flow(
+        from_repo, source_root=REPO_ROOT, mode="install", host=host
+    )
+    INSTALLER.install_project_flow(
+        from_package, source_root=package, mode="install", host=host
+    )
+
+    def _tree(root: Path) -> dict[str, bytes]:
+        return {
+            path.relative_to(root).as_posix(): path.read_bytes()
+            for path in root.rglob("*")
+            if path.is_file()
+        }
+
+    assert _tree(from_package) == _tree(from_repo)
+
+
 def test_generated_template_gate_reports_missing_stale_and_unmanaged(
     tmp_path: Path,
 ) -> None:

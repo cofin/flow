@@ -164,6 +164,13 @@ PACKAGE_DIRS = (
     ".codex",
     "hooks",
     "rules",
+    # Standalone install authority: installer, graph, and every graph source.
+    "tools",
+    "contracts",
+    "agents",
+    "templates",
+    ".github",
+    ".opencode",
 )
 _PACKAGE_EXACT_MIRRORS = (
     "skills/flow/references/interaction.md",

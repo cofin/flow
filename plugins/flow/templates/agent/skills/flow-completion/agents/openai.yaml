@@ -1,0 +1,3 @@
+interface:
+  display_name: "Flow Completion"
+  short_description: "Review, finish, archive, revert, validate, and clean up completed Flow work"

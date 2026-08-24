@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import filecmp
+import json
 import shutil
 import sys
 import tempfile
@@ -20,6 +21,8 @@ CODEX_COMMANDS_DIR = Path("commands/flow")
 CODEX_COMMANDS_GLOB = "*.toml"
 CODEX_HOOK_MANIFEST = Path("hooks/hooks-codex.json")
 CODEX_HOOK_ENTRYPOINT = Path("hooks/session-start.sh")
+STANDALONE_INSTALLER = Path("tools/install-project-flow.py")
+STANDALONE_GRAPH = Path("contracts/standalone-install.json")
 STALE_HINT = "run `make sync-codex-package`"
 IGNORED_NAMES = {
     ".DS_Store",
@@ -86,6 +89,49 @@ def _build_package(repo_root: Path, package_root: Path) -> None:
     _copy_codex_directory(repo_root, package_root)
     _copy_codex_commands(repo_root, package_root)
     _emit_codex_hooks_manifest(repo_root, package_root)
+    _copy_standalone_authority(repo_root, package_root)
+
+
+def _copy_standalone_authority(repo_root: Path, package_root: Path) -> None:
+    """Ship the standalone installer, its graph, and every graph source."""
+    for relative in (STANDALONE_INSTALLER, STANDALONE_GRAPH):
+        source = repo_root / relative
+        if not source.is_file():
+            raise RuntimeError(f"Missing canonical standalone source: {source}")
+        destination = package_root / relative
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination)
+
+    graph = json.loads((repo_root / STANDALONE_GRAPH).read_text(encoding="utf-8"))
+    try:
+        nodes = [(node_id, dict(node)) for node_id, node in sorted(graph["nodes"].items())]
+    except (AttributeError, KeyError, TypeError, ValueError) as exc:
+        raise RuntimeError(f"Invalid standalone graph nodes: {STANDALONE_GRAPH}") from exc
+    for node_id, node in nodes:
+        include = node.get("include")
+        for key in ("source", "canonical"):
+            relative = node.get(key)
+            if relative is None:
+                continue
+            source = repo_root / relative
+            destination = package_root / relative
+            if source.is_file():
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source, destination)
+            elif source.is_dir():
+                if include and key == "source":
+                    destination.mkdir(parents=True, exist_ok=True)
+                    for path in sorted(source.glob(include)):
+                        if path.is_file():
+                            shutil.copy2(path, destination / path.name)
+                else:
+                    shutil.copytree(
+                        source, destination, ignore=_ignore_names, dirs_exist_ok=True
+                    )
+            else:
+                raise RuntimeError(
+                    f"Missing standalone graph source for {node_id}: {source}"
+                )
 
 
 def _emit_codex_hooks_manifest(repo_root: Path, package_root: Path) -> None:
