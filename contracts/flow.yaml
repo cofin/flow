@@ -24,6 +24,8 @@ state_operations:
   - recover
   - status
 
+state_mutation_authority: lifecycle_owner_via_flow-state_file_tools
+
 shared_contracts:
   - {id: flow-state-v1, source: skills/flow/references/state.md, runtime_dependency: agent_file_tools_only}
   - {id: structured-choice-v1, source: skills/flow/references/interaction.md, runtime_dependency: agent_file_tools_only}
@@ -264,7 +266,7 @@ commands:
       openclaw: {spelling: "Use Flow to refine the plan", fallback: "Use Flow to refine the plan"}
   - id: flow/sync
     lifecycle_owner: flow-sync-status
-    agent: flow-reconciler
+    agent: null
     shared_contracts: [flow-state-v1]
     state_operations: [reconcile]
     procedure_source: skills/flow/references/sync.md
@@ -348,7 +350,7 @@ commands:
       openclaw: {spelling: "Use Flow to implement the current task", fallback: "Use Flow to implement the current task"}
   - id: flow/status
     lifecycle_owner: flow-sync-status
-    agent: flow-reconciler
+    agent: null
     shared_contracts: [flow-state-v1]
     state_operations: [status]
     procedure_source: skills/flow/references/status.md
@@ -453,7 +455,7 @@ commands:
       openclaw: {spelling: "Use Flow to archive the completed flow", fallback: "Use Flow to archive the completed flow"}
   - id: flow/refresh
     lifecycle_owner: flow-sync-status
-    agent: flow-reconciler
+    agent: null
     shared_contracts: [flow-state-v1]
     state_operations: [discover, revise, reconcile]
     procedure_source: skills/flow/references/refresh.md
@@ -537,7 +539,7 @@ commands:
       openclaw: {spelling: "Use Flow to review the current flow", fallback: "Use Flow to review the current flow"}
   - id: flow/cleanup
     lifecycle_owner: flow-completion
-    agent: flow-reconciler
+    agent: null
     shared_contracts: [flow-state-v1, quality-review-v1]
     state_operations: [status, archive, recover]
     procedure_source: skills/flow/references/cleanup.md
@@ -615,25 +617,25 @@ agents:
         codex_cli: {path: .codex/agents/executor.toml, format: codex_toml, mode: null, edit_permission: null, bash_permission: null, web_permission: null}
         opencode: {path: .opencode/agents/executor.md, format: opencode_markdown, mode: subagent, edit_permission: allow, bash_permission: allow, web_permission: allow}
         vscode_copilot: {path: .github/agents/executor.agent.md, format: vscode_markdown, mode: null, edit_permission: null, bash_permission: null, web_permission: null}
-  - id: flow-reconciler
-    canonical_source: agents/flow-reconciler.md
+  - id: researcher
+    canonical_source: agents/researcher.md
     supported_host_adapters: [antigravity, claude_code, codex_cli, opencode, vscode_copilot]
-    invariant_ids: [flow-state-v1, markdown-transaction-v1, git-no-tags-v1]
+    invariant_ids: [git-no-tags-v1]
     interaction_requirement: none
     tool_requirements:
-      antigravity: [file_read, file_write]
-      claude_code: [file_read, file_write]
-      codex_cli: [file_read, file_write]
-      opencode: [file_read, file_write]
-      vscode_copilot: [file_read, file_write]
+      antigravity: [file_read]
+      claude_code: [file_read]
+      codex_cli: [file_read]
+      opencode: [file_read]
+      vscode_copilot: [file_read]
     generation:
-      description: Reconcile Flow Markdown state transactions and report a compact status dashboard.
-      nickname_candidates: [reconciler, flow reconciler]
+      description: Conduct primary-source technical research across codebases, SDK documentation, and specifications in isolated context.
+      nickname_candidates: [researcher, technical researcher]
       outputs:
-        antigravity: {path: templates/antigravity/agents/flow-reconciler.md, format: antigravity_markdown, mode: null, edit_permission: null, bash_permission: null, web_permission: null}
-        codex_cli: {path: .codex/agents/flow-reconciler.toml, format: codex_toml, mode: null, edit_permission: null, bash_permission: null, web_permission: null}
-        opencode: {path: .opencode/agents/flow-reconciler.md, format: opencode_markdown, mode: subagent, edit_permission: allow, bash_permission: deny, web_permission: deny}
-        vscode_copilot: {path: .github/agents/flow-reconciler.agent.md, format: vscode_markdown, mode: null, edit_permission: null, bash_permission: null, web_permission: null}
+        antigravity: {path: templates/antigravity/agents/researcher.md, format: antigravity_markdown, mode: null, edit_permission: null, bash_permission: null, web_permission: null}
+        codex_cli: {path: .codex/agents/researcher.toml, format: codex_toml, mode: null, edit_permission: null, bash_permission: null, web_permission: null}
+        opencode: {path: .opencode/agents/researcher.md, format: opencode_markdown, mode: subagent, edit_permission: deny, bash_permission: allow, web_permission: allow}
+        vscode_copilot: {path: .github/agents/researcher.agent.md, format: vscode_markdown, mode: null, edit_permission: null, bash_permission: null, web_permission: null}
   - id: plan-generator
     canonical_source: agents/plan-generator.md
     supported_host_adapters: [antigravity, claude_code, codex_cli, opencode, vscode_copilot]

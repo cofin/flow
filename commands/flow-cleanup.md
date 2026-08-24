@@ -2,11 +2,11 @@
 description: "Run the canonical flow/cleanup Flow lifecycle."
 ---
 
-<!-- Generated from contracts/flow.yaml; generated-sha256: 05fb0d70cca22d154dec6baeab5e9ef38544ecbbe5e4dd4b5001c3a7098d7391 -->
+<!-- Generated from contracts/flow.yaml; generated-sha256: f6756bbc608ac70cf1f05b6b6ce7332c186f0fef78e234112349ea7b1f34e06a -->
 
 ```json
 {
-  "agent": "flow-reconciler",
+  "agent": null,
   "argument_schema": {
     "optional": [
       "scope"

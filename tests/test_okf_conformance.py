@@ -234,6 +234,47 @@ computation_target: bigquery
     assert violations == [], "\n".join(str(v) for v in violations)
 
 
+def test_project_shaped_nested_knowledge_with_resolved_links_passes(
+    tmp_path: Path,
+) -> None:
+    bundles = _build_canonical_bundle(tmp_path)
+    architecture = bundles / "knowledge" / "components" / "scheduler.md"
+    domain = bundles / "knowledge" / "domains" / "dispatch" / "terms.md"
+    _write(
+        architecture,
+        """---
+type: Repository Component
+title: Scheduler
+description: Behavior evidenced by src/scheduler.py and its dispatch tests.
+tags: [architecture, scheduler]
+status: stable
+sources:
+  - resource: ../../../src/scheduler.py
+---
+
+# Scheduler
+
+See the [dispatch terms](../domains/dispatch/terms.md).
+""",
+    )
+    _write(
+        domain,
+        """---
+type: Project Vocabulary
+title: Dispatch Terms
+description: Vocabulary observed in the scheduler implementation.
+tags: [dispatch, domain]
+status: stable
+---
+
+# Dispatch Terms
+""",
+    )
+
+    violations = validate.validate_okf_bundle_root(tmp_path)
+    assert violations == [], "\n".join(str(v) for v in violations)
+
+
 def test_flow_lifecycle_references_share_closed_state_enums_and_defaults() -> None:
     state_contract = REPO_ROOT / "skills" / "flow" / "references" / "state.md"
     assert state_contract.is_file()
@@ -261,15 +302,10 @@ def test_flow_lifecycle_references_share_closed_state_enums_and_defaults() -> No
         "terminal_journal_states": ["committed", "rolled_back", "superseded"],
     }
 
-    agents_text = (REPO_ROOT / "AGENTS.md").read_text(encoding="utf-8")
-    spec_schema = agents_text.split("### Spec File Schema (`spec.md`)", maxsplit=1)[
-        1
-    ].split("### Task File Schema", maxsplit=1)[0]
-    spec_example = spec_schema.split("```yaml\n", maxsplit=1)[1].split(
-        "\n```", maxsplit=1
-    )[0]
-    assert "archived" not in spec_example
-    assert "`planned`, `active`, `completed`, `archived`" not in spec_schema
+    okf_skill = (REPO_ROOT / "skills" / "okf" / "SKILL.md").read_text(encoding="utf-8")
+    assert "state: planned | active | completed # Spec workflow state only" in okf_skill
+    assert "# Task state: open | in_progress | closed | blocked | skipped" in okf_skill
+    assert "state: planned | active | completed | archived" not in okf_skill
 
     for relative_path in (
         "AGENTS.md",
@@ -966,12 +1002,9 @@ def test_plan_bind_uses_typed_live_markdown_evidence_without_runtime_inspection(
 
 def test_agents_sync_contract_has_no_consumer_python_helper() -> None:
     agents_text = (REPO_ROOT / "AGENTS.md").read_text(encoding="utf-8")
-    task_mandate = agents_text.split("## The Task-First Mandate", maxsplit=1)[1].split(
-        "## Auto-Activation", maxsplit=1
-    )[0]
-    assert "python3 tools/sync.py" not in task_mandate
-    assert "/flow:sync" in task_mandate
-    assert "skills/flow/references/state.md" in task_mandate
+    assert "python3 tools/sync.py" not in agents_text
+    assert "Task\nworksheets are the authority" in agents_text
+    assert "skills/flow/references/state.md" in agents_text
 
 
 TRANSACTION_FIXTURE = REPO_ROOT / "tests" / "fixtures" / "okf" / "continuity"
@@ -1502,11 +1535,7 @@ def _validate_forward(journal: dict, suffix: int = 0) -> None:
 
 def _write_journal(root: Path, journal: dict, configured_root: str = ".agents") -> Path:
     path = (
-        root
-        / configured_root
-        / "transactions"
-        / journal["operation_id"]
-        / "journal.md"
+        root / configured_root / "transactions" / journal["operation_id"] / "journal.md"
     )
     _write(
         path,

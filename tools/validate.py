@@ -8,20 +8,18 @@ from __future__ import annotations
 import argparse
 import datetime
 import hashlib
+import ipaddress
 import json
 import os
 import re
 import shutil
 import subprocess
 import sys
+import tomllib as _tomllib
 from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import Any, NamedTuple, cast
-
-if sys.version_info >= (3, 11):
-    import tomllib as _tomllib
-else:  # pragma: no cover - py310 fallback path
-    import tomli as _tomllib  # type: ignore[import-not-found,unused-ignore]
+from urllib.parse import urlsplit
 
 import yaml
 
@@ -47,6 +45,9 @@ CLAUDE_AGENTS_DIR = REPO_ROOT / ".claude-plugin" / "agents"
 CODEX_AGENTS_DIR = REPO_ROOT / ".codex" / "agents"
 VSCODE_AGENTS_DIR = REPO_ROOT / ".github" / "agents"
 SHIPPED_ROOT_FILES = ("AGENTS.md", "CONTRIBUTING.md", "README.md")
+
+PUBLIC_LOCK_SOURCE_HOSTS = frozenset({"pypi.org", "files.pythonhosted.org"})
+_LOCK_URL_PATTERN = re.compile(r'https?://[^"\s]+')
 
 MAX_DESCRIPTION_CHARS = 1024
 MAX_SKILL_DESCRIPTION_CHARS = 500
@@ -163,6 +164,13 @@ PACKAGE_DIRS = (
     ".codex",
     "hooks",
     "rules",
+    # Standalone install authority: installer, graph, and every graph source.
+    "tools",
+    "contracts",
+    "agents",
+    "templates",
+    ".github",
+    ".opencode",
 )
 _PACKAGE_EXACT_MIRRORS = (
     "skills/flow/references/interaction.md",
@@ -202,6 +210,46 @@ class MigrationValidationResult(NamedTuple):
     inventory: list[MigrationInventoryItem]
     violations: list[Violation]
     warnings: list[Violation]
+
+
+def validate_lock_sources(path: Path) -> list[Violation]:
+    """Reject lockfile URLs that cannot be fetched from the public package index."""
+    violations: list[Violation] = []
+    for line_number, line in enumerate(
+        path.read_text(encoding="utf-8").splitlines(), 1
+    ):
+        for match in _LOCK_URL_PATTERN.finditer(line):
+            url = match.group(0)
+            parsed = urlsplit(url)
+            host = parsed.hostname or ""
+            try:
+                port = parsed.port
+            except ValueError:
+                port = -1
+            is_private_address = False
+            try:
+                address = ipaddress.ip_address(host)
+            except ValueError:
+                pass
+            else:
+                is_private_address = not address.is_global
+            if (
+                parsed.scheme != "https"
+                or host not in PUBLIC_LOCK_SOURCE_HOSTS
+                or host == "localhost"
+                or is_private_address
+                or parsed.username is not None
+                or parsed.password is not None
+                or port not in {None, 443}
+            ):
+                violations.append(
+                    Violation(
+                        path,
+                        line_number,
+                        f"lock source host {host!r} is not portable: {url}",
+                    )
+                )
+    return violations
 
 
 def _rel(path: Path) -> str:
@@ -1333,7 +1381,7 @@ def _migration_source_defaults(source: str) -> tuple[str, str] | None:
             "remove_after_verify",
         ),
         ".agents/patterns.md": (
-            ".agents/bundles/knowledge/patterns.md",
+            ".agents/bundles/knowledge/patterns/migrated.md",
             "remove_after_verify",
         ),
         ".agents/knowledge": (".agents/bundles/knowledge", "synthesize"),
@@ -1561,7 +1609,7 @@ def validate_migration_integrity(repo_root: Path) -> MigrationValidationResult:
     authority_pairs = (
         (agents / "product.md", bundles / "product" / "product.md", "product"),
         (agents / "workflow.md", bundles / "knowledge" / "workflow.md", "workflow"),
-        (agents / "patterns.md", bundles / "knowledge" / "patterns.md", "knowledge"),
+        (agents / "patterns.md", bundles / "knowledge" / "patterns", "knowledge"),
         (agents / "knowledge", bundles / "knowledge", "knowledge"),
     )
     for legacy, current, label in authority_pairs:
@@ -1960,7 +2008,7 @@ def validate_codex_marketplace(path: Path, repo_root: Path) -> list[Violation]:
                     path, 1, f"[plugin {name}]: path '{path_str}' must start with './'"
                 )
             )
-        normalized = path_str[2:] if path_str.startswith("./") else path_str
+        normalized = path_str.removeprefix("./")
         if not normalized or normalized.strip("/") == "":
             violations.append(
                 Violation(
@@ -2008,7 +2056,7 @@ def validate_codex_plugin_manifest(path: Path) -> list[Violation]:
     except (json.JSONDecodeError, OSError) as e:
         return [Violation(path, 1, f"Invalid JSON: {e}")]
 
-    for key in data.get("userConfig", {}).keys():
+    for key in data.get("userConfig", {}):
         if not re.match(r"^[a-z][a-zA-Z0-9]*$", key):
             violations.append(
                 Violation(
@@ -2305,35 +2353,44 @@ def _validate_okf_frontmatter(
             Violation(path, 1, "OKF field 'type' must be a non-empty string")
         )
 
-    if "title" in data and data["title"] is not None:
-        if not isinstance(data["title"], str):
-            violations.append(
-                Violation(
-                    path,
-                    1,
-                    f"OKF field 'title' must be a string (got {type(data['title']).__name__})",
-                )
+    if (
+        "title" in data
+        and data["title"] is not None
+        and not isinstance(data["title"], str)
+    ):
+        violations.append(
+            Violation(
+                path,
+                1,
+                f"OKF field 'title' must be a string (got {type(data['title']).__name__})",
             )
+        )
 
-    if "description" in data and data["description"] is not None:
-        if not isinstance(data["description"], str):
-            violations.append(
-                Violation(
-                    path,
-                    1,
-                    f"OKF field 'description' must be a string (got {type(data['description']).__name__})",
-                )
+    if (
+        "description" in data
+        and data["description"] is not None
+        and not isinstance(data["description"], str)
+    ):
+        violations.append(
+            Violation(
+                path,
+                1,
+                f"OKF field 'description' must be a string (got {type(data['description']).__name__})",
             )
+        )
 
-    if "resource" in data and data["resource"] is not None:
-        if not isinstance(data["resource"], str):
-            violations.append(
-                Violation(
-                    path,
-                    1,
-                    f"OKF field 'resource' must be a string URI (got {type(data['resource']).__name__})",
-                )
+    if (
+        "resource" in data
+        and data["resource"] is not None
+        and not isinstance(data["resource"], str)
+    ):
+        violations.append(
+            Violation(
+                path,
+                1,
+                f"OKF field 'resource' must be a string URI (got {type(data['resource']).__name__})",
             )
+        )
 
     if "tags" in data and data["tags"] is not None:
         if not isinstance(data["tags"], list):
@@ -2398,15 +2455,18 @@ def _validate_okf_frontmatter(
                     )
                 )
 
-    if "sources" in data and data["sources"] is not None:
-        if not isinstance(data["sources"], list):
-            violations.append(
-                Violation(
-                    path,
-                    1,
-                    f"OKF field 'sources' must be a list (got {type(data['sources']).__name__})",
-                )
+    if (
+        "sources" in data
+        and data["sources"] is not None
+        and not isinstance(data["sources"], list)
+    ):
+        violations.append(
+            Violation(
+                path,
+                1,
+                f"OKF field 'sources' must be a list (got {type(data['sources']).__name__})",
             )
+        )
 
     return violations
 
@@ -2735,9 +2795,7 @@ def _recorded_operation_request(
         layout = resolve_okf_layout(repo_root)
     except ValueError:
         return None
-    journal = (
-        layout.configured_root / "transactions" / operation_id / "journal.md"
-    )
+    journal = layout.configured_root / "transactions" / operation_id / "journal.md"
     data, errors = _parse_yaml_frontmatter(journal)
     request = data.get("request") if data is not None and not errors else None
     return request if isinstance(request, dict) else None
@@ -3453,7 +3511,11 @@ _RUNTIME_CODE = re.compile(
     re.IGNORECASE,
 )
 _HOOK_SCRIPT_SUFFIXES = {".sh", ".ps1", ".cmd", ".bat"}
-_HOOK_MAINTAINER_DIAGNOSTICS = {"hooks/detect-env.sh", "hooks/detect-env.ps1"}
+_HOOK_MAINTAINER_DIAGNOSTICS = {
+    "hooks/detect-env.sh",
+    "hooks/detect-env.ps1",
+    "hooks/block-dangerous-git.sh",
+}
 _HOOK_TARGET_FORBIDDEN = re.compile(
     r"(?:\|\||&&|;|(?<!\|)\|(?!\|)|detect-env|python|node|bun|pwsh|powershell|\.ps1|\.cmd|\.bat)",
     re.IGNORECASE,
@@ -6407,7 +6469,7 @@ def _journal_roots(repo_root: Path, data: dict[str, Any]) -> dict[str, Path]:
 
 def _semantic_value(value: Any) -> Any:
     if isinstance(value, datetime.datetime):
-        rendered = value.astimezone(datetime.timezone.utc).isoformat()
+        rendered = value.astimezone(datetime.UTC).isoformat()
         return rendered.replace("+00:00", "Z")
     if isinstance(value, dict):
         return {key: _semantic_value(item) for key, item in value.items()}
@@ -6967,13 +7029,16 @@ def _local_journal_assessment(data: dict[str, Any]) -> str:
             if confirmed_applied or open_forward is not None or selected is not None:
                 return "hard_conflict"
             contended = True
-        elif kind in {
-            "validation_recorded",
-            "rollback_validated",
-            "validation_invalidated",
-        }:
-            continue
-        elif isinstance(kind, str) and kind.startswith("directory_"):
+        elif (
+            kind
+            in {
+                "validation_recorded",
+                "rollback_validated",
+                "validation_invalidated",
+            }
+            or isinstance(kind, str)
+            and kind.startswith("directory_")
+        ):
             continue
         else:
             return "hard_conflict"
@@ -7560,6 +7625,7 @@ def main(argv: list[str] | None = None) -> int:
         )
     )
     all_violations.extend(validate_migration_fixtures(REPO_ROOT))
+    all_violations.extend(validate_lock_sources(REPO_ROOT / "uv.lock"))
 
     if all_violations:
         _print_violations(all_violations)

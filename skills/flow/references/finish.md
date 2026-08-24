@@ -50,7 +50,7 @@ Dispatch final comprehensive code review:
    - What was implemented (from spec.md Specification section)
    - Requirements (from spec.md Requirements section)
    - Git range (base to HEAD)
-   - Project patterns (from `.agents/bundles/knowledge/patterns.md`)
+   - Relevant project patterns (recursively from `.agents/bundles/knowledge/patterns/**/*.md`)
 
 3. **Handle results:**
    - **Critical issues** → must fix before proceeding
@@ -161,8 +161,11 @@ Wait for exact confirmation. If confirmed:
 
 ```bash
 git checkout {base_branch}
-git branch -D {feature_branch}
+git branch -d {feature_branch}
 ```
+
+`git branch -d` refuses an unmerged branch; if the user wants to discard
+unmerged work, ask them to run `git branch -D {feature_branch}` themselves.
 
 ## Phase 8: Worktree Cleanup
 

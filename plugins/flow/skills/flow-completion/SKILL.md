@@ -1,6 +1,7 @@
 ---
 name: flow-completion
 description: "Use when reviewing, finishing, archiving, reverting, validating, documenting, or cleaning up Flow work after implementation or phase completion."
+disable-model-invocation: true
 ---
 
 # Flow Completion
@@ -24,50 +25,25 @@ evaluator_module: forbidden
 
 ## Workflow
 
-1. Run fresh verification, correctness review, then mandatory read-only quality
-   review on the exact candidate range. Route Critical/Important findings
-   through revised remediation work and repeat every affected gate.
-2. Finish only with exact-range evidence and individually valid post-review
-   waivers. Checkpoint the last functional commit; never create an empty one.
-3. Archive from a byte-identical disposable candidate: synthesize reusable
-   notes into project-shaped knowledge, log once, then delete the tracked spec
-   directory after recoverability and review checks.
-4. Revert only the selected Flow scope. Docs, cleanup, and validate use their
-   own procedure references; validate is owned here, while setup's internal
-   postcondition check remains part of setup.
+1. **Two-Axis Review (`/flow:review`)**: Run parallel reviewers evaluating Standards/Smells (Security, Performance, Debloat lenses) and Spec Conformance against `git diff <base>...HEAD`.
+2. **Finish Flow (`/flow:finish`)**: Run full test verification suite and record single-paragraph ADRs in `knowledge/decisions/`.
+3. **Archive Flow (`/flow:archive`)**: Synthesize discoveries into project-shaped knowledge, append one `log.md` entry, and delete the reviewed completed spec inventory through a journaled archive operation.
+4. **Revert or Validate**: Revert designated changes or run repository validation checks.
 
 ## Guardrails
 
-- No completion/archive without fresh exact-range verification and both reviews.
-- Quality review is read-only; waivers never replace dispatch.
-- Preserve nested knowledge and unrelated changes; never leave transient
-  extracted learnings or push automatically. Never create or mutate Git tags.
+- Reviews are read-only; report concrete evidence with file/symbol references.
+- Archive leaves a terminal journal outside the bundle and no resident archived spec.
+- Preserve Git history. Never create or mutate Git tags.
 
 ## Output
 
-Return the exact range, verification and review results, remediation/waivers,
-selected finish outcome, or archive manifest and contraction result.
+Return the review assessment, verification evidence, ADR summaries, or archived flow manifest.
 
 ## Validation
 
-Confirm task metadata and spec views agree, required evidence is fresh, no
-unwaived Critical/Important finding remains, knowledge is current-state prose,
-and archive removes the reviewed spec directory only.
-
-## Conditional References
-
-- [Review](../flow/references/review.md)
-- [Finish](../flow/references/finish.md)
-- [Archive](../flow/references/archive.md)
-- [Revert](../flow/references/revert.md)
-- [Docs](../flow/references/docs.md)
-- [Cleanup](../flow/references/cleanup.md)
-- [Validate](../flow/references/validate.md)
-- [State](../flow/references/state.md)
-- [Interaction](../flow/references/interaction.md)
-- [Git Notes](../../docs/git-notes.md) — load only for supplementary evidence.
+Confirm test suites pass cleanly, no blocking review findings remain, and knowledge synthesis is complete.
 
 ## Example
 
-For finish, verify the exact range, run correctness and quality review, resolve
-blocking findings, then present the allowed local outcome.
+For flow completion, run tests, review the diff against `main`, elevate reusable patterns to evidence-backed `knowledge/patterns/<topic>.md` chapters, and archive the spec directory.

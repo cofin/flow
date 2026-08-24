@@ -5,7 +5,7 @@ description: "Use when a Flow request reads, mutates, reconciles, completes, arc
 
 # Flow State
 
-Use this skill as the deterministic state boundary for Flow. The caller chooses a legal lifecycle operation and supplies a complete typed request; the `flow-reconciler` applies that request literally or refuses it. Read the packaged [canonical state contract](references/state.md) before handling any request. It owns the exact payload schemas, read predicates, fragments, event grammar, and lifecycle effects.
+Use this skill as the deterministic state boundary for Flow. The active lifecycle owner chooses a legal operation, supplies a complete typed request, and applies that request literally or refuses it with ordinary file tools. Read the packaged [canonical state contract](references/state.md) before handling any request. It owns the exact payload schemas, read predicates, fragments, event grammar, and lifecycle effects.
 
 <!-- flow-state-contract: start -->
 ```yaml
@@ -149,7 +149,7 @@ result_union:
 1. Resolve the configured, bundle, and flow roots from live Markdown configuration. Validate repository-relative, nonsymlink paths. Read every nonterminal transaction journal before selecting a normal operation.
 2. Require the exact request keyset above. `occurred_at` is canonical UTC; targets are explicit and sorted where required. Existing-flow mutations require the caller's exact expected plan and state identity. Only absent-flow creation uses null expected identity. Status uses its separate read-only request shape.
 3. Load the operation-specific payload and predicate schemas from the canonical contract. Refuse unknown payload keys, implicit targets, missing identity, lifecycle violations, incomplete read sets, unresolved journals, and live/expected drift without changing tracked state.
-4. Dispatch the accepted request to `flow-reconciler`. It prepares exact before/after images, creates the untracked Markdown journal, jointly arbitrates contenders, writes in canonical order, rereads every mutation, and records terminal validation.
+4. The active lifecycle owner prepares exact before/after images, creates the untracked Markdown journal, jointly arbitrates contenders, writes in canonical order with ordinary file tools, rereads every mutation, and records terminal validation. No separate reconciler agent or consumer runtime participates.
 5. Return exactly one tagged `result_union` variant. Never omit a key or substitute prose for a nullable field. Status returns its typed dashboard evidence without an operation id, journal, revision, or write.
 
 ## Recovery
@@ -158,7 +158,7 @@ Recovery begins from the selected journal, never a conversation summary. Resolve
 
 ## Guardrails
 
-- Lifecycle decisions remain with the planner, executor, reviewer, or user. The state sidecar does not choose a transition, invent evidence, infer targets, or weaken a guard.
+- Lifecycle decisions remain with the planner, executor, reviewer, or user. The active owner does not choose an undeclared transition, invent evidence, infer targets, or weaken a guard.
 - Consumer execution uses ordinary file read/write/edit tools only. Never invoke Python, `uv`, a shell, PowerShell, a Flow executable, a helper program, a database, daemon, or service.
 - Mutations may touch only Flow Markdown plus the untracked Markdown transaction journal. Never edit source files, hide authority in runtime state, delete a journal, or leave a resident archived spec.
 - Install the consumer skill at `.agents/skills/flow-state/`; never create `.agents/bundles/skills/`.

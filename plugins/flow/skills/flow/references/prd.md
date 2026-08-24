@@ -96,7 +96,7 @@ If a referenced companion skill is unavailable in the current harness, perform t
 
 ## 3.0 INTELLIGENCE INJECTION
 
-1. **Read History:** Scan `.agents/bundles/knowledge/` chapters, especially `patterns/patterns.md` (learnings elevated from past flows).
+1. **Read History:** Scan `.agents/bundles/knowledge/` recursively, especially relevant `patterns/<topic>.md` chapters elevated from past flows.
 2. **Read Research:** Scan `.agents/bundles/research/` for documents relevant to
    this goal. Existing research is a first-class input to the Zero-Ambiguity
    Mandate — read it before starting fresh investigation, and reconcile it
@@ -113,7 +113,7 @@ If a referenced companion skill is unavailable in the current harness, perform t
 1. **Analyze Request:**
     - Read the user's goal/request thoroughly
     - Identify ambiguities, unknowns, and decision points
-    - Consider existing codebase patterns from `patterns.md`
+    - Consider existing codebase patterns from relevant topic-specific chapters
 
 2. **Code Analysis (if existing project):**
     - Search for relevant code files related to the request
@@ -131,7 +131,7 @@ If a referenced companion skill is unavailable in the current harness, perform t
     - Get user confirmation before proceeding
 
 5. **Constraint Check:**
-    - "Based on `patterns.md`, I'll ensure X. Any concerns?"
+    - "Based on the relevant pattern chapter, I'll ensure X. Any concerns?"
 
 ---
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 import sys
@@ -8,17 +9,27 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 AUDIT_PATH = REPO_ROOT / "tools" / "audit-skill-contracts.py"
 REVIEWER_AUTHORITIES = {
-    "architecture-critic": ("persona.md", "checklist.md"),
-    "challenge": ("challenge-strategy.md",),
-    "consensus": ("consensus-strategy.md", "stance-rotation.md"),
-    "deepthink": ("reasoning-strategy.md", "confidence-tracking.md"),
-    "devils-advocate": ("persona.md", "checklist.md"),
-    "docgen": ("docgen-strategy.md", "component-template.md"),
-    "performance-analyst": ("persona.md", "checklist.md"),
-    "perspectives": ("critical-thinking.md", "stances.md"),
-    "security-auditor": ("persona.md", "checklist.md"),
-    "tracer": ("tracing-strategy.md", "trace-modes.md"),
+    "okf": ("spec.md", "frontmatter-and-tagging.md"),
 }
+ROOT_INSTRUCTION_WORD_LIMIT = 180
+MODEL_DESCRIPTION_WORD_LIMIT = 45
+LIFECYCLE_SKILLS = (
+    "flow",
+    "flow-setup",
+    "flow-planning",
+    "flow-execution",
+    "flow-sync-status",
+    "flow-completion",
+)
+VERIFICATION_STRATEGIES = (
+    "behavior_tdd",
+    "regression_tdd",
+    "characterization",
+    "static_validation",
+    "documentation_validation",
+    "integration_acceptance",
+)
+MARKDOWN_LINK = re.compile(r"\[[^]]+\]\(([^)#]+)(?:#[^)]+)?\)")
 
 
 def _copy_audit_tree(tmp_path: Path) -> Path:
@@ -84,17 +95,83 @@ def test_repository_skill_context_contract_passes() -> None:
     assert result.stdout == "Skill context contracts pass.\n"
 
 
+def test_always_loaded_root_instructions_have_a_separate_word_budget() -> None:
+    roots = (REPO_ROOT / "AGENTS.md", REPO_ROOT / "CLAUDE.md")
+    counts = {path.name: len(path.read_text(encoding="utf-8").split()) for path in roots}
+
+    assert sum(counts.values()) <= ROOT_INSTRUCTION_WORD_LIMIT, counts
+    for path in roots:
+        text = path.read_text(encoding="utf-8")
+        assert "type: Spec" not in text
+        assert "type: Task" not in text
+
+
+def test_root_instruction_links_resolve_to_shipped_files() -> None:
+    for root_name in ("AGENTS.md", "CLAUDE.md"):
+        root = REPO_ROOT / root_name
+        for target in MARKDOWN_LINK.findall(root.read_text(encoding="utf-8")):
+            resolved = (root.parent / target).resolve()
+            relative = resolved.relative_to(REPO_ROOT).as_posix()
+            tracked = subprocess.run(
+                ["git", "ls-files", "--error-unmatch", relative],
+                cwd=REPO_ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            assert tracked.returncode == 0, f"{root_name} link is not shipped: {target}"
+            assert resolved.is_file(), f"{root_name} link does not resolve: {target}"
+
+
+def test_model_invoked_descriptions_have_their_own_budget_and_are_reachable() -> None:
+    for skill_name in LIFECYCLE_SKILLS:
+        path = REPO_ROOT / "skills" / skill_name / "SKILL.md"
+        text = path.read_text(encoding="utf-8")
+        description = next(
+            line.removeprefix("description:").strip().strip('"')
+            for line in text.splitlines()
+            if line.startswith("description:")
+        )
+        assert len(description.split()) <= MODEL_DESCRIPTION_WORD_LIMIT, skill_name
+    router = (REPO_ROOT / "skills" / "flow" / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
+    assert "disable-model-invocation: true" not in router
+
+
+def test_router_reaches_every_lifecycle_owner_semantically() -> None:
+    router = (REPO_ROOT / "skills" / "flow" / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
+    for skill_name in LIFECYCLE_SKILLS[1:]:
+        assert f"`{skill_name}`" in router
+
+
+def test_planning_and_execution_preserve_every_verification_strategy() -> None:
+    planning = (REPO_ROOT / "skills" / "flow-planning" / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
+    execution = (REPO_ROOT / "skills" / "flow-execution" / "SKILL.md").read_text(
+        encoding="utf-8"
+    )
+    for strategy in VERIFICATION_STRATEGIES:
+        assert strategy in planning
+        assert strategy in execution
+    assert "Initial evidence" in execution
+    assert "Final evidence" in execution
+
+
 def test_reviewer_authority_map_is_direct_and_singular() -> None:
     assert _reviewer_authority_violations(REPO_ROOT) == []
 
 
 def test_reviewer_authority_check_rejects_duplicate_detail(tmp_path: Path) -> None:
     root = _copy_audit_tree(tmp_path)
-    skill = root / "skills" / "architecture-critic" / "SKILL.md"
-    persona = skill.parent / "references" / "persona.md"
+    skill = root / "skills" / "okf" / "SKILL.md"
+    spec = skill.parent / "references" / "spec.md"
     duplicated = next(
         line
-        for line in persona.read_text(encoding="utf-8").splitlines()
+        for line in spec.read_text(encoding="utf-8").splitlines()
         if len(line.strip()) >= 60 and not line.startswith("#")
     )
     skill.write_text(
@@ -153,23 +230,11 @@ def test_audit_rejects_long_reference_without_contents(tmp_path: Path) -> None:
 
 def test_audit_rejects_indirect_only_reference(tmp_path: Path) -> None:
     root = _copy_audit_tree(tmp_path)
-    skill = root / "skills" / "apilookup" / "SKILL.md"
+    skill = root / "skills" / "okf" / "SKILL.md"
     skill.write_text(
         skill.read_text(encoding="utf-8")
-        .replace(
-            "See `references/lookup-strategy.md` for the full decision tree. Key principles:\n",
-            "Use the full decision tree when escalation is required. Key principles:\n",
-        )
-        .replace(
-            "- **[Lookup Strategy](references/lookup-strategy.md)** — Detailed three-tier resolution instructions\n",
-            "",
-        ),
-        encoding="utf-8",
-    )
-    bridge = root / "skills" / "apilookup" / "references" / "registry-schema.md"
-    bridge.write_text(
-        bridge.read_text(encoding="utf-8")
-        + "\nSee [Lookup Strategy](lookup-strategy.md).\n",
+        .replace("- [OKF Specification Reference](references/spec.md)\n", "")
+        .replace("- [Frontmatter and Tagging Guide](references/frontmatter-and-tagging.md)\n", ""),
         encoding="utf-8",
     )
 

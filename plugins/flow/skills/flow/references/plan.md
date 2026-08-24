@@ -91,7 +91,7 @@ If a referenced companion skill is unavailable in the current harness, perform t
 **PROTOCOL: Read global and parent context to constrain the plan.**
 
 1. **Read Global Patterns:**
-    - Resolve and read `.agents/bundles/knowledge/patterns.md`.
+    - Resolve and recursively read relevant `.agents/bundles/knowledge/patterns/**/*.md` chapters.
     - Keep these patterns in mind. If the user suggests something violating a pattern, WARN them.
 
 2. **Read Parent Context (Optional):**
@@ -176,7 +176,7 @@ If a referenced companion skill is unavailable in the current harness, perform t
     - Ask only product/trade-off questions, one logical decision at a time,
       through `structured-choice-v1`.
     - Each question MUST reference specific files/code found.
-    - **Constraint Check:** "Based on `patterns.md` and the existing code at [path], we should use X. Do you agree?"
+    - **Constraint Check:** "Based on the relevant pattern chapter and the existing code at [path], we should use X. Do you agree?"
 
     **Example BAD questions:**
     - "Is this service provided by DI?"
@@ -203,7 +203,7 @@ If a referenced companion skill is unavailable in the current harness, perform t
       {files examined, key findings}
 
       ### Relevant Patterns
-      {from patterns.md}
+      {from relevant knowledge/patterns/<topic>.md chapters}
 
       ### Requirements
       {Functional, Non-Functional, API, DB, Risk sections as needed}
@@ -220,7 +220,7 @@ If a referenced companion skill is unavailable in the current harness, perform t
       ```
 
     - Include "Code Analysis Summary" section with files examined
-    - Include "Relevant Patterns" section (extracted from `patterns.md`)
+    - Include "Relevant Patterns" section (extracted recursively from relevant topic chapters)
     - Include "Parent Context" section (if applicable)
     - Standard spec sections: Functional Req, Non-Functional, API, DB, Risk
     - Implementation Plan section with Phases and TDD Tasks
@@ -250,7 +250,7 @@ If a referenced companion skill is unavailable in the current harness, perform t
 1. **Dispatch spec-reviewer subagent** with:
    - Path to drafted spec.md
    - Flow requirements and constraints
-   - Relevant patterns from `.agents/bundles/knowledge/patterns.md`
+   - Relevant patterns from `.agents/bundles/knowledge/patterns/**/*.md`
    - Review criteria: completeness, consistency, feasibility, and change-appropriate verification structure
 
 2. **Handle results:**
@@ -348,7 +348,7 @@ Announce:
 
 1. **CODE ANALYSIS FIRST** - Always analyze codebase before asking questions
 2. **INFORMED QUESTIONS** - Questions must reference actual files/code found
-3. **PATTERNS COMPLIANCE** - Check patterns.md and warn on violations
+3. **PATTERNS COMPLIANCE** - Check relevant topic-specific pattern chapters and warn on violations
 4. **UNIFIED SPEC** - Single `spec.md` contains both requirements and plan. No separate `plan.md`.
 5. **SPECS DIRECTORY** - All artifacts go in `.agents/bundles/specs/`
 6. **FULL CONTEXT** - Include a full description in the spec and task files at creation time; record follow-up context in the task file bodies

@@ -5,9 +5,9 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
-from pathlib import Path
 import re
 import tomllib
+from pathlib import Path
 from types import ModuleType
 from typing import Any
 
@@ -210,7 +210,7 @@ def test_representative_command_metadata_is_semantic_and_host_exact(
 
 @pytest.mark.parametrize(
     "agent_id",
-    ["executor", "plan-generator", "flow-reconciler", "quality-reviewer"],
+    ["executor", "plan-generator", "researcher", "quality-reviewer"],
 )
 def test_required_agent_invariants_and_host_capabilities_survive_generation(
     contract: FlowContract, agent_generator: ModuleType, agent_id: str
@@ -248,14 +248,10 @@ def test_required_agent_invariants_and_host_capabilities_survive_generation(
 
     if agent_id == "plan-generator":
         assert "structured-choice-v1" in agent.invariant_ids
-    elif agent_id == "flow-reconciler":
-        assert agent.invariant_ids == (
-            "flow-state-v1",
-            "markdown-transaction-v1",
-            "git-no-tags-v1",
-        )
+    elif agent_id == "researcher":
+        assert agent.invariant_ids == ("git-no-tags-v1",)
         assert all(
-            requirements == ("file_read", "file_write")
+            requirements == ("file_read",)
             for requirements in agent.tool_requirements.values()
         )
     elif agent_id == "executor":
@@ -448,18 +444,17 @@ def test_reconciler_and_state_commands_remain_file_tool_only(
                 assert record["runtime_dependency"] == "agent_file_tools_only"
                 assert record["procedure_source"] == command.procedure_source
 
-    reconciler = contract.agents["flow-reconciler"]
+    researcher = contract.agents["researcher"]
     assert all(
-        requirements == ("file_read", "file_write")
-        for requirements in reconciler.tool_requirements.values()
+        requirements == ("file_read",)
+        for requirements in researcher.tool_requirements.values()
     )
     for relative, content in agent_generator.render_surfaces(
         CONTRACT_PATH, REPO_ROOT
     ).items():
         record = _generated_record(relative, content)
-        if record["canonical_id"] == "flow-reconciler":
+        if record["canonical_id"] == "researcher":
             assert record["tool_capability_requirements"] == [
                 "file_read",
-                "file_write",
             ]
-            assert record["canonical_source"] == reconciler.canonical_source
+            assert record["canonical_source"] == researcher.canonical_source

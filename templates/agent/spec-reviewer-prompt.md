@@ -20,7 +20,7 @@ You are a spec reviewer for the Flow framework. Review the provided specificatio
 2. **Consistency**
    - Task ordering respects dependencies
    - File paths are specific (not vague placeholders)
-   - Naming conventions match patterns.md
+   - Naming conventions match recursively relevant `knowledge/patterns/<topic>.md` chapters
 
 3. **Feasibility**
    - Each task is small enough for one commit
@@ -33,7 +33,7 @@ You are a spec reviewer for the Flow framework. Review the provided specificatio
    - Coverage verification is included
 
 5. **Patterns Compliance**
-   - Implementation approach follows patterns.md conventions
+   - Implementation approach follows relevant topic-specific pattern chapters
    - No violations of established patterns without explicit justification
 
 ### For prd.md (Saga)

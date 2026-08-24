@@ -68,8 +68,8 @@ one read-only pass before proposing or applying any write:
   each journal's `state`;
 - both historical project-skill roots: legacy `.agents/bundles/skills/` and
   canonical `.agents/skills/`;
-- legacy tracker data and configuration, including `.agents/beads.json`,
-  `.beads/`, and every legacy `metadata.json` slated for migration or removal;
+- legacy tracker data and configuration, including every legacy
+  `metadata.json` slated for migration or removal;
 - hooks, policies, setup state, ignore/tracking policy, and root instruction files
   (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, OpenCode config, and Cursor rules).
 
@@ -175,15 +175,21 @@ transaction, and changes neither `plan_revision` nor `plan_commit`.
 
 ### 0.1.1b Remove Legacy Tracker Machinery
 
-Offer each removal explicitly: delete `.git/hooks/pre-commit` when it contains tracker sync logic; delete `.beads/` and `.agents/beads.json` after confirmation; note the legacy `bd` binary is no longer used and may be uninstalled.
+Offer each removal explicitly: delete `.git/hooks/pre-commit` when it contains
+tracker sync logic, and delete obsolete tracker data and configuration only
+after confirmation.
 
 ### 0.1.1c Scrub Tracker Instructions from Context Files
 
-Scan `AGENTS.md`/`CLAUDE.md`/`GEMINI.md`, `.claude/settings.local.json` (`Bash(bd:*)` allowlist entries), `opencode.json`, and `.cursor/rules/*.mdc` for tracker-era instructions or legacy `.agents/specs/` paths. Show each proposed edit; replace with bundle equivalents or remove on approval (merge, back up, never clobber).
+Scan `AGENTS.md`/`CLAUDE.md`/`GEMINI.md`, `.claude/settings.local.json`,
+`opencode.json`, and `.cursor/rules/*.mdc` for tracker-era instructions,
+obsolete command allowlists, or superseded project-layout paths. Show each
+proposed edit; replace with bundle equivalents or remove on approval (merge,
+back up, never clobber).
 
 ### 0.1.2 Learnings Ingestion
 
-Validate existing `learnings.md` files against the current codebase and merge confirmed patterns into `.agents/bundles/knowledge/patterns.md`.
+Validate existing `learnings.md` files against the current codebase and merge confirmed patterns into evidence-backed `.agents/bundles/knowledge/patterns/<topic>.md` chapters. During migration, read an existing legacy flat `knowledge/patterns.md`, but do not preserve it as the preferred destination.
 
 ### 0.1.3 Core Artifacts Check
 
@@ -319,10 +325,10 @@ Ask the user ONE AT A TIME, as in the `/flow:setup` command:
 
 ## Phase 3: Style & Convention Chapters
 
-Offer styleguides from `templates/styleguides/` for detected languages. Keep
-`knowledge/patterns.md` as the stable default, but place selected `type: Pattern`
-chapters at scope-derived relative paths when the project organization calls for
-it; setup never requires every knowledge chapter to be a root sibling.
+Offer styleguides from `templates/styleguides/` for detected languages. Create
+evidence-backed `type: Pattern` chapters at `knowledge/patterns/<topic>.md` only
+when selected or supported by the repository. Do not pre-create the namespace
+directory or a catch-all flat pattern file.
 
 ---
 
@@ -332,14 +338,13 @@ Create:
 
 - `.agents/bundles/index.md` - Bundle root index (`okf_version: "0.2"`)
 - `.agents/bundles/log.md` - Dated change log with a creation entry
-- `.agents/bundles/knowledge/patterns.md` - Patterns template (`type: Pattern`)
 - `.agents/skills/flow-memory-keeper/SKILL.md` - Project-local memory/refinement skill
 
 ```bash
 mkdir -p .agents/bundles/{specs,product,knowledge,research} .agents/skills/flow-memory-keeper
 ```
 
-Copy `templates/agent/skills/flow-memory-keeper/SKILL.md` into `.agents/skills/flow-memory-keeper/SKILL.md`.
+Copy `templates/agent/skills/flow-memory-keeper/SKILL.md` into `.agents/skills/flow-memory-keeper/SKILL.md`; the standalone installer (Phase 7.6) adopts an identical copy as a managed file.
 
 ---
 
@@ -464,6 +469,45 @@ Codex configuration lives in the global `~/.codex/config.toml` (per-user, not pe
 
 If running under Antigravity, prefer the native plugin and skills install flow. The workspace hook config installs at `.agents/hooks.json`; subagents install at `.agents/agents/`. Flow should not write legacy extension policy files.
 
+### 7.6 Optional standalone project installation
+
+Offer a standalone project copy only when the user explicitly wants Flow to
+work without the global plugin. The choice defaults to skip. Skip is a no-op,
+including when a prior standalone installation exists. The optional packaging
+utility is `tools/install-project-flow.py`; its default `mode` is `skip`. It
+ships inside every Flow package with its graph and sources: run it from the
+package root (the directory containing `skills/`), which is its default
+`--source-root`.
+
+Install and update require one unambiguous active host. Pass `--host` when
+multiple host markers exist. `contracts/standalone-install.json` is the sole
+dependency authority: the installer resolves its lifecycle-rooted graph,
+selects only the active host's closure, and reads unchanged skills directly
+from canonical `skills/` sources. Generated project templates exist only for
+declared project-specific skills or bounded customization regions. Before any
+write, the installer validates every graph edge, source, repository-contained
+destination, collision, and managed hash; missing, cyclic, duplicate, escaping,
+stale, or unmanaged inputs refuse without partial writes.
+When the graph retires a managed path, update removes it only if its recorded
+hash still matches and its customization block is empty; otherwise it stops and
+requires the same exact path-scoped uninstall confirmation used below.
+
+Its explicit lifecycle modes are `install`, `update`, and `uninstall`; `host`
+declares the active adapter when detection is ambiguous.
+
+Generated files may contain one bounded
+`<!-- project-customization: start -->` / `<!-- project-customization: end -->`
+block. Update preserves that block only when the rest of the managed file still
+matches its recorded normalized hash. Other stale edits refuse. Uninstall
+automatically removes only hash-identical files whose customization block is
+empty. It reports every preserved path; removing one requires a second call
+with the exact `--confirm-customized <repository-relative-path>` value.
+
+If the active host reports a global Flow plugin, ask before preparing the
+standalone copy and pass `--confirm-global-plugin` only after confirmation.
+Then instruct the user to disable the global plugin for later sessions in this
+project. The installer never mutates global plugin state.
+
 ---
 
 ## Phase 8: First Flow (Optional)
@@ -488,6 +532,17 @@ Save setup state to `.agents/setup-state.json`:
   "migration_approved_at": "canonical UTC timestamp",
   "project_type": "brownfield|greenfield",
   "workflow_revision": "flow-template-v2",
+  "project_install": {
+    "mode": "skip|standalone",
+    "active_host": "host id or null",
+    "canonical_contract_hash": "sha256 or null",
+    "managed_files": [
+      {
+        "path": ".agents/skills/flow/SKILL.md",
+        "content_hash": "normalized sha256"
+      }
+    ]
+  },
   "timestamp": "ISO timestamp"
 }
 ```
@@ -507,7 +562,7 @@ Created:
 - product/product-guidelines.md
 - product/tech-stack.md
 - knowledge/workflow.md
-- knowledge/patterns.md (+ style chapters)
+- knowledge/patterns/<topic>.md chapters (only when evidence-backed)
 - `.agents/skills/flow-memory-keeper/SKILL.md`
 - specs/
 

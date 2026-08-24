@@ -1,99 +1,66 @@
-
 # Flow Research
 
-Conduct pre-PRD research including codebase analysis and documentation lookup.
+Conduct bounded technical research from primary sources. Research agents are
+read-only and return closed cited results; the parent owns every tracked write.
 
-## Usage
+## Proportional Dispatch
 
-```text
-flow-research <topic>
+Dispatch only when a predicate below is satisfied. Count independent unknowns
+before dispatch and use one researcher per independent unknown or source
+domain; overlapping questions stay in one brief.
+
+<!-- research-fanout-contract: proportional-v1 -->
+```yaml
+researcher:
+  when: at least_two_independent_unknowns | current_external_evidence_required
+  count: one_per_independent_unknown_or_source_domain
+interface_design:
+  when: competing_public_shapes
+architecture_review:
+  when: new_seam | state_contract | public_contract | hard_to_reverse_choice
+devils_advocacy:
+  when: destructive | security_sensitive | high_uncertainty
+otherwise: zero_extra_dispatches
 ```
 
-## Workflow
+Researcher briefs name one question, scoped primary sources, required current
+sources, and a target for the parent to write. Current external API behavior
+must come from current source material, not recalled syntax. Keep one task per execution subagent; research fan-out does not split implementation ownership.
 
-### Phase 1: Research Initialization
+## Result Adoption
 
-1. **Define Topic:** Use provided argument or ask user
-2. **Classify Type:** New Feature, Bug Investigation, Integration, Refactoring, Performance
+The researcher returns the `structured-result-v1` schema in
+`agents/researcher.md`; it never writes a note. The parent must validate that:
 
-### Phase 2: Codebase Exploration
+- every required key exists and there are no unknown keys;
+- every finding id is unique and supported by at least one exact citation;
+- every cited finding exists and every primary-source citation is retained;
+- confidence and limitations are explicit; and
+- contradictions are resolved with evidence or marked unresolved.
 
-1. Map relevant modules and files
-2. Identify existing patterns
-3. Analyze dependencies
+Malformed or uncited results and results with unresolved contradictions are
+not adopted or silently summarized. The parent resolves the gap, dispatches a
+justified follow-up, or records a blocker. Only after validation does the parent
+write the target research document or worksheet note, preserving citations,
+limitations, and contradictions verbatim enough to audit their meaning.
 
-### Phase 3: External Documentation
-
-1. Lookup relevant library documentation
-2. Note APIs, best practices, gotchas
-
-### Phase 4: Prior Art
-
-1. Check git history for similar work
-2. Research external patterns
-
-### Phase 5: Risk Assessment
-
-1. Identify technical risks
-2. Plan recovery strategy
-
-### Phase 6: Create Research Document
-
-Research ids follow flow identity: `<slug>_<YYYYMMDD>`, lowercase, no `research_`
-prefix (the directory already says that). Create
-`.agents/bundles/research/<research_id>/research.md` as a valid OKF v0.2
-document with frontmatter:
+## Frontmatter Schema
 
 ```yaml
 ---
 type: Research
-research_id: <research_id>
-title: <research_title>
-state: open          # open | promoted
-created_at: <ISO timestamp>
-updated_at: <ISO timestamp>
-description: <one-line summary>
-tags: [<work-kind>, <domain>, ...]
-promoted_to: null
+research_id: "topic-slug"
+title: Research Title
+scope: architecture | domain | integration
+tags: [tag1, tag2]
+status: stable
+state: open                     # open | promoted
+promoted_to: null               # flow_id once adopted by a spec
+created_at: 2026-08-23T12:00:00Z
+updated_at: 2026-08-23T12:00:00Z
 ---
 ```
 
-Populate every field — one Work Kind plus 1–4 domain tags per
-[OKF tagging](../../okf/references/frontmatter-and-tagging.md), never `[]`.
-
-Body sections:
-
-- Executive Summary
-- Codebase Analysis
-- Library Documentation
-- Prior Art
-- Risk Assessment
-- Recommended Approach
-
 ## Promotion Contract
 
-`bundles/research/` holds **un-promoted research only**. When a PRD or plan
-adopts research, it becomes part of that flow's bundle:
-
-1. **Ensure a destination flow.** If none exists, derive `<flow_id>` as
-   `<slug>_<YYYYMMDD>` from the research title, create
-   `bundles/specs/<flow_id>/spec.md` with `state: planned` seeded from the
-   research summary and recommended approach, and confirm the id.
-2. **Move, never copy** the directory to
-   `bundles/specs/<flow_id>/research/` — `git mv` when tracked.
-3. **Update frontmatter:** `state: promoted`, `promoted_to: <flow_id>`, refresh
-   `updated_at`. Add `research: [<research_id>]` to the spec.
-4. **Repair links** that pointed at the old path, and
-   `bundles/research/index.md`.
-5. **One owner per document.** If two flows need it, the durable content belongs
-   in a `knowledge/` chapter instead.
-
-Promoted research archives with its flow (see [Archive](archive.md)).
-
-## Critical Rules
-
-1. **THOROUGH EXPLORATION** - Analyze codebase before external research
-2. **ACTIONABLE OUTPUT** - Research should inform PRD creation
-3. **RESEARCH IS UN-PROMOTED ONLY** - `bundles/research/` never holds research
-   that already belongs to a flow
-4. **MOVE ON PROMOTION** - Promotion relocates the directory; it never copies
+Un-promoted research lives in `.agents/bundles/research/<topic>/`. When a flow adopts the research, the parent moves the folder to `.agents/bundles/specs/<flow_id>/research/` and sets `state: promoted` and `promoted_to: <flow_id>`.

@@ -41,6 +41,7 @@ def _init_repo(path: Path) -> str:
     _git(path, "init", "-q")
     _git(path, "config", "user.name", "Flow Tests")
     _git(path, "config", "user.email", "flow-tests@example.invalid")
+    _git(path, "config", "commit.gpgsign", "false")
     tracked = path / "tracked.txt"
     tracked.write_text("functional change\n", encoding="utf-8")
     _git(path, "add", "tracked.txt")

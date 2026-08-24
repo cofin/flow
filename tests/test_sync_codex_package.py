@@ -36,6 +36,20 @@ def _write_fake_repo(root: Path) -> None:
         "hooks/hooks-codex.json": '{"codex": true}\n',
         "hooks/detect-env.sh": "#!/usr/bin/env bash\nexit 99\n",
         "hooks/session-start.sh": "#!/usr/bin/env bash\n",
+        "tools/install-project-flow.py": "raise SystemExit('installer')\n",
+        "contracts/standalone-install.json": (
+            '{"version": 1, "roots": ["skill:flow"], "hosts": {"codex_cli": ["host:codex"]},'
+            ' "nodes": {'
+            '"skill:flow": {"source": "skills/flow", "destination": ".agents/skills/flow", "dependencies": ["skill:memory"]},'
+            ' "skill:memory": {"source": "templates/agent/skills/flow-memory-keeper",'
+            ' "canonical": "skills/flow-planning", "customized": true,'
+            ' "destination": ".agents/skills/flow-memory-keeper", "dependencies": []},'
+            ' "host:codex": {"source": "commands", "destination": ".codex/commands", "include": "flow-*.md", "dependencies": []},'
+            ' "agent:executor": {"source": "agents/executor.md", "destination": ".agents/agents/executor.md", "dependencies": []}}}\n'
+        ),
+        "templates/agent/skills/flow-memory-keeper/SKILL.md": "---\nname: flow-memory-keeper\n---\n",
+        "agents/executor.md": "# Executor\n",
+        "commands/other.md": "# Not a flow command\n",
     }
     for rel_path, content in files.items():
         path = root / rel_path
@@ -84,6 +98,11 @@ def test_sync_creates_real_package_tree_from_flow_sources(fake_repo: Path) -> No
     assert (package / "hooks" / "hooks.json").read_text(encoding="utf-8") == '{"codex": true}\n'
     assert (package / "hooks" / "session-start.sh").is_file()
     assert not (package / "hooks" / "detect-env.sh").exists()
+    assert (package / "tools" / "install-project-flow.py").is_file()
+    assert (package / "contracts" / "standalone-install.json").is_file()
+    assert (package / "templates" / "agent" / "skills" / "flow-memory-keeper" / "SKILL.md").is_file()
+    assert (package / "agents" / "executor.md").read_text(encoding="utf-8") == "# Executor\n"
+    assert not (package / "commands" / "other.md").exists()
     _assert_no_symlinks(package)
 
 

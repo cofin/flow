@@ -225,6 +225,7 @@ class FlowContract:
     schema_version: int
     git_policy: GitPolicy
     state_operations: tuple[str, ...]
+    state_mutation_authority: str
     shared_contracts: Mapping[str, SharedContract]
     interaction: InteractionContract
     harnesses: Mapping[str, HarnessCapability]
@@ -330,6 +331,7 @@ def load_contract(path: str | Path) -> FlowContract:
             "schema_version",
             "git_policy",
             "state_operations",
+            "state_mutation_authority",
             "shared_contracts",
             "interaction_contracts",
             "harnesses",
@@ -360,6 +362,13 @@ def load_contract(path: str | Path) -> FlowContract:
     state_operations = _string_tuple(data["state_operations"], "state_operations")
     if state_operations != STATE_OPERATIONS:
         _fail("state_operations must be the exact canonical operation vocabulary")
+    state_mutation_authority = _string(
+        data["state_mutation_authority"], "state_mutation_authority"
+    )
+    if state_mutation_authority != "lifecycle_owner_via_flow-state_file_tools":
+        _fail(
+            "state_mutation_authority must be lifecycle_owner_via_flow-state_file_tools"
+        )
     shared_contracts = _parse_shared_contracts(data["shared_contracts"])
     interaction = _parse_interaction(data["interaction_contracts"])
     harnesses = _parse_harnesses(data["harnesses"])
@@ -376,6 +385,7 @@ def load_contract(path: str | Path) -> FlowContract:
         version,
         git_policy,
         state_operations,
+        state_mutation_authority,
         shared_contracts,
         interaction,
         harnesses,

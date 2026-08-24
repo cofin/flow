@@ -11,25 +11,16 @@ from typing import Any
 import pytest
 import yaml
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SKILL_PATH = REPO_ROOT / "skills" / "flow-state" / "SKILL.md"
-TEMPLATE_PATH = REPO_ROOT / "templates" / "agent" / "skills" / "flow-state" / "SKILL.md"
+INSTALL_GRAPH_PATH = REPO_ROOT / "contracts" / "standalone-install.json"
 SOURCE_STATE_REFERENCE_PATH = REPO_ROOT / "skills" / "flow" / "references" / "state.md"
 PACKAGED_STATE_REFERENCE_PATH = (
     REPO_ROOT / "skills" / "flow-state" / "references" / "state.md"
 )
-TEMPLATE_STATE_REFERENCE_PATH = (
-    REPO_ROOT
-    / "templates"
-    / "agent"
-    / "skills"
-    / "flow-state"
-    / "references"
-    / "state.md"
-)
-AGENT_PATH = REPO_ROOT / "agents" / "flow-reconciler.md"
 SYNC_SKILL_PATH = REPO_ROOT / "skills" / "flow-sync-status" / "SKILL.md"
+COMPLETION_SKILL_PATH = REPO_ROOT / "skills" / "flow-completion" / "SKILL.md"
+ARCHIVE_REFERENCE_PATH = REPO_ROOT / "skills" / "flow" / "references" / "archive.md"
 SYNC_REFERENCE_PATH = REPO_ROOT / "skills" / "flow" / "references" / "sync.md"
 STATUS_REFERENCE_PATH = REPO_ROOT / "skills" / "flow" / "references" / "status.md"
 
@@ -210,6 +201,16 @@ def _load_validator():
     return module
 
 
+def _load_installer():
+    module_path = REPO_ROOT / "tools" / "install-project-flow.py"
+    spec = importlib.util.spec_from_file_location("state_operation_installer", module_path)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def _load_trace_oracle():
     module_path = REPO_ROOT / "tests" / "test_okf_conformance.py"
     spec = importlib.util.spec_from_file_location("state_trace_oracle", module_path)
@@ -225,16 +226,34 @@ def trace_oracle():
     return _load_trace_oracle()
 
 
-def test_state_skill_and_consumer_template_are_identical() -> None:
-    assert SKILL_PATH.read_bytes() == TEMPLATE_PATH.read_bytes()
+def test_state_skill_uses_the_canonical_graph_source() -> None:
+    graph = json.loads(INSTALL_GRAPH_PATH.read_text(encoding="utf-8"))
+    node = graph["nodes"]["skill:flow-state"]
+
+    assert node["source"] == "skills/flow-state"
+    assert node["destination"] == ".agents/skills/flow-state"
+    template = REPO_ROOT / "templates" / "agent" / "skills" / "flow-state"
+    assert not any(path.is_file() for path in template.rglob("*"))
 
 
-def test_packaged_state_reference_is_self_contained_and_in_sync() -> None:
+def test_installed_state_reference_is_self_contained_and_in_sync(
+    tmp_path: Path,
+) -> None:
     source = SOURCE_STATE_REFERENCE_PATH.read_bytes()
+    installer = _load_installer()
+    project = tmp_path / "project"
+    project.mkdir()
+    result = installer.install_project_flow(
+        project, source_root=REPO_ROOT, mode="install", host="codex_cli"
+    )
+    installed_skill = project / ".agents" / "skills" / "flow-state" / "SKILL.md"
+    installed_reference = installed_skill.parent / "references" / "state.md"
 
+    assert result.action == "installed"
     assert PACKAGED_STATE_REFERENCE_PATH.read_bytes() == source
-    assert TEMPLATE_STATE_REFERENCE_PATH.read_bytes() == source
-    skill = SKILL_PATH.read_text(encoding="utf-8")
+    assert installed_reference.read_bytes() == source
+    assert installed_skill.read_bytes() == SKILL_PATH.read_bytes()
+    skill = installed_skill.read_text(encoding="utf-8")
     assert "(references/state.md)" in skill
     assert "../flow/references/state.md" not in skill
 
@@ -250,9 +269,6 @@ def test_packaged_state_reference_is_self_contained_and_in_sync() -> None:
 
 def test_sidecar_result_union_is_closed_and_shared() -> None:
     skill_union = _contract(SKILL_PATH)["result_union"]
-    agent_union = _contract(AGENT_PATH, "flow-sidecar-protocol")["result_union"]
-
-    assert agent_union == skill_union
     assert skill_union["keyset"] == [
         "outcome",
         "operation",
@@ -567,7 +583,6 @@ def test_lifecycle_guard_scenarios(operation: str, state: str, outcome: str) -> 
 
 def test_sidecar_scope_and_runtime_are_file_tool_only() -> None:
     contract = _contract(SKILL_PATH)
-    protocol = _contract(AGENT_PATH, "flow-sidecar-protocol")
 
     assert contract["roots"] == {
         "configured": "setup_state_or_default",
@@ -575,41 +590,48 @@ def test_sidecar_scope_and_runtime_are_file_tool_only() -> None:
         "flow": "bundle_specs_flow_id",
         "paths": "namespaced_relative_no_symlink_or_escape",
     }
-    assert protocol["scope"] == {
-        "allowed": ["flow_markdown", "untracked_markdown_transaction_journal"],
-        "forbidden": ["source_files", "tracked_runtime_state", "database", "service"],
-        "consumer_execution": "ordinary_file_read_write_edit_tools_only",
-    }
-    assert protocol["ready_order"] == ["priority", "created_at", "task_id"]
-    assert protocol["write_order"] == "directories_then_tasks_sorted_then_spec_last"
-    assert protocol["namespaces"] == {
-        "configured_root": "transaction_journals",
-        "bundle_root": "knowledge_log_archive",
-        "flow_root": "spec_tasks",
-        "custom_roots": "resolve_from_live_setup_and_config",
-        "path_rule": "exactly_one_relative_path_or_glob_no_symlink_or_escape",
-    }
 
 
-def test_sync_and_status_route_through_the_sidecar_contract() -> None:
+def test_sync_and_status_use_direct_lifecycle_owned_state() -> None:
     sync_contract = _contract(SYNC_REFERENCE_PATH, "flow-sync-contract")
     status_contract = _contract(STATUS_REFERENCE_PATH, "flow-status-contract")
     skill_contract = _contract(SYNC_SKILL_PATH, "flow-sync-status-routing")
 
     assert sync_contract["operation"] == "reconcile"
     assert sync_contract["targets"] == []
-    assert sync_contract["mutation_authority"] == "flow-reconciler_via_flow-state"
+    assert sync_contract["mutation_authority"] == "lifecycle_owner_via_flow-state"
     assert status_contract["operation"] == "status"
     assert status_contract["writes"] == "none"
     assert status_contract["ready_order"] == ["priority", "created_at", "task_id"]
     assert skill_contract["sync"] == "typed_reconcile_request"
     assert skill_contract["status"] == "typed_read_only_status_request"
-    assert skill_contract["state_mutations"] == "flow-reconciler_via_flow-state"
+    assert skill_contract["state_mutations"] == "lifecycle_owner_via_flow-state"
+
+
+def test_owned_state_surfaces_have_no_runtime_reconciler_dependency() -> None:
+    for source in [
+        SKILL_PATH,
+        SOURCE_STATE_REFERENCE_PATH,
+        SYNC_REFERENCE_PATH,
+        SYNC_SKILL_PATH,
+    ]:
+        assert "flow-reconciler" not in source.read_text(encoding="utf-8")
+
+
+def test_archive_is_a_contraction_without_a_resident_archive_tree() -> None:
+    archive = ARCHIVE_REFERENCE_PATH.read_text(encoding="utf-8")
+    completion = COMPLETION_SKILL_PATH.read_text(encoding="utf-8")
+
+    assert "delete" in archive.lower()
+    assert "terminal journal" in archive.lower()
+    assert "bundles/archive" not in archive
+    assert "archive/<year>" not in archive
+    assert "bundles/archive" not in completion
+    assert "archive/<year>" not in completion
 
 
 def test_owned_consumer_surfaces_have_zero_runtime_dependencies(tmp_path: Path) -> None:
     for source in [
-        AGENT_PATH,
         SKILL_PATH,
         SYNC_SKILL_PATH,
         SYNC_REFERENCE_PATH,

@@ -1,6 +1,7 @@
 ---
 name: flow-planning
 description: "Use when drafting PRDs, researching, planning, refining, revising, or creating .agents/bundles/specs/<flow_id>/spec.md worksheets for Flow."
+disable-model-invocation: true
 ---
 
 # Flow Planning
@@ -29,47 +30,45 @@ planning_loop:
 
 ## Workflow
 
-1. Close repository-answerable research; ask only unresolved product or
-   trade-off decisions through `structured-choice-v1`, one at a time.
-2. Draft traceable PRDs or executable specs with complete authoritative task
-   worksheets and exclusive one-invocation/one-commit ownership.
-3. Reject deferred facts, unresolved decisions, stubs, vague verification,
-   missing strategies, ownership overlap, coverage gaps, and oversized tasks.
-4. Refine one gap at a time. A plan-bearing change applies one `revise`
-   transaction, increments plan identity, updates every task, and revalidates.
-5. Request fresh review. Three rounds with unresolved Critical/Important
-   findings block Ready. Present `Approve|Revise|Refine` only after quality
-   passes; approval advances, revision/refinement loops and revalidates.
+1. **Research & Frontier Analysis**: Close codebase facts autonomously using background `@researcher` subagents. Map design choices as an unblocked frontier with opinionated recommendations (`❓ Choice [ID] ... ➡️ Recommendation`).
+2. **Multi-Interface Exploration**: Explore competing interface designs and evaluate structural boundaries using `architecture-critic` before spec lock.
+3. **Draft Spec & Worksheets**: Write `spec.md` and complete worksheets in `tasks/<short_id>.md` specifying public interfaces, types, and testing seams.
+4. **Adversarial Stress-Testing**: Apply the `devils-advocate` lens before presenting for approval to catch edge cases.
+5. **Approval Gate**: Present `Approve|Revise|Refine`. Upon approval, hand off to `flow-execution`.
 
 ## Guardrails
 
-- Store plans only under `.agents/bundles/specs/<flow_id>/`.
-- Never modify production code or defer obvious research to implementation.
-- Do not label a plan Ready until a zero-context executor could run it exactly.
+- Planning modifies files exclusively under `.agents/bundles/specs/<flow_id>/`. Never edit application source code during planning.
+- A plan is Ready only when a zero-context agent can implement every task correctly from the worksheet alone.
+- Every task must be sized for exactly one subagent invocation and one atomic Git commit.
+- Select exactly one verification strategy from the maintained matrix below.
+
+## Verification Strategy Selection
+
+| Strategy | Change class | Required initial evidence | Required final evidence |
+| --- | --- | --- | --- |
+| `behavior_tdd` | New observable behavior | Focused behavior test fails because the behavior is absent. | Focused test and relevant aggregate verification pass. |
+| `regression_tdd` | Defect correction | Focused reproduction fails with the reported symptom. | Regression and relevant aggregate verification pass. |
+| `characterization` | Behavior-preserving refactor or deletion | Focused behavior baseline passes before the change. | The same behavior evidence passes unchanged; compare affected coverage when execution could be lost. |
+| `static_validation` | Manifest, config, generated output, or tooling | Native parser, lint, type, build, or generator baseline runs. | An isolated representative violation fails with the expected diagnostic, then restored focused and aggregate gates pass. |
+| `documentation_validation` | Links, examples, or document structure | Applicable documentation-native baseline runs. | Documentation-native checks and promised examples pass. |
+| `integration_acceptance` | Composition of existing contracts | Focused integration baseline passes. | End-to-end scenario passes and injected negative states prove refusal paths. |
+
+Put the selected `verification_strategy` in task frontmatter. In `## Verification`,
+name the exact initial and final commands, expected result, and any required
+diagnostic. A waiver must retain the strategy and record rationale, approver,
+and compensating evidence.
 
 ## Output
 
-Return the current plan identity, review result, unresolved decisions, and exact
-next lifecycle action. Approved work names `flow-execution` as the handoff.
+Return the finalized spec path, child tasks, review findings, and the next lifecycle command (`/flow:implement`).
 
 ## Validation
 
-Confirm requirement-to-task/test traceability, worksheet completeness,
-verification strategy, exclusive ownership, bounded task size, fresh review,
-and explicit approval on the current revision.
-
-## Conditional References
-
-- [PRD](../flow/references/prd.md)
-- [Plan](../flow/references/plan.md)
-- [Research](../flow/references/research.md)
-- [Refine](../flow/references/refine.md)
-- [Revise](../flow/references/revise.md)
-- [Task](../flow/references/task.md)
-- [Interaction](../flow/references/interaction.md)
-- [State](../flow/references/state.md)
+Confirm requirement-to-task traceability, complete worksheets, an allowed
+verification strategy with concrete initial/final evidence, test command
+specifications, and user approval.
 
 ## Example
 
-For a feature plan, close factual gaps, write complete worksheets, refine until
-the gap scan and review pass, then ask for approval on that exact revision.
+For a new subsystem, research codebase patterns, map design choices, draft `spec.md` with refined task worksheets, and present for user approval.

@@ -1,5 +1,5 @@
-<!-- Generated from rules/flow-core.md and contracts/flow.yaml; generated-sha256: f61b11ed0ae0a183a4161ad2d77fa7dd2025999f959d20c7aed59de76dd52cca -->
-<!-- flow-rule-adapter: {"activation":"Repository instructions, custom agents, and Agent Skills activate Flow.","automatic_push":false,"canonical_sha256":"ca56d471abc7fc69ff5d5d6317035e62f557cb786e07b64c9236917281ee2a25","canonical_source":"rules/flow-core.md","contract_sha256":"d6006f25602084ed88d9af2099cd3bce17bfeabd4cb56eff85c22aa9c8de7b05","contract_source":"contracts/flow.yaml","git_tags":"forbidden","host":"vscode_copilot","interaction_contract":{"choice_keys":["id","label","description"],"custom_label":"Other","fallback_reason_order":["tool_absent","tool_denied","mode_unsupported","choice_count_unsupported","bounds_unsupported","custom_unsupported","disabled_policy_unsupported"],"id":"structured-choice-v1","one_decision_at_a_time":true,"post_quality":["approve","revise","refine"],"pre_quality":["revise","refine"],"procedure_source":"skills/flow/references/interaction.md","recommended_choice":"first_with_suffix","recommended_suffix":" (Recommended)"},"kind":"flow_rule_adapter","lifecycle_skills":["flow-setup","flow-planning","flow-execution","flow-sync-status","flow-completion"],"nested_knowledge":true,"question_capability":{"bounds_enforcement":"unsupported","choice_max":null,"choice_min":null,"custom_answer_behavior":"sequential_text_only","disabled_choice_policy":"omit","multi_select":false,"permission_check":"not_applicable","sequential_fallback":true,"supported_modes":[],"tool":null,"transport":"sequential_text"},"rule_id":"flow-operational-v1","rule_revision":1,"shared_contracts":["flow-state-v1","structured-choice-v1","worksheet-execution-v1","quality-review-v1"]} -->
+<!-- Generated from rules/flow-core.md and contracts/flow.yaml; generated-sha256: cb3e7d6beb632ef86baf68c5f5ae1c2e62a9e16b29512c3bc485982c1a2fd794 -->
+<!-- flow-rule-adapter: {"activation":"Repository instructions, custom agents, and Agent Skills activate Flow.","automatic_push":false,"canonical_sha256":"640298521fd9c87d05b13a69ec34ee52776f8da5277eac730adc795732ffeca7","canonical_source":"rules/flow-core.md","contract_sha256":"520b894b8565188fdb41764a029616802826bddb744acfa9a63b4ad6a4b1d106","contract_source":"contracts/flow.yaml","git_tags":"forbidden","host":"vscode_copilot","interaction_contract":{"choice_keys":["id","label","description"],"custom_label":"Other","fallback_reason_order":["tool_absent","tool_denied","mode_unsupported","choice_count_unsupported","bounds_unsupported","custom_unsupported","disabled_policy_unsupported"],"id":"structured-choice-v1","one_decision_at_a_time":true,"post_quality":["approve","revise","refine"],"pre_quality":["revise","refine"],"procedure_source":"skills/flow/references/interaction.md","recommended_choice":"first_with_suffix","recommended_suffix":" (Recommended)"},"kind":"flow_rule_adapter","lifecycle_skills":["flow-setup","flow-planning","flow-execution","flow-sync-status","flow-completion"],"nested_knowledge":true,"question_capability":{"bounds_enforcement":"unsupported","choice_max":null,"choice_min":null,"custom_answer_behavior":"sequential_text_only","disabled_choice_policy":"omit","multi_select":false,"permission_check":"not_applicable","sequential_fallback":true,"supported_modes":[],"tool":null,"transport":"sequential_text"},"rule_id":"flow-operational-v1","rule_revision":1,"shared_contracts":["flow-state-v1","structured-choice-v1","worksheet-execution-v1","quality-review-v1"]} -->
 
 # Flow Operational Rule
 
@@ -11,16 +11,15 @@ before acting. Operational skills resolve only from `.agents/skills/`.
 
 Route through the `flow` skill and exactly one lifecycle skill. Refine plans
 until every worksheet is executable, follow the selected worksheet without
-improvising, and route contradictions through revise/refine. Apply explicit,
-revision-guarded, recoverable Markdown state operations and reconcile task-first.
+improvising, and route contradictions through revise/refine. Apply direct Markdown
+frontmatter state synchronization and reconcile task-first.
 
 Use `structured-choice-v1` for unresolved decisions: one decision at a time,
 only through a currently allowed compatible native tool or the equivalent
 sequential-text fallback. Run correctness review and then the mandatory fresh
 quality review before finish/archive.
 
-Commits and optional Git notes remain local unless the user explicitly asks for
-delivery. Never create, move, force-update, or delete Git tags.
+Commits remain local unless the user explicitly asks for delivery. Never create, move, force-update, or delete Git tags.
 
 ## Host activation
 

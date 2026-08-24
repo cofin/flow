@@ -1,7 +1,6 @@
 # Knowledge Base
 
 > Persistent learnings from all completed flows.
-> For actionable patterns, see [patterns.md](../patterns.md).
 > Drill into specific entries only when relevant to current work.
 
 ## Entries
@@ -11,4 +10,5 @@
 
 ## Topic Index
 
-<!-- Topics are added automatically during flow archival -->
+<!-- Link only evidence-backed, project-shaped chapters. Reusable conventions
+belong under patterns/<topic>.md; do not create a catch-all patterns.md. -->

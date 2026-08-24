@@ -1,7 +1,7 @@
 {
   "name": "flow",
   "description": "Unified toolkit for Context-Driven Development with spec-first planning, TDD workflow, and OKF knowledge bundles.",
-  "version": "0.22.2",
+  "version": "0.23.0",
   "author": {
     "name": "cofin"
   },
@@ -30,9 +30,9 @@
   "agents": [
     "./agents/code-reviewer.md",
     "./agents/executor.md",
-    "./agents/flow-reconciler.md",
     "./agents/plan-generator.md",
     "./agents/prd-orchestrator.md",
-    "./agents/quality-reviewer.md"
+    "./agents/quality-reviewer.md",
+    "./agents/researcher.md"
   ]
 }

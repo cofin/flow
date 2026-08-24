@@ -1,7 +1,7 @@
 
 # Flow Archive
 
-Archiving is a contraction: durable knowledge moves into the knowledge chapters, one line lands in the bundle log, and the spec directory is deleted — including the flow's promoted `research/`. `.agents/bundles/specs/` holds only planned and active flows.
+Archiving is a contraction: durable knowledge moves into the knowledge chapters, one line lands in the bundle log, and the spec directory is deleted — including the flow's promoted `research/`. `.agents/bundles/specs/` holds only planned and active flows. The terminal journal remains outside the bundle under the configured transaction directory; no resident archive tree is created.
 
 ## Tracking Policy (Stealth Mode)
 
@@ -37,7 +37,7 @@ uses the `quality-review-v1` contract in [Review](review.md).
      only justified a decision already made are dropped. Do not copy research
      verbatim into a knowledge chapter, and never relocate it to an archive
      directory — `bundles/research/` is for un-promoted work only.
-   - Map each durable learning to its existing project-shaped chapter recursively under `knowledge/`: conventions/gotchas → `knowledge/patterns.md`; workflow changes → `knowledge/workflow.md`; architecture → the relevant nested architecture chapter; style/domain rules → the matching nested topic chapter; product changes → `product/` docs. Never flatten nested knowledge into invented top-level files.
+   - Map each durable learning to its existing project-shaped chapter recursively under `knowledge/`: conventions/gotchas → the relevant `knowledge/patterns/<topic>.md` chapter; workflow changes → `knowledge/workflow.md`; architecture → the relevant nested architecture chapter; style/domain rules → the matching nested topic chapter; product changes → `product/` docs. Create a lazy namespace only when evidence requires its first chapter. Never flatten nested knowledge into invented top-level files.
    - Rewrite each affected chapter as coherent current-state documentation: integrate into existing prose, update stale statements, merge duplicates. No dated entries, no flow attributions, no changelog lines, no "completed X" notes in knowledge chapters — history belongs in `log.md` only.
    - Present proposed chapter edits for user approval before writing. Skip low-value notes rather than hoarding them.
    - Delete any leftover `extracted_learnings.md` — consolidated views are transient.

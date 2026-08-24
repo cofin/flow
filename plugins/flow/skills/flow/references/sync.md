@@ -5,7 +5,7 @@ Sync is the canonical `reconcile` state operation. It projects authoritative tas
 <!-- flow-sync-contract: start -->
 ```yaml
 operation: reconcile
-mutation_authority: flow-reconciler_via_flow-state
+mutation_authority: lifecycle_owner_via_flow-state
 targets: []
 payload:
   required: [mismatches, affected_task_ids]
@@ -32,9 +32,9 @@ effects:
 
 ## Apply
 
-Submit the complete typed request to the `flow-reconciler`. Its read set includes the spec identity, all task identities, transaction-directory predicate, and exact mismatch predicate. It prepares only spec fragments, uses empty targets, increments the global state revision once, and records affected ids as typed evidence. The task files remain byte-for-byte unchanged and may retain older state revisions.
+The sync lifecycle owner applies the complete typed request through `flow-state`. Its read set includes the spec identity, all task identities, transaction-directory predicate, and exact mismatch predicate. It prepares only spec fragments, uses empty targets, increments the global state revision once, and records affected ids as typed evidence. The task files remain byte-for-byte unchanged and may retain older state revisions.
 
-The reconciler updates only derived values:
+The direct state operation updates only derived values:
 
 - checklist marker from task state: `open -> [ ]`, `in_progress -> [~]`, `closed -> [x]` plus its commit, `blocked -> [!]`, `skipped -> [-]`;
 - checklist task title only when it is already a derived projection covered by the recorded mismatch;

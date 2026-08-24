@@ -213,15 +213,29 @@ def build_context(root: Path) -> str:
     identity = extract_project_identity(bundles_dir / "product")
 
     truths = []
-    for filename in ("tech-stack.md", "workflow.md", "patterns.md"):
-        if filename == "tech-stack.md":
-            filepath = bundles_dir / "product" / filename
-        else:
-            filepath = knowledge_dir / filename
+    core_truth_files = (
+        bundles_dir / "product" / "tech-stack.md",
+        knowledge_dir / "workflow.md",
+    )
+    pattern_truth_files = []
+    pattern_root = knowledge_dir / "patterns"
+    if pattern_root.is_dir():
+        pattern_truth_files.extend(sorted(pattern_root.rglob("*.md")))
+    legacy_patterns = knowledge_dir / "patterns.md"
+    if legacy_patterns.is_file():
+        pattern_truth_files.append(legacy_patterns)
+
+    for filepath in (*core_truth_files, *pattern_truth_files):
         if filepath.is_file():
             file_truths = extract_truths_from_file(filepath)
             if file_truths:
-                truths.append(f"### {filename.capitalize()} Invariants\n{file_truths}")
+                if filepath in core_truth_files:
+                    label = filepath.name.capitalize()
+                elif filepath.is_relative_to(knowledge_dir):
+                    label = filepath.relative_to(knowledge_dir).as_posix()
+                else:
+                    label = filepath.name
+                truths.append(f"### {label} Invariants\n{file_truths}")
 
     active_flows = scan_active_flows_and_tasks(bundles_dir, root)
     skills = scan_custom_skills(bundles_dir, root)
