@@ -36,7 +36,7 @@ agy plugin install https://github.com/cofin/flow
 
 This uses Antigravity's documented Plugins & Skills installer. Flow ships the
 plugin manifest at `plugin.json`, the model-decision rule under `rules/`, and
-the static PreInvocation routing manifest at `hooks/hooks-agy.json`.
+the static PreInvocation routing manifest at `hooks.json` (`hooks/hooks-agy.json`).
 
 After installing or updating the plugin, restart Antigravity so the plugin manifest, skills, agents, and hooks are reloaded.
 

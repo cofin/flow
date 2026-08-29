@@ -12,6 +12,10 @@ def _load_agy_hooks() -> dict:
     return json.loads((REPO_ROOT / "hooks" / "hooks-agy.json").read_text(encoding="utf-8"))
 
 
+def _load_root_hooks() -> dict:
+    return json.loads((REPO_ROOT / "hooks.json").read_text(encoding="utf-8"))
+
+
 def test_antigravity_root_plugin_manifest_exists() -> None:
     manifest_path = REPO_ROOT / "plugin.json"
 
@@ -21,13 +25,22 @@ def test_antigravity_root_plugin_manifest_exists() -> None:
     assert manifest["name"] == "flow"
 
 
+def test_antigravity_root_hooks_manifest_matches_harness_source() -> None:
+    root_hooks_path = REPO_ROOT / "hooks.json"
+    agy_hooks_path = REPO_ROOT / "hooks" / "hooks-agy.json"
+
+    assert root_hooks_path.is_file()
+    assert agy_hooks_path.is_file()
+    assert _load_root_hooks() == _load_agy_hooks()
+
+
 def test_antigravity_hooks_use_only_real_events() -> None:
     # Antigravity has no SessionStart event; priming must ride PreInvocation.
-    hooks = _load_agy_hooks()
-    events = {event for spec in hooks.values() for event in spec}
-    assert events, "hooks-agy.json must define at least one hook event"
-    assert events <= ANTIGRAVITY_HOOK_EVENTS
-    assert "PreInvocation" in events
+    for hooks in (_load_root_hooks(), _load_agy_hooks()):
+        events = {event for spec in hooks.values() for event in spec}
+        assert events, "hooks manifest must define at least one hook event"
+        assert events <= ANTIGRAVITY_HOOK_EVENTS
+        assert "PreInvocation" in events
 
 
 def test_antigravity_hook_commands_are_python_free_and_root_anchored() -> None:

@@ -44,7 +44,7 @@ OPENCODE_AGENTS_DIR = REPO_ROOT / ".opencode" / "agents"
 CLAUDE_AGENTS_DIR = REPO_ROOT / ".claude-plugin" / "agents"
 CODEX_AGENTS_DIR = REPO_ROOT / ".codex" / "agents"
 VSCODE_AGENTS_DIR = REPO_ROOT / ".github" / "agents"
-SHIPPED_ROOT_FILES = ("AGENTS.md", "CONTRIBUTING.md", "README.md")
+SHIPPED_ROOT_FILES = ("AGENTS.md", "CONTRIBUTING.md", "README.md", "hooks.json")
 
 PUBLIC_LOCK_SOURCE_HOSTS = frozenset({"pypi.org", "files.pythonhosted.org"})
 _LOCK_URL_PATTERN = re.compile(r'https?://[^"\s]+')
@@ -1226,9 +1226,10 @@ def iter_claude_hook_configs() -> Iterator[Path]:
 
 
 def iter_antigravity_hook_configs() -> Iterator[Path]:
-    candidate = REPO_ROOT / "hooks" / "hooks-agy.json"
-    if candidate.is_file():
-        yield candidate
+    for relative in ("hooks.json", "hooks/hooks-agy.json"):
+        candidate = REPO_ROOT / relative
+        if candidate.is_file():
+            yield candidate
 
 
 def iter_all_shipped_files() -> Iterator[Path]:
@@ -1865,58 +1866,81 @@ def _iter_hook_commands(hooks_manifest: object) -> Iterator[str]:
 
 
 def validate_antigravity_hook_commands(repo_root: Path) -> list[Violation]:
-    path = repo_root / "hooks" / "hooks-agy.json"
+    root_hooks = repo_root / "hooks.json"
+    agy_hooks = repo_root / "hooks" / "hooks-agy.json"
     violations: list[Violation] = []
-    if not path.is_file():
-        return [Violation(path, None, "missing hooks/hooks-agy.json")]
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError) as exc:
-        return [Violation(path, 1, f"JSON parse error: {exc}")]
 
-    if not isinstance(data, dict):
-        return [Violation(path, 1, "hooks manifest must be a JSON object")]
+    targets = [p for p in (root_hooks, agy_hooks) if p.is_file()]
+    if not targets:
+        return [Violation(root_hooks, None, "missing root hooks.json and hooks/hooks-agy.json")]
 
-    commands = [
-        handler.get("command")
-        for events in data.values()
-        if isinstance(events, dict)
-        for handlers in events.values()
-        if isinstance(handlers, list)
-        for handler in handlers
-        if isinstance(handler, dict) and isinstance(handler.get("command"), str)
-    ]
-    if not commands:
-        return [Violation(path, 1, "no command hooks found in Antigravity manifest")]
-    for command in commands:
-        if "python" in command:
-            violations.append(
-                Violation(
-                    path,
-                    1,
-                    f"Antigravity hook commands must not require Python at runtime: {command!r}",
-                )
-            )
-
-    for command in commands:
-        for token in ("${extensionPath}", "${/}"):
-            if token in command:
+    if root_hooks.is_file() and agy_hooks.is_file():
+        try:
+            root_data = json.loads(root_hooks.read_text(encoding="utf-8"))
+            agy_data = json.loads(agy_hooks.read_text(encoding="utf-8"))
+            if root_data != agy_data:
                 violations.append(
                     Violation(
-                        path, 1, f"unsupported template token {token!r} in hook command"
+                        root_hooks,
+                        1,
+                        "root hooks.json and hooks/hooks-agy.json must have identical content",
                     )
                 )
-        if not any(
-            token in command
-            for token in ("ANTIGRAVITY_PLUGIN_ROOT", "AGY_PLUGIN_ROOT", "PLUGIN_ROOT")
-        ):
-            violations.append(
-                Violation(
-                    path,
-                    1,
-                    f"hook command must resolve an Antigravity plugin root: {command!r}",
+        except (json.JSONDecodeError, OSError) as exc:
+            violations.append(Violation(root_hooks, 1, f"JSON parse error comparing hooks: {exc}"))
+
+    for path in targets:
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError) as exc:
+            violations.append(Violation(path, 1, f"JSON parse error: {exc}"))
+            continue
+
+        if not isinstance(data, dict):
+            violations.append(Violation(path, 1, "hooks manifest must be a JSON object"))
+            continue
+
+        commands = [
+            handler.get("command")
+            for events in data.values()
+            if isinstance(events, dict)
+            for handlers in events.values()
+            if isinstance(handlers, list)
+            for handler in handlers
+            if isinstance(handler, dict) and isinstance(handler.get("command"), str)
+        ]
+        if not commands:
+            violations.append(Violation(path, 1, "no command hooks found in Antigravity manifest"))
+            continue
+        for command in commands:
+            if "python" in command:
+                violations.append(
+                    Violation(
+                        path,
+                        1,
+                        f"Antigravity hook commands must not require Python at runtime: {command!r}",
+                    )
                 )
-            )
+
+        for command in commands:
+            for token in ("${extensionPath}", "${/}"):
+                if token in command:
+                    violations.append(
+                        Violation(
+                            path, 1, f"unsupported template token {token!r} in hook command"
+                        )
+                    )
+            if not any(
+                token in command
+                for token in ("ANTIGRAVITY_PLUGIN_ROOT", "AGY_PLUGIN_ROOT", "PLUGIN_ROOT")
+            ):
+                violations.append(
+                    Violation(
+                        path,
+                        1,
+                        f"hook command must resolve an Antigravity plugin root: {command!r}",
+                    )
+                )
     return violations
 
 

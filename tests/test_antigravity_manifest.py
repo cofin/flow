@@ -73,16 +73,11 @@ def test_antigravity_hook_command_validation_rejects_legacy_extension_tokens(
     (tmp_path / "hooks.json").write_text(
         json.dumps(
             {
-                "hooks": {
-                    "SessionStart": [
+                "flow-priming": {
+                    "PreInvocation": [
                         {
-                            "matcher": "*",
-                            "hooks": [
-                                {
-                                    "type": "command",
-                                    "command": "bash ${extensionPath}${/}hooks${/}session-start.sh",
-                                }
-                            ],
+                            "type": "command",
+                            "command": "bash ${extensionPath}${/}hooks${/}agy-pre-invocation.sh",
                         }
                     ]
                 }
@@ -108,21 +103,24 @@ def test_antigravity_hook_command_validation_accepts_plugin_root_ladder(
         ),
         encoding="utf-8",
     )
+    hook_payload = {
+        "flow-priming": {
+            "PreInvocation": [
+                {
+                    "type": "command",
+                    "command": 'r="${ANTIGRAVITY_PLUGIN_ROOT:-${PLUGIN_ROOT:-${AGY_PLUGIN_ROOT:-}}}"; bash "$r/hooks/agy-pre-invocation.sh"',
+                }
+            ]
+        }
+    }
+    (tmp_path / "hooks.json").write_text(
+        json.dumps(hook_payload),
+        encoding="utf-8",
+    )
     hooks_dir = tmp_path / "hooks"
     hooks_dir.mkdir(exist_ok=True)
     (hooks_dir / "hooks-agy.json").write_text(
-        json.dumps(
-            {
-                "hooks": {
-                    "SessionStart": [
-                        {
-                            "type": "command",
-                            "command": 'r="${ANTIGRAVITY_PLUGIN_ROOT:-${PLUGIN_ROOT:-${AGY_PLUGIN_ROOT:-}}}"; bash "$r/hooks/session-start.sh"',
-                        }
-                    ]
-                }
-            }
-        ),
+        json.dumps(hook_payload),
         encoding="utf-8",
     )
 

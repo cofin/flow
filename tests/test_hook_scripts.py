@@ -20,7 +20,9 @@ SESSION_ENTRYPOINTS = (
     HOOKS / "session-start.cmd",
 )
 AGY_ENTRYPOINTS = (HOOKS / "agy-pre-invocation.sh", HOOKS / "agy-pre-invocation.ps1")
-MANIFESTS = tuple(sorted(HOOKS.glob("hooks-*.json")))
+MANIFESTS = tuple(sorted(HOOKS.glob("hooks-*.json"))) + (
+    (REPO_ROOT / "hooks.json",) if (REPO_ROOT / "hooks.json").is_file() else ()
+)
 POWERSHELL = shutil.which("pwsh") or shutil.which("powershell")
 NODE = shutil.which("node")
 BASH = shutil.which("bash")
