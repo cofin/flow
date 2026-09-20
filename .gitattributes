@@ -1,0 +1,2 @@
+# Shell entrypoints must remain executable with Git for Windows autocrlf enabled.
+*.sh text eol=lf

@@ -7333,7 +7333,8 @@ def _read_set_matches_live(repo_root: Path, data: dict[str, Any]) -> bool:
             return False
         flow_root = roots["flow_root"]
         task_paths = {
-            str(task.relative_to(flow_root)) for task in flow_root.glob("tasks/*.md")
+            task.relative_to(flow_root).as_posix()
+            for task in flow_root.glob("tasks/*.md")
         }
         recorded = {
             item["path"]: item["fields"]
