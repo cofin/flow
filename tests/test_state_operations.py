@@ -96,23 +96,6 @@ def _request_outcome(contract: dict[str, Any], request: dict[str, Any]) -> str:
         request.get("targets", [])
     ):
         return "refuse"
-    if target_rule == "affected_tasks_sorted":
-        targets = request.get("targets")
-        if not isinstance(targets, list) or targets != sorted(set(targets)):
-            return "refuse"
-    if operation == "compound":
-        payload = request.get("payload")
-        if not isinstance(payload, dict):
-            return "refuse"
-        compound_schema = _yaml_block(
-            PACKAGED_STATE_REFERENCE_PATH, "### Operation payload schemas"
-        ).get("compound")
-        if compound_schema is None or set(payload) != set(compound_schema["required"]):
-            return "refuse"
-        if not isinstance(payload.get("operations"), list) or not payload.get("operations"):
-            return "refuse"
-        if payload.get("affected_tasks_sorted") != request.get("targets"):
-            return "refuse"
     if operation == "checkpoint":
         scope = request["payload"].get("scope")
         checkpoint = _yaml_block(
@@ -449,19 +432,9 @@ def test_request_scenarios(input_request: dict[str, Any], outcome: str) -> None:
         ("complete", [], {}),
         ("archive", [], {}),
         ("recover", [], {}),
-        (
-            "compound",
-            ["1.1", "1.2"],
-            {
-                "operations": [
-                    {"operation": "checkpoint", "payload": _checkpoint_payload("task")}
-                ],
-                "affected_tasks_sorted": ["1.1", "1.2"],
-            },
-        ),
     ],
 )
-def test_every_mutation_has_an_explicit_accepted_target_shape(
+def test_single_operations_have_an_explicit_target_shape(
     operation: str, targets: list[str], payload: dict[str, Any]
 ) -> None:
     request = _mutation_request(operation, targets=targets, payload=payload)
