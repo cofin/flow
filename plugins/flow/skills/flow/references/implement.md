@@ -225,6 +225,12 @@ A waiver never changes the declared strategy. Require its rationale, approver, a
 
 Refactor only while the strategy's focused evidence remains green. Apply repository patterns, review the diff for semantic drift, and rerun the affected checks. Coverage is required when the repository or worksheet defines it, or when comparison is necessary to show test deletion did not lose behavioral execution; there is no universal percentage mandate.
 
+### 3.4 Inner-Loop Test Churn Minimization
+
+To avoid execution churn and slow inner loops, do not execute the entire repository test suite on every code edit during task execution:
+- **Inner loop**: Run only `make lint` (or repo equivalent linter/typechecker) and the targeted unit or behavioral tests declared in the active worksheet.
+- **Milestone gates**: The full regression suite, integration checks, repository validation (`tools/validate.py`), cleanup, and debloat are reserved for Phase 7 (`Phase Checkpoint`) and Flow Completion.
+
 ### 3.6 When Tests Fail — Systematic Debugging
 
 **Do NOT guess at fixes. Follow this protocol.**
@@ -250,6 +256,10 @@ IRON LAW: NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST
 **Full reference:** `superpowers:systematic-debugging`
 
 ## Phase 4: Commit
+
+### 4.1 Scoped Commit Semantics
+- **Intermediate progress**: If an agent records intermediate progress (e.g. via compound state transitions or intermediate journal entries), record the nearest valid commit (`HEAD`).
+- **Task closing**: When closing a task (`close`), the functional commit MUST be clean, staging exact implementation files and recording the passing verification evidence from the declared strategy.
 
 ```bash
 git add <implementation_files> <non_ignored_context_files>
@@ -295,17 +305,19 @@ IRON LAW: NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
 
 At the end of each phase:
 
-1. **Run full test suite** — read output, confirm 0 failures.
-2. **Run any repository- or worksheet-defined coverage check** and compare affected coverage when the selected strategy requires it.
-3. **Dispatch code review** (recommended for multi-task phases):
+1. **Cleanup and Debloat** — Inspect the phase git diff as a whole. Remove scaffolding, dead code, unused imports, duplicate tests, and temporary diagnostics introduced during the phase.
+2. **Run project linter** — Run `make lint` (or repo equivalent) to enforce clean style and formatting across all phase changes.
+3. **Run full test suite** — Run the full repository test suite and integration tests, confirming 0 failures and verifying that individual task changes compose cleanly without regressions.
+4. **Run any repository- or worksheet-defined coverage check** and compare affected coverage when the selected strategy requires it.
+5. **Dispatch code review** (recommended for multi-task phases):
    - Get the git range from the task file commit history (e.g. comparing the last checkpoint commit to HEAD).
    - Dispatch review subagent with: `spec.md` requirements, relevant topic-specific pattern chapters, and the git range.
    - Fix Critical issues immediately, Important issues before proceeding.
    - Log findings to `learnings.md`.
-4. **Record a phase checkpoint**: put the affected task ids, exact command/result evidence, and last functional commit in the spec-only `checkpoint` payload. Never create an empty checkpoint commit.
-5. **Optionally attach detail**: only after checkpoint succeeds, append the detailed phase Git note to the last functional commit and report `attached|failed` through the canonical idempotent `note` operation.
-6. **Prompt for pattern elevation**: "Are there evidence-backed learnings from this phase to elevate to `knowledge/patterns/<topic>.md`?"
-7. **Ask user to verify**
+6. **Record a phase checkpoint**: put the affected task ids, exact command/result evidence, and last functional commit in the spec-only `checkpoint` payload. Never create an empty checkpoint commit.
+7. **Optionally attach detail**: only after checkpoint succeeds, append the detailed phase Git note to the last functional commit and report `attached|failed` through the canonical idempotent `note` operation.
+8. **Prompt for pattern elevation**: "Are there evidence-backed learnings from this phase to elevate to `knowledge/patterns/<topic>.md`?"
+9. **Ask user to verify**
 
 **Verification red flags — STOP before claiming completion:**
 
@@ -354,7 +366,7 @@ If continuing, loop back to Phase 2.
 1. **DECLARED STRATEGY** — Follow the worksheet's change-appropriate verification strategy exactly. Failing tests are mandatory for behavior/regression TDD and artificial for static/docs/characterization work.
 2. **DEBUGGING IRON LAW** — No fixes without root cause investigation. No guessing.
 3. **VERIFICATION IRON LAW** — No completion claims without fresh evidence. Run the command, read the output.
-4. **SMALL COMMITS** — One task = one commit
+4. **SMALL COMMITS** — One task = one functional commit at close. Intermediate progress records nearest valid commit (`HEAD`).
 5. **TASK FILES ARE SOURCE OF TRUTH** — Read task status and SHAs from task Markdown; mutate them only through the direct journaled `flow-state` operation.
 6. **ALWAYS-SYNCED TASK LIST** — Every task state request must include the derived checklist/spec update in the same sidecar transaction.
 7. **LOG LEARNINGS** — Capture patterns as you go
@@ -362,3 +374,4 @@ If continuing, loop back to Phase 2.
 9. **CODE REVIEW** — Dispatch review at phase checkpoints. Fix Critical/Important before proceeding.
 10. **USE CANONICAL REPO COMMANDS** — Prefer the commands documented in `.agents/bundles/knowledge/workflow.md`
 11. **BE COLLABORATIVE** — Describe unrelated blockers factually and constructively; never use dismissive ownership-deflecting language
+

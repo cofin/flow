@@ -42,6 +42,7 @@ OPERATIONS = {
     "complete",
     "archive",
     "recover",
+    "compound",
     "status",
 }
 
@@ -95,6 +96,23 @@ def _request_outcome(contract: dict[str, Any], request: dict[str, Any]) -> str:
         request.get("targets", [])
     ):
         return "refuse"
+    if target_rule == "affected_tasks_sorted":
+        targets = request.get("targets")
+        if not isinstance(targets, list) or targets != sorted(set(targets)):
+            return "refuse"
+    if operation == "compound":
+        payload = request.get("payload")
+        if not isinstance(payload, dict):
+            return "refuse"
+        compound_schema = _yaml_block(
+            PACKAGED_STATE_REFERENCE_PATH, "### Operation payload schemas"
+        ).get("compound")
+        if compound_schema is None or set(payload) != set(compound_schema["required"]):
+            return "refuse"
+        if not isinstance(payload.get("operations"), list) or not payload.get("operations"):
+            return "refuse"
+        if payload.get("affected_tasks_sorted") != request.get("targets"):
+            return "refuse"
     if operation == "checkpoint":
         scope = request["payload"].get("scope")
         checkpoint = _yaml_block(
@@ -431,6 +449,16 @@ def test_request_scenarios(input_request: dict[str, Any], outcome: str) -> None:
         ("complete", [], {}),
         ("archive", [], {}),
         ("recover", [], {}),
+        (
+            "compound",
+            ["1.1", "1.2"],
+            {
+                "operations": [
+                    {"operation": "checkpoint", "payload": _checkpoint_payload("task")}
+                ],
+                "affected_tasks_sorted": ["1.1", "1.2"],
+            },
+        ),
     ],
 )
 def test_every_mutation_has_an_explicit_accepted_target_shape(
@@ -499,6 +527,7 @@ def test_lifecycle_and_identity_routes_are_explicit() -> None:
             "reopen",
             "reconcile",
             "complete",
+            "compound",
         ],
         "checkpoint.plan": ["planned", "active"],
         "revise": ["planned", "active"],
@@ -529,6 +558,9 @@ def test_lifecycle_and_identity_routes_are_explicit() -> None:
     assert contract["identity_routes"]["all_tasks_then_spec"] == [
         "checkpoint.plan",
         "revise",
+    ]
+    assert contract["identity_routes"]["task_targets_then_spec"] == [
+        "compound",
     ]
     assert contract["identity_routes"]["spec_only_empty_targets"] == [
         "activate",
@@ -573,6 +605,8 @@ def test_lifecycle_and_identity_routes_are_explicit() -> None:
         ("note.git_note_attachment", "completed", "accept"),
         ("status", "completed", "accept"),
         ("recover", "removed", "accept"),
+        ("compound", "active", "accept"),
+        ("compound", "planned", "refuse"),
         ("claim", "completed", "refuse"),
         ("archive", "active", "refuse"),
     ],

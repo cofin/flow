@@ -120,13 +120,15 @@ def _assert_session_payload(result: subprocess.CompletedProcess[str]) -> None:
     assert result.stdout.count("\n") == 1
     payload = json.loads(result.stdout)
     assert payload == {
+        "additional_context": STATIC_ROUTING,
         "hookSpecificOutput": {
             "hookEventName": "SessionStart",
             "additionalContext": STATIC_ROUTING,
-        }
+        },
     }
     context = payload["hookSpecificOutput"]["additionalContext"]
     assert len(context) <= 512
+    assert len(payload["additional_context"]) <= 512
     assert "RAW PARTIAL OUTPUT" not in context
     assert "SECRET" not in context
 

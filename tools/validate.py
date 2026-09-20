@@ -3844,6 +3844,7 @@ _PAYLOAD_REQUIRED: dict[str, set[str]] = {
         "waivers",
     },
     "recover": {"journal_operation_id", "action"},
+    "compound": {"operations", "affected_tasks_sorted"},
 }
 _OPERATION_PREDICATES: dict[str, set[str]] = {
     "create.flow": {"no_other_unresolved_journal", "flow_absent"},
@@ -3969,6 +3970,11 @@ _OPERATION_PREDICATES: dict[str, set[str]] = {
         "selected_journal_recoverable",
         "journal_arbitration_single_candidate",
         "stage_read_set_matches",
+    },
+    "compound": {
+        "no_other_unresolved_journal",
+        "spec_identity",
+        "all_task_identities",
     },
 }
 _SPEC_IDENTITY_FIELDS = {
@@ -4874,6 +4880,29 @@ def _validate_payload_values(
         require_strings("journal_operation_id")
         if payload.get("action") not in {"finish", "rollback"}:
             violations.append(Violation(path, 1, "journal recover action is invalid"))
+    elif variant == "compound":
+        operations = payload.get("operations")
+        affected = payload.get("affected_tasks_sorted")
+        if not isinstance(operations, list) or not operations:
+            violations.append(
+                Violation(path, 1, "journal compound operations must be a non-empty array")
+            )
+        if not _unique_strings(affected, sorted_values=True):
+            violations.append(
+                Violation(
+                    path,
+                    1,
+                    "journal compound affected_tasks_sorted must be unique and sorted",
+                )
+            )
+        if targets != affected:
+            violations.append(
+                Violation(
+                    path,
+                    1,
+                    "journal compound targets must equal affected_tasks_sorted",
+                )
+            )
 
     for approval_key in ("user_authorization", "user_approval"):
         if approval_key in payload:
@@ -5447,6 +5476,33 @@ def _validate_journal_semantics(
                 observed_predicates.add("target_identity")
         violations.extend(_validate_read_predicates(path, data, request))
     required_predicates = _OPERATION_PREDICATES.get(variant)
+    if (
+        variant == "compound"
+        and isinstance(payload, dict)
+        and isinstance(payload.get("operations"), list)
+    ):
+        constituent_preds = {"no_other_unresolved_journal", "spec_identity"}
+        has_subops = False
+        for sub_op in payload.get("operations", []):
+            if isinstance(sub_op, dict):
+                sub_name = sub_op.get("operation")
+                sub_payload = sub_op.get("payload", {})
+                sub_variant = str(sub_name)
+                if sub_name == "create" and isinstance(sub_payload, dict):
+                    sub_variant = f"create.{sub_payload.get('variant')}"
+                elif sub_name == "checkpoint" and isinstance(sub_payload, dict):
+                    sub_variant = f"checkpoint.{sub_payload.get('scope')}"
+                elif sub_name == "note" and isinstance(sub_payload, dict):
+                    sub_variant = (
+                        "note.git_note_attachment"
+                        if sub_payload.get("category") == "git_note_attachment"
+                        else "note.normal"
+                    )
+                if sub_variant in _OPERATION_PREDICATES:
+                    constituent_preds.update(_OPERATION_PREDICATES[sub_variant])
+                    has_subops = True
+        if has_subops:
+            required_predicates = constituent_preds
     if required_predicates is not None and observed_predicates != required_predicates:
         violations.append(
             Violation(
@@ -6587,9 +6643,13 @@ def _anchor_fields(
 def _live_mutation_images(
     repo_root: Path, data: dict[str, Any]
 ) -> tuple[
-    bool, bool, dict[tuple[str, str, str], Any], dict[tuple[str, str, str], Any]
+    bool,
+    bool,
+    dict[tuple[str, str, str], Any],
+    dict[tuple[str, str, str], Any],
+    str | None,
 ]:
-    """Return stage validity, effective writes, drift values, and after images."""
+    """Return stage validity, effective writes, drift values, after images, and prepared classification."""
     roots = _journal_roots(repo_root, data)
     applied = {
         (item.get("base"), item.get("path"))
@@ -6635,6 +6695,16 @@ def _live_mutation_images(
     effective = False
     drift: dict[tuple[str, str, str], Any] = {}
     after_images: dict[tuple[str, str, str], Any] = {}
+    is_prepared_initial = (
+        data.get("state") == "prepared"
+        and not data.get("applied_writes")
+        and not data.get("rolled_back_writes")
+        and open_forward is None
+        and open_rollback is None
+    )
+    matched_after_count = 0
+    matched_before_count = 0
+    total_count = 0
     for fragment in data.get("fragments", []):
         if not isinstance(fragment, dict):
             valid = False
@@ -6653,15 +6723,26 @@ def _live_mutation_images(
         after = _semantic_value(fragment.get("after"))
         after_images[key] = after
         path_key = key[:2]
-        expected = before if path_key in rolled or path_key not in applied else after
-        if path_key in {open_forward, open_rollback} and (
-            live == before or live == after
-        ):
-            effective |= live == after
-        elif live != expected:
-            valid = False
-            drift[key] = live
-        effective |= path_key in applied and path_key not in rolled
+        total_count += 1
+        if is_prepared_initial:
+            if live == after:
+                matched_after_count += 1
+                effective = True
+            elif live == before:
+                matched_before_count += 1
+            else:
+                valid = False
+                drift[key] = live
+        else:
+            expected = before if path_key in rolled or path_key not in applied else after
+            if path_key in {open_forward, open_rollback} and (
+                live == before or live == after
+            ):
+                effective |= live == after
+            elif live != expected:
+                valid = False
+                drift[key] = live
+            effective |= path_key in applied and path_key not in rolled
     for fragment in data.get("file_fragments", []):
         if not isinstance(fragment, dict):
             valid = False
@@ -6679,15 +6760,36 @@ def _live_mutation_images(
         after = _semantic_value(fragment.get("after"))
         after_images[key] = after
         path_key = key[:2]
-        expected = before if path_key in rolled or path_key not in applied else after
-        if path_key in {open_forward, open_rollback} and (
-            live == before or live == after
-        ):
-            effective |= live == after
-        elif live != expected:
-            valid = False
-            drift[key] = live
-        effective |= path_key in applied and path_key not in rolled
+        total_count += 1
+        if is_prepared_initial:
+            if live == after:
+                matched_after_count += 1
+                effective = True
+            elif live == before:
+                matched_before_count += 1
+            else:
+                valid = False
+                drift[key] = live
+        else:
+            expected = before if path_key in rolled or path_key not in applied else after
+            if path_key in {open_forward, open_rollback} and (
+                live == before or live == after
+            ):
+                effective |= live == after
+            elif live != expected:
+                valid = False
+                drift[key] = live
+            effective |= path_key in applied and path_key not in rolled
+
+    prepared_classification: str | None = None
+    if is_prepared_initial and valid and not drift:
+        if total_count > 0:
+            if matched_after_count == total_count:
+                prepared_classification = "all_after"
+            elif matched_before_count == total_count:
+                prepared_classification = "all_before"
+            elif matched_after_count > 0 and matched_before_count > 0:
+                prepared_classification = "mixed"
 
     applied_dirs = {
         (item.get("base"), item.get("path"))
@@ -6763,7 +6865,7 @@ def _live_mutation_images(
                 ):
                     valid = False
                     drift[(*child_key, "unrecorded_descendant")] = child_relative
-    return valid, effective, drift, after_images
+    return valid, effective, drift, after_images, prepared_classification
 
 
 def _read_set_matches_live(repo_root: Path, data: dict[str, Any]) -> bool:
@@ -6773,6 +6875,33 @@ def _read_set_matches_live(repo_root: Path, data: dict[str, Any]) -> bool:
         for item in data.get("applied_writes", [])
         if isinstance(item, dict) and str(item.get("base")) in roots
     }
+    if not changed_paths and data.get("state") == "prepared":
+        for fragment in data.get("fragments", []):
+            if isinstance(fragment, dict):
+                base_name = str(fragment.get("base"))
+                path_name = str(fragment.get("path"))
+                if base_name in roots:
+                    target_path = (roots[base_name] / path_name).resolve(strict=False)
+                    anchor = str(fragment.get("anchor"))
+                    live = _anchor_fields(target_path, anchor, fragment.get("before", {}))
+                    after = _semantic_value(fragment.get("after"))
+                    if live == after:
+                        changed_paths.add(target_path)
+        for fragment in data.get("file_fragments", []):
+            if isinstance(fragment, dict):
+                base_name = str(fragment.get("base"))
+                path_name = str(fragment.get("path"))
+                if base_name in roots:
+                    target_path = (roots[base_name] / path_name).resolve(strict=False)
+                    live = {
+                        "exists": bool(target_path.is_file()),
+                        "content_utf8_lf": target_path.read_text(encoding="utf-8").replace("\r\n", "\n")
+                        if target_path.is_file()
+                        else None,
+                    }
+                    after = _semantic_value(fragment.get("after"))
+                    if live == after:
+                        changed_paths.add(target_path)
     changed_directories = {
         (roots[str(item.get("base"))] / str(item.get("path"))).resolve(strict=False)
         for item in data.get("applied_directories", [])
@@ -7211,7 +7340,7 @@ def validate_markdown_transactions(repo_root: Path = REPO_ROOT) -> list[Violatio
         violations.extend(_validate_terminal_events(path, data))
         if data.get("state") in {"committed", "rolled_back"}:
             try:
-                live_valid, _, _, _ = _live_mutation_images(repo_root, data)
+                live_valid, _, _, _, _ = _live_mutation_images(repo_root, data)
             except (OSError, UnicodeDecodeError, ValueError):
                 live_valid = False
             if not live_valid:
@@ -7501,13 +7630,17 @@ def assess_markdown_transactions(repo_root: Path = REPO_ROOT) -> dict[str, str]:
             and not (repo_root / str(data.get("flow_root"))).exists()
         )
         if local != "hard_conflict":
-            live_valid, _, drift, after_images = _live_mutation_images(repo_root, data)
+            live_valid, _, drift, after_images, prep_class = _live_mutation_images(repo_root, data)
             read_valid = _read_set_matches_live(repo_root, data)
             if not live_valid or not read_valid:
                 if local in {"zero", "proven_zero"} and drift:
                     local = "zero_drift"
                 else:
                     local = "hard_conflict"
+            elif prep_class == "all_after":
+                local = "finishable"
+            elif prep_class == "mixed":
+                local = "applied"
         if deleted_archive and local in {"applied", "finishable"}:
             local = "deleted_archive"
         records.append((path, data, local, drift, after_images))

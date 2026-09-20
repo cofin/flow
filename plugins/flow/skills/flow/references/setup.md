@@ -310,6 +310,21 @@ so a later run resumes it rather than re-proposing from scratch.
 
 Detect brownfield vs greenfield (existing code, build files, `.agents/` presence). The Flow root is always `.agents/` with bundles at `.agents/bundles/`; relocations go through `.agents/config.json` (`bundles_dir`, `knowledge_dir`) only when the user asks for a nonstandard layout.
 
+### 1.1 Legacy Beads / bd / br Removal Audit
+
+During setup and brownfield migration, scan the repository for lingering legacy beads / bd / br tracker references:
+- **Audit Scope**:
+  - Hidden directories and state: remove legacy `.beads/`, `.agents/beads.json`, or `.agents/skills/choosing-beads-backend/`.
+  - Configuration files: audit and migrate `.agents/config.json` and `.agents/setup-state.json`.
+  - Git hooks: audit and remove legacy hooks under `.git/hooks/*` or `.githooks/*`.
+  - Project build automation scripts: inspect `Makefile`, `justfile`, `package.json`, `pyproject.toml`.
+- **Interactive Confirmation Protocol for User Files**:
+  - If references to legacy beads, bd, or br are found in user-facing configuration or build files (such as `Makefile` or `.git/hooks/`), you MUST:
+    1. Display the exact file path and line number of the legacy beads/bd reference.
+    2. Explain that Flow operates entirely via direct Markdown transactions and requires no legacy beads or bd service.
+    3. Ask for explicit user confirmation before removing or editing those legacy lines. Do not modify user build files silently.
+    4. Upon user approval, remove the legacy references and confirm clean migration.
+
 ---
 
 ## Phase 2: Context Gathering (Interactive)

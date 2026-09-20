@@ -1,0 +1,13 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "name": "flow-session-start",
+        "type": "command",
+        "command": "FLOW_HARNESS=codex bash \"${PLUGIN_ROOT:-${CODEX_PLUGIN_ROOT:-.}}/hooks/session-start.sh\"",
+        "timeout": 30,
+        "description": "Inject static Flow routing into Codex sessions."
+      }
+    ]
+  }
+}

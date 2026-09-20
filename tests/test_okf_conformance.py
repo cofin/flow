@@ -465,6 +465,7 @@ def test_flow_operation_payload_and_predicate_contracts_are_complete() -> None:
         "complete",
         "archive",
         "recover",
+        "compound",
     }
     assert set(payloads["create"]) == {"flow", "task"}
     assert set(payloads["note"]) == {"normal", "git_note_attachment"}
@@ -508,6 +509,7 @@ def test_flow_operation_payload_and_predicate_contracts_are_complete() -> None:
         "complete",
         "archive",
         "recover",
+        "compound",
         "status",
     }
 
@@ -537,6 +539,7 @@ def test_flow_operation_payload_and_predicate_contracts_are_complete() -> None:
         "complete",
         "archive",
         "recover",
+        "compound",
     }
     defined_predicates = set(matrix["predicate_shapes"])
     assert all(set(required) <= defined_predicates for required in operations.values())

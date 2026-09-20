@@ -90,7 +90,7 @@ commit: null
 ---
 ```
 
-Task `state` is exactly `open|in_progress|closed|blocked|skipped`. Priority is the closed enum `P0|P1|P2|P3|P4`, defaults to `P2`, and is ordered in that sequence. Any other value refuses validation. Ready tasks are open tasks whose dependencies are all closed, ordered `(priority, created_at, task_id)`. Nullable claim, block, next-step, operation, verification, and commit fields default to `null`; `operation_targets` defaults to `[]`; `state_revision` starts at `0`.
+Task `state` is exactly `open|in_progress|closed|blocked|skipped`. Priority is the closed enum `P0|P1|P2|P3|P4`, defaults to `P2`, and is ordered in that sequence. Any other value refuses validation. Ready tasks are open tasks whose dependencies are all closed, ordered `(priority, created_at, task_id)`. Nullable claim, block, next-step, operation, verification, and commit fields default to `null`; `operation_targets` defaults to `[]`; `state_revision` starts at `0`. For intermediate task progress (`checkpoint.task`, `note`, `discover`), `commit` records the nearest valid git commit (`HEAD` or task base commit); clean working tree commits are strictly enforced only at terminal task `close` and milestone phase gates.
 
 `verification_strategy` is exactly one of `behavior_tdd|regression_tdd|characterization|static_validation|documentation_validation|integration_acceptance`. The worksheet justifies the selected strategy from the change class and names its initial and final evidence:
 
@@ -164,9 +164,9 @@ Each successful mutation increments the spec `state_revision` exactly once. A ta
 
 ## Exact operation contract
 
-The operation set is `create`, `activate`, `claim`, `release`, `note`, `discover`, `block`, `unblock`, `checkpoint`, `close`, `skip`, `reopen`, `revise`, `reconcile`, `complete`, `archive`, `recover`, and `status`. Every mutating request for an existing flow supplies `flow_id`, operation, actor, canonical UTC `occurred_at`, expected plan revision/commit, expected spec state revision, explicit task targets, and the exact operation payload. The active lifecycle owner applies the request literally with ordinary file tools or refuses it; lifecycle reasoning belongs to the planner/executor.
+The operation set is `create`, `activate`, `claim`, `release`, `note`, `discover`, `block`, `unblock`, `checkpoint`, `close`, `skip`, `reopen`, `revise`, `reconcile`, `complete`, `archive`, `recover`, `compound`, and `status`. Every mutating request for an existing flow supplies `flow_id`, operation, actor, canonical UTC `occurred_at`, expected plan revision/commit, expected spec state revision, explicit task targets, and the exact operation payload. The active lifecycle owner applies the request literally with ordinary file tools or refuses it; lifecycle reasoning belongs to the planner/executor.
 
-Flow lifecycle guards apply before row-specific rules. Task `create` and `revise` require `planned|active`; `activate` requires `planned`; `claim`, `release`, normal `note`, `discover`, `block`, `unblock`, task/phase `checkpoint`, `close`, `skip`, `reopen`, and `reconcile` require `active`; plan-bind `checkpoint` permits `planned|active`; `complete` requires `active`; and `archive` requires `completed`. In `completed`, only `status`, `recover`, `archive`, and `note(category=git_note_attachment)` are legal. Removed/archived flows are addressable only by recovery through an unresolved archive journal.
+Flow lifecycle guards apply before row-specific rules. Task `create` and `revise` require `planned|active`; `activate` requires `planned`; `claim`, `release`, normal `note`, `discover`, `block`, `unblock`, task/phase `checkpoint`, `close`, `skip`, `reopen`, `reconcile`, and `compound` require `active`; plan-bind `checkpoint` permits `planned|active`; `complete` requires `active`; and `archive` requires `completed`. In `completed`, only `status`, `recover`, `archive`, and `note(category=git_note_attachment)` are legal. Removed/archived flows are addressable only by recovery through an unresolved archive journal.
 
 “Append note” means append a timestamped bullet containing operation id, category, and text under `## Notes & Discoveries`. “Clear claim/block/verification” sets every corresponding nullable field to `null`; it never omits fields.
 
@@ -189,6 +189,7 @@ Flow lifecycle guards apply before row-specific rules. Task `create` and `revise
 | `complete` | spec `active` -> `completed` | All tasks closed/skipped; no claim/block/journal; verification, correctness review, then mandatory read-only quality review passed on the exact final base/head; no unwaived Critical/Important finding; final commit and exact evidence/waivers. A waiver never replaces dispatch. | Spec-only/empty targets: increment revision, completed, clear current task, preserve checkpoint, next archive synthesis. Never delete or attach/push notes. |
 | `archive` | spec `completed` -> directory absent | Exact knowledge destinations/current-state edits, log entry `{date, flow_id, outcome, final_commit}`, notes incorporation, byte-for-byte archive candidate manifest, and mandatory quality report on its disposable exact candidate range; no unresolved journal or unwaived Critical/Important finding. | Journal target revision old+1 with empty targets; write reviewed project-shaped knowledge then log; delete recorded spec files then empty dirs; terminal only after exact manifest/postconditions. Remediation or fragment drift invalidates the candidate and requires fresh verification, correctness review, and quality review. Never push or require Git history. |
 | `recover` | journal `prepared|task_writes_started|recovery_required|rollback_in_progress` -> `committed|rolled_back` | Journal id, explicit `finish|rollback`, complete stage-aware live read set, dependencies/claims still valid; existing selected action matches. `contended` is not directly recoverable: arbitration proves it zero-write and supersedes it, or reports conflict. | Resume original revision and direction. Finish remaining after-fragments or reverse only applied writes. Do not increment revision, replace last operation, change direction, or create another mutation. Drift refuses without tracked writes. |
+| `compound` | active spec and tasks -> same | `operations` non-empty list of legal operation requests; `affected_tasks_sorted` unique sorted task ids affected by operations; targets equal `affected_tasks_sorted`. | Apply constituent operations in sequence within single transaction; write affected tasks sorted then spec; validate joint postconditions. |
 | `status` | read-only -> read-only | Optional flow/task filter only. | Read specs/tasks/journals; report current/ready/blocked/conflicts in `(priority, created_at, task_id)` order; write nothing and create no id/journal. |
 
 ## Operation identifiers
@@ -389,6 +390,10 @@ recover:
   required: [journal_operation_id, action]
   optional: []
   constraints: ["targets=[]", "journal_operation_id equals selected journal", "action=finish|rollback", "action equals prior recovery_selected when present"]
+compound:
+  required: [operations, affected_tasks_sorted]
+  optional: []
+  constraints: ["targets equals affected_tasks_sorted", "operations is non-empty array of exact legal operation requests except compound", "affected_tasks_sorted unique sorted task ids affected by operations"]
 ```
 
 ### Plan-bind evidence schema
@@ -515,6 +520,7 @@ operations:
   complete: [transaction_directory_clear, spec_identity, all_task_identities, no_current_claim, all_tasks_terminal_no_blockers, completion_evidence_valid]
   archive: [transaction_directory_clear, spec_identity, archive_candidate_exact, archive_evidence_valid]
   recover: [selected_journal_recoverable, journal_arbitration_single_candidate, stage_read_set_matches]
+  compound: [transaction_directory_clear, spec_identity, all_task_identities]
 ```
 
 In particular, `note.normal`, `discover`, and an `open` non-current `block` have no dependency-closed, no-other-claim, or sole-current-claim predicate. `in_progress_target_is_current` is conditional: it accepts an open non-current block without reading another claimant as a blocker, but requires an in-progress target to equal the spec's sole current task. Release, task checkpoint, and close require the stronger sole-current-claim predicate. Recover deliberately does not require `transaction_directory_clear`; it reads and arbitrates the unresolved journals.
@@ -758,3 +764,17 @@ Installed hooks/plugins may only emit static routing such as “read the Flow in
 4. **Write:** for create, apply `ordered_directories` first with directory start/applied provenance. Before each tracked directory/file edit reread/arbitrate the transaction directory and full read set, then append its namespaced start event. Write target tasks in sorted id order and spec last; archive follows its recorded order. Reread target, append the namespaced applied entry/event only after exact confirmation, then reread/arbitrate again.
 5. **Validate:** reread directory/spec/targets/dependencies/claims and require operation, checklist, snapshot, read predicates, mutation prefixes, and exact after-values. After final arbitration append the one strict `validation_recorded` event, reread it, then mark committed. Ambiguity/drift becomes contended or recovery-required; never infer or overwrite.
 6. **Recover:** read the journal and complete stage-aware live set; close a final unmatched directory/file start with applied or not-applied exactly as above; require every value and operation-specific predicate to match the recorded prefixes; record/retain one direction; finish directories then files forward, or resume reverse file then directory rollback. After rollback append the one strict `rollback_validated` event, reread it, then mark rolled back. A crash after either validation event reruns its exact checks and applies only the terminal state; resumed recovery never duplicates validation or creates a new tracked revision.
+
+### Intent-First 3-Step Protocol (Batch & Compound Mutations)
+
+For compound operations and bulk task progress, agents collapse tool churn from multi-step sequences into three explicit phases:
+1. **Step 1 (Prepare Journal)**: Write `<root>/transactions/<op_id>/journal.md` with `state: prepared` containing the unique sorted targets, operation metadata, and exact before/after fragments for all affected files.
+2. **Step 2 (Apply Writes - Tasks AND Live Spec)**: Apply writes to task worksheets in sorted ID order, AND apply anchor replacements in live `spec.md` on disk (mark completed task `- [x] Task <id>`, update `current_task`, and update `Continuity Snapshot`). State must never remain solely inside the journal file.
+3. **Step 3 (Commit Journal)**: Update journal to `state: committed` with `applied_writes` populated from `ordered_writes` and terminal `validation_recorded` event containing all required check records.
+
+Crash recovery compares live files against recorded `before` and `after` fragments:
+- All files match `before`: `zero` (safely resume or supersede).
+- All files match `after`: `finishable` (complete Step 3 commit).
+- Mixed files match `before` and `after`: `partially_applied` (complete forward writes or roll back to `before`).
+- Any file matches neither: `hard_conflict` (genuine untracked drift).
+
