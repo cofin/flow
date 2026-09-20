@@ -44,8 +44,8 @@ def _digest(payload: str) -> str:
 
 
 def _digest_file(path: Path) -> str:
-    """Hash source bytes without platform newline translation."""
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    """Hash UTF-8 source text with checkout line endings normalized to LF."""
+    return _digest(path.read_text(encoding="utf-8"))
 
 
 def _strings(value: Any, context: str) -> tuple[str, ...]:

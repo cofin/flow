@@ -5,10 +5,10 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
-from pathlib import Path
 import re
 import subprocess
 import sys
+from pathlib import Path
 
 import pytest
 import yaml
@@ -140,11 +140,45 @@ def test_generated_metadata_is_bound_to_source_revision_and_hashes() -> None:
         records.append(record)
     canonical_hashes = {record["canonical_sha256"] for record in records}
     contract_hashes = {record["contract_sha256"] for record in records}
-    assert canonical_hashes == {hashlib.sha256(CORE_PATH.read_bytes()).hexdigest()}
-    assert contract_hashes == {hashlib.sha256(CONTRACT_PATH.read_bytes()).hexdigest()}
+    assert canonical_hashes == {
+        hashlib.sha256(
+            CORE_PATH.read_text(encoding="utf-8").encode("utf-8")
+        ).hexdigest()
+    }
+    assert contract_hashes == {
+        hashlib.sha256(
+            CONTRACT_PATH.read_text(encoding="utf-8").encode("utf-8")
+        ).hexdigest()
+    }
     assert {record["rule_revision"] for record in records} == {1}
     assert all(record["git_tags"] == "forbidden" for record in records)
     assert all(record["automatic_push"] is False for record in records)
+
+
+def test_rule_generation_accepts_crlf_checkout_without_masking_drift(
+    tmp_path: Path,
+) -> None:
+    generator = _generator()
+    contract = tmp_path / "flow.yaml"
+    core = tmp_path / "flow-core.md"
+    for source, target in ((CONTRACT_PATH, contract), (CORE_PATH, core)):
+        target.write_bytes(
+            source.read_text(encoding="utf-8").replace("\n", "\r\n").encode("utf-8")
+        )
+    paths = generator.write_surfaces(CONTRACT_PATH, CORE_PATH, tmp_path)
+    for path in paths:
+        path.write_bytes(
+            path.read_text(encoding="utf-8").replace("\n", "\r\n").encode("utf-8")
+        )
+    snapshot = {path: path.read_bytes() for path in [contract, core, *paths]}
+    assert generator.check_surfaces(contract, core, tmp_path) == []
+    assert snapshot == {path: path.read_bytes() for path in snapshot}
+    core.write_bytes(
+        core.read_bytes().replace(
+            b"# Flow Operational Rule", b"# Flow Operational Rule\r\n\r\nChanged rule."
+        )
+    )
+    assert len(generator.check_surfaces(contract, core, tmp_path)) == len(paths)
 
 
 def test_rule_records_preserve_exact_host_capabilities_from_contract() -> None:
