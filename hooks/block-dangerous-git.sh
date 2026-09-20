@@ -41,6 +41,7 @@ executable=''
 evaluator_mode=''
 evaluator_nested_git=0
 git_boundary_pattern='(^|[=/[:space:]`(])[gG][iI][tT](\.[eE][xX][eE])?($|[/:[:space:]`)])'
+shell_basename_pattern='^(bash|sh|dash|ksh|zsh)$'
 
 classify_relevance_token() {
   local token=$relevance_token
@@ -51,7 +52,7 @@ classify_relevance_token() {
   if [[ "$token" =~ $git_boundary_pattern ]]; then
     contains_git=1
   fi
-  [[ "$token" =~ ([^/]*)$ ]] && basename=${BASH_REMATCH[1]}
+  basename=${token##*/}
   case "$basename" in
     [gG][iI][tT]-*) contains_git=1 ;;
   esac
@@ -86,7 +87,7 @@ classify_relevance_token() {
     esac
     executable=$token
     expect_executable=0
-  elif [[ ${executable##*/} =~ ^(bash|sh|dash|ksh|zsh)$ && "$token" =~ ^-[a-zA-Z]*c[a-zA-Z]*$ ]]; then
+  elif [[ ${executable##*/} =~ $shell_basename_pattern && "$token" =~ ^-[a-zA-Z]*c[a-zA-Z]*$ ]]; then
     evaluator_mode=command_string
   fi
   return 0
@@ -407,7 +408,7 @@ for ((i = 0; i < ${#TOKENS[@]}; i++)); do
       ;;
   esac
   executable_basename=$token
-  [[ "$token" =~ ([^/]*)$ ]] && executable_basename=${BASH_REMATCH[1]}
+  executable_basename=${token##*/}
   case "$executable_basename" in
     [gG][iI][tT]-*)
       classify_git_subcommand "${executable_basename#*-}" "$((i + 1))"

@@ -4118,7 +4118,7 @@ def _walk_path_records(
 def _resolve_journal_path(
     roots: dict[str, Path], base: object, raw: object, *, glob: bool = False
 ) -> tuple[Path | None, str | None]:
-    if base not in roots:
+    if not isinstance(base, str) or base not in roots:
         return None, f"missing or unknown base: {base!r}"
     if not isinstance(raw, str) or not raw:
         return None, "must be a non-empty relative path"
@@ -4167,7 +4167,7 @@ def _validate_path_record(
 ) -> list[Violation]:
     violations: list[Violation] = []
     base = record.get("base")
-    if base not in _PATH_BASES:
+    if not isinstance(base, str) or base not in _PATH_BASES:
         return [Violation(path, 1, f"{trail} has missing or unknown base: {base!r}")]
     path_keys = {key for key in ("path", "glob") if key in record}
     if trail.endswith("archive_inventory") and "root" in record:
@@ -4541,6 +4541,12 @@ def _quality_waivers(
         for finding_id, finding in finding_by_id.items()
         if finding.get("severity") in {"Critical", "Important"}
     }
+
+
+_SECTION_ANCHORS = {
+    "notes-and-discoveries": "Notes & Discoveries",
+    "verification-evidence": "Verification Evidence",
+}
 
 
 _COMPOUND_VARIANTS = {"claim", "release", "checkpoint.task", "close"}
@@ -5038,6 +5044,8 @@ def _validate_read_predicates(
             )
             if (
                 set(item) != {"base", "path", "fields"}
+                or item.get("base") != "flow_root"
+                or not _nonempty(item.get("path"))
                 or not isinstance(item.get("fields"), dict)
                 or set(item["fields"]) != expected
             ):
@@ -5222,7 +5230,14 @@ def _validate_read_predicates(
         elif predicate == "sole_current_claim" and (
             not path_record(item.get("spec"), "path", "flow_root")
             or not path_record(item.get("target"), "path", "flow_root")
-            or item.get("claimant") != request.get("actor")
+            or not _nonempty(item.get("claimant"))
+            or (
+                item.get("claimant") != request.get("actor")
+                and not (
+                    request.get("operation") == "release"
+                    and payload.get("user_authorization")
+                )
+            )
         ):
             violations.append(
                 Violation(
@@ -5519,7 +5534,7 @@ def _validate_compound_steps(
                     refuse("claim requires no current claimant in the preceding step")
             if predicate == "sole_current_claim" and (
                 task.get("state") != "in_progress"
-                or task.get("claimed_by") != child["actor"]
+                or task.get("claimed_by") != item.get("claimant")
                 or spec.get("current_task") != target
             ):
                 refuse("child requires the sole current claim")
@@ -5545,6 +5560,7 @@ def _validate_compound_steps(
                 "frontmatter",
                 "continuity-snapshot",
                 "notes-and-discoveries",
+                "verification-evidence",
                 f"implementation-plan-task-{target}",
             }:
                 refuse("child anchor is unsupported")
@@ -5606,6 +5622,8 @@ def _validate_compound_steps(
         }
         if child["operation"] == "release":
             required_anchors.add(("flow_root", task_path, "notes-and-discoveries"))
+        elif child["operation"] in {"checkpoint", "close"}:
+            required_anchors.add(("flow_root", task_path, "verification-evidence"))
         if seen != required_anchors:
             refuse(
                 "child requires exact target/spec frontmatter, checklist, continuity and operation note fragments"
@@ -5687,23 +5705,39 @@ def _validate_compound_steps(
                 != f"task:{target}@{payload['commit']}"
             ):
                 refuse("child checkpoint postcondition disagrees with payload")
-        if operation == "release":
-            note = next(
+        if operation in {"release", "checkpoint", "close"}:
+            section_anchor = (
+                "notes-and-discoveries"
+                if operation == "release"
+                else "verification-evidence"
+            )
+            section = next(
                 (
                     fragment
                     for fragment in step["fragments"]
-                    if fragment["anchor"] == "notes-and-discoveries"
+                    if fragment["anchor"] == section_anchor
                 ),
                 None,
             )
-            entry = f"- {child['occurred_at']} release: {child['payload']['reason']}"
-            if (
-                note is None
-                or note["after"].get("content")
-                != note["before"].get("content", "") + "\n" + entry
-            ):
+            if operation == "release":
+                entry = f"- {child['occurred_at']} [{data['operation_id']}] release: {child['payload']['reason']}"
+            else:
+                record = {
+                    "scope": "task",
+                    "operation": operation,
+                    "commit": child["payload"]["commit"],
+                    "verification_evidence": child["payload"]["verification_evidence"],
+                    "summary": child["payload"].get("summary", f"Closed task {target}"),
+                    "operation_id": data["operation_id"],
+                    "actor": child["actor"],
+                    "occurred_at": child["occurred_at"],
+                }
+                entry = "- " + json.dumps(record, sort_keys=True)
+            before_content = section["before"].get("content", "") if section else ""
+            expected_content = before_content + ("\n" if before_content else "") + entry
+            if section is None or section["after"].get("content") != expected_content:
                 refuse(
-                    "release must append its timestamped reason without rewriting notes"
+                    "child must append its exact operation evidence without rewriting section history"
                 )
         checklist = composed.get(
             ("flow_root", "spec.md", f"implementation-plan-task-{target}"), {}
@@ -6009,6 +6043,15 @@ def _validate_journal_semantics(
                 )
             )
             continue
+        if not all(_nonempty(fragment.get(key)) for key in ("base", "path", "anchor")):
+            violations.append(
+                Violation(
+                    path,
+                    1,
+                    f"journal fragment base/path/anchor must be non-empty strings at index {index}",
+                )
+            )
+            continue
         anchor = fragment.get("anchor")
         keys = set(fragment["before"])
         is_task_create = variant == "create.task"
@@ -6073,7 +6116,7 @@ def _validate_journal_semantics(
                     f"create.task chapter fragment {index} has an inexact insertion schema",
                 )
             )
-        elif anchor == "notes-and-discoveries":
+        elif anchor in _SECTION_ANCHORS:
             if keys != {"content"} or not all(
                 isinstance(image.get("content"), str)
                 for image in (fragment["before"], fragment["after"])
@@ -6082,7 +6125,7 @@ def _validate_journal_semantics(
                     Violation(
                         path,
                         1,
-                        "journal note fragment requires exact string content images",
+                        "journal section fragment requires exact string content images",
                     )
                 )
         elif anchor == "continuity-snapshot":
@@ -7020,9 +7063,11 @@ def _anchor_fields(
             r"(?m)^- \[[ ~x!-]\] Task [^\n]+$", text[heading.end() : end]
         )
         return {"checklist_items": checklist_items}
-    if anchor == "notes-and-discoveries":
+    if anchor in _SECTION_ANCHORS:
         sections = _parse_h2_sections(_markdown_body(target))
-        content = sections.get("Notes & Discoveries")
+        content = sections.get(
+            _SECTION_ANCHORS[anchor], "" if anchor == "verification-evidence" else None
+        )
         return {"content": content} if content is not None else None
     if anchor == "continuity-snapshot":
         sections = _parse_h2_sections(_markdown_body(target))
@@ -7284,7 +7329,7 @@ def _live_mutation_images(
 def _read_set_matches_live(repo_root: Path, data: dict[str, Any]) -> bool:
     roots = _journal_roots(repo_root, data)
     if data.get("request", {}).get("operation") == "compound":
-        if _validate_payload_values(Path("journal.md"), data["request"], "compound"):
+        if _validate_journal_semantics(Path("journal.md"), data, data["request"]):
             return False
         flow_root = roots["flow_root"]
         task_paths = {

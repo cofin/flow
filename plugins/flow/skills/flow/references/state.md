@@ -789,7 +789,16 @@ Each child records its target frontmatter, spec frontmatter, target checklist
 anchor and continuity anchor. Release additionally records its target
 `notes-and-discoveries` anchor with exact `{content}` string before/after images.
 This anchor is the stripped body of `## Notes & Discoveries`; append exactly a
-newline followed by `- <occurred_at> release: <reason>`, preserving prior content.
+newline followed by `- <occurred_at> [<operation_id>] release: <reason>`, preserving
+prior content (omit the separating newline when the section was empty).
+Task checkpoint and close additionally require the target's `verification-evidence`
+anchor under `## Verification Evidence`, using the same exact `{content}` images.
+A missing verification heading denotes empty before content; create it on write.
+Append one `- ` JSON record with sorted keys and default JSON spacing: `scope`
+(`task`), `operation`, `commit`, `verification_evidence`, `summary`, `operation_id`,
+`actor`, and `occurred_at`. Values equal the child request and outer operation id;
+close's summary is `Closed task <target>`, while checkpoint uses its payload summary.
+Earlier section content is preserved, including preceding compound evidence entries.
 No other child anchors are supported. These are logical intermediate images:
 `state_revision`, `last_operation`, `operation_targets`, `updated_at` and the
 continuity `state_identity` remain unchanged within child steps. Child frontmatter
@@ -801,11 +810,14 @@ with one final transaction stamp: expected spec revision plus one, outer operati
 id, outer targets and timestamp. The continuity identity receives the same stamp.
 There are no nested journals, child write events, or per-child state increments.
 
-For compound operations and bulk task progress, agents collapse tool churn from multi-step sequences into three explicit phases:
+These are logical phases, not a replacement for the ordered-write protocol above.
+Record actual arbitration, per-write start/applied, recovery and verification events
+as they occur; never reconstruct write provenance by copying the planned write list.
+For compound operations and bulk task progress:
 
 1. **Step 1 (Prepare Journal)**: Write `<root>/transactions/<op_id>/journal.md` with `state: prepared` containing the unique sorted targets, operation metadata, and exact before/after fragments for all affected files.
 2. **Step 2 (Apply Writes - Tasks AND Live Spec)**: Apply writes to task worksheets in sorted ID order, AND apply anchor replacements in live `spec.md` on disk (mark completed task `- [x] Task <id>`, update `current_task`, and update `Continuity Snapshot`). State must never remain solely inside the journal file.
-3. **Step 3 (Commit Journal)**: Update journal to `state: committed` with `applied_writes` populated from `ordered_writes` and terminal `validation_recorded` event containing all required check records.
+3. **Step 3 (Commit Journal)**: After the recorded writes or recovery actions and all required checks, append `validation_recorded` and set `state: committed`. `applied_writes` contains only writes actually recorded by the ordinary write/recovery protocol.
 
 Crash recovery compares live files against recorded `before` and `after` fragments:
 

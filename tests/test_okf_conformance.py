@@ -1317,12 +1317,23 @@ def _set_write_image(root: Path, journal: dict, write_index: int, image: str) ->
             if section:
                 replacement += f"\n\n{section.lstrip()}"
             text = text[: heading.end()] + replacement + text[end:]
-        elif fragment["anchor"] == "notes-and-discoveries":
-            text = re.sub(
-                r"(?ms)(^## Notes & Discoveries\n).*?(?=^## |\Z)",
-                lambda match, content=values["content"]: match[1] + content + "\n\n",
-                text,
+        elif fragment["anchor"] in {"notes-and-discoveries", "verification-evidence"}:
+            heading = (
+                "Notes & Discoveries"
+                if fragment["anchor"] == "notes-and-discoveries"
+                else "Verification Evidence"
             )
+            pattern = rf"(?ms)(^## {re.escape(heading)}\n).*?(?=^## |\Z)"
+            if re.search(pattern, text):
+                text = re.sub(
+                    pattern,
+                    lambda match, content=values["content"]: (
+                        match[1] + content + "\n\n"
+                    ),
+                    text,
+                )
+            else:
+                text = text.rstrip() + f"\n\n## {heading}\n" + values["content"] + "\n"
         elif fragment["anchor"] == "continuity-snapshot":
             claim = values["current_task_claim"]
             claim_text = (
@@ -3130,7 +3141,9 @@ def test_compound_rejects_inexact_child_evidence(child):
     assert validate._validate_payload_values(Path("journal.md"), request, "compound")
 
 
-def _compound_journal(root: Path, operations=("claim", "release", "claim")):
+def _compound_journal(
+    root: Path, operations=("claim", "release", "claim"), initial_claimant=None
+):
     import copy
 
     journal = _journal("20260814T120000Z-agent-compound-1-2-00")
@@ -3139,6 +3152,14 @@ def _compound_journal(root: Path, operations=("claim", "release", "claim")):
     extra.write_text(
         (flow / "tasks/1.2.md").read_text().replace("1.2", "1.3"), encoding="utf-8"
     )
+    if initial_claimant is not None:
+        initial_claim = _journal("20260814T120000Z-agent-claim-1-2-00")
+        initial_claim["fragments"][0]["after"]["claimed_by"] = initial_claimant
+        initial_claim["fragments"][-1]["after"]["current_task_claim"]["claimed_by"] = (
+            initial_claimant
+        )
+        for index in range(len(initial_claim["ordered_writes"])):
+            _set_write_image(root, initial_claim, index, "after")
     request = journal["request"]
     request["operation"] = "compound"
     initial = []
@@ -3160,6 +3181,7 @@ def _compound_journal(root: Path, operations=("claim", "release", "claim")):
                 "fields": {key: fields.get(key) for key in keys},
             }
         )
+    request["expected_state_revision"] = state["spec.md"]["state_revision"]
     arbitration = journal["read_set"][0]
     journal["read_set"] = [
         arbitration,
@@ -3268,7 +3290,7 @@ def _compound_journal(root: Path, operations=("claim", "release", "claim")):
                         "predicate": "sole_current_claim",
                         "spec": spec_reference,
                         "target": reference,
-                        "claimant": child["actor"],
+                        "claimant": state[relative]["claimed_by"],
                     },
                     {
                         "predicate": "actor_is_claimant_or_authorized",
@@ -3284,7 +3306,7 @@ def _compound_journal(root: Path, operations=("claim", "release", "claim")):
                         "predicate": "sole_current_claim",
                         "spec": spec_reference,
                         "target": reference,
-                        "claimant": child["actor"],
+                        "claimant": state[relative]["claimed_by"],
                     },
                     {
                         "predicate": "verification_bound_to_commit",
@@ -3406,23 +3428,51 @@ def _compound_journal(root: Path, operations=("claim", "release", "claim")):
                 combined[anchor] = copy.deepcopy(fragment)
             else:
                 combined[anchor]["after"] = copy.deepcopy(after)
-        if operation == "release":
-            before = validate._anchor_fields(
-                flow / relative, "notes-and-discoveries", {"content": None}
+        if operation in {"release", "checkpoint", "close"}:
+            anchor = (
+                "notes-and-discoveries"
+                if operation == "release"
+                else "verification-evidence"
             )
+            key = f"{anchor}-{relative}"
+            before = (
+                copy.deepcopy(combined[key]["after"])
+                if key in combined
+                else validate._anchor_fields(flow / relative, anchor, {"content": None})
+            )
+            if operation == "release":
+                entry = f"- {child['occurred_at']} [{journal['operation_id']}] release: {payload['reason']}"
+            else:
+                entry = "- " + json.dumps(
+                    {
+                        "scope": "task",
+                        "operation": operation,
+                        "commit": payload["commit"],
+                        "verification_evidence": payload["verification_evidence"],
+                        "summary": payload.get("summary", f"Closed task {target}"),
+                        "operation_id": journal["operation_id"],
+                        "actor": child["actor"],
+                        "occurred_at": child["occurred_at"],
+                    },
+                    sort_keys=True,
+                )
             after = {
                 "content": before["content"]
-                + f"\n- {child['occurred_at']} release: {payload['reason']}"
+                + ("\n" if before["content"] else "")
+                + entry
             }
             fragment = {
                 "base": "flow_root",
                 "path": relative,
-                "anchor": "notes-and-discoveries",
+                "anchor": anchor,
                 "before": before,
                 "after": after,
             }
             fragments.append(fragment)
-            combined[f"notes-{relative}"] = copy.deepcopy(fragment)
+            if key in combined:
+                combined[key]["after"] = copy.deepcopy(after)
+            else:
+                combined[key] = copy.deepcopy(fragment)
         steps.append({"request": child, "read_set": reads, "fragments": fragments})
     targets = sorted(
         {target for step in steps for target in step["request"]["targets"]}
@@ -3554,3 +3604,102 @@ def test_compound_claim_checkpoint_close_checks_intermediate_claim(tmp_path: Pat
     ] = "def5678"
     _write_journal(root, journal)
     assert validate.validate_markdown_transactions(root)
+
+
+@pytest.mark.parametrize(
+    "location, field, value",
+    [
+        ("fragments", "base", []),
+        ("fragments", "path", []),
+        ("fragments", "anchor", []),
+        ("fragments", "before", []),
+        ("fragments", "after", []),
+        ("read_set", "base", []),
+        ("read_set", "path", []),
+        ("read_set", "fields", []),
+        ("predicate", "predicate", []),
+        ("request", "operation", []),
+        ("request", "targets", {}),
+        ("request", "payload", []),
+        ("dependency", "target", {}),
+        ("dependency", "dependency_paths", [[]]),
+    ],
+)
+def test_compound_malformed_child_shapes_fail_closed(
+    tmp_path: Path, location, field, value
+):
+    root = _transaction_root(tmp_path)
+    journal = _compound_journal(root)
+    child = journal["request"]["payload"]["operations"][0]
+    record = (
+        child[location][0]
+        if location == "fragments"
+        else child["read_set"][1]
+        if location == "read_set"
+        else child["read_set"][0]
+        if location == "predicate"
+        else child["read_set"][-2]
+        if location == "dependency"
+        else child["request"]
+    )
+    record[field] = value
+    _write_journal(root, journal)
+    assert validate.validate_markdown_transactions(root)
+    assert validate.assess_markdown_transactions(root) == {
+        journal["operation_id"]: "hard_conflict"
+    }
+
+
+@pytest.mark.parametrize("authorized", [False, True])
+def test_compound_release_of_another_claimant_requires_authorization(
+    tmp_path: Path, authorized
+):
+    root = _transaction_root(tmp_path)
+    journal = _compound_journal(
+        root, ("release", "claim"), initial_claimant="other-executor"
+    )
+    release = journal["request"]["payload"]["operations"][0]
+    if authorized:
+        approval = {
+            "text": "Release other-executor's claim",
+            "at": journal["request"]["occurred_at"],
+        }
+        release["request"]["payload"]["user_authorization"] = approval
+        release["read_set"][-1]["authorization"] = approval
+    _write_journal(root, journal)
+    violations = validate.validate_markdown_transactions(root)
+    assert (violations == []) is authorized, violations
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        None,
+        "actor",
+        "operation_id",
+        "occurred_at",
+        "summary",
+        "commit",
+        "verification_evidence",
+    ],
+)
+def test_compound_verification_body_requires_complete_operation_evidence(
+    tmp_path: Path, field
+):
+    root = _transaction_root(tmp_path)
+    journal = _compound_journal(root, ("claim", "checkpoint", "close"))
+    step = journal["request"]["payload"]["operations"][1]
+    if field is None:
+        step["fragments"].pop()
+    else:
+        section = step["fragments"][-1]
+        record = json.loads(section["after"]["content"].removeprefix("- "))
+        del record[field]
+        section["after"]["content"] = "- " + json.dumps(record, sort_keys=True)
+    _write_journal(root, journal)
+    violations = validate.validate_markdown_transactions(root)
+    assert any(
+        "child requires exact" in item.message
+        or "append its exact operation evidence" in item.message
+        for item in violations
+    )
