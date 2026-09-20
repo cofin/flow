@@ -313,6 +313,7 @@ Detect brownfield vs greenfield (existing code, build files, `.agents/` presence
 ### 1.1 Legacy Beads / bd / br Removal Audit
 
 During setup and brownfield migration, scan the repository for lingering legacy beads / bd / br tracker references:
+
 - **Audit Scope**:
   - Hidden directories and state: remove legacy `.beads/`, `.agents/beads.json`, or `.agents/skills/choosing-beads-backend/`.
   - Configuration files: audit and migrate `.agents/config.json` and `.agents/setup-state.json`.

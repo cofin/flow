@@ -82,12 +82,46 @@ commands; the natural-language spellings above are its public interface.
   after install or update so plugin rules, hooks, agents, and skills reload.
 - Claude Code uses `claude plugin marketplace add`, `claude plugin install`,
   `claude plugin marketplace update`, and `claude plugin update`. Updating the
-  catalog and the installed plugin are separate steps; restart afterward.
+  catalog and the installed plugin are separate steps; run `/reload-plugins`
+  or restart afterward.
 - Codex uses `codex plugin marketplace add`, then `/plugins` to enable Flow.
   Marketplace state and the installed package cache are distinct; use the
   marketplace upgrade command and restart the session after an update.
 - OpenCode project files reload after restarting OpenCode. A global npm install
   remains deferred until Flow publishes an npm plugin; OpenCode caches npm
   packages under `~/.cache/opencode/node_modules/`.
-- Cursor, VS Code/Copilot, and OpenClaw consume workspace instruction and skill
-  surfaces. Reload the workspace/session after those files change.
+- Cursor consumes Flow's workspace rules, skills, and `.cursor/hooks.json`.
+  Native Cursor plugins are supported by the host, but Flow does not yet ship
+  `.cursor-plugin/plugin.json`.
+- VS Code/Copilot supports workspace agents/skills and native plugin installation
+  from a marketplace or Git source. Flow's documented workspace integration does
+  not establish that every plugin hook has been tested in Copilot.
+- OpenClaw uses runtime skill discovery and `sessions_spawn`; file-backed skill
+  changes normally refresh on the next turn, while managed library selections
+  stay pinned until explicitly refreshed.
+
+## Native hook contracts and evidence
+
+Reviewed against first-party documentation on 2026-09-20. These are schema and
+source checks; Flow's test suite does not launch all seven native applications.
+
+| Harness | Native contract | Flow surface and limitation |
+| --- | --- | --- |
+| [Antigravity](https://antigravity.google/docs/hooks) | Named root hooks; `PreInvocation` returns `injectSteps` | `hooks.json` and static ephemeral-message emitter; plugin updates require reload/restart |
+| [Claude Code](https://code.claude.com/docs/en/hooks) | Nested event matcher groups; `SessionStart` returns `hookSpecificOutput.additionalContext` | `hooks/hooks-claude.json`; omitted matcher and `*` both match all |
+| [Codex](https://developers.openai.com/codex/hooks) | Nested event matcher groups; same SessionStart output as Claude; hooks require trust | Canonical `hooks/hooks-codex.json`, generated root and package copies; avoid registering the same hook at multiple scopes |
+| [Cursor](https://cursor.com/docs/hooks) | Project `.cursor/hooks.json`; `sessionStart` returns `additional_context` | Workspace manifest runs a dedicated static emitter from the project root |
+| [OpenCode](https://opencode.ai/docs/plugins/) | Local or npm JavaScript plugins; native Agent Skills discovery | Static plugin transform; npm packages cached under `~/.cache/opencode/node_modules/` |
+| [VS Code/Copilot](https://code.visualstudio.com/docs/agent-customization/agent-plugins) | Workspace customization and native plugins; Claude-format matchers are parsed but currently ignored | Workspace agents/skills; check tool identity inside any future shared policy hook |
+| [OpenClaw](https://docs.openclaw.ai/tools/skills) | Runtime skill catalog with file-backed refresh; native subagent sessions | Workspace skills; no Flow plugin manifest |
+
+`tools/sync-hook-surfaces.py` generates native static output envelopes from
+`hooks/primer.txt`. It is a development tool, never an installed runtime dependency.
+The shell manifests require Bash (including Git Bash on Windows); the native
+PowerShell/CMD emitters alone do not establish automatic Windows dispatch.
+
+The package and workspace adapters share a canonical definition, not a runtime
+registration: install the plugin once rather than duplicating its hook into each
+consumer workspace. Changes to generated outputs must be made at the canonical
+source and regenerated explicitly. `make check` checks formatting and generation
+without first repairing drift.

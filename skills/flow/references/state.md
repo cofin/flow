@@ -189,7 +189,7 @@ Flow lifecycle guards apply before row-specific rules. Task `create` and `revise
 | `complete` | spec `active` -> `completed` | All tasks closed/skipped; no claim/block/journal; verification, correctness review, then mandatory read-only quality review passed on the exact final base/head; no unwaived Critical/Important finding; final commit and exact evidence/waivers. A waiver never replaces dispatch. | Spec-only/empty targets: increment revision, completed, clear current task, preserve checkpoint, next archive synthesis. Never delete or attach/push notes. |
 | `archive` | spec `completed` -> directory absent | Exact knowledge destinations/current-state edits, log entry `{date, flow_id, outcome, final_commit}`, notes incorporation, byte-for-byte archive candidate manifest, and mandatory quality report on its disposable exact candidate range; no unresolved journal or unwaived Critical/Important finding. | Journal target revision old+1 with empty targets; write reviewed project-shaped knowledge then log; delete recorded spec files then empty dirs; terminal only after exact manifest/postconditions. Remediation or fragment drift invalidates the candidate and requires fresh verification, correctness review, and quality review. Never push or require Git history. |
 | `recover` | journal `prepared|task_writes_started|recovery_required|rollback_in_progress` -> `committed|rolled_back` | Journal id, explicit `finish|rollback`, complete stage-aware live read set, dependencies/claims still valid; existing selected action matches. `contended` is not directly recoverable: arbitration proves it zero-write and supersedes it, or reports conflict. | Resume original revision and direction. Finish remaining after-fragments or reverse only applied writes. Do not increment revision, replace last operation, change direction, or create another mutation. Drift refuses without tracked writes. |
-| `compound` | active spec and tasks -> same | `operations` non-empty list of legal operation requests; `affected_tasks_sorted` unique sorted task ids affected by operations; targets equal `affected_tasks_sorted`. | Apply constituent operations in sequence within single transaction; write affected tasks sorted then spec; validate joint postconditions. |
+| `compound` | active spec and tasks -> same | `operations` non-empty ordered list of exact `{request, read_set, fragments}` evidence records for supported task operations; `affected_tasks_sorted` is the sorted union of child targets and equals outer targets. | Apply constituent operations in sequence within single transaction; write affected tasks sorted then spec; validate joint postconditions. |
 | `status` | read-only -> read-only | Optional flow/task filter only. | Read specs/tasks/journals; report current/ready/blocked/conflicts in `(priority, created_at, task_id)` order; write nothing and create no id/journal. |
 
 ## Operation identifiers
@@ -393,7 +393,7 @@ recover:
 compound:
   required: [operations, affected_tasks_sorted]
   optional: []
-  constraints: ["targets equals affected_tasks_sorted", "operations is non-empty array of exact legal operation requests except compound", "affected_tasks_sorted unique sorted task ids affected by operations"]
+  constraints: ["targets equals affected_tasks_sorted", "operations is non-empty array of exact request|read_set|fragments step records", "children support claim|release|checkpoint.task|close only", "child request uses exact mutation_request schema and same flow/actor/time/expected identity as outer request", "affected_tasks_sorted unique sorted task ids affected by operations"]
 ```
 
 ### Plan-bind evidence schema
@@ -520,7 +520,7 @@ operations:
   complete: [transaction_directory_clear, spec_identity, all_task_identities, no_current_claim, all_tasks_terminal_no_blockers, completion_evidence_valid]
   archive: [transaction_directory_clear, spec_identity, archive_candidate_exact, archive_evidence_valid]
   recover: [selected_journal_recoverable, journal_arbitration_single_candidate, stage_read_set_matches]
-  compound: [transaction_directory_clear, spec_identity, all_task_identities]
+  compound: [transaction_directory_clear, spec_identity, target_identity, all_task_identities]
 ```
 
 In particular, `note.normal`, `discover`, and an `open` non-current `block` have no dependency-closed, no-other-claim, or sole-current-claim predicate. `in_progress_target_is_current` is conditional: it accepts an open non-current block without reading another claimant as a blocker, but requires an in-progress target to equal the spec's sole current task. Release, task checkpoint, and close require the stronger sole-current-claim predicate. Recover deliberately does not require `transaction_directory_clear`; it reads and arbitrates the unresolved journals.
@@ -767,14 +767,49 @@ Installed hooks/plugins may only emit static routing such as “read the Flow in
 
 ### Intent-First 3-Step Protocol (Batch & Compound Mutations)
 
+Compound evidence is explicit and ordered. Each `operations` entry has exactly
+`request`, `read_set`, and `fragments`; its request follows the ordinary mutation
+schema, with the same flow, actor, timestamp, and expected plan/state identity as
+the outer request. Only `claim`, `release`, task `checkpoint`, and `close` compose in this version. Nested compounds, plan changes, file or
+directory creation/deletion, block/unblock (whose aggregate blocker effects lack this evidence schema), and
+all other operations are refused.
+
+The outer read set contains arbitration, the initial spec identity, individual
+identity records for **every** existing task (including dependencies and unrelated
+claimants), and `all_task_identities`. Its task inventory must match the live tree.
+Each child carries its ordinary exact predicates and identities for its own target
+and spec. Evaluate them against the preceding logical step, not the outer target
+list or final files. Dependency paths must cover the target's actual dependencies;
+claims must observe no other claimant. The child uses ordinary operation payload,
+lifecycle, transition, ownership and verification checks. A missing intermediate
+identity, stale before image, wrongly bound predicate, or failed postcondition
+refuses the whole compound before writes.
+
+Each child records its target frontmatter, spec frontmatter, target checklist
+anchor and continuity anchor. Release additionally records its target
+`notes-and-discoveries` anchor with exact `{content}` string before/after images.
+This anchor is the stripped body of `## Notes & Discoveries`; append exactly a
+newline followed by `- <occurred_at> release: <reason>`, preserving prior content.
+No other child anchors are supported. These are logical intermediate images:
+`state_revision`, `last_operation`, `operation_targets`, `updated_at` and the
+continuity `state_identity` remain unchanged within child steps. Child frontmatter
+is restricted to state/claim/block/next-step/commit/verification fields and the
+spec's current task/checkpoint; arbitrary worksheet content edits are unsupported.
+Repeated anchors must chain exactly from the preceding after image. The outer
+fragments are precisely the first before and final after images of that chain,
+with one final transaction stamp: expected spec revision plus one, outer operation
+id, outer targets and timestamp. The continuity identity receives the same stamp.
+There are no nested journals, child write events, or per-child state increments.
+
 For compound operations and bulk task progress, agents collapse tool churn from multi-step sequences into three explicit phases:
+
 1. **Step 1 (Prepare Journal)**: Write `<root>/transactions/<op_id>/journal.md` with `state: prepared` containing the unique sorted targets, operation metadata, and exact before/after fragments for all affected files.
 2. **Step 2 (Apply Writes - Tasks AND Live Spec)**: Apply writes to task worksheets in sorted ID order, AND apply anchor replacements in live `spec.md` on disk (mark completed task `- [x] Task <id>`, update `current_task`, and update `Continuity Snapshot`). State must never remain solely inside the journal file.
 3. **Step 3 (Commit Journal)**: Update journal to `state: committed` with `applied_writes` populated from `ordered_writes` and terminal `validation_recorded` event containing all required check records.
 
 Crash recovery compares live files against recorded `before` and `after` fragments:
+
 - All files match `before`: `zero` (safely resume or supersede).
 - All files match `after`: `finishable` (complete Step 3 commit).
 - Mixed files match `before` and `after`: `partially_applied` (complete forward writes or roll back to `before`).
 - Any file matches neither: `hard_conflict` (genuine untracked drift).
-

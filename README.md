@@ -47,7 +47,7 @@ claude plugin marketplace add cofin/flow
 claude plugin install flow@flow-marketplace
 ```
 
-This installs Flow at user scope (`~/.claude/plugins/...`). Restart Claude Code
+This installs Flow at user scope (`~/.claude/plugins/...`). Run `/reload-plugins` or restart Claude Code
 after install. The plugin ships skills, commands, hooks, and all current Flow
 subagents, including the read-only quality reviewer.
 
@@ -96,7 +96,7 @@ Verify the keys against your Claude Code version's [settings reference](https://
 codex plugin marketplace add cofin/flow
 ```
 
-Then in a Codex session, run `/plugins` and enable Flow. Update with `codex plugin marketplace upgrade flow-marketplace`.
+Then in a Codex session, run `/plugins` and enable Flow. Review and trust its hooks before expecting session routing. Update with `codex plugin marketplace upgrade flow-marketplace`.
 
 Codex CLI 0.117+ supports first-class marketplace commands — `add` accepts `owner/repo[@ref]`, HTTPS/SSH git URLs, or local paths, with optional `--ref <REF>` and `--sparse <PATH>`.
 
@@ -153,7 +153,10 @@ Cursor consumes Flow through project rules and shared repository instructions:
 - `AGENTS.md`
 - project-local operational skills in `.agents/skills/`
 
-Do not install Flow through a repository `.cursor-plugin/plugin.json`; Flow does not ship a Cursor plugin manifest until Cursor exposes a stable documented plugin API for this use case.
+Cursor now supports native `.cursor-plugin/plugin.json` packages with skills,
+commands, agents, rules, and hooks. Flow currently ships workspace integration,
+including `.cursor/hooks.json`; a Cursor plugin package is not yet shipped.
+See the [Cursor plugin reference](https://cursor.com/docs/reference/plugins).
 
 </details>
 
@@ -164,7 +167,10 @@ Do not install Flow through a repository `.cursor-plugin/plugin.json`; Flow does
 
 VS Code discovers Flow custom agents from `.github/agents/*.agent.md` and shared skills from `.agents/skills/`, `.claude/skills/`, or `.github/skills/`. Flow ships workspace agent definitions for the core lifecycle agents.
 
-Use VS Code settings such as `chat.agentSkillsLocations` only when you need additional skill directories beyond the standard project paths.
+VS Code also supports marketplace and Git-source agent plugins through **Chat:
+Install Plugin From Source**. Flow's workspace agents remain the documented
+integration here; plugin-format compatibility is not a live installation test.
+See [VS Code agent plugins](https://code.visualstudio.com/docs/agent-customization/agent-plugins).
 
 </details>
 
@@ -173,7 +179,11 @@ Use VS Code settings such as `chat.agentSkillsLocations` only when you need addi
 <summary>OpenClaw</summary>
 <!-- markdownlint-restore -->
 
-OpenClaw should consume Flow through runtime skill discovery and its native `sessions_spawn` subagent mechanism. Flow does not ship a static OpenClaw plugin manifest.
+OpenClaw consumes Flow through runtime skill discovery and native `sessions_spawn`
+subagents. File-backed skills normally refresh on the next turn after watcher
+changes; managed library revisions remain pinned until explicitly refreshed.
+Flow does not ship an OpenClaw plugin manifest.
+See [OpenClaw skills](https://docs.openclaw.ai/tools/skills).
 
 </details>
 

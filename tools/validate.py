@@ -337,16 +337,12 @@ def _validate_manifest_path_list_field(
     return violations
 
 
-def _validate_hook_event_map(
-    path: Path, hooks: object, *, allow_flat_events: set[str] | None = None
-) -> list[Violation]:
+def _validate_hook_event_map(path: Path, hooks: object) -> list[Violation]:
     violations: list[Violation] = []
     if not isinstance(hooks, dict):
         return [
             Violation(path, 1, "hook config must contain a top-level 'hooks' record")
         ]
-    if allow_flat_events is None:
-        allow_flat_events = set()
 
     for event_name, handlers in hooks.items():
         if not isinstance(event_name, str) or not _CLAUDE_HOOK_EVENT_PATTERN.match(
@@ -361,8 +357,6 @@ def _validate_hook_event_map(
             )
             continue
 
-        is_flat_event = event_name in allow_flat_events
-
         for item in handlers:
             if not isinstance(item, dict):
                 violations.append(
@@ -372,64 +366,44 @@ def _validate_hook_event_map(
                 )
                 continue
 
-            if is_flat_event:
-                # Flat structure: must be a hook block directly
-                if item.get("type") != "command":
+            # Nested structure: must be a matcher block containing hooks list
+            nested_hooks = item.get("hooks")
+            if not isinstance(nested_hooks, list) or not nested_hooks:
+                violations.append(
+                    Violation(
+                        path,
+                        1,
+                        f"hooks event {event_name!r} entries must contain a non-empty 'hooks' list",
+                    )
+                )
+                continue
+            for hook in nested_hooks:
+                if not isinstance(hook, dict):
                     violations.append(
                         Violation(
                             path,
                             1,
-                            f"hooks event {event_name!r} flat hook entries must use type 'command'",
+                            f"hooks event {event_name!r} hook entries must be objects",
                         )
                     )
-                command = item.get("command")
+                    continue
+                if hook.get("type") != "command":
+                    violations.append(
+                        Violation(
+                            path,
+                            1,
+                            f"hooks event {event_name!r} hook entries must use type 'command'",
+                        )
+                    )
+                command = hook.get("command")
                 if not isinstance(command, str) or not command.strip():
                     violations.append(
                         Violation(
                             path,
                             1,
-                            f"hooks event {event_name!r} flat hook entries need a non-empty command",
+                            f"hooks event {event_name!r} hook entries need a non-empty command",
                         )
                     )
-            else:
-                # Nested structure: must be a matcher block containing hooks list
-                nested_hooks = item.get("hooks")
-                if not isinstance(nested_hooks, list) or not nested_hooks:
-                    violations.append(
-                        Violation(
-                            path,
-                            1,
-                            f"hooks event {event_name!r} entries must contain a non-empty 'hooks' list",
-                        )
-                    )
-                    continue
-                for hook in nested_hooks:
-                    if not isinstance(hook, dict):
-                        violations.append(
-                            Violation(
-                                path,
-                                1,
-                                f"hooks event {event_name!r} hook entries must be objects",
-                            )
-                        )
-                        continue
-                    if hook.get("type") != "command":
-                        violations.append(
-                            Violation(
-                                path,
-                                1,
-                                f"hooks event {event_name!r} hook entries must use type 'command'",
-                            )
-                        )
-                    command = hook.get("command")
-                    if not isinstance(command, str) or not command.strip():
-                        violations.append(
-                            Violation(
-                                path,
-                                1,
-                                f"hooks event {event_name!r} hook entries need a non-empty command",
-                            )
-                        )
     return violations
 
 
@@ -1872,7 +1846,11 @@ def validate_antigravity_hook_commands(repo_root: Path) -> list[Violation]:
 
     targets = [p for p in (root_hooks, agy_hooks) if p.is_file()]
     if not targets:
-        return [Violation(root_hooks, None, "missing root hooks.json and hooks/hooks-agy.json")]
+        return [
+            Violation(
+                root_hooks, None, "missing root hooks.json and hooks/hooks-agy.json"
+            )
+        ]
 
     if root_hooks.is_file() and agy_hooks.is_file():
         try:
@@ -1887,7 +1865,9 @@ def validate_antigravity_hook_commands(repo_root: Path) -> list[Violation]:
                     )
                 )
         except (json.JSONDecodeError, OSError) as exc:
-            violations.append(Violation(root_hooks, 1, f"JSON parse error comparing hooks: {exc}"))
+            violations.append(
+                Violation(root_hooks, 1, f"JSON parse error comparing hooks: {exc}")
+            )
 
     for path in targets:
         try:
@@ -1897,7 +1877,9 @@ def validate_antigravity_hook_commands(repo_root: Path) -> list[Violation]:
             continue
 
         if not isinstance(data, dict):
-            violations.append(Violation(path, 1, "hooks manifest must be a JSON object"))
+            violations.append(
+                Violation(path, 1, "hooks manifest must be a JSON object")
+            )
             continue
 
         commands = [
@@ -1910,7 +1892,9 @@ def validate_antigravity_hook_commands(repo_root: Path) -> list[Violation]:
             if isinstance(handler, dict) and isinstance(handler.get("command"), str)
         ]
         if not commands:
-            violations.append(Violation(path, 1, "no command hooks found in Antigravity manifest"))
+            violations.append(
+                Violation(path, 1, "no command hooks found in Antigravity manifest")
+            )
             continue
         for command in commands:
             if "python" in command:
@@ -1927,12 +1911,18 @@ def validate_antigravity_hook_commands(repo_root: Path) -> list[Violation]:
                 if token in command:
                     violations.append(
                         Violation(
-                            path, 1, f"unsupported template token {token!r} in hook command"
+                            path,
+                            1,
+                            f"unsupported template token {token!r} in hook command",
                         )
                     )
             if not any(
                 token in command
-                for token in ("ANTIGRAVITY_PLUGIN_ROOT", "AGY_PLUGIN_ROOT", "PLUGIN_ROOT")
+                for token in (
+                    "ANTIGRAVITY_PLUGIN_ROOT",
+                    "AGY_PLUGIN_ROOT",
+                    "PLUGIN_ROOT",
+                )
             ):
                 violations.append(
                     Violation(
@@ -2216,7 +2206,25 @@ def validate_codex_hook_commands(repo_root: Path) -> list[Violation]:
             violations.append(Violation(path, 1, f"invalid JSON: {e}"))
             continue
 
-        hooks = data.get("hooks", {})
+        hooks = data.get("hooks") if isinstance(data, dict) else None
+        schema_errors = _validate_hook_event_map(path, hooks)
+        violations.extend(schema_errors)
+        if schema_errors:
+            continue
+        canonical = repo_root / "hooks/hooks-codex.json"
+        if canonical.is_file() and path != canonical:
+            try:
+                expected = json.loads(canonical.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                expected = None
+            if expected is not None and data != expected:
+                violations.append(
+                    Violation(
+                        path,
+                        1,
+                        "Codex hooks differ from canonical hooks/hooks-codex.json",
+                    )
+                )
         session_start = hooks.get("SessionStart", [])
         if not isinstance(session_start, list):
             continue
@@ -2224,16 +2232,7 @@ def validate_codex_hook_commands(repo_root: Path) -> list[Violation]:
         for item in session_start:
             if not isinstance(item, dict):
                 continue
-            nested = item.get("hooks")
-            commands = []
-            if isinstance(nested, list):
-                # Nested structure
-                for h in nested:
-                    if isinstance(h, dict):
-                        commands.append(h.get("command", ""))
-            else:
-                # Flat structure
-                commands.append(item.get("command", ""))
+            commands = [hook["command"] for hook in item["hooks"]]
 
             for command in commands:
                 for token in ("${extensionPath}", "${/}"):
@@ -3974,6 +3973,7 @@ _OPERATION_PREDICATES: dict[str, set[str]] = {
     "compound": {
         "no_other_unresolved_journal",
         "spec_identity",
+        "target_identity",
         "all_task_identities",
     },
 }
@@ -4543,6 +4543,25 @@ def _quality_waivers(
     }
 
 
+_COMPOUND_VARIANTS = {"claim", "release", "checkpoint.task", "close"}
+
+
+def _operation_variant(request: dict[str, Any]) -> str:
+    operation = str(request.get("operation"))
+    payload = request.get("payload")
+    if not isinstance(payload, dict):
+        return operation
+    if operation in {"create", "checkpoint"}:
+        return f"{operation}.{payload.get('variant' if operation == 'create' else 'scope')}"
+    if operation == "note":
+        return (
+            "note.git_note_attachment"
+            if payload.get("category") == "git_note_attachment"
+            else "note.normal"
+        )
+    return operation
+
+
 def _validate_payload_values(
     path: Path, request: dict[str, Any], variant: str
 ) -> list[Violation]:
@@ -4885,7 +4904,9 @@ def _validate_payload_values(
         affected = payload.get("affected_tasks_sorted")
         if not isinstance(operations, list) or not operations:
             violations.append(
-                Violation(path, 1, "journal compound operations must be a non-empty array")
+                Violation(
+                    path, 1, "journal compound operations must be a non-empty array"
+                )
             )
         if not _unique_strings(affected, sorted_values=True):
             violations.append(
@@ -4901,6 +4922,67 @@ def _validate_payload_values(
                     path,
                     1,
                     "journal compound targets must equal affected_tasks_sorted",
+                )
+            )
+
+        child_targets: set[str] = set()
+        for step in operations if isinstance(operations, list) else []:
+            if not _exact_record(step, {"request", "read_set", "fragments"}):
+                violations.append(
+                    Violation(
+                        path, 1, "journal compound child evidence has an inexact keyset"
+                    )
+                )
+                continue
+            child = step["request"]
+            if (
+                not _exact_record(child, _REQUEST_KEYS)
+                or _operation_variant(child) not in _COMPOUND_VARIANTS
+                or not isinstance(step["read_set"], list)
+                or not isinstance(step["fragments"], list)
+                or not _unique_strings(child.get("targets"), sorted_values=True)
+            ):
+                violations.append(
+                    Violation(
+                        path,
+                        1,
+                        "journal compound child request is unsupported or malformed",
+                    )
+                )
+                continue
+            child_targets.update(child["targets"])
+            for key in _REQUEST_KEYS - {"operation", "targets", "payload"}:
+                if child[key] != request.get(key):
+                    violations.append(
+                        Violation(
+                            path,
+                            1,
+                            f"journal compound child {key} must equal outer request",
+                        )
+                    )
+            keysets = _payload_keysets(child)
+            payload_child = child.get("payload")
+            if (
+                keysets is None
+                or not isinstance(payload_child, dict)
+                or not keysets[0] <= set(payload_child)
+                or set(payload_child) - keysets[0] - keysets[1]
+            ):
+                violations.append(
+                    Violation(
+                        path, 1, "journal compound child payload has an inexact keyset"
+                    )
+                )
+            else:
+                violations.extend(
+                    _validate_payload_values(path, child, _operation_variant(child))
+                )
+        if sorted(child_targets) != affected:
+            violations.append(
+                Violation(
+                    path,
+                    1,
+                    "journal compound affected tasks must equal union of child targets",
                 )
             )
 
@@ -5331,6 +5413,364 @@ def _validate_read_predicates(
     return violations
 
 
+def _validate_compound_steps(
+    path: Path, data: dict[str, Any], request: dict[str, Any]
+) -> list[Violation]:
+    """Compose evidenced logical steps; transaction identity is stamped only once."""
+    violations: list[Violation] = []
+
+    def refuse(message: str) -> None:
+        violations.append(Violation(path, 1, f"journal compound {message}"))
+
+    state: dict[str, dict[str, Any]] = {}
+    for item in data["read_set"]:
+        if isinstance(item, dict) and item.get("predicate") is None:
+            if item["path"] in state:
+                refuse("initial identities must be unique")
+            state[item["path"]] = dict(item["fields"])
+    for fragment in data["fragments"]:
+        if fragment["anchor"] == "frontmatter":
+            current = state.get(fragment["path"])
+            if current is None or any(
+                key in current and current[key] != value
+                for key, value in fragment["before"].items()
+            ):
+                refuse("outer before image disagrees with initial identities")
+            elif current is not None:
+                current.update(fragment["before"])
+    if violations:
+        return violations
+    composed: dict[tuple[str, str, str], dict[str, Any]] = {}
+    identity_fields = {
+        "state_revision",
+        "last_operation",
+        "operation_targets",
+        "updated_at",
+    }
+    for step in request["payload"]["operations"]:
+        child = step["request"]
+        target = child["targets"][0] if len(child["targets"]) == 1 else None
+        if target is None or f"tasks/{target}.md" not in state:
+            refuse("child must reference one recorded task")
+            continue
+        task_path = f"tasks/{target}.md"
+        task = state[task_path]
+        spec = state["spec.md"]
+        previous_current_task = spec.get("current_task")
+        previous_checkpoint = spec.get("last_verified_checkpoint")
+        previous_task = dict(task)
+        child_data = {
+            **data,
+            **step,
+            "ordered_writes": [
+                {"base": "flow_root", "path": task_path},
+                {"base": "flow_root", "path": "spec.md"},
+            ],
+        }
+        child_errors = _validate_journal_semantics(path, child_data, child)
+        violations.extend(child_errors)
+        if child_errors:
+            continue
+        identities = {
+            item["path"]: item["fields"]
+            for item in step["read_set"]
+            if item.get("predicate") is None
+        }
+        if set(identities) != {"spec.md", task_path}:
+            refuse("child identities must cover exactly its spec and target")
+        for relative, fields in identities.items():
+            if relative not in state or any(
+                state[relative].get(key) != value for key, value in fields.items()
+            ):
+                refuse("child read identity disagrees with preceding step")
+        for item in step["read_set"]:
+            predicate = item.get("predicate")
+            if predicate is None:
+                continue
+            for key in ("target", "excluding"):
+                if key in item and item[key] != {
+                    "base": "flow_root",
+                    "path": task_path,
+                }:
+                    refuse("child predicate is bound to a different target")
+            if "spec" in item and item["spec"] != {
+                "base": "flow_root",
+                "path": "spec.md",
+            }:
+                refuse("child predicate is bound to a different spec")
+            if predicate == "all_dependencies_closed":
+                for dependency in item["dependency_paths"]:
+                    fields = state.get(dependency["path"])
+                    if fields is None or fields.get("state") != "closed":
+                        refuse("dependency is not closed in the preceding step")
+            if predicate == "no_other_in_progress_claim":
+                others = [
+                    relative
+                    for relative, fields in state.items()
+                    if relative.startswith("tasks/")
+                    and relative != task_path
+                    and fields.get("state") == "in_progress"
+                ]
+                if (
+                    others
+                    or item["observed_task_ids"]
+                    or spec.get("current_task") is not None
+                ):
+                    refuse("claim requires no current claimant in the preceding step")
+            if predicate == "sole_current_claim" and (
+                task.get("state") != "in_progress"
+                or task.get("claimed_by") != child["actor"]
+                or spec.get("current_task") != target
+            ):
+                refuse("child requires the sole current claim")
+            if (
+                predicate == "actor_is_claimant_or_authorized"
+                and task.get("claimed_by") != child["actor"]
+                and not item.get("authorization")
+            ):
+                refuse("child actor does not own the claim")
+        seen = set()
+        for fragment in step["fragments"]:
+            key = (fragment["base"], fragment["path"], fragment["anchor"])
+            before, after = fragment["before"], fragment["after"]
+            if (
+                key in seen
+                or key[0] != "flow_root"
+                or key[1] not in {task_path, "spec.md"}
+            ):
+                refuse("child fragments must be unique and scoped to target/spec")
+                continue
+            seen.add(key)
+            if key[2] not in {
+                "frontmatter",
+                "continuity-snapshot",
+                "notes-and-discoveries",
+                f"implementation-plan-task-{target}",
+            }:
+                refuse("child anchor is unsupported")
+            if key[2] == "continuity-snapshot" and before.get(
+                "state_identity"
+            ) != after.get("state_identity"):
+                refuse("child continuity must leave transaction identity unchanged")
+            if any(before.get(field) != after.get(field) for field in identity_fields):
+                refuse("child fragments must leave transaction identity unchanged")
+            if key in composed:
+                previous = composed[key]
+                if previous["after"] != before:
+                    refuse(
+                        "child fragment before image does not follow preceding after image"
+                    )
+                previous["after"] = dict(after)
+            else:
+                composed[key] = {
+                    **fragment,
+                    "before": dict(before),
+                    "after": dict(after),
+                }
+            if key[2] == "frontmatter":
+                allowed = identity_fields | (
+                    {"current_task", "last_verified_checkpoint"}
+                    if key[1] == "spec.md"
+                    else {
+                        "state",
+                        "claimed_by",
+                        "claimed_at",
+                        "blocked_reason",
+                        "unblock_condition",
+                        "next_step",
+                        "commit",
+                        "last_verified_at",
+                        "last_verified_commit",
+                        "verification_evidence",
+                    }
+                )
+                if set(before) - allowed:
+                    refuse("child frontmatter modifies unsupported fields")
+                current = state[key[1]]
+                if any(
+                    field in current and current[field] != value
+                    for field, value in before.items()
+                ):
+                    refuse("child fragment before image contradicts its read identity")
+                if any(
+                    field in after and after[field] != current.get(field)
+                    for field in ("plan_revision", "plan_commit")
+                ):
+                    refuse("child cannot modify plan identity")
+                current.update(after)
+        required_anchors = {
+            ("flow_root", task_path, "frontmatter"),
+            ("flow_root", "spec.md", "frontmatter"),
+            ("flow_root", "spec.md", f"implementation-plan-task-{target}"),
+            ("flow_root", "spec.md", "continuity-snapshot"),
+        }
+        if child["operation"] == "release":
+            required_anchors.add(("flow_root", task_path, "notes-and-discoveries"))
+        if seen != required_anchors:
+            refuse(
+                "child requires exact target/spec frontmatter, checklist, continuity and operation note fragments"
+            )
+        operation = child["operation"]
+        expected_state = {
+            "claim": "in_progress",
+            "release": "open",
+            "close": "closed",
+            "checkpoint": "in_progress",
+        }[operation]
+        if task.get("state") != expected_state:
+            refuse("child task postcondition is not satisfied")
+        expected_current_task = (
+            target
+            if operation in {"claim", "checkpoint"}
+            else None
+            if previous_current_task == target
+            else previous_current_task
+        )
+        if spec.get("current_task") != expected_current_task:
+            refuse("child changes an unrelated current claim")
+        if operation in {"claim", "checkpoint"}:
+            if (
+                spec.get("current_task") != target
+                or task.get("claimed_by") != child["actor"]
+            ):
+                refuse("child claim postcondition is not satisfied")
+        elif (
+            spec.get("current_task") == target
+            or task.get("claimed_by") is not None
+            or task.get("claimed_at") is not None
+        ):
+            refuse("child must clear its claim")
+        if spec.get("state") != "active":
+            refuse("child must keep the spec active")
+        if operation == "claim" and task.get("claimed_at") != child["occurred_at"]:
+            refuse("claim timestamp must match the request")
+        if operation in {"claim", "release"} and task.get("next_step") != child[
+            "payload"
+        ].get("next_step"):
+            refuse("child next_step disagrees with payload")
+        if operation == "claim" and any(
+            task.get(key) is not None for key in ("blocked_reason", "unblock_condition")
+        ):
+            refuse("child must clear blocking fields")
+        if operation in {"checkpoint", "close"} and task.get("commit") != child[
+            "payload"
+        ].get("commit"):
+            refuse("child commit postcondition disagrees with payload")
+        if operation in {"claim", "release"} and (
+            any(
+                task.get(key) != previous_task.get(key)
+                for key in (
+                    "commit",
+                    "verification_evidence",
+                    "last_verified_at",
+                    "last_verified_commit",
+                )
+            )
+            or spec.get("last_verified_checkpoint") != previous_checkpoint
+        ):
+            refuse("claim/release must preserve verification and checkpoint")
+        if operation == "close" and any(
+            task.get(key) is not None
+            for key in ("next_step", "blocked_reason", "unblock_condition")
+        ):
+            refuse("close must clear next step and blocking fields")
+        if operation in {"checkpoint", "close"}:
+            payload = child["payload"]
+            if (
+                task.get("verification_evidence") != payload["verification_evidence"]
+                or task.get("last_verified_commit") != payload["commit"]
+                or task.get("last_verified_at") != child["occurred_at"]
+            ):
+                refuse("child verification postcondition disagrees with payload")
+            if (
+                spec.get("last_verified_checkpoint")
+                != f"task:{target}@{payload['commit']}"
+            ):
+                refuse("child checkpoint postcondition disagrees with payload")
+        if operation == "release":
+            note = next(
+                (
+                    fragment
+                    for fragment in step["fragments"]
+                    if fragment["anchor"] == "notes-and-discoveries"
+                ),
+                None,
+            )
+            entry = f"- {child['occurred_at']} release: {child['payload']['reason']}"
+            if (
+                note is None
+                or note["after"].get("content")
+                != note["before"].get("content", "") + "\n" + entry
+            ):
+                refuse(
+                    "release must append its timestamped reason without rewriting notes"
+                )
+        checklist = composed.get(
+            ("flow_root", "spec.md", f"implementation-plan-task-{target}"), {}
+        ).get("after", {})
+        marker = {
+            "open": "[ ]",
+            "in_progress": "[~]",
+            "blocked": "[!]",
+            "closed": "[x]",
+        }[expected_state]
+        if checklist.get("checklist_marker") != marker:
+            refuse("child checklist postcondition disagrees with task state")
+        if (
+            operation in {"checkpoint", "close"}
+            and checklist.get("commit_suffix") != child["payload"]["commit"]
+        ):
+            refuse("child checklist commit disagrees with payload")
+        snapshot = composed.get(
+            ("flow_root", "spec.md", "continuity-snapshot"), {}
+        ).get("after", {})
+        current_task = spec.get("current_task")
+        claimant = state.get(f"tasks/{current_task}.md", {}).get("claimed_by")
+        claim = {"task": current_task, "claimed_by": claimant} if current_task else None
+        if snapshot.get("current_task_claim") != claim:
+            refuse("child continuity postcondition disagrees with current claim")
+        if snapshot.get("last_verified_checkpoint") != spec.get(
+            "last_verified_checkpoint"
+        ):
+            refuse("child spec and continuity checkpoints must match")
+        if (
+            operation in {"claim", "release"}
+            and snapshot.get("next_exact_step") != child["payload"]["next_step"]
+        ):
+            refuse("child continuity next step disagrees with payload")
+    outer = {
+        (fragment["base"], fragment["path"], fragment["anchor"]): fragment
+        for fragment in data["fragments"]
+    }
+    if len(outer) != len(data["fragments"]) or outer.keys() != composed.keys():
+        refuse("outer fragments must equal the composed child write set")
+    for key, fragment in composed.items():
+        if key not in outer:
+            continue
+        expected_after = dict(fragment["after"])
+        if key[2] == "frontmatter":
+            expected_after.update(
+                state_revision=request["expected_state_revision"] + 1,
+                last_operation=data["operation_id"],
+                operation_targets=request["targets"],
+                updated_at=request["occurred_at"],
+            )
+        elif key[2] == "continuity-snapshot":
+            expected_after["state_identity"] = {
+                "revision": request["expected_state_revision"] + 1,
+                "last_operation": data["operation_id"],
+                "operation_targets": request["targets"],
+            }
+        if (
+            outer[key]["before"] != fragment["before"]
+            or outer[key]["after"] != expected_after
+        ):
+            refuse("outer fragments do not equal the ordered child composition")
+    if data.get("file_fragments") or data.get("ordered_directories"):
+        refuse("file creation/deletion and directory writes are unsupported")
+    return violations
+
+
 def _validate_journal_semantics(
     path: Path, data: dict[str, Any], request: dict[str, Any]
 ) -> list[Violation]:
@@ -5369,17 +5809,7 @@ def _validate_journal_semantics(
         violations.append(
             Violation(path, 1, "journal request expected_plan_commit is invalid")
         )
-    variant = str(operation)
-    if operation == "create" and isinstance(payload, dict):
-        variant = f"create.{payload.get('variant')}"
-    elif operation == "checkpoint" and isinstance(payload, dict):
-        variant = f"checkpoint.{payload.get('scope')}"
-    elif operation == "note" and isinstance(payload, dict):
-        variant = (
-            "note.git_note_attachment"
-            if payload.get("category") == "git_note_attachment"
-            else "note.normal"
-        )
+    variant = _operation_variant(request)
     violations.extend(_validate_payload_values(path, request, variant))
     spec_only = {
         "activate",
@@ -5476,33 +5906,6 @@ def _validate_journal_semantics(
                 observed_predicates.add("target_identity")
         violations.extend(_validate_read_predicates(path, data, request))
     required_predicates = _OPERATION_PREDICATES.get(variant)
-    if (
-        variant == "compound"
-        and isinstance(payload, dict)
-        and isinstance(payload.get("operations"), list)
-    ):
-        constituent_preds = {"no_other_unresolved_journal", "spec_identity"}
-        has_subops = False
-        for sub_op in payload.get("operations", []):
-            if isinstance(sub_op, dict):
-                sub_name = sub_op.get("operation")
-                sub_payload = sub_op.get("payload", {})
-                sub_variant = str(sub_name)
-                if sub_name == "create" and isinstance(sub_payload, dict):
-                    sub_variant = f"create.{sub_payload.get('variant')}"
-                elif sub_name == "checkpoint" and isinstance(sub_payload, dict):
-                    sub_variant = f"checkpoint.{sub_payload.get('scope')}"
-                elif sub_name == "note" and isinstance(sub_payload, dict):
-                    sub_variant = (
-                        "note.git_note_attachment"
-                        if sub_payload.get("category") == "git_note_attachment"
-                        else "note.normal"
-                    )
-                if sub_variant in _OPERATION_PREDICATES:
-                    constituent_preds.update(_OPERATION_PREDICATES[sub_variant])
-                    has_subops = True
-        if has_subops:
-            required_predicates = constituent_preds
     if required_predicates is not None and observed_predicates != required_predicates:
         violations.append(
             Violation(
@@ -5548,6 +5951,7 @@ def _validate_journal_semantics(
         "create.task": {"planned", "active"},
         "activate": {"planned"},
         "claim": {"active"},
+        "compound": {"active"},
         "release": {"active"},
         "note.normal": {"planned", "active"},
         "note.git_note_attachment": {"planned", "active", "completed"},
@@ -5669,6 +6073,18 @@ def _validate_journal_semantics(
                     f"create.task chapter fragment {index} has an inexact insertion schema",
                 )
             )
+        elif anchor == "notes-and-discoveries":
+            if keys != {"content"} or not all(
+                isinstance(image.get("content"), str)
+                for image in (fragment["before"], fragment["after"])
+            ):
+                violations.append(
+                    Violation(
+                        path,
+                        1,
+                        "journal note fragment requires exact string content images",
+                    )
+                )
         elif anchor == "continuity-snapshot":
             if keys != {
                 "current_task_claim",
@@ -5761,6 +6177,8 @@ def _validate_journal_semantics(
                             f"journal.fragments[{index}] has illegal {operation} transition {transition[0]} -> {transition[1]}",
                         )
                     )
+    if variant == "compound" and not violations:
+        violations.extend(_validate_compound_steps(path, data, request))
     return violations
 
 
@@ -6602,6 +7020,10 @@ def _anchor_fields(
             r"(?m)^- \[[ ~x!-]\] Task [^\n]+$", text[heading.end() : end]
         )
         return {"checklist_items": checklist_items}
+    if anchor == "notes-and-discoveries":
+        sections = _parse_h2_sections(_markdown_body(target))
+        content = sections.get("Notes & Discoveries")
+        return {"content": content} if content is not None else None
     if anchor == "continuity-snapshot":
         sections = _parse_h2_sections(_markdown_body(target))
         claim_text = _snapshot_value(sections, "Current task/claim") or ""
@@ -6638,6 +7060,41 @@ def _anchor_fields(
         }
         return {key: value.get(key) for key in fields}
     return None
+
+
+def _mutation_images(repo_root: Path, data: dict[str, Any]):
+    """Read anchored and complete images through one recovery comparison seam."""
+    roots = _journal_roots(repo_root, data)
+    for kind in ("fragments", "file_fragments"):
+        for fragment in data.get(kind, []):
+            if not isinstance(fragment, dict):
+                yield None, None, None, None
+                continue
+            base = str(fragment.get("base"))
+            relative = str(fragment.get("path"))
+            anchor = str(fragment.get("anchor")) if kind == "fragments" else "complete"
+            target = roots[base] / relative if base in roots else None
+            if target is None:
+                yield None, None, None, None
+                continue
+            live = (
+                _anchor_fields(target, anchor, fragment.get("before", {}))
+                if kind == "fragments"
+                else {
+                    "exists": target.is_file(),
+                    "content_utf8_lf": target.read_text(encoding="utf-8").replace(
+                        "\r\n", "\n"
+                    )
+                    if target.is_file()
+                    else None,
+                }
+            )
+            yield (
+                (base, relative, anchor),
+                live,
+                _semantic_value(fragment.get("before")),
+                _semantic_value(fragment.get("after")),
+            )
 
 
 def _live_mutation_images(
@@ -6705,24 +7162,17 @@ def _live_mutation_images(
     matched_after_count = 0
     matched_before_count = 0
     total_count = 0
-    for fragment in data.get("fragments", []):
-        if not isinstance(fragment, dict):
+    for key, live, before, after in _mutation_images(repo_root, data):
+        if key is None:
             valid = False
             continue
-        key = (
-            str(fragment.get("base")),
-            str(fragment.get("path")),
-            str(fragment.get("anchor")),
-        )
-        base_path = roots.get(key[0])
-        if base_path is None:
-            valid = False
-            continue
-        live = _anchor_fields(base_path / key[1], key[2], fragment.get("before", {}))
-        before = _semantic_value(fragment.get("before"))
-        after = _semantic_value(fragment.get("after"))
         after_images[key] = after
         path_key = key[:2]
+        if is_prepared_initial and before == after:
+            if live != before:
+                valid = False
+                drift[key] = live
+            continue
         total_count += 1
         if is_prepared_initial:
             if live == after:
@@ -6734,7 +7184,9 @@ def _live_mutation_images(
                 valid = False
                 drift[key] = live
         else:
-            expected = before if path_key in rolled or path_key not in applied else after
+            expected = (
+                before if path_key in rolled or path_key not in applied else after
+            )
             if path_key in {open_forward, open_rollback} and (
                 live == before or live == after
             ):
@@ -6743,53 +7195,14 @@ def _live_mutation_images(
                 valid = False
                 drift[key] = live
             effective |= path_key in applied and path_key not in rolled
-    for fragment in data.get("file_fragments", []):
-        if not isinstance(fragment, dict):
-            valid = False
-            continue
-        key = (str(fragment.get("base")), str(fragment.get("path")), "complete")
-        base_path = roots.get(key[0])
-        target = base_path / key[1] if base_path is not None else None
-        live = {
-            "exists": bool(target and target.is_file()),
-            "content_utf8_lf": target.read_text(encoding="utf-8").replace("\r\n", "\n")
-            if target and target.is_file()
-            else None,
-        }
-        before = _semantic_value(fragment.get("before"))
-        after = _semantic_value(fragment.get("after"))
-        after_images[key] = after
-        path_key = key[:2]
-        total_count += 1
-        if is_prepared_initial:
-            if live == after:
-                matched_after_count += 1
-                effective = True
-            elif live == before:
-                matched_before_count += 1
-            else:
-                valid = False
-                drift[key] = live
-        else:
-            expected = before if path_key in rolled or path_key not in applied else after
-            if path_key in {open_forward, open_rollback} and (
-                live == before or live == after
-            ):
-                effective |= live == after
-            elif live != expected:
-                valid = False
-                drift[key] = live
-            effective |= path_key in applied and path_key not in rolled
-
     prepared_classification: str | None = None
-    if is_prepared_initial and valid and not drift:
-        if total_count > 0:
-            if matched_after_count == total_count:
-                prepared_classification = "all_after"
-            elif matched_before_count == total_count:
-                prepared_classification = "all_before"
-            elif matched_after_count > 0 and matched_before_count > 0:
-                prepared_classification = "mixed"
+    if is_prepared_initial and valid and not drift and total_count > 0:
+        if matched_after_count == total_count:
+            prepared_classification = "all_after"
+        elif matched_before_count == total_count:
+            prepared_classification = "all_before"
+        elif matched_after_count > 0 and matched_before_count > 0:
+            prepared_classification = "mixed"
 
     applied_dirs = {
         (item.get("base"), item.get("path"))
@@ -6870,38 +7283,67 @@ def _live_mutation_images(
 
 def _read_set_matches_live(repo_root: Path, data: dict[str, Any]) -> bool:
     roots = _journal_roots(repo_root, data)
+    if data.get("request", {}).get("operation") == "compound":
+        if _validate_payload_values(Path("journal.md"), data["request"], "compound"):
+            return False
+        flow_root = roots["flow_root"]
+        task_paths = {
+            str(task.relative_to(flow_root)) for task in flow_root.glob("tasks/*.md")
+        }
+        recorded = {
+            item["path"]: item["fields"]
+            for item in data.get("read_set", [])
+            if isinstance(item, dict)
+            and item.get("predicate") is None
+            and isinstance(item.get("fields"), dict)
+        }
+        if set(recorded) != {"spec.md", *task_paths}:
+            return False
+        # Mutable fields are checked by image recovery; every other read field
+        # must still match, including on paths already partially written.
+        written = {
+            fragment["path"]: set(fragment["before"])
+            for fragment in data.get("fragments", [])
+            if isinstance(fragment, dict) and fragment.get("anchor") == "frontmatter"
+        }
+        for relative, fields in recorded.items():
+            unchanged = {
+                key: value
+                for key, value in fields.items()
+                if key not in written.get(relative, set())
+            }
+            if _frontmatter_fields(flow_root / relative, unchanged) != _semantic_value(
+                unchanged
+            ):
+                return False
+        for step in data["request"]["payload"]["operations"]:
+            if not isinstance(step, dict) or not isinstance(step.get("read_set"), list):
+                return False
+            for item in step["read_set"]:
+                if not isinstance(item, dict):
+                    return False
+                if item.get("predicate") == "all_dependencies_closed":
+                    target = item.get("target", {}).get("path", "")
+                    fields = _frontmatter_fields(
+                        flow_root / target, {"depends_on": None}
+                    )
+                    paths = sorted(
+                        record.get("path")
+                        for record in item.get("dependency_paths", [])
+                    )
+                    if fields is None or paths != sorted(
+                        f"tasks/{dep}.md" for dep in fields.get("depends_on", [])
+                    ):
+                        return False
     changed_paths = {
         (roots[str(item.get("base"))] / str(item.get("path"))).resolve(strict=False)
         for item in data.get("applied_writes", [])
         if isinstance(item, dict) and str(item.get("base")) in roots
     }
     if not changed_paths and data.get("state") == "prepared":
-        for fragment in data.get("fragments", []):
-            if isinstance(fragment, dict):
-                base_name = str(fragment.get("base"))
-                path_name = str(fragment.get("path"))
-                if base_name in roots:
-                    target_path = (roots[base_name] / path_name).resolve(strict=False)
-                    anchor = str(fragment.get("anchor"))
-                    live = _anchor_fields(target_path, anchor, fragment.get("before", {}))
-                    after = _semantic_value(fragment.get("after"))
-                    if live == after:
-                        changed_paths.add(target_path)
-        for fragment in data.get("file_fragments", []):
-            if isinstance(fragment, dict):
-                base_name = str(fragment.get("base"))
-                path_name = str(fragment.get("path"))
-                if base_name in roots:
-                    target_path = (roots[base_name] / path_name).resolve(strict=False)
-                    live = {
-                        "exists": bool(target_path.is_file()),
-                        "content_utf8_lf": target_path.read_text(encoding="utf-8").replace("\r\n", "\n")
-                        if target_path.is_file()
-                        else None,
-                    }
-                    after = _semantic_value(fragment.get("after"))
-                    if live == after:
-                        changed_paths.add(target_path)
+        for key, live, before, after in _mutation_images(repo_root, data):
+            if key is not None and live == after and before != after:
+                changed_paths.add((roots[key[0]] / key[1]).resolve(strict=False))
     changed_directories = {
         (roots[str(item.get("base"))] / str(item.get("path"))).resolve(strict=False)
         for item in data.get("applied_directories", [])
@@ -7630,7 +8072,9 @@ def assess_markdown_transactions(repo_root: Path = REPO_ROOT) -> dict[str, str]:
             and not (repo_root / str(data.get("flow_root"))).exists()
         )
         if local != "hard_conflict":
-            live_valid, _, drift, after_images, prep_class = _live_mutation_images(repo_root, data)
+            live_valid, _, drift, after_images, prep_class = _live_mutation_images(
+                repo_root, data
+            )
             read_valid = _read_set_matches_live(repo_root, data)
             if not live_valid or not read_valid:
                 if local in {"zero", "proven_zero"} and drift:

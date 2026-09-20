@@ -25,7 +25,7 @@ MANIFESTS = tuple(sorted(HOOKS.glob("hooks-*.json"))) + (
 )
 POWERSHELL = shutil.which("pwsh") or shutil.which("powershell")
 NODE = shutil.which("node")
-BASH = shutil.which("bash")
+BASH = os.environ.get("FLOW_TEST_BASH") or shutil.which("bash")
 JQ = shutil.which("jq")
 
 STATIC_ROUTING = (
@@ -120,7 +120,6 @@ def _assert_session_payload(result: subprocess.CompletedProcess[str]) -> None:
     assert result.stdout.count("\n") == 1
     payload = json.loads(result.stdout)
     assert payload == {
-        "additional_context": STATIC_ROUTING,
         "hookSpecificOutput": {
             "hookEventName": "SessionStart",
             "additionalContext": STATIC_ROUTING,
@@ -128,7 +127,6 @@ def _assert_session_payload(result: subprocess.CompletedProcess[str]) -> None:
     }
     context = payload["hookSpecificOutput"]["additionalContext"]
     assert len(context) <= 512
-    assert len(payload["additional_context"]) <= 512
     assert "RAW PARTIAL OUTPUT" not in context
     assert "SECRET" not in context
 
@@ -364,6 +362,10 @@ def _run_git_guardrail(
         "git pull --prune-tags origin main",
         "git -c remote.origin.tagOpt=--tags fetch origin",
         "git -c fetch.pruneTags=true fetch origin",
+        "git -c remote.origin.fetch=+refs/tags/x:refs/tags/no-tags fetch origin",
+        "git -c remote.origin.fetch=+refs/tags/x:refs/cache/NO-TAGS fetch origin",
+        "git --config-env=remote.origin.fetch=FETCH_NO-TAGS fetch origin",
+        "git --config-env=remote.origin.tagOpt=NO-TAGS fetch origin",
         "git --config-env=remote.origin.tagOpt=TAG_OPTION fetch origin",
         "git-fetch --tags origin",
         "/usr/lib/git-core/git-fetch origin refs/tags/v1.2.3",
@@ -503,6 +505,7 @@ def test_git_guardrail_allows_parsed_safe_commands(command: str) -> None:
     assert result.stdout == ""
     assert result.stderr == ""
 
+
 @pytest.mark.skipif(BASH is None or JQ is None, reason="Bash and jq are required")
 @pytest.mark.parametrize(
     ("command", "returncode"),
@@ -519,6 +522,7 @@ def test_git_guardrail_classifies_large_commands_within_timeout(
     result = _run_git_guardrail({"tool_input": {"command": command}})
 
     assert result.returncode == returncode, result
+
 
 @pytest.mark.skipif(BASH is None or JQ is None, reason="Bash and jq are required")
 @pytest.mark.parametrize(
@@ -547,8 +551,6 @@ def test_git_guardrail_allows_unclassifiable_commands(command: str) -> None:
     result = _run_git_guardrail({"tool_input": {"command": command}})
 
     assert result.returncode == 0, result
-
-
 
 
 @pytest.mark.skipif(BASH is None or JQ is None, reason="Bash and jq are required")

@@ -7,6 +7,10 @@ description: "Use when a Flow request reads, mutates, reconciles, completes, arc
 
 Use this skill as the deterministic state boundary for Flow. The active lifecycle owner chooses a legal operation, supplies a complete typed request, and applies that request literally or refuses it with ordinary file tools. Read the packaged [canonical state contract](references/state.md) before handling any request. It owns the exact payload schemas, read predicates, fragments, event grammar, and lifecycle effects.
 
+Compound requests require ordered `{request, read_set, fragments}` child evidence.
+Only the task operations listed in the canonical contract compose; validate each
+step against its predecessor and stamp the outer transaction identity once.
+
 <!-- flow-state-contract: start -->
 ```yaml
 operations: [create, activate, claim, release, note, discover, block, unblock, checkpoint, close, skip, reopen, revise, reconcile, complete, archive, recover, compound, status]

@@ -144,8 +144,9 @@ BEFORE claiming any status:
 ### Workflow Test Churn Minimization
 
 To maintain velocity and prevent wasteful test churn:
-- **Inner-loop execution**: Do not run heavy full test suites or multi-package integration suites repeatedly during inner task iterations. Execute only `make lint` (or repo equivalent) and the fast, targeted unit or behavioral tests declared in the active worksheet.
-- **Phase-gate evaluation**: The full test suite, system integration verification, repo-wide static validation (`tools/validate.py`), cleanup, and debloating are reserved for phase milestone gates (`checkpoint.phase`) and Flow completion (`flow:finish`).
+
+- **Inner-loop execution**: Do not run heavy full test suites or multi-package integration suites repeatedly during inner task iterations. Run `make lint` (or repo equivalent) and the focused checks declared in the active worksheet, including integration checks when that strategy requires them.
+- **Phase-gate evaluation**: The full test suite, system integration verification, repo-wide static validation (`tools/validate.py`), cleanup, and debloating normally run at phase milestone gates (`checkpoint.phase`) and Flow completion (`flow:finish`); this does not defer verification required by the active worksheet.
 
 ### Verification Requirements
 
@@ -241,13 +242,11 @@ When executing complex flows, planning research, or dispatching implementation w
 ### Dynamic Multi-Subagent Decomposition
 
 In harnesses supporting dynamic subagents (such as Google Antigravity with `define_subagent` and `invoke_subagent`):
+
 - **Decompose, don't monologue**: Break large, multi-step tasks into specialized subagents running concurrently or sequentially rather than stuffing all exploration into a single monolithic context.
 - **Message passing**: Communicate with subagents asynchronously using message-passing tools (`send_message`). Subagents run in background contexts and report back findings when complete.
 - **Parallel research fan-out**: When investigating multi-faceted topics (e.g. API compatibility, database migration, edge-case testing), spawn distinct read-only researcher subagents in parallel with tightly scoped briefs.
-- **Two-axis multi-perspective review**: Before claiming phase completion, dispatch independent review subagents in parallel:
-  1. Spec compliance review (e.g. `@spec-reviewer` or `@code-reviewer`) against requirements.
-  2. Quality & debloat review (e.g. `@quality-reviewer`) auditing diffs for unnecessary complexity and weak assertions.
-  3. Security & permission review (e.g. `@security-auditor`) when handling credentials, input boundaries, or hooks.
+- **Ordered review**: Dispatch correctness/spec review first, then mandatory quality/debloat review on the same exact Git range with the correctness findings. Independent security analysis may run alongside correctness review when hooks, credentials, or input boundaries are involved. Follow [review.md](review.md).
 - **Sequential implementation**: Worksheets (`tasks/<id>.md`) MUST be executed sequentially by `@executor` subagents (one task per subagent, one functional commit at close) to prevent merge collisions on shared repository code.
 
 ### Model Selection

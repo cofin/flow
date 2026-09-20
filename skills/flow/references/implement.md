@@ -228,8 +228,9 @@ Refactor only while the strategy's focused evidence remains green. Apply reposit
 ### 3.4 Inner-Loop Test Churn Minimization
 
 To avoid execution churn and slow inner loops, do not execute the entire repository test suite on every code edit during task execution:
-- **Inner loop**: Run only `make lint` (or repo equivalent linter/typechecker) and the targeted unit or behavioral tests declared in the active worksheet.
-- **Milestone gates**: The full regression suite, integration checks, repository validation (`tools/validate.py`), cleanup, and debloat are reserved for Phase 7 (`Phase Checkpoint`) and Flow Completion.
+
+- **Inner loop**: Run `make lint` (or repo equivalent linter/typechecker) and all checks declared in the active worksheet, including required integration checks.
+- **Milestone gates**: The full regression suite, integration checks, repository validation (`tools/validate.py`), cleanup, and debloat normally run at Phase 7 (`Phase Checkpoint`) and Flow Completion; worksheet-required evidence must still run before task close.
 
 ### 3.6 When Tests Fail — Systematic Debugging
 
@@ -258,6 +259,7 @@ IRON LAW: NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST
 ## Phase 4: Commit
 
 ### 4.1 Scoped Commit Semantics
+
 - **Intermediate progress**: If an agent records intermediate progress (e.g. via compound state transitions or intermediate journal entries), record the nearest valid commit (`HEAD`).
 - **Task closing**: When closing a task (`close`), the functional commit MUST be clean, staging exact implementation files and recording the passing verification evidence from the declared strategy.
 
@@ -374,4 +376,3 @@ If continuing, loop back to Phase 2.
 9. **CODE REVIEW** — Dispatch review at phase checkpoints. Fix Critical/Important before proceeding.
 10. **USE CANONICAL REPO COMMANDS** — Prefer the commands documented in `.agents/bundles/knowledge/workflow.md`
 11. **BE COLLABORATIVE** — Describe unrelated blockers factually and constructively; never use dismissive ownership-deflecting language
-

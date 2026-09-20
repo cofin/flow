@@ -361,7 +361,7 @@ scan_arguments_for() {
 is_tag_fetch_config() {
   local config=$1
   case "$config" in
-    *[nN][oO]-[tT][aA][gG][sS])
+    [rR][eE][mM][oO][tT][eE].*.[tT][aA][gG][oO][pP][tT]=--no-tags)
       return 1
       ;;
     *[tT][aA][gG][oO][pP][tT]*|*[pP][rR][uU][nN][eE][tT][aA][gG][sS]*|*.[fF][eE][tT][cC][hH]=*[tT][aA][gG][sS]/*)
@@ -376,9 +376,6 @@ is_tag_fetch_config() {
 is_tag_fetch_config_env() {
   local config=$1
   case "$config" in
-    *[nN][oO]-[tT][aA][gG][sS])
-      return 1
-      ;;
     *[tT][aA][gG][oO][pP][tT]*|*[pP][rR][uU][nN][eE][tT][aA][gG][sS]*|*.[fF][eE][tT][cC][hH]=*)
       return 0
       ;;

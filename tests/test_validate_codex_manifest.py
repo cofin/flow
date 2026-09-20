@@ -4,13 +4,14 @@ import importlib.util
 import json
 from pathlib import Path
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
-MODULE_PATH = REPO_ROOT / "tools" / "validate.py" # Point to validate.py
+MODULE_PATH = REPO_ROOT / "tools" / "validate.py"  # Point to validate.py
 
 
 def _load_validate_codex_manifest_module():
-    spec = importlib.util.spec_from_file_location("validate_codex_manifest", MODULE_PATH)
+    spec = importlib.util.spec_from_file_location(
+        "validate_codex_manifest", MODULE_PATH
+    )
     assert spec is not None
     assert spec.loader is not None
     module = importlib.util.module_from_spec(spec)
@@ -23,7 +24,9 @@ validate_codex_manifest = _load_validate_codex_manifest_module()
 
 def test_codex_manifest_discovery_excludes_claude_marketplace() -> None:
     marketplaces = set(validate_codex_manifest.discover_codex_marketplaces(REPO_ROOT))
-    plugin_manifests = set(validate_codex_manifest.discover_codex_plugin_manifests(REPO_ROOT))
+    plugin_manifests = set(
+        validate_codex_manifest.discover_codex_plugin_manifests(REPO_ROOT)
+    )
 
     assert REPO_ROOT / ".agents" / "plugins" / "marketplace.json" in marketplaces
     assert REPO_ROOT / ".claude-plugin" / "marketplace.json" not in marketplaces
@@ -33,7 +36,9 @@ def test_codex_manifest_discovery_excludes_claude_marketplace() -> None:
 def test_codex_marketplace_source_is_a_shipped_plugin_package() -> None:
     marketplace = REPO_ROOT / ".agents" / "plugins" / "marketplace.json"
 
-    assert validate_codex_manifest.validate_codex_marketplace(marketplace, REPO_ROOT) == []
+    assert (
+        validate_codex_manifest.validate_codex_marketplace(marketplace, REPO_ROOT) == []
+    )
 
 
 def test_codex_package_layout_accepts_real_package_directories(tmp_path: Path) -> None:
@@ -59,11 +64,17 @@ def test_codex_package_layout_rejects_symlinked_package_payload(tmp_path: Path) 
 def _write_codex_hooks(root: Path, command: str) -> None:
     path = root / ".codex" / "hooks.json"
     path.parent.mkdir(parents=True, exist_ok=True)
-    manifest = {"hooks": {"SessionStart": [{"type": "command", "command": command}]}}
+    manifest = {
+        "hooks": {
+            "SessionStart": [{"hooks": [{"type": "command", "command": command}]}]
+        }
+    }
     path.write_text(json.dumps(manifest), encoding="utf-8")
 
 
-def test_codex_hook_command_validation_rejects_legacy_extension_tokens(tmp_path: Path) -> None:
+def test_codex_hook_command_validation_rejects_legacy_extension_tokens(
+    tmp_path: Path,
+) -> None:
     _write_codex_hooks(tmp_path, "bash ${extensionPath}${/}hooks${/}session-start.sh")
 
     # Inverted assertion: failure returns list of violations (truthy)
@@ -78,7 +89,42 @@ def test_codex_hook_command_validation_rejects_relative_path(tmp_path: Path) -> 
 
 
 def test_codex_hook_command_validation_accepts_plugin_root(tmp_path: Path) -> None:
-    _write_codex_hooks(tmp_path, 'bash "${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-.}}/hooks/session-start.sh"')
+    _write_codex_hooks(
+        tmp_path,
+        'bash "${PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-.}}/hooks/session-start.sh"',
+    )
 
     # Inverted assertion: success returns empty list (falsy)
     assert not validate_codex_manifest.validate_codex_hook_commands(tmp_path)
+
+
+def test_codex_hook_rejects_flat_handlers(tmp_path: Path) -> None:
+    path = tmp_path / ".codex" / "hooks.json"
+    path.parent.mkdir()
+    path.write_text(
+        json.dumps(
+            {
+                "hooks": {
+                    "SessionStart": [
+                        {
+                            "type": "command",
+                            "command": 'bash "${PLUGIN_ROOT}/hooks/session-start.sh"',
+                        }
+                    ]
+                }
+            }
+        )
+    )
+    violations = validate_codex_manifest.validate_codex_hook_commands(tmp_path)
+    assert any("hooks' list" in v.message for v in violations)
+
+
+def test_codex_root_hook_drift_is_rejected(tmp_path: Path) -> None:
+    _write_codex_hooks(tmp_path, 'bash "${PLUGIN_ROOT}/hooks/session-start.sh"')
+    canonical = tmp_path / "hooks" / "hooks-codex.json"
+    canonical.parent.mkdir()
+    data = json.loads((tmp_path / ".codex" / "hooks.json").read_text())
+    data["hooks"]["SessionStart"][0]["hooks"][0]["timeout"] = 30
+    canonical.write_text(json.dumps(data))
+    violations = validate_codex_manifest.validate_codex_hook_commands(tmp_path)
+    assert any("canonical" in v.message for v in violations)

@@ -8,7 +8,6 @@ from pathlib import Path
 import pytest
 import yaml
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 STATE_REFERENCE = REPO_ROOT / "skills" / "flow" / "references" / "state.md"
 NONTERMINAL = {
@@ -322,6 +321,7 @@ def _is_numbered_step(line: str) -> bool:
 
 def _load_validator():
     import importlib.util
+
     module_path = REPO_ROOT / "tools" / "validate.py"
     spec = importlib.util.spec_from_file_location("validator", module_path)
     assert spec is not None and spec.loader is not None
@@ -330,7 +330,16 @@ def _load_validator():
     return module
 
 
-def test_intent_first_prepared_crash_recovery_all_after(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "images, expected",
+    [
+        (("after", "after"), "finishable"),
+        (("before", "before"), "finishable"),
+        (("after", "before"), "sole_recovery_candidate"),
+        (("after", "drift"), "hard_conflict"),
+    ],
+)
+def test_intent_first_prepared_crash_recovery(tmp_path: Path, images, expected) -> None:
     validator = _load_validator()
     configured = tmp_path / ".agents"
     bundle = configured / "bundles"
@@ -345,9 +354,9 @@ def test_intent_first_prepared_crash_recovery_all_after(tmp_path: Path) -> None:
         "plan_revision: 1\n"
         "plan_commit: null\n"
         "state_revision: 2\n"
-        "current_task: \"1.1\"\n"
+        'current_task: "1.1"\n'
         "last_operation: 20260813T203342Z-flow-executor-claim-1-1-00\n"
-        "operation_targets: [\"1.1\"]\n"
+        'operation_targets: ["1.1"]\n'
         "last_verified_checkpoint: null\n"
         "created_at: 2026-08-13T20:30:00Z\n"
         "updated_at: 2026-08-13T20:33:42Z\n"
@@ -360,7 +369,7 @@ def test_intent_first_prepared_crash_recovery_all_after(tmp_path: Path) -> None:
     (flow / "tasks" / "1.1.md").write_text(
         "---\n"
         "type: Task\n"
-        "id: 1.1\n"
+        'id: "1.1"\n'
         "title: Demo task\n"
         "state: in_progress\n"
         "priority: P2\n"
@@ -377,7 +386,7 @@ def test_intent_first_prepared_crash_recovery_all_after(tmp_path: Path) -> None:
         "unblock_condition: null\n"
         "next_step: step 1\n"
         "last_operation: 20260813T203342Z-flow-executor-claim-1-1-00\n"
-        "operation_targets: [\"1.1\"]\n"
+        'operation_targets: ["1.1"]\n'
         "last_verified_at: null\n"
         "last_verified_commit: null\n"
         "verification_evidence: null\n"
@@ -525,416 +534,69 @@ def test_intent_first_prepared_crash_recovery_all_after(tmp_path: Path) -> None:
             },
         ],
     }
+    for fragment, image in zip(journal_yaml["fragments"], images):
+        target = flow / fragment["path"]
+        content = target.read_text(encoding="utf-8")
+        _, frontmatter, body = content.split("---", 2)
+        fields = yaml.safe_load(frontmatter)
+        fields.update(fragment["before" if image == "before" else "after"])
+        if image == "drift":
+            fields["state_revision"] = 999
+        target.write_text(
+            "---\n" + yaml.safe_dump(fields) + "---" + body, encoding="utf-8"
+        )
     (journal_dir / "journal.md").write_text(
         "---\n" + yaml.dump(journal_yaml, sort_keys=False) + "---\n",
         encoding="utf-8",
     )
     assessment = validator.assess_markdown_transactions(tmp_path)
-    assert assessment == {op_id: "finishable"}
+    assert assessment == {op_id: expected}
 
 
-def test_intent_first_prepared_crash_recovery_mixed(tmp_path: Path) -> None:
+@pytest.mark.parametrize("kind", ["fragments", "file_fragments"])
+@pytest.mark.parametrize(
+    "images, classification, valid",
+    [
+        (("before", "before"), "all_before", True),
+        (("after", "after"), "all_after", True),
+        (("after", "before"), "mixed", True),
+        (("after", "drift"), None, False),
+    ],
+)
+def test_prepared_image_classification(
+    tmp_path: Path, kind, images, classification, valid
+):
     validator = _load_validator()
-    configured = tmp_path / ".agents"
-    bundle = configured / "bundles"
-    flow = bundle / "specs" / "demo"
-    (flow / "tasks").mkdir(parents=True)
-    # spec.md remains at BEFORE state (state_revision: 1, current_task: null)
-    (flow / "spec.md").write_text(
-        "---\n"
-        "type: Spec\n"
-        "flow_id: demo\n"
-        "title: Demo\n"
-        "state: active\n"
-        "plan_revision: 1\n"
-        "plan_commit: null\n"
-        "state_revision: 1\n"
-        "current_task: null\n"
-        "last_operation: 20260813T203000Z-flow-executor-activate-spec-00\n"
-        "operation_targets: []\n"
-        "last_verified_checkpoint: null\n"
-        "created_at: 2026-08-13T20:30:00Z\n"
-        "updated_at: 2026-08-13T20:30:00Z\n"
-        "description: Demo spec\n"
-        "---\n"
-        "## Implementation Plan\n\n- [ ] Task 1.1: Demo task\n\n"
-        "## Continuity Snapshot\n\nSnapshot text\n",
-        encoding="utf-8",
-    )
-    # tasks/1.1.md was written to AFTER state (in_progress, state_revision: 2)
-    (flow / "tasks" / "1.1.md").write_text(
-        "---\n"
-        "type: Task\n"
-        "id: 1.1\n"
-        "title: Demo task\n"
-        "state: in_progress\n"
-        "priority: P2\n"
-        "verification_strategy: behavior_tdd\n"
-        "depends_on: []\n"
-        "files: []\n"
-        "tests: []\n"
-        "plan_revision: 1\n"
-        "plan_commit: null\n"
-        "state_revision: 2\n"
-        "claimed_by: flow-executor\n"
-        "claimed_at: 2026-08-13T20:33:42Z\n"
-        "blocked_reason: null\n"
-        "unblock_condition: null\n"
-        "next_step: step 1\n"
-        "last_operation: 20260813T203342Z-flow-executor-claim-1-1-00\n"
-        "operation_targets: [\"1.1\"]\n"
-        "last_verified_at: null\n"
-        "last_verified_commit: null\n"
-        "verification_evidence: null\n"
-        "created_at: 2026-08-13T20:30:00Z\n"
-        "updated_at: 2026-08-13T20:33:42Z\n"
-        "commit: null\n"
-        "---\n"
-        "## Objective\nDemo\n\n## Context\nDemo\n\n## Steps\n1. step 1\n\n## Verification\nDemo\n\n## Acceptance Criteria\nDemo\n\n## Notes & Discoveries\n",
-        encoding="utf-8",
-    )
-    op_id = "20260813T203342Z-flow-executor-claim-1-1-00"
-    journal_dir = configured / "transactions" / op_id
-    journal_dir.mkdir(parents=True)
-    journal_yaml = {
-        "type": "FlowTransaction",
-        "version": 1,
-        "operation_id": op_id,
-        "state": "prepared",
-        "applied_writes": [],
-        "rolled_back_writes": [],
-        "events": [
-            {
-                "sequence": 0,
-                "kind": "prepared",
-                "at": "2026-08-13T20:33:42Z",
-                "observed_nonterminal_operation_ids": [],
-            }
-        ],
-        "flow_id": "demo",
+    flow = tmp_path / ".agents/bundles/specs/demo"
+    flow.mkdir(parents=True)
+    data = {
+        "flow_root": ".agents/bundles/specs/demo",
         "configured_root": ".agents",
         "bundle_root": ".agents/bundles",
-        "flow_root": ".agents/bundles/specs/demo",
-        "request": {
-            "flow_id": "demo",
-            "operation": "claim",
-            "actor": "flow-executor",
-            "occurred_at": "2026-08-13T20:33:42Z",
-            "expected_plan_revision": 1,
-            "expected_plan_commit": None,
-            "expected_state_revision": 1,
-            "targets": ["1.1"],
-            "payload": {"next_step": "step 1"},
-        },
-        "ordered_writes": [
-            {"base": "flow_root", "path": "tasks/1.1.md"},
-            {"base": "flow_root", "path": "spec.md"},
-        ],
-        "read_set": [
-            {
-                "predicate": "no_other_unresolved_journal",
-                "directory": {"base": "configured_root", "path": "transactions"},
-                "excluding_operation_id": op_id,
-                "observed_operation_ids": [],
-            },
-            {
-                "base": "flow_root",
-                "path": "spec.md",
-                "fields": {
-                    "state": "active",
-                    "state_revision": 1,
-                    "current_task": None,
-                    "plan_revision": 1,
-                    "plan_commit": None,
-                    "last_operation": "20260813T203000Z-flow-executor-activate-spec-00",
-                    "operation_targets": [],
-                },
-            },
-            {
-                "base": "flow_root",
-                "path": "tasks/1.1.md",
-                "fields": {
-                    "id": "1.1",
-                    "state": "open",
-                    "state_revision": 0,
-                    "plan_revision": 1,
-                    "plan_commit": None,
-                    "claimed_by": None,
-                    "claimed_at": None,
-                    "blocked_reason": None,
-                    "unblock_condition": None,
-                    "commit": None,
-                },
-            },
-            {
-                "predicate": "all_dependencies_closed",
-                "target": {"base": "flow_root", "path": "tasks/1.1.md"},
-                "dependency_paths": [],
-                "observed_states": {},
-            },
-            {
-                "predicate": "no_other_in_progress_claim",
-                "scope": {"base": "flow_root", "glob": "tasks/*.md"},
-                "excluding": {"base": "flow_root", "path": "tasks/1.1.md"},
-                "observed_task_ids": [],
-            },
-        ],
-        "fragments": [
-            {
-                "base": "flow_root",
-                "path": "tasks/1.1.md",
-                "anchor": "frontmatter",
-                "before": {
-                    "state": "open",
-                    "state_revision": 0,
-                    "claimed_by": None,
-                    "claimed_at": None,
-                    "blocked_reason": None,
-                    "unblock_condition": None,
-                    "next_step": None,
-                    "last_operation": None,
-                    "operation_targets": [],
-                    "updated_at": "2026-08-13T20:30:00Z",
-                },
-                "after": {
-                    "state": "in_progress",
-                    "state_revision": 2,
-                    "claimed_by": "flow-executor",
-                    "claimed_at": "2026-08-13T20:33:42Z",
-                    "blocked_reason": None,
-                    "unblock_condition": None,
-                    "next_step": "step 1",
-                    "last_operation": op_id,
-                    "operation_targets": ["1.1"],
-                    "updated_at": "2026-08-13T20:33:42Z",
-                },
-            },
-            {
-                "base": "flow_root",
-                "path": "spec.md",
-                "anchor": "frontmatter",
-                "before": {
-                    "state_revision": 1,
-                    "current_task": None,
-                    "last_operation": "20260813T203000Z-flow-executor-activate-spec-00",
-                    "operation_targets": [],
-                    "updated_at": "2026-08-13T20:30:00Z",
-                },
-                "after": {
-                    "state_revision": 2,
-                    "current_task": "1.1",
-                    "last_operation": op_id,
-                    "operation_targets": ["1.1"],
-                    "updated_at": "2026-08-13T20:33:42Z",
-                },
-            },
-        ],
-    }
-    (journal_dir / "journal.md").write_text(
-        "---\n" + yaml.dump(journal_yaml, sort_keys=False) + "---\n",
-        encoding="utf-8",
-    )
-    assessment = validator.assess_markdown_transactions(tmp_path)
-    assert assessment == {op_id: "sole_recovery_candidate"}
-
-
-def test_intent_first_prepared_crash_recovery_drift(tmp_path: Path) -> None:
-    validator = _load_validator()
-    configured = tmp_path / ".agents"
-    bundle = configured / "bundles"
-    flow = bundle / "specs" / "demo"
-    (flow / "tasks").mkdir(parents=True)
-    # spec.md has DRIFT (neither before nor after revision)
-    (flow / "spec.md").write_text(
-        "---\n"
-        "type: Spec\n"
-        "flow_id: demo\n"
-        "title: Demo\n"
-        "state: active\n"
-        "plan_revision: 1\n"
-        "plan_commit: null\n"
-        "state_revision: 99\n"
-        "current_task: null\n"
-        "last_operation: null\n"
-        "operation_targets: []\n"
-        "last_verified_checkpoint: null\n"
-        "created_at: 2026-08-13T20:30:00Z\n"
-        "updated_at: 2026-08-13T20:30:00Z\n"
-        "description: Demo spec\n"
-        "---\n",
-        encoding="utf-8",
-    )
-    (flow / "tasks" / "1.1.md").write_text(
-        "---\n"
-        "type: Task\n"
-        "id: 1.1\n"
-        "title: Demo task\n"
-        "state: in_progress\n"
-        "priority: P2\n"
-        "verification_strategy: behavior_tdd\n"
-        "depends_on: []\n"
-        "files: []\n"
-        "tests: []\n"
-        "plan_revision: 1\n"
-        "plan_commit: null\n"
-        "state_revision: 2\n"
-        "claimed_by: flow-executor\n"
-        "claimed_at: 2026-08-13T20:33:42Z\n"
-        "blocked_reason: null\n"
-        "unblock_condition: null\n"
-        "next_step: step 1\n"
-        "last_operation: 20260813T203342Z-flow-executor-claim-1-1-00\n"
-        "operation_targets: [\"1.1\"]\n"
-        "last_verified_at: null\n"
-        "last_verified_commit: null\n"
-        "verification_evidence: null\n"
-        "created_at: 2026-08-13T20:30:00Z\n"
-        "updated_at: 2026-08-13T20:33:42Z\n"
-        "commit: null\n"
-        "---\n",
-        encoding="utf-8",
-    )
-    op_id = "20260813T203342Z-flow-executor-claim-1-1-00"
-    journal_dir = configured / "transactions" / op_id
-    journal_dir.mkdir(parents=True)
-    journal_yaml = {
-        "type": "FlowTransaction",
-        "version": 1,
-        "operation_id": op_id,
         "state": "prepared",
-        "applied_writes": [],
-        "rolled_back_writes": [],
-        "events": [
-            {
-                "sequence": 0,
-                "kind": "prepared",
-                "at": "2026-08-13T20:33:42Z",
-                "observed_nonterminal_operation_ids": [],
-            }
-        ],
-        "flow_id": "demo",
-        "configured_root": ".agents",
-        "bundle_root": ".agents/bundles",
-        "flow_root": ".agents/bundles/specs/demo",
-        "request": {
-            "flow_id": "demo",
-            "operation": "claim",
-            "actor": "flow-executor",
-            "occurred_at": "2026-08-13T20:33:42Z",
-            "expected_plan_revision": 1,
-            "expected_plan_commit": None,
-            "expected_state_revision": 1,
-            "targets": ["1.1"],
-            "payload": {"next_step": "step 1"},
-        },
-        "ordered_writes": [
-            {"base": "flow_root", "path": "tasks/1.1.md"},
-            {"base": "flow_root", "path": "spec.md"},
-        ],
-        "read_set": [
-            {
-                "predicate": "no_other_unresolved_journal",
-                "directory": {"base": "configured_root", "path": "transactions"},
-                "excluding_operation_id": op_id,
-                "observed_operation_ids": [],
-            },
-            {
-                "base": "flow_root",
-                "path": "spec.md",
-                "fields": {
-                    "state": "active",
-                    "state_revision": 1,
-                    "current_task": None,
-                    "plan_revision": 1,
-                    "plan_commit": None,
-                    "last_operation": "20260813T203000Z-flow-executor-activate-spec-00",
-                    "operation_targets": [],
-                },
-            },
-            {
-                "base": "flow_root",
-                "path": "tasks/1.1.md",
-                "fields": {
-                    "id": "1.1",
-                    "state": "open",
-                    "state_revision": 0,
-                    "plan_revision": 1,
-                    "plan_commit": None,
-                    "claimed_by": None,
-                    "claimed_at": None,
-                    "blocked_reason": None,
-                    "unblock_condition": None,
-                    "commit": None,
-                },
-            },
-            {
-                "predicate": "all_dependencies_closed",
-                "target": {"base": "flow_root", "path": "tasks/1.1.md"},
-                "dependency_paths": [],
-                "observed_states": {},
-            },
-            {
-                "predicate": "no_other_in_progress_claim",
-                "scope": {"base": "flow_root", "glob": "tasks/*.md"},
-                "excluding": {"base": "flow_root", "path": "tasks/1.1.md"},
-                "observed_task_ids": [],
-            },
-        ],
-        "fragments": [
-            {
-                "base": "flow_root",
-                "path": "tasks/1.1.md",
-                "anchor": "frontmatter",
-                "before": {
-                    "state": "open",
-                    "state_revision": 0,
-                    "claimed_by": None,
-                    "claimed_at": None,
-                    "blocked_reason": None,
-                    "unblock_condition": None,
-                    "next_step": None,
-                    "last_operation": None,
-                    "operation_targets": [],
-                    "updated_at": "2026-08-13T20:30:00Z",
-                },
-                "after": {
-                    "state": "in_progress",
-                    "state_revision": 2,
-                    "claimed_by": "flow-executor",
-                    "claimed_at": "2026-08-13T20:33:42Z",
-                    "blocked_reason": None,
-                    "unblock_condition": None,
-                    "next_step": "step 1",
-                    "last_operation": op_id,
-                    "operation_targets": ["1.1"],
-                    "updated_at": "2026-08-13T20:33:42Z",
-                },
-            },
-            {
-                "base": "flow_root",
-                "path": "spec.md",
-                "anchor": "frontmatter",
-                "before": {
-                    "state_revision": 1,
-                    "current_task": None,
-                    "last_operation": "20260813T203000Z-flow-executor-activate-spec-00",
-                    "operation_targets": [],
-                    "updated_at": "2026-08-13T20:30:00Z",
-                },
-                "after": {
-                    "state_revision": 2,
-                    "current_task": "1.1",
-                    "last_operation": op_id,
-                    "operation_targets": ["1.1"],
-                    "updated_at": "2026-08-13T20:33:42Z",
-                },
-            },
-        ],
+        kind: [],
     }
-    (journal_dir / "journal.md").write_text(
-        "---\n" + yaml.dump(journal_yaml, sort_keys=False) + "---\n",
-        encoding="utf-8",
-    )
-    assessment = validator.assess_markdown_transactions(tmp_path)
-    assert assessment == {op_id: "hard_conflict"}
-
+    for index, image in enumerate(images):
+        path = f"{index}.md"
+        values = {
+            name: f"---\nstate: {name}\n---\n" for name in ("before", "after", "drift")
+        }
+        (flow / path).write_text(values[image], encoding="utf-8")
+        fragment = {"base": "flow_root", "path": path}
+        if kind == "fragments":
+            fragment.update(
+                anchor="frontmatter",
+                before={"state": "before"},
+                after={"state": "after"},
+            )
+        else:
+            fragment.update(
+                {
+                    name: {"exists": True, "content_utf8_lf": values[name]}
+                    for name in ("before", "after")
+                }
+            )
+        data[kind].append(fragment)
+    result = validator._live_mutation_images(tmp_path, data)
+    assert result[0] is valid
+    assert result[4] == classification
