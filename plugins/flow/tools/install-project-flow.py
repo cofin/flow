@@ -139,8 +139,7 @@ def _managed_path(project_root: Path, relative: str) -> Path:
                 )
         elif not stat.S_ISREG(metadata.st_mode) or metadata.st_nlink != 1:
             raise InstallError(
-                "managed target is not an exclusively owned regular file: "
-                f"{relative}"
+                f"managed target is not an exclusively owned regular file: {relative}"
             )
     return target
 
@@ -579,6 +578,61 @@ def install_project_flow(
     return InstallResult(action, changed, guidance=guidance)
 
 
+def audit_legacy_tracker_references(project_root: Path) -> list[dict[str, object]]:
+    """Scan project for lingering legacy tracker references (beads, bd, br)."""
+    findings: list[dict[str, object]] = []
+    # Check hidden tracker directories/files
+    for candidate in (
+        ".beads",
+        ".agents/beads.json",
+        ".agents/skills/choosing-beads-backend",
+    ):
+        p = project_root / candidate
+        if p.exists():
+            findings.append(
+                {
+                    "path": candidate,
+                    "line": 0,
+                    "text": "legacy tracker directory or artifact",
+                    "category": "hidden_artifact",
+                }
+            )
+    pattern = re.compile(r"\b(beads|bd|br)\b", re.IGNORECASE)
+    candidates = [
+        (project_root / rel, "user_file")
+        for rel in (
+            "Makefile",
+            "justfile",
+            "package.json",
+            "pyproject.toml",
+            ".agents/config.json",
+            ".agents/setup-state.json",
+        )
+    ]
+    for rel in (".git/hooks", ".githooks"):
+        hooks = project_root / rel
+        if hooks.is_dir():
+            candidates.extend((hook, "git_hook") for hook in sorted(hooks.iterdir()))
+    for path, category in candidates:
+        if not path.is_file():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except (OSError, UnicodeDecodeError):
+            continue
+        for number, line in enumerate(lines, start=1):
+            if pattern.search(line):
+                findings.append(
+                    {
+                        "path": path.relative_to(project_root).as_posix(),
+                        "line": number,
+                        "text": line.strip(),
+                        "category": category,
+                    }
+                )
+    return findings
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--project", type=Path, default=Path.cwd())
@@ -588,7 +642,16 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--global-plugin-detected", action="store_true")
     parser.add_argument("--confirm-global-plugin", action="store_true")
     parser.add_argument("--confirm-customized", action="append", default=[])
+    parser.add_argument(
+        "--audit-legacy",
+        action="store_true",
+        help="Audit project for legacy tracker references",
+    )
     args = parser.parse_args(argv)
+    if args.audit_legacy:
+        findings = audit_legacy_tracker_references(args.project)
+        print(json.dumps({"legacy_tracker_findings": findings}, indent=2))
+        return 0
     try:
         result = install_project_flow(
             args.project,

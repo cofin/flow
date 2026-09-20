@@ -90,12 +90,22 @@ install-hooks:                                      ## Install git hooks (auto-s
 	@echo "${OK} Git hooks installed (core.hooksPath=.githooks)"
 
 .PHONY: lint
-lint:                                               ## Lint markdown and refresh generated Codex package files
-	@echo "${INFO} Linting and fixing markdown files..."
-	@npx markdownlint-cli2 --fix "skills/**/*.md" "commands/**/*.md" "docs/**/*.md" "AGENTS.md" "README.md"
-	@echo "${INFO} Refreshing generated Codex package..."
-	@uv run tools/sync-codex-package.py
-	@echo "${OK} Markdown linting passed"
+lint:                                               ## Check Markdown without changing sources
+	@npx --yes markdownlint-cli2 "skills/**/*.md" "commands/**/*.md" "docs/**/*.md" "AGENTS.md" "README.md"
+
+.PHONY: format
+format:                                             ## Fix Markdown formatting explicitly
+	@npx --yes markdownlint-cli2 --fix "skills/**/*.md" "commands/**/*.md" "docs/**/*.md" "AGENTS.md" "README.md"
+
+.PHONY: sync-hook-surfaces hook-surfaces-check rule-surfaces-check
+sync-hook-surfaces:                                  ## Generate static native hook adapters
+	@uv run python tools/sync-hook-surfaces.py
+
+hook-surfaces-check:                                 ## Check static hook adapters and root Codex parity
+	@uv run python tools/sync-hook-surfaces.py --check
+
+rule-surfaces-check:                                 ## Check generated harness rules
+	@uv run python tools/sync-rule-surfaces.py --check
 
 .PHONY: sync-codex-package
 sync-codex-package:                                ## Assemble the committed Codex marketplace package at plugins/flow/
@@ -153,7 +163,7 @@ test:                                              ## Run the Python test suite
 	@uv run pytest
 	@echo "${OK} Tests passed"
 
-check: lint sync-codex-package codex-package-check validate sync-manifests test ## Run all quality checks (lint + validate + tests)
+check: lint hook-surfaces-check command-surfaces-check agent-surfaces-check rule-surfaces-check codex-package-check validate sync-manifests test ## Verify sources and generated outputs without fixing them
 	@echo "${OK} All checks passed"
 
 .PHONY: build

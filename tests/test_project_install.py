@@ -62,7 +62,12 @@ def _replace_with_unsafe_object(
         return None, None
     if kind == "socket":
         listener = socket.socket(socket.AF_UNIX)
-        listener.bind(str(target))
+        try:
+            listener.bind(str(target))
+        except OSError as e:
+            if "too long" in str(e).lower():
+                pytest.skip("AF_UNIX path too long on this platform")
+            raise
         return listener, None
     if kind == "directory":
         target.mkdir()
@@ -759,3 +764,18 @@ def test_retirement_refuses_non_owned_managed_objects_without_writes(
     assert (project / ".agents/setup-state.json").read_bytes() == state
     if external is not None:
         assert external.read_text() == "generated\n"
+
+
+def test_audit_legacy_tracker_references(tmp_path: Path) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / ".beads").mkdir()
+    (project / "Makefile").write_text("test:\n\tbd sync\n", encoding="utf-8")
+    (project / ".githooks").mkdir()
+    (project / ".githooks" / "pre-commit").write_text("#!/bin/sh\nbeads flush\n", encoding="utf-8")
+
+    findings = INSTALLER.audit_legacy_tracker_references(project)
+    paths = {f["path"] for f in findings}
+    assert ".beads" in paths
+    assert "Makefile" in paths
+    assert ".githooks/pre-commit" in paths

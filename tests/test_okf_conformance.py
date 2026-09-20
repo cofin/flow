@@ -465,6 +465,7 @@ def test_flow_operation_payload_and_predicate_contracts_are_complete() -> None:
         "complete",
         "archive",
         "recover",
+        "compound",
     }
     assert set(payloads["create"]) == {"flow", "task"}
     assert set(payloads["note"]) == {"normal", "git_note_attachment"}
@@ -508,6 +509,7 @@ def test_flow_operation_payload_and_predicate_contracts_are_complete() -> None:
         "complete",
         "archive",
         "recover",
+        "compound",
         "status",
     }
 
@@ -537,6 +539,7 @@ def test_flow_operation_payload_and_predicate_contracts_are_complete() -> None:
         "complete",
         "archive",
         "recover",
+        "compound",
     }
     defined_predicates = set(matrix["predicate_shapes"])
     assert all(set(required) <= defined_predicates for required in operations.values())
@@ -1314,6 +1317,23 @@ def _set_write_image(root: Path, journal: dict, write_index: int, image: str) ->
             if section:
                 replacement += f"\n\n{section.lstrip()}"
             text = text[: heading.end()] + replacement + text[end:]
+        elif fragment["anchor"] in {"notes-and-discoveries", "verification-evidence"}:
+            heading = (
+                "Notes & Discoveries"
+                if fragment["anchor"] == "notes-and-discoveries"
+                else "Verification Evidence"
+            )
+            pattern = rf"(?ms)(^## {re.escape(heading)}\n).*?(?=^## |\Z)"
+            if re.search(pattern, text):
+                text = re.sub(
+                    pattern,
+                    lambda match, content=values["content"]: (
+                        match[1] + content + "\n\n"
+                    ),
+                    text,
+                )
+            else:
+                text = text.rstrip() + f"\n\n## {heading}\n" + values["content"] + "\n"
         elif fragment["anchor"] == "continuity-snapshot":
             claim = values["current_task_claim"]
             claim_text = (
@@ -3102,3 +3122,584 @@ def test_noncurrent_note_discover_and_open_block_need_no_claim_guards(
         item.message for item in validate.validate_markdown_transactions(root)
     )
     assert "read_set predicates" not in messages
+
+
+@pytest.mark.parametrize(
+    "child",
+    [
+        42,
+        {"operation": "compound", "payload": {}},
+        {"operation": "claim", "payload": {}},
+    ],
+)
+def test_compound_rejects_inexact_child_evidence(child):
+    request = {
+        "operation": "compound",
+        "targets": ["1.1"],
+        "payload": {"operations": [child], "affected_tasks_sorted": ["1.1"]},
+    }
+    assert validate._validate_payload_values(Path("journal.md"), request, "compound")
+
+
+def _compound_journal(
+    root: Path, operations=("claim", "release", "claim"), initial_claimant=None
+):
+    import copy
+
+    journal = _journal("20260814T120000Z-agent-compound-1-2-00")
+    flow = root / journal["flow_root"]
+    extra = flow / "tasks/1.3.md"
+    extra.write_text(
+        (flow / "tasks/1.2.md").read_text().replace("1.2", "1.3"), encoding="utf-8"
+    )
+    if initial_claimant is not None:
+        initial_claim = _journal("20260814T120000Z-agent-claim-1-2-00")
+        initial_claim["fragments"][0]["after"]["claimed_by"] = initial_claimant
+        initial_claim["fragments"][-1]["after"]["current_task_claim"]["claimed_by"] = (
+            initial_claimant
+        )
+        for index in range(len(initial_claim["ordered_writes"])):
+            _set_write_image(root, initial_claim, index, "after")
+    request = journal["request"]
+    request["operation"] = "compound"
+    initial = []
+    state = {}
+    for relative in ["spec.md", "tasks/1.1.md", "tasks/1.2.md", "tasks/1.3.md"]:
+        fields, errors = validate._parse_yaml_frontmatter(flow / relative)
+        assert not errors
+        fields = validate._semantic_value(fields)
+        state[relative] = fields
+        keys = (
+            validate._SPEC_IDENTITY_FIELDS
+            if relative == "spec.md"
+            else validate._TARGET_IDENTITY_FIELDS
+        )
+        initial.append(
+            {
+                "base": "flow_root",
+                "path": relative,
+                "fields": {key: fields.get(key) for key in keys},
+            }
+        )
+    request["expected_state_revision"] = state["spec.md"]["state_revision"]
+    arbitration = journal["read_set"][0]
+    journal["read_set"] = [
+        arbitration,
+        *initial,
+        {
+            "predicate": "all_task_identities",
+            "scope": {"base": "flow_root", "glob": "tasks/*.md"},
+            "fields": sorted(validate._TARGET_IDENTITY_FIELDS),
+        },
+    ]
+    steps = []
+    anchors = {}
+    for anchor, keys in [
+        (
+            "continuity-snapshot",
+            {
+                "current_task_claim": None,
+                "last_verified_checkpoint": None,
+                "next_exact_step": None,
+                "state_identity": None,
+            },
+        ),
+        *[
+            (
+                f"implementation-plan-task-{target}",
+                {"checklist_marker": None, "commit_suffix": None},
+            )
+            for target in ("1.2", "1.3")
+        ],
+    ]:
+        anchors[anchor] = validate._anchor_fields(flow / "spec.md", anchor, keys)
+    # The fixture's extra worksheet also needs an implementation-plan row.
+    spec_path = flow / "spec.md"
+    text = spec_path.read_text().replace(
+        "## Continuity Snapshot", "- [ ] Task 1.3: Extra task\n\n## Continuity Snapshot"
+    )
+    spec_path.write_text(text, encoding="utf-8")
+    anchors["implementation-plan-task-1.3"] = {
+        "checklist_marker": "[ ]",
+        "commit_suffix": None,
+    }
+    combined = {}
+    for index, operation in enumerate(operations):
+        target = "1.3" if operation == "claim" and index else "1.2"
+        relative = f"tasks/{target}.md"
+        reference = {"base": "flow_root", "path": relative}
+        spec_reference = {"base": "flow_root", "path": "spec.md"}
+        payload = (
+            {"next_step": "continue"}
+            if operation == "claim"
+            else {"reason": "handoff", "next_step": "continue"}
+        )
+        if operation in {"checkpoint", "close"}:
+            payload = {
+                "commit": "abc1234",
+                "verification_evidence": [{"command": "pytest", "result": "passed"}],
+            }
+            payload.update(
+                {"scope": "task", "summary": "verified"}
+                if operation == "checkpoint"
+                else {"acceptance_criteria_checked": ["AC1"]}
+            )
+        child = {
+            **request,
+            "operation": operation,
+            "targets": [target],
+            "payload": payload,
+        }
+        reads = [arbitration]
+        for name in ("spec.md", relative):
+            keys = (
+                validate._SPEC_IDENTITY_FIELDS
+                if name == "spec.md"
+                else validate._TARGET_IDENTITY_FIELDS
+            )
+            reads.append(
+                {
+                    "base": "flow_root",
+                    "path": name,
+                    "fields": {key: state[name].get(key) for key in keys},
+                }
+            )
+        if operation == "claim":
+            reads.extend(
+                [
+                    {
+                        "predicate": "all_dependencies_closed",
+                        "target": reference,
+                        "dependency_paths": [
+                            {"base": "flow_root", "path": "tasks/1.1.md"}
+                        ],
+                        "observed_states": {"1.1": "closed"},
+                    },
+                    {
+                        "predicate": "no_other_in_progress_claim",
+                        "scope": {"base": "flow_root", "glob": "tasks/*.md"},
+                        "excluding": reference,
+                        "observed_task_ids": [],
+                    },
+                ]
+            )
+        elif operation == "release":
+            reads.extend(
+                [
+                    {
+                        "predicate": "sole_current_claim",
+                        "spec": spec_reference,
+                        "target": reference,
+                        "claimant": state[relative]["claimed_by"],
+                    },
+                    {
+                        "predicate": "actor_is_claimant_or_authorized",
+                        "target": reference,
+                        "authorization": None,
+                    },
+                ]
+            )
+        else:
+            reads.extend(
+                [
+                    {
+                        "predicate": "sole_current_claim",
+                        "spec": spec_reference,
+                        "target": reference,
+                        "claimant": state[relative]["claimed_by"],
+                    },
+                    {
+                        "predicate": "verification_bound_to_commit",
+                        "target": reference,
+                        "commit": payload["commit"],
+                        "evidence": payload["verification_evidence"],
+                    },
+                ]
+            )
+            if operation == "close":
+                reads.append(
+                    {
+                        "predicate": "acceptance_criteria_satisfied",
+                        "target": reference,
+                        "checked_ids": ["AC1"],
+                    }
+                )
+        fragments = []
+        for name in (relative, "spec.md"):
+            keys = {
+                "state_revision",
+                "last_operation",
+                "operation_targets",
+                "updated_at",
+            }
+            keys |= (
+                {"current_task", "last_verified_checkpoint"}
+                if name == "spec.md"
+                else {
+                    "state",
+                    "claimed_by",
+                    "claimed_at",
+                    "next_step",
+                    "commit",
+                    "verification_evidence",
+                    "last_verified_at",
+                    "last_verified_commit",
+                }
+            )
+            before = {key: state[name].get(key) for key in keys}
+            after = dict(before)
+            if name == "spec.md":
+                after["current_task"] = (
+                    target if operation in {"claim", "checkpoint"} else None
+                )
+                if operation in {"checkpoint", "close"}:
+                    after["last_verified_checkpoint"] = (
+                        f"task:{target}@{payload['commit']}"
+                    )
+            else:
+                after.update(
+                    state="in_progress"
+                    if operation in {"claim", "checkpoint"}
+                    else "closed"
+                    if operation == "close"
+                    else "open",
+                    claimed_by=child["actor"]
+                    if operation in {"claim", "checkpoint"}
+                    else None,
+                    claimed_at=child["occurred_at"]
+                    if operation in {"claim", "checkpoint"}
+                    else None,
+                    next_step=None if operation == "close" else "continue",
+                )
+                if operation in {"checkpoint", "close"}:
+                    after.update(
+                        commit=payload["commit"],
+                        verification_evidence=payload["verification_evidence"],
+                        last_verified_at=child["occurred_at"],
+                        last_verified_commit=payload["commit"],
+                    )
+            fragment = {
+                "base": "flow_root",
+                "path": name,
+                "anchor": "frontmatter",
+                "before": before,
+                "after": after,
+            }
+            fragments.append(fragment)
+            state[name].update(after)
+            if name not in combined:
+                combined[name] = copy.deepcopy(fragment)
+            else:
+                combined[name]["after"] = dict(after)
+        for anchor in (f"implementation-plan-task-{target}", "continuity-snapshot"):
+            before = copy.deepcopy(anchors[anchor])
+            after = copy.deepcopy(before)
+            if anchor == "continuity-snapshot":
+                after["current_task_claim"] = (
+                    {"task": target, "claimed_by": child["actor"]}
+                    if operation in {"claim", "checkpoint"}
+                    else None
+                )
+                after["next_exact_step"] = "continue"
+                if operation in {"checkpoint", "close"}:
+                    after["last_verified_checkpoint"] = (
+                        f"task:{target}@{payload['commit']}"
+                    )
+            else:
+                after["checklist_marker"] = (
+                    "[~]"
+                    if operation in {"claim", "checkpoint"}
+                    else "[x]"
+                    if operation == "close"
+                    else "[ ]"
+                )
+                if operation in {"checkpoint", "close"}:
+                    after["commit_suffix"] = payload["commit"]
+            fragment = {
+                "base": "flow_root",
+                "path": "spec.md",
+                "anchor": anchor,
+                "before": before,
+                "after": after,
+            }
+            fragments.append(fragment)
+            anchors[anchor] = after
+            if anchor not in combined:
+                combined[anchor] = copy.deepcopy(fragment)
+            else:
+                combined[anchor]["after"] = copy.deepcopy(after)
+        if operation in {"release", "checkpoint", "close"}:
+            anchor = (
+                "notes-and-discoveries"
+                if operation == "release"
+                else "verification-evidence"
+            )
+            key = f"{anchor}-{relative}"
+            before = (
+                copy.deepcopy(combined[key]["after"])
+                if key in combined
+                else validate._anchor_fields(flow / relative, anchor, {"content": None})
+            )
+            if operation == "release":
+                entry = f"- {child['occurred_at']} [{journal['operation_id']}] release: {payload['reason']}"
+            else:
+                entry = "- " + json.dumps(
+                    {
+                        "scope": "task",
+                        "operation": operation,
+                        "commit": payload["commit"],
+                        "verification_evidence": payload["verification_evidence"],
+                        "summary": payload.get("summary", f"Closed task {target}"),
+                        "operation_id": journal["operation_id"],
+                        "actor": child["actor"],
+                        "occurred_at": child["occurred_at"],
+                    },
+                    sort_keys=True,
+                )
+            after = {
+                "content": before["content"]
+                + ("\n" if before["content"] else "")
+                + entry
+            }
+            fragment = {
+                "base": "flow_root",
+                "path": relative,
+                "anchor": anchor,
+                "before": before,
+                "after": after,
+            }
+            fragments.append(fragment)
+            if key in combined:
+                combined[key]["after"] = copy.deepcopy(after)
+            else:
+                combined[key] = copy.deepcopy(fragment)
+        steps.append({"request": child, "read_set": reads, "fragments": fragments})
+    targets = sorted(
+        {target for step in steps for target in step["request"]["targets"]}
+    )
+    request.update(
+        targets=targets, payload={"operations": steps, "affected_tasks_sorted": targets}
+    )
+    journal["fragments"] = list(combined.values())
+    for fragment in journal["fragments"]:
+        if fragment["anchor"] == "frontmatter":
+            fragment["after"].update(
+                state_revision=request["expected_state_revision"] + 1,
+                last_operation=journal["operation_id"],
+                operation_targets=targets,
+                updated_at=request["occurred_at"],
+            )
+        elif fragment["anchor"] == "continuity-snapshot":
+            fragment["after"]["state_identity"] = {
+                "revision": request["expected_state_revision"] + 1,
+                "last_operation": journal["operation_id"],
+                "operation_targets": targets,
+            }
+    journal["ordered_writes"] = [
+        {"base": "flow_root", "path": f"tasks/{target}.md"} for target in targets
+    ] + [{"base": "flow_root", "path": "spec.md"}]
+    return journal
+
+
+def test_compound_ordered_multitask_sequence_and_recovery(tmp_path: Path):
+    root = _transaction_root(tmp_path)
+    journal = _compound_journal(root)
+    _write_journal(root, journal)
+    assert validate.validate_markdown_transactions(root) == []
+    assert validate.assess_markdown_transactions(root) == {
+        journal["operation_id"]: "finishable"
+    }
+    _set_write_image(root, journal, 0, "after")
+    assert validate.assess_markdown_transactions(root) == {
+        journal["operation_id"]: "sole_recovery_candidate"
+    }
+    for index in range(len(journal["ordered_writes"])):
+        _set_write_image(root, journal, index, "after")
+    assert validate.assess_markdown_transactions(root) == {
+        journal["operation_id"]: "finishable"
+    }
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "reorder",
+        "child_identity",
+        "target_union",
+        "wrong_target_predicate",
+        "outer_image",
+        "child_payload",
+        "lifecycle",
+        "missing_step",
+        "non_target_claim",
+        "unrecorded_task",
+        "omitted_dependency",
+        "missing_snapshot",
+        "nested_compound",
+        "before_image",
+        "missing_release_note",
+        "rewritten_release_note",
+        "unsupported_block",
+    ],
+)
+def test_compound_rejects_invalid_sequence_evidence(tmp_path: Path, mutation):
+    root = _transaction_root(tmp_path)
+    journal = _compound_journal(root)
+    steps = journal["request"]["payload"]["operations"]
+    if mutation == "reorder":
+        steps.reverse()
+    elif mutation == "child_identity":
+        steps[1]["read_set"][1]["fields"]["current_task"] = None
+    elif mutation == "target_union":
+        journal["request"]["targets"] = ["1.2"]
+    elif mutation == "wrong_target_predicate":
+        steps[-1]["read_set"][-1]["excluding"]["path"] = "tasks/1.2.md"
+    elif mutation == "outer_image":
+        journal["fragments"][-1]["after"]["claimed_by"] = "stranger"
+    elif mutation == "child_payload":
+        steps[0]["request"]["payload"] = {}
+    elif mutation == "lifecycle":
+        journal["read_set"][1]["fields"]["state"] = "completed"
+    elif mutation == "missing_step":
+        del steps[1]
+    elif mutation == "non_target_claim":
+        journal["read_set"][2]["fields"]["state"] = "in_progress"
+    elif mutation == "omitted_dependency":
+        steps[0]["read_set"][-2]["dependency_paths"] = []
+        steps[0]["read_set"][-2]["observed_states"] = {}
+    elif mutation == "missing_snapshot":
+        steps[0]["fragments"].pop()
+    elif mutation == "nested_compound":
+        steps[0]["request"]["operation"] = "compound"
+    elif mutation == "before_image":
+        steps[1]["fragments"][0]["before"]["claimed_by"] = "stranger"
+    elif mutation == "missing_release_note":
+        steps[1]["fragments"].pop()
+    elif mutation == "rewritten_release_note":
+        steps[1]["fragments"][-1]["after"]["content"] = "rewritten history"
+    elif mutation == "unsupported_block":
+        steps[0]["request"]["operation"] = "block"
+    else:
+        flow = root / journal["flow_root"]
+        (flow / "tasks/1.4.md").write_text(
+            (flow / "tasks/1.3.md").read_text(), encoding="utf-8"
+        )
+    _write_journal(root, journal)
+    assert validate.validate_markdown_transactions(root)
+
+
+def test_compound_claim_checkpoint_close_checks_intermediate_claim(tmp_path: Path):
+    root = _transaction_root(tmp_path)
+    journal = _compound_journal(root, ("claim", "checkpoint", "close"))
+    _write_journal(root, journal)
+    assert validate.validate_markdown_transactions(root) == []
+    for index in range(len(journal["ordered_writes"])):
+        _apply(journal, index, root)
+    _validate_forward(journal)
+    journal["state"] = "committed"
+    _write_journal(root, journal)
+    assert validate.validate_markdown_transactions(root) == []
+    journal["request"]["payload"]["operations"][1]["fragments"][0]["after"][
+        "commit"
+    ] = "def5678"
+    _write_journal(root, journal)
+    assert validate.validate_markdown_transactions(root)
+
+
+@pytest.mark.parametrize(
+    "location, field, value",
+    [
+        ("fragments", "base", []),
+        ("fragments", "path", []),
+        ("fragments", "anchor", []),
+        ("fragments", "before", []),
+        ("fragments", "after", []),
+        ("read_set", "base", []),
+        ("read_set", "path", []),
+        ("read_set", "fields", []),
+        ("predicate", "predicate", []),
+        ("request", "operation", []),
+        ("request", "targets", {}),
+        ("request", "payload", []),
+        ("dependency", "target", {}),
+        ("dependency", "dependency_paths", [[]]),
+    ],
+)
+def test_compound_malformed_child_shapes_fail_closed(
+    tmp_path: Path, location, field, value
+):
+    root = _transaction_root(tmp_path)
+    journal = _compound_journal(root)
+    child = journal["request"]["payload"]["operations"][0]
+    record = (
+        child[location][0]
+        if location == "fragments"
+        else child["read_set"][1]
+        if location == "read_set"
+        else child["read_set"][0]
+        if location == "predicate"
+        else child["read_set"][-2]
+        if location == "dependency"
+        else child["request"]
+    )
+    record[field] = value
+    _write_journal(root, journal)
+    assert validate.validate_markdown_transactions(root)
+    assert validate.assess_markdown_transactions(root) == {
+        journal["operation_id"]: "hard_conflict"
+    }
+
+
+@pytest.mark.parametrize("authorized", [False, True])
+def test_compound_release_of_another_claimant_requires_authorization(
+    tmp_path: Path, authorized
+):
+    root = _transaction_root(tmp_path)
+    journal = _compound_journal(
+        root, ("release", "claim"), initial_claimant="other-executor"
+    )
+    release = journal["request"]["payload"]["operations"][0]
+    if authorized:
+        approval = {
+            "text": "Release other-executor's claim",
+            "at": journal["request"]["occurred_at"],
+        }
+        release["request"]["payload"]["user_authorization"] = approval
+        release["read_set"][-1]["authorization"] = approval
+    _write_journal(root, journal)
+    violations = validate.validate_markdown_transactions(root)
+    assert (violations == []) is authorized, violations
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        None,
+        "actor",
+        "operation_id",
+        "occurred_at",
+        "summary",
+        "commit",
+        "verification_evidence",
+    ],
+)
+def test_compound_verification_body_requires_complete_operation_evidence(
+    tmp_path: Path, field
+):
+    root = _transaction_root(tmp_path)
+    journal = _compound_journal(root, ("claim", "checkpoint", "close"))
+    step = journal["request"]["payload"]["operations"][1]
+    if field is None:
+        step["fragments"].pop()
+    else:
+        section = step["fragments"][-1]
+        record = json.loads(section["after"]["content"].removeprefix("- "))
+        del record[field]
+        section["after"]["content"] = "- " + json.dumps(record, sort_keys=True)
+    _write_journal(root, journal)
+    violations = validate.validate_markdown_transactions(root)
+    assert any(
+        "child requires exact" in item.message
+        or "append its exact operation evidence" in item.message
+        for item in violations
+    )

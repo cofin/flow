@@ -42,6 +42,7 @@ OPERATIONS = {
     "complete",
     "archive",
     "recover",
+    "compound",
     "status",
 }
 
@@ -433,7 +434,7 @@ def test_request_scenarios(input_request: dict[str, Any], outcome: str) -> None:
         ("recover", [], {}),
     ],
 )
-def test_every_mutation_has_an_explicit_accepted_target_shape(
+def test_single_operations_have_an_explicit_target_shape(
     operation: str, targets: list[str], payload: dict[str, Any]
 ) -> None:
     request = _mutation_request(operation, targets=targets, payload=payload)
@@ -499,6 +500,7 @@ def test_lifecycle_and_identity_routes_are_explicit() -> None:
             "reopen",
             "reconcile",
             "complete",
+            "compound",
         ],
         "checkpoint.plan": ["planned", "active"],
         "revise": ["planned", "active"],
@@ -529,6 +531,9 @@ def test_lifecycle_and_identity_routes_are_explicit() -> None:
     assert contract["identity_routes"]["all_tasks_then_spec"] == [
         "checkpoint.plan",
         "revise",
+    ]
+    assert contract["identity_routes"]["task_targets_then_spec"] == [
+        "compound",
     ]
     assert contract["identity_routes"]["spec_only_empty_targets"] == [
         "activate",
@@ -573,6 +578,8 @@ def test_lifecycle_and_identity_routes_are_explicit() -> None:
         ("note.git_note_attachment", "completed", "accept"),
         ("status", "completed", "accept"),
         ("recover", "removed", "accept"),
+        ("compound", "active", "accept"),
+        ("compound", "planned", "refuse"),
         ("claim", "completed", "refuse"),
         ("archive", "active", "refuse"),
     ],

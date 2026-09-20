@@ -12,7 +12,14 @@ Flow ships as a native Codex plugin via marketplace.
 codex plugin marketplace add cofin/flow
 ```
 
-In a Codex session, run `/plugins` and enable Flow.
+In a Codex session, run `/plugins` and enable Flow. Review and trust its hook
+configuration before expecting SessionStart routing. Codex loads nested matcher
+groups from the plugin hook manifest and consumes
+`hookSpecificOutput.additionalContext`. The repository `.codex/hooks.json` is
+for source-checkout use; do not duplicate it in consumer projects already using
+the plugin, because matching hook sources all run.
+
+See the [Codex hook contract](https://developers.openai.com/codex/hooks).
 
 ## Update
 

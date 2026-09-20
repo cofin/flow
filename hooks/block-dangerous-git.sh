@@ -27,7 +27,8 @@ fi
 export LC_ALL=C
 
 # Fast path: without a literal Git lexeme (quotes removed) there is nothing to classify.
-UNQUOTED_COMMAND=${COMMAND//[\'\"]/}
+UNQUOTED_COMMAND=${COMMAND//\'/}
+UNQUOTED_COMMAND=${UNQUOTED_COMMAND//\"/}
 [[ "$UNQUOTED_COMMAND" == *[gG][iI][tT]* ]] || exit 0
 
 # The Bash hook matcher sees every shell command. Normalize raw word structure
@@ -40,6 +41,7 @@ executable=''
 evaluator_mode=''
 evaluator_nested_git=0
 git_boundary_pattern='(^|[=/[:space:]`(])[gG][iI][tT](\.[eE][xX][eE])?($|[/:[:space:]`)])'
+shell_basename_pattern='^(bash|sh|dash|ksh|zsh)$'
 
 classify_relevance_token() {
   local token=$relevance_token
@@ -50,9 +52,9 @@ classify_relevance_token() {
   if [[ "$token" =~ $git_boundary_pattern ]]; then
     contains_git=1
   fi
-  [[ "$token" =~ ([^/]*)$ ]] && basename=${BASH_REMATCH[1]}
-  case "${basename,,}" in
-    git-*) contains_git=1 ;;
+  basename=${token##*/}
+  case "$basename" in
+    [gG][iI][tT]-*) contains_git=1 ;;
   esac
   if [[ -n "$evaluator_mode" ]]; then
     if ((contains_git)); then
@@ -85,7 +87,7 @@ classify_relevance_token() {
     esac
     executable=$token
     expect_executable=0
-  elif [[ ${executable##*/} =~ ^(bash|sh|dash|ksh|zsh)$ && "$token" =~ ^-[a-zA-Z]*c[a-zA-Z]*$ ]]; then
+  elif [[ ${executable##*/} =~ $shell_basename_pattern && "$token" =~ ^-[a-zA-Z]*c[a-zA-Z]*$ ]]; then
     evaluator_mode=command_string
   fi
   return 0
@@ -223,7 +225,7 @@ normalize_token() {
     token=${token:1}
   done
   while [[ -n "$token" && "${token: -1}" == [\;\&\|\)\}] ]]; do
-    token=${token::-1}
+    token="${token%?}"
   done
   NORMALIZED=$token
 }
@@ -335,8 +337,8 @@ scan_arguments_for() {
         esac
         ;;
       config)
-        case "${token,,}" in
-          *tagopt*|*prunetags*|remote.*.fetch|*tags/*)
+        case "$token" in
+          *[tT][aA][gG][oO][pP][tT]*|*[pP][rR][uU][nN][eE][tT][aA][gG][sS]*|*.[fF][eE][tT][cC][hH]=*|*[tT][aA][gG][sS]/*)
             deny "Git tag fetching configuration is prohibited"
             ;;
         esac
@@ -358,12 +360,12 @@ scan_arguments_for() {
 }
 
 is_tag_fetch_config() {
-  local config=${1,,}
+  local config=$1
   case "$config" in
-    remote.*.tagopt=--no-tags)
+    [rR][eE][mM][oO][tT][eE].*.[tT][aA][gG][oO][pP][tT]=--no-tags)
       return 1
       ;;
-    remote.*.tagopt*|*prunetags*|remote.*.fetch=*tags/*)
+    *[tT][aA][gG][oO][pP][tT]*|*[pP][rR][uU][nN][eE][tT][aA][gG][sS]*|*.[fF][eE][tT][cC][hH]=*[tT][aA][gG][sS]/*)
       return 0
       ;;
     *)
@@ -373,15 +375,21 @@ is_tag_fetch_config() {
 }
 
 is_tag_fetch_config_env() {
-  local config=${1,,}
+  local config=$1
   case "$config" in
-    remote.*.tagopt=*|remote.*.prunetags=*|fetch.prunetags=*|remote.*.fetch=*) return 0 ;;
-    *) return 1 ;;
+    *[tT][aA][gG][oO][pP][tT]*|*[pP][rR][uU][nN][eE][tT][aA][gG][sS]*|*.[fF][eE][tT][cC][hH]=*)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
   esac
 }
 
 classify_git_subcommand() {
-  local subcommand=$1
+  local subcommand
+  subcommand=$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')
+  subcommand="${subcommand%.exe}"
   local argument_start=$2
 
   case "$subcommand" in
@@ -400,14 +408,18 @@ for ((i = 0; i < ${#TOKENS[@]}; i++)); do
       ;;
   esac
   executable_basename=$token
-  [[ "$token" =~ ([^/]*)$ ]] && executable_basename=${BASH_REMATCH[1]}
-  executable_basename=${executable_basename,,}
-  executable_basename=${executable_basename%.exe}
-  if [[ "$executable_basename" == git-* ]]; then
-    classify_git_subcommand "${executable_basename#git-}" "$((i + 1))"
-    continue
-  fi
-  [[ "$executable_basename" == "git" ]] || continue
+  executable_basename=${token##*/}
+  case "$executable_basename" in
+    [gG][iI][tT]-*)
+      classify_git_subcommand "${executable_basename#*-}" "$((i + 1))"
+      continue
+      ;;
+    [gG][iI][tT]|[gG][iI][tT].[eE][xX][eE])
+      ;;
+    *)
+      continue
+      ;;
+  esac
 
   j=$((i + 1))
   tag_fetch_config_seen=0
@@ -421,21 +433,20 @@ for ((i = 0; i < ${#TOKENS[@]}; i++)); do
       -C|-c|--git-dir|--work-tree|--namespace|--super-prefix|--config-env)
         ((j + 1 < ${#TOKENS[@]})) || break
         if [[ "$candidate" == "-c" ]]; then
-          config=${TOKENS[j + 1],,}
-          if [[ "$config" == alias.* ]]; then
+          config=${TOKENS[j + 1]}
+          if [[ "$config" == [aA][lL][iI][aA][sS].* ]]; then
             deny "Git alias configuration cannot be classified safely"
           fi
           is_tag_fetch_config "$config" && tag_fetch_config_seen=1
         elif [[ "$candidate" == "--config-env" ]]; then
-          config=${TOKENS[j + 1],,}
+          config=${TOKENS[j + 1]}
           is_tag_fetch_config_env "$config" && tag_fetch_config_seen=1
         fi
         ((j += 2))
         ;;
       -c?*)
         config=${candidate:2}
-        config=${config,,}
-        if [[ "$config" == alias.* ]]; then
+        if [[ "$config" == [aA][lL][iI][aA][sS].* ]]; then
           deny "Git alias configuration cannot be classified safely"
         fi
         is_tag_fetch_config "$config" && tag_fetch_config_seen=1
@@ -457,8 +468,8 @@ for ((i = 0; i < ${#TOKENS[@]}; i++)); do
 
   ((j < ${#TOKENS[@]})) || continue
   normalize_token "${TOKENS[j]}"
-  subcommand=${NORMALIZED,,}
-  if ((tag_fetch_config_seen)) && [[ "$subcommand" == fetch || "$subcommand" == pull ]]; then
+  subcommand=$NORMALIZED
+  if ((tag_fetch_config_seen)) && [[ "$subcommand" == [fF][eE][tT][cC][hH] || "$subcommand" == [pP][uU][lL][lL] ]]; then
     deny "Git configuration enabling tag fetching or pruning is prohibited"
   fi
   classify_git_subcommand "$subcommand" "$((j + 1))"

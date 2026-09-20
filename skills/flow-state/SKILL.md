@@ -7,9 +7,13 @@ description: "Use when a Flow request reads, mutates, reconciles, completes, arc
 
 Use this skill as the deterministic state boundary for Flow. The active lifecycle owner chooses a legal operation, supplies a complete typed request, and applies that request literally or refuses it with ordinary file tools. Read the packaged [canonical state contract](references/state.md) before handling any request. It owns the exact payload schemas, read predicates, fragments, event grammar, and lifecycle effects.
 
+Compound requests require ordered `{request, read_set, fragments}` child evidence.
+Only the task operations listed in the canonical contract compose; validate each
+step against its predecessor and stamp the outer transaction identity once.
+
 <!-- flow-state-contract: start -->
 ```yaml
-operations: [create, activate, claim, release, note, discover, block, unblock, checkpoint, close, skip, reopen, revise, reconcile, complete, archive, recover, status]
+operations: [create, activate, claim, release, note, discover, block, unblock, checkpoint, close, skip, reopen, revise, reconcile, complete, archive, recover, compound, status]
 mutation_request:
   required: [flow_id, operation, actor, occurred_at, expected_plan_revision, expected_plan_commit, expected_state_revision, targets, payload]
   unknown_fields: refuse
@@ -41,11 +45,12 @@ target_modes:
   complete: empty
   archive: empty
   recover: empty
+  compound: affected_tasks_sorted
 lifecycle_guards:
   create.flow: [absent]
   create.task: [planned, active]
   activate: [planned]
-  active_allowed: [claim, release, note.normal, discover, block, unblock, checkpoint.task, checkpoint.phase, close, skip, reopen, reconcile, complete]
+  active_allowed: [claim, release, note.normal, discover, block, unblock, checkpoint.task, checkpoint.phase, close, skip, reopen, reconcile, complete, compound]
   checkpoint.plan: [planned, active]
   revise: [planned, active]
   archive: [completed]
@@ -56,6 +61,7 @@ lifecycle_guards:
 identity_routes:
   task_target: [create.task, claim, release, note, discover, block, unblock, checkpoint.task, close, skip, reopen]
   all_tasks_then_spec: [checkpoint.plan, revise]
+  task_targets_then_spec: [compound]
   spec_only_empty_targets: [activate, checkpoint.phase, reconcile, complete, archive]
   untouched_tasks: may_lag_state_revision
 snapshot_effects:
@@ -149,7 +155,7 @@ result_union:
 1. Resolve the configured, bundle, and flow roots from live Markdown configuration. Validate repository-relative, nonsymlink paths. Read every nonterminal transaction journal before selecting a normal operation.
 2. Require the exact request keyset above. `occurred_at` is canonical UTC; targets are explicit and sorted where required. Existing-flow mutations require the caller's exact expected plan and state identity. Only absent-flow creation uses null expected identity. Status uses its separate read-only request shape.
 3. Load the operation-specific payload and predicate schemas from the canonical contract. Refuse unknown payload keys, implicit targets, missing identity, lifecycle violations, incomplete read sets, unresolved journals, and live/expected drift without changing tracked state.
-4. The active lifecycle owner prepares exact before/after images, creates the untracked Markdown journal, jointly arbitrates contenders, writes in canonical order with ordinary file tools, rereads every mutation, and records terminal validation. No separate reconciler agent or consumer runtime participates.
+4. The active lifecycle owner prepares exact before/after images, creates the untracked Markdown journal, jointly arbitrates contenders, writes in canonical order with ordinary file tools, rereads every mutation, and records terminal validation. No separate reconciler agent or consumer runtime participates. For batch or compound updates, agents use the intent-first 3-step protocol: Step 1 (prepare journal with targets and fragments), Step 2 (apply writes to task worksheets in sorted ID order AND update live spec.md checklist/snapshot on disk), Step 3 (commit journal with applied_writes and validation_recorded event).
 5. Return exactly one tagged `result_union` variant. Never omit a key or substitute prose for a nullable field. Status returns its typed dashboard evidence without an operation id, journal, revision, or write.
 
 ## Recovery
