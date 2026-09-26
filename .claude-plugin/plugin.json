@@ -1,7 +1,7 @@
 {
   "name": "flow",
   "description": "Unified toolkit for Context-Driven Development with spec-first planning, TDD workflow, and OKF knowledge bundles.",
-  "version": "0.24.0",
+  "version": "0.25.0",
   "author": {
     "name": "cofin"
   },
@@ -20,19 +20,5 @@
     "slash-commands",
     "subagents"
   ],
-  "skills": [
-    "./skills/"
-  ],
-  "commands": [
-    "./commands/"
-  ],
-  "hooks": "./hooks/hooks-claude.json",
-  "agents": [
-    "./agents/code-reviewer.md",
-    "./agents/executor.md",
-    "./agents/plan-generator.md",
-    "./agents/prd-orchestrator.md",
-    "./agents/quality-reviewer.md",
-    "./agents/researcher.md"
-  ]
+  "hooks": "./hooks/hooks-claude.json"
 }

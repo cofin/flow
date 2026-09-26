@@ -11,7 +11,6 @@ from typing import Any
 
 import yaml
 
-
 SKILL_BODY_LIMIT = 500
 REFERENCE_CONTENTS_THRESHOLD = 100
 AGENT_PROMPT_LIMIT = 120
@@ -30,6 +29,7 @@ EXPECTED_LIFECYCLE_OWNERSHIP = {
         "docs",
         "cleanup",
         "validate",
+        "resynthesize",
     ),
 }
 REQUIRED_SHARED_CONTRACTS = {

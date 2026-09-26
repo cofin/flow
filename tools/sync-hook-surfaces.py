@@ -11,8 +11,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def surfaces(root: Path) -> dict[str, str]:
+    """Return generated hook scripts and mirrored harness hook manifests."""
     context = (root / "hooks/primer.txt").read_text(encoding="utf-8").strip()
-    # Literal CMD/PowerShell/shell output must not turn primer text into code.
     if (
         not context
         or len(context) > 512
@@ -55,6 +55,12 @@ def surfaces(root: Path) -> dict[str, str]:
     result[".codex/hooks.json"] = (root / "hooks/hooks-codex.json").read_text(
         encoding="utf-8"
     )
+    cursor_source = root / "hooks/hooks-cursor.json"
+    if cursor_source.is_file():
+        result[".cursor/hooks.json"] = cursor_source.read_text(encoding="utf-8")
+    agy_source = root / "hooks/hooks-agy.json"
+    if agy_source.is_file():
+        result["hooks.json"] = agy_source.read_text(encoding="utf-8")
     return result
 
 

@@ -461,7 +461,14 @@ def validate_claude_hook_config(path: Path) -> list[Violation]:
 
 
 ANTIGRAVITY_HOOK_EVENTS = frozenset(
-    {"PreToolUse", "PostToolUse", "PreInvocation", "PostInvocation", "Stop"}
+    {
+        "SessionStart",
+        "PreToolUse",
+        "PostToolUse",
+        "PreInvocation",
+        "PostInvocation",
+        "Stop",
+    }
 )
 
 
@@ -496,7 +503,7 @@ def validate_antigravity_hook_config(path: Path) -> list[Violation]:
                         path,
                         1,
                         f"hook {hook_name!r} uses unknown Antigravity event {event_name!r} "
-                        f"(supported: {', '.join(sorted(ANTIGRAVITY_HOOK_EVENTS))}; there is no SessionStart)",
+                        f"(supported: {', '.join(sorted(ANTIGRAVITY_HOOK_EVENTS))})",
                     )
                 )
             if not isinstance(handlers, list) or not handlers:
@@ -1130,6 +1137,7 @@ def iter_opencode_agents() -> Iterator[Path]:
 
 
 def iter_claude_agents() -> Iterator[Path]:
+    """Yield Claude subagent files from explicit manifest paths or default agents/ directory."""
     seen: set[Path] = set()
     if CLAUDE_AGENTS_DIR.is_dir():
         for path in sorted(CLAUDE_AGENTS_DIR.glob("*.md")):
@@ -1145,6 +1153,14 @@ def iter_claude_agents() -> Iterator[Path]:
     except (json.JSONDecodeError, OSError):
         return
     agents = data.get("agents") if isinstance(data, dict) else None
+    if agents is None:
+        if AGENTS_DIR.is_dir():
+            for path in sorted(AGENTS_DIR.glob("*.md")):
+                real = path.resolve()
+                if real not in seen:
+                    seen.add(real)
+                    yield path
+        return
     if isinstance(agents, str):
         agent_paths: Iterable[str] = (agents,)
     elif isinstance(agents, list):
@@ -1153,7 +1169,15 @@ def iter_claude_agents() -> Iterator[Path]:
         return
     for raw_path in agent_paths:
         resolved, error = _resolve_plugin_path(manifest_path, raw_path)
-        if error is not None or resolved is None or not resolved.is_dir():
+        if error is not None or resolved is None:
+            continue
+        if resolved.is_file():
+            real = resolved.resolve()
+            if real not in seen:
+                seen.add(real)
+                yield resolved
+            continue
+        if not resolved.is_dir():
             continue
         for path in sorted(resolved.glob("*.md")):
             real = path.resolve()

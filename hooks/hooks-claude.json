@@ -1,14 +1,13 @@
 {
+  "description": "Flow session priming and git safety guardrails for Claude Code.",
   "hooks": {
     "SessionStart": [
       {
         "hooks": [
           {
-            "name": "flow-session-start",
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-.}}/hooks/session-start.sh\"",
-            "timeout": 30,
-            "description": "Inject static Flow routing into Claude sessions."
+            "timeout": 30
           }
         ]
       }
@@ -18,11 +17,9 @@
         "matcher": "Bash",
         "hooks": [
           {
-            "name": "flow-git-guardrail",
             "type": "command",
             "command": "bash \"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-.}}/hooks/block-dangerous-git.sh\"",
-            "timeout": 10,
-            "description": "Use the Bash and jq guardrail to block prohibited Git operations."
+            "timeout": 10
           }
         ]
       }

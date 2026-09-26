@@ -16,6 +16,8 @@ Work through each item. Flag anything that raises a concern. For clean items, a 
 
 7. **Scaling characteristics** — What happens at 10x load? Are there obvious bottlenecks (single database, synchronous calls in hot paths)?
 
-8. **Testability** — Can components be tested in isolation? Are test boundaries aligned with component boundaries?
+8. **Testability & Seams** — Can components be tested in isolation at real module seams rather than mocking internal private helpers? Are test boundaries aligned with component boundaries?
 
-9. **Simplicity** — Could this design be simpler and still meet requirements? Is complexity earning its keep?
+9. **Module Depth (Interface vs. Implementation)** — Are modules deep (small, stable public interface hiding substantial domain complexity) or shallow pass-through wrappers and config bags that leak internal mechanics across callers?
+
+10. **Simplicity** — Could this design be simpler and still meet requirements? Is complexity earning its keep?

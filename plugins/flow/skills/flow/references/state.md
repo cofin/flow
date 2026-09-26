@@ -825,3 +825,11 @@ Crash recovery compares live files against recorded `before` and `after` fragmen
 - All files match `after`: `finishable` (complete Step 3 commit).
 - Mixed files match `before` and `after`: `partially_applied` (complete forward writes or roll back to `before`).
 - Any file matches neither: `hard_conflict` (genuine untracked drift).
+
+### Journal Compaction & Cross-Session Hygiene
+
+Transaction journals under `<configured-root>/transactions/<operation-id>/journal.md` are local untracked crash-recovery state, not a permanent historical transcript:
+
+1. **Cross-Machine Continuity**: When switching machines (`git pull`), `<configured-root>/transactions/` is normally absent or empty. Reconstruct authority directly from tracked `spec.md`, `tasks/*.md`, and Git history (`/flow:refresh`).
+2. **Terminal Journal Pruning**: Once a transaction reaches a terminal state (`committed`, `rolled_back`, `superseded`) and live `spec.md` and `tasks/*.md` match the committed `state_revision`, older terminal journal directories for that flow may be pruned during `revise`, `refresh`, `cleanup`, or `archive` (retaining at most the latest terminal journal per flow and any active `plan-bind` journal required for replay). Never accumulate hundreds of historical transaction folders.
+3. **Zero-Transcript Worksheet Revisions**: `revise` rewrites task/spec instructions in-place in present tense and synchronizes checklist markers (`[ ]`, `[~]`, `[x] [<sha>]`, `[!]`, `[-]`), `state_revision`, and `Continuity Snapshot` in the same transaction. Never retain superseded plans or multi-turn failure transcripts in `spec.md` or `tasks/*.md`.

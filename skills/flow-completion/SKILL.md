@@ -6,11 +6,11 @@ disable-model-invocation: true
 
 # Flow Completion
 
-<!-- lifecycle-ownership: owner=flow-completion; operations=review,finish,archive,revert,docs,cleanup,validate -->
+<!-- lifecycle-ownership: owner=flow-completion; operations=review,finish,archive,revert,docs,cleanup,validate,resynthesize -->
 
 ## Trigger
 
-Use for `review|finish|archive|revert|docs|cleanup|validate`.
+Use for `review|finish|archive|revert|docs|cleanup|validate|resynthesize`.
 
 <!-- quality-completion-policy: start -->
 ```yaml
@@ -28,7 +28,8 @@ evaluator_module: forbidden
 1. **Two-Axis Review (`/flow:review`)**: Run parallel reviewers evaluating Standards/Smells (Security, Performance, Debloat lenses) and Spec Conformance against `git diff <base>...HEAD`.
 2. **Finish Flow (`/flow:finish`)**: Run full test verification suite and record single-paragraph ADRs in `knowledge/decisions/`.
 3. **Archive Flow (`/flow:archive`)**: Synthesize discoveries into project-shaped knowledge, append one `log.md` entry, and delete the reviewed completed spec inventory through a journaled archive operation.
-4. **Revert or Validate**: Revert designated changes or run repository validation checks.
+4. **Resynthesize Knowledge (`/flow:resynthesize`)**: Audit and rewrite `.agents/bundles/knowledge/` in depth against current codebase truth, reorganizing flat or bloated chapters into hierarchical OKF v0.2 subdirectories and rebuilding `index.md`.
+5. **Cleanup, Revert, or Validate (`/flow:cleanup`, `/flow:revert`, `/flow:validate`)**: Sweep completed flows and code/prose bloat in touched files, revert designated changes, or run repository validation checks.
 
 ## Guardrails
 

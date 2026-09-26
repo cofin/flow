@@ -1,5 +1,6 @@
 {
   "name": "flow-marketplace",
+  "description": "The Flow Framework Marketplace \u2014 context-driven development tools, skills, and agents",
   "metadata": {
     "description": "The Flow Framework Marketplace \u2014 context-driven development tools, skills, and agents"
   },
@@ -11,8 +12,8 @@
     {
       "name": "flow",
       "description": "Unified toolkit for Context-Driven Development with spec-first planning, TDD workflow, and OKF knowledge bundles.",
-      "version": "0.24.0",
-      "source": "./",
+      "version": "0.25.0",
+      "source": ".",
       "author": {
         "name": "cofin"
       }

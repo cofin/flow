@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from copy import deepcopy
 import importlib.util
 import json
-from pathlib import Path
 import tomllib
+from copy import deepcopy
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -114,9 +114,7 @@ def test_contract_has_exact_namespaces(contract) -> None:
     )
     assert tuple(contract.commands) == tuple(
         f"flow/{name}"
-        for name in (
-            "setup prd plan refine sync research docs implement status revert validate revise archive refresh task finish review cleanup"
-        ).split()
+        for name in ["setup", "prd", "plan", "refine", "sync", "research", "docs", "implement", "status", "revert", "validate", "revise", "archive", "refresh", "task", "finish", "review", "cleanup", "resynthesize"]
     )
     assert contract.state_operations == (
         "create",

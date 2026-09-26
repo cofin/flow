@@ -457,7 +457,7 @@ commands:
     lifecycle_owner: flow-sync-status
     agent: null
     shared_contracts: [flow-state-v1]
-    state_operations: [discover, revise, reconcile]
+    state_operations: [status, recover, discover, release, revise, reconcile]
     procedure_source: skills/flow/references/refresh.md
     argument_schema: {syntax: "[flow_id]", required: [], optional: [flow_id]}
     mutability: planning_write
@@ -558,6 +558,27 @@ commands:
       cursor: {spelling: "Use Flow to clean up completed flows", fallback: "Use Flow to clean up completed flows"}
       vscode_copilot: {spelling: "Use Flow to clean up completed flows", fallback: "Use Flow to clean up completed flows"}
       openclaw: {spelling: "Use Flow to clean up completed flows", fallback: "Use Flow to clean up completed flows"}
+  - id: flow/resynthesize
+    lifecycle_owner: flow-completion
+    agent: null
+    shared_contracts: [flow-state-v1]
+    state_operations: [status, note, checkpoint]
+    procedure_source: skills/flow/references/resynthesize.md
+    argument_schema: {syntax: "[scope]", required: [], optional: [scope]}
+    mutability: repository_write
+    interaction_mode: none
+    question_capability: null
+    plan_capability: preferred
+    completion_gates: [documentation_validation]
+    runtime_dependency: agent_file_tools_only
+    invocations:
+      antigravity: {spelling: /flow-resynthesize, fallback: "Use Flow to resynthesize project knowledge"}
+      claude_code: {spelling: /flow-resynthesize, fallback: "Use Flow to resynthesize project knowledge"}
+      codex_cli: {spelling: "Use Flow to resynthesize project knowledge", fallback: "Use Flow to resynthesize project knowledge"}
+      opencode: {spelling: /flow-resynthesize, fallback: "Use Flow to resynthesize project knowledge"}
+      cursor: {spelling: "Use Flow to resynthesize project knowledge", fallback: "Use Flow to resynthesize project knowledge"}
+      vscode_copilot: {spelling: "Use Flow to resynthesize project knowledge", fallback: "Use Flow to resynthesize project knowledge"}
+      openclaw: {spelling: "Use Flow to resynthesize project knowledge", fallback: "Use Flow to resynthesize project knowledge"}
 
 agents:
   - id: code-reviewer

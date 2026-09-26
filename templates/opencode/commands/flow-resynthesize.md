@@ -1,46 +1,45 @@
 ---
-description: "Run the canonical flow/refresh Flow lifecycle."
+description: "Run the canonical flow/resynthesize Flow lifecycle."
 ---
 
-<!-- Generated from contracts/flow.yaml; generated-sha256: ab1ad662aa8515ffc7b2329b778a951728110f95908292cc18100ec080236b5f -->
+<!-- Generated from contracts/flow.yaml; generated-sha256: 47761d81ccc0d283564efb06bdf8f254e0d3fd2e23195fafc0b4d4b9322d7784 -->
 
 ```json
 {
   "agent": null,
   "argument_schema": {
     "optional": [
-      "flow_id"
+      "scope"
     ],
     "required": [],
-    "syntax": "[flow_id]"
+    "syntax": "[scope]"
   },
   "bounds_enforcement": "agent_validated",
-  "canonical_id": "flow/refresh",
-  "capability_evidence": "Claude Code declared AskUserQuestion contract",
+  "canonical_id": "flow/resynthesize",
+  "capability_evidence": "OpenCode built-in question tool documentation",
   "choice_max": 4,
   "choice_min": 2,
   "completion_gates": [
-    "drift_inventory",
-    "transaction_reread"
+    "documentation_validation"
   ],
   "custom_answer_behavior": "native_custom_input",
   "disabled_choice_policy": "omit",
-  "fallback": "Use Flow to refresh project context",
+  "fallback": "Use Flow to resynthesize project knowledge",
   "git_tags": "forbidden",
-  "host": "claude_code",
+  "host": "opencode",
   "instruction": "Load the lifecycle owner and follow the canonical procedure source directly.",
   "interaction_mode": "none",
-  "invocation": "/flow-refresh",
+  "invocation": "/flow-resynthesize",
   "kind": "flow_command_adapter",
-  "lifecycle_owner": "flow-sync-status",
+  "lifecycle_owner": "flow-completion",
   "multi_select": true,
-  "mutability": "planning_write",
+  "mutability": "repository_write",
   "mutual_exclusion": true,
   "plan_capability": "preferred",
-  "procedure_source": "skills/flow/references/refresh.md",
+  "procedure_source": "skills/flow/references/resynthesize.md",
   "question_capability": null,
   "question_permission_check": "declared_and_allowed",
-  "question_tool": "AskUserQuestion",
+  "question_tool": "question",
   "question_transport": "conditional_native",
   "runtime_dependency": "agent_file_tools_only",
   "sequential_fallback": true,
@@ -49,11 +48,8 @@ description: "Run the canonical flow/refresh Flow lifecycle."
   ],
   "state_operations": [
     "status",
-    "recover",
-    "discover",
-    "release",
-    "revise",
-    "reconcile"
+    "note",
+    "checkpoint"
   ],
   "supported_selection_modes": [
     "binary",

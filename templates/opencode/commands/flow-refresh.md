@@ -2,7 +2,7 @@
 description: "Run the canonical flow/refresh Flow lifecycle."
 ---
 
-<!-- Generated from contracts/flow.yaml; generated-sha256: f3407ce6cfabf37435131e7ade3fa10c37770eb23267347741bc8347b76084ac -->
+<!-- Generated from contracts/flow.yaml; generated-sha256: f9a264d570a5c0e4eb2f5edc41ddaeeaf3a5d9a05abbc87ab97f4943e530ca42 -->
 
 ```json
 {
@@ -48,7 +48,10 @@ description: "Run the canonical flow/refresh Flow lifecycle."
     "flow-state-v1"
   ],
   "state_operations": [
+    "status",
+    "recover",
     "discover",
+    "release",
     "revise",
     "reconcile"
   ],

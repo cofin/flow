@@ -14,16 +14,16 @@ agy plugin install https://github.com/cofin/flow
 |---|---|---|
 | Plugin manifest | `plugin.json` | plugin identity and metadata |
 | Operational rule | `rules/flow-antigravity.md` | `model_decision` activation and structured-choice view |
-| Hook manifest | `hooks.json` (`hooks/hooks-agy.json`) | static `PreInvocation` routing registration |
+| Hook manifest | `hooks.json` (`hooks/hooks-agy.json`) | static `SessionStart` routing registration |
 | Hook emitter | `hooks/agy-pre-invocation.sh` | one bounded fixed JSON envelope |
 | Subagents | `agents/*.md` | canonical lifecycle, state, correctness, and quality agents |
 | Skills | `skills/**/SKILL.md` | Flow router and lifecycle procedures |
 
-Antigravity has no SessionStart event, so Flow uses `PreInvocation`. The
-manifest target emits a fixed instruction to read the configured Flow index and
-state contract. It does not scan tasks, read project state, call a helper, or
-synthesize a continuation packet. Agents reconstruct continuity directly from
-tracked Markdown.
+Flow registers its priming hook on `SessionStart` so the static instruction is
+emitted once per session rather than on every turn. The manifest target emits a
+fixed instruction to read the configured Flow index and state contract. It does
+not scan tasks, read project state, call a helper, or synthesize a continuation
+packet. Agents reconstruct continuity directly from tracked Markdown.
 
 ## Structured decisions
 

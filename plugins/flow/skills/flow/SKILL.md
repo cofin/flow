@@ -19,7 +19,7 @@ Route the requested operation directly to its owning lifecycle skill:
 - `prd|plan|refine|revise|research|task` &rarr; `flow-planning`
 - `implement` &rarr; `flow-execution`
 - `sync|status|refresh` &rarr; `flow-sync-status`
-- `review|finish|archive|revert|docs|cleanup|validate` &rarr; `flow-completion`
+- `review|finish|archive|revert|docs|cleanup|validate|resynthesize` &rarr; `flow-completion`
 
 The router owns no operations and performs no disk mutations.
 
@@ -36,8 +36,8 @@ Identify the selected lifecycle skill and hand off the request immediately.
 ## Validation
 
 Confirm exactly one lifecycle owner matches the requested operation and that
-the active host exposes its `/flow:<operation>` command or can load the named
-owner skill directly.
+the active host exposes its `/flow:<operation>` (plugin) or `/flow-<operation>`
+(standalone) command or can load the named owner skill directly.
 
 ## Example
 
@@ -57,6 +57,7 @@ For a request like "implement the active flow", route to `flow-execution` withou
 - [Refine](references/refine.md)
 - [Refresh](references/refresh.md)
 - [Research](references/research.md)
+- [Resynthesize](references/resynthesize.md)
 - [Revert](references/revert.md)
 - [Review](references/review.md)
 - [Revise](references/revise.md)

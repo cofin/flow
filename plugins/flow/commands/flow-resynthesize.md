@@ -1,43 +1,42 @@
 ---
-description: "Run the canonical flow/refresh Flow lifecycle."
+description: "Run the canonical flow/resynthesize Flow lifecycle."
 ---
 
-<!-- Generated from contracts/flow.yaml; generated-sha256: ab1ad662aa8515ffc7b2329b778a951728110f95908292cc18100ec080236b5f -->
+<!-- Generated from contracts/flow.yaml; generated-sha256: 3d5ecc7af24dcb15a5dcb7c77908dcd40ea550d0fe2d07d51d854f448bbd455a -->
 
 ```json
 {
   "agent": null,
   "argument_schema": {
     "optional": [
-      "flow_id"
+      "scope"
     ],
     "required": [],
-    "syntax": "[flow_id]"
+    "syntax": "[scope]"
   },
   "bounds_enforcement": "agent_validated",
-  "canonical_id": "flow/refresh",
+  "canonical_id": "flow/resynthesize",
   "capability_evidence": "Claude Code declared AskUserQuestion contract",
   "choice_max": 4,
   "choice_min": 2,
   "completion_gates": [
-    "drift_inventory",
-    "transaction_reread"
+    "documentation_validation"
   ],
   "custom_answer_behavior": "native_custom_input",
   "disabled_choice_policy": "omit",
-  "fallback": "Use Flow to refresh project context",
+  "fallback": "Use Flow to resynthesize project knowledge",
   "git_tags": "forbidden",
   "host": "claude_code",
   "instruction": "Load the lifecycle owner and follow the canonical procedure source directly.",
   "interaction_mode": "none",
-  "invocation": "/flow-refresh",
+  "invocation": "/flow-resynthesize",
   "kind": "flow_command_adapter",
-  "lifecycle_owner": "flow-sync-status",
+  "lifecycle_owner": "flow-completion",
   "multi_select": true,
-  "mutability": "planning_write",
+  "mutability": "repository_write",
   "mutual_exclusion": true,
   "plan_capability": "preferred",
-  "procedure_source": "skills/flow/references/refresh.md",
+  "procedure_source": "skills/flow/references/resynthesize.md",
   "question_capability": null,
   "question_permission_check": "declared_and_allowed",
   "question_tool": "AskUserQuestion",
@@ -49,11 +48,8 @@ description: "Run the canonical flow/refresh Flow lifecycle."
   ],
   "state_operations": [
     "status",
-    "recover",
-    "discover",
-    "release",
-    "revise",
-    "reconcile"
+    "note",
+    "checkpoint"
   ],
   "supported_selection_modes": [
     "binary",
