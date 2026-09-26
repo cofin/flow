@@ -4,6 +4,8 @@ import importlib.util
 import json
 import re
 import shutil
+import subprocess
+import sys
 from copy import deepcopy
 from pathlib import Path
 from typing import Any
@@ -23,6 +25,7 @@ COMPLETION_SKILL_PATH = REPO_ROOT / "skills" / "flow-completion" / "SKILL.md"
 ARCHIVE_REFERENCE_PATH = REPO_ROOT / "skills" / "flow" / "references" / "archive.md"
 SYNC_REFERENCE_PATH = REPO_ROOT / "skills" / "flow" / "references" / "sync.md"
 STATUS_REFERENCE_PATH = REPO_ROOT / "skills" / "flow" / "references" / "status.md"
+REFRESH_REFERENCE_PATH = REPO_ROOT / "skills" / "flow" / "references" / "refresh.md"
 
 OPERATIONS = {
     "create",
@@ -798,3 +801,151 @@ def test_live_archive_deletion_and_per_file_rollback_resume(
     assert oracle.validate.assess_markdown_transactions(root) == {
         journal["operation_id"]: "resumable_rollback"
     }
+
+
+def _load_flow_state_oracle():
+    module_path = REPO_ROOT / "tools" / "flow_state.py"
+    spec = importlib.util.spec_from_file_location("flow_state_oracle", module_path)
+    assert spec is not None
+    assert spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_refresh_reference_and_skill_route_cross_session_reorientation() -> None:
+    refresh_contract = _contract(REFRESH_REFERENCE_PATH, "flow-refresh-contract")
+    skill_contract = _contract(SYNC_SKILL_PATH, "flow-sync-status-routing")
+
+    assert refresh_contract["operation"] == "refresh"
+    assert refresh_contract["owner"] == "flow-sync-status"
+    assert refresh_contract["state_skill"] == "flow-state"
+    assert refresh_contract["state_operations"] == [
+        "status",
+        "recover",
+        "discover",
+        "release",
+        "revise",
+        "reconcile",
+    ]
+    assert refresh_contract["completion_gates"] == [
+        "drift_inventory",
+        "transaction_reread",
+    ]
+    assert skill_contract["refresh"] == "cross_session_reorient_and_align"
+
+
+def test_flow_state_reorient_aligns_cross_machine_and_cross_harness_drift(
+    tmp_path: Path,
+) -> None:
+    oracle = _load_flow_state_oracle()
+    subprocess.run(["git", "init"], cwd=tmp_path, check=True, capture_output=True)
+    subprocess.run(
+        ["git", "config", "user.email", "test@example.com"],
+        cwd=tmp_path,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "Test User"],
+        cwd=tmp_path,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "config", "commit.gpgsign", "false"],
+        cwd=tmp_path,
+        check=True,
+    )
+
+    flow_dir = tmp_path / ".agents" / "bundles" / "specs" / "cross-flow"
+    tasks_dir = flow_dir / "tasks"
+    tasks_dir.mkdir(parents=True)
+    tx_old = tmp_path / ".agents" / "transactions" / "20260814T090000Z-agent-claim-1-1-00"
+    tx_new = tmp_path / ".agents" / "transactions" / "20260814T093000Z-agent-close-1-1-00"
+    tx_old.mkdir(parents=True)
+    tx_new.mkdir(parents=True)
+    (tx_old / "journal.md").write_text(
+        "---\nflow_id: cross-flow\nstate: committed\n---\n", encoding="utf-8"
+    )
+    (tx_new / "journal.md").write_text(
+        "---\nflow_id: cross-flow\nstate: committed\n---\n", encoding="utf-8"
+    )
+    (tmp_path / ".agents" / "setup-state.json").write_text(
+        json.dumps({"root_directory": ".agents"}), encoding="utf-8"
+    )
+    (tmp_path / ".agents" / "bundles" / "index.md").write_text(
+        "---\nactive_flow: cross-flow\n---\n\nIndex\n", encoding="utf-8"
+    )
+    (flow_dir / "spec.md").write_text(
+        "---\n"
+        "type: Spec\n"
+        "flow_id: cross-flow\n"
+        "state: active\n"
+        "plan_revision: 2\n"
+        "state_revision: 2\n"
+        "current_task: '1.1'\n"
+        "---\n"
+        "## Implementation Plan\n\n"
+        "- [~] Task 1.1: First task\n"
+        "- [~] Task 1.2: Second task\n",
+        encoding="utf-8",
+    )
+    (tasks_dir / "1.1.md").write_text(
+        "---\n"
+        "type: Task\n"
+        "id: 'cross-flow:1.1'\n"
+        "title: First task\n"
+        "state: in_progress\n"
+        "claimed_by: claude_code\n"
+        "claimed_at: '2026-08-14T10:00:00Z'\n"
+        "plan_revision: 1\n"
+        "state_revision: 2\n"
+        "depends_on: []\n"
+        "---\n"
+        "Task 1.1\n",
+        encoding="utf-8",
+    )
+    (tasks_dir / "1.2.md").write_text(
+        "---\n"
+        "type: Task\n"
+        "id: 'cross-flow:1.2'\n"
+        "title: Second task\n"
+        "state: in_progress\n"
+        "claimed_by: claude_code\n"
+        "claimed_at: '2026-08-14T11:00:00Z'\n"
+        "plan_revision: 2\n"
+        "state_revision: 3\n"
+        "depends_on:\n"
+        "  - '1.1'\n"
+        "---\n"
+        "Task 1.2\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "feature.txt").write_text("done\n", encoding="utf-8")
+    subprocess.run(["git", "add", "."], cwd=tmp_path, check=True)
+    subprocess.run(
+        ["git", "commit", "-m", "feat: complete task 1.1 implementation"],
+        cwd=tmp_path,
+        check=True,
+    )
+
+    report = oracle.reorient_flow(
+        tmp_path,
+        flow_id="cross-flow",
+        current_harness="antigravity",
+        apply_fixes=True,
+    )
+
+    assert report.transaction_status == "committed"
+    assert report.pruned_journals == ["20260814T090000Z-agent-claim-1-1-00"]
+    assert not tx_old.exists()
+    assert tx_new.exists()
+    assert report.task_counts["closed"] == 1
+    assert report.task_counts["open"] == 1
+    assert report.ready_tasks == ["1.2"]
+    assert report.in_progress_tasks == []
+    assert report.state_revision == 4
+    updated_spec = (flow_dir / "spec.md").read_text(encoding="utf-8")
+    assert "- [x] Task 1.1: First task [" in updated_spec
+    assert "- [ ] Task 1.2: Second task" in updated_spec
+

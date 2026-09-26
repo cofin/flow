@@ -53,6 +53,16 @@ Confirm that canonical aggregate commands inspect new and untracked files. Recor
 
 Review the final diff for semantic drift and newly introduced cleverness. Run focused behavior checks, affected lint/type/build checks, coverage comparison when deleting behavioral coverage, and `git diff --check`. Report the invariants preserved, exact checks, and any limitation.
 
+## Anti-slop prose and comment policy
+
+Strip synthetic AI filler from docs, specs, worksheets, commit messages, and code:
+
+- **No AI puffery**: Remove significance inflation (`pivotal`, `crucial`, `testament to`, `delve`, `tapestry`, `seamless`, `robust`, `comprehensive`, `leverage`, `unlock`, `foster`, `underscore`, `showcase`).
+- **No negative parallelisms**: Replace `"It is not just X — it is Y"` and `"Not only... but also..."` with direct statements of what the code does.
+- **No formulaic throat-clearing or participle tails**: Remove `"Moreover"`, `"Furthermore"`, `"In conclusion"`, `"Let's dive in"`, and trailing clauses like `"...ensuring seamless integration"`.
+- **No boldface-bullet syndrome**: Use `**Key**:` prefixes only when items are genuine key-value definitions, not ordinary prose bullets.
+- **Comment and typing discipline**: In Python, never use inline `#` comments; move necessary rationale into module, class, or function docstrings and enforce PEP 585 built-in generic types (`list[str]`, `dict[str, Any]`, `X | None`).
+
 ## Low-signal test policy
 
 Reject tests that lock incidental prompt phrases, private implementation shape, duplicate snapshots, or file existence without an operational contract. Reject source scanners when a native parser, lint, type, or build contract expresses the rule. Retain tests for observable behavior, public contracts, error paths, interoperability, regressions, and operationally meaningful structure.

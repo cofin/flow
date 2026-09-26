@@ -1,6 +1,8 @@
 ---
 name: flow-state
 description: "Use when a Flow request reads, mutates, reconciles, completes, archives, or recovers Markdown lifecycle state and transaction journals."
+disable-model-invocation: true
+user-invocable: false
 ---
 
 # Flow State

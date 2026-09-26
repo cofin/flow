@@ -3,7 +3,13 @@
   "hooks": {
     "sessionStart": [
       {
-        "command": "./hooks/session-start.sh"
+        "command": "./hooks/cursor-session-start.sh"
+      }
+    ],
+    "preToolUse": [
+      {
+        "matcher": "Shell",
+        "command": "./hooks/block-dangerous-git.sh"
       }
     ]
   }

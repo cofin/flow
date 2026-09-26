@@ -24,7 +24,12 @@ tracking. Use standalone or as the analysis engine for Flow documentation work.
 ## Guardrails
 
 Read every in-scope file. Do not infer behavior from names, skip small files,
-or claim completeness while manifest entries remain unresolved.
+or claim completeness while manifest entries remain unresolved. Write direct,
+evidence-backed technical prose: never use AI puffery (`seamless`, `robust`,
+`comprehensive`, `pivotal`, `delve`, `leverage`), negative parallelisms (`"not
+just X, but Y"`), formulaic transitions (`"Moreover"`, `"Furthermore"`),
+superficial participle tails (`"...ensuring reliability"`), or boldface-bullet
+padding. Lead every section with concrete file paths, symbols, and invariants.
 
 </guardrails>
 

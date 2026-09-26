@@ -5,7 +5,14 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
-ANTIGRAVITY_HOOK_EVENTS = {"PreToolUse", "PostToolUse", "PreInvocation", "PostInvocation", "Stop"}
+ANTIGRAVITY_HOOK_EVENTS = {
+    "SessionStart",
+    "PreToolUse",
+    "PostToolUse",
+    "PreInvocation",
+    "PostInvocation",
+    "Stop",
+}
 
 
 def _load_agy_hooks() -> dict:
@@ -35,12 +42,12 @@ def test_antigravity_root_hooks_manifest_matches_harness_source() -> None:
 
 
 def test_antigravity_hooks_use_only_real_events() -> None:
-    # Antigravity has no SessionStart event; priming must ride PreInvocation.
+    """Verify Antigravity hook manifests register SessionStart and valid events only."""
     for hooks in (_load_root_hooks(), _load_agy_hooks()):
         events = {event for spec in hooks.values() for event in spec}
         assert events, "hooks manifest must define at least one hook event"
         assert events <= ANTIGRAVITY_HOOK_EVENTS
-        assert "PreInvocation" in events
+        assert "SessionStart" in events
 
 
 def test_antigravity_hook_commands_are_python_free_and_root_anchored() -> None:

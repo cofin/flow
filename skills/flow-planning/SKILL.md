@@ -30,17 +30,17 @@ planning_loop:
 
 ## Workflow
 
-1. **Research & Frontier Analysis**: Close codebase facts autonomously using background `@researcher` subagents. Map design choices as an unblocked frontier with opinionated recommendations (`❓ Choice [ID] ... ➡️ Recommendation`).
-2. **Multi-Interface Exploration**: Explore competing interface designs and evaluate structural boundaries using `architecture-critic` before spec lock.
-3. **Draft Spec & Worksheets**: Write `spec.md` and complete worksheets in `tasks/<short_id>.md` specifying public interfaces, types, and testing seams.
-4. **Adversarial Stress-Testing**: Apply the `devils-advocate` lens before presenting for approval to catch edge cases.
+1. **Proportional Research & Frontier Analysis**: Resolve local codebase facts directly with file reads (0 subagents). Dispatch at most 1–2 `@researcher` subagents only when at least two independent unknowns or external primary-source lookups exist. Map design choices as an unblocked frontier with opinionated recommendations (`❓ Choice [ID] ... ➡️ Recommendation`).
+2. **Deep-Module Interface Exploration**: Explore competing interface shapes only when public contracts genuinely compete, and apply the `architecture-critic` deep-module lens inline before spec lock.
+3. **Single-Pass Spec & Worksheets**: Write `spec.md` and complete vertical-slice worksheets in `tasks/<short_id>.md` specifying public interfaces, types, and testing seams.
+4. **Inline Adversarial Stress-Testing**: Apply the `devils-advocate` lens inline before presenting for approval to catch edge cases without spawning extra subagents.
 5. **Approval Gate**: Present `Approve|Revise|Refine`. Upon approval, hand off to `flow-execution`.
 
 ## Guardrails
 
 - Planning modifies files exclusively under `.agents/bundles/specs/<flow_id>/`. Never edit application source code during planning.
 - A plan is Ready only when a zero-context agent can implement every task correctly from the worksheet alone.
-- Every task must be sized for exactly one subagent invocation and one atomic Git commit.
+- Every task must be a vertical slice sized for one subagent invocation and one atomic Git commit; never split one behavior into separate test-only and implementation-only tasks.
 - Select exactly one verification strategy from the maintained matrix below.
 
 ## Verification Strategy Selection

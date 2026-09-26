@@ -13,15 +13,15 @@ Extended reasoning workflow for problems that resist quick answers.
 
 State what you're trying to understand or decide. Be specific. Vague framing produces vague investigation.
 
-### 2. Form Initial Hypothesis
+### 2. Form Initial Hypothesis & Concrete Prediction
 
-Your best guess based on available information. One sentence. Confidence: `exploring`.
+Your best guess based on available information (one sentence, confidence: `exploring`), paired with a falsifiable prediction: *"If this hypothesis is true, inspecting X or running Y will show Z."*
 
 Don't skip this step — even a weak hypothesis focuses investigation better than no hypothesis.
 
-### 3. Gather Evidence
+### 3. Gather Evidence via Minimal Probe
 
-Read code, check docs, run tests, trace execution. Record what you find at each step. Every piece of evidence should be evaluated against the current hypothesis.
+Run the smallest possible probe (read the exact symbol, inspect the boundary input/output, or run one targeted failing test) that tests your prediction. Record what you find at each step. Never edit production code as a blind probe.
 
 ### 4. Evaluate Against Hypothesis
 
@@ -29,7 +29,7 @@ Does the evidence support, contradict, or require revision of your hypothesis? B
 
 - **Supports:** confirms a specific aspect of the hypothesis
 - **Contradicts:** rules out a specific aspect, requiring revision
-- **Requires revision:** the hypothesis was wrong in some way — update it now
+- **Requires revision:** the hypothesis was wrong in some way — update it now and record the falsified assumption so you never re-test the same dead end
 
 ### 5. Update Confidence
 

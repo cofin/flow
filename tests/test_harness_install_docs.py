@@ -6,7 +6,6 @@ from pathlib import Path
 
 from tools.flow_contract import load_contract
 
-
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CONTRACT = load_contract(REPO_ROOT / "contracts" / "flow.yaml")
 PUBLIC_DOCS = (
@@ -138,7 +137,9 @@ def test_manifests_and_templates_do_not_advertise_unsupported_commands() -> None
     codex = json.loads((REPO_ROOT / ".codex-plugin" / "plugin.json").read_text(encoding="utf-8"))
     claude = json.loads((REPO_ROOT / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
     assert "commands" not in codex
-    assert {Path(path).stem for path in claude["agents"]} == set(CONTRACT.agents)
+    assert "commands" not in claude
+    assert "agents" not in claude
+    assert {path.stem for path in (REPO_ROOT / "agents").glob("*.md")} == set(CONTRACT.agents)
 
     opencode_templates = {
         path.stem.removeprefix("flow-")

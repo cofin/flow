@@ -10,9 +10,10 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping, NoReturn, cast
+from typing import Any, NoReturn, cast
 
 import yaml
 from yaml.tokens import AliasToken, AnchorToken
@@ -59,9 +60,7 @@ HARNESS_IDS = (
 )
 COMMAND_IDS = tuple(
     f"flow/{name}"
-    for name in (
-        "setup prd plan refine sync research docs implement status revert validate revise archive refresh task finish review cleanup"
-    ).split()
+    for name in ["setup", "prd", "plan", "refine", "sync", "research", "docs", "implement", "status", "revert", "validate", "revise", "archive", "refresh", "task", "finish", "review", "cleanup", "resynthesize"]
 )
 
 _ID_PATTERN = re.compile(r"[a-z][a-z0-9_-]{0,31}\Z")

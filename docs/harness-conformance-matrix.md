@@ -50,6 +50,7 @@ the answer.
 | `flow/finish` | `/flow-finish` | `/flow-finish` | `Use Flow to finish the current flow` | `/flow-finish` | `Use Flow to finish the current flow` | `Use Flow to finish the current flow` | `Use Flow to finish the current flow` |
 | `flow/review` | `/flow-review` | `/flow-review` | `Use Flow to review the current flow` | `/flow-review` | `Use Flow to review the current flow` | `Use Flow to review the current flow` | `Use Flow to review the current flow` |
 | `flow/cleanup` | `/flow-cleanup` | `/flow-cleanup` | `Use Flow to clean up completed flows` | `/flow-cleanup` | `Use Flow to clean up completed flows` | `Use Flow to clean up completed flows` | `Use Flow to clean up completed flows` |
+| `flow/resynthesize` | `/flow-resynthesize` | `/flow-resynthesize` | `Use Flow to resynthesize project knowledge` | `/flow-resynthesize` | `Use Flow to resynthesize project knowledge` | `Use Flow to resynthesize project knowledge` | `Use Flow to resynthesize project knowledge` |
 
 OpenCode slash commands require the project command templates in
 `templates/opencode/commands/` to be installed through a supported project

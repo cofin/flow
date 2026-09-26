@@ -1,68 +1,65 @@
-
 # Flow Archive
 
-Archiving is a contraction: durable knowledge moves into the knowledge chapters, one line lands in the bundle log, and the spec directory is deleted — including the flow's promoted `research/`. `.agents/bundles/specs/` holds only planned and active flows. The terminal journal remains outside the bundle under the configured transaction directory; no resident archive tree is created.
+Archiving is a rigorous knowledge contraction: durable engineering insights, domain invariants, and code patterns are synthesized into `.agents/bundles/knowledge/`, one summary line lands in `.agents/bundles/log.md`, and only then is the completed spec directory deleted—including its promoted `research/`. `.agents/bundles/specs/` holds only planned and active flows. The terminal journal remains outside the bundle under the configured transaction directory; no resident archive tree is created.
 
-## Tracking Policy (Stealth Mode)
+## Contents
 
-Contraction does not depend on Git. Read `workflow_preferences.ignore_policy`
-from `<configured-root>/setup-state.json`; if absent, ask once and persist it.
+- [Branch-local eligibility and tracking policy](#branch-local-eligibility--tracking-policy)
+- [Mandatory 5-dimension knowledge synthesis](#mandatory-5-dimension-knowledge--pattern-synthesis)
+- [Procedure](#procedure)
+- [Verification](#verification)
 
-- **`shared`** — bundles are tracked; step 7 writes the archive commit.
-- **`local-only` (stealth mode)** — nothing in `.agents/` is committed.
-  Contraction runs identically, minus the commit. Deleted bytes are
-  unrecoverable: an accepted risk of the mode, not a warning to re-raise per
-  archive. Knowledge chapters and `log.md` are the whole durable record, so keep
-  a borderline learning rather than dropping it.
+## Branch-Local Eligibility & Tracking Policy
 
-Never force-add ignored Flow files to make an archive "recoverable".
+A spec is eligible for archive as soon as its `state` is `completed` (all tasks `closed` or `skipped` and verified on the current branch). **Archive never requires the branch or Pull Request to be merged into `main` first.** Contracting a completed spec directly on a feature branch or PR branch is encouraged so the synthesized knowledge chapters and spec removal travel together in the branch/PR.
 
-Git notes under `refs/notes/flow` are supplementary audit evidence only. Their
-absence or an attachment failure never changes archive eligibility: canonical
-Markdown and the archive journal are sufficient for recovery. Archive never
-pushes, copies, rewrites, prunes, or requires the notes ref.
-Never create or mutate Git tags for archive evidence or as a notes fallback.
+Read `workflow_preferences.ignore_policy` from `<configured-root>/setup-state.json`; if absent, ask once and persist it:
 
-Archive follows the ordered gates `archive_candidate -> verification ->
-code_review -> quality_review -> archive`. The quality gate is mandatory and
-uses the `quality-review-v1` contract in [Review](review.md).
+- **`shared`** — bundles are tracked; step 7 writes the `chore(archive)` commit.
+- **`local-only` (stealth mode)** — nothing in `.agents/` is committed. Contraction runs identically, minus the commit. Knowledge chapters and `log.md` are the whole durable record, so preserve borderline architectural or pattern learnings rather than dropping them.
+
+Never force-add ignored Flow files to make an archive "recoverable". Git notes under `refs/notes/flow` are supplementary audit evidence only; their absence or an attachment failure never changes archive eligibility: canonical Markdown and the archive journal are sufficient for recovery. Archive never pushes, copies, rewrites, prunes, or requires the notes ref. Never create or mutate Git tags for archive evidence or as a notes fallback.
+
+Archive follows the ordered gates `archive_candidate -> verification -> code_review -> quality_review -> archive`. The quality gate is mandatory and uses the `quality-review-v1` contract in [Review](review.md).
+
+## Mandatory 5-Dimension Knowledge & Pattern Synthesis
+
+**IRON LAW: NEVER DELETE A SPEC BEFORE DEEP KNOWLEDGE & PATTERN SYNTHESIS.**
+Appending a few superficial lines to a single pattern file and deleting `specs/<flow_id>/` is a contract violation. Before preparing any spec deletion fragment, audit `spec.md`, every `tasks/*.md` (`## Objective`, `## Context`, `## Steps`, `## Notes & Discoveries`, `## Verification Evidence`), `learnings.md`, and promoted `research/` across all five dimensions:
+
+1. **Domain Model & Invariants (`knowledge/domains/<domain>.md`)**: Ubiquitous terminology, entity lifecycles, state-machine invariants, and domain constraints established or refined by the flow.
+2. **Architecture & Deep Module Seams (`knowledge/architecture/<area>.md`)**: Component boundaries, narrow public interfaces vs hidden implementation details, data/control flow, and dependency direction rules.
+3. **Idiomatic Code Patterns & Anti-Patterns (`knowledge/patterns/<topic>.md`)**: Reusable implementation patterns backed by concrete `path/to/file::Symbol` anchors, paired with explicit anti-patterns or rejected approaches.
+4. **Build, Verification & Testing Recipes (`knowledge/testing/<topic>.md` or `knowledge/workflow.md`)**: Non-obvious test fixtures, verification strategies (`behavior_tdd`, `static_validation`, `characterization`), and fast inner-loop commands.
+5. **Hard-Won Gotchas & Edge Cases (`knowledge/gotchas/<topic>.md` or `knowledge/patterns/<topic>.md`)**: Subtle failure modes, concurrency/runtime traps, and environment quirks discovered during implementation or review.
+
+Always evaluate the `.agents/bundles/knowledge/` folder taxonomy during synthesis:
+
+- Split any chapter that covers multiple distinct concerns or exceeds ~200 lines into focused nested chapters (`architecture/`, `domains/`, `patterns/<subsystem>/`, `testing/`, `gotchas/`, `decisions/`, `standards/`).
+- Rewrite affected chapters as cohesive, present-tense documentation without AI puffery, dated changelog lines, or flow attributions—history belongs in `log.md` only.
+- Update `.agents/bundles/knowledge/index.md` and `.agents/bundles/index.md` routing pointers (`covers`, `related`, `tags`) whenever chapters are created, split, or reorganized.
 
 ## Procedure
 
-1. **Validate**: resolve the flow id (scan spec frontmatter for `state: completed` when not given). Confirm every task file is `state: closed` or `skipped`; abort otherwise. Resolve the tracking policy above. Under `shared`, check recoverability with `git ls-files --error-unmatch` — an untracked bundle in a shared repo is an anomaly and needs explicit user confirmation. Under `local-only`, skip the check: untracked is the configured state.
-2. **Render candidate (no live contraction yet)**:
-   - Consolidate all task `## Notes & Discoveries`, `learnings.md`, and promoted `research/` content into a transient working list.
-   - Research is contracted, not shelved. Findings that still describe how the
-     codebase or its dependencies work belong in `knowledge/`; findings that
-     only justified a decision already made are dropped. Do not copy research
-     verbatim into a knowledge chapter, and never relocate it to an archive
-     directory — `bundles/research/` is for un-promoted work only.
-   - Map each durable learning to its existing project-shaped chapter recursively under `knowledge/`: conventions/gotchas → the relevant `knowledge/patterns/<topic>.md` chapter; workflow changes → `knowledge/workflow.md`; architecture → the relevant nested architecture chapter; style/domain rules → the matching nested topic chapter; product changes → `product/` docs. Create a lazy namespace only when evidence requires its first chapter. Never flatten nested knowledge into invented top-level files.
-   - Rewrite each affected chapter as coherent current-state documentation: integrate into existing prose, update stale statements, merge duplicates. No dated entries, no flow attributions, no changelog lines, no "completed X" notes in knowledge chapters — history belongs in `log.md` only.
-   - Present proposed chapter edits for user approval before writing. Skip low-value notes rather than hoarding them.
-   - Delete any leftover `extracted_learnings.md` — consolidated views are transient.
-   - Render the complete archive request: knowledge destinations and full before/after bytes, log entry, notes incorporation, sorted archive inventory, and full file fragments for every spec deletion. The deletion inventory covers the entire spec directory — `spec.md`, `tasks/`, `learnings.md`, and `research/`.
-3. **Create disposable local review range**: apply only the rendered candidate in a disposable local branch/worktree and commit it. Its parent is `base_commit`; the candidate commit is `head_commit`. This range must contain the exact knowledge, log, and deletion bytes from the rendered manifest. Never use a Git tag and never push the candidate.
+1. **Validate**: Resolve `flow_id` (scan spec frontmatter for `state: completed` when not given; if all tasks are `closed` or `skipped` on an `active` spec, complete it first rather than getting stuck). Confirm every task file is `state: closed` or `skipped`. Resolve the tracking policy above. Under `shared`, check recoverability with `git ls-files --error-unmatch`. Under `local-only`, skip the tracked-file check.
+2. **Render candidate (synthesize knowledge before live contraction)**:
+   - Consolidate all task `## Notes & Discoveries`, `learnings.md`, `spec.md` architectural decisions, and promoted `research/` into a transient working synthesis matrix covering the 5 dimensions above.
+   - Research is contracted, not shelved: findings that describe how the codebase or its dependencies work belong in `knowledge/`; findings that only justified a past decision are dropped or distilled into `knowledge/decisions/<decision>.md`. Never relocate research to `bundles/research/` (which is for un-promoted work only).
+   - Draft the complete current-state edits for every target chapter under `knowledge/**`, plus `knowledge/index.md` and `product/` docs if affected. Present the proposed knowledge synthesis summary for user approval before writing.
+   - Delete any transient `extracted_learnings.md`.
+   - Render the complete archive request: `knowledge_destinations` and full before/after bytes, `log.md` entry, `notes_incorporation`, sorted `archive_inventory`, and full file fragments for every spec deletion (`spec.md`, `tasks/`, `learnings.md`, `research/`).
+3. **Create disposable local review range**: Apply the rendered candidate in a disposable local branch/worktree (`base_commit..head_commit`) containing the exact knowledge, log, and deletion bytes. Never use a Git tag and never push the candidate.
 4. **Review exact candidate**:
-   - Run archive-relevant verification on `base_commit..head_commit`.
-   - Run correctness review on that exact range.
-   - Always dispatch the read-only `quality-reviewer` afterward on the same range. Resolve `.agents/skills/debloat/SKILL.md`, then packaged `skills/debloat/SKILL.md`, then the inline fallback.
-   - Critical/Important findings block archive. Route remediation through `revise`, execute it, render a new candidate, and rerun verification, correctness review, and a fresh quality review.
-   - A fresh user waiver applies to one named finding and this range only; it cannot replace dispatch.
-5. **Bind candidate**: compare the requested `archive_candidate_manifest` and every before/after fragment byte-for-byte with the reviewed candidate. Any changed knowledge, log, inventory, deletion, base, or head invalidates the report; render and review a new candidate range.
-6. **Request archive**: submit the exact range, byte-identical manifest, verification/code/quality evidence, and finding-specific waivers to the state sidecar. The sidecar journals and applies knowledge first, log second, and spec deletion last. Do not delete the live spec directory directly.
-7. **Commit** (`shared` policy only): after the archive transaction commits and postconditions pass, stage only its recorded bundle paths and create one `chore(archive)` commit. Under `local-only`, the archive is complete when the transaction's postconditions pass — skip this step entirely rather than force-adding ignored paths.
+   - Run archive-relevant verification (`documentation_validation` / link and OKF checks) on `base_commit..head_commit`.
+   - Run correctness review on that exact range, verifying that no durable pattern, architectural seam, or gotcha from the spec was lost before deletion.
+   - Dispatch the read-only `quality-reviewer` afterward on the same range (resolving `.agents/skills/debloat/SKILL.md`, then packaged `skills/debloat/SKILL.md`, then the inline fallback).
+   - Critical/Important findings block archive; fix the knowledge synthesis or markdown defects, render a fresh candidate, and re-verify. A fresh user waiver applies to one named finding and this range only; it cannot replace dispatch.
+5. **Bind candidate**: Confirm `archive_candidate_manifest` and every before/after fragment match the reviewed candidate byte-for-byte.
+6. **Request archive (strict write order)**: Submit the exact range, manifest, and review evidence to `flow-state`. The transaction writes synthesized `knowledge/**` chapters and `index.md` **first**, `.agents/bundles/log.md` **second**, and deletes `specs/<flow_id>/` **last**. Never delete the live spec directory directly before knowledge synthesis is committed. Also prune superseded/obsolete prior terminal journals for the archived flow so only the terminal archive journal remains.
+7. **Commit** (`shared` policy only): After the archive transaction commits and postconditions pass, stage only its recorded bundle paths and create one `chore(archive)` commit. Under `local-only`, skip this step.
 
 ## Verification
 
-```bash
-ls .agents/bundles/specs/          # archived flow gone; only planned/active remain
-ls .agents/bundles/research/       # un-promoted research only; nothing for the archived flow
-head -20 .agents/bundles/log.md    # new archive entry at the top
-```
-
-Knowledge chapters must read as if written fresh today — an agent reading `knowledge/` should learn how the codebase works now, never which flow taught us.
-
-The postcondition bytes must equal the reviewed candidate manifest exactly. A
-different archive fragment is not a small follow-up; it is a new candidate that
-requires a fresh range and all three review gates.
+- Confirm `.agents/bundles/specs/<flow_id>/` is absent and `.agents/bundles/research/` has no leftover promoted files for the flow.
+- Confirm `.agents/bundles/knowledge/` contains the newly created or updated chapters, `knowledge/index.md` routes to them accurately, and `.agents/bundles/log.md` has the new archive entry at the top.
+- Knowledge chapters must read as if written fresh today—an agent reading `knowledge/` must learn how to build in the codebase now, never which historical flow taught us.

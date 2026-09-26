@@ -1,6 +1,6 @@
 ---
 name: okf
-description: "Use when creating, editing, validating, or structuring Open Knowledge Format (OKF v0.2) bundle files (.agents/bundles/), YAML frontmatter, or knowledge catalogs."
+description: "Use when creating, editing, validating, or structuring Open Knowledge Format (OKF v0.2) bundle files (.agents/bundles/), YAML frontmatter, or hierarchical knowledge trees."
 ---
 
 # Open Knowledge Format (OKF)
@@ -54,9 +54,13 @@ the same repository evidence. Continue to tolerate an existing legacy
 `knowledge/patterns.md`, but do not create or advertise that catch-all path.
 
 Derive chapter paths from the project rather than a fixed taxonomy, preserve
-nested paths on reruns, and never replace customized content. Validate links
-before committing an index update. Unknown concept `type:` values remain valid
-OKF and must be tolerated by consumers.
+nested paths on reruns, and never replace customized content. Proactively split
+multi-topic chapters, merge redundant fragments, and reorganize into nested
+subfolders (`domains/<domain>/`, `architecture/<area>/`, `patterns/<subsystem>/`,
+`testing/<topic>.md`, `gotchas/<area>.md`) whenever a chapter exceeds a single
+crisp sentence in its frontmatter `description`. Validate links before
+committing an index update. Unknown concept `type:` values remain valid OKF and
+must be tolerated by consumers.
 
 ## Hierarchical Layout Standard
 
@@ -75,6 +79,8 @@ OKF bundles under `.agents/bundles/` organize knowledge into scope-derived subdi
     data-model/<area>.md        # Schema and migration facts
     decisions/<decision>.md     # Decision and rejected alternatives
     standards/<topic>.md        # Repository standard
+    testing/<topic>.md          # Verification harness and fixture contract
+    gotchas/<area>.md           # Hard-won edge cases and constraints
   research/                     # Pre-PRD technical research notes
   specs/<flow_id>/              # Active Flow specifications and task worksheets
 ```
@@ -109,14 +115,14 @@ state: planned | active | completed # Spec workflow state only
 ## Workflow
 
 1. **Resolve Bundle Layout**: Confirm root `index.md` carries `okf_version: "0.2"`.
-2. **Structure Concept Documents**: Place files in their scope-derived directory under `knowledge/`.
+2. **Evaluate Taxonomy and Structure**: Place files in scope-derived nested directories under `knowledge/`. Split overgrown chapters (`> 200` lines or multi-sentence `description`) into focused nested files.
 3. **Declare Frontmatter**: Set non-empty `type:` and supported metadata. When
    the active profile requires relevance tags, provide at least one lowercase,
    hyphenated tag; `tags: []` does not satisfy that requirement.
 4. **Enforce State vs Status**:
    - Task workflow state lives strictly in `state:`.
    - Document lifecycle lives in `status:`. Never mix workflow state into `status:`.
-5. **Progressive Disclosure**: Update local `index.md` tables and log updates in `log.md`.
+5. **Progressive Disclosure**: Update local `index.md` routing tables with concise context pointers (`path`, `type`, `description`, `tags`) and log updates in `log.md`.
 
 ## Guardrails
 
@@ -126,6 +132,7 @@ state: planned | active | completed # Spec workflow state only
   (`tags: [auth, jwt]`). A policy requiring relevant tags requires a non-empty
   array.
 - Do not create unmanaged flat files at the root of `bundles/` or `knowledge/`.
+- Never append chronological sediment to existing chapters; rewrite affected sections in place in present tense.
 - Do not create architecture, data, domain, decision, rejection, or archive
   content from templates alone.
 
