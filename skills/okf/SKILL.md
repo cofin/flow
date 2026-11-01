@@ -132,7 +132,7 @@ Place a bounded (`<= 40` lines) machine-checkable invariant block at the top of 
 
 ## Validation
 
-Confirm `uv run python tools/validate.py --bundle .agents/bundles` exits `0`, every non-reserved `.md` file has `type`, `title`, and `description`, and every `sources[].id` resolves to a `[^id]:` footnote in the document body.
+Confirm `/flow:validate` passes on `.agents/bundles/`, every non-reserved `.md` file has `type`, `title`, and `description`, and every `sources[].id` resolves to a `[^id]:` footnote in the document body.
 
 ## Output
 

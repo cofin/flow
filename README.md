@@ -45,7 +45,7 @@ git pull
 agy plugin install ~/.Flow
 ```
 
-Flow ships [`plugin.json`](plugin.json), the always-on operational rule [`rules/flow-antigravity.md`](rules/flow-antigravity.md), the root `SessionStart` hook [`hooks.json`](hooks.json), 10 core skills under [`skills/`](skills/), and 6 subagents under [`agents/`](agents/). When running in Google Antigravity, Flow automatically leverages the `run_workflow` Python orchestration API (`phase()`, `parallel()`, `pipeline()`, `agent(..., schema=..., model="inherit")`) for parallel zero-context reviews, persistent multi-turn reviewer handles, and task worksheet pipelines.
+When running in Google Antigravity, Flow automatically leverages the `run_workflow` Python orchestration API (`phase()`, `parallel()`, `pipeline()`, `agent(..., schema=..., model="inherit")`) for parallel zero-context reviews, persistent multi-turn reviewer handles, and task worksheet pipelines.
 
 ### Claude Code
 
@@ -71,15 +71,15 @@ Then run `/plugins` inside a Codex session to enable `flow`, or update with `cod
 
 ### Cursor
 
-Install Flow as a native Cursor plugin (`.cursor-plugin/plugin.json`). Cursor automatically discovers `skills/*/SKILL.md`, `agents/*.md`, `rules/flow-antigravity.md`, and `hooks/hooks-cursor.json`.
+Install Flow as a Cursor plugin from a local clone or repository URL (`.cursor-plugin/plugin.json`).
 
 ### OpenCode V2
 
-Flow ships an in-process OpenCode V2 plugin at [`.opencode/plugins/flow.js`](.opencode/plugins/flow.js) (`package.json` `main`), which registers Flow's 6 subagents and injects workspace `.agents/` context using native `node:fs` with zero external runtime dependencies.
+Add Flow to your OpenCode `plugins` configuration (`opencode plugin add cofin/flow` or a local checkout path).
 
 ### VS Code / Copilot
 
-Install Flow through **Chat: Install Plugin From Source** using [`.claude-plugin/plugin.json`](.claude-plugin/plugin.json). VS Code discovers `skills/*/SKILL.md`, `agents/*.md`, `rules/flow-antigravity.md`, and `hooks/hooks-claude.json`.
+Install Flow through **Chat: Install Plugin From Source** pointing to a local checkout of the repository.
 
 ## Commands & Lifecycle Skills
 

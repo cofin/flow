@@ -13,8 +13,6 @@ Design runtime hooks that execute reliably across Linux, macOS, and Windows with
 | **VS Code (`code`)** | Electron IDE | POSIX `sh`, `awk`, `git` |
 | **OpenCode V2 (`opencode`)** | Bun / Node runtime | In-process `node:fs` and `node:path` inside `.opencode/plugins/<name>.js` |
 
-Reserve Python (`pyproject.toml`, `uv run`) strictly for plugin repository development and CI (`Makefile`, `tools/validate.py`, `pytest`), or when shipping an explicit Python MCP server launched via `uv run`.
-
 ## Harness Hook Configurations (Plugin & Project-Local)
 
 ### 1. Google Antigravity (`hooks.json` at Plugin Root or `.agents/hooks.json` in Project)
@@ -25,11 +23,11 @@ Also note that for global plugins, Antigravity sets `cmd.Dir` to the **installed
 
 ```json
 {
-  "flow-session-start": {
+  "my-plugin-session-start": {
     "SessionStart": [
       {
         "type": "command",
-        "command": "sh ./hooks/session-start.sh --harness agy",
+        "command": "sh ./hooks/on-session-start.sh --harness agy",
         "timeout": 15
       }
     ]
@@ -37,7 +35,7 @@ Also note that for global plugins, Antigravity sets `cmd.Dir` to the **installed
 }
 ```
 
-### 2. Claude Code, Codex CLI, & VS Code (`hooks/hooks-claude.json` or `.claude/settings.json` / `.codex/hooks.json`)
+### 2. Claude Code, Codex CLI, & VS Code (`.claude/settings.json` / `.codex/hooks.json` or Plugin Hook Config)
 
 Claude Code and Codex CLI require the **nested** `matcher` structure for all events:
 
@@ -50,7 +48,7 @@ Claude Code and Codex CLI require the **nested** `matcher` structure for all eve
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh --harness claude"
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/on-session-start.sh --harness claude"
           }
         ]
       }
@@ -59,10 +57,10 @@ Claude Code and Codex CLI require the **nested** `matcher` structure for all eve
 }
 ```
 
-- In **Claude Code**, `hooks/hooks.json` auto-loads and merges with any file declared in `.claude-plugin/plugin.json` `hooks`. Point `.claude-plugin/plugin.json` at `./hooks/hooks-claude.json` and keep root `hooks.json` for Antigravity so neither harness collides.
+- In **Claude Code**, `hooks/hooks.json` auto-loads and merges with any file declared in `.claude-plugin/plugin.json` `hooks`. Point `.claude-plugin/plugin.json` at a dedicated file and keep root `hooks.json` for Antigravity so neither harness collides.
 - In **Codex CLI**, project-local `.codex/hooks.json` (or inline `[hooks]` in `.codex/config.toml`) only runs for trusted projects, and plugin hooks require user trust approval on install/upgrade.
 
-### 3. Cursor (`hooks/hooks-cursor.json` or Project `.cursor/hooks.json`)
+### 3. Cursor (Project `.cursor/hooks.json` or Plugin Hook Config)
 
 Cursor uses `version: 1` and camelCase event names (`sessionStart`) with flat command entries. For plugin hooks, Cursor sets `cwd` to the plugin install directory and passes the user's workspace in `CURSOR_PROJECT_DIR` (and `CLAUDE_PROJECT_DIR`) plus stdin `workspace_roots[0]`:
 
@@ -72,7 +70,7 @@ Cursor uses `version: 1` and camelCase event names (`sessionStart`) with flat co
   "hooks": {
     "sessionStart": [
       {
-        "command": "./hooks/session-start.sh --harness cursor"
+        "command": "./hooks/on-session-start.sh --harness cursor"
       }
     ]
   }
@@ -81,7 +79,7 @@ Cursor uses `version: 1` and camelCase event names (`sessionStart`) with flat co
 
 ## Harness Stdout JSON Schemas for `SessionStart`
 
-A single `hooks/session-start.sh --harness <agy|claude|cursor|json>` script adapts its stdout payload to each harness:
+A single POSIX `sh` script can adapt its stdout payload to each harness:
 
 1. **Google Antigravity (`--harness agy`)**:
    Unmarshals stdout using strict `protojson.Unmarshal` into `HookExecutionOutput`. Unknown keys fail parsing. Use `injectSteps` with `systemMessage` (not `ephemeralMessage`, which is dropped after a single turn):

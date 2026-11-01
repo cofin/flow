@@ -9,7 +9,7 @@ Author skills, subagents, local `.agents/` directories, and MCP configurations t
 - **Native `.agents/skills/<name>/SKILL.md` Discovery**:
   Google Antigravity (`agy`), Codex CLI (`codex`), Cursor (`cursor`), OpenCode V2 (`opencode`), and VS Code (`code`) all natively discover project-local skills in `.agents/skills/<name>/SKILL.md`.
 - **Claude Code Compatibility**:
-  Claude Code discovers project-local skills from `.claude/skills/<name>/SKILL.md`. If a project uses Claude Code alongside `.agents/skills/`, either symlink `.claude/skills` $\rightarrow$ `../.agents/skills` or load the Flow plugin which primes `.agents/skills/index.md` at `SessionStart`.
+  Claude Code discovers project-local skills from `.claude/skills/<name>/SKILL.md`. If a project uses Claude Code alongside `.agents/skills/`, either symlink `.claude/skills` $\rightarrow$ `../.agents/skills` or load the `.agents/skills/index.md` catalog at `SessionStart`.
 - **Recommended Project-Local Skill Layout**:
 
   ```text
@@ -33,7 +33,7 @@ Author skills, subagents, local `.agents/` directories, and MCP configurations t
 - **Codex CLI**: Loads `.codex/agents/<name>.toml` recursively in trusted projects (Codex plugins cannot register custom subagents via the plugin loader, so project-local `.codex/agents/*.toml` or `~/.codex/agents/*.toml` is required).
 - **Cursor**: Loads `.cursor/agents/*.md` plus compatibility `.claude/agents/*.md` and `.codex/agents/`.
 - **Claude Code & VS Code**: Load `.claude/agents/*.md` (and `.github/agents/*.agent.md` in VS Code).
-- **OpenCode V2**: Loads `.opencode/agents/*.md` or registers `.agents/agents/*.md` dynamically via `ctx.agent.transform` inside `.opencode/plugins/flow.js`.
+- **OpenCode V2**: Loads `.opencode/agents/*.md` or registers `.agents/agents/*.md` dynamically via `ctx.agent.transform` inside `.opencode/plugins/<name>.js`.
 
 ### 3. Project-Local Rules & Instructions (`AGENTS.md` & `.agents/rules/`)
 
@@ -73,17 +73,16 @@ Each harness reads MCP server definitions from a distinct file and applies diffe
 
 ```yaml
 ---
-name: code-reviewer
-description: "Review an exact Git range for spec conformance, correctness, and verification depth."
+name: api-reviewer
+description: "Review an exact Git range for API contract conformance, correctness, and verification depth."
 model: inherit
 mainAgent: false
 subagent: true
 readonly: true
-commandExecutionPolicy: turbo
+commandExecutionPolicy: off
 skills:
-  - flow
-  - flow-completion
-  - debloat
+  - api
+  - review-api
 disallowedTools:
   - Edit
   - Write

@@ -53,7 +53,7 @@ Keep user-facing guides focused on **one concept per page** (`~80–200` Markdow
 | **State the mechanism directly** | *"This robust, seamless orchestrator leverages a multi-stage pipeline to effortlessly ensure reliability."* | *"The dispatcher validates task frontmatter, runs the declared test command, and records the commit SHA."* |
 | **Pair rules with a one-line `Reason:`** | *"You must never mock internal classes because it is bad practice."* | *"Test through the module's public interface without mocking internal collaborators. Reason: internal mocks break during behavior-preserving refactors."* |
 | **Semantic headings over numbered buzzwords** | *"## The Multi-Tier Validation Hierarchy"* | *"## Validation Checks"* |
-| **Present-tense truth over chronological sediment** | *"In v0.24 we used `.beads/`, then in v0.25 we used journals, and now we use task frontmatter."* | *"Task state lives in `tasks/<id>-<slug>.md` YAML frontmatter and `spec.md` checklists."* |
+| **Present-tense truth over chronological sediment** | *"In v1.2 we polled the database, then in v1.4 we used webhooks, and now we consume from the event stream."* | *"Workers consume order events from the Redis stream group using `XREADGROUP`."* |
 | **Positive framing over negation** | *"Don't put implementation diagrams in `docs/`, don't use more than 6 nodes, and don't include private helpers."* | *"Keep diagrams in `docs/` conceptual (`4–6` nodes showing the user mental model), and place detailed module diagrams in `.agents/bundles/knowledge/architecture/`."* |
 
 ## Diagrams & Code Examples

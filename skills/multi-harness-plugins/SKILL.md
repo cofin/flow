@@ -5,11 +5,11 @@ description: Use when creating, structuring, or validating multi-harness plugins
 
 # Multi-Harness Plugins & Project-Local `.agents/` Architecture
 
-Build and maintain skills, subagents, hooks, rules, and MCP configurations that work cleanly across **Google Antigravity (IDE & CLI)**, **Claude Code**, **Codex CLI**, **Cursor**, **OpenCode V2**, and **VS Code / GitHub Copilot**—both for **extension-wide plugins** and **project-local `.agents/` folders**.
+Build and maintain skills, subagents, hooks, rules, and MCP configurations that work cleanly across **Google Antigravity (IDE & CLI)**, **Claude Code**, **Codex CLI**, **Cursor**, **OpenCode V2**, and **VS Code / GitHub Copilot**—both for **project-local `.agents/` folders** and **extension-wide plugins**.
 
 ## Project-Local Discovery Matrix (`.agents/` & Repo-Local Configs)
 
-How each harness discovers project-local skills, subagents, instructions, hooks, and MCP servers inside a repository:
+How each harness discovers project-local instructions, skills, subagents, hooks, and MCP servers inside a repository:
 
 | Surface | Google Antigravity (`agy`) | Claude Code (`claude`) | Codex CLI (`codex`) | Cursor (`cursor`) | OpenCode V2 (`opencode`) | VS Code / Copilot (`code`) |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -34,23 +34,22 @@ How each harness discovers project-local skills, subagents, instructions, hooks,
    - Pair Markdown subagents with `.codex/agents/<name>.toml` for Codex CLI.
 4. **Keep Runtime Hooks Zero-Dependency**:
    - Do not require `python3`, `node`, or `jq` in `SessionStart` shell hooks (`agy` and `codex` ship as static native binaries).
-   - Write `hooks/session-start.sh` in pure POSIX `sh` + `awk` and `.opencode/plugins/<name>.js` in native `node:fs` / `node:path`.
+   - Write shell hooks in pure POSIX `sh` + `awk` and `.opencode/plugins/<name>.js` in native `node:fs` / `node:path`.
 5. **Validate Structural Parity**:
-   - Run `tools/validate.py` (or `/flow:validate`) to check manifest versions, `SKILL.md` byte budgets, subagent frontmatter and H1 headings, hook schemas, and relative links.
+   - Run `/flow:validate` to verify `SKILL.md` byte budgets, subagent frontmatter and H1 headings, hook schemas, and relative links.
 
 ## Guardrails
 
-- **No Duplicate Surface Mirrors**: Never maintain `plugins/<name>/` mirrors, root `CLAUDE.md` files (breaks `claude plugin validate --strict` and double-loads with `AGENTS.md` in Cursor), `.github/agents/*.agent.md` copies, `.opencode/agents/*.md` copies, or `commands/` wrappers inside a multi-harness plugin.
+- **No Duplicate Surface Mirrors**: Never maintain `plugins/<name>/` mirrors, root `CLAUDE.md` files alongside `AGENTS.md` (breaks `claude plugin validate --strict` and double-loads with `AGENTS.md` in Cursor), `.github/agents/*.agent.md` copies, `.opencode/agents/*.md` copies, or `commands/` wrappers.
 - **Strict `24 KB` `SKILL.md` Cap**: Never exceed `24,000` bytes in any `SKILL.md` file.
 - **YAML List Tool Restrictions**: Always format `tools` and `disallowedTools` as YAML lists (`- Edit`), never comma-separated strings (`tools: Read, Grep` fails YAML unmarshaling in Antigravity and silently drops the subagent).
 - **Short MCP Server & Tool Names**: Keep combined MCP tool names under `60` characters (`^[a-zA-Z0-9_-]+$`) so Cursor (`59`-char cap) and Antigravity (`64`-char cap on `mcp_<plugin>_<server>_<tool>`) never drop or truncate tools.
 
 ## References
 
-- [Manifests & Single-Root Packaging](references/manifests-and-packaging.md) — Root layout and manifest schemas for `plugin.json`, `.claude-plugin/`, `.codex-plugin/`, `.cursor-plugin/`, `.agents/plugins/marketplace.json`, `package.json`, and OpenCode V2.
-- [Hooks & Runtime Portability](references/hooks-and-runtime-portability.md) — Project-local and plugin hook schemas (flat Antigravity lifecycle hooks vs. nested Claude/Codex matchers), stdout JSON keys, Cursor deduplication, and OpenCode V2 `setup(ctx)`.
 - [Skills, Subagents, Local `.agents/`, & MCP Limits](references/skills-subagents-and-mcp-limits.md) — How each harness loads `.agents/` folders, local MCP configs (`.agents/mcp_config.json`, `.mcp.json`, `.cursor/mcp.json`, `.vscode/mcp.json`, `opencode.json`), H1 subagent sections, and Antigravity's Python `run_workflow` API.
-- [Single-File Validator Template](references/single-file-validator-template.md) — Blueprint for a zero-dependency Python stdlib `tools/validate.py` and `Makefile`.
+- [Hooks & Runtime Portability](references/hooks-and-runtime-portability.md) — Project-local and plugin hook schemas (flat Antigravity lifecycle hooks vs. nested Claude/Codex matchers), stdout JSON keys, Cursor deduplication, and OpenCode V2 `setup(ctx)`.
+- [Manifests & Single-Root Packaging](references/manifests-and-packaging.md) — Root layout and manifest schemas for `plugin.json`, `.claude-plugin/`, `.codex-plugin/`, `.cursor-plugin/`, `.agents/plugins/marketplace.json`, `package.json`, and OpenCode V2.
 
 ## Validation
 
@@ -60,4 +59,4 @@ How each harness discovers project-local skills, subagents, instructions, hooks,
 
 ## Example
 
-Invoke this skill when scaffolding project-local skills, subagents, or MCP configs under `.agents/` during `/flow:setup` or `/flow:learn`, or when packaging a multi-harness plugin repository.
+Invoke this skill when scaffolding project-local skills, subagents, hooks, or MCP configs under `.agents/` during `/flow:setup` or `/flow:learn`, or when authoring an extension-wide multi-harness plugin.

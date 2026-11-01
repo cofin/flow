@@ -14,9 +14,9 @@ Use conventional commit syntax:
 
 Examples:
 
-- `feat(skills): add flow-learn and flow-docs skills`
-- `fix(hooks): resolve workspace path from stdin in Antigravity sessionStart`
-- `refactor(validate): consolidate manifest and OKF checks into single script`
+- `feat(auth): add OAuth2 PKCE token exchange`
+- `fix(pool): release idle connections after statement timeout`
+- `refactor(orders): extract invoice tax calculation into OrderPricing`
 
 ### 2. Body Structure (`## Summary` + `## Key Changes` Only)
 
@@ -25,18 +25,16 @@ Keep PR descriptions focused on *what* changed and *why*, grouped cleanly by mod
 ```markdown
 ## Summary
 
-Consolidate multi-harness plugin manifests into a single root layout, replace the write-ahead state journal with direct Markdown and Git tracking, and add `flow-learn` and `flow-docs`.
+Add OAuth2 PKCE token exchange to `AuthService`, enforce state-parameter expiration in the session store, and cover token refresh failure modes at the public authentication seam.
 
 ## Key Changes
 
-### Harness Manifests & Hooks
-- **Added**: Native `.cursor-plugin/plugin.json` manifest and pure POSIX `sh` `hooks/session-start.sh` entrypoint.
-- **Changed**: Pointed `.agents/plugins/marketplace.json` to `./` and upgraded `.opencode/plugins/flow.js` to OpenCode V2.
-- **Removed**: Duplicate `plugins/flow/` mirror, `commands/` wrappers, and root `CLAUDE.md`.
+### Authentication Service (`src/auth/`)
+- **Added**: `AuthService.exchange_pkce_code()` and `PKCEChallenge` value object in `src/auth/service.py`.
+- **Changed**: Updated `SessionStore.consume_oauth_state()` to reject expired or replayed state tokens.
 
-### Skills & Lifecycle References
-- **Added**: `flow-learn` (`/flow:learn`), `flow-docs` (`/flow:docs`), and `multi-harness-plugins`.
-- **Changed**: Simplified `skills/flow/references/state.md` to track task state directly in `tasks/*.md` frontmatter and `spec.md` checklists.
+### HTTP Routes & Tests (`src/api/`, `tests/auth/`)
+- **Added**: Callback route handler in `src/api/auth_routes.py` and public-seam behavioral tests in `tests/auth/test_service.py`.
 ```
 
 ### 3. What Never Belongs in a PR Body

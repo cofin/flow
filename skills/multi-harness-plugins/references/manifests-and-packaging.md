@@ -7,12 +7,10 @@ Package multi-harness agent plugins from a single repository root without duplic
 ```text
 <plugin-root>/
 ├── AGENTS.md
-├── Makefile
 ├── README.md
 ├── hooks.json                             # Google Antigravity SessionStart hook manifest (must stay at root)
 ├── package.json                           # OpenCode V2 package entry ("main": ".opencode/plugins/<name>.js")
 ├── plugin.json                            # Google Antigravity plugin manifest
-├── pyproject.toml                         # Dev/CI tooling (ruff, mypy, pyright, pytest, bump-my-version)
 ├── .agents/
 │   └── plugins/marketplace.json           # Codex CLI marketplace ("source": {"source": "local", "path": "./"})
 ├── .claude-plugin/
@@ -28,9 +26,7 @@ Package multi-harness agent plugins from a single repository root without duplic
 │   └── plugins/<name>.js                  # OpenCode V2 plugin module ({ id, async setup(ctx) })
 ├── agents/*.md                            # Universal Markdown subagents (AGY, Claude, Cursor, VS Code, OpenCode)
 ├── hooks/
-│   ├── hooks-claude.json                  # Claude Code & VS Code SessionStart hook config
-│   ├── hooks-cursor.json                  # Cursor sessionStart hook config
-│   └── session-start.sh                   # Pure POSIX sh + awk priming script
+│   └── on-session-start.sh                # Pure POSIX sh + awk priming script
 ├── rules/*.md                             # Operational rules (AGY & Cursor)
 └── skills/<skill-name>/
     ├── SKILL.md
@@ -61,8 +57,7 @@ Claude Code and VS Code Agent Plugins (`chat.plugins.enabled`) read `.claude-plu
 {
   "name": "my-plugin",
   "version": "0.1.0",
-  "description": "Concise plugin summary.",
-  "hooks": "./hooks/hooks-claude.json"
+  "description": "Concise plugin summary."
 }
 ```
 
@@ -104,8 +99,7 @@ Cursor natively discovers `.cursor-plugin/plugin.json`, `skills/`, `agents/`, an
   "name": "my-plugin",
   "displayName": "My Plugin",
   "version": "0.1.0",
-  "description": "Concise plugin summary.",
-  "hooks": "./hooks/hooks-cursor.json"
+  "description": "Concise plugin summary."
 }
 ```
 
@@ -124,7 +118,3 @@ export const MyPlugin = {
 
 export default MyPlugin;
 ```
-
-## Version Synchronization via `pyproject.toml`
-
-Register all 8 manifest paths under `[[tool.bumpversion.files]]` in `pyproject.toml` so `make release bump=minor|patch|major` updates every manifest atomically without custom sync scripts.

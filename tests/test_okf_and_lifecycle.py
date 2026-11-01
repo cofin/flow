@@ -115,7 +115,7 @@ def test_flow_docs_is_tool_agnostic_and_core_engineering_disciplines_exist() -> 
     assert "Baseline Structural Code Smells" in review_text
     assert "quality-review-v1" in review_text
 
-    forbidden_external_names = (
+    forbidden_external_and_project_terms = (
         "elephant",
         "goldfish",
         "conductor",
@@ -126,15 +126,26 @@ def test_flow_docs_is_tool_agnostic_and_core_engineering_disciplines_exist() -> 
         "grilling",
         "tracer-bullet",
         "writing-for-agents",
+        "tools/validate.py",
+        "make validate",
+        "make release",
+        "bump-my-version",
+        "single-file-validator",
+        "flow-session-start",
+        "v0.24",
+        "v0.25",
+        "zensical",
+        "mkdocstrings",
     )
     for path in (
         *REPO_ROOT.glob("skills/**/*.md"),
         *REPO_ROOT.glob("agents/*.md"),
         *REPO_ROOT.glob(".codex/agents/*.toml"),
+        *REPO_ROOT.glob("rules/*.md"),
         *REPO_ROOT.glob("templates/**/*.md"),
         REPO_ROOT / "AGENTS.md",
         REPO_ROOT / "README.md",
     ):
         text_lower = path.read_text(encoding="utf-8").lower()
-        for term in forbidden_external_names:
-            assert term not in text_lower, f"{path.relative_to(REPO_ROOT)} contains external reference name {term!r}"
+        for term in forbidden_external_and_project_terms:
+            assert term not in text_lower, f"{path.relative_to(REPO_ROOT)} contains forbidden term {term!r}"

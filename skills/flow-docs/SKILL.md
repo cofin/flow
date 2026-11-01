@@ -31,7 +31,7 @@ Write clear, accurate, zero-bloat technical documentation, user guides, agent in
 | Area | Reference File | Key Topics |
 | --- | --- | --- |
 | Technical Prose & Documentation | [`references/prose-and-documentation.md`](references/prose-and-documentation.md) | Cold-reader comprehension standard, manifest-driven coverage (`[k/N files documented]`), component scaling templates, guide structure, diagram rules, validation report |
-| Agent Context & Instructions (`AGENTS.md`, `SKILL.md`, OKF) | [`references/agent-context.md`](references/agent-context.md) | Context load vs. cognitive load, information hierarchy, context pointers, progressive disclosure by branch, co-location, completion criteria, leading words, positive framing, pruning caches/sediment/no-ops |
+| Agent Context, `.agents/`, & Harness Config | [`references/agent-context.md`](references/agent-context.md) | Cross-harness `.agents/` discovery (skills, subagents, rules, hooks, MCP configs), context load vs. cognitive load, information hierarchy, context pointers, progressive disclosure, completion criteria, leading words, positive framing, pruning discipline |
 | Pull Requests, Commits, & Changelogs | [`references/prs-commits-and-changelogs.md`](references/prs-commits-and-changelogs.md) | `<type>(<scope>): <summary>` titles, `## Summary` + `## Key Changes` PR bodies, signed commits, changelog conventions, inline PR reviews, GitHub issues |
 
 ## Workflow

@@ -21,7 +21,7 @@ Route work through [the Flow router](../skills/flow/SKILL.md) and the matching l
   - `/flow:implement [flow_id] [task_id]`: Execute one approved task worksheet per subagent turn with strategy-appropriate verification against the real System Under Test, atomic commit discipline, and direct Markdown frontmatter + `spec.md` checklist synchronization.
   - `/flow:status`: Report active flows, task states, and next actions directly from `.agents/bundles/specs/*/spec.md` and `tasks/*.md`.
 - **`flow-learn`** (`/flow:learn`, aliases `resynthesize`, `refresh`, `sync`): Anytime project-wide drift assessment, mid-flow or post-flow knowledge resynthesis (`.agents/bundles/knowledge/**`), active spec/task true-up, and dynamic `.agents/skills/` + `.agents/agents/` synchronization.
-- **`flow-docs`** (`/flow:docs`): Write clean user guides, API reference pages (`zensical`, `mkdocstrings`), READMEs, changelogs, signed commits, and pull requests (`## Summary` + `## Key Changes` only, zero slop or internal ceremony).
+- **`flow-docs`** (`/flow:docs`): Write clean user guides, module and API documentation, READMEs, agent context files, changelogs, signed commits, and pull requests (`## Summary` + `## Key Changes` only, zero slop or internal ceremony).
 - **`flow-completion`** (`/flow:review`, `/flow:finish`, `/flow:archive`, `/flow:cleanup`, `/flow:revert`, `/flow:validate`): Zero-context correctness and debloat quality review, PR/release verification, spec contraction into durable OKF knowledge chapters, and archival.
 - **`multi-harness-plugins`**: Standards for authoring extension-wide plugins and project-local `.agents/` skills, subagents, hooks, rules, and MCP configs across all supported harnesses.
 
