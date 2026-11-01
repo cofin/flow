@@ -1,66 +1,67 @@
-# Flow Research
+# Flow Research (`/flow:research`, alias `/flow:task`)
 
-Conduct bounded technical research from primary sources. Research agents are
-read-only and return closed cited results; the parent owns every tracked write.
+Conduct primary-source technical research across codebases, external SDK/protocol documentation, or time-boxed exploratory spikes, and promote validated findings into `.agents/bundles/research/<topic>_<YYYYMMDD>.md` or `.agents/bundles/specs/<flow_id>/research/<topic>_<YYYYMMDD>.md`.
 
-## Proportional Dispatch
-
-Dispatch only when a predicate below is satisfied. Count independent unknowns
-before dispatch and use one researcher per independent unknown or source
-domain; overlapping questions stay in one brief.
+## Proportional Dispatch Contract
 
 <!-- research-fanout-contract: proportional-v1 -->
 ```yaml
 researcher:
-  when: at least_two_independent_unknowns | current_external_evidence_required
+  when: at_least_two_independent_unknowns | current_external_evidence_required
   count: one_per_independent_unknown_or_source_domain
-interface_design:
-  when: competing_public_shapes
-architecture_review:
-  when: new_seam | state_contract | public_contract | hard_to_reverse_choice
-devils_advocacy:
-  when: destructive | security_sensitive | high_uncertainty
-otherwise: zero_extra_dispatches
+  model: inherit
+exploratory_spike:
+  scratch_dir: .agents/scratch/<slug>/
+  tracked_writes: forbidden_in_scratch
+  promotion: distill_findings_to_research_md_and_delete_scratch
+otherwise: direct_file_reads_zero_extra_subagents
 ```
 
-Researcher briefs name one question, scoped primary sources, required current
-sources, and a target for the parent to write. Current external API behavior
-must come from current source material, not recalled syntax. Keep one task per execution subagent; research fan-out does not split implementation ownership.
+1. **Direct Reads First (`0` Subagents)**: Answer single-subsystem repository questions directly with file read and search tools.
+2. **Parallel Read-Only `@researcher` Fan-Out**:
+   - When investigating `>= 2` independent unknowns or external SDK/API primary sources, dispatch `@researcher` subagents (`model: inherit`).
+   - When the `run_workflow` tool is available in the active harness (Google Antigravity), fan out `parallel(questions, run_researcher)` using `agent(type_name="researcher", schema=RESEARCH_RESULT_SCHEMA, model="inherit")` so each researcher returns schema-validated citations and findings.
+3. **Time-Boxed Exploratory Spikes (`/flow:task` alias)**:
+   - When a design question requires a throwaway prototype or benchmark to verify runtime behavior, place all temporary spike files inside untracked `.agents/scratch/<slug>/`.
+   - Never modify production source files during a research spike. Once the spike answers the question, record the empirical evidence in the research document and delete `.agents/scratch/<slug>/`.
 
-## Result Adoption
+## Result Validation & Adoption
 
-The researcher returns the `structured-result-v1` schema in
-`agents/researcher.md`; it never writes a note. The parent must validate that:
+Every `@researcher` subagent returns the `structured-result-v1` payload defined in [`agents/researcher.md`](../../../agents/researcher.md). Before writing the research document, the parent agent verifies that:
 
-- every required key exists and there are no unknown keys;
-- every finding id is unique and supported by at least one exact citation;
-- every cited finding exists and every primary-source citation is retained;
-- confidence and limitations are explicit; and
-- contradictions are resolved with evidence or marked unresolved.
+- Every finding ID is supported by at least one concrete `path/to/file::Symbol` or primary-source URL citation.
+- Confidence (`high`, `medium`, `low`) and limitations are stated explicitly.
+- Contradictions between sources are preserved and either resolved with evidence or surfaced for a user decision.
 
-Malformed or uncited results and results with unresolved contradictions are
-not adopted or silently summarized. The parent resolves the gap, dispatches a
-justified follow-up, or records a blocker. Only after validation does the parent
-write the target research document or worksheet note, preserving citations,
-limitations, and contradictions verbatim enough to audit their meaning.
+## Research Document Schema (`OKF v0.2`)
 
-## Frontmatter Schema
+Write the validated research note to `.agents/bundles/research/<topic>_<YYYYMMDD>.md` (or directly to `.agents/bundles/specs/<flow_id>/research/<topic>_<YYYYMMDD>.md` when scoped to an active/planned flow):
 
 ```yaml
 ---
 type: Research
-research_id: "topic-slug"
-title: Research Title
+research_id: "topic-slug-20261101"
+title: "Primary-Source Audit: <Topic>"
+description: "Single-sentence summary of the verified findings and architectural conclusion."
 scope: architecture | domain | integration
-tags: [tag1, tag2]
 status: stable
 state: open                     # open | promoted
-promoted_to: null               # flow_id once adopted by a spec
-created_at: 2026-08-23T12:00:00Z
-updated_at: 2026-08-23T12:00:00Z
+promoted_to: null               # <flow_id> once adopted by a spec
+tags: [research, <domain>]
+generated:
+  by: flow/0.26.0
+  at: 2026-11-01T00:00:00Z
+verified:
+  - by: agent:researcher
+    at: 2026-11-01T00:00:00Z
+sources:
+  - id: primary-1
+    resource: src/module.py::SymbolName
+    title: Primary source implementation
 ---
 ```
 
-## Promotion Contract
+## Promotion & Contraction Contract
 
-Un-promoted research lives in `.agents/bundles/research/<topic>/`. When a flow adopts the research, the parent moves the folder to `.agents/bundles/specs/<flow_id>/research/` and sets `state: promoted` and `promoted_to: <flow_id>`.
+- **Promotion into a Spec**: When `/flow:prd` or `/flow:plan` adopts a research note from `.agents/bundles/research/<topic>_<YYYYMMDD>.md`, move it into `.agents/bundles/specs/<flow_id>/research/<topic>_<YYYYMMDD>.md`, set `state: promoted` and `promoted_to: <flow_id>`, and add its path to `research: [...]` in `spec.md`.
+- **Contraction into Knowledge**: When `/flow:learn` or `/flow:archive` contracts a completed flow, durable facts from `specs/<flow_id>/research/*.md` are synthesized into `.agents/bundles/knowledge/**` chapters with `sources:` citations.

@@ -41,6 +41,8 @@ OK := $(shell printf "$(GREEN)✓$(NC)")
 WARN := $(shell printf "$(YELLOW)⚠$(NC)")
 ERROR := $(shell printf "$(RED)✖$(NC)")
 
+MARKDOWN_GLOBS := "skills/**/*.md" "agents/*.md" "rules/*.md" "templates/**/*.md" "AGENTS.md" "README.md"
+
 .PHONY: help
 help:                                               ## Display this help text for Makefile
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z0-9_-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
@@ -53,27 +55,27 @@ setup-env:                                          ## Configure local environme
 	@./tools/scripts/setup-env.sh
 
 .PHONY: install
-install: destroy clean setup-env install-hooks      ## Install the project and dependencies for local development
+install: destroy clean setup-env                    ## Install the project and dependencies for local development
 	@echo "${INFO} Starting fresh installation..."
 	@uv sync --all-groups
-	@echo "${OK} Installation complete! 🎉"
+	@echo "${OK} Installation complete!"
 
 .PHONY: upgrade
 upgrade: setup-env                                  ## Upgrade all dependencies to the latest stable versions
-	@echo "${INFO} Updating all dependencies... 🔄"
+	@echo "${INFO} Updating all dependencies..."
 	@uv lock --upgrade
 	@uv sync --all-groups
-	@echo "${OK} Dependencies updated 🔄"
+	@echo "${OK} Dependencies updated"
 
 .PHONY: destroy
 destroy:                                            ## Destroy the virtual environment
-	@echo "${INFO} Destroying virtual environment... 🗑️"
+	@echo "${INFO} Destroying virtual environment..."
 	@rm -rf .venv
-	@echo "${OK} Virtual environment destroyed 🗑️"
+	@echo "${OK} Virtual environment destroyed"
 
 .PHONY: lock
 lock: setup-env                                     ## Rebuild lockfiles from scratch, updating all dependencies
-	@echo "${INFO} Rebuilding lockfiles... 🔄"
+	@echo "${INFO} Rebuilding lockfiles..."
 	@uv lock --upgrade
 	@echo "${OK} Python lockfiles updated"
 
@@ -83,106 +85,55 @@ clean:                                              ## Cleanup temporary build a
 	@rm -rf dist/
 	@echo "${OK} Working directory cleaned"
 
-.PHONY: install-hooks
-install-hooks:                                      ## Install git hooks (auto-sync plugins/flow on commit)
-	@git config core.hooksPath .githooks
-	@chmod +x .githooks/* 2>/dev/null || true
-	@echo "${OK} Git hooks installed (core.hooksPath=.githooks)"
-
 .PHONY: lint
-lint:                                               ## Check Markdown without changing sources
-	@npx --yes markdownlint-cli2 "skills/**/*.md" "commands/**/*.md" "docs/**/*.md" "AGENTS.md" "README.md"
+lint:                                               ## Check Markdown and Python sources without changing them
+	@npx --yes markdownlint-cli2 $(MARKDOWN_GLOBS)
+	@uv run ruff check tools/ tests/
+	@uv run ruff format --check tools/ tests/
+	@uv run mypy tools/ tests/
+	@uv run pyright tools/ tests/
+	@echo "${OK} Lint passed"
 
 .PHONY: format
-format:                                             ## Fix Markdown formatting explicitly
-	@npx --yes markdownlint-cli2 --fix "skills/**/*.md" "commands/**/*.md" "docs/**/*.md" "AGENTS.md" "README.md"
-
-.PHONY: sync-hook-surfaces hook-surfaces-check rule-surfaces-check
-sync-hook-surfaces:                                  ## Generate static native hook adapters
-	@uv run python tools/sync-hook-surfaces.py
-
-hook-surfaces-check:                                 ## Check static hook adapters and root Codex parity
-	@uv run python tools/sync-hook-surfaces.py --check
-
-rule-surfaces-check:                                 ## Check generated harness rules
-	@uv run python tools/sync-rule-surfaces.py --check
-
-.PHONY: sync-codex-package
-sync-codex-package:                                ## Assemble the committed Codex marketplace package at plugins/flow/
-	@echo "${INFO} Syncing Codex marketplace package..."
-	@uv run tools/sync-codex-package.py
-	@echo "${OK} Codex marketplace package synced"
-
-.PHONY: codex-package-check
-codex-package-check:                               ## Verify plugins/flow/ matches generated Codex package payload
-	@echo "${INFO} Checking Codex marketplace package..."
-	@uv run tools/sync-codex-package.py --check
-	@echo "${OK} Codex marketplace package is current"
-
-.PHONY: sync-command-surfaces
-sync-command-surfaces:                             ## Generate host command adapters from contracts/flow.yaml
-	@echo "${INFO} Syncing Flow command surfaces..."
-	@uv run python tools/sync-command-surfaces.py --write
-	@echo "${OK} Flow command surfaces synced"
-
-.PHONY: command-surfaces-check
-command-surfaces-check:                            ## Verify generated Flow command adapters are current
-	@echo "${INFO} Checking Flow command surfaces..."
-	@uv run python tools/sync-command-surfaces.py --check
-	@echo "${OK} Flow command surfaces are current"
-
-.PHONY: sync-agent-surfaces
-sync-agent-surfaces:                               ## Generate host-agent adapters from contracts/flow.yaml
-	@echo "${INFO} Syncing Flow agent surfaces..."
-	@uv run python tools/sync-agent-surfaces.py --write
-	@echo "${OK} Flow agent surfaces synced"
-
-.PHONY: agent-surfaces-check
-agent-surfaces-check:                              ## Verify generated Flow host-agent adapters are current
-	@echo "${INFO} Checking Flow agent surfaces..."
-	@uv run python tools/sync-agent-surfaces.py --check
-	@echo "${OK} Flow agent surfaces are current"
-
-.PHONY: sync-manifests
-sync-manifests:                                    ## Sync version strings across all manifests
-	@echo "${INFO} Syncing version strings..."
-	@uv run tools/sync-manifests.py
-	@echo "${OK} Version strings in sync"
-
-.PHONY: check
+format:                                             ## Fix Markdown and Python formatting explicitly
+	@npx --yes markdownlint-cli2 --fix $(MARKDOWN_GLOBS)
+	@uv run ruff check --fix tools/ tests/
+	@uv run ruff format tools/ tests/
+	@echo "${OK} Format complete"
 
 .PHONY: validate
-validate:                                          ## Validate all manifests, skills, commands, and agents
+validate:                                           ## Validate all manifests, skills, hooks, subagents, and OKF contracts
 	@echo "${INFO} Running consolidated validation..."
-	@uv run tools/validate.py
+	@uv run python tools/validate.py
 	@echo "${OK} Validation passed"
 
 .PHONY: test
-test:                                              ## Run the Python test suite
+test:                                               ## Run the Python test suite
 	@echo "${INFO} Running tests..."
 	@uv run pytest
 	@echo "${OK} Tests passed"
 
-check: lint hook-surfaces-check command-surfaces-check agent-surfaces-check rule-surfaces-check codex-package-check validate sync-manifests test ## Verify sources and generated outputs without fixing them
+.PHONY: check
+check: lint validate test                           ## Verify sources, manifests, and tests without fixing them
 	@echo "${OK} All checks passed"
 
 .PHONY: build
 build:                                              ## Build the package
-	@echo "${INFO} Building package... 📦"
+	@echo "${INFO} Building package..."
 	@echo "${OK} Package build complete"
 
 .PHONY: release
-release:                                           ## Bump version and create release tag (e.g. make release bump=patch)
-	@echo "${INFO} Preparing for release... 📦"
+release:                                            ## Bump version across all manifests (e.g. make release bump=minor)
+	@echo "${INFO} Preparing for release..."
 	@make clean
 	@uv run bump-my-version bump $(bump)
 	@make build
-	@echo "${OK} Release complete 🎉"
+	@echo "${OK} Release complete"
 
 .PHONY: pre-release
-pre-release:                                       ## Start/advance a pre-release (e.g. make pre-release version=1.1.0a1)
-	@echo "${INFO} Preparing pre-release $(version)... 📦"
+pre-release:                                        ## Start/advance a pre-release (e.g. make pre-release version=1.1.0a1)
+	@echo "${INFO} Preparing pre-release $(version)..."
 	@make clean
 	@uv run bump-my-version bump --new-version $(version) patch
 	@make build
-	@echo "${OK} Pre-release $(version) complete 🎉"
+	@echo "${OK} Pre-release $(version) complete"

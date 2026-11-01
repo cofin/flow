@@ -1,14 +1,24 @@
+---
+type: Index
+title: Knowledge Base Index
+description: Progressive-disclosure directory of OKF v0.2 architecture, pattern, domain, testing, gotcha, and decision chapters.
+status: stable
+tags: [knowledge, index, okf]
+---
+
 # Knowledge Base
 
-> Persistent learnings from all completed flows.
-> Drill into specific entries only when relevant to current work.
+Explore chapters progressively by matching the active task's files and domain against the routing tables below.
 
-## Entries
+## Core Workflow
 
-| Flow ID | Completed | Topics | Summary |
-|---------|-----------|--------|---------|
+- [Project Workflow](workflow.md) — Verified build, lint, typecheck, test, and release gates.
 
-## Topic Index
+## Chapters by Namespace
 
-<!-- Link only evidence-backed, project-shaped chapters. Reusable conventions
-belong under patterns/<topic>.md; do not create a catch-all patterns.md. -->
+- `architecture/` — Subsystem boundaries, dataflow, concurrency, and IPC/RPC contracts.
+- `patterns/` — Idiomatic code patterns anchored to `path/to/file::Symbol`.
+- `domains/` — Domain vocabulary, invariants, and business rules.
+- `testing/` — Test matrix, fixture contracts, and SUT integrity rules.
+- `gotchas/` — Non-obvious footguns, runtime traps, and platform quirks.
+- `decisions/` — Architectural Decision Records (`adr-NNN-<slug>.md`).

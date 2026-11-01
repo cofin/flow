@@ -1,157 +1,145 @@
 ---
 name: okf
-description: "Use when creating, editing, validating, or structuring Open Knowledge Format (OKF v0.2) bundle files (.agents/bundles/), YAML frontmatter, or hierarchical knowledge trees."
+description: "Use when creating, editing, validating, or structuring Open Knowledge Format (OKF v0.2) bundle files (.agents/bundles/), YAML frontmatter, Attested Computations, provenance footnotes, or Google Cloud Knowledge Catalog okf-bundle trees."
 ---
 
-# Open Knowledge Format (OKF)
+# Open Knowledge Format (OKF v0.2)
 
-Author, validate, tag, and structure Open Knowledge Format (OKF v0.2) knowledge bundles and hierarchical concept documents.
+Author, validate, tag, and structure Open Knowledge Format (`OKF v0.2`) knowledge bundles (`.agents/bundles/`) compatible with both local agent workflows and the Google Cloud Knowledge Catalog (`okf-bundle` aspect).
 
 ## Materialization Contract
 
 <!-- okf-materialization-contract: start -->
 ```yaml
+okf_version: "0.2"
 default_scaffold:
   - bundles/index.md
   - bundles/log.md
+  - bundles/product/index.md
   - bundles/product/product.md
+  - bundles/product/product-guidelines.md
   - bundles/product/tech-stack.md
   - bundles/knowledge/index.md
   - bundles/knowledge/workflow.md
-repository_evidence:
-  applies_to: [architecture, data-model, domain, pattern, standard]
-  required: [repository_relative_paths, symbols_or_observed_behavior]
-decision_evidence:
-  applies_to: [decision, rejected-alternative]
-  required: [explicit_user_decision, recorded_at, actor]
-path_policy:
-  shape: repository_derived_hierarchy
-  nested_paths: preserve
-  unknown_types: tolerate
-  rerun: idempotent_without_duplicate_or_overwrite
-  links: resolve_before_commit
-tags:
-  optional_by_okf: true
-  required_by_profile: non_empty_lowercase_hyphenated_strings
-  empty_list_satisfies_required: false
+provenance_contract:
+  required_for: [architecture, data-model, domain, pattern, standard, testing, gotcha, research]
+  sources_schema:
+    - id: string
+      resource: string
+      title: string
+  inline_citations: markdown_footnotes_matching_source_id
+trust_and_generation:
+  generated: { by: "<producer>/<version>", at: "YYYY-MM-DDTHH:MM:SSZ" }
+  verified:
+    - by: "<actor>"
+      at: "YYYY-MM-DDTHH:MM:SSZ"
+      commit: "<git_sha_optional>"
+truth_block:
+  markers: ["<!-- truth: start -->", "<!-- truth: end -->"]
+  max_lines: 40
 archive:
   resident_spec_directories: forbidden
   effect: knowledge_synthesis_log_append_and_completed_spec_removal
 ```
 <!-- okf-materialization-contract: end -->
 
-Setup creates only the default scaffold. Do not pre-create optional namespace
-directories. Materialize architecture, data-model, domain, pattern, or standard
-chapters only after inspecting named repository-relative paths and recording
-the symbols or observed behavior that support each fact. Materialize a decision
-only from a recorded explicit user decision with its actor and timestamp;
-record rejected alternatives inside that decision rather than in a separate
-rejections tree. A placeholder, inferred layering convention, sample schema,
-invented glossary term, or sample ADR is not evidence.
-
-Materialize reusable conventions at `knowledge/patterns/<topic>.md` only from
-the same repository evidence. Continue to tolerate an existing legacy
-`knowledge/patterns.md`, but do not create or advertise that catch-all path.
-
-Derive chapter paths from the project rather than a fixed taxonomy, preserve
-nested paths on reruns, and never replace customized content. Proactively split
-multi-topic chapters, merge redundant fragments, and reorganize into nested
-subfolders (`domains/<domain>/`, `architecture/<area>/`, `patterns/<subsystem>/`,
-`testing/<topic>.md`, `gotchas/<area>.md`) whenever a chapter exceeds a single
-crisp sentence in its frontmatter `description`. Validate links before
-committing an index update. Unknown concept `type:` values remain valid OKF and
-must be tolerated by consumers.
-
-## Hierarchical Layout Standard
-
-OKF bundles under `.agents/bundles/` organize knowledge into scope-derived subdirectories:
+## Hierarchical Bundle Layout (`.agents/bundles/`)
 
 ```text
 .agents/bundles/
-  index.md                      # Bundle root index with okf_version: "0.2"
-  log.md                        # Date-grouped change history (ISO dates)
-  product/                      # Identity documents: product.md, tech-stack.md
-  knowledge/                    # Evidence-backed, project-shaped knowledge:
-    workflow.md                 # Canonical commands and development workflow
-    patterns/<topic>.md         # Reusable convention
-    architecture/<area>.md      # System boundary or data flow
-    domains/<domain>.md         # Domain model and vocabulary
-    data-model/<area>.md        # Schema and migration facts
-    decisions/<decision>.md     # Decision and rejected alternatives
-    standards/<topic>.md        # Repository standard
-    testing/<topic>.md          # Verification harness and fixture contract
-    gotchas/<area>.md           # Hard-won edge cases and constraints
-  research/                     # Pre-PRD technical research notes
-  specs/<flow_id>/              # Active Flow specifications and task worksheets
+├── index.md                        # Root bundle manifest (okf_version: "0.2" in frontmatter or header)
+├── log.md                          # Append-only lifecycle changelog (newest ISO date first; no frontmatter required)
+├── product/                        # Product vision, engineering tenets, and tech stack
+│   ├── index.md
+│   ├── product.md
+│   ├── product-guidelines.md
+│   └── tech-stack.md
+├── knowledge/                      # Hierarchical OKF v0.2 knowledge base
+│   ├── index.md
+│   ├── workflow.md                 # Canonical build, lint, typecheck, test, and release gates
+│   ├── architecture/<area>.md      # Subsystem boundaries, dataflow, concurrency, IPC/RPC contracts
+│   ├── patterns/<topic>.md         # Language/framework idioms, class layout, serialization conventions
+│   ├── domains/<domain>.md         # Domain vocabulary, invariants, adapters, and business rules
+│   ├── testing/<topic>.md          # Test matrix, fixture patterns, SUT integrity rules
+│   ├── gotchas/<area>.md           # Non-obvious footguns, runtime traps, platform quirks
+│   └── decisions/adr-NNN-<slug>.md # Architectural Decision Records (context, decision, rejected alternatives)
+├── research/                       # Project-wide promoted primary-source research notes
+│   ├── index.md
+│   └── <topic>_<YYYYMMDD>.md
+└── specs/                          # Active Master PRDs and Feature Specifications
+    ├── index.md
+    └── <flow_id>/
+        ├── spec.md                 # Master PRD OR Feature Specification (type: Spec)
+        ├── learnings.md            # Implementation discoveries awaiting promotion to knowledge/
+        ├── research/<topic>.md     # Spec-scoped primary-source research
+        └── tasks/<id>-<slug>.md    # Atomic vertical-slice task worksheets (type: Task)
 ```
 
-Every optional namespace above is lazy: create its directory only when the
-first evidence-backed chapter is materialized.
+## Concept Frontmatter & Provenance Schema (`OKF v0.2` + Knowledge Catalog)
 
-Archive contracts knowledge and removes completed spec directories. It does
-not create a resident `archive/<year>/<flow_id>/` tree.
-
-## Frontmatter Schema Standard
-
-Every concept document carries a YAML frontmatter block:
+Every non-reserved `.md` file (`index.md` and `log.md` are reserved) begins with YAML frontmatter:
 
 ```yaml
 ---
-type: <non-empty producer-defined concept type>
-id: "scope:identifier"          # Optional unique identifier
-title: Display Name
-description: Single sentence summary
-scope: architecture | data-model | domain | lifecycle
-domain: core | auth | billing
-parent: "parent-doc-id"         # Optional parent hierarchy pointer
-supersedes: "old-doc-id"        # Optional replacement pointer for revised knowledge
-tags: [tag1, tag2]              # Optional in OKF; non-empty when a profile requires relevance
-status: draft | stable | deprecated # OKF document maturity
-state: planned | active | completed # Spec workflow state only
-# Task state: open | in_progress | closed | blocked | skipped
+type: Pattern                       # REQUIRED: non-empty concept type (Pattern, Architecture, Domain, Guide, Decision, Research, Spec, Task, Attested Computation, BigQuery Table, etc.)
+title: Centralized JSON Serialization
+description: Route all JSON encoding and decoding through msgspec serializer helpers.
+status: stable                      # Document lifecycle ONLY: draft | stable | deprecated (never workflow state)
+tags: [serialization, msgspec, json]
+generated:
+  by: flow/0.26.0
+  at: 2026-11-01T00:00:00Z
+verified:
+  - by: agent:flow-learn
+    at: 2026-11-01T00:00:00Z
+    commit: 164b07f
+sources:
+  - id: serializer-mod
+    resource: src/core/serialization.py::encode_json
+    title: Canonical msgspec JSON serializer module
 ---
+```
+
+### Bounded `<!-- truth: start -->` Block & Footnote Citations
+
+Place a bounded (`<= 40` lines) machine-checkable invariant block at the top of each knowledge chapter or project skill, and anchor body claims to `sources[].id` via standard Markdown footnotes (`[^serializer-mod]`):
+
+```markdown
+<!-- truth: start -->
+- Route all JSON encoding/decoding through `encode_json` and `decode_json` in `src/core/serialization.py`[^serializer-mod].
+- Never call `json.dumps` or `json.loads` directly in adapter or controller modules.
+<!-- truth: end -->
+
+[^serializer-mod]: `src/core/serialization.py::encode_json` — Canonical msgspec JSON serializer module.
 ```
 
 ## Workflow
 
-1. **Resolve Bundle Layout**: Confirm root `index.md` carries `okf_version: "0.2"`.
-2. **Evaluate Taxonomy and Structure**: Place files in scope-derived nested directories under `knowledge/`. Split overgrown chapters (`> 200` lines or multi-sentence `description`) into focused nested files.
-3. **Declare Frontmatter**: Set non-empty `type:` and supported metadata. When
-   the active profile requires relevance tags, provide at least one lowercase,
-   hyphenated tag; `tags: []` does not satisfy that requirement.
-4. **Enforce State vs Status**:
-   - Task workflow state lives strictly in `state:`.
-   - Document lifecycle lives in `status:`. Never mix workflow state into `status:`.
-5. **Progressive Disclosure**: Update local `index.md` routing tables with concise context pointers (`path`, `type`, `description`, `tags`) and log updates in `log.md`.
+1. **Scaffold or Inspect the Bundle Root (`.agents/bundles/`)**:
+   - Ensure root `index.md` declares `okf_version: "0.2"` and `bundle: <repo-slug>`, and `log.md` records ISO-dated lifecycle events (`setup`, `synthesize`, `verify`, `archive`).
+2. **Author Evidence-Backed Concept Chapters**:
+   - Place each concept in its domain directory (`product/`, `knowledge/{architecture,patterns,domains,testing,gotchas,decisions}/`, `research/`, or `specs/<flow_id>/`) with YAML frontmatter (`type`, `title`, `description`, `status`, `tags`, `generated`, `verified`, `sources`).
+   - Add a bounded `<= 40`-line `<!-- truth: start -->` block at the top of the body and cite every `sources[].id` entry via a matching `[^id]` footnote.
+3. **Validate Bundle Integrity**:
+   - Verify all relative links in `index.md` files resolve on disk, reserved files (`index.md`, `log.md`) omit concept-only keys (`type`, `status`, `sources`), and completed specs are contracted into `knowledge/**` upon `/flow:archive`.
 
 ## Guardrails
 
-- Every non-reserved `.md` file must have valid YAML frontmatter with a non-empty `type:`.
-- Reserved files (`index.md`, `log.md`) require no frontmatter.
-- Tags, when present, must be a YAML array of lowercase, hyphenated strings
-  (`tags: [auth, jwt]`). A policy requiring relevant tags requires a non-empty
-  array.
-- Do not create unmanaged flat files at the root of `bundles/` or `knowledge/`.
-- Never append chronological sediment to existing chapters; rewrite affected sections in place in present tense.
-- Do not create architecture, data, domain, decision, rejection, or archive
-  content from templates alone.
-
-## Output
-
-Return created or validated concept documents, frontmatter schemas, applied tags, and validation status.
+- **State vs. Status Invariant**: Workflow state (`draft`, `planned`, `active`, `completed` on `Spec`; `pending`, `in_progress`, `completed`, `blocked`, `deferred` on `Task`) lives strictly in `state:`. Document maturity (`draft`, `stable`, `deprecated`) lives strictly in `status:`. Never mix them.
+- **Reserved Files**: `index.md` and `log.md` are reserved filenames (`log.md` has no frontmatter; root `index.md` declares `okf_version: "0.2"`).
+- **Zero Chronological Sediment**: Update concept chapters in place in present tense during `/flow:learn` and `/flow:archive`; record chronological history only in `log.md`.
+- **Single-Sentence Chapter Scope**: Whenever a knowledge chapter requires more than one crisp sentence in `description:` or exceeds `~200` lines, split it into focused nested chapters and link them from the parent `index.md`.
 
 ## Validation
 
-Verify that root `index.md` carries `okf_version: "0.2"`, markdown files carry valid frontmatter, and all tags are arrays of strings.
+Confirm `uv run python tools/validate.py --bundle .agents/bundles` exits `0`, every non-reserved `.md` file has `type`, `title`, and `description`, and every `sources[].id` resolves to a `[^id]:` footnote in the document body.
 
-## Example
+## Output
 
-After observing `src/scheduler.py` and its tests, author a project-shaped
-`knowledge/components/scheduler.md` concept that records those evidence paths,
-then add a resolving link to `knowledge/index.md`.
+Produce valid OKF v0.2 Markdown documents, `index.md` catalogs, and `log.md` audit entries.
 
 ## References
 
-- [OKF Specification Reference](references/spec.md)
+- [OKF v0.2 Specification Reference](references/spec.md)
 - [Frontmatter and Tagging Guide](references/frontmatter-and-tagging.md)
 - [Flow State Contract](../flow/references/state.md)

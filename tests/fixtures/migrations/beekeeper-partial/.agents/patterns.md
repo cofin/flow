@@ -1,3 +1,0 @@
-# Patterns
-
-Legacy patterns authority.

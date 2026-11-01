@@ -1,19 +1,22 @@
 # Flow Project Context
 
-Flow has no `flow` executable; invoke the Flow skill or a `/flow:*` command.
+Flow is a multi-harness Spec-Driven Development plugin for **Google Antigravity**, **Claude Code**, **Codex CLI**, **Cursor**, **OpenCode V2**, and **VS Code / Copilot**. Flow has no `flow` shell executable; invoke the [`flow`](skills/flow/SKILL.md) skill or a `/flow:*` command.
 
-Planning and task state live under `.agents/bundles/specs/<flow_id>/`. Task
-worksheets are the authority for task state and commits. Route lifecycle work
-through [the Flow router](skills/flow/SKILL.md), and use
-[the state contract](skills/flow/references/state.md) for mutations.
+## Architecture & Routing
 
-Initialize with [the setup guide](skills/flow/references/setup.md), then use its
-bundle index, `.agents/bundles/knowledge/workflow.md`, and
-`.agents/bundles/knowledge/patterns/**/*.md` chapters.
+- **Lifecycle Router**: [skills/flow/SKILL.md](skills/flow/SKILL.md) routes across [`flow-setup`](skills/flow-setup/SKILL.md) (`setup`), [`flow-planning`](skills/flow-planning/SKILL.md) (`prd`, `plan`, `revise` [alias `refine`], `research` [alias `task`]), [`flow-execution`](skills/flow-execution/SKILL.md) (`implement`, `status`), [`flow-learn`](skills/flow-learn/SKILL.md) (`learn` [aliases `resynthesize`, `refresh`, `sync`, `docs`]), and [`flow-completion`](skills/flow-completion/SKILL.md) (`review`, `finish`, `archive`, `cleanup`, `revert`, `validate`).
+- **Foundation Skills**: [`okf`](skills/okf/SKILL.md) (`OKF v0.2` knowledge bundles and provenance) and [`debloat`](skills/debloat/SKILL.md) (code, test, and prose discipline).
+- **Direct Markdown State Contract**: Task worksheets (`.agents/bundles/specs/<flow_id>/tasks/<id>-<slug>.md`) and specifications (`.agents/bundles/specs/<flow_id>/spec.md`) are the sole authority for task state and commits ([`skills/flow/references/state.md`](skills/flow/references/state.md)).
+- **Runtime Hooks**: [`hooks/session-start.sh`](hooks/session-start.sh) is pure POSIX `sh` + `awk` (zero `python3`, `node`, or `jq` runtime requirement for end users); [`.opencode/plugins/flow.js`](.opencode/plugins/flow.js) runs in-process using native `node:fs`. Python (`pyproject.toml`, `uv run`) is used strictly for Flow repository development and CI (`Makefile`, [`tools/validate.py`](tools/validate.py), `tests/`).
 
-Execute one worksheet per invocation, preserve unrelated work, stage exact
-paths, and commit locally only after verification passes. Never mutate tags.
-Pushes and remote writes require fresh permission. Minimize test churn: run
-`make lint` and fast unit tests in inner loops; reserve full suites, cleanup,
-and debloat for milestone gates (`checkpoint.phase`, `complete`).
-Intermediate progress records `HEAD`; closing requires a clean functional commit.
+## Developer Commands
+
+- `make lint` — Markdown lint (`markdownlint-cli2`) + Python lint/typecheck (`ruff`, `mypy`, `pyright`)
+- `make validate` — Run [`tools/validate.py`](tools/validate.py) across all harness manifests, hooks, subagents, skills, and OKF contracts
+- `make test` — Run `uv run pytest`
+- `make check` — Run `lint`, `validate`, and `test`
+- `make release bump=patch|minor|major` — Bump version across all 8 manifests via `bump-my-version`
+
+## Discipline
+
+Execute one worksheet per subagent turn (`model: inherit`), preserve unrelated work, stage exact paths, and commit locally only after verification passes. Never create or mutate Git tags. Pushes and remote writes require explicit user instruction.

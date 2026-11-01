@@ -1,90 +1,20 @@
+# Flow Revert (`/flow:revert`)
 
-# Flow Revert
-
-Git-aware revert of flows, phases, or tasks.
+Safely revert a task, phase, or flow using `git revert` and synchronize `.agents/bundles/specs/<flow_id>/` task frontmatter and checklist state.
 
 ## Usage
 
-- `flow-revert task` - Revert last task
-- `flow-revert phase` - Revert current phase
-- `flow-revert flow {flow_id}` - Revert entire flow
+- `/flow:revert task <flow_id> <task_id>` — Revert a single completed task's commit.
+- `/flow:revert phase <flow_id> <phase_number>` — Revert all completed task commits in a phase.
+- `/flow:revert flow <flow_id>` — Revert all completed task commits in a flow.
 
-## Phase 1: Identify Scope
+## Workflow
 
-### 1.1 Read Current State
-
-Read the spec file `.agents/bundles/specs/{flow_id}/spec.md` and task files under `.agents/bundles/specs/{flow_id}/tasks/*.md` to determine active/completed tasks.
-
-### 1.2 Gather Commits
-
-- **For Task Revert**: Read the commit SHA from the target task's file (e.g. `tasks/{task_id}.md`) frontmatter `commit: <sha>`.
-- **For Phase Revert**: Read the commit SHAs from all task files in the target phase that have `state: closed`.
-- **For Flow Revert**: Read the commit SHAs from all task files under `tasks/*.md` that have `state: closed`.
-
-## Phase 2: Confirm Revert
-
-```text
-Revert Scope: {task|phase|flow}
-
-Commits to revert:
-- abc1234: feat(auth): add login endpoint
-- def5678: test(auth): add login tests
-
-Files affected:
-- src/auth/login.ts
-- tests/auth/login.test.ts
-
-This will:
-- Run git revert on the resolved commit SHAs
-- Reset task status to open and commit to null in task files
-
-Proceed? [y/N]
-```
-
-## Phase 3: Execute Revert
-
-### 3.1 Git Revert
-
-```bash
-git revert --no-commit {commit_shas}
-git commit -m "revert({scope}): {reason}"
-```
-
-### 3.2 Reset Task Metadata
-
-For the reverted tasks, edit their task files under `tasks/*.md`:
-
-- Set `state: open`
-- Set `commit: null`
-
-If reverting an entire flow, also update `.agents/bundles/specs/{flow_id}/spec.md` frontmatter to `state: active`.
-
-### 3.3 Sync Spec Checklist
-
-Run the spec checklist sync command to reconcile `spec.md` checklist markers:
-
-```bash
-flow-sync {flow_id}
-```
-
-## Phase 4: Verify
-
-```bash
-git status
-pytest
-```
-
-## Final Output
-
-```text
-Revert Complete
-
-Scope: {scope}
-Commits Reverted: {count}
-Revert Commit: {new_sha}
-
-Metadata updated: {count} tasks reopened
-Spec checklist synchronized.
-
-Resume with: flow-implement {flow_id}
-```
+1. **Resolve Target Commits**:
+   - Read `.agents/bundles/specs/<flow_id>/spec.md` and `tasks/*.md` and collect the `commit` SHAs for the target task(s) in reverse chronological order.
+2. **Confirm Revert Scope (`structured-choice-v1`)**:
+   - Display the exact commits and files to be reverted and confirm with the user via [`interaction.md`](interaction.md).
+3. **Execute `git revert` & Synchronize Markdown State**:
+   - Run `git revert --no-commit <commit_shas>` and commit `revert(<scope>): <reason>`.
+   - Update each reverted task worksheet (`state: pending`, `commit: null`, `last_verified_at: null`, `last_verified_commit: null`, `verification_evidence: null`) and reset its `spec.md` checklist marker to `- [ ]`.
+   - Run the repository's fast verification gate (`make lint` / targeted tests) to confirm a clean working tree.

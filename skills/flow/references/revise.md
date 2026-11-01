@@ -1,93 +1,50 @@
-# Flow Revise
+# Flow Revise (`/flow:revise`, alias `/flow:refine`)
 
-Update a spec or task worksheet in-place when implementation reveals a mismatch, keeping the Markdown clean, current-state, and synchronized without accumulating historical transcripts.
+Update a specification (`spec.md`) and its task worksheets (`tasks/<id>-<slug>.md`) in place in present tense—either before execution to deepen worksheet detail (`/flow:refine` alias) or mid-execution when a task encounters code drift, a missing decision, or a changed requirement (`/flow:revise`).
 
 <!-- flow-execution-policy: start -->
 ```yaml
 contract: worksheet-execution-v1
 invariants:
   - worksheet-first
+  - present-tense-in-place-rewrite
   - fail-closed-no-production-mutation
   - fresh-validated-plan-resume
-transitions:
-  - preflight-claim
-  - mismatch-discover-block
-  - nonblocking-discover-release
-  - revised-plan-resume
-authority: skills/flow/references/implement.md
+authority: skills/flow/references/revise.md
 ```
 <!-- flow-execution-policy: end -->
 
 ## Usage
 
 ```text
-flow-revise <flow_id>
+/flow:revise <flow_id> [changes]
+/flow:refine <flow_id> [task_id]
 ```
 
 ## Workflow
 
-### Phase 1: Load Current State
+### Phase 1: Load Current State & Evaluate Scope Cap
 
-Read `.agents/bundles/specs/{flow_id}/`:
+1. Read `.agents/bundles/specs/<flow_id>/spec.md`, `tasks/*.md`, and `learnings.md`.
+2. If triggered by a blocked task (`state: blocked`), inspect its `blocked_reason`, `unblock_condition`, and `## Notes & Discoveries`, and read the actual repository source files (`path/to/file::Symbol`) to verify the root cause.
+3. **Scope-Growth Escape Hatch**:
+   - If resolving the change requires adding a new subsystem, expanding the flow beyond `8–10` tasks, or entering a third revision cycle, do **not** bloat the current spec.
+   - Ask the user via `structured-choice-v1` ([`interaction.md`](interaction.md)) whether to close the current spec around its completed tasks and spawn a follow-up spec (`/flow:plan <new_flow_id>`).
 
-- `spec.md`
-- `tasks/*.md`
-- `learnings.md`
+### Phase 2: Rewrite In Place in Present Tense (Zero Historical Transcript Bloat)
 
-Also load the blocking task's `discover` and `block` evidence, exact unblock condition, next planning action, current plan identity, and current spec state revision. Refuse an unclassified or incomplete mismatch report.
+Worksheets and specifications are present-tense executable instructions, never historical revision logs:
 
-### Phase 2: Identify Revision Need & Check Scope Cap
+1. **Overwrite Superseded Content In Place**: Update `## 1. Specification & Context`, `## 2. Requirements`, `## 3. Requirement-to-Task Traceability Matrix`, `## 4. Implementation Plan`, and the affected `tasks/<id>-<slug>.md` sections (`## Objective`, `## Context`, `## Steps`, `## Verification`, `## Acceptance Criteria`) directly in present tense.
+2. **Never Accumulate Revision Sediment**: Never leave struck-through old steps, "Revision 1 vs. Revision 2" comparison blocks, or multi-paragraph post-mortems in `spec.md` or `tasks/*.md`.
+3. **Single-Line Discovery Note**: Record at most one concise bullet (`- [YYYY-MM-DD HH:MM] revise: <root cause & updated target>`) under `## Notes & Discoveries` in the affected task worksheet, and keep `## 5. Continuity Snapshot` in `spec.md` capped at the 5 newest discoveries.
 
-Follow the **Critical Thinking Iron Law** to evaluate the implementation issue:
+### Phase 3: Increment `plan_revision`, Re-Run Zero-Context Review & Synchronize State
 
-- **EVALUATE ACCURACY** — What exactly is failing? Read the code/logs.
-- **EVALUATE COMPLETENESS** — What was missing or inaccurate in the worksheet?
-- **EVALUATE REASONING QUALITY** — Why did the original step or target fail?
-- **INVESTIGATE** — Confirm root cause before proposing revision.
-
-**Scope-Growth Escape Hatch (New Spec vs. Revise):**
-
-- If resolving the issue requires adding a new subsystem, expanding the flow beyond `8–10` tasks, or entering a third revision cycle for the same flow, **do NOT keep bloating the current spec**.
-- Instead, ask the user whether to descope/close the current spec around its completed deliverables and **create a new follow-up spec** (`/flow:plan <new_flow_id>`) for the expanded scope.
-
-Classify the handoff using the execution contract:
-
-| Mismatch | Required planning route |
-| --- | --- |
-| Missing decision or incomplete executable detail | `refine`, then include the approved worksheet change in `revise` |
-| Code drift, invalid file/symbol/test target, acceptance contradiction, scope expansion, or invalid verification command | `revise`; use `refine` to make the replacement worksheet pass the Stateless Executor Test |
-
-Do not authorize the executor to patch around a mismatch. Until a new plan is validated, only planning Markdown may change.
-
-### Phase 3: Rewrite In-Place (Zero Transcript Bloat)
-
-**IRON LAW: WORKSHEETS ARE PRESENT-TENSE INSTRUCTIONS, NOT HISTORICAL TRANSCRIPTS.**
-
-When revising `spec.md` and `tasks/*.md`:
-
-1. **Replace obsolete content in-place**: Overwrite stale file paths, line numbers, code snippets, steps, and acceptance criteria directly inside `## Objective`, `## Context`, `## Steps`, `## Verification`, and `## Acceptance Criteria`. Never keep struck-through old plans, "Revision 1 vs Revision 2" comparison blocks, or multi-paragraph post-mortems inside the spec or task body.
-2. **One-line rationale only**: Record at most **one single-line bullet** (`- <timestamp> [<operation_id>] revise: <concise root cause & change>`) in `## Notes & Discoveries`. Keep `## Continuity Snapshot` in `spec.md` capped at the 5 newest discoveries, pruning superseded notes.
-3. **Prune stale transaction transcripts**: Once the revision transaction commits and live Markdown is verified, prune superseded or obsolete prior terminal journals (`committed`, `rolled_back`, `superseded`) under `<configured-root>/transactions/` so hundreds of old transaction folders never accumulate or confuse future sessions.
-
-### Phase 4: Refine, Validate, and Apply One Revision Transaction
-
-Produce exact task/spec diffs that pass Objective, Context, Steps, Verification, Acceptance Criteria, target, dependency, strategy, and contradiction checks.
-
-Apply a journaled `revise` through `flow-state` with exact plan diffs, concise rationale, reviewer findings, `new_plan_revision = expected_plan_revision + 1`, every affected task target sorted, and explicit legal state adjustments (`unblock`, `reopen`, `skip`, or `create`). In the **same transaction**, ensure Markdown status is 100% synchronized:
-
-- Update every task's `plan_revision`, `plan_commit: null`, `state`, `state_revision`, `blocked_reason`, `unblock_condition`, and `next_step` before writing `spec.md`.
-- Update `spec.md` frontmatter (`plan_revision`, `plan_commit: null`, `state_revision`, `current_task`, `updated_at`), reconcile all `## Implementation Plan` checklist markers (`[ ]`, `[~]`, `[x] [<sha>]`, `[!]`, `[-]`) to match task file `state`, and update `## Continuity Snapshot` with the next exact actionable step.
-- Never maintain `revisions.md` as a second authority or leave checklist markers out of sync with task frontmatter.
-
-### Phase 5: Resume Handoff
-
-Return the new plan identity, synchronized status summary, and validation evidence. The executor reloads the clean, present-tense `spec.md` and `tasks/*.md` and repeats its five-check preflight.
-
-## Critical Rules
-
-1. **FAIL CLOSED** — No executor production mutation while a mismatch is unresolved.
-2. **IN-PLACE PRESENT-TENSE REWRITE** — Overwrite superseded steps in-place; never hoard historical transcripts or old failed plans in `spec.md` or `tasks/*.md`.
-3. **SYNCHRONIZE MARKDOWN STATUS** — Every `revise` must leave task frontmatter `state`, `spec.md` checklist markers, and `Continuity Snapshot` 100% aligned.
-4. **SPLIT WHEN GROWING TOO LARGE** — Spawn a new spec instead of expanding a spec past its cohesive scope.
-5. **ONE PLAN IDENTITY & FRESH RESUME** — Apply approved edits through one `revise` transaction, reload Markdown, and repeat preflight.
-6. **NO RUNTIME EVALUATOR** — Interpret the Markdown contracts directly; installed workflows never call Python or another evaluator.
+1. **Synchronize Revision & State**:
+   - Increment `plan_revision` by `1` once for the revision pass and copy the new `plan_revision` to `spec.md` and every `tasks/<id>-<slug>.md`.
+   - For any unblocked task, set `state: pending` (or `open`), clear `blocked_reason: null` and `unblock_condition: null`, and synchronize `spec.md` checklist markers (`[ ]`, `[~]`, `[x] [<sha>]`, `[!]`, `[-]`).
+2. **Zero-Context Focused Review on Changed Surface**:
+   - Dispatch `@code-reviewer` (or `run_workflow` `parallel()` with `schema=` when available on Google Antigravity) on the revised `spec.md` and modified `tasks/<id>-<slug>.md` files, and adjudicate findings (`ADOPT` vs. `CONTEST` with evidence).
+3. **Re-Anchor `plan_commit` & Resume**:
+   - Stamp `plan_commit: <HEAD_SHA>` across `spec.md` and all `tasks/*.md`, log the revision in `.agents/bundles/log.md`, and hand off to `/flow:implement <flow_id>`.

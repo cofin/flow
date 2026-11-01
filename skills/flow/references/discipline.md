@@ -1,17 +1,8 @@
-
 # Flow Discipline Rules
 
-Consolidated enforcement rules for change-appropriate verification, debugging, and fresh evidence. Every task declares and justifies one strategy before implementation.
+Normative rules for change-appropriate verification, System-Under-Test (SUT) integrity, root-cause debugging, critical thinking, and subagent/`run_workflow` orchestration.
 
-## Contents
-
-- [Verification strategies](#verification-strategy-contract)
-- [Debugging](#debugging-iron-law)
-- [Fresh evidence](#verification-iron-law)
-- [Critical thinking and review](#critical-thinking-iron-law)
-- [Subagent orchestration](#subagent-orchestration)
-
-## Verification strategy contract
+## 1. Verification Strategy Contract
 
 <!-- verification-strategy-contract: start -->
 ```yaml
@@ -38,17 +29,14 @@ strategies:
     change_class: composition_of_existing_contracts
     initial_evidence: focused_integration_baseline_passes
     gate_proof: injected_negative_states_prove_refusal_paths
-waiver:
-  strategy_still_required: true
-  required: [rationale, approver, compensating_evidence]
-  missing_fields: refuse
 low_signal_tests:
   reject:
+    - mocking_the_system_under_test
+    - standalone_remediation_or_audit_test_files
     - incidental_prompt_phrase
     - private_implementation_shape
     - duplicate_snapshot
     - file_existence_without_operational_contract
-    - source_scanner_when_native_gate_exists
   retain:
     - observable_behavior
     - public_contract
@@ -57,211 +45,33 @@ low_signal_tests:
 ```
 <!-- verification-strategy-contract: end -->
 
-The planner and refiner choose the strategy from the actual change class, state why it fits, and name exact commands and expected results. A waiver does not replace the declared strategy; it records why one required proof cannot run, who approved that exception, and what compensating evidence remains.
+### System-Under-Test (SUT) Integrity
 
-### Strategy execution
+- **Never Mock the SUT**: Unit and integration tests must exercise the real System Under Test. Mock only external network, process, or third-party boundary interfaces when required.
+- **Canonical Test Modules Only**: Always add tests to the existing canonical test file for the module under test; never create standalone `test_*remediation*.py` or `test_*audit*.py` files.
+- **Inner-Loop Speed vs. Milestone Gates**: Run `make lint` and focused task tests in inner loops; run full test suites and debloat sweeps at **Phase Recovery Checkpoints** and `/flow:finish`.
 
-- **Behavior TDD:** write one minimal behavioral test, run it, and confirm it fails because the behavior is absent. Implement minimally, rerun green, then refactor while green.
-- **Regression TDD:** reproduce the reported defect first, verify the intended failing symptom, implement the narrow fix, and rerun the regression plus relevant suite.
-- **Characterization:** record a green focused baseline before behavior-preserving cleanup, make the smallest change, and require unchanged behavior afterward. Do not manufacture a red test.
-- **Static validation:** run the native parser, lint, type, or build baseline. Prove a new or replacement gate with a representative isolated violation, require the expected failure/diagnostic, restore it, and require green.
-- **Documentation validation:** use link, example, docs-build, spelling, or structure checks appropriate to the documentation. Do not invent a unit-test failure for prose.
-- **Integration acceptance:** begin from a green focused baseline for the already-implemented contracts, compose the end-to-end scenario, and inject negative states to prove refusal paths. If implementation is missing, stop and route the gap through revise; do not repair it inside the acceptance task.
-
-### Low-signal test policy
-
-Reject assertions over incidental prompt phrases, private implementation shape, duplicate snapshots, and pure file existence when no operational contract depends on the path. Prefer configured parsers, linters, type checkers, and build tools to ad hoc source scanners when they express the rule. Retain meaningful structural tests when layout, signatures, exports, immutability, memory, compilation, reflection, serialization, or isolation is the contract.
-
----
-
-## Debugging Iron Law
+## 2. Root-Cause Debugging Discipline
 
 ```text
 NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST
 ```
 
-If you haven't completed Phase 1, you cannot propose fixes.
+1. **Reproduce & Trace**: Read error outputs completely, reproduce consistently, and trace dataflow to the source (`path/to/file::Symbol`).
+2. **Record in Task Worksheet**: Log root-cause findings with a timestamp under `## Notes & Discoveries` in `tasks/<id>-<slug>.md` so context survives session compaction.
+3. **Single-Variable Hypothesis**: Test one specific hypothesis at a time. If 3 fixes fail in a row, stop, mark the task `blocked`, and route to `/flow:revise` to re-evaluate the architecture.
 
-### The Task-First Investigation Mandate
+## 3. Finding Adjudication & Critical Thinking (`ADOPT` vs. `CONTEST`)
 
-**CRITICAL:** Every investigation finding, root cause discovery, and hypothesis test MUST be recorded directly in the active task file (e.g. `.agents/bundles/specs/<flow_id>/tasks/<task_id>.md`) under the `## Notes & Discoveries` heading, prefixed with a timestamp.
+- **Zero Performative Agreement**: Never reflexively agree with a subagent reviewer or apply unverified suggestions.
+- **Evidence-Backed Adjudication**: Verify every review finding against the actual codebase (`path/to/file::Symbol`) and `.agents/skills/review-*/references/false-positive-suppressions.md`. Explicitly mark each finding **`ADOPT`** (with the fix applied) or **`CONTEST`** (citing the exact code or `FP-*` suppression rule that refutes it).
 
-1. **Investigate**: Trace data flow, read errors, reproduce.
-2. **Note**: Append to `## Notes & Discoveries`: `[YYYY-MM-DD HH:MM] Root cause: [Description]. Found in [file:line].`
-3. **Commit**: Discoveries and decisions recorded in the task file survive context compaction and session resets. Learnings should be consolidated in `learnings.md` at the end of the task.
+## 4. Subagent & Python `run_workflow` Orchestration
 
-### Four-Phase Protocol
-
-1. **Root Cause Investigation** — Read error messages completely. Reproduce consistently. Check recent changes. Trace data flow to source.
-2. **Pattern Analysis** — Find working examples. Compare against references. Identify every difference.
-3. **Hypothesis Testing** — Form single hypothesis. Test with smallest possible change. One variable at a time.
-4. **Implementation** — Create failing test reproducing bug. Implement single fix. Verify fix.
-
-### Escalation Rule
-
-If 3+ fixes have failed: **STOP**. Question the architecture. Each fix revealing new problems in different places = wrong pattern, not wrong fix. Discuss with user before attempting more.
-
-### Debugging Rationalizations
-
-| Excuse | Reality |
-|--------|---------|
-| "Issue is simple, don't need process" | Simple issues have root causes too. |
-| "Emergency, no time" | Systematic is FASTER than thrashing. |
-| "Just try this first" | First fix sets the pattern. Do it right. |
-| "I see the problem, let me fix it" | Seeing symptoms is not understanding root cause. |
-
-### Debugging Red Flags — STOP
-
-- "Quick fix for now, investigate later"
-- "Just try changing X and see"
-- Proposing solutions before tracing data flow
-- Adding multiple changes at once
-- "One more fix attempt" after 2+ failures
-
-**Full reference:** `superpowers:systematic-debugging`
-
----
-
-## Verification Iron Law
-
-```text
-NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
-```
-
-If you haven't run the verification command in this response, you cannot claim it passes.
-
-### The Gate Function
-
-```text
-BEFORE claiming any status:
-1. IDENTIFY — What command proves this claim?
-2. RUN — Execute the command (fresh, complete)
-3. READ — Full output, check exit code
-4. VERIFY — Does output confirm the claim?
-5. CLAIM — Only then state the result WITH evidence
-```
-
-### Workflow Test Churn Minimization
-
-To maintain velocity and prevent wasteful test churn:
-
-- **Inner-loop execution**: Do not run heavy full test suites or multi-package integration suites repeatedly during inner task iterations. Run `make lint` (or repo equivalent) and the focused checks declared in the active worksheet, including integration checks when that strategy requires them.
-- **Phase-gate evaluation**: The full test suite, system integration verification, repo-wide static validation (`tools/validate.py`), cleanup, and debloating normally run at phase milestone gates (`checkpoint.phase`) and Flow completion (`flow:finish`); this does not defer verification required by the active worksheet.
-
-### Verification Requirements
-
-| Claim | Requires | Not Sufficient |
-|-------|----------|----------------|
-| Task complete (inner loop) | Declared strategy command output: exit 0 | Running full regression suite repeatedly |
-| Tests pass | Test output: 0 failures | "Should pass", previous run |
-| Coverage met | Coverage report | Extrapolation |
-| Build succeeds | Build exit 0 | Linter passing |
-| Bug fixed | Original symptom gone | Code changed, assumed fixed |
-| Phase complete (milestone) | Full test suite: 0 failures & requirements checklist | Targeted unit test alone |
-
-### Verification Red Flags — STOP
-
-- Using "should", "probably", "seems to"
-- Expressing satisfaction before verification ("Done!", "Perfect!")
-- About to commit/push without verification
-- Trusting agent success reports without independent check
-
-**Full reference:** `superpowers:verification-before-completion`
-
----
-
-## Critical Thinking Iron Law
-
-```text
-NO PROPOSALS OR CLAIMS WITHOUT CRITICAL REASSESSMENT FIRST
-```
-
-Before accepting a claim (your own or others), proposing a solution, or making a technical decision, you **MUST** run it through the **CRITICAL REASSESSMENT** pattern.
-
-**No exceptions:**
-
-- Even if it "seems obvious"
-- Even if it's "the only way"
-- Even if you've done it before
-
-### The CRITICAL REASSESSMENT Pattern
-
-1. **EVALUATE ACCURACY** — Verify facts. Identify unstated assumptions. Check for logical gaps.
-2. **EVALUATE COMPLETENESS** — Look for missing considerations, omitted perspectives, and failure modes.
-3. **EVALUATE REASONING QUALITY** — Check if conclusions are proportional to evidence. Identify logical fallacies.
-4. **INVESTIGATE IF NEEDED** — Read actual code and docs. **Never reason from memory.**
-5. **DELIVER HONEST ASSESSMENT** — Provide specific flaws or explain *why* reasoning holds. Avoid hedging and meta-commentary.
-
-### Critical Thinking Rationalizations
-
-| Excuse | Reality |
-|--------|---------|
-| "I've done this 100 times" | This codebase or context might be different. Verify. |
-| "Reviewer knows better" | Reviewers are human (or AI). They can be wrong. |
-| "It's just a simple change" | Simple changes have side effects. |
-| "Don't want to be negative" | Honesty > performance. |
-
-### Critical Thinking Red Flags — STOP
-
-- Hedging: "This might be right but could be wrong"
-- Reflexive agreement: "You're absolutely right!"
-- Proposing solutions without investigating the actual code first
-- Meta-commentary: "Let me challenge this for you" (just do the analysis)
-- Manufacture of 50/50 doubt (no artificial balance)
-
-**Full reference:** `superpowers:perspectives:critical-thinking`
-
----
-
-## Code Review Discipline
-
-### Requesting Review
-
-At phase completion or before merge:
-
-1. Get git range (base SHA to HEAD)
-2. Dispatch code review subagent with: what was implemented, spec requirements, git range
-3. Act on feedback: fix Critical immediately, fix Important before proceeding, note Minor for later
-
-### Receiving Review
-
-- **No performative agreement** ("You're absolutely right!", "Great point!")
-- **Verify** suggestions against codebase before implementing (follow **Critical Thinking Iron Law**)
-- **Push back** with technical reasoning if reviewer is wrong
-- **YAGNI check:** if reviewer suggests adding unused features, question the need
-- **Clarify** all unclear items BEFORE implementing any
-
-**Full reference:** `superpowers:requesting-code-review`, `superpowers:receiving-code-review`
-
----
-
-## Subagent Orchestration
-
-When executing complex flows, planning research, or dispatching implementation work:
-
-### Dynamic Multi-Subagent Decomposition
-
-In harnesses supporting dynamic subagents (such as Google Antigravity with `define_subagent` and `invoke_subagent`):
-
-- **Decompose, don't monologue**: Break large, multi-step tasks into specialized subagents running concurrently or sequentially rather than stuffing all exploration into a single monolithic context.
-- **Message passing**: Communicate with subagents asynchronously using message-passing tools (`send_message`). Subagents run in background contexts and report back findings when complete.
-- **Parallel research fan-out**: When investigating multi-faceted topics (e.g. API compatibility, database migration, edge-case testing), spawn distinct read-only researcher subagents in parallel with tightly scoped briefs.
-- **Ordered review**: Dispatch correctness/spec review first, then mandatory quality/debloat review on the same exact Git range with the correctness findings. Independent security analysis may run alongside correctness review when hooks, credentials, or input boundaries are involved. Follow [review.md](review.md).
-- **Sequential implementation**: Worksheets (`tasks/<id>.md`) MUST be executed sequentially by `@executor` subagents (one task per subagent, one functional commit at close) to prevent merge collisions on shared repository code.
-
-### Model Selection
-
-- **Mechanical tasks** (1-2 files, clear spec) → fast model
-- **Integration tasks** (multi-file, coordination) → standard model
-- **Review/architecture tasks** → most capable model
-
-### Two-Stage Review
-
-After each task completion:
-
-1. **Spec compliance review** — Does implementation match requirements? Nothing missing, nothing extra?
-2. **Code quality review** — Is implementation well-built? Clean, tested, maintainable?
-
-Spec compliance MUST pass before code quality review begins.
-
-**Full reference:** `superpowers:subagent-driven-development`
+- **Always Inherit Model**: Default all subagent dispatches (`invoke_subagent`, `run_workflow` `agent(...)`, or host subagent tools) to `model: inherit` unless the user explicitly asks for another model.
+- **Prefer `run_workflow` When Available (Google Antigravity)**:
+  - Use `phase(name)` and `log(msg)` to surface stage progress.
+  - Use `parallel(items, fn)` with `agent(prompt, schema=..., role=..., type_name=..., model="inherit")` for concurrent zero-context spec/code review fan-out and parallel `@researcher` subsystem audits, enforcing strict JSON Schema validation on subagent responses.
+  - Reuse persistent multi-turn subagent handles (`reviewer = agent(...); await reviewer(...)`) across review rounds so reviewers verify `ADOPT` fixes in their existing isolated context.
+  - Use `pipeline(worksheets, fn)` for sequential multi-worksheet execution in isolated `@executor` turns.
+- **Zero-Context Review Isolation**: Pass **only disk paths** (`spec.md`, `tasks/*.md`, `.agents/skills/`, and `knowledge/` chapters) and exact `base_commit..head_commit` ranges to reviewers—never pass conversational planning transcripts.

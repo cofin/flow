@@ -1,3 +1,0 @@
-# Domain
-
-Legacy knowledge authority.

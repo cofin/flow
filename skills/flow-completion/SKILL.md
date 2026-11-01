@@ -1,50 +1,51 @@
 ---
 name: flow-completion
-description: "Use when reviewing, finishing, archiving, reverting, validating, documenting, or cleaning up Flow work after implementation or phase completion."
+description: "Use when reviewing (/flow:review), finishing (/flow:finish), archiving (/flow:archive), cleaning up (/flow:cleanup), reverting (/flow:revert), or validating (/flow:validate) Flow work."
 disable-model-invocation: true
 ---
 
 # Flow Completion
 
-<!-- lifecycle-ownership: owner=flow-completion; operations=review,finish,archive,revert,docs,cleanup,validate,resynthesize -->
+<!-- lifecycle-ownership: owner=flow-completion; operations=review,finish,archive,cleanup,revert,validate -->
 
 ## Trigger
 
-Use for `review|finish|archive|revert|docs|cleanup|validate|resynthesize`.
+Use for `review` ([`../flow/references/review.md`](../flow/references/review.md)), `finish` ([`../flow/references/finish.md`](../flow/references/finish.md)), `archive` ([`../flow/references/archive.md`](../flow/references/archive.md)), `cleanup` ([`../flow/references/cleanup.md`](../flow/references/cleanup.md)), `revert` ([`../flow/references/revert.md`](../flow/references/revert.md)), and `validate` ([`../flow/references/validate.md`](../flow/references/validate.md)).
 
 <!-- quality-completion-policy: start -->
 ```yaml
 contract: quality-completion-v1
 authority: skills/flow/references/review.md
 finish_gates: [verification, code_review, quality_review, finish]
-archive_gates: [archive_candidate, verification, code_review, quality_review, archive]
+archive_gates: [archive_candidate, verification, code_review, quality_review, knowledge_contraction, archive]
 runtime_dependency: agent_file_tools_only
-evaluator_module: forbidden
 ```
 <!-- quality-completion-policy: end -->
 
 ## Workflow
 
-1. **Two-Axis Review (`/flow:review`)**: Run parallel reviewers evaluating Standards/Smells (Security, Performance, Debloat lenses) and Spec Conformance against `git diff <base>...HEAD`.
-2. **Finish Flow (`/flow:finish`)**: Run full test verification suite and record single-paragraph ADRs in `knowledge/decisions/`.
-3. **Archive Flow (`/flow:archive`)**: Synthesize discoveries into project-shaped knowledge, append one `log.md` entry, and delete the reviewed completed spec inventory through a journaled archive operation.
-4. **Resynthesize Knowledge (`/flow:resynthesize`)**: Audit and rewrite `.agents/bundles/knowledge/` in depth against current codebase truth, reorganizing flat or bloated chapters into hierarchical OKF v0.2 subdirectories and rebuilding `index.md`.
-5. **Cleanup, Revert, or Validate (`/flow:cleanup`, `/flow:revert`, `/flow:validate`)**: Sweep completed flows and code/prose bloat in touched files, revert designated changes, or run repository validation checks.
+1. **Zero-Context Correctness & Quality Review (`/flow:review`)**:
+   - Compute the exact `base_commit..head_commit` range and changed file surface.
+   - Dispatch zero-context reviewers (using Antigravity's `run_workflow` `parallel()` with `schema=` and persistent multi-turn reviewer handles when available, or isolated `@code-reviewer`, `@quality-reviewer`, and matching `.agents/agents/<domain>-reviewer` subagents) passing only disk paths (`spec.md`, `tasks/*.md`, `.agents/skills/`, and `knowledge/` chapters).
+   - Adjudicate findings (`ADOPT` vs. `CONTEST` with evidence), remediate adopted findings in canonical files/tests, and re-verify with the reviewer.
+2. **Finish Flow (`/flow:finish`)**:
+   - Run the repository's full verification gates (`knowledge/workflow.md`), verify all tasks in `spec.md` are `[x] [<sha>]`, record any new architectural decisions in `knowledge/decisions/adr-NNN-<slug>.md`, and mark `spec.md` `state: completed`.
+3. **Archive & Contract Flow (`/flow:archive`)**:
+   - Invoke the `/flow:learn` contraction pass to promote durable architecture, patterns, domain rules, testing insights, and gotchas from `specs/<flow_id>/{spec.md,learnings.md,research/*,tasks/*}` into `.agents/bundles/knowledge/**` and `.agents/skills/**`.
+   - Record an `archive` entry in `.agents/bundles/log.md`, remove the completed `.agents/bundles/specs/<flow_id>/` directory, and update `.agents/bundles/index.md`.
+4. **Cleanup, Revert, or Validate (`/flow:cleanup`, `/flow:revert`, `/flow:validate`)**:
+   - Run `debloat` across touched files (`/flow:cleanup`), revert designated task/flow commits safely (`/flow:revert`), or validate OKF bundle and skill integrity (`/flow:validate`).
 
 ## Guardrails
 
-- Reviews are read-only; report concrete evidence with file/symbol references.
-- Archive leaves a terminal journal outside the bundle and no resident archived spec.
-- Preserve Git history. Never create or mutate Git tags.
+- Reviewers are strictly read-only and receive zero conversational planning history.
+- Never delete a completed spec directory during `/flow:archive` until its durable discoveries and patterns have been synthesized into `.agents/bundles/knowledge/**` and logged in `.agents/bundles/log.md`.
+- Preserve Git history and never create or mutate Git tags.
 
 ## Output
 
-Return the review assessment, verification evidence, ADR summaries, or archived flow manifest.
+Return the review adjudication summary (`ADOPT` vs. `CONTEST`), verification command exit codes, updated `spec.md` state or `.agents/bundles/knowledge/` contraction report, and next action.
 
 ## Validation
 
-Confirm test suites pass cleanly, no blocking review findings remain, and knowledge synthesis is complete.
-
-## Example
-
-For flow completion, run tests, review the diff against `main`, elevate reusable patterns to evidence-backed `knowledge/patterns/<topic>.md` chapters, and archive the spec directory.
+Confirm all required review and verification gates passed with exit code `0`, `spec.md` and `tasks/*.md` states match Git history, and `.agents/bundles/index.md` and `log.md` are updated cleanly.
