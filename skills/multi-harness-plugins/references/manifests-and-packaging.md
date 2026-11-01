@@ -26,7 +26,8 @@ Package multi-harness agent plugins from a single repository root without duplic
 │   └── plugins/<name>.js                  # OpenCode V2 plugin module ({ id, async setup(ctx) })
 ├── agents/*.md                            # Universal Markdown subagents (AGY, Claude, Cursor, VS Code, OpenCode)
 ├── hooks/
-│   └── on-session-start.sh                # Pure POSIX sh + awk priming script
+│   ├── on-session-start.sh                # Pure POSIX sh + awk priming script (Unix/macOS)
+│   └── on-session-start.ps1               # Native PowerShell priming script (Windows / pwsh)
 ├── rules/*.md                             # Operational rules (AGY & Cursor)
 └── skills/<skill-name>/
     ├── SKILL.md

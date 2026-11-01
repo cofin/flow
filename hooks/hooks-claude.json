@@ -1,5 +1,5 @@
 {
-  "description": "Flow session priming hook for Claude Code and VS Code Agent Plugins.",
+  "description": "Flow session priming hook for Claude Code, Codex CLI, and VS Code Agent Plugins.",
   "hooks": {
     "SessionStart": [
       {
@@ -7,7 +7,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"${CLAUDE_PLUGIN_ROOT:-.}/hooks/session-start.sh\" --harness claude",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-.}}/hooks/session-start.sh\" --harness claude",
+            "commandWindows": "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-.}}/hooks/session-start.ps1\" --harness claude",
             "timeout": 15
           }
         ]

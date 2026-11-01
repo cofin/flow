@@ -19,6 +19,7 @@
     "skills"
   ],
   "skills": "./skills/",
+  "hooks": "./hooks/hooks-claude.json",
   "interface": {
     "displayName": "Flow",
     "shortDescription": "Context-driven planning, TDD implementation, and OKF bundle memory",

@@ -6,11 +6,11 @@ Design runtime hooks that execute reliably across Linux, macOS, and Windows with
 
 | Harness | Host Binary Type | Guaranteed Runtime Dependencies |
 | --- | --- | --- |
-| **Google Antigravity (`agy`)** | Compiled native binary | POSIX `sh`, `awk`, `git` (no bundled Python or Node.js) |
-| **Codex CLI (`codex`)** | Compiled Rust binary | POSIX `sh`, `awk`, `git` (no bundled Python or Node.js) |
-| **Claude Code (`claude`)** | Bun / Node binary | POSIX `sh`, `awk`, `git` |
-| **Cursor (`cursor`)** | Electron IDE | POSIX `sh`, `awk`, `git` |
-| **VS Code (`code`)** | Electron IDE | POSIX `sh`, `awk`, `git` |
+| **Google Antigravity (`agy`)** | Compiled native binary | POSIX `sh`, `awk`, `git` on Unix; `pwsh` / `powershell` on Windows (no bundled Python or Node.js) |
+| **Codex CLI (`codex`)** | Compiled Rust binary | POSIX `sh`, `awk`, `git` on Unix; `%COMSPEC% /C` + `powershell` (`commandWindows`) on Windows |
+| **Claude Code (`claude`)** | Bun / Node binary | POSIX `sh`, `awk`, `git` on Unix; `pwsh` / `powershell` (`commandWindows`) on Windows |
+| **Cursor (`cursor`)** | Electron IDE | POSIX `sh`, `awk`, `git` on Unix; `pwsh` / `powershell` on Windows |
+| **VS Code (`code`)** | Electron IDE | POSIX `sh`, `awk`, `git` on Unix; `pwsh` / `powershell` (`commandWindows`) on Windows |
 | **OpenCode V2 (`opencode`)** | Bun / Node runtime | In-process `node:fs` and `node:path` inside `.opencode/plugins/<name>.js` |
 
 ## Harness Hook Configurations (Plugin & Project-Local)
@@ -37,7 +37,7 @@ Also note that for global plugins, Antigravity sets `cmd.Dir` to the **installed
 
 ### 2. Claude Code, Codex CLI, & VS Code (`.claude/settings.json` / `.codex/hooks.json` or Plugin Hook Config)
 
-Claude Code and Codex CLI require the **nested** `matcher` structure for all events:
+Claude Code and Codex CLI require the **nested** `matcher` structure for all events. Provide `"commandWindows"` invoking a native PowerShell (`hooks/on-session-start.ps1`) equivalent so Windows hosts executing via `%COMSPEC% /C` (`cmd.exe /c`) do not require `sh` on `PATH`:
 
 ```json
 {
@@ -48,7 +48,8 @@ Claude Code and Codex CLI require the **nested** `matcher` structure for all eve
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/on-session-start.sh --harness claude"
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/on-session-start.sh --harness claude",
+            "commandWindows": "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/on-session-start.ps1\" --harness claude"
           }
         ]
       }

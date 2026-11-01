@@ -26,7 +26,7 @@ It combines four operations into a single coherent workflow that can run **at an
    - When the `run_workflow` tool is available in the active harness (Google Antigravity) and the repository spans multiple domains, fan out `parallel(domains, audit_domain)` using `agent(type_name="researcher", schema=DOMAIN_DRIFT_SCHEMA, model="inherit")` to audit each domain concurrently.
 3. **Manifest & Command Surface Drift**:
    - Compare `pyproject.toml`, `Cargo.toml`, `package.json`, `go.mod`, `Makefile`, and `.github/workflows/*.yml` against `.agents/bundles/product/{product,product-guidelines,tech-stack}.md` and `.agents/bundles/knowledge/workflow.md`.
-   - Probe installed host binaries (`uv`, `python3`, `cargo`, `go`, `bun`, `pnpm`, `npm`, `make`, `just`) so `knowledge/workflow.md` only documents commands that execute cleanly.
+   - Probe installed host binaries (`uv`, `python3`, `cargo`, `go`, `bun`, `pnpm`, `npm`, `make`, `just`, `pwsh`, `powershell`) so `knowledge/workflow.md` only documents commands that execute cleanly.
 
 ## Phase 2: Active Domain Modeling & OKF v0.2 Knowledge Resynthesis
 

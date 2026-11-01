@@ -27,7 +27,7 @@ Initialize or align a repository for Spec-Driven Development with Flow's core pr
 
 1. **Probe Host Binaries & Repository Manifests**:
    - Inspect `pyproject.toml`, `Cargo.toml`, `go.mod`, `package.json`, `Makefile`, `justfile`, and `.github/workflows/*.yml`.
-   - Probe installed binaries (`uv`, `python3`, `cargo`, `go`, `bun`, `pnpm`, `npm`, `make`, `just`) so `knowledge/workflow.md` records only commands that execute cleanly on the current host.
+   - Probe installed binaries (`uv`, `python3`, `cargo`, `go`, `bun`, `pnpm`, `npm`, `make`, `just`, `pwsh`, `powershell`) so `knowledge/workflow.md` records only commands that execute cleanly on the current host.
 2. **Parallel Subsystem Discovery**:
    - Map the repository's core domains, deep-module seams, public interfaces, data models, and canonical test files.
    - When the `run_workflow` tool is available in the active harness (Google Antigravity), fan out `parallel(subsystems, inspect_subsystem)` using `agent(type_name="researcher", schema=SUBSYSTEM_SCHEMA, model="inherit")` to audit each subsystem concurrently.

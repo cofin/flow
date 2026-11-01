@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shutil
 import subprocess
 import sys
 import tomllib
@@ -138,7 +139,6 @@ RETIRED_PATHS: tuple[str, ...] = (
     "hooks/primer.txt",
     "hooks/session-start.cmd",
     "hooks/session-start.js",
-    "hooks/session-start.ps1",
     "plugins/flow",
     "rules/flow-core.md",
     "skills/apilookup",
@@ -271,6 +271,10 @@ def validate_manifests(repo_root: Path = REPO_ROOT) -> list[str]:
     if claude_plugin is not None and claude_plugin.get("hooks") != "./hooks/hooks-claude.json":
         errors.append(".claude-plugin/plugin.json: hooks must be './hooks/hooks-claude.json'")
 
+    codex_plugin = loaded.get(".codex-plugin/plugin.json")
+    if codex_plugin is not None and codex_plugin.get("hooks") != "./hooks/hooks-claude.json":
+        errors.append(".codex-plugin/plugin.json: hooks must be './hooks/hooks-claude.json'")
+
     cursor_plugin = loaded.get(".cursor-plugin/plugin.json")
     if cursor_plugin is not None and cursor_plugin.get("hooks") != "./hooks/hooks-cursor.json":
         errors.append(".cursor-plugin/plugin.json: hooks must be './hooks/hooks-cursor.json'")
@@ -283,11 +287,15 @@ def validate_manifests(repo_root: Path = REPO_ROOT) -> list[str]:
 
 
 def validate_hooks(repo_root: Path = REPO_ROOT) -> list[str]:
-    """Validate hook configuration files, OpenCode V2 plugin entry, and POSIX sh SessionStart execution."""
+    """Validate hook configuration files, OpenCode V2 plugin entry, and POSIX sh + PowerShell SessionStart execution."""
     errors: list[str] = []
     hook_script = repo_root / "hooks" / "session-start.sh"
     if not hook_script.is_file():
         return ["Missing hooks/session-start.sh"]
+
+    ps1_script = repo_root / "hooks" / "session-start.ps1"
+    if not ps1_script.is_file():
+        errors.append("Missing hooks/session-start.ps1")
 
     agy_hooks_path = repo_root / "hooks.json"
     if not agy_hooks_path.is_file():
@@ -308,6 +316,14 @@ def validate_hooks(repo_root: Path = REPO_ROOT) -> list[str]:
         session_start = claude_hooks.get("hooks", {}).get("SessionStart")
         if not isinstance(session_start, list) or not session_start or "matcher" not in session_start[0]:
             errors.append("hooks/hooks-claude.json: SessionStart must use nested matcher format")
+        else:
+            handlers = session_start[0].get("hooks", [])
+            if not isinstance(handlers, list) or not handlers:
+                errors.append("hooks/hooks-claude.json: SessionStart[0].hooks must be a non-empty list")
+            else:
+                cmd_windows = str(handlers[0].get("commandWindows", ""))
+                if "session-start.ps1" not in cmd_windows:
+                    errors.append("hooks/hooks-claude.json: SessionStart handler must include commandWindows")
 
     cursor_hooks_path = repo_root / "hooks" / "hooks-cursor.json"
     if not cursor_hooks_path.is_file():
@@ -347,6 +363,43 @@ def validate_hooks(repo_root: Path = REPO_ROOT) -> list[str]:
             continue
         if required_key not in payload:
             errors.append(f"hooks/session-start.sh --harness {harness} missing top-level key {required_key!r}")
+
+    pwsh_bin = shutil.which("pwsh") or shutil.which("powershell")
+    if pwsh_bin and ps1_script.is_file():
+        for harness, required_key in (
+            ("agy", "injectSteps"),
+            ("claude", "hookSpecificOutput"),
+            ("cursor", "additional_context"),
+        ):
+            proc = subprocess.run(
+                [
+                    pwsh_bin,
+                    "-NoProfile",
+                    "-NonInteractive",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-File",
+                    str(ps1_script),
+                    "--harness",
+                    harness,
+                    "--project",
+                    str(repo_root),
+                ],
+                input="{}",
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            if proc.returncode != 0:
+                errors.append(f"hooks/session-start.ps1 --harness {harness} failed: {proc.stderr.strip()}")
+                continue
+            try:
+                payload = json.loads(proc.stdout)
+            except json.JSONDecodeError as exc:
+                errors.append(f"hooks/session-start.ps1 --harness {harness} emitted invalid JSON: {exc}")
+                continue
+            if required_key not in payload:
+                errors.append(f"hooks/session-start.ps1 --harness {harness} missing top-level key {required_key!r}")
 
     return errors
 

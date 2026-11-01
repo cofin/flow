@@ -32,9 +32,9 @@ How each harness discovers project-local instructions, skills, subagents, hooks,
    - Format Markdown subagents (`agents/<name>.md` or `.agents/agents/<name>.md`) with `name`, `description`, `model: inherit`, `mainAgent: false`, `subagent: true`, `commandExecutionPolicy`, `skills: [...]`, and `readonly: true` + YAML list `disallowedTools` for read-only reviewers.
    - Use top-level H1 (`# `) section headings (`# Role & Identity`, `# Responsibilities`, `# Verification & Constraints`, `# Output Contract`) with `###` subsections so Antigravity splits sections into XML system-prompt blocks.
    - Pair Markdown subagents with `.codex/agents/<name>.toml` for Codex CLI.
-4. **Keep Runtime Hooks Zero-Dependency**:
+4. **Keep Runtime Hooks Zero-Dependency & Cross-Platform**:
    - Do not require `python3`, `node`, or `jq` in `SessionStart` shell hooks (`agy` and `codex` ship as static native binaries).
-   - Write shell hooks in pure POSIX `sh` + `awk` and `.opencode/plugins/<name>.js` in native `node:fs` / `node:path`.
+   - Pair pure POSIX `sh` + `awk` (`hooks/<name>.sh`) with native PowerShell (`hooks/<name>.ps1`, `pwsh` / Windows PowerShell 5.1+) and `"commandWindows"` for Windows hosts, plus `.opencode/plugins/<name>.js` in native `node:fs` / `node:path`.
 5. **Validate Structural Parity**:
    - Run `/flow:validate` to verify `SKILL.md` byte budgets, subagent frontmatter and H1 headings, hook schemas, and relative links.
 

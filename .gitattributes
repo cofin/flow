@@ -1,3 +1,4 @@
-# Shell entrypoints and Markdown files must use LF line endings across platforms.
+# Shell, PowerShell, and Markdown files must use LF line endings across platforms.
 *.sh text eol=lf
+*.ps1 text eol=lf
 *.md text eol=lf
