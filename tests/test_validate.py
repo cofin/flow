@@ -74,10 +74,12 @@ def test_validate_skills_enforces_byte_cap_and_frontmatter(tmp_path: Path) -> No
     for name in EXPECTED_SKILLS:
         sdir = skills_dir / name
         sdir.mkdir(parents=True)
-        (sdir / "SKILL.md").write_text(
-            f"---\nname: {name}\ndescription: Use when testing {name}.\n---\n\n"
-            "## Workflow\n\nStep.\n\n## Guardrails\n\nRule.\n\n## Validation\n\nCheck.\n\n## Example\n\nEx.\n",
-            encoding="utf-8",
+        (sdir / "SKILL.md").write_bytes(
+            (
+                f"---\r\nname: {name}\r\ndescription: Use when testing {name}.\r\n---\r\n\r\n"
+                "## Workflow\r\n\r\nStep.\r\n\r\n## Guardrails\r\n\r\nRule.\r\n\r\n"
+                "## Validation\r\n\r\nCheck.\r\n\r\n## Example\r\n\r\nEx.\r\n"
+            ).encode()
         )
 
     assert validate_skills(tmp_path) == []

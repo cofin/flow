@@ -1,2 +1,3 @@
-# Shell entrypoints must remain executable with Git for Windows autocrlf enabled.
+# Shell entrypoints and Markdown files must use LF line endings across platforms.
 *.sh text eol=lf
+*.md text eol=lf

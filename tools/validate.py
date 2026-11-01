@@ -509,7 +509,7 @@ def validate_markdown_links(repo_root: Path = REPO_ROOT) -> list[str]:
                 continue
             resolved = (md_path.parent / path_part).resolve()
             if not resolved.exists():
-                rel_src = md_path.relative_to(repo_root)
+                rel_src = md_path.relative_to(repo_root).as_posix()
                 errors.append(f"{rel_src}: broken relative link {target!r}")
 
     return errors
@@ -523,7 +523,7 @@ def validate_anti_sprawl(repo_root: Path = REPO_ROOT) -> list[str]:
         if candidate.exists():
             errors.append(f"Retired path must not exist: {rel_path}")
     for openai_yaml in (repo_root / "skills").glob("*/agents/openai.yaml"):
-        errors.append(f"Retired openai.yaml must not exist: {openai_yaml.relative_to(repo_root)}")
+        errors.append(f"Retired openai.yaml must not exist: {openai_yaml.relative_to(repo_root).as_posix()}")
     return errors
 
 
@@ -560,7 +560,7 @@ def validate_okf_bundle(bundle_dir: Path) -> list[str]:
             errors.append(f"{root_index}: missing 'bundle' key in root index.md")
 
     for md_path in sorted(bundle_dir.rglob("*.md")):
-        rel = md_path.relative_to(bundle_dir)
+        rel = md_path.relative_to(bundle_dir).as_posix()
         text = md_path.read_text(encoding="utf-8")
         fm, body = _split_frontmatter(text)
 
@@ -622,13 +622,14 @@ def main(argv: list[str] | None = None) -> int:
 
 def _split_frontmatter(text: str) -> tuple[dict[str, Any] | None, str]:
     """Parse leading YAML frontmatter using pure Python stdlib and return ``(frontmatter_dict, markdown_body)``."""
-    if not text.startswith("---\n"):
-        return None, text
-    end_idx = text.find("\n---\n", 4)
+    normalized = text.replace("\r\n", "\n")
+    if not normalized.startswith("---\n"):
+        return None, normalized
+    end_idx = normalized.find("\n---\n", 4)
     if end_idx == -1:
-        return None, text
-    raw_yaml = text[4:end_idx]
-    body = text[end_idx + 5 :]
+        return None, normalized
+    raw_yaml = normalized[4:end_idx]
+    body = normalized[end_idx + 5 :]
     parsed = _parse_simple_yaml(raw_yaml)
     return parsed, body
 

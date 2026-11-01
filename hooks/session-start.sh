@@ -51,6 +51,7 @@ if [ -z "$PROJECT_DIR" ] && [ -n "$STDIN_PAYLOAD" ]; then
         s = substr(buf, RSTART, RLENGTH)
         sub(/^.*"workspacePaths"[[:space:]]*:[[:space:]]*\[[[:space:]]*"/, "", s)
         sub(/"$/, "", s)
+        gsub(/\\\\/, "/", s)
         print s
         exit
       }
@@ -58,6 +59,7 @@ if [ -z "$PROJECT_DIR" ] && [ -n "$STDIN_PAYLOAD" ]; then
         s = substr(buf, RSTART, RLENGTH)
         sub(/^.*"workspace_roots"[[:space:]]*:[[:space:]]*\[[[:space:]]*"/, "", s)
         sub(/"$/, "", s)
+        gsub(/\\\\/, "/", s)
         print s
         exit
       }
@@ -65,6 +67,7 @@ if [ -z "$PROJECT_DIR" ] && [ -n "$STDIN_PAYLOAD" ]; then
         s = substr(buf, RSTART, RLENGTH)
         sub(/^.*"cwd"[[:space:]]*:[[:space:]]*"/, "", s)
         sub(/"$/, "", s)
+        gsub(/\\\\/, "/", s)
         print s
         exit
       }
@@ -72,6 +75,7 @@ if [ -z "$PROJECT_DIR" ] && [ -n "$STDIN_PAYLOAD" ]; then
         s = substr(buf, RSTART, RLENGTH)
         sub(/^.*"workspaceRoot"[[:space:]]*:[[:space:]]*"/, "", s)
         sub(/"$/, "", s)
+        gsub(/\\\\/, "/", s)
         print s
         exit
       }
