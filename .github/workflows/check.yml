@@ -34,7 +34,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          uv sync --all-extras --dev
+          uv sync --all-groups
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -43,9 +43,6 @@ jobs:
 
       - name: Install markdownlint
         run: npm install -g markdownlint-cli2
-
-      - name: Install Claude Code CLI
-        run: npm install -g @anthropic-ai/claude-code
 
       - name: Run quality checks
         env:

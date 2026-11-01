@@ -1,10 +1,10 @@
 {
-  "flow-priming": {
+  "flow-session-start": {
     "SessionStart": [
       {
         "type": "command",
-        "command": "bash \"${PLUGIN_ROOT:-${ANTIGRAVITY_PLUGIN_ROOT:-.}}/hooks/agy-pre-invocation.sh\"",
-        "timeout": 25
+        "command": "sh ./hooks/session-start.sh --harness agy",
+        "timeout": 15
       }
     ]
   }

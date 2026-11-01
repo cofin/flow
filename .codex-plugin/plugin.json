@@ -1,6 +1,6 @@
 {
   "name": "flow",
-  "version": "0.25.0",
+  "version": "0.26.0",
   "description": "Unified toolkit for Context-Driven Development with spec-first planning, TDD workflow, and OKF knowledge bundles.",
   "author": {
     "name": "cofin"
@@ -19,6 +19,7 @@
     "skills"
   ],
   "skills": "./skills/",
+  "hooks": "./hooks/hooks-claude.json",
   "interface": {
     "displayName": "Flow",
     "shortDescription": "Context-driven planning, TDD implementation, and OKF bundle memory",

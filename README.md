@@ -2,43 +2,50 @@
 
 **Measure twice, code once.**
 
-Flow is a unified toolkit for **Context-Driven Development** that works with **Antigravity**, **Codex CLI**, **Claude Code**, **OpenCode**, **VS Code / Copilot**, **Cursor**, and **OpenClaw**. It combines spec-first planning with a local, task-centric filesystem engine (OKF) to track task state and learnings, enabling AI-assisted development with deep, persistent project awareness.
+Flow is a unified toolkit for **Spec-Driven Development** backed by **Open Knowledge Format (`OKF v0.2`)** bundles. It works natively from a single repository root across **Google Antigravity** (IDE & CLI), **Claude Code**, **Codex CLI**, **Cursor**, **OpenCode V2**, and **VS Code / Copilot**.
 
-## Philosophy
+## Architecture & Lifecycle
 
-Control your code. By treating context as a managed artifact alongside your code, you transform your repository into a single source of truth that drives every agent interaction. Flow ensures a consistent, high-quality lifecycle for every task:
+Flow separates **Stateful Planning & Adjudication** from **Zero-Context Verification** and **Isolated Vertical-Slice Task Execution**:
 
-**Lifecycle:** Context → Spec & Plan → Implement → Learn
-
-## Key Features
-
-- **Task-Centric Filesystem Engine (OKF)**: Persistent task files and specs that survive context compaction and are git-tracked
-- **Multi-Harness Support**: Works with Antigravity, Codex CLI, Claude Code, OpenCode, VS Code / Copilot, Cursor, and OpenClaw
-- **Spec-First Development**: Create specs and task lists before writing code
-- **Change-appropriate verification**: TDD for behavior changes, with static,
-  documentation, characterization, and integration strategies for other work
-- **Knowledge Flywheel**: Capture and elevate patterns across flows (Ralph-style)
-- **Flow Management**: Revise, archive, and revert with full audit trail
-- **Git-Aware Revert**: Reverts logical units of work (tasks or phases), not just raw commits
-- **Parallel Execution**: Phase-level task parallelism via sub-agents
+1. **Setup (`/flow:setup`)**:
+   - Runs **Brownfield Alignment & Legacy Migration** (`align` mode) to upgrade existing `.agents/` layouts without data loss, or initializes a new repository from scratch.
+   - Probes installed host binaries (`uv`, `python3`, `cargo`, `go`, `bun`, `pnpm`, `npm`, `make`, `just`, `pwsh`, `powershell`) and scaffolds Flow's core context chapters (`product/product.md`, `product/product-guidelines.md`, `product/tech-stack.md`, and `knowledge/workflow.md`) with bounded `<= 40`-line `<!-- truth: start -->` blocks and nested `knowledge/{architecture,patterns,domains,testing,gotchas,decisions}/` chapters anchored to `path/to/file::Symbol`.
+   - Seeds baseline engineering disciplines (deep-module seams, active domain modeling, public-seam TDD, hypothesis-driven bug diagnosis, and cold-reader documentation accuracy) alongside stack-specific `.agents/skills/<domain>/`, `.agents/skills/review-<domain>/`, and paired `.agents/agents/<domain>-{reviewer,specialist}.md` subagents.
+   - Configures Git tracking (`shared` team mode vs. `local-only` stealth mode via `.git/info/exclude`) and opt-in cross-harness settings.
+2. **Plan (`/flow:prd`, `/flow:plan`, `/flow:revise`, `/flow:research`) — Stateful Co-Design & Adjudication**:
+   - **Master PRD (`/flow:prd`)**: Decomposes multi-flow initiatives into plain-English problem framing, locked architectural seams, a Mandatory Alternatives Table, and ordered `state: draft` child flow charters.
+   - **Feature Specification (`/flow:plan`)**: Walks the Design-Tree Frontier one decision at a time (`structured-choice-v1`, separating agent-researched *Facts* from user *Decisions*), authors a 5-section specification (`spec.md`) with deep-module seams and `1–8` disjoint vertical-slice task worksheets (`tasks/<id>-<slug>.md`) anchored to `path/to/file::Symbol`, dispatches isolated zero-context reviewers passing only disk paths, and adjudicates findings (`ADOPT`, `CONTEST`, or `ESCALATE`).
+   - **Research & Prototyping (`/flow:research`, alias `/flow:task`)**: Runs primary-source `@researcher` audits or time-boxed throwaway prototypes in untracked `.agents/scratch/<slug>/`.
+3. **Implement (`/flow:implement`, `/flow:status`) — Isolated Vertical-Slice Execution**:
+   - Runs the execution preflight (`dependencies_closed`, `worksheet_complete`, `verification_strategy_declared`, `plan_identity_matches`, `target_symbols_exist`), failing closed before modifying production files if symbol or requirement drift is detected.
+   - Executes one approved task worksheet per `@executor` subagent turn using **Public-Seam Vertical-Slice TDD** in canonical module test files (or the **Hypothesis-Driven Bug Diagnosis Loop** when blocked), verifies **Phase Recovery Checkpoints**, creates an atomic signed Git commit, and updates task frontmatter + `spec.md` checklists directly.
+4. **Learn & Document (`/flow:learn`, `/flow:docs`)**:
+   - **`/flow:learn` (aliases `resynthesize`, `refresh`, `sync`)**: Runs anytime—across machines/harnesses, mid-flow, or post-flow—to reconcile Git history with task worksheets, intersect `git diff` against `sources[].resource` provenance, sharpen domain glossaries and Architectural Decision Records (`knowledge/decisions/adr-NNN-<slug>.md`), resynthesize `knowledge/**` in present tense, and synchronize `.agents/skills/` and `.agents/agents/`.
+   - **`/flow:docs` (`write`, `validate`, `capture`, `sync`, `pr`)**: Tool-agnostic documentation, prose, and agent-context discipline grounded in cold-reader comprehension, manifest-driven `[k/N files documented]` source coverage, progressive disclosure ([`agent-context.md`](skills/flow-docs/references/agent-context.md)), and clean PR/commit/changelog hygiene ([`prs-commits-and-changelogs.md`](skills/flow-docs/references/prs-commits-and-changelogs.md)).
+5. **Complete (`/flow:review`, `/flow:finish`, `/flow:archive`, `/flow:cleanup`, `/flow:revert`, `/flow:validate`)**:
+   - Runs zero-context code review across **Spec Conformance**, **Repository Standards, Deep-Module Seams, & Baseline Structural Code Smells**, and **Mandatory Quality & Debloat Review (`quality-review-v1`)**, verifies release gates on the current branch, contracts durable learnings into `.agents/bundles/knowledge/**` + `.agents/bundles/log.md`, and removes completed spec directories.
 
 ## Install
 
-Use each harness's native plugin, marketplace, rules, or skills mechanism. The
-[harness conformance matrix](docs/harness-conformance-matrix.md) records exact
-invocations, capabilities, and reload behavior.
+### Google Antigravity
 
-### Antigravity
+Install from GitHub or a local checkout:
 
 ```bash
-agy plugin install https://github.com/cofin/flow
+git clone https://github.com/cofin/flow.git ~/.Flow
+agy plugin install ~/.Flow
 ```
 
-This uses Antigravity's documented Plugins & Skills installer. Flow ships the
-plugin manifest at `plugin.json`, the model-decision rule under `rules/`, and
-the static PreInvocation routing manifest at `hooks.json` (`hooks/hooks-agy.json`).
+Upgrade an existing installation:
 
-After installing or updating the plugin, restart Antigravity so the plugin manifest, skills, agents, and hooks are reloaded.
+```bash
+cd ~/.Flow
+git pull
+agy plugin install ~/.Flow
+```
+
+When running in Google Antigravity, Flow automatically leverages the `run_workflow` Python orchestration API (`phase()`, `parallel()`, `pipeline()`, `agent(..., schema=..., model="inherit")`) for parallel zero-context reviews, persistent multi-turn reviewer handles, and task worksheet pipelines.
 
 ### Claude Code
 
@@ -47,48 +54,12 @@ claude plugin marketplace add cofin/flow
 claude plugin install flow@flow-marketplace
 ```
 
-This installs Flow at user scope (`~/.claude/plugins/...`). Run `/reload-plugins` or restart Claude Code
-after install. The plugin ships skills, commands, hooks, and all current Flow
-subagents, including the read-only quality reviewer.
-
-<!-- markdownlint-disable -->
-<details>
-<summary>Update commands</summary>
-<!-- markdownlint-restore -->
+Update commands:
 
 ```bash
 claude plugin marketplace update flow-marketplace
 claude plugin update flow@flow-marketplace
 ```
-
-</details>
-
-<!-- markdownlint-disable -->
-<details>
-<summary>Recommended Claude Code settings</summary>
-<!-- markdownlint-restore -->
-
-Claude Code does not let plugin authors pre-declare a plan-artifact directory. To keep plan artifacts under Flow's canonical `.agents/bundles/specs/` directory, set this in your project `.claude/settings.json`:
-
-```json
-{
-  "plansDirectory": ".agents/bundles/specs"
-}
-```
-
-Optionally, force plan mode by default for Flow projects:
-
-```json
-{
-  "permissions": {
-    "defaultMode": "plan"
-  }
-}
-```
-
-Verify the keys against your Claude Code version's [settings reference](https://code.claude.com/docs/en/settings).
-
-</details>
 
 ### Codex CLI
 
@@ -96,292 +67,73 @@ Verify the keys against your Claude Code version's [settings reference](https://
 codex plugin marketplace add cofin/flow
 ```
 
-Then in a Codex session, run `/plugins` and enable Flow. Review and trust its hooks before expecting session routing. Update with `codex plugin marketplace upgrade flow-marketplace`.
+Then run `/plugins` inside a Codex session to enable `flow`, or update with `codex plugin marketplace upgrade flow-marketplace`. Invoke Flow through natural-language skill requests such as `Use Flow to set up this project` or `Use Flow to plan user authentication`.
 
-Codex CLI 0.117+ supports first-class marketplace commands — `add` accepts `owner/repo[@ref]`, HTTPS/SSH git URLs, or local paths, with optional `--ref <REF>` and `--sparse <PATH>`.
+### Cursor
 
-> Codex plugins do not currently expose plugin-defined `/flow:*` slash commands. Use Flow through the installed Flow skill with natural-language requests such as `Use Flow to set up this project`.
+Install Flow as a Cursor plugin from a local clone or repository URL (`.cursor-plugin/plugin.json`).
 
-<!-- markdownlint-disable -->
-<details>
-<summary>Recommended Codex settings</summary>
-<!-- markdownlint-restore -->
+### OpenCode V2
 
-Codex CLI has no plugin-author hook for a plan-artifact directory. The closest useful knob is reasoning effort for plan mode — set in your `~/.codex/config.toml`:
+Add Flow to your OpenCode `plugins` configuration (`opencode plugin add cofin/flow` or a local checkout path).
 
-```toml
-plan_mode_reasoning_effort = "high"
-```
+### VS Code / Copilot
 
-</details>
+Install Flow through **Chat: Install Plugin From Source** pointing to a local checkout of the repository.
 
-### OpenCode
+## Commands & Lifecycle Skills
 
-OpenCode supports npm plugins and local plugin files. Flow currently ships OpenCode-compatible project files and skills, but does not advertise a global install until a package is published through OpenCode's npm plugin path.
+| Command | Lifecycle Skill | Reference Procedure | Description |
+| --- | --- | --- | --- |
+| `/flow:setup` | [`flow-setup`](skills/flow-setup/SKILL.md) | [`setup.md`](skills/flow/references/setup.md) | Align brownfield repos or bootstrap `.agents/bundles/`, `.agents/skills/`, and `.agents/agents/` |
+| `/flow:prd <goal>` | [`flow-planning`](skills/flow-planning/SKILL.md) | [`prd.md`](skills/flow/references/prd.md) | Author Master PRD roadmap (`spec.md`) and seed child flow charters |
+| `/flow:plan <goal>` | [`flow-planning`](skills/flow-planning/SKILL.md) | [`plan.md`](skills/flow/references/plan.md) | Author Feature Specification (`spec.md`) and `tasks/<id>-<slug>.md` worksheets |
+| `/flow:revise <flow_id>` | [`flow-planning`](skills/flow-planning/SKILL.md) | [`revise.md`](skills/flow/references/revise.md) | Rewrite `spec.md` and `tasks/*.md` in place in present tense (alias: `refine`) |
+| `/flow:research <topic>` | [`flow-planning`](skills/flow-planning/SKILL.md) | [`research.md`](skills/flow/references/research.md) | Primary-source research & time-boxed `.agents/scratch/` spikes (alias: `task`) |
+| `/flow:implement [flow_id]` | [`flow-execution`](skills/flow-execution/SKILL.md) | [`implement.md`](skills/flow/references/implement.md) | Execute ready task worksheets with Public-Seam TDD and atomic commits |
+| `/flow:status` | [`flow-execution`](skills/flow-execution/SKILL.md) | [`status.md`](skills/flow/references/status.md) | Inspect active flows, phase progress, and ready tasks |
+| `/flow:learn [scope]` | [`flow-learn`](skills/flow-learn/SKILL.md) | [`learn.md`](skills/flow/references/learn.md) | Anytime reorientation (`refresh`), sync, `OKF v0.2` knowledge resynthesis, and skill sync |
+| `/flow:docs [mode]` | [`flow-docs`](skills/flow-docs/SKILL.md) | [`prose-and-documentation.md`](skills/flow-docs/references/prose-and-documentation.md) | Tool-agnostic user/developer docs, [`agent-context.md`](skills/flow-docs/references/agent-context.md), changelogs, and clean PRs |
+| `/flow:review [flow_id]` | [`flow-completion`](skills/flow-completion/SKILL.md) | [`review.md`](skills/flow/references/review.md) | Zero-context Spec Conformance, Standards, and mandatory Debloat quality review |
+| `/flow:finish [flow_id]` | [`flow-completion`](skills/flow-completion/SKILL.md) | [`finish.md`](skills/flow/references/finish.md) | Verify gates, evaluate ADR filter, and mark flow `completed` |
+| `/flow:archive [flow_id]` | [`flow-completion`](skills/flow-completion/SKILL.md) | [`archive.md`](skills/flow/references/archive.md) | Contract completed flow into `.agents/bundles/knowledge/**` and remove spec dir |
+| `/flow:cleanup` | [`flow-completion`](skills/flow-completion/SKILL.md) | [`cleanup.md`](skills/flow/references/cleanup.md) | Groundskeeping: reconcile specs, archive completed flows, and debloat touched files |
+| `/flow:revert <scope>` | [`flow-completion`](skills/flow-completion/SKILL.md) | [`revert.md`](skills/flow/references/revert.md) | Git-aware revert of a task, phase, or flow |
+| `/flow:validate` | [`flow-completion`](skills/flow-completion/SKILL.md) | [`validate.md`](skills/flow/references/validate.md) | Validate `.agents/bundles/`, `.agents/skills/`, `.agents/agents/`, and active specs |
 
-OpenCode also discovers skills from `.opencode/skills/`, `.claude/skills/`, and `.agents/skills/`, so Flow-compatible project-local skills do not require a global plugin install.
-
-OpenCode Flow slash commands require the project templates under
-`templates/opencode/commands/`. Without configured templates, invoke the
-discovered Flow skill in natural language.
-
-<!-- markdownlint-disable -->
-<details>
-<summary>Recommended OpenCode settings</summary>
-<!-- markdownlint-restore -->
-
-OpenCode has no plugin-author hook for a plan-artifact directory. Set sensible defaults in your project `opencode.json`:
-
-```json
-{
-  "permission": { "edit": "ask", "bash": "ask" }
-}
-```
-
-</details>
-
-### Other harnesses
-
-<!-- markdownlint-disable -->
-<details>
-<summary>Cursor IDE</summary>
-<!-- markdownlint-restore -->
-
-Cursor consumes Flow through project rules and shared repository instructions:
-
-- `.cursor/rules/flow.mdc`
-- `AGENTS.md`
-- project-local operational skills in `.agents/skills/`
-
-Cursor now supports native `.cursor-plugin/plugin.json` packages with skills,
-commands, agents, rules, and hooks. Flow currently ships workspace integration,
-including `.cursor/hooks.json`; a Cursor plugin package is not yet shipped.
-See the [Cursor plugin reference](https://cursor.com/docs/reference/plugins).
-
-</details>
-
-<!-- markdownlint-disable -->
-<details>
-<summary>VS Code / Copilot</summary>
-<!-- markdownlint-restore -->
-
-VS Code discovers Flow custom agents from `.github/agents/*.agent.md` and shared skills from `.agents/skills/`, `.claude/skills/`, or `.github/skills/`. Flow ships workspace agent definitions for the core lifecycle agents.
-
-VS Code also supports marketplace and Git-source agent plugins through **Chat:
-Install Plugin From Source**. Flow's workspace agents remain the documented
-integration here; plugin-format compatibility is not a live installation test.
-See [VS Code agent plugins](https://code.visualstudio.com/docs/agent-customization/agent-plugins).
-
-</details>
-
-<!-- markdownlint-disable -->
-<details>
-<summary>OpenClaw</summary>
-<!-- markdownlint-restore -->
-
-OpenClaw consumes Flow through runtime skill discovery and native `sessions_spawn`
-subagents. File-backed skills normally refresh on the next turn after watcher
-changes; managed library revisions remain pinned until explicitly refreshed.
-Flow does not ship an OpenClaw plugin manifest.
-See [OpenClaw skills](https://docs.openclaw.ai/tools/skills).
-
-</details>
-
-## Quick Start
-
-### Initialize a project
-
-```bash
-# Claude Code
-/flow-setup
-
-# Antigravity / configured OpenCode command templates
-/flow-setup
-```
-
-In Codex CLI, ask: `Use Flow to set up this project`
-
-Flow will:
-
-1. Create the Flow directory (defaults to `.agents/`)
-2. Configure local ignores in `.git/info/exclude` to keep specifications local-only
-3. Create core project context files (`product.md`, `tech-stack.md`, `workflow.md`); add evidence-backed `knowledge/patterns/<topic>.md` chapters lazily
-4. Guide you through product vision, tech stack configuration, and repository-native workflow commands setup
-
-### Create a flow
-
-```bash
-# Claude Code
-/flow-prd "Add user authentication"
-
-# Antigravity / configured OpenCode command templates
-/flow-prd "Add user authentication"
-```
-
-In Codex CLI, ask: `Use Flow to create a PRD for add user authentication`
-
-This creates a new specification bundle under `.agents/bundles/specs/<flow_id>/`:
-
-- `spec.md` (unified spec + implementation plan)
-- `learnings.md` (per-flow discoveries log)
-- `tasks/` directory to store individual task markdown files
-
-> Flow uses a unified `spec.md` implementation plan. Task state lives in the
-> individual `tasks/*.md` files. The active lifecycle owner applies the
-> revision-guarded `flow-state` contract with ordinary file tools; no Flow
-> executable or separate reconciler is installed.
-
-### Implement
-
-```bash
-# Claude Code
-/flow-implement auth
-
-# Antigravity / configured OpenCode command templates
-/flow-implement auth
-```
-
-In Codex CLI, ask: `Use Flow to implement auth`
-
-Flow follows a TDD workflow:
-
-1. Select the next ready authoritative task worksheet
-2. Claim it through a revision-guarded `flow-state` transaction applied by the lifecycle owner
-3. Write failing tests (Red)
-4. Implement code to pass tests (Green)
-5. Refactor while tests pass
-6. Commit the task changes: `<type>(<scope>): <description>`
-7. Close the task through the direct lifecycle-owned state operation and record the commit
-8. Record learnings inside the task file under `## Notes & Discoveries`
-9. Reconcile the derived checklist in the same task-first/spec-last transaction
-
-## Commands
-
-Flow keeps command behavior aligned, but each harness exposes a different command surface.
-
-| Purpose | Claude Code | Antigravity | OpenCode | Codex CLI |
-|---------|-------------|-------------|----------|-----------|
-| Lifecycle commands | `/flow-setup`, `/flow-prd`, `/flow-plan`, etc. from `commands/flow-*.md` | Skill-derived slash commands from `skills/` such as `/flow`, `/flow-setup`, and lifecycle skills | Project/native command files when configured; otherwise use the Flow skill/plugin context | Natural-language Flow skill requests |
-| Canonical prompt source | `commands/flow-*.md` | `skills/*/SKILL.md` plus `commands/flow/*.toml` as shared prompt source material | `templates/opencode/commands/*.md` for project command installs | `skills/*/SKILL.md` in the generated plugin package |
-| Subagents | `agents/*.md` | `agents/*.md` | `.opencode/agents/*.md` | `.codex/agents/*.toml` |
-
-Codex plugins do not currently expose plugin-defined `/flow:*` slash commands. OpenCode command names depend on whether the user installs project command files or uses the plugin context.
-
-## Reference
-
-<!-- markdownlint-disable -->
-<details>
-<summary>Directory structure</summary>
-<!-- markdownlint-restore -->
+## Consumer Repository `.agents/` Layout
 
 ```text
-project/
-├── .agents/
-│   ├── index.md             # File resolution index
-│   ├── bundles/
-│   │   ├── product/         # Product identity and technology
-│   │   ├── knowledge/       # Recursively nested current-state knowledge
-│   │   ├── research/        # Pre-plan research
-│   │   └── specs/
-│   │       └── <flow_id>/   # e.g., user-auth/
-│   │           ├── spec.md   # Unified spec + plan
-│   │           ├── learnings.md
-│   │           └── tasks/    # Task definitions
-│   │               └── 1.1.md
-│   └── skills/              # Sole project operational-skill root
+.agents/
+├── setup-state.json                              # Active bundle root, setup state & ignore_policy (shared | local-only)
+├── scratch/                                      # Untracked throwaway prototypes & spikes
+├── skills/                                       # Project-local domain & review skills (generated by /flow:setup & /flow:learn)
+│   ├── index.md
+│   ├── <domain>/{SKILL.md,references/*.md}
+│   └── review-<domain>/{SKILL.md,references/{checklist,false-positive-suppressions}.md}
+├── agents/                                       # Paired project-local subagents
+│   ├── <domain>-reviewer.md
+│   └── <domain>-specialist.md
+└── bundles/
+    ├── index.md                                  # Root OKF v0.2 manifest
+    ├── log.md                                    # Append-only ISO-dated changelog
+    ├── product/{index,product,product-guidelines,tech-stack}.md
+    ├── knowledge/
+    │   ├── index.md
+    │   ├── workflow.md
+    │   ├── architecture/<area>.md
+    │   ├── patterns/<topic>.md
+    │   ├── domains/<domain>.md
+    │   ├── testing/<topic>.md
+    │   ├── gotchas/<area>.md
+    │   └── decisions/adr-NNN-<slug>.md
+    ├── research/<topic>_<YYYYMMDD>.md
+    └── specs/<flow_id>/
+        ├── spec.md
+        ├── learnings.md
+        ├── research/<topic>_<YYYYMMDD>.md
+        └── tasks/<id>-<slug>.md
 ```
-
-</details>
-
-<!-- markdownlint-disable -->
-<details>
-<summary>Flow naming &amp; status markers</summary>
-<!-- markdownlint-restore -->
-
-Flows use format `shortname` — examples: `user-auth`, `dark-mode`, `api-v2`.
-
-| Marker | Status | Description |
-|--------|--------|-------------|
-| `[ ]` | Pending | Not started |
-| `[~]` | In Progress | Currently working |
-| `[x]` | Completed | Done with commit SHA |
-| `[!]` | Blocked | Cannot proceed (status: blocked in task file) |
-| `[-]` | Skipped | Intentionally bypassed (status: skipped in task file) |
-
-</details>
-
-<!-- markdownlint-disable -->
-<details>
-<summary>Local Specs ignore guidelines</summary>
-<!-- markdownlint-restore -->
-
-By default, the `.agents/` directory is checked into Git so that specifications, implementation plans, and task histories are version-controlled alongside your code.
-
-If you prefer to keep all Flow specifications and task files local-only (e.g. to avoid committing agent metadata to your repository), you can ignore the `.agents/` directory locally.
-
-**Local Ignore Configuration**:
-To ignore the `.agents/` directory only in your local clone without affecting other developers, append it to `.git/info/exclude` instead of `.gitignore`:
-
-```bash
-printf '\n# Flow specifications (local-only)\n.agents/\n' >> .git/info/exclude
-```
-
-</details>
-
-<!-- markdownlint-disable -->
-<details>
-<summary>Knowledge system (three-tier flywheel)</summary>
-<!-- markdownlint-restore -->
-
-**Per-flow learnings** — each flow has `learnings.md`:
-
-```markdown
-## [2026-01-24 14:30] - Phase 1 Task 2: Add auth middleware
-- **Files changed:** src/auth/middleware.ts
-- **Commit:** abc1234
-- **Learning:** Codebase uses Zod for validation
-- **Pattern:** Import order: external → internal → types
-```
-
-**Project patterns** — stored by topic under `knowledge/patterns/`:
-
-```markdown
-<!-- knowledge/patterns/imports.md -->
-# Import Conventions
-- Import order: external → internal → types
-
-# Gotchas
-- Always update barrel exports
-```
-
-**Persistent knowledge base** — learnings synthesized into cohesive, logically organized chapters in `knowledge/` during sync and archival. Content is integrated directly into existing chapters to describe the current state of the codebase.
-
-**Flywheel:**
-
-1. **Capture** — After each task, append learnings to `learnings.md`
-2. **Elevate** — At phase/flow completion, write evidence-backed patterns to `knowledge/patterns/<topic>.md`
-3. **Synthesize** — During sync and archive, integrate learnings directly into knowledge base chapters in `knowledge/` (e.g., `architecture.md`, `conventions.md`). Update current state, do not outline history.
-4. **Inherit** — New flows recursively read relevant `knowledge/patterns/` and other knowledge chapters.
-
-If `.agents/skills/flow-memory-keeper/SKILL.md` exists, use it at sync, archive, finish, revise, and failure checkpoints so spec cleanup, learnings capture, and refinement stay mandatory.
-
-</details>
-
-<!-- markdownlint-disable -->
-<details>
-<summary>Skills library</summary>
-<!-- markdownlint-restore -->
-
-Flow's `skills/` tree is the canonical packaged skill source. In consumer
-projects, `.agents/skills/` is the sole operational project-skill authority;
-`.agents/bundles/` remains reserved for OKF product, knowledge, research, and
-specification documents.
-
-</details>
-
-## Resources
-
-- [GitHub Issues](https://github.com/cofin/flow/issues) — Report bugs or request features
 
 ## License
 

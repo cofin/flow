@@ -15,10 +15,10 @@
     {
       "name": "flow",
       "description": "Unified toolkit for Context-Driven Development with spec-first planning, TDD workflow, and OKF knowledge bundles.",
-      "version": "0.25.0",
+      "version": "0.26.0",
       "source": {
         "source": "local",
-        "path": "./plugins/flow"
+        "path": "./"
       },
       "policy": {
         "installation": "AVAILABLE",

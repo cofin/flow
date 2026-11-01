@@ -1,3 +1,0 @@
-# Beekeeper
-
-Legacy product authority.

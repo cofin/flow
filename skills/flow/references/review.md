@@ -1,219 +1,86 @@
+# Flow Review (`/flow:review`)
 
-# Flow Review
-
-Dispatch correctness review followed by mandatory read-only quality review for a flow's exact Git range.
-
-## Contents
-
-- [Quality review contract](#quality-review-contract)
-- [Context and Git range](#phase-1-load-context)
-- [Correctness and quality dispatch](#phase-3-dispatch-correctness-review)
-- [Results and feedback](#phase-5-present-results)
-- [Critical rules](#critical-rules)
-
-## Quality review contract
+Run zero-context reviews across a flow's exact Git range (`base_commit..head_commit`) along three axes—**Spec Conformance**, **Repository Standards, Deep-Module Seams, & Baseline Structural Code Smells**, and **Mandatory Quality & Debloat (`quality-review-v1`)**—then adjudicate every finding (`ADOPT`, `CONTEST`, or `ESCALATE`) and verify remediations.
 
 <!-- quality-review-contract: start -->
 ```yaml
 contract: quality-review-v1
 mandatory_dispatch: true
-dispatch_after: code_review
 completion_order: [verification, code_review, quality_review, finish]
 blocking_severities: [Critical, Important]
+adjudication: [ADOPT, CONTEST, ESCALATE]
 report:
   name: QualityReport
   exact_keys: [reviewer, base_commit, head_commit, debloat_source, findings]
-  reviewer: quality-reviewer
-  commit_format: 7_to_40_lowercase_hex
-  finding:
-    exact_keys: [finding_id, severity, file, symbol, evidence, preserved_invariant, remediation_target, reverification]
-    severities: [Critical, Important, Minor]
-    evidence_required: true
-    remediation_target_required: true
-    reverification_required: true
-skill_resolution:
-  order: [.agents/skills/debloat/SKILL.md, skills/debloat/SKILL.md, inline_fallback]
-  report_values:
-    .agents/skills/debloat/SKILL.md: consumer_skill
-    skills/debloat/SKILL.md: packaged_skill
-    inline_fallback: inline_fallback
-  inline_fallback: preserve_behavior_and_public_contracts_review_source_tests_prose_and_native_gates_read_only
-one_commit_range:
-  head_commit: commit
-  base_commit: parent_of_head
-freshness:
-  exact_range_required: true
-  invalidated_by: [head_change, base_change, remediation, archive_fragment_change]
-remediation:
-  route: revise
-  required_sequence: [create_or_adjust_task, execute_task, rerun_affected_verification, rerun_code_review, dispatch_fresh_quality_review]
-waiver:
-  dispatch_still_required: true
-  one_finding_only: true
-  required: [finding_id, rationale, approval_text, approved_at, compensating_evidence, base_commit, head_commit]
-  other_findings_unchanged: true
-archive_candidate:
-  disposable_local_range_required: true
-  exact_manifest_required: true
-  manifest_comparison: byte_for_byte
-  changed_fragment_action: render_and_review_fresh_candidate
-runtime_dependency: agent_file_tools_only
-evaluator_module: forbidden
+  finding_keys: [finding_id, severity, file, symbol, evidence, preserved_invariant, remediation_target, reverification]
 ```
 <!-- quality-review-contract: end -->
 
-Installed workflows apply this contract from Markdown with ordinary agent file
-and repository-diff tools. They never import a gate/evaluator module.
+## Phase 1: Determine Exact Git Range & Match Project Lenses
 
-## Usage
+1. Read `.agents/bundles/specs/<flow_id>/spec.md` and `tasks/*.md`.
+2. Determine `base_commit..head_commit` from the parent of the earliest completed task `commit` SHA to `HEAD` (or `$(git merge-base main HEAD)..HEAD`), and inspect `git diff --stat {base_commit}..{head_commit}`.
+3. Match the modified file paths against `.agents/skills/index.md` and `.agents/bundles/knowledge/index.md` to attach the relevant project-local `.agents/skills/<domain>/`, `.agents/skills/review-<domain>/` (`references/checklist.md` + `references/false-positive-suppressions.md`), and `knowledge/**` chapters.
 
-`flow-review {flow_id}` or `flow-review` (uses current flow)
+## Phase 2: Zero-Context Review Dispatch (Zero-Context Isolation Rules)
 
-## Phase 1: Load Context
+When dispatching reviewers, strictly enforce the **Zero-Context Isolation Rules**:
 
-1. **Read Flow Artifacts:**
-   - `.agents/bundles/specs/{flow_id}/spec.md` (requirements and plan)
-   - `.agents/bundles/specs/{flow_id}/tasks/*.md` (task states and commit SHAs)
-2. **Read Project Context:** recursively read relevant `.agents/bundles/knowledge/patterns/**/*.md` chapters
+1. **Disk-Only Inputs**: Pass only on-disk artifact paths (`spec.md`, `tasks/*.md`, `.agents/skills/`, `knowledge/` chapters) and the exact `base_commit..head_commit` range.
+2. **No Rationale Priming**: Never pass conversational history, design rationales, or explanations of *why* the code was written a certain way—if the code and docstrings are not self-explanatory to a cold reader, that is a valid finding.
+3. **No Leading Focus Hints**: Never instruct the reviewer to ignore areas or pre-excuse trade-offs.
+4. **No Pre-Digesting**: Never summarize the diff for the reviewer; let the reviewer inspect `git diff {base_commit}..{head_commit}` and repository files directly.
 
-## Phase 2: Determine Git Range
+### Harness Dispatch Modes
 
-### From Task Files (Primary)
+- **When `run_workflow` Is Available (Google Antigravity)**:
+  - Execute an async Python workflow script that enters `phase("Zero-Context Code & Quality Review")` and fans out `parallel()` across:
+    - `agent(type_name="code-reviewer", role="Correctness, Spec & Standards Reviewer", schema=CODE_REVIEW_SCHEMA, model="inherit")`
+    - `agent(type_name="quality-reviewer", role="Debloat & Test Strength Reviewer", schema=QUALITY_REPORT_SCHEMA, model="inherit")`
+    - Any matching project-local `.agents/agents/<domain>-reviewer` subagents.
+  - Hold persistent reviewer handles (`code_reviewer = agent(...)`, `quality_reviewer = agent(...)`) so if `ADOPT` remediations are applied, Round 2 verification is sent to the same isolated reviewer handle (`await code_reviewer(round2_prompt, schema=...)`).
+- **In All Other Harnesses**:
+  - Dispatch `@code-reviewer` (plus any matching `.agents/agents/<domain>-reviewer`) and `@quality-reviewer` (`model: inherit`) with the same disk-only brief and `base_commit..head_commit` range.
 
-Collect the `commit:` frontmatter SHAs from task files with `state: closed`. Use:
+## Phase 3: Review Axes
 
-- **Base:** commit before earliest task SHA
-- **Head:** latest task SHA or current HEAD
+### Spec Conformance (`@code-reviewer`)
 
-### From Git (Fallback)
+- **Requirement Coverage**: Every Functional Requirement (`R1..RN`), Non-Functional Constraint, and Acceptance Scenario in `spec.md` is implemented and verified.
+- **Scope Discipline**: Flag unrequested feature creep, silent contract deviations, or drift between `tasks/<id>-<slug>.md` frontmatter (`state`, `commit`) and `spec.md` checklist markers.
+- **Security & Operational Safety**: Flag command injection, unsafe shell interpolation, leaked secrets, or unsafe Git/hook mutations.
 
-When no task file carries a commit SHA:
+### Repository Standards, Deep-Module Seams, & Baseline Structural Code Smells (`@code-reviewer` + `<domain>-reviewer`)
 
-```bash
-git merge-base HEAD main  # or master
-```
+Documented repository standards (`AGENTS.md`, `product/tech-stack.md`, `knowledge/patterns/`, `.agents/skills/<domain>/`, and `.agents/skills/review-<domain>/references/checklist.md`) always take precedence; when an area is not covered by a repo-specific rule, evaluate **Deep-Module Design** and **Baseline Structural Code Smells**:
 
-### Show Range
+1. **Deep-Module Seam & Dependency Category Audit**:
+   - Flag shallow pass-through modules, 1:1 interface wrappers with only one implementation (*"one adapter = hypothetical seam"*), or mock-heavy tests that violate the dependency categories (`In-process`, `Local-substitutable`, `Remote-owned (Ports & Adapters)`, `External boundary`).
+2. **Baseline Structural Code Smells**:
+   - *Long Function*, *Large Class / Module*, *Long Parameter List*, *Divergent Change* (one module changed for multiple unrelated reasons), *Shotgun Surgery* (one logical change scattered across many modules), *Feature Envy* (a function more interested in another class's state than its own), *Data Clumps* (the same parameter group passed together everywhere instead of a value object/`msgspec.Struct`), *Primitive Obsession*, *Repeated Switches / Conditionals*, *Loops Instead of Pipelines*, *Speculative Generality* (unused hooks/params added "just in case"), and *Message Chains* (deep `a.b().c().d()` chains).
+3. **False-Positive Suppressions**:
+   - Suppress every project-verified safe pattern listed in `.agents/skills/review-*/references/false-positive-suppressions.md` (`FP-<PREFIX>-NN`).
 
-```bash
-git log --oneline {base_sha}..{head_sha}
-```
+### Mandatory Quality & Debloat Review (`@quality-reviewer` — `quality-review-v1`)
 
-Record and show the range before dispatch. User acknowledgment is not a waiver
-and cannot bypass either review.
+- **Semantic Surface & Code Organization**: Flag dead code, pass-through wrappers failing the deletion test, standalone private `_...` module helpers that belong on their domain class, unnecessary function-scoped imports, inline `#` restatement comments in Python, and leftover compatibility shims.
+- **Test & Gate Strength**: Flag Implementation-Coupled tests, Tautological (mock-echo) tests, horizontal-slicing tests, and standalone `test_*remediation*.py` / `test_*audit*.py` files.
+- **Prose & Documentation Discipline**: Flag numbered buzzwords, AI puffery, chronological sediment, and leaked internal ceremony in docs, specs, or comments.
 
-## Phase 3: Dispatch Correctness Review
+## Phase 4: Finding Adjudication (`ADOPT` / `CONTEST` / `ESCALATE`) & Waiver Rules
 
-Dispatch code review subagent with:
+Evaluate every finding against the actual repository code and `.agents/skills/review-*/references/false-positive-suppressions.md`:
 
-1. **What was implemented:** Summary from spec.md Specification section
-2. **Requirements:** From spec.md Requirements section
-3. **Git range:** `{base_sha}..{head_sha}`
-4. **Conventions:** From recursively relevant `.agents/bundles/knowledge/patterns/**/*.md` chapters
-5. **Description:** Brief summary of the flow's purpose
+- **`ADOPT`**:
+  - Fix valid `Critical` or `Important` correctness, seam, SUT integrity, or debloat findings in the canonical production/test files (or run `/flow:revise` if a task worksheet needs updating), rerun verification gates, and re-verify with the reviewer on the updated `base_commit..head_commit` range.
+- **`CONTEST`**:
+  - Reject false positives, suggestions that violate `false-positive-suppressions.md`, or out-of-scope feature creep by citing exact `path/to/file::Symbol` evidence or the matching `FP-<PREFIX>-NN` rule in the Adjudication Ledger. If a new recurring false positive was discovered, offer to record it in `false-positive-suppressions.md`.
+- **`ESCALATE`**:
+  - When a reviewer finding exposes a genuine requirement trade-off or user-visible behavior choice, pause and present the options to the user via `structured-choice-v1` ([`interaction.md`](interaction.md)).
+- **Finding-Specific Waiver Rule**:
+  - Dispatch of `@code-reviewer` and `@quality-reviewer` is mandatory and cannot be waived. If the user chooses to waive a specific blocking finding, record `waived_by: user`, `finding_id`, and `reason` in the Adjudication Ledger and `learnings.md`.
 
-## Phase 4: Dispatch Mandatory Quality Review
+## Phase 5: Present Adjudication Ledger & Handoff
 
-After correctness review returns, always dispatch `quality-reviewer` on the
-same exact `base_commit..head_commit`. For a one-commit change, `head_commit` is
-that commit and `base_commit` is its parent.
-
-Resolve the debloat policy in order:
-
-1. `.agents/skills/debloat/SKILL.md` as `consumer_skill`.
-2. Packaged `skills/debloat/SKILL.md` as `packaged_skill`.
-3. If neither can be loaded, use the inline fallback from the contract and
-   record `debloat_source: inline_fallback`.
-
-The reviewer is read-only. Provide the exact range, requested invariants,
-project-shaped knowledge/pattern paths relevant to the change, correctness
-review result, and verification evidence. Require the closed `QualityReport`
-shape above. Do not accept a report for a different range.
-
-## Phase 5: Present Results
-
-Format review results:
-
-```text
-Code Review: {flow_id}
-
-Commits reviewed: {count} ({base_sha}..{head_sha})
-
-Critical Issues:
-  {list or "None"}
-
-Important Issues:
-  {list or "None"}
-
-Minor Issues:
-  {list or "None"}
-
-Strengths:
-  {brief list}
-
-Assessment: {Ready to proceed | Issues need attention}
-
-Quality Review: {flow_id}
-
-Exact range: {base_sha}..{head_sha}
-Debloat source: {consumer_skill | packaged_skill | inline_fallback}
-
-Critical / Important / Minor Findings:
-  {evidence-backed findings or "None"}
-
-Assessment: {Ready to proceed | Remediation required}
-```
-
-## Phase 6: Handle Feedback
-
-### Receiving Review Results
-
-Follow the **Critical Thinking Iron Law** for every review finding:
-
-- **No performative agreement** ("You're absolutely right!", "Great point!")
-- **Verify** suggestions against codebase before implementing. **Read the actual code.**
-- **Push back** with technical reasoning if reviewer is wrong.
-- **YAGNI check:** If reviewer suggests features not in spec, question the need.
-- **Clarify** all unclear items before implementing any.
-
-### Acting on Feedback
-
-- **Critical/Important correctness finding** → route through the appropriate task/plan change and rerun correctness review
-- **Critical/Important quality finding** → block finish, use `revise` to create or adjust a remediation task, execute it, rerun affected gates and correctness review, then always dispatch a fresh quality review on the new exact range
-- **Minor** → note in learnings.md, fix if quick
-
-Remediation changes the head and invalidates every prior pass. A stale report is
-never evidence for the new range.
-
-### Finding-specific waiver
-
-A waiver is legal only after quality review ran. Fresh explicit user approval
-may waive one named finding for one exact range. Record its `finding_id`,
-`rationale`, exact approval text and UTC time, compensating evidence, and
-`base_commit`/`head_commit`. It does not waive another finding, survive a range
-change, or substitute for mandatory dispatch.
-
-### Log Findings
-
-Append review summary to `.agents/bundles/specs/{flow_id}/learnings.md`:
-
-```markdown
-## [YYYY-MM-DD] Code Review
-
-**Range:** {base_sha}..{head_sha}
-**Issues Found:** {count by severity}
-**Key Findings:**
-- {finding 1}
-- {finding 2}
-```
-
-## Critical Rules
-
-1. **VERIFY GIT RANGE** — Confirm and record the exact base/head before reviewing
-2. **NO PERFORMATIVE AGREEMENT** — Technical evaluation, not social performance
-3. **LOG FINDINGS** — Always append to learnings.md
-4. **YAGNI** — Don't accept suggestions to add unrequested features
-5. **FIX CRITICAL** — Must resolve Critical issues before proceeding
-6. **QUALITY REVIEW ALWAYS RUNS** — A waiver cannot bypass dispatch
-7. **READ-ONLY QUALITY AGENT** — Findings become remediation work; the reviewer never edits
-8. **FRESH RANGE** — Remediation or candidate drift requires verification, correctness review, and quality review again
+1. Present the **Review & Adjudication Report** (`Range`, `Review Findings`, `QualityReport`, and `Adjudication Ledger: Finding ID | Axis | Severity | Verdict (ADOPT/CONTEST/ESCALATE) | Evidence / Commit`).
+2. Append a concise review summary to `.agents/bundles/specs/<flow_id>/learnings.md` and hand off to `/flow:finish <flow_id>`.

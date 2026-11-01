@@ -1,355 +1,145 @@
+# Flow Plan (`/flow:plan`)
 
-# Flow Plan
+Co-design a decision-complete **Feature Specification** (`.agents/bundles/specs/<flow_id>/spec.md`) and `1–8` disjoint, vertical-slice **Task Worksheets** (`.agents/bundles/specs/<flow_id>/tasks/<id>-<slug>.md`), pressure-test them with a **Zero-Context Verification** pass, and adjudicate findings (`ADOPT` / `CONTEST` / `ESCALATE`) before locking `plan_commit = HEAD`.
 
-All emitted specs/tasks and every approval-state mutation MUST follow the shared Markdown authority in `skills/flow/references/state.md`. Planning owns plan-bearing content and plan revision; it does not invent lifecycle fields or a second transaction protocol.
-
-Use `skills/flow/references/interaction.md` as the sole procedure authority for
-human decisions and approval/refinement gates. Execute these Markdown
-procedures directly with agent file/question tools; never route an installed
-workflow through a Python evaluator.
-
-## Contents
-
-- [Directive and workspace safety](#10-system-directive)
-- [Planning-only and integration constraints](#critical-constraint-planning-only---no-code-modification)
-- [Intelligence loop](#20-intelligence-injection-the-ralph-loop)
-- [Flow initialization](#30-new-flow-initialization)
-- [Critical rules](#critical-rules)
+Use [`interaction.md`](interaction.md) (`structured-choice-v1`) for Design-Tree Frontier decisions and [`state.md`](state.md) for Markdown schemas. **No Production Code Rule**: Planning writes exclusively under `.agents/bundles/` (or untracked `.agents/scratch/<slug>/` during throwaway prototypes); never modify application source code during `/flow:plan`.
 
 <!-- planning-contract: structured-choice-v1 -->
 ```yaml
 interaction_authority: skills/flow/references/interaction.md
 planning_loop:
-  phases: [research_closed, draft, gap_scan, refine, revision_update, review, approved, revise, blocked]
+  phases: [research_closed, frontier_discovery, draft, gap_scan, zero_context_review, adjudication, approved, revise, refine, blocked]
   gap_scan:
-    reject: [deferred_research, unresolved_decisions, stub_body, vague_verification, missing_verification_strategy, overlapping_ownership, oversized_task]
-    require: [requirement_to_task_traceability, one_invocation_per_task, one_commit_per_task]
+    reject: [deferred_research, unresolved_decisions, stub_body, vague_verification, missing_verification_strategy, overlapping_ownership, oversized_task, fragile_line_numbers, shallow_passthrough_seam]
+    require: [problem_framing, alternatives_evaluated, deep_module_seams, requirement_to_task_traceability, symbol_anchored_targets, one_invocation_per_task, one_commit_per_task]
   revision_update:
-    on_plan_change: [increment_plan_revision_once, copy_revision_to_spec_and_all_tasks, clear_plan_commit, rerun_validation]
+    on_plan_change: [rewrite_in_present_tense, increment_plan_revision_once, sync_revision_to_spec_and_tasks, reanchor_plan_commit]
   review:
     max_external_rounds: 3
     blocking_severities: [Critical, Important]
-    on_limit: blocked
+    adjudication: [ADOPT, CONTEST, ESCALATE]
 ```
 
-## 1.0 SYSTEM DIRECTIVE
+## Phase 1: Codebase Analysis, Domain Glossary, & Proportional Research (`Facts First`)
 
-You are "The Planner", an AI agent assistant for the Flow framework. Your primary mission is to enforce the **Zero-Ambiguity Mandate**: you MUST create a High-Definition Specification and Worksheet (`spec.md`) for a SINGLE Flow.
+1. **Scope & Altitude Check**: If the requested goal spans multiple independent subsystems or requires `> 8` tasks, explain why and ask via `structured-choice-v1` whether to decompose it into a Master PRD (`/flow:prd`), narrow to a cohesive first slice, or continue.
+2. **Read Bundle, Domain Glossary, & Skills**: Read `.agents/bundles/index.md`, `knowledge/workflow.md`, `knowledge/domains/**`, `knowledge/architecture/**`, `knowledge/patterns/**`, `knowledge/testing/**`, `knowledge/gotchas/**`, `.agents/skills/index.md`, and any parent PRD (`parent_prd`).
+3. **Read-Only Code & Seam Analysis**:
+   - Inspect affected modules, symbols (`path/to/file::Symbol`), public **seams**, **interfaces**, **adapters**, and existing canonical unit test files.
+   - Classify each dependency boundary using the Deep-Module Dependency Model:
+     1. **In-process** (pure computation / in-memory state — merge into a deep module and test directly).
+     2. **Local-substitutable** (local test stand-in like SQLite or in-memory FS — keep seam internal and test with stand-in).
+     3. **Remote-owned (Ports & Adapters)** (define a port at the seam; use HTTP/RPC adapter in production and in-memory adapter in tests).
+     4. **External boundary (Mock)** (third-party API/clock — inject port and mock only at the external boundary).
+4. **Proportional Research & Throwaway Prototyping**:
+   - Answer local repository questions directly via file reads (`0` subagents).
+   - Dispatch `@researcher` subagents (`model: inherit`) only for independent external SDK/protocol questions or multi-domain unknowns, promoting validated findings into `.agents/bundles/specs/<flow_id>/research/<topic>_<YYYYMMDD>.md` ([`research.md`](research.md)).
+   - When a state model or UI design question is uncertain on paper, build a throwaway prototype in untracked `.agents/scratch/<slug>/`, fold the validated decision into `spec.md`, and delete the scratch directory.
 
-**ZERO-AMBIGUITY MANDATE (PLANNER):**
+## Phase 2: Design-Tree Frontier Discovery & Interface Comparison (`structured-choice-v1`)
+
+1. Present the **Code Analysis Summary** (`Area | Files Examined (path/to/file::Symbol) | Public Seam & Dependency Category`).
+2. **Active Domain Modeling**: Challenge any fuzzy or overloaded nouns against `knowledge/domains/<domain>.md` and probe concrete edge-case scenarios (*"What happens when X and Y occur together?"*).
+3. **Compare Interface Alternatives (For Non-Trivial Interfaces)**:
+   - When introducing or reshaping a module interface, compare at least 2–3 distinct interface shapes (e.g., *minimal entry-point / maximum leverage*, *flexible / extensible*, *optimized for the default caller*) on **depth**, **locality**, and **seam placement**.
+   - **Seam Rule**: One adapter means a hypothetical seam (unnecessary indirection); two adapters (e.g., production + test) justify a real port/seam.
+4. **Walk the Design Frontier (`structured-choice-v1`)**:
+   - Ask one product or architectural decision at a time on the current prerequisite-settled frontier ([`interaction.md`](interaction.md)), referencing exact `path/to/file::Symbol` targets and placing `<Label> (Recommended)` first.
+   - Explicitly confirm the **public seams under test** before drafting task worksheets.
 
-- **Plan as Worksheet**: The "Implementation Plan" is NOT a summary. It is a **Worksheet** containing specific files, exact line numbers, and code samples for every logic change.
-- **Deep Research First**: You MUST complete ALL codebase investigation and architectural decisions during this phase. Do NOT defer research to implementation tasks.
-- **Itemized Todos**: Every task must be an itemized checklist that a "stateless" or "low-context" executor can follow to succeed 100% correctly without further questions.
-- **Change-appropriate verification**: Every task selects and justifies one strategy from `references/discipline.md`; only behavior and regression work require an initial failing test.
-- **Inner-loop test focus**: Specify fast, targeted verification commands (e.g. `make lint`, targeted unit test) for individual task worksheets rather than the full test suite; reserve aggregate regression, cleanup, debloat, and full suite execution for phase milestone gates and completion.
-- **Iteration Iron Law**: If any task is vague (e.g., "wire up", "add logic"), you MUST run `flow:refine` iteratively until technical completeness is achieved.
+## Phase 3: Author Self-Contained Specification (`spec.md`) & Task Worksheets (`tasks/<id>-<slug>.md`)
 
-CRITICAL: You must validate the success of every tool call. If any tool call fails, HALT and announce failure.
+### 3.1 Feature Specification (`.agents/bundles/specs/<flow_id>/spec.md`)
 
----
+Write `spec.md` with the normative frontmatter from [`state.md`](state.md) and these 5 sections:
 
-## PLAN MODE & WORKSPACE SAFETY
+```markdown
+# Flow: <Title>
 
-1. **Native Plan Mode:** You MUST use the harness's native plan/reasoning mode to think before answering.
-2. **Writable Check:** You MUST verify that the `.agents/` directory is writable before generating any artifacts.
-3. **Safe Tools:** Prefer read-only tools for analysis and explicitly constrained writes for state modifications.
+## 1. Specification & Context
 
-## CRITICAL CONSTRAINT: PLANNING ONLY - NO CODE MODIFICATION
+### 1.1 Problem Statement & Objectives
+- Plain-English problem statement, current limits, why this approach succeeds, and explicit Non-Goals.
 
-**THIS COMMAND CREATES PLANNING DOCUMENTS ONLY.**
+### 1.2 Upstream Execution Baseline
+- Branch, parent PRD (if any), and prerequisite commits/dependencies.
 
-You are STRICTLY FORBIDDEN from:
+### 1.3 Code Analysis & Seam Summary
+| Area | Files Examined (`path/to/file::Symbol`) | Public Seam, Dependency Category & Integration |
+| --- | --- | --- |
+| ... | `src/module.py::ClassName` | ... |
 
-- Writing, editing, or modifying ANY source code files
-- Creating new code files (*.py,*.ts, *.js,*.rs, etc.)
-- Running implementation commands
-- Making ANY changes outside of `.agents/` directory
+### 1.4 Relevant Patterns, Domain Terms & Knowledge Chapters
+- Links to applicable `.agents/bundles/knowledge/**` chapters and `.agents/skills/<domain>/SKILL.md`.
 
-You MAY ONLY:
+## 2. Requirements & Architecture
 
-- Create/edit files in `.agents/bundles/specs/` (spec.md)
-- Run the active backend's epic/task creation flow when a backend is enabled
-- Read source code for analysis (but NEVER modify it)
+### 2.1 Functional Requirements
+- **R1**: ...
+- **R2**: ...
 
-**Implementation happens ONLY when user explicitly runs `flow-implement`.**
+### 2.2 Public Interfaces, Deep Modules & Seam Contracts
+- Exact public types, signatures, invariants, ordering rules, and error modes hidden behind the seam.
 
-## SUPERPOWERS INTEGRATION (MANDATORY)
+### 2.3 Non-Functional & Safety Constraints
+- Performance, security, typing, and backwards-compatibility constraints.
 
-When Superpowers skills are available, they MUST be used in the Planning workflow:
+### 2.4 Acceptance Scenarios (Given / When / Then)
+- Concrete behavioral scenarios covering happy paths and boundary/error cases at the public seam.
 
-1. **Brainstorming Phase:** Invoke `superpowers:brainstorming` to explore the user's intent and requirements before starting code analysis.
-2. **Redirect Output:** Force the output of `superpowers:brainstorming` and `superpowers:writing-plans` to `.agents/bundles/specs/<flow_id>/spec.md`.
-3. **Self-Review Phase:** Invoke `code-reviewer` (via `superpowers:requesting-code-review`) once the unified `spec.md` is drafted to ensure it meets requirements and adheres to project patterns.
+### 2.5 Alternatives Considered
+- Mandatory comparison of rejected interface/architectural designs (contrasted by depth, locality, and seam placement) and why the chosen design won.
 
-**NEVER** use `docs/superpowers/` for Flow-related planning documents.
-If a referenced companion skill is unavailable in the current harness, perform the same protocol inline instead of skipping it.
+## 3. Requirement-to-Task Traceability Matrix
 
----
+| Requirement | Owning Task(s) | Verification Strategy | Confirmed Public Seam & Canonical Test Surface |
+| --- | --- | --- | --- |
+| R1 | `t01` | `behavior_tdd` | `tests/unit/test_module.py::test_behavior` |
 
-## 2.0 INTELLIGENCE INJECTION (The Ralph Loop)
+## 4. Implementation Plan
 
-**PROTOCOL: Read global and parent context to constrain the plan.**
+### Phase 1: <Phase Name>
+- [ ] t01 — <Task Title> (tasks/t01-<slug>.md)
+- [ ] t02 — <Task Title> (tasks/t02-<slug>.md)
+- **Phase 1 Recovery Checkpoint**: `<exact lint + phase test command>`
 
-1. **Read Global Patterns:**
-    - Resolve and recursively read relevant `.agents/bundles/knowledge/patterns/**/*.md` chapters.
-    - Keep these patterns in mind. If the user suggests something violating a pattern, WARN them.
+## 5. Continuity Snapshot
+- **Flow ID**: `<flow_id>` (`state: planned`, `plan_revision: 1`, `plan_commit: <sha>`)
+- **Current Task**: `null`
+- **Last Verified Checkpoint**: `null`
+- **Key Decisions**: ...
+- **Recent Discoveries**: ...
+```
 
-2. **Read Parent Context (Optional):**
-    - If a `parent_prd_id` is provided (or if you find an active PRD in `.agents/bundles/specs/`), read the roadmap's `spec.md`.
-    - Ensure this Flow's spec aligns with the Master Roadmap.
+### 3.2 Atomic Vertical-Slice Task Worksheets (`tasks/<id>-<slug>.md`) — The Zero-Decision Rule
 
-3. **Read Research:**
-    - Check `.agents/bundles/research/`. If relevant research exists, ask to use it.
-    - If adopted, promote it per the Promotion Contract in
-      [Research](research.md).
-    - If important requirements still depend on unresolved docs, versions, migrations, marketplaces, or harness behavior, continue researching until those gaps are closed before declaring planning complete.
-    - Research produced during planning is written straight into the flow's own
-      `research/` directory.
+Create one worksheet per task (`tasks/t01-<slug>.md` or `tasks/1.1-<slug>.md`) following [`state.md`](state.md):
 
----
+- **The Zero-Decision Rule (Implementation Readiness Standard)**: Leave **zero** architectural or design choices (schema, API path, signature, dependency, or edge-case behavior) to the executor. An isolated executor must be able to implement the worksheet on the first attempt without guessing.
+- **One Vertical Slice = One Subagent Turn = One Commit**: Each task bundles one behavioral capability and its public-seam tests in the existing canonical test module. Never split a behavior into horizontal "write all tests" and "write all code" tasks, and never create standalone `test_*remediation*.py` or `test_*audit*.py` files.
+- **Symbol-Anchored Targets (`path/to/file::Symbol`)**: Specify exact module, class, function, and method symbols in `## Context` and `## Steps` rather than fragile line numbers.
+- **Change-Appropriate Verification Strategy**: Choose one strategy from [`discipline.md`](discipline.md) (`behavior_tdd`, `regression_tdd`, `characterization`, `static_validation`, `documentation_validation`, `integration_acceptance`) and state the exact initial and final CLI commands in `## Verification`.
 
-## 3.0 NEW FLOW INITIALIZATION
-
-**PROTOCOL: Define the standard Flow artifacts.**
-
-### 3.1 Get Description
-
-1. **Input Analysis:** Use provided arguments.
-2. **No Input:** Ask: "What is the goal of this single Flow?"
-3. **Complexity Check:**
-    - If the request seems too large for one flow (e.g., "Build entire app"), do NOT silently descope.
-    - Explain why it appears multi-flow, then ask the user whether to:
-      - split it into a PRD/Saga with `flow-prd`
-      - narrow it into a smaller flow now
-      - continue with a clearly scoped first slice
-
----
-
-### 3.2 Code Analysis (MANDATORY)
-
-**PROTOCOL: Analyze the codebase BEFORE asking clarifying questions.**
-
-1. **Search for Relevant Code:**
-    - Use file search to find files related to the problem description
-    - Search for keywords from the user's request
-    - Identify entry points, affected modules, and dependencies
-    - Read key files to understand current implementation
-
-2. **Build Understanding:**
-    - Map the code flow related to the problem
-    - Identify existing patterns in use (DI framework, ORM, etc.)
-    - Note any dependencies or constraints
-    - Find related tests if they exist
-    - Check for similar implementations in the codebase
-
-3. **Document Findings:**
-    - Internal: Create a mental model of the affected code paths
-    - Note specific file paths and line numbers
-    - Identify gaps in understanding that require user input
-
-4. **Present Code Analysis Report:**
-
-    > "**Code Analysis Complete**
-    >
-    > **Files Examined:**
-    > - `src/path/to/file.py` - [purpose]
-    > - `src/path/to/other.py` - [purpose]
-    >
-    > **Key Findings:**
-    > - [Finding 1 with specific file:line references]
-    > - [Finding 2 with specific file:line references]
-    >
-    > **Current Understanding:**
-    > - [What you understand about the problem]
-    >
-    > **Gaps/Questions:**
-    > - [What you need clarification on]"
-
----
-
-### 3.3 Interactive Spec Generation
-
-1. **Goal Announce:** "Drafting Specification for Flow: [Name]. I have read the Global Patterns and analyzed the codebase."
-
-2. **INFORMED Questioning Phase:**
-    - Resolve repository-answerable questions through research.
-    - Ask only product/trade-off questions, one logical decision at a time,
-      through `structured-choice-v1`.
-    - Each question MUST reference specific files/code found.
-    - **Constraint Check:** "Based on the relevant pattern chapter and the existing code at [path], we should use X. Do you agree?"
-
-    **Example BAD questions:**
-    - "Is this service provided by DI?"
-    - "What database are you using?"
-    - "How should errors be handled?"
-
-    **Example GOOD questions:**
-    - "I found `workspace_file_service` is injected in `src/services/workspace.py:45` using Dishka's `@inject` decorator. However, the CLI command at `src/cli/ingest.py:23` doesn't have the corresponding `@inject`. Should I add it there, or is there a different injection pattern for CLI commands?"
-    - "The existing error handling in `src/handlers/base.py:78` uses a custom `ServiceError` exception. Should this new feature follow the same pattern, or do you want a different approach?"
-    - "I see tests in `tests/unit/services/` use pytest fixtures from `conftest.py`. Should I follow this pattern or is there a specific test structure you prefer?"
-
-3. **Draft unified `spec.md`:**
-    - The spec.md must contain BOTH requirements AND implementation plan in a single file
-    - Structure:
-
-      ```markdown
-      # Flow: {flow_name}
-
-      **Flow ID:** `{flow_id}`
-
-      ## Specification
-
-      ### Code Analysis Summary
-      {files examined, key findings}
-
-      ### Relevant Patterns
-      {from relevant knowledge/patterns/<topic>.md chapters}
-
-      ### Requirements
-      {Functional, Non-Functional, API, DB, Risk sections as needed}
-
-      ## Implementation Plan
-
-      ### Phase 1: {name}
-      - [ ] 1.1 Task description
-      - [ ] 1.2 Task description
-
-      ### Phase 2: {name}
-      - [ ] 2.1 Task description
-      ...
-      ```
-
-    - Include "Code Analysis Summary" section with files examined
-    - Include "Relevant Patterns" section (extracted recursively from relevant topic chapters)
-    - Include "Parent Context" section (if applicable)
-    - Standard spec sections: Functional Req, Non-Functional, API, DB, Risk
-    - Implementation Plan section with Phases and TDD Tasks
-    - **Recovery Checkpoints:** Add "Checkpoint" task after each Phase
-    - **Verification:** Add "Manual Verification" task at end of Phases
-    - Reference specific files identified in code analysis
-    - Add a requirement-to-task/test trace and run a deterministic gap scan
-      before calling the draft complete:
-      - Ask: "Do I have enough task information written for this PRD/flow to complete it correctly in the first pass?"
-      - If not, refine the tasks until each one names concrete files, dependencies, strategy-appropriate initial evidence, final verification, and open risks.
-      - Select and justify exactly one `verification_strategy` using the matrix in `references/discipline.md`. Do not split one behavior change into artificial test-only and implementation-only worksheets, and do not require a contrived red test for static, documentation, generated, or characterization work.
-      - Reject deferred research, unresolved decisions, stub bodies, vague
-        verification, missing verification strategy, overlapping ownership, or
-        any task too large for one invocation and one commit.
-      - If any gap remains, run iterative refinement (see
-        `references/refine.md`) until the plan is implementation-ready.
-
-4. **Confirm:** Use the structured human draft gate below; never use a raw
-   open-ended approval prompt.
-
----
-
-### 3.3.5 Spec Review Loop
-
-**Before presenting to user for final approval, run automated quality review.**
-
-1. **Dispatch spec-reviewer subagent** with:
-   - Path to drafted spec.md
-   - Flow requirements and constraints
-   - Relevant patterns from `.agents/bundles/knowledge/patterns/**/*.md`
-   - Review criteria: completeness, consistency, feasibility, and change-appropriate verification structure
-
-2. **Handle results:**
-   - Apply every actionable finding to the artifacts.
-   - When plan-bearing content changes, apply one state-contract `revise`:
-     increment `plan_revision`, copy it to the spec and every task, clear
-     `plan_commit`, rerun validation, and request a fresh review.
-   - Preserve plan identity when no plan-bearing content changed. A later
-     verified plan-bind checkpoint may update `plan_commit`.
-   - Cap external review at three rounds. If Critical or Important findings
-     remain after round three, return `blocked` with their exact list and
-     require user direction; never label the plan Ready.
-   - If quality passes, proceed to the structured human gate.
-
-3. **Review criteria checklist:**
-   - All requirements have corresponding implementation tasks
-   - Tasks are ordered correctly (dependencies respected)
-   - Each task is small enough for one commit
-   - Each task's verification strategy matches its change class and is justified
-   - File paths are specific (not vague)
-   - No gaps between spec requirements and plan tasks
-   - Task detail is sufficient for correct first-pass implementation without avoidable guesswork
-   - Obvious research gaps have been closed before approval
-
-4. **Human draft gate:** Before quality passes, present only `Revise|Refine` as
-   a `single_select`. After quality passes, present exactly
-   `Approve|Revise|Refine`. Reorder the active set so the contextual
-   recommendation is first. Approve advances. Revise collects one
-   `open(free_form_reason=revision_details)` result, applies edits, updates
-   identity when required, revalidates/reviews, and re-presents. Refine asks the
-   next structured gap and follows the same loop. Cancellation stops without
-   approval. Never persist an unapproved crucial artifact as approved.
-
-**Template:** See `templates/agent/spec-reviewer-prompt.md`
-
----
-
-### 3.4 Artifact Creation
-
-1. **Unique ID:** `slug` (e.g., `user-auth`).
-
-2. **Directory:** `.agents/bundles/specs/<flow_id>/`.
-
-3. **Files:** Write `spec.md` containing YAML frontmatter.
-
-4. **YAML Frontmatter (in spec.md):**
-
-    ```yaml
-    ---
-    type: Spec
-    flow_id: <flow_id>
-    title: <flow_title>
-    state: planned
-    created_at: ISO timestamp
-    updated_at: ISO timestamp
-    description: <flow_description>
-    tags: [<work-kind>, <domain>, ...]
-    parent_prd: <prd_id|null>
-    research: []
-    ---
-    ```
-
-    Populate every field — no empty `tags: []`, no placeholder descriptions. One
-    Work Kind plus 1-4 domain tags per
-    [OKF tagging](../../okf/references/frontmatter-and-tagging.md).
-
-5. **Task Files:** Create one task file per checklist entry at `.agents/bundles/specs/<flow_id>/tasks/<short_id>.md` (frontmatter `type: Task`, `id: <flow_id>:<short_id>`, `title`, `description`, `state: open`, `tags`, `depends_on`, `files`, `tests`, `created_at`, `updated_at`).
-
----
-
-### 3.5 Completion
-
-Announce:
-
-> "**PLANNING COMPLETE - AWAITING IMPLEMENTATION APPROVAL**
->
-> Flow '<flow_id>' planning documents created.
-> **NO CODE HAS BEEN MODIFIED.**
->
-> **Code Analysis Summary:**
->
-> - Files examined: [count]
-> - Key files: [list]
->
-> **Artifacts:**
->
-> - Spec: `.agents/bundles/specs/<flow_id>/spec.md` ([N] phases, [M] tasks)
->
-> Ready to execute? Run:
-> `flow-implement <flow_id>`"
-
----
-
-## Critical Rules
-
-1. **CODE ANALYSIS FIRST** - Always analyze codebase before asking questions
-2. **INFORMED QUESTIONS** - Questions must reference actual files/code found
-3. **PATTERNS COMPLIANCE** - Check relevant topic-specific pattern chapters and warn on violations
-4. **UNIFIED SPEC** - Single `spec.md` contains both requirements and plan. No separate `plan.md`.
-5. **SPECS DIRECTORY** - All artifacts go in `.agents/bundles/specs/`
-6. **FULL CONTEXT** - Include a full description in the spec and task files at creation time; record follow-up context in the task file bodies
+## Phase 4: Zero-Context Spec Verification & Finding Adjudication
+
+Before presenting the plan for user approval, run the **Zero-Context Spec Review Loop** ([`../../../templates/agent/spec-reviewer-prompt.md`](../../../templates/agent/spec-reviewer-prompt.md)):
+
+1. **Enforce Zero-Context Isolation Rules**:
+   - Confirm no uncommitted prototype edits sit in production source files.
+   - Always dispatch a fresh isolated subagent (`model: inherit`)—never roleplay the reviewer in-place inside the planning session that authored the plan.
+   - Pass **only on-disk repository paths** (`spec.md`, `tasks/*.md`, matching `.agents/skills/`, and `knowledge/` chapters)—never pass chat summaries or oral rationale. (If the user asks for a copyable prompt to run in a separate chat window, emit the verbatim reviewer prompt wrapped in five backticks `````` ````` ``````.)
+2. **Review Dispatch Across Core Spec Lenses**:
+   - **Cold-Reader Comprehension**: Can a fresh engineer/agent understand the problem, domain terms, and design without chat context?
+   - **Architectural & Deep-Module Seam Review**: Does the design solve the root problem, reuse existing modules, avoid YAGNI/speculative generality, deepen modules rather than adding shallow pass-throughs, and justify its chosen interface over alternatives?
+   - **Implementation Readiness (Zero-Decision Rule)**: Do `spec.md` and `tasks/*.md` cover every requirement with valid `depends_on` ordering, exact `path/to/file::Symbol` targets, confirmed public-seam tests, and zero unstated decisions?
+   - **Prose & Style Debloat**: Are `spec.md` and `tasks/*.md` free of AI puffery, chronological sediment, and vague steps (`"wire it up"`, `"handle edge cases"`)?
+   - When `run_workflow` is available (Google Antigravity), fan out `parallel(lenses, ...)` using `agent(type_name="code-reviewer", role=lens["role"], schema=SPEC_REVIEW_SCHEMA, model="inherit")` and retain persistent reviewer handles for round-2 verification.
+3. **Finding Adjudication (`ADOPT` / `CONTEST` / `ESCALATE`)**:
+   - **`ADOPT`**: Rewrite the affected sections of `spec.md` and `tasks/<id>-<slug>.md` in place in present tense ([`revise.md`](revise.md)), increment `plan_revision` once across `spec.md` and all tasks, and re-verify (up to 3 rounds).
+   - **`CONTEST`**: Reject false positives, over-engineering, or out-of-scope suggestions by recording the exact `path/to/file::Symbol` evidence or `FP-*` suppression rule in the Adjudication Ledger.
+   - **`ESCALATE`**: If a finding uncovers a genuine unresolved product decision, ask the user via `structured-choice-v1`.
+
+## Phase 5: Approval Gate (`Approve | Revise | Refine`) & Plan Lock
+
+1. Present the planning summary, Task Worksheet table, and Review Adjudication Ledger, followed by the `Approve | Revise | Refine` gate (`structured-choice-v1` in [`interaction.md`](interaction.md)).
+2. When approved, stamp `plan_commit: <HEAD_SHA>` across `spec.md` and every `tasks/<id>-<slug>.md`, update `.agents/bundles/index.md` and `log.md`, and hand off to `/flow:implement <flow_id>`.

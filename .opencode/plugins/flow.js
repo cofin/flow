@@ -1,23 +1,116 @@
-/** Generated from rules/flow-core.md and contracts/flow.yaml. */
-// generated-sha256: 26846c9d53c99f3e01e07a777c968969ed4188bf2614020fc25eb25fdf09e343
-// flow-rule-adapter:start
-const FLOW_RULE_ADAPTER = Object.freeze({"activation":"The system transform and discovered Agent Skills activate Flow.","automatic_push":false,"canonical_sha256":"8a6c8792d28a246ac1af833e9efab25af3d21c53921ec6512382194bbf4cb46c","canonical_source":"rules/flow-core.md","contract_sha256":"c714548b58c3d404604bf65a542cc986d36e4afbbb464dcd96ffaf836f43d9db","contract_source":"contracts/flow.yaml","git_tags":"forbidden","host":"opencode","interaction_contract":{"choice_keys":["id","label","description"],"custom_label":"Other","fallback_reason_order":["tool_absent","tool_denied","mode_unsupported","choice_count_unsupported","bounds_unsupported","custom_unsupported","disabled_policy_unsupported"],"id":"structured-choice-v1","one_decision_at_a_time":true,"post_quality":["approve","revise","refine"],"pre_quality":["revise","refine"],"procedure_source":"skills/flow/references/interaction.md","recommended_choice":"first_with_suffix","recommended_suffix":" (Recommended)"},"kind":"flow_rule_adapter","lifecycle_skills":["flow-setup","flow-planning","flow-execution","flow-sync-status","flow-completion"],"nested_knowledge":true,"question_capability":{"bounds_enforcement":"agent_validated","choice_max":4,"choice_min":2,"custom_answer_behavior":"native_custom_input","disabled_choice_policy":"omit","multi_select":true,"permission_check":"declared_and_allowed","sequential_fallback":true,"supported_modes":["binary","single_select","multi_select"],"tool":"question","transport":"conditional_native"},"rule_id":"flow-operational-v1","rule_revision":1,"shared_contracts":["flow-state-v1","structured-choice-v1","worksheet-execution-v1","quality-review-v1"]});
-// flow-rule-adapter:end
-const FLOW_RULE_PROMPT = "Flow rule v1 is rules/flow-core.md. When .agents exists, rules precede skills; load the router/lifecycle skill and the journal-first direct-read continuity contract in skills/flow/references/state.md. For structured-choice-v1, inspect allowed tools and use verified question only for compatible binary/single_select/multi_select requests with 2-4 choices, recommended first, Other, omitted disabled choices, and valid bounds; otherwise ask sequentially. Read nested knowledge. Never auto-push or mutate Git tags.";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-function isFlowDisabledByManagedConfig(ctx) {
-  const managed = ctx?.config?.managedConfig ?? ctx?.config?.managed ?? null;
-  if (!managed) return false;
-  if (managed.disabledPlugins?.includes('flow')) return true;
-  return Boolean(managed.allowedPlugins && !managed.allowedPlugins.includes('flow'));
+const PLUGIN_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+
+const SUBAGENTS = Object.freeze([
+  { id: "code-reviewer", file: "agents/code-reviewer.md", readonly: true },
+  { id: "executor", file: "agents/executor.md", readonly: false },
+  { id: "plan-generator", file: "agents/plan-generator.md", readonly: false },
+  { id: "prd-orchestrator", file: "agents/prd-orchestrator.md", readonly: false },
+  { id: "quality-reviewer", file: "agents/quality-reviewer.md", readonly: true },
+  { id: "researcher", file: "agents/researcher.md", readonly: true },
+]);
+
+function readBundleSummary(workspaceDir) {
+  const baseMsg =
+    "Flow Spec-Driven Development is active. Resolve the bundle root from .agents/setup-state.json (default .agents/bundles/), read its index.md and applicable nested knowledge chapters, and follow skills/flow/references/state.md for direct Markdown + Git continuity.";
+  if (!workspaceDir) {
+    return baseMsg;
+  }
+
+  const agentsDir = path.join(workspaceDir, ".agents");
+  if (!fs.existsSync(agentsDir)) {
+    return baseMsg;
+  }
+
+  let bundleRel = ".agents/bundles";
+  const setupStatePath = path.join(agentsDir, "setup-state.json");
+  if (fs.existsSync(setupStatePath)) {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(setupStatePath, "utf8"));
+      if (typeof parsed.bundle_root === "string" && parsed.bundle_root.trim()) {
+        bundleRel = parsed.bundle_root.trim();
+      }
+    } catch {
+      bundleRel = ".agents/bundles";
+    }
+  }
+
+  const activeSpecs = [];
+  const specsDir = path.join(workspaceDir, bundleRel, "specs");
+  if (fs.existsSync(specsDir)) {
+    try {
+      for (const entry of fs.readdirSync(specsDir, { withFileTypes: true })) {
+        if (!entry.isDirectory()) continue;
+        const specPath = path.join(specsDir, entry.name, "spec.md");
+        if (!fs.existsSync(specPath)) continue;
+        const content = fs.readFileSync(specPath, "utf8");
+        const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+        if (!fmMatch) continue;
+        const fm = fmMatch[1];
+        const flowId = fm.match(/^flow_id:\s*["']?([^"'\r\n]+)["']?/m)?.[1]?.trim() ?? entry.name;
+        const state = fm.match(/^state:\s*["']?([^"'\r\n]+)["']?/m)?.[1]?.trim() ?? "unknown";
+        const currentTask = fm.match(/^current_task:\s*["']?([^"'\r\n]+)["']?/m)?.[1]?.trim() ?? "";
+        if (state !== "completed" && state !== "archived") {
+          activeSpecs.push(
+            currentTask && currentTask !== "null"
+              ? `${flowId}(${state}, task=${currentTask})`
+              : `${flowId}(${state})`,
+          );
+        }
+      }
+    } catch {
+      // Ignore transient filesystem errors during priming.
+    }
+  }
+
+  const parts = [baseMsg, `Workspace bundle root: ${bundleRel}.`];
+  if (fs.existsSync(path.join(agentsDir, "skills", "index.md"))) {
+    parts.push("Project-local domain and review skills index: .agents/skills/index.md.");
+  }
+  if (activeSpecs.length > 0) {
+    parts.push(`Active specs: ${activeSpecs.join(", ")}.`);
+  }
+  return parts.join(" ");
 }
 
-export default async (ctx) => {
-  if (isFlowDisabledByManagedConfig(ctx)) return {};
+const flowPlugin = {
+  id: "flow",
+  async setup(ctx) {
+    const workspaceDir = ctx?.workspace?.root ?? ctx?.cwd ?? process.cwd();
+    const summary = readBundleSummary(workspaceDir);
 
-  return {
-    'experimental.chat.system.transform': async (_input, output) => {
-      output.system.push(FLOW_RULE_PROMPT);
-    },
-  };
+    if (ctx?.agent?.transform) {
+      ctx.agent.transform((agents) => {
+        const nextAgents = Array.isArray(agents) ? [...agents] : [];
+        for (const subagent of SUBAGENTS) {
+          nextAgents.push({
+            id: subagent.id,
+            promptFile: path.join(PLUGIN_ROOT, subagent.file),
+            readonly: subagent.readonly,
+          });
+        }
+        return nextAgents;
+      });
+    }
+
+    if (ctx?.session?.hook) {
+      ctx.session.hook("context", async () => ({
+        systemMessage: summary,
+      }));
+    }
+
+    return {
+      "experimental.chat.system.transform": async (_input, output) => {
+        if (Array.isArray(output?.system)) {
+          output.system.push(summary);
+        }
+      },
+    };
+  },
 };
+
+export { flowPlugin, readBundleSummary, SUBAGENTS };
+export default flowPlugin;
