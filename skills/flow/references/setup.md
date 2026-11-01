@@ -1,20 +1,37 @@
 # Flow Setup (`/flow:setup`)
 
-Initialize or align a repository for Spec-Driven Development with a rich OKF v0.2 knowledge bundle (`.agents/bundles/`), dynamically generated project-local domain and review skills (`.agents/skills/`), and paired project-local subagents (`.agents/agents/`).
+Initialize or align a repository for Spec-Driven Development with Conductor's four context pillars, a hierarchical OKF v0.2 knowledge bundle (`.agents/bundles/`), baseline and stack-specific project-local skills (`.agents/skills/`), and paired project-local subagents (`.agents/agents/`).
 
-## Phase 1: Toolchain & Repository Discovery
+## Phase 0: Environment Detection & Brownfield Alignment Mode
 
 1. **Check Existing State**:
-   - Inspect `.agents/setup-state.json` and `.agents/bundles/index.md` if present.
-   - If `.agents/bundles/` already exists, offer **Align & True-Up (Recommended)** (which runs the brownfield migration and [`learn.md`](learn.md) resynthesis pass) or **Full Re-Setup**.
-2. **Probe Host Binaries & Repository Manifests**:
-   - Inspect repository manifests (`pyproject.toml`, `Cargo.toml`, `go.mod`, `package.json`, `Makefile`, `justfile`, `.github/workflows/*.yml`).
-   - Probe installed binaries (`uv`, `python3`, `cargo`, `go`, `bun`, `pnpm`, `npm`, `make`, `just`) so `.agents/bundles/knowledge/workflow.md` records only commands that work on the host.
-3. **Parallel Subsystem Discovery**:
-   - Identify the repository's core domains, architecture seams, data models, and test harnesses.
+   - Inspect `<hook_context>`, `.agents/setup-state.json`, and `.agents/bundles/index.md`.
+   - Treat `setup_status: "complete"` as a claim to verify against current files, never as blind proof.
+   - If `.agents/` already exists, ask via `structured-choice-v1` ([`interaction.md`](interaction.md)):
+     - `align` — **Align & True-Up (Recommended)**: Validate and migrate existing `.agents/` artifacts, resynthesize drifted knowledge/skills via [`learn.md`](learn.md), and preserve local customizations.
+     - `resetup` — **Full Re-Setup**: Run the complete interactive setup flow while preserving existing `knowledge/**` and active `specs/**`.
+     - `exit` — **Exit**: Keep current setup unchanged.
+2. **Brownfield Alignment & Legacy Layout Migration (`align`)**:
+   - Inventory existing `.agents/` files in one read-only pass before proposing writes:
+     - **Legacy Trackers & Journals**: Detect obsolete `.beads/`, `.agents/beads.json`, `.agents/transactions/` journals, `.git/hooks/pre-commit` tracker hooks, or `.agents/skills/flow-memory-keeper/`. Present exact paths and obtain user confirmation before removing them.
+     - **Knowledge Tree Preservation**: Convert any flat `knowledge/patterns.md` into topic-specific `knowledge/patterns/<topic>.md` chapters while preserving scope-derived nested directories (`architecture/`, `domains/`, `patterns/`, `testing/`, `gotchas/`, `decisions/`) and relative links.
+     - **Research Reorganization**: Reconcile `.agents/bundles/research/` (which holds un-promoted research only) per [`research.md`](research.md):
+       1. Promote research consumed by an existing flow into `.agents/bundles/specs/<flow_id>/research/` (`state: promoted`, `promoted_to: <flow_id>`).
+       2. Adopt actionable orphaned research into a new `state: planned` spec bundle or keep genuinely open research normalized as `<slug>_<YYYYMMDD>.md` (`state: open`).
+       3. Contract spent research from archived flows into the matching `knowledge/**` chapter and remove the spent file after user confirmation.
+     - **Workflow & Truth Block Sync**: Synchronize `.agents/bundles/knowledge/workflow.md` with [`../../../templates/agent/workflow.md`](../../../templates/agent/workflow.md) while preserving local `<!-- truth: start -->` and `<!-- truth: end -->` blocks (`<= 40` lines).
+     - **Spec-to-Codebase Verification**: For every `planned` or `active` spec under `specs/<flow_id>/`, verify `tasks/*.md` frontmatter (`state`, `commit`) against live Git history and reconcile `spec.md` checklists.
+
+## Phase 1: Toolchain & Subsystem Discovery
+
+1. **Probe Host Binaries & Repository Manifests**:
+   - Inspect `pyproject.toml`, `Cargo.toml`, `go.mod`, `package.json`, `Makefile`, `justfile`, and `.github/workflows/*.yml`.
+   - Probe installed binaries (`uv`, `python3`, `cargo`, `go`, `bun`, `pnpm`, `npm`, `make`, `just`) so `knowledge/workflow.md` records only commands that execute cleanly on the current host.
+2. **Parallel Subsystem Discovery**:
+   - Map the repository's core domains, deep-module seams, public interfaces, data models, and canonical test files.
    - When the `run_workflow` tool is available in the active harness (Google Antigravity), fan out `parallel(subsystems, inspect_subsystem)` using `agent(type_name="researcher", schema=SUBSYSTEM_SCHEMA, model="inherit")` to audit each subsystem concurrently.
 
-## Phase 2: Scaffold & Populate Rich OKF v0.2 Bundle (`.agents/bundles/`)
+## Phase 2: Scaffold Conductor Context Pillars & OKF v0.2 Bundle (`.agents/bundles/`)
 
 Create the hierarchical OKF v0.2 bundle layout:
 
@@ -24,62 +41,80 @@ Create the hierarchical OKF v0.2 bundle layout:
 ├── log.md                          # Append-only ISO-dated changelog
 ├── product/
 │   ├── index.md
-│   ├── product.md                  # Vision, users, and core capabilities (with <= 40-line <!-- truth: start --> block)
-│   ├── product-guidelines.md       # Engineering tenets, naming, API/UX standards
-│   └── tech-stack.md               # Languages, frameworks, runtimes, databases, test/lint toolchain
+│   ├── product.md                  # Vision, users, and core capabilities (<= 40-line <!-- truth: start --> block)
+│   ├── product-guidelines.md       # Engineering tenets, deep-module seams, Goldfish prose & anti-bloat standards
+│   └── tech-stack.md               # Verified languages, frameworks, runtimes, databases, test/lint toolchain
 ├── knowledge/
 │   ├── index.md
-│   ├── workflow.md                 # Verified setup, lint, typecheck, test, and release gates
-│   ├── architecture/<area>.md      # Subsystem boundaries, dataflow, concurrency, IPC/RPC contracts
-│   ├── patterns/<topic>.md         # Idiomatic patterns anchored to path/to/file::Symbol
-│   ├── domains/<domain>.md         # Domain vocabulary, invariants, and business rules
-│   ├── testing/<topic>.md          # Test matrix, fixture patterns, SUT integrity rules
+│   ├── workflow.md                 # Verified setup, lint, typecheck, focused test, and full verification gates
+│   ├── architecture/<area>.md      # Deep modules, public interfaces vs. hidden implementation, seams & adapters
+│   ├── patterns/<topic>.md         # Idiomatic patterns anchored to path/to/file::Symbol + anti-patterns
+│   ├── domains/<domain>.md         # Ubiquitous domain glossary, entity lifecycles, and invariants
+│   ├── testing/<topic>.md          # Public-seam TDD rules, dependency categories, canonical test file map
 │   ├── gotchas/<area>.md           # Non-obvious footguns and runtime traps
-│   └── decisions/adr-NNN-<slug>.md # Architectural Decision Records (when explicit decisions exist)
+│   └── decisions/adr-NNN-<slug>.md # Architectural Decision Records (hard to reverse + surprising + real trade-off)
 ├── research/
 │   └── index.md
 └── specs/
     └── index.md
 ```
 
+- Gather or confirm the four Conductor context pillars one question at a time (`structured-choice-v1`):
+  1. **Product Definition (`product/product.md`)**: Core problem, users, and capabilities.
+  2. **Product & Engineering Guidelines (`product/product-guidelines.md`)**: Naming, deep-module seam rules, Goldfish comprehension standard, and anti-bloat prose discipline.
+  3. **Tech Stack (`product/tech-stack.md`)**: Auto-detected stack confirmed with the user.
+  4. **Workflow (`knowledge/workflow.md`)**: Verified setup, lint, typecheck, focused test, and aggregate check commands.
 - Every concept document carries OKF v0.2 YAML frontmatter (`type`, `title`, `description`, `status: stable`, `tags`, `generated: { by, at }`, `verified: [{ by, at, commit }]`, `sources: [{ id, resource, title }]`), a bounded `<= 40`-line `<!-- truth: start -->` block, and `[^id]` footnotes matching `sources[].id`.
-- If legacy `.agents/` files or uncontracted completed specs exist, migrate durable knowledge into `knowledge/**`, remove obsolete `.agents/transactions/` directories, and contract completed specs into `knowledge/**` + `log.md`.
 
-## Phase 3: Dynamically Generate Project-Local Skills (`.agents/skills/`) & Paired Subagents (`.agents/agents/`)
+## Phase 3: Seed Baseline Disciplines & Generate Stack-Specific `.agents/skills/` and `.agents/agents/`
 
-For each discovered technical domain (`1–6` cohesive domains matching the repository's real stack):
+Follow [`../../multi-harness-plugins/SKILL.md`](../../multi-harness-plugins/SKILL.md) and [`../../flow-docs/references/writing-for-agents.md`](../../flow-docs/references/writing-for-agents.md) so generated skills and subagents work natively across all six harnesses:
 
-1. **Engineering Domain Skill (`.agents/skills/<domain>/`)**:
-   - `SKILL.md` (`<= 200` lines, `< 24,000` bytes) with YAML frontmatter (`name`, `description`), a bounded `<= 40`-line `<!-- truth: start -->` block, and progressive-disclosure links to `references/*.md`.
-   - `references/*.md` containing concrete `path/to/file::Symbol` patterns, anti-patterns, and verification commands.
-2. **Domain Review Capability Skill (`.agents/skills/review-<domain>/`)**:
-   - `SKILL.md` scoping the review lens to its domain paths and checklists.
+1. **Embed Foundational Engineering Disciplines Tailored to the Repository**:
+   - **Deep Modules & Seam Discipline (`knowledge/architecture/` & domain skills)**: Document each subsystem's **Module**, **Interface**, **Implementation**, **Seam**, and **Adapter** boundaries, classifying dependencies into (1) *In-process*, (2) *Local-substitutable*, (3) *Remote-owned (Ports & Adapters)*, and (4) *External boundary (Mock)*.
+   - **Active Domain Glossary & ADRs (`knowledge/domains/` & `knowledge/decisions/`)**: Define ubiquitous domain terms so tests, specs, and code share exact vocabulary, and apply the 3-part ADR filter (*hard to reverse + surprising without context + genuine trade-off*).
+   - **Public-Seam Vertical-Slice TDD & Bug Diagnosis (`knowledge/testing/`)**: Map source modules to their canonical test files (`tests/<module>/test_<unit>.*`), enforce testing through public interfaces without mocking the System Under Test, reject tautological tests, and record the repository's tight red-capable bug reproduction command pattern.
+   - **Goldfish Prose & Documentation Standard (`product/product-guidelines.md`)**: Enforce zero-context comprehension, manifest-driven `[k/N files documented]` coverage, conceptual (`4–6` node) diagrams in `docs/`, and clean `<type>(<scope>): <summary>` PR/commit conventions.
+2. **Generate Stack-Specific Engineering Domain Skills (`.agents/skills/<domain>/`)**:
+   - For each discovered technical domain (`1–6` cohesive domains matching the repository's real stack):
+     - `SKILL.md` (`<= 200` lines, `< 24,000` bytes) with YAML frontmatter (`name`, `description` context pointer), a bounded `<= 40`-line `<!-- truth: start -->` block, and progressive-disclosure links to `references/*.md`.
+     - `references/*.md` containing concrete `path/to/file::Symbol` patterns, seam boundaries, anti-patterns, and verification commands.
+3. **Generate Domain Review Capability Skills (`.agents/skills/review-<domain>/`)**:
+   - `SKILL.md` scoping the zero-context review lens to its domain paths and checklists.
    - `references/checklist.md` with domain review rules (`<PREFIX>-01..NN`).
    - `references/false-positive-suppressions.md` with intentional repository patterns (`FP-<PREFIX>-01..NN`) and explicit `"DO NOT FLAG"` rationale.
-3. **Skill Index (`.agents/skills/index.md`)**:
-   - Matrix mapping `Domain | Rule Prefix | Engineering Skill | Review Skill | Reviewer Subagent | Specialist Subagent | Knowledge Chapters`.
-4. **Paired Project-Local Subagents (`.agents/agents/`)**:
-   - `.agents/agents/<domain>-reviewer.md`: Read-only reviewer (`model: inherit`, `mainAgent: false`, `subagent: true`, `readonly: true`, `commandExecutionPolicy: off`, YAML list `disallowedTools: [Write, Edit, NotebookEdit, write_file, edit_file]`, H1 `# ` section headers) preloaded with `.agents/skills/<domain>` and `.agents/skills/review-<domain>`.
-   - `.agents/agents/<domain>-specialist.md`: Write-enabled domain specialist (`model: inherit`, `mainAgent: false`, `subagent: true`, `commandExecutionPolicy: sandbox`, H1 `# ` section headers) preloaded with `.agents/skills/<domain>` and `.agents/skills/review-<domain>`.
+4. **Write Skill Routing Index (`.agents/skills/index.md`) & Paired Subagents (`.agents/agents/`)**:
+   - `.agents/skills/index.md` mapping `Domain | Rule Prefix | Engineering Skill | Review Skill | Reviewer Subagent | Specialist Subagent | Knowledge Chapters`.
+   - `.agents/agents/<domain>-reviewer.md`: Read-only Goldfish reviewer (`model: inherit`, `mainAgent: false`, `subagent: true`, `readonly: true`, `commandExecutionPolicy: off`, YAML list `disallowedTools: [Write, Edit, NotebookEdit, write_file, edit_file]`, H1 `# ` section headers).
+   - `.agents/agents/<domain>-specialist.md`: Write-enabled domain specialist (`model: inherit`, `mainAgent: false`, `subagent: true`, `commandExecutionPolicy: sandbox`, H1 `# ` section headers).
+   - Never copy Flow's global plugin skills (`flow`, `flow-*`, `okf`, `debloat`) or legacy `flow-memory-keeper` into `.agents/skills/`.
 
-Never copy Flow's global skills (`flow`, `flow-*`, `okf`, `debloat`) or legacy `flow-memory-keeper` into `.agents/skills/`.
+## Phase 4: Git Tracking Policy, Cross-Harness Bootstrap, `AGENTS.md`, & `setup-state.json`
 
-## Phase 4: Workspace `AGENTS.md`, Git Tracking Policy & `.agents/setup-state.json`
+1. **Git Tracking Policy (`shared` vs. `local-only` Stealth Mode)**:
+   - Ask once via `structured-choice-v1` ([`interaction.md`](interaction.md)) and persist `workflow_preferences.ignore_policy` in `.agents/setup-state.json`:
+     - **`shared` (Recommended for teams)**: Track `.agents/bundles/`, `.agents/skills/`, `.agents/agents/`, and `.agents/config.json` in Git; exclude `.agents/scratch/` via `.git/info/exclude` (or `.gitignore`). Git history is the archive.
+     - **`local-only` (Stealth mode)**: Append `.agents/` to `.git/info/exclude`. Flow runs normally and writes nothing in `.agents/` to Git; `knowledge/**` and `log.md` on disk are the durable record.
+2. **Opt-In Cross-Harness Policy Bootstrap**:
+   - Detect installed harnesses (`claude`, `opencode`, `codex`, `cursor`, `agy`/`antigravity`) and offer opt-in non-destructive policy merges:
+     - **Claude Code**: Offer to merge `plansDirectory: ".agents/bundles/specs"` and workflow-derived read/test `permissions.allow` entries into `.claude/settings.local.json` (always backing up to `.claude/settings.local.json.bak` first and never overwriting existing user permissions).
+     - **OpenCode**: Offer to merge Flow-recommended instructions into `opencode.json` if present.
+     - **Google Antigravity / Codex CLI / Cursor / VS Code**: Confirm native discovery of root `AGENTS.md`, `.agents/skills/`, and `.agents/agents/`.
+3. **Update Root `AGENTS.md` & Write `.agents/setup-state.json`**:
+   - Ensure root `AGENTS.md` (`<= 100` lines) routes to `.agents/bundles/index.md`, `.agents/bundles/knowledge/workflow.md`, and `.agents/skills/index.md` while preserving `<!-- project-customization: start -->` blocks.
+   - Write `.agents/setup-state.json`:
 
-1. Ask once via `structured-choice-v1` ([`interaction.md`](interaction.md)) whether `.agents/` should be **`shared`** (tracked in Git, Recommended) or **`local-only`** (ignored in `.gitignore`).
-2. Update root `AGENTS.md` to reference `.agents/bundles/index.md`, `.agents/bundles/knowledge/workflow.md`, and `.agents/skills/index.md` while preserving any `<!-- project-customization: start -->` blocks.
-3. Write `.agents/setup-state.json`:
-
-   ```json
-   {
-     "setup_status": "complete",
-     "root_directory": ".agents",
-     "bundle_root": ".agents/bundles",
-     "okf_version": "0.2",
-     "workflow_preferences": {
-       "ignore_policy": "shared"
+     ```json
+     {
+       "setup_status": "complete",
+       "last_successful_step": "complete",
+       "root_directory": ".agents",
+       "bundle_root": ".agents/bundles",
+       "okf_version": "0.2",
+       "workflow_preferences": {
+         "ignore_policy": "shared"
+       }
      }
-   }
-   ```
+     ```
 
-4. Verify all relative links in `.agents/bundles/index.md`, `knowledge/index.md`, and `.agents/skills/index.md` resolve on disk, and present the setup summary with the next command (`/flow:plan` or `/flow:prd`).
+4. Verify all relative links in `.agents/bundles/index.md`, `knowledge/index.md`, and `.agents/skills/index.md` resolve on disk, and ask whether the user wants to start their first flow (`/flow:plan` or `/flow:prd`).

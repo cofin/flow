@@ -82,3 +82,35 @@ def test_state_contract_and_lifecycle_references_stay_lean() -> None:
 
     state_bytes = (refs_dir / "state.md").stat().st_size
     assert state_bytes < 12000
+
+
+def test_flow_docs_is_tool_agnostic_and_elephant_goldfish_pillars_exist() -> None:
+    """Verify flow-docs is tool-agnostic and core Elephant/Goldfish & engineering disciplines are present."""
+    docs_refs_dir = REPO_ROOT / "skills" / "flow-docs" / "references"
+    found_docs_refs = {p.name for p in docs_refs_dir.glob("*.md")}
+    assert found_docs_refs == {
+        "prose-and-documentation.md",
+        "prs-commits-and-changelogs.md",
+        "writing-for-agents.md",
+    }
+
+    for doc_file in (REPO_ROOT / "skills" / "flow-docs").rglob("*.md"):
+        lowered = doc_file.read_text(encoding="utf-8").lower()
+        for forbidden_lockin in ("zensical", "mkdocstrings", "griffe", "shibuya"):
+            assert forbidden_lockin not in lowered
+
+    plan_text = (REPO_ROOT / "skills" / "flow" / "references" / "plan.md").read_text(encoding="utf-8")
+    assert "Heilmeier Summary" in plan_text
+    assert "Zero-Memory Anti-Leakage Rules" in plan_text
+    assert "Design It Twice" in plan_text
+
+    prd_text = (REPO_ROOT / "skills" / "flow" / "references" / "prd.md").read_text(encoding="utf-8")
+    assert "Heilmeier Catechism" in prd_text
+
+    implement_text = (REPO_ROOT / "skills" / "flow" / "references" / "implement.md").read_text(encoding="utf-8")
+    assert "Public-Seam TDD" in implement_text
+    assert "Hypothesis-Driven Bug Diagnosis Loop" in implement_text
+
+    review_text = (REPO_ROOT / "skills" / "flow" / "references" / "review.md").read_text(encoding="utf-8")
+    assert "Fowler's 12 Baseline Code Smells" in review_text
+    assert "quality-review-v1" in review_text

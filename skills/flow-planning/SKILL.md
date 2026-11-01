@@ -1,10 +1,10 @@
 ---
 name: flow-planning
-description: "Use when drafting Master PRDs (/flow:prd), authoring feature specifications and task worksheets (/flow:plan), revising plans (/flow:revise), or conducting technical research (/flow:research)."
+description: "Use when co-designing Master PRDs (/flow:prd), authoring feature specifications and vertical-slice task worksheets (/flow:plan), revising or refining plans (/flow:revise, /flow:refine), or running primary-source research and throwaway prototypes (/flow:research, /flow:task)."
 disable-model-invocation: true
 ---
 
-# Flow Planning
+# Flow Planning (Elephant Co-Design & Goldfish Verification)
 
 <!-- lifecycle-ownership: owner=flow-planning; operations=prd,plan,revise,refine,research,task -->
 
@@ -16,57 +16,56 @@ Use for `prd` ([`../flow/references/prd.md`](../flow/references/prd.md)), `plan`
 ```yaml
 interaction_authority: skills/flow/references/interaction.md
 planning_loop:
-  phases: [research_closed, draft, gap_scan, zero_context_review, adjudication, approved, revise, blocked]
+  phases: [research_closed, frontier_grilling, draft, gap_scan, zero_context_goldfish_review, adjudication, approved, revise, refine, blocked]
   gap_scan:
-    reject: [deferred_research, unresolved_decisions, stub_body, vague_verification, missing_verification_strategy, overlapping_ownership, oversized_task, fragile_line_numbers]
-    require: [requirement_to_task_traceability, symbol_anchored_targets, one_invocation_per_task, one_commit_per_task]
+    reject: [deferred_research, unresolved_decisions, stub_body, vague_verification, missing_verification_strategy, overlapping_ownership, oversized_task, fragile_line_numbers, shallow_passthrough_seam]
+    require: [heilmeier_clarity, alternatives_evaluated, deep_module_seams, requirement_to_task_traceability, symbol_anchored_targets, one_invocation_per_task, one_commit_per_task]
   revision_update:
     on_plan_change: [rewrite_in_present_tense, increment_plan_revision_once, sync_revision_to_spec_and_tasks, reanchor_plan_commit]
   review:
     max_external_rounds: 3
     blocking_severities: [Critical, Important]
-    adjudication: [ADOPT, CONTEST]
+    adjudication: [ADOPT, CONTEST, ESCALATE]
 ```
+
+## The Two Planning Memory Models: Elephant vs. Goldfish
+
+- **The Elephant (Stateful Co-Designer, Planner, & Adjudicator)**: Holds conversational history, `.agents/bundles/` context, codebase findings, and trade-offs. Explores the design tree with the user, drafts self-contained specs and worksheets, and adjudicates review findings. **Never writes or modifies production source code during planning.**
+- **The Goldfish (Stateless Zero-Context Verifier)**: Runs in a fresh, isolated subagent context (`model: inherit`) with **only on-disk repository paths** (`spec.md`, `tasks/*.md`, `.agents/bundles/knowledge/**`, `.agents/skills/**`, and source files)—never chat history. Pressure-tests the spec across **Comprehension**, **Zoom-Out & Design Critic (Heilmeier + Deep Modules)**, **Implementation Readiness (Zero-Decision Rule)**, and **Prose & Style Debloat**.
 
 ## Planning Hierarchy (`PRD` &rarr; `Plan (Spec)` &rarr; `Task Worksheet`)
 
 | Level | Artifact | Command & Owner | Scope & Altitude |
 | --- | --- | --- | --- |
-| **1. Initiative Roadmap (`PRD`)** | `.agents/bundles/specs/<prd_id>/spec.md` | `/flow:prd <goal>` (`@prd-orchestrator`) | Multi-flow initiative roadmap with locked cross-cutting architectural decisions and ordered `state: draft` child flow charters (`specs/<child_id>/spec.md`). Never contains code-level task worksheets. |
-| **2. Feature Specification (`Plan`)** | `.agents/bundles/specs/<flow_id>/spec.md` | `/flow:plan <goal_or_flow_id>` (`@plan-generator`) | Single cohesive feature/PR (`1–8` tasks): `1. Specification & Context` (`Upstream Execution Baseline`, `Code Analysis Summary` table with `path/to/file::Symbol`, `Relevant Patterns`), `2. Requirements` (`R1..RN`, constraints, scenarios, alternatives), `3. Requirement-to-Task Traceability Matrix`, `4. Implementation Plan` (phased checklist with mandatory `Phase Recovery Checkpoints`), `5. Continuity Snapshot`. |
-| **3. Task Worksheet (`Task`)** | `.agents/bundles/specs/<flow_id>/tasks/<id>-<slug>.md` | Authored by `/flow:plan`, revised by `/flow:revise`, executed by `/flow:implement` (`@executor`) | One stateless subagent turn and one atomic Git commit (vertical slice of production code + canonical module unit tests anchored to `path/to/file::Symbol`). |
+| **1. Initiative Roadmap (`PRD`)** | `.agents/bundles/specs/<prd_id>/spec.md` | `/flow:prd <goal>` (`@prd-orchestrator`) | Multi-flow initiative roadmap (`2–8` chapters) answering the Heilmeier questions, locking cross-cutting architectural seams, and seeding `state: draft` child flow charters (`specs/<child_id>/spec.md`). Never contains code-level task worksheets. |
+| **2. Feature Specification (`Plan`)** | `.agents/bundles/specs/<flow_id>/spec.md` | `/flow:plan <goal_or_flow_id>` (`@plan-generator`) | Single cohesive feature/PR (`1–8` tasks): `1. Specification & Context` (`Upstream Execution Baseline`, `Code Analysis Summary` with `path/to/file::Symbol`, `Relevant Patterns & Domain Glossary`), `2. Requirements & Architecture` (`R1..RN`, public seams & adapters, scenarios, `Design It Twice` alternatives), `3. Requirement-to-Task Traceability Matrix`, `4. Implementation Plan` (phased checklist with `Phase Recovery Checkpoints`), `5. Continuity Snapshot`. |
+| **3. Task Worksheet (`Task`)** | `.agents/bundles/specs/<flow_id>/tasks/<id>-<slug>.md` | Authored by `/flow:plan`, refined by `/flow:revise`, executed by `/flow:implement` (`@executor`) | One stateless Goldfish executor turn and one atomic Git commit (vertical slice of production code + public-seam tests in canonical module test files anchored to `path/to/file::Symbol`). |
 
 ## Workflow
 
-1. **Ground in Bundle & Codebase**: Read `.agents/bundles/index.md`, applicable `knowledge/**` chapters, `.agents/skills/index.md`, and target source files. Dispatch `@researcher` subagents only for independent external or cross-subsystem unknowns, promoting findings to `research/<topic>_<YYYYMMDD>.md`.
-2. **Resolve Design Frontier (`structured-choice-v1`)**: Present unresolved architectural decisions one at a time with opinionated recommendations (`<Label> (Recommended)`).
-3. **Author Rich Spec & Disjoint Vertical-Slice Worksheets**: Write `spec.md` and `tasks/<id>-<slug>.md` under `.agents/bundles/specs/<flow_id>/`.
-4. **Dynamic, Zero-Context Focused Review & Finding Adjudication**:
-   - Dispatch zero-context reviewers (using Antigravity's `run_workflow` `parallel()` with `schema=FINDINGS_SCHEMA` and persistent multi-turn reviewer handles when available, or isolated `@code-reviewer` / `.agents/agents/<domain>-reviewer` subagents) passing **only disk paths** (`spec.md`, `tasks/*.md`, matching `.agents/skills/`, and `knowledge/` chapters)—never chat history.
-   - Adjudicate every finding explicitly: **`ADOPT`** valid findings by updating `spec.md` and `tasks/<id>-<slug>.md` in present tense, or **`CONTEST`** false positives by citing exact `path/to/file::Symbol` code or `false-positive-suppressions.md` rules.
-5. **Approval Gate**: Present the Adjudication Ledger and `Approve | Revise`. Upon approval, stamp `plan_commit = HEAD` across `spec.md` and all `tasks/*.md` and hand off to `/flow:implement`.
-
-## Verification Strategy Selection
-
-| Strategy | Change Class | Initial Evidence | Final Evidence |
-| --- | --- | --- | --- |
-| `behavior_tdd` | New observable behavior | Focused behavior test fails (Red) because behavior is absent. | Focused test and aggregate verification pass (Green). |
-| `regression_tdd` | Defect correction | Focused reproduction test fails (Red) with the reported symptom. | Regression and aggregate verification pass (Green). |
-| `characterization` | Behavior-preserving refactor or deletion | Existing focused behavior baseline passes before change. | Same behavior baseline passes unchanged after refactor. |
-| `static_validation` | Manifest, config, schema, or tooling | Native validator, linter, or typechecker runs. | Representative violation fails as expected; restored gates pass. |
-| `documentation_validation` | Links, examples, or OKF bundle docs | Documentation/link validator runs. | Markdown lint, link resolution, and OKF validation pass. |
-| `integration_acceptance` | Multi-component composition | Focused integration baseline runs. | End-to-end scenario and negative refusal paths pass. |
+1. **Ground in Bundle, Domain Glossary, & Codebase (`Facts First`)**:
+   - Read `.agents/bundles/index.md`, `knowledge/domains/**`, `knowledge/architecture/**`, `knowledge/patterns/**`, `.agents/skills/index.md`, and target source files.
+   - Never ask the user for facts discoverable in the repository. Dispatch `@researcher` subagents (`model: inherit`) for external SDK/API primary sources or multi-subsystem unknowns, or run a time-boxed throwaway prototype in `.agents/scratch/<slug>/` ([`../flow/references/research.md`](../flow/references/research.md)).
+2. **Walk the Design-Tree Frontier (`Grilling via structured-choice-v1`)**:
+   - Map unresolved product, seam, and trade-off choices as a design tree. Ask one `structured-choice-v1` decision at a time on the current prerequisite-settled frontier ([`../flow/references/interaction.md`](../flow/references/interaction.md)), citing `path/to/file::Symbol` and placing `<Label> (Recommended)` first.
+   - For non-trivial new interfaces, apply **Design It Twice**: compare at least two distinct interface shapes on **depth** (leverage hidden behind a small interface), **locality**, and **seam/adapter placement**, and confirm the public seams under test.
+3. **Author Self-Contained Spec & Vertical-Slice Worksheets (Zero-Decision Rule)**:
+   - Write `spec.md` and `tasks/<id>-<slug>.md` under `.agents/bundles/specs/<flow_id>/` leaving **zero architectural or design decisions** to the implementer.
+4. **Stateless Goldfish Verification & Elephant Adjudication (`ADOPT` / `CONTEST` / `ESCALATE`)**:
+   - Dispatch isolated Goldfish reviewers (via Antigravity's `run_workflow` `parallel()` with `schema=SPEC_REVIEW_SCHEMA` and persistent reviewer handles when available, or isolated `@code-reviewer` / `.agents/agents/<domain>-reviewer` subagents, or emit a copyable 5-backtick Goldfish prompt if requested for a separate window) passing **only disk paths**.
+   - Adjudicate every finding: **`ADOPT`** valid fixes in present tense, **`CONTEST`** false positives or YAGNI scope creep with `path/to/file::Symbol` or `FP-*` evidence, or **`ESCALATE`** genuine product trade-offs to the user.
+5. **Approval Gate (`Approve | Revise | Refine`)**:
+   - Present the Adjudication Ledger and `Approve | Revise | Refine`. Upon approval, stamp `plan_commit = HEAD` across `spec.md` and all `tasks/*.md` and hand off to `/flow:implement`.
 
 ## Guardrails
 
-- Planning modifies files exclusively under `.agents/bundles/specs/<flow_id>/` (plus `bundles/index.md`, `bundles/log.md`, and `bundles/research/`). Never edit application source code during planning.
-- Anchor all targets to `path/to/file::Symbol`; never rely on fragile line numbers.
-- Place all planned unit tests inside existing canonical module test files (never standalone `test_*remediation*.py` or `test_*audit*.py` files).
+- **No Production Code During Planning**: Modify files exclusively under `.agents/bundles/` (or untracked `.agents/scratch/<slug>/` during a throwaway prototype spike).
+- **Symbol-Anchored Targets & Canonical Tests**: Anchor all targets to `path/to/file::Symbol` (never fragile line numbers) and place all planned tests at confirmed public seams inside existing canonical module test files.
 
 ## Output
 
-Return the authored `spec.md` path, task worksheet summary table, Review Adjudication Ledger (`ADOPT` vs. `CONTEST`), and the `Approve | Revise` prompt.
+Return the authored `spec.md` path, task worksheet summary table, Goldfish Review Adjudication Ledger (`ADOPT` / `CONTEST` / `ESCALATE`), and the `Approve | Revise | Refine` gate.
 
 ## Validation
 
-Confirm `spec.md` and every `tasks/<id>-<slug>.md` carry valid OKF v0.2 frontmatter, `plan_revision` matches across `spec.md` and all tasks, every requirement maps to at least one task worksheet, and all target files are anchored to `path/to/file::Symbol`.
+Confirm `spec.md` and every `tasks/<id>-<slug>.md` carry valid OKF v0.2 frontmatter, `plan_revision` matches across `spec.md` and all tasks, alternatives are documented, every requirement maps to a task worksheet and public-seam test surface, and all targets use `path/to/file::Symbol`.

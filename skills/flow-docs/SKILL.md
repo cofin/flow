@@ -1,56 +1,65 @@
 ---
 name: flow-docs
-description: Use when writing or updating pull requests, commit messages, changelogs, user guides, tutorials, API reference documentation, docstrings, or READMEs.
+description: Use when writing or auditing technical documentation, READMEs, user guides, architecture docs, agent instructions (AGENTS.md, SKILL.md, OKF chapters), pull requests, commit messages, or changelogs.
 ---
 
-# Documentation, Guides, & Pull Request Writing (`flow-docs`)
+# Documentation, Prose, Agent Instructions, & Pull Requests (`flow-docs`)
 
-Write clear, direct documentation, user guides, API reference pages, changelogs, commit messages, and pull requests without AI slop, buzzwords, or leaked workflow ceremony.
+Write clear, accurate, zero-bloat technical documentation, user guides, agent instruction files (`AGENTS.md`, `SKILL.md`, OKF knowledge chapters), commit messages, changelogs, and pull requests.
 
-## Plain-Language & Anti-Slop Rules
+## Operational Modes (`/flow:docs [mode]`)
 
-- **Use plain, direct language.** State what a feature or change does in clear sentences. When documenting a rule or design choice, state the rule and a one-line `Reason:`.
-- **Never use count-prefixed buzzwords or AI metaphors.** Avoid artificial numbered labels ("3-Layer Sizing", "5-Tier Hierarchy", "4-Stage Pipeline", "7 guidelines") and inflated metaphors ("engineering lawbooks", "causal waterfall", "zero-tolerance", "canonical invariants"). Name components and sections by what they do so headings and filenames never break when items change.
-- **Never leak internal workflow or audit ceremony.** Keep PR descriptions, commit messages, changelogs, tests, and user docs free of:
-  - Finding counts, severity tallies, task or finding IDs (`ORA-001`, `test_task_1_2_*`), or internal review script names.
-  - Multi-PR stack navigation tables or agent workflow mechanics (`worksheet`, `checkpoint.phase`, subagent names).
-  - `## Verification` command logs, `## Merge Danger`, `**Door:**`, `**Blast Radius:**`, or ASCII file/call trees in PR bodies.
-- **Never leak private paths or internal identifiers.** Never include local workstation paths, `scratch/` directories, private corporate tool names or shortlinks, or customer engagement names/IDs in repository files, commits, or PRs.
-- **Keep tone calm and matter-of-fact.** Never use exclamation marks (`!`) or dismissive phrasing in PRs, code reviews, comments, or documentation.
+- `write` — Author or update READMEs, user guides, module documentation, or agent skills using manifest-driven source coverage (`[k/N files documented]`).
+- `validate` — Audit documentation and `.agents/bundles/` for Goldfish comprehension, primary-source `path/to/file::Symbol` accuracy, broken links, and prose sediment.
+- `capture` — Distill validated architectural and operational patterns from code and completed flows into `.agents/bundles/knowledge/` and user-facing `docs/`.
+- `sync` — Reconcile documentation claims and examples against live repository signatures and configuration.
+- `pr` — Draft or update pull request titles, `## Summary` + `## Key Changes` bodies, signed commits, and release changelogs.
 
-## Quick Reference
+## Core Writing & Anti-Bloat Rules
+
+- **Pass the Goldfish Comprehension Test.** Every document must be understandable on the first read by a fresh engineer or zero-context agent ("Goldfish") with zero prior session history. Lead with purpose, public interface, concrete examples, and invariants.
+- **Read source before writing (`[k/N files documented]`).** Enumerate the in-scope files first, read every file completely, and anchor claims to `path/to/file::Symbol`. Never guess behavior from filenames or function names.
+- **State rules plainly with a one-line `Reason:`.** Write direct, present-tense sentences. When documenting a constraint or design choice, state the rule followed by `Reason: <why>`.
+- **Eliminate AI slop, buzzwords, and chronological sediment.**
+  - Never use promotional adjectives (`seamless`, `robust`, `comprehensive`, `pivotal`, `delve`, `leverage`, `blazingly fast`), decorative adverbs (`seamlessly`, `effortlessly`, `obviously`), negative parallelisms (`"not just X, but Y"`), formulaic transitions (`"Moreover"`, `"Furthermore"`), or superficial participle tails (`"...ensuring reliability"`).
+  - Never use artificial count-prefixed labels (`"3-Layer Sizing"`, `"5-Tier Hierarchy"`, `"4-Stage Pipeline"`, `"7 guidelines"`) or inflated metaphors (`"engineering lawbooks"`, `"causal waterfall"`, `"zero-tolerance"`). Name components and headings semantically so counts never break when items change.
+  - Never leave chronological sediment (`"Added in v2"`, `"Previously we used X"`) inside current-state documentation or specs. History belongs in `CHANGELOG.md` and `.agents/bundles/log.md`.
+- **Never leak internal workflow ceremony or private paths.** Keep PRs, commits, changelogs, tests, and docs free of finding counts, task/finding IDs (`ORA-001`, `test_task_1_2_*`), workflow mechanics (`checkpoint.phase`, subagent names), `## Verification` command logs, `## Merge Danger` blocks, ASCII file/call trees, or local workstation paths.
+
+## Reference Guides
 
 | Area | Reference File | Key Topics |
 | --- | --- | --- |
-| Pull Requests, Commits, & Changelogs | [`references/prs-commits-and-changelogs.md`](references/prs-commits-and-changelogs.md) | `<type>(<scope>): <summary>` PR titles, `## Summary` + `## Key Changes` PR bodies, signed commits, changelog conventions, inline PR reviews, GitHub issues |
-| User Guides & API Reference Docs | [`references/guides-and-api-docs.md`](references/guides-and-api-docs.md) | Zensical Free (`zensical.toml`), `mkdocstrings-python` (Griffe), page budgets (`<= 12` viewports, `<= 120 KB` HTML), runnable `docs/examples/`, `TypedDict` / `msgspec.Struct` docstrings |
+| Technical Prose & Documentation | [`references/prose-and-documentation.md`](references/prose-and-documentation.md) | Goldfish comprehension standard, manifest-driven `docgen` workflow (`[k/N files documented]`), component scaling templates, guide structure, diagram rules, validation report |
+| Writing for Agents (`AGENTS.md`, `SKILL.md`, OKF) | [`references/writing-for-agents.md`](references/writing-for-agents.md) | Context load vs. cognitive load, 3-rung information hierarchy, context pointers, progressive disclosure by branch, co-location, completion criteria, leading words, positive framing, pruning caches/sediment/no-ops |
+| Pull Requests, Commits, & Changelogs | [`references/prs-commits-and-changelogs.md`](references/prs-commits-and-changelogs.md) | `<type>(<scope>): <summary>` titles, `## Summary` + `## Key Changes` PR bodies, signed commits, changelog conventions, inline PR reviews, GitHub issues |
 
 ## Workflow
 
-1. **Identify the Target Artifact**:
-   - **Pull Request, Commit, or Changelog**: Follow [`references/prs-commits-and-changelogs.md`](references/prs-commits-and-changelogs.md).
-   - **User Guide, Tutorial, README, or API Reference**: Follow [`references/guides-and-api-docs.md`](references/guides-and-api-docs.md).
-2. **Draft with Reader-First Structure**:
-   - For **PRs**: Write a `<type>(<scope>): <concise summary>` title, a 1–3 sentence `## Summary`, and `## Key Changes` grouped by module or area and change type.
-   - For **Guides**: Start with a runnable example from `docs/examples/` (`--8<--`), show expected output, walk through the key lines, and end with a 3-bullet recap.
-   - For **API Reference Pages**: Curate symbols under `2–5` `##` category headings with `inherited_members = false`, `show_bases = true`, and `<= 14` right-sidebar TOC items.
-3. **Run Anti-Slop & Hygiene Checks**:
-   - Strip any internal task IDs, workflow terminology, `## Verification` blocks, or inline `#` code comments.
-   - Verify that all code examples, links, and formatting checks (`make lint`) pass.
+1. **Select Target & Reference**:
+   - For **READMEs, user guides, module/API docs, or doc audits**, load [`references/prose-and-documentation.md`](references/prose-and-documentation.md).
+   - For **`AGENTS.md`, `SKILL.md`, subagents, or `.agents/bundles/knowledge/` chapters**, load [`references/writing-for-agents.md`](references/writing-for-agents.md).
+   - For **PRs, commits, changelogs, or code review comments**, load [`references/prs-commits-and-changelogs.md`](references/prs-commits-and-changelogs.md).
+2. **Build Manifest & Inspect Primary Sources**:
+   - List every file in scope (`[0/N files documented]`) and read each implementation file before drafting prose.
+3. **Draft to Match Target Length & Hierarchy**:
+   - Keep user guides focused on a single concept (`<= 200` lines), leading with a runnable example and expected output.
+   - Keep `SKILL.md` files `<= 200` lines (`< 24,000` bytes) and `<!-- truth: start -->` blocks `<= 40` lines, disclosing deep reference material into `references/*.md`.
+4. **Verify & Prune**:
+   - Strip puffery, chronological sediment, duplicate cache lines, and workflow ceremony, then verify all links and examples (`make lint`).
 
 ## Guardrails
 
-- **No `## Verification` or ASCII Trees in PRs**: Never include test execution logs, `## Verification` sections, `## Merge Danger` blocks, or ASCII diff sketches in pull request bodies.
-- **No Unverified Inline Code Snippets**: Prefer standalone runnable modules under `docs/examples/` tested by `pytest` (with zero inline `#` comments and no leaked test fixtures like `tmp_path` or `monkeypatch`).
-- **Conceptual Diagrams Only in `docs/`**: Keep Mermaid diagrams in user-facing `docs/` conceptual (`4–6` nodes focused on the user mental model). Place implementation-level architecture diagrams in `.agents/bundles/knowledge/`.
-- **Tabbed Package Installation Blocks**: In Python documentation (`docs/`), format installation commands with linked `pymdownx.tabbed` blocks (`=== "uv"`, `=== "pip"`, `=== "pdm"`, `=== "poetry"`).
+- **Conceptual Diagrams Only in `docs/`**: Keep Mermaid diagrams in user-facing `docs/` and `README.md` conceptual (`4–6` nodes focused on the user mental model). Place detailed module/implementation diagrams in `.agents/bundles/knowledge/architecture/`.
+- **Single Source of Truth**: Link to canonical rules rather than duplicating them across files.
+- **Calm, Matter-of-Fact Tone**: Never use exclamation marks (`!`) or dismissive language in documentation, PR bodies, or code reviews.
 
 ## Validation
 
-- Confirm PR titles match `<type>(<scope>): <concise summary>` and PR bodies contain only `## Summary` and `## Key Changes`.
-- Confirm every PR `#` or Issue `#` referenced in chat responses is formatted as a clickable Markdown link to its GitHub URL.
-- Confirm documentation pages respect reading budgets (`<= 200` Markdown lines for guides; `<= 120 KB` HTML and `<= 14` TOC items for API reference pages).
+- Confirm every manifest item is covered (`[N/N files documented]`) and every technical claim cites a verified source (`path/to/file::Symbol`).
+- Confirm PR bodies contain only `## Summary` and `## Key Changes` and every PR `#` or Issue `#` in chat is a clickable Markdown link.
+- Confirm all relative Markdown links resolve on disk and `make lint` exits `0`.
 
 ## Example
 
-Invoke `/flow:docs` (or activate `flow-docs`) when preparing a pull request in `/flow:finish`, updating `docs/` and `README.md` during `/flow:learn`, or building Zensical / `mkdocstrings` documentation.
+Invoke `/flow:docs write` to document a module with `[4/4 files documented]` coverage tracking, `/flow:docs validate` to audit `.agents/bundles/` and `docs/` for stale symbols or prose bloat, or `/flow:docs pr` when preparing a pull request in `/flow:finish`.

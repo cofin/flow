@@ -24,27 +24,28 @@ runtime_dependency: agent_file_tools_only
 
 ## Workflow
 
-1. **Zero-Context Correctness & Quality Review (`/flow:review`)**:
+1. **Zero-Context Two-Axis + Quality Review (`/flow:review`)**:
    - Compute the exact `base_commit..head_commit` range and changed file surface.
-   - Dispatch zero-context reviewers (using Antigravity's `run_workflow` `parallel()` with `schema=` and persistent multi-turn reviewer handles when available, or isolated `@code-reviewer`, `@quality-reviewer`, and matching `.agents/agents/<domain>-reviewer` subagents) passing only disk paths (`spec.md`, `tasks/*.md`, `.agents/skills/`, and `knowledge/` chapters).
-   - Adjudicate findings (`ADOPT` vs. `CONTEST` with evidence), remediate adopted findings in canonical files/tests, and re-verify with the reviewer.
+   - Dispatch stateless Goldfish reviewers (`run_workflow` `parallel()` with `schema=` and persistent reviewer handles when available, or isolated `@code-reviewer`, `@quality-reviewer`, and matching `.agents/agents/<domain>-reviewer` subagents) passing only disk paths (`spec.md`, `tasks/*.md`, `.agents/skills/`, and `knowledge/` chapters) under the **Zero-Memory Anti-Leakage Rules**.
+   - Evaluate **Axis 1 (Spec Conformance)**, **Axis 2 (Standards, Deep-Module Seams, & Fowler's 12 Baseline Code Smells)**, and **Axis 3 (Mandatory Quality & Debloat Review `quality-review-v1`)**.
+   - Adjudicate findings as the Elephant (`ADOPT` vs. `CONTEST` vs. `ESCALATE`), remediate adopted findings in canonical files/tests, and re-verify with the reviewer.
 2. **Finish Flow (`/flow:finish`)**:
-   - Run the repository's full verification gates (`knowledge/workflow.md`), verify all tasks in `spec.md` are `[x] [<sha>]`, record any new architectural decisions in `knowledge/decisions/adr-NNN-<slug>.md`, and mark `spec.md` `state: completed`.
+   - Verify branch-local completion eligibility (or scope-cap follow-up tasks as `deferred` `[-]`), run full verification gates (`knowledge/workflow.md`), confirm review gates passed, evaluate the **3-part ADR filter** (`knowledge/decisions/adr-NNN-<slug>.md`), mark `spec.md` `state: completed`, and present the 4 structured completion options (`Archive flow now`, `Archive and open/update PR`, `Merge locally and archive`, `Discard work`).
 3. **Archive & Contract Flow (`/flow:archive`)**:
-   - Invoke the `/flow:learn` contraction pass to promote durable architecture, patterns, domain rules, testing insights, and gotchas from `specs/<flow_id>/{spec.md,learnings.md,research/*,tasks/*}` into `.agents/bundles/knowledge/**` and `.agents/skills/**`.
-   - Record an `archive` entry in `.agents/bundles/log.md`, remove the completed `.agents/bundles/specs/<flow_id>/` directory, and update `.agents/bundles/index.md`.
+   - Execute the `/flow:learn` contraction pass across all 5 OKF knowledge dimensions and `.agents/skills/**` before deletion.
+   - Enforce strict write ordering: write `knowledge/**` + `.agents/skills/**` first, prepend the `archive` entry to `.agents/bundles/log.md` second, and delete `.agents/bundles/specs/<flow_id>/` last.
 4. **Cleanup, Revert, or Validate (`/flow:cleanup`, `/flow:revert`, `/flow:validate`)**:
-   - Run `debloat` across touched files (`/flow:cleanup`), revert designated task/flow commits safely (`/flow:revert`), or validate OKF bundle and skill integrity (`/flow:validate`).
+   - Run 4-phase groundskeeping and `debloat` across touched files (`/flow:cleanup`), revert designated task/phase/flow commits safely (`/flow:revert`), or run the 6-phase OKF bundle, skill, and spec validator (`/flow:validate`).
 
 ## Guardrails
 
-- Reviewers are strictly read-only and receive zero conversational planning history.
+- Reviewers are strictly read-only Goldfish agents and receive zero conversational history, rationale, or leading hints.
 - Never delete a completed spec directory during `/flow:archive` until its durable discoveries and patterns have been synthesized into `.agents/bundles/knowledge/**` and logged in `.agents/bundles/log.md`.
 - Preserve Git history and never create or mutate Git tags.
 
 ## Output
 
-Return the review adjudication summary (`ADOPT` vs. `CONTEST`), verification command exit codes, updated `spec.md` state or `.agents/bundles/knowledge/` contraction report, and next action.
+Return the review adjudication summary (`ADOPT` / `CONTEST` / `ESCALATE`), verification command exit codes, updated `spec.md` state or `.agents/bundles/knowledge/` contraction report, and next action.
 
 ## Validation
 

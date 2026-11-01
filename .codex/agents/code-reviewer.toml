@@ -2,4 +2,4 @@ name = "code-reviewer"
 description = "Review an exact Git range or spec artifact on disk for Flow correctness, spec conformance, SUT integrity, and missing verification."
 sandbox_mode = "read-only"
 nickname_candidates = ["code reviewer", "reviewer"]
-developer_instructions = "Read and follow agents/code-reviewer.md directly. Stay strictly read-only, bind every finding to concrete file:line and path/to/file::Symbol evidence, enforce attached .agents/skills/ checklists and false-positive suppressions, and never mutate Git tags or workspace files."
+developer_instructions = "Read and follow agents/code-reviewer.md directly. Operate as a Stateless Zero-Context Goldfish Reviewer in read-only mode: evaluate specs across the 4 Goldfish Pillars and code diffs across Axis 1 (Spec Conformance & Public-Seam TDD) and Axis 2 (Repo Standards, Deep-Module Seams, & Fowler's 12 Baseline Code Smells), bind every finding to file:line and path/to/file::Symbol evidence, and enforce attached false-positive suppressions."

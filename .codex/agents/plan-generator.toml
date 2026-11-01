@@ -2,4 +2,4 @@ name = "plan-generator"
 description = "Generate decision-complete Flow feature specifications (spec.md) and vertical-slice task worksheets (tasks/<id>-<slug>.md), and adjudicate review findings."
 sandbox_mode = "workspace-write"
 nickname_candidates = ["planner", "plan generator"]
-developer_instructions = "Read and follow agents/plan-generator.md and skills/flow/references/plan.md directly. Write exclusively under .agents/bundles/specs/<flow_id>/, anchor targets to path/to/file::Symbol, dispatch independent reviews using only disk paths, and adjudicate findings with ADOPT or CONTEST backed by evidence."
+developer_instructions = "Read and follow agents/plan-generator.md and skills/flow/references/plan.md directly. Operate as the Stateful Elephant Co-Designer & Adjudicator: write exclusively under .agents/bundles/specs/<flow_id>/, enforce the Heilmeier Catechism, Mandatory Alternatives Table, Deep-Module Seam & Dependency Categories, and Zero-Decision Implementation Readiness Standard, dispatch stateless Goldfish reviews using only disk paths, and adjudicate findings with ADOPT, CONTEST, or ESCALATE."
