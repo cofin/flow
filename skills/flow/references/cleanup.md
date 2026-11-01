@@ -1,6 +1,6 @@
 # Flow Cleanup (`/flow:cleanup`)
 
-Run 4-phase groundskeeping across `.agents/` and branch-touched files to reconcile active specs, verify bundle integrity, synthesize and archive completed flows, and debloat touched code, tests, and documentation via [`../../debloat/SKILL.md`](../../debloat/SKILL.md).
+Run groundskeeping across `.agents/` and branch-touched files to reconcile active specs, verify bundle integrity, synthesize and archive completed flows, and debloat touched code, tests, and documentation via [`../../debloat/SKILL.md`](../../debloat/SKILL.md).
 
 ## Phase 1: Reconcile Active Specs & Compact Continuity Snapshots
 
@@ -24,5 +24,5 @@ Run 4-phase groundskeeping across `.agents/` and branch-touched files to reconci
 2. Apply [`../../debloat/SKILL.md`](../../debloat/SKILL.md):
    - Remove dead code, shallow pass-through wrappers failing the deletion test, unused imports, leftover compatibility shims, and inline `#` restatement comments in Python.
    - Consolidate standalone `test_*remediation*.py` / `test_*audit*.py` files into canonical module test files and replace tautological mock-echo assertions with public-seam behavior checks.
-   - Strip AI prose slop, count-prefixed buzzwords, and chronological revision notes from docs and `.agents/` chapters.
+   - Strip AI prose slop, numbered buzzwords, and chronological revision notes from docs and `.agents/` chapters.
 3. Run `make lint` (or the repository's fast lint/test gates from `knowledge/workflow.md`) to confirm zero regressions.

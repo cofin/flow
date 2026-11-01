@@ -1,10 +1,10 @@
 # Technical Prose, User Guides, & Manifest-Driven Documentation
 
-Standards for authoring accurate, scannable READMEs, user guides, module documentation, and specifications that pass zero-context ("Goldfish") comprehension on the first read.
+Standards for authoring accurate, scannable READMEs, user guides, module documentation, and specifications that pass cold-reader comprehension on the first read.
 
-## 1. The Goldfish Comprehension Standard
+## Cold-Reader Comprehension Standard
 
-A document passes comprehension only if a competent engineer or fresh AI session with **zero prior conversational context** can read the file on disk and immediately understand:
+A document passes comprehension only if a competent engineer or isolated agent session with **zero prior conversational context** can read the file on disk and immediately understand:
 
 1. **Purpose**: What problem this system, module, or feature solves and why it exists.
 2. **Mental Model & Boundaries**: Where the public seam sits, how data flows across components, and what is explicitly out of scope.
@@ -13,7 +13,7 @@ A document passes comprehension only if a competent engineer or fresh AI session
 
 If understanding a section requires remembering an earlier chat turn or guessing unstated assumptions, rewrite the section until it is self-contained.
 
-## 2. Manifest-Driven Coverage Workflow (`docgen`)
+## Manifest-Driven Coverage Workflow (`[k/N files documented]`)
 
 When documenting a module, package, or subsystem, never guess from filenames or document only the "interesting" files:
 
@@ -37,7 +37,7 @@ When documenting a module, package, or subsystem, never guess from filenames or 
      - **Key Settings**: Each setting, its default, and the runtime behavior it controls.
 5. **Cross-Reference & Synthesize**: Map dependency direction across components, verify every `path/to/file::Symbol` reference on disk, and confirm `[N/N files documented]`.
 
-## 3. Progressive Guide & Tutorial Structure
+## Progressive Guide & Tutorial Structure
 
 Keep user-facing guides focused on **one concept per page** (`~80–200` Markdown lines) and structure each guide in four parts:
 
@@ -46,17 +46,17 @@ Keep user-facing guides focused on **one concept per page** (`~80–200` Markdow
 3. **Focused Walkthrough**: Explain the load-bearing lines and why they work in `3–5` short paragraphs. Never restate obvious language syntax (`// increments counter by 1`).
 4. **Next Steps / Related Links**: Close with `2–3` links to adjacent guides, architecture chapters, or reference pages.
 
-## 4. Plain-Language & Anti-Bloat Prose Rules
+## Plain-Language & Anti-Bloat Prose Rules
 
 | Rule | Bad (Bloated / Slop) | Good (Direct & Accurate) |
 | --- | --- | --- |
-| **State the mechanism directly** | *"This robust, seamless orchestrator leverages a 3-Layer Pipeline to effortlessly ensure reliability."* | *"The dispatcher validates task frontmatter, runs the declared test command, and records the commit SHA."* |
+| **State the mechanism directly** | *"This robust, seamless orchestrator leverages a multi-stage pipeline to effortlessly ensure reliability."* | *"The dispatcher validates task frontmatter, runs the declared test command, and records the commit SHA."* |
 | **Pair rules with a one-line `Reason:`** | *"You must never mock internal classes because it is bad practice."* | *"Test through the module's public interface without mocking internal collaborators. Reason: internal mocks break during behavior-preserving refactors."* |
-| **Semantic headings over numbered buzzwords** | *"## The 5-Tier Validation Hierarchy"* | *"## Validation Checks"* |
+| **Semantic headings over numbered buzzwords** | *"## The Multi-Tier Validation Hierarchy"* | *"## Validation Checks"* |
 | **Present-tense truth over chronological sediment** | *"In v0.24 we used `.beads/`, then in v0.25 we used journals, and now we use task frontmatter."* | *"Task state lives in `tasks/<id>-<slug>.md` YAML frontmatter and `spec.md` checklists."* |
 | **Positive framing over negation** | *"Don't put implementation diagrams in `docs/`, don't use more than 6 nodes, and don't include private helpers."* | *"Keep diagrams in `docs/` conceptual (`4–6` nodes showing the user mental model), and place detailed module diagrams in `.agents/bundles/knowledge/architecture/`."* |
 
-## 5. Diagrams & Code Examples
+## Diagrams & Code Examples
 
 - **Conceptual vs. Architectural Diagrams**:
   - In `README.md` and user-facing `docs/`, keep Mermaid diagrams high-level and conceptual (`4–6` nodes illustrating the user mental model without internal helper classes).
@@ -65,11 +65,11 @@ Keep user-facing guides focused on **one concept per page** (`~80–200` Markdow
 - **Verified Code Snippets**:
   - Every code block in documentation must be runnable and free of syntax errors, placeholder ellipses (`...`) that hide required setup, or leaked test harness fixtures.
 
-## 6. Documentation Validation (`/flow:docs validate`)
+## Documentation Validation (`/flow:docs validate`)
 
 When auditing repository documentation (`README.md`, `docs/**`, `.agents/bundles/**`, `.agents/skills/**`), verify:
 
 1. **Structural Completeness**: No `[TODO]`, `[TBD]`, or `[NEEDS CLARIFICATION]` placeholders remain.
 2. **Codebase Currency**: Every cited file path, CLI flag, make target, and `path/to/file::Symbol` exists in the current working tree.
 3. **Link Integrity**: Every relative Markdown link resolves to an existing file and heading on disk.
-4. **Prose Hygiene**: Zero AI puffery, count-prefixed buzzwords, chronological sediment, or leaked internal workflow ceremony.
+4. **Prose Hygiene**: Zero AI puffery, numbered buzzwords, chronological sediment, or leaked internal workflow ceremony.

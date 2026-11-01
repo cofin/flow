@@ -1,6 +1,6 @@
 # Flow Decision Interaction (`structured-choice-v1`)
 
-This document is the sole procedure authority for Flow's `structured-choice-v1` decision requests, Design-Tree Frontier interviewing ("Grilling"), native tool transport, sequential text fallback, and draft approval gates.
+This document is the sole procedure authority for Flow's `structured-choice-v1` decision requests, Design-Tree Frontier discovery, native tool transport, sequential text fallback, and draft approval gates.
 
 <!-- planning-contract: structured-choice-v1 -->
 ```yaml
@@ -26,7 +26,7 @@ draft_gate:
   after_quality: [approve, revise, refine]
 ```
 
-## 1. Design-Tree Frontier Discovery ("Grilling") & Request Rules
+## 1. Design-Tree Frontier Discovery & Request Rules
 
 1. **Separate Facts from Decisions**:
    - **Facts** (existing signatures, DI wiring, config keys, test fixtures, framework versions) belong to the agent's research duty. Read the repository or dispatch `@researcher` first—never ask the user a question that reading the codebase can answer.
@@ -65,8 +65,8 @@ Fallback reasons are recorded in canonical order when falling back to sequential
 
 At every specification or PRD draft checkpoint, use `single_select` and reorder choices so the contextually recommended action is first:
 
-- **Before deterministic gap scan and Goldfish review pass**: Offer `Revise | Refine` (`Approve` is omitted until quality gates pass).
-- **After deterministic gap scan and Goldfish review pass**: Offer `Approve (Recommended) | Revise | Refine`.
+- **Before deterministic gap scan and zero-context review pass**: Offer `Revise | Refine` (`Approve` is omitted until quality gates pass).
+- **After deterministic gap scan and zero-context review pass**: Offer `Approve (Recommended) | Revise | Refine`.
   - **`Approve`**: Stamps `plan_commit = HEAD` across `spec.md` and `tasks/*.md` and advances to `/flow:implement`.
-  - **`Revise`**: Collects `open(free_form_reason=revision_details)`, rewrites affected `spec.md` and `tasks/<id>-<slug>.md` sections in place in present tense ([`revise.md`](revise.md)), increments `plan_revision` once, re-runs Zero-Context Goldfish Review on the changed surface, and re-presents the gate.
+  - **`Revise`**: Collects `open(free_form_reason=revision_details)`, rewrites affected `spec.md` and `tasks/<id>-<slug>.md` sections in place in present tense ([`revise.md`](revise.md)), increments `plan_revision` once, re-runs Zero-Context Review on the changed surface, and re-presents the gate.
   - **`Refine`**: Steps through the next structured gap or task-granularity question via [`revise.md`](revise.md), updates and revalidates the worksheets, and re-presents the gate.

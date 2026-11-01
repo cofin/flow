@@ -6,7 +6,7 @@ It combines four operations into a single coherent workflow that can run **at an
 
 - **`refresh`**: Cross-machine (`git pull`) and cross-harness session reorientation.
 - **`sync` (`reconcile`)**: Projecting authoritative `tasks/*.md` state and Git commits into `spec.md` checklists and `## 5. Continuity Snapshot`.
-- **`resynthesize`**: Deep 5-dimension OKF v0.2 knowledge rewrite, active domain glossary sharpening, and `.agents/skills/` synchronization.
+- **`resynthesize`**: Deep OKF v0.2 knowledge rewrite across all namespaces, active domain glossary sharpening, and `.agents/skills/` synchronization.
 - **`docs`**: Synchronizing user-facing documentation (`README.md`, `docs/`) with current codebase truth via [`../../flow-docs/SKILL.md`](../../flow-docs/SKILL.md).
 
 ## Phase 1: Cross-Machine/Harness Reorientation & Drift Assessment
@@ -28,22 +28,22 @@ It combines four operations into a single coherent workflow that can run **at an
    - Compare `pyproject.toml`, `Cargo.toml`, `package.json`, `go.mod`, `Makefile`, and `.github/workflows/*.yml` against `.agents/bundles/product/{product,product-guidelines,tech-stack}.md` and `.agents/bundles/knowledge/workflow.md`.
    - Probe installed host binaries (`uv`, `python3`, `cargo`, `go`, `bun`, `pnpm`, `npm`, `make`, `just`) so `knowledge/workflow.md` only documents commands that execute cleanly.
 
-## Phase 2: Active Domain Modeling & 5-Dimension OKF v0.2 Knowledge Resynthesis
+## Phase 2: Active Domain Modeling & OKF v0.2 Knowledge Resynthesis
 
-1. **Synthesize Across All Five Knowledge Dimensions**:
-   - **1. Domain Model, Ubiquitous Glossary, & Invariants (`knowledge/domains/<domain>.md`)**:
+1. **Synthesize Across All Knowledge Namespaces**:
+   - **Domain Model, Ubiquitous Glossary, & Invariants (`knowledge/domains/<domain>.md`)**:
      - Challenge terms against live code: sharpen fuzzy or overloaded nouns so each domain concept has one unambiguous name across code, tests, and specs.
      - Document entity lifecycles, state transitions, and boundary edge cases.
-   - **2. Architecture & Deep Module Seams (`knowledge/architecture/<area>.md`)**:
+   - **Architecture & Deep Module Seams (`knowledge/architecture/<area>.md`)**:
      - Document deep modules (small public interfaces hiding substantial implementation), public seams, ports/adapters, dependency categories, and dataflow.
-   - **3. Idiomatic Code Patterns & Anti-Patterns (`knowledge/patterns/<topic>.md`)**:
+   - **Idiomatic Code Patterns & Anti-Patterns (`knowledge/patterns/<topic>.md`)**:
      - Document reusable patterns anchored to `path/to/file::Symbol`, paired with explicit anti-patterns and `Reason:` explanations.
-   - **4. Verification, Public-Seam TDD, & Testing Matrix (`knowledge/testing/<topic>.md` & `knowledge/workflow.md`)**:
+   - **Verification, Public-Seam TDD, & Testing Matrix (`knowledge/testing/<topic>.md` & `knowledge/workflow.md`)**:
      - Document canonical test file mappings, local-substitutable stand-ins vs. external boundary mocks, SUT integrity rules, and fast inner-loop commands.
-   - **5. Operational Gotchas & ADRs (`knowledge/gotchas/<area>.md` & `knowledge/decisions/adr-NNN-<slug>.md`)**:
+   - **Operational Gotchas & ADRs (`knowledge/gotchas/<area>.md` & `knowledge/decisions/adr-NNN-<slug>.md`)**:
      - Document non-obvious footguns and runtime traps.
-     - Apply the **3-Part ADR Filter**: create or update an ADR in `knowledge/decisions/adr-NNN-<slug>.md` only when a decision is (1) *hard to reverse*, (2) *surprising without context*, and (3) *a genuine trade-off* between viable alternatives.
-2. **Enforce `OKF v0.2` Structure & `writing-for-agents` Pruning**:
+     - Apply the **ADR Filter**: create or update an ADR in `knowledge/decisions/adr-NNN-<slug>.md` only when a decision is (1) *hard to reverse*, (2) *surprising without context*, and (3) *a genuine trade-off* between viable alternatives.
+2. **Enforce `OKF v0.2` Structure & Context Pruning ([`../../flow-docs/references/agent-context.md`](../../flow-docs/references/agent-context.md))**:
    - **Codebase Truth Only**: Delete claims whose files or symbols no longer exist.
    - **Single-Sentence Scope Test**: If a chapter requires more than one crisp sentence in `description:` or exceeds `~200` lines, split it into focused sub-chapters under a nested folder (`knowledge/<namespace>/<subsystem>/<topic>.md`). Never leave a flat catch-all `patterns.md`.
    - **Aggressive Pruning**: Rewrite drifted sections in place in present tense. Delete chronological sediment (`"added in flow X"`), duplicate cache lines that merely restate config files, AI puffery, and model-relative no-ops.

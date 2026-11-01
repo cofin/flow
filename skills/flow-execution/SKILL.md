@@ -1,10 +1,10 @@
 ---
 name: flow-execution
-description: "Use when executing Flow task worksheets in isolated Goldfish turns (/flow:implement) or reporting active flow and task status (/flow:status)."
+description: "Use when executing Flow task worksheets in isolated subagent turns (/flow:implement) or reporting active flow and task status (/flow:status)."
 disable-model-invocation: true
 ---
 
-# Flow Execution (Isolated Goldfish Executor & Public-Seam TDD)
+# Flow Execution (Isolated Task Executor & Public-Seam TDD)
 
 <!-- lifecycle-ownership: owner=flow-execution; operations=implement,status -->
 
@@ -17,7 +17,7 @@ Use for `implement` ([`../flow/references/implement.md`](../flow/references/impl
 contract: worksheet-execution-v1
 invariants:
   - worksheet-first
-  - five-check-preflight
+  - execution-preflight
   - public-seam-tdd-no-mocked-sut
   - fail-closed-no-production-mutation
   - atomic-task-commit
@@ -27,21 +27,21 @@ authority: skills/flow/references/implement.md
 
 ## Workflow
 
-1. **Status & Five-Check Preflight (`/flow:status` or `/flow:implement`)**:
+1. **Status & Execution Preflight (`/flow:status` or `/flow:implement`)**:
    - Read `.agents/bundles/specs/<flow_id>/spec.md` and `tasks/<id>-<slug>.md` directly ([`../flow/references/state.md`](../flow/references/state.md)).
-   - Run the five-check preflight (`dependencies_closed`, `worksheet_complete`, `verification_strategy_declared`, `plan_identity_matches`, `target_symbols_exist`).
+   - Run the execution preflight (`dependencies_closed`, `worksheet_complete`, `verification_strategy_declared`, `plan_identity_matches`, `target_symbols_exist`).
    - If any preflight check fails (such as `code_drift`, `missing_decision`, or `invalid_file_symbol_or_test_target`), stop before any production edit, record the evidence in `## Notes & Discoveries`, mark the task `state: blocked`, and route to `/flow:revise <flow_id>`.
    - Claim the ready task worksheet by setting `state: in_progress`, `claimed_by`, `claimed_at`, and `[ ]` &rarr; `[~]` in `spec.md`.
-2. **Isolated Goldfish Subagent or `run_workflow` Pipeline Execution**:
+2. **Isolated Subagent or `run_workflow` Pipeline Execution**:
    - Execute one vertical-slice task worksheet per `@executor` subagent turn (`model: inherit`). When executing multiple ready worksheets on Google Antigravity, prefer `run_workflow` `pipeline(worksheets, run_worksheet)` so each worksheet runs in a fresh isolated `@executor` context with `schema=TASK_RESULT_SCHEMA`.
 3. **Public-Seam Vertical-Slice TDD & Hypothesis-Driven Bug Diagnosis**:
    - Collect the declared `verification_strategy` initial evidence (`behavior_tdd` and `regression_tdd` require observing the failing test at the confirmed public seam first).
    - Implement the vertical slice through the real System Under Test (mocking only external boundaries; never mocking the SUT or internal collaborators, and never writing tautological assertions) and place all tests in canonical module test files.
-   - If a test or runtime failure is non-obvious, execute the 6-phase **Hypothesis-Driven Bug Diagnosis Loop** in [`../flow/references/discipline.md`](../flow/references/discipline.md) (tight red-capable feedback loop &rarr; reproduce & minimize &rarr; 3–5 ranked falsifiable hypotheses &rarr; `[DEBUG-<id>]` single-variable probe &rarr; public-seam regression test & fix &rarr; strip debug tags).
+   - If a test or runtime failure is non-obvious, execute the **Hypothesis-Driven Bug Diagnosis Loop** in [`../flow/references/discipline.md`](../flow/references/discipline.md) (tight red-capable feedback loop &rarr; reproduce & minimize &rarr; ranked falsifiable hypotheses &rarr; `[DEBUG-<id>]` single-variable probe &rarr; public-seam regression test & fix &rarr; strip debug tags).
 4. **Phase Checkpoints, Atomic Commit & Direct Markdown Close**:
    - Run the worksheet's verification and fast lint gates until exit code `0`.
    - Update the task worksheet (`state: completed`, `commit`, `last_verified_at`, `last_verified_commit`, `verification_evidence`, `## Notes & Discoveries`) and `spec.md` checklist (`- [x] [<sha>] <id> — ...`), and create one atomic signed local Git commit.
-   - At each **Phase N Recovery Checkpoint** in `spec.md`, run the phase's aggregate test/lint/debloat gate and update `last_verified_checkpoint` in `spec.md`.
+   - At each **Phase Recovery Checkpoint** in `spec.md`, run the phase's aggregate test/lint/debloat gate and update `last_verified_checkpoint` in `spec.md`.
 
 ## Guardrails
 

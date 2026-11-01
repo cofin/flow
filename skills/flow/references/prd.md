@@ -8,15 +8,15 @@ Use [`interaction.md`](interaction.md) (`structured-choice-v1`) for Design-Tree 
 ```yaml
 interaction_authority: skills/flow/references/interaction.md
 planning_loop:
-  phases: [research_closed, frontier_grilling, draft, gap_scan, zero_context_goldfish_review, adjudication, approved, revise, refine, blocked]
+  phases: [research_closed, frontier_discovery, draft, gap_scan, zero_context_review, adjudication, approved, revise, refine, blocked]
   gap_scan:
     reject: [deferred_research, unresolved_decisions, stub_body, overlapping_child_flows, missing_alternatives]
-    require: [heilmeier_clarity, locked_architectural_decisions, ordered_child_flow_roadmap, explicit_child_flow_boundaries]
+    require: [problem_framing, locked_architectural_decisions, ordered_child_flow_roadmap, explicit_child_flow_boundaries]
 ```
 
 ## Altitude Boundary: Master PRD vs. Feature Specification vs. Task Worksheet
 
-- **Master PRD (`/flow:prd <goal>`)**: Multi-flow initiative roadmap spanning `2–8` ordered child flows (chapters). Answers the Heilmeier questions in plain English, locks cross-cutting deep-module seams and alternatives, and seeds `state: draft` child flow charters (`specs/<child_id>/spec.md`). **Never creates code-level `tasks/*.md` worksheets inside the PRD bundle.**
+- **Master PRD (`/flow:prd <goal>`)**: Multi-flow initiative roadmap spanning `2–8` ordered child flows (chapters). Frames the problem and objectives in plain English, locks cross-cutting deep-module seams and alternatives, and seeds `state: draft` child flow charters (`specs/<child_id>/spec.md`). **Never creates code-level `tasks/*.md` worksheets inside the PRD bundle.**
 - **Feature Specification (`/flow:plan <child_flow_id>`)**: Expands a single child flow charter into a detailed specification and `1–8` atomic `tasks/<id>-<slug>.md` worksheets.
 
 ## Workflow
@@ -29,7 +29,7 @@ planning_loop:
    - Never create "research chapters" for investigation that must happen during PRD design.
    - If the initiative depends on external SDK/protocol primary sources or at least two independent subsystem unknowns, dispatch `@researcher` subagents (`model: inherit`, or via `run_workflow` `parallel()` when available) and promote validated findings into `.agents/bundles/specs/<prd_id>/research/<topic>_<YYYYMMDD>.md` ([`research.md`](research.md)).
 
-### Phase 2: Design-Tree Frontier Grilling (`structured-choice-v1`)
+### Phase 2: Design-Tree Frontier Discovery (`structured-choice-v1`)
 
 1. Map unresolved cross-cutting architectural choices, deep-module seams, and milestone boundaries as a **design tree**.
 2. Separate **facts** (resolved by reading code/docs in Phase 1) from **decisions** (product trade-offs, seam placement, migration strategy).
@@ -38,8 +38,8 @@ planning_loop:
 
 ### Phase 3: Author Master PRD (`specs/<prd_id>/spec.md`) & Seed Child Flow Charters
 
-1. Write `.agents/bundles/specs/<prd_id>/spec.md` (`type: Spec`, `flow_id: <prd_id>`, `state: planned`, `parent_prd: null`) answering the **Heilmeier Catechism** in plain, jargon-free English:
-   - `## 1. North Star Goal & Heilmeier Overview` (Objectives without jargon, Current State & Limits, What Is New & Why It Succeeds, Impact, Risks & Mitigations, Success Metrics)
+1. Write `.agents/bundles/specs/<prd_id>/spec.md` (`type: Spec`, `flow_id: <prd_id>`, `state: planned`, `parent_prd: null`) framing the initiative in plain, jargon-free English:
+   - `## 1. North Star Goal & Problem Framing` (Objectives without jargon, Current State & Limits, What Is New & Why It Succeeds, Impact, Risks & Mitigations, Success Metrics)
    - `## 2. Locked Architectural Seams & Alternatives Considered` (Cross-cutting deep-module interfaces, ports/adapters, and rejected alternatives with concrete reasons for rejection)
    - `## 3. Master Roadmap (Ordered Child Flows)` (table: `Chapter | Flow ID | Title | Key Deliverables | Public Seams | Dependencies | State`)
    - `## 4. Global Constraints (Applicable to All Child Flows)`
@@ -49,12 +49,12 @@ planning_loop:
 2. For each chapter in the Master Roadmap, create `.agents/bundles/specs/<child_flow_id>/spec.md` (`type: Spec`, `flow_id: <child_flow_id>`, `state: draft`, `parent_prd: <prd_id>`) containing its scoped charter, upstream dependencies, key deliverables, public seams, and acceptance boundary.
 3. Promote any adopted research from `.agents/bundles/research/` into the owning roadmap or child spec bundle (`specs/<id>/research/`).
 
-### Phase 4: Stateless Goldfish Review & Elephant Adjudication (`ADOPT` / `CONTEST` / `ESCALATE`)
+### Phase 4: Zero-Context Review & Finding Adjudication (`ADOPT` / `CONTEST` / `ESCALATE`)
 
-1. **Dispatch Zero-Context Goldfish Review**:
+1. **Dispatch Zero-Context Review**:
    - Pass **only disk paths** (`specs/<prd_id>/spec.md`, child `spec.md` paths, `.agents/skills/index.md`, and relevant `knowledge/` chapters)—never conversational history.
    - Use `run_workflow` `parallel()` with `schema=SPEC_REVIEW_SCHEMA` when available on Google Antigravity, or `@code-reviewer` (`model: inherit`).
-   - Evaluate across four Goldfish lenses: **Comprehension**, **Zoom-Out & Heilmeier Critic**, **Chapter Boundary & Dependency Readiness**, and **Prose Debloat**.
+   - Evaluate across four review lenses: **Cold-Reader Comprehension**, **Architectural & Problem Framing Review**, **Chapter Boundary & Dependency Readiness**, and **Prose Debloat**.
 2. **Adjudicate Every Finding**:
    - **`ADOPT`**: Rewrite the Master PRD or child charters in place in present tense, increment `plan_revision` once, and re-verify (up to 3 rounds).
    - **`CONTEST`**: Reject false positives or YAGNI scope creep by citing exact `path/to/file::Symbol` code, locked user decisions, or `false-positive-suppressions.md` rules.
@@ -62,5 +62,5 @@ planning_loop:
 
 ### Phase 5: Approval Gate (`Approve | Revise | Refine`) & Chapter 1 Handoff
 
-1. Present the Master PRD summary, Ordered Child Flows table, and Goldfish Review Adjudication Ledger, followed by the `Approve | Revise | Refine` gate ([`interaction.md`](interaction.md)).
+1. Present the Master PRD summary, Ordered Child Flows table, and Review Adjudication Ledger, followed by the `Approve | Revise | Refine` gate ([`interaction.md`](interaction.md)).
 2. Upon approval, stamp `plan_commit = HEAD` on `specs/<prd_id>/spec.md`, update `.agents/bundles/index.md` and `log.md`, and ask via a binary `structured-choice-v1` prompt whether to immediately plan Chapter 1 via `/flow:plan <first_child_flow_id>` (Recommended) or stop after PRD creation.

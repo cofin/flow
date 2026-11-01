@@ -84,14 +84,14 @@ def test_state_contract_and_lifecycle_references_stay_lean() -> None:
     assert state_bytes < 12000
 
 
-def test_flow_docs_is_tool_agnostic_and_elephant_goldfish_pillars_exist() -> None:
-    """Verify flow-docs is tool-agnostic and core Elephant/Goldfish & engineering disciplines are present."""
+def test_flow_docs_is_tool_agnostic_and_core_engineering_disciplines_exist() -> None:
+    """Verify flow-docs is tool-agnostic and core Flow disciplines avoid external source names."""
     docs_refs_dir = REPO_ROOT / "skills" / "flow-docs" / "references"
     found_docs_refs = {p.name for p in docs_refs_dir.glob("*.md")}
     assert found_docs_refs == {
+        "agent-context.md",
         "prose-and-documentation.md",
         "prs-commits-and-changelogs.md",
-        "writing-for-agents.md",
     }
 
     for doc_file in (REPO_ROOT / "skills" / "flow-docs").rglob("*.md"):
@@ -100,17 +100,41 @@ def test_flow_docs_is_tool_agnostic_and_elephant_goldfish_pillars_exist() -> Non
             assert forbidden_lockin not in lowered
 
     plan_text = (REPO_ROOT / "skills" / "flow" / "references" / "plan.md").read_text(encoding="utf-8")
-    assert "Heilmeier Summary" in plan_text
-    assert "Zero-Memory Anti-Leakage Rules" in plan_text
-    assert "Design It Twice" in plan_text
+    assert "Problem Statement & Objectives" in plan_text
+    assert "Zero-Context Isolation Rules" in plan_text
+    assert "Compare Interface Alternatives" in plan_text
 
     prd_text = (REPO_ROOT / "skills" / "flow" / "references" / "prd.md").read_text(encoding="utf-8")
-    assert "Heilmeier Catechism" in prd_text
+    assert "North Star Goal & Problem Framing" in prd_text
 
     implement_text = (REPO_ROOT / "skills" / "flow" / "references" / "implement.md").read_text(encoding="utf-8")
     assert "Public-Seam TDD" in implement_text
     assert "Hypothesis-Driven Bug Diagnosis Loop" in implement_text
 
     review_text = (REPO_ROOT / "skills" / "flow" / "references" / "review.md").read_text(encoding="utf-8")
-    assert "Fowler's 12 Baseline Code Smells" in review_text
+    assert "Baseline Structural Code Smells" in review_text
     assert "quality-review-v1" in review_text
+
+    forbidden_external_names = (
+        "elephant",
+        "goldfish",
+        "conductor",
+        "heilmeier",
+        "fowler",
+        "pocock",
+        "docgen",
+        "grilling",
+        "tracer-bullet",
+        "writing-for-agents",
+    )
+    for path in (
+        *REPO_ROOT.glob("skills/**/*.md"),
+        *REPO_ROOT.glob("agents/*.md"),
+        *REPO_ROOT.glob(".codex/agents/*.toml"),
+        *REPO_ROOT.glob("templates/**/*.md"),
+        REPO_ROOT / "AGENTS.md",
+        REPO_ROOT / "README.md",
+    ):
+        text_lower = path.read_text(encoding="utf-8").lower()
+        for term in forbidden_external_names:
+            assert term not in text_lower, f"{path.relative_to(REPO_ROOT)} contains external reference name {term!r}"

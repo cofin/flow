@@ -29,7 +29,7 @@ authority: skills/flow/references/revise.md
 1. Read `.agents/bundles/specs/<flow_id>/spec.md`, `tasks/*.md`, `learnings.md`, and relevant `.agents/bundles/knowledge/**` chapters.
 2. If triggered by a blocked task (`state: blocked`), inspect its `blocked_reason`, `unblock_condition`, and `## Notes & Discoveries`, and read the actual repository source files (`path/to/file::Symbol`) to verify the root cause.
 3. **Run the Zero-Decision Stateless Executor Test**:
-   - For every task worksheet, ask: *"If I handed this worksheet to a fresh Goldfish executor with zero chat history, could it implement and verify the change 100% correctly on the first attempt without making any independent design choice?"*
+   - For every task worksheet, ask: *"If I handed this worksheet to a fresh isolated executor with zero chat history, could it implement and verify the change 100% correctly on the first attempt without making any independent design choice?"*
    - Reject and refine any worksheet that has:
      - Deferred research or unverified external API behavior
      - Unresolved architectural or edge-case decisions
@@ -48,12 +48,12 @@ Worksheets and specifications are present-tense executable instructions, never h
 2. **Eliminate Revision Sediment**: Never leave struck-through old steps, `"Revision 1 vs. Revision 2"` comparison blocks, or multi-paragraph post-mortems in `spec.md` or `tasks/*.md`.
 3. **Single-Line Discovery Note**: Record at most one concise bullet (`- [YYYY-MM-DD HH:MM] revise: <root cause & updated target>`) under `## Notes & Discoveries` in the affected task worksheet, and keep `## 5. Continuity Snapshot` in `spec.md` capped at the 5 newest discoveries.
 
-### Phase 3: Increment `plan_revision`, Re-Run Goldfish Review & Re-Anchor `plan_commit`
+### Phase 3: Increment `plan_revision`, Re-Run Zero-Context Review & Re-Anchor `plan_commit`
 
 1. **Synchronize Revision & State**:
    - Increment `plan_revision` by `1` once for the revision pass and copy the new `plan_revision` to `spec.md` and every `tasks/<id>-<slug>.md`.
    - For any unblocked task, set `state: pending` (or `open`), clear `blocked_reason: null` and `unblock_condition: null`, and synchronize `spec.md` checklist markers (`[ ]`, `[~]`, `[x] [<sha>]`, `[!]`, `[-]`).
-2. **Stateless Goldfish Review on Changed Surface**:
+2. **Zero-Context Review on Changed Surface**:
    - Dispatch `@code-reviewer` (or `run_workflow` `parallel()` with `schema=SPEC_REVIEW_SCHEMA` when available on Google Antigravity) with **only disk paths** for the revised `spec.md` and modified `tasks/<id>-<slug>.md` files, and adjudicate findings (`ADOPT` / `CONTEST` / `ESCALATE`).
 3. **Re-Anchor `plan_commit` & Resume**:
    - Present the `Approve | Revise | Refine` gate ([`interaction.md`](interaction.md)). Once approved, stamp `plan_commit: <HEAD_SHA>` across `spec.md` and all `tasks/*.md`, log the revision in `.agents/bundles/log.md`, and hand off to `/flow:implement <flow_id>`.

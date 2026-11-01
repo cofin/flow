@@ -1,13 +1,13 @@
 # Flow Implement (`/flow:implement`)
 
-Execute approved task worksheets (`.agents/bundles/specs/<flow_id>/tasks/<id>-<slug>.md`) one vertical slice per isolated Goldfish subagent turn using the five-check preflight, public-seam verification strategy, atomic Git commits, and direct Markdown state synchronization.
+Execute approved task worksheets (`.agents/bundles/specs/<flow_id>/tasks/<id>-<slug>.md`) one vertical slice per isolated subagent turn using execution preflight checks, public-seam verification strategy, atomic Git commits, and direct Markdown state synchronization.
 
 <!-- flow-execution-policy: start -->
 ```yaml
 contract: worksheet-execution-v1
 invariants:
   - worksheet-first
-  - five-check-preflight
+  - execution-preflight
   - public-seam-tdd-no-mocked-sut
   - fail-closed-no-production-mutation
   - atomic-task-commit
@@ -35,14 +35,14 @@ mismatch_classes:
 /flow:implement [flow_id] [task_id]
 ```
 
-## Phase 1: Load Context, Select Ready Task, & Run Five-Check Preflight
+## Phase 1: Load Context, Select Ready Task, & Run Execution Preflight
 
 1. Read `.agents/bundles/specs/<flow_id>/spec.md`, `tasks/*.md`, `learnings.md` (if present), `.agents/bundles/knowledge/workflow.md`, and `.agents/skills/index.md`.
 2. **Resume or Select Next Ready Task**:
    - If a task has `state: in_progress`, inspect `git log -n 5 --oneline` and `git status --short -b` to see whether its commit already landed; if not, resume it.
    - Otherwise, select the first task with `state: pending` (or `open`) whose `depends_on` tasks are all `completed` (or `closed`), ordered by `(priority, created_at, id)`.
-3. **Five-Check Preflight & Fail-Closed Mismatch Routing**:
-   - Verify all five preflight conditions before any production edit:
+3. **Execution Preflight & Fail-Closed Mismatch Routing**:
+   - Verify all preflight conditions before any production edit:
      1. `dependencies_closed`: Every task in `depends_on` is `completed`/`closed` with a valid `commit` SHA.
      2. `worksheet_complete`: `## Objective`, `## Context`, `## Steps`, `## Verification`, and `## Acceptance Criteria` are populated without placeholders.
      3. `verification_strategy_declared`: `verification_strategy` matches the task's change class.
@@ -52,7 +52,7 @@ mismatch_classes:
      - Append the concrete evidence to `## Notes & Discoveries` in the task worksheet.
      - Set task `state: blocked`, `blocked_reason`, `unblock_condition`, and `next_step: "/flow:revise <flow_id>"`, update `spec.md` checklist to `[!]`, and hand off to `/flow:revise <flow_id>`.
 
-## Phase 2: Claim Task & Dispatch Isolated Goldfish `@executor`
+## Phase 2: Claim Task & Dispatch Isolated `@executor`
 
 1. Update the task worksheet frontmatter (`state: in_progress`, `claimed_by`, `claimed_at`, `state_revision: state_revision + 1`) and `spec.md` (`state: active`, `current_task: <id>`, checklist `- [~] <id> — ...`).
 2. **Isolated Subagent / `run_workflow` Pipeline Execution**:
@@ -79,7 +79,7 @@ mismatch_classes:
   - Never write tautological assertions that recompute the expected value using the same logic as the implementation; assert against an independent known literal or worked example from `spec.md`.
 - **Canonical Test Files Only**: Add or update tests inside existing canonical module test files (`tests/<module>/test_<unit>.py`). Never create standalone `test_*remediation*.py` or `test_*audit*.py` files.
 - **Inner-Loop Speed vs. Milestone Gates**: Run fast targeted tests and `make lint` during task execution; reserve the full test suite for **Phase Recovery Checkpoints** and `/flow:finish`.
-- **When Tests Fail**: Follow the 6-phase **Hypothesis-Driven Bug Diagnosis Loop** in [`discipline.md`](discipline.md). If 3 fixes fail in a row, stop, mark the task `blocked`, and route to `/flow:revise`.
+- **When Tests Fail**: Follow the **Hypothesis-Driven Bug Diagnosis Loop** in [`discipline.md`](discipline.md). If 3 fixes fail in a row, stop, mark the task `blocked`, and route to `/flow:revise`.
 
 ## Phase 4: Atomic Commit, Direct State Close & Phase Recovery Checkpoints
 
@@ -89,6 +89,6 @@ mismatch_classes:
 4. **Phase Recovery Checkpoint**:
    - When the last task of a phase in `spec.md` completes:
      1. Inspect the phase git diff and remove any temporary scaffolding, unused imports, or duplicate assertions (`debloat`).
-     2. Execute the phase's **Phase N Recovery Checkpoint** command (`make lint` + full phase/repository test suite) and confirm exit code `0`.
+     2. Execute the phase's **Phase Recovery Checkpoint** command (`make lint` + full phase/repository test suite) and confirm exit code `0`.
      3. Update `last_verified_checkpoint: <HEAD_SHA>` in `spec.md`.
 5. When all tasks in `spec.md` are `[x] [<sha>]`, hand off to `/flow:review <flow_id>` or `/flow:finish <flow_id>`.

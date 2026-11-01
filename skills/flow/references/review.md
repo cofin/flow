@@ -1,6 +1,6 @@
 # Flow Review (`/flow:review`)
 
-Run zero-context Goldfish reviews across a flow's exact Git range (`base_commit..head_commit`) along three axes—**Axis 1: Spec Conformance**, **Axis 2: Standards, Deep-Module Seams, & Code Smells**, and **Axis 3: Mandatory Quality & Debloat (`quality-review-v1`)**—then adjudicate every finding as the Elephant (`ADOPT`, `CONTEST`, or `ESCALATE`) and verify remediations.
+Run zero-context reviews across a flow's exact Git range (`base_commit..head_commit`) along three axes—**Spec Conformance**, **Repository Standards, Deep-Module Seams, & Baseline Structural Code Smells**, and **Mandatory Quality & Debloat (`quality-review-v1`)**—then adjudicate every finding (`ADOPT`, `CONTEST`, or `ESCALATE`) and verify remediations.
 
 <!-- quality-review-contract: start -->
 ```yaml
@@ -22,12 +22,12 @@ report:
 2. Determine `base_commit..head_commit` from the parent of the earliest completed task `commit` SHA to `HEAD` (or `$(git merge-base main HEAD)..HEAD`), and inspect `git diff --stat {base_commit}..{head_commit}`.
 3. Match the modified file paths against `.agents/skills/index.md` and `.agents/bundles/knowledge/index.md` to attach the relevant project-local `.agents/skills/<domain>/`, `.agents/skills/review-<domain>/` (`references/checklist.md` + `references/false-positive-suppressions.md`), and `knowledge/**` chapters.
 
-## Phase 2: Stateless Goldfish Review Dispatch (Zero-Memory Anti-Leakage Rules)
+## Phase 2: Zero-Context Review Dispatch (Zero-Context Isolation Rules)
 
-When dispatching reviewers, strictly enforce the **4 Zero-Memory Anti-Leakage Rules**:
+When dispatching reviewers, strictly enforce the **Zero-Context Isolation Rules**:
 
 1. **Disk-Only Inputs**: Pass only on-disk artifact paths (`spec.md`, `tasks/*.md`, `.agents/skills/`, `knowledge/` chapters) and the exact `base_commit..head_commit` range.
-2. **No Rationale Priming**: Never pass conversational history, design rationales, or explanations of *why* the code was written a certain way—if the code and docstrings are not self-explanatory to a Goldfish reviewer, that is a valid finding.
+2. **No Rationale Priming**: Never pass conversational history, design rationales, or explanations of *why* the code was written a certain way—if the code and docstrings are not self-explanatory to a cold reader, that is a valid finding.
 3. **No Leading Focus Hints**: Never instruct the reviewer to ignore areas or pre-excuse trade-offs.
 4. **No Pre-Digesting**: Never summarize the diff for the reviewer; let the reviewer inspect `git diff {base_commit}..{head_commit}` and repository files directly.
 
@@ -42,32 +42,32 @@ When dispatching reviewers, strictly enforce the **4 Zero-Memory Anti-Leakage Ru
 - **In All Other Harnesses**:
   - Dispatch `@code-reviewer` (plus any matching `.agents/agents/<domain>-reviewer`) and `@quality-reviewer` (`model: inherit`) with the same disk-only brief and `base_commit..head_commit` range.
 
-## Phase 3: The Three Review Axes
+## Phase 3: Review Axes
 
-### Axis 1: Spec Conformance (`@code-reviewer`)
+### Spec Conformance (`@code-reviewer`)
 
 - **Requirement Coverage**: Every Functional Requirement (`R1..RN`), Non-Functional Constraint, and Acceptance Scenario in `spec.md` is implemented and verified.
 - **Scope Discipline**: Flag unrequested feature creep, silent contract deviations, or drift between `tasks/<id>-<slug>.md` frontmatter (`state`, `commit`) and `spec.md` checklist markers.
 - **Security & Operational Safety**: Flag command injection, unsafe shell interpolation, leaked secrets, or unsafe Git/hook mutations.
 
-### Axis 2: Standards, Deep-Module Seams, & Fowler's 12 Baseline Code Smells (`@code-reviewer` + `<domain>-reviewer`)
+### Repository Standards, Deep-Module Seams, & Baseline Structural Code Smells (`@code-reviewer` + `<domain>-reviewer`)
 
-Documented repository standards (`AGENTS.md`, `product/tech-stack.md`, `knowledge/patterns/`, `.agents/skills/<domain>/`, and `.agents/skills/review-<domain>/references/checklist.md`) always take precedence; when an area is not covered by a repo-specific rule, evaluate **Deep-Module Design** and **Fowler's 12 Baseline Code Smells**:
+Documented repository standards (`AGENTS.md`, `product/tech-stack.md`, `knowledge/patterns/`, `.agents/skills/<domain>/`, and `.agents/skills/review-<domain>/references/checklist.md`) always take precedence; when an area is not covered by a repo-specific rule, evaluate **Deep-Module Design** and **Baseline Structural Code Smells**:
 
 1. **Deep-Module Seam & Dependency Category Audit**:
-   - Flag shallow pass-through modules, 1:1 interface wrappers with only one implementation (*"one adapter = hypothetical seam"*), or mock-heavy tests that violate the 4 dependency categories (`In-process`, `Local-substitutable`, `Remote-owned (Ports & Adapters)`, `True external boundary`).
-2. **Fowler's 12 Baseline Code Smells**:
-   - *Long Function*, *Large Class / Module*, *Long Parameter List*, *Divergent Change* (one module changed for multiple unrelated reasons), *Shotgun Surgery* (one logical change scattered across many modules), *Feature Envy* (a function more interested in another class's state than its own), *Data Clumps* (the same 3+ parameters passed together everywhere instead of a value object/`msgspec.Struct`), *Primitive Obsession*, *Repeated Switches / Conditionals*, *Loops Instead of Pipelines*, *Speculative Generality* (unused hooks/params added "just in case"), and *Message Chains* (deep `a.b().c().d()` law-of-Demeter chains).
+   - Flag shallow pass-through modules, 1:1 interface wrappers with only one implementation (*"one adapter = hypothetical seam"*), or mock-heavy tests that violate the dependency categories (`In-process`, `Local-substitutable`, `Remote-owned (Ports & Adapters)`, `External boundary`).
+2. **Baseline Structural Code Smells**:
+   - *Long Function*, *Large Class / Module*, *Long Parameter List*, *Divergent Change* (one module changed for multiple unrelated reasons), *Shotgun Surgery* (one logical change scattered across many modules), *Feature Envy* (a function more interested in another class's state than its own), *Data Clumps* (the same parameter group passed together everywhere instead of a value object/`msgspec.Struct`), *Primitive Obsession*, *Repeated Switches / Conditionals*, *Loops Instead of Pipelines*, *Speculative Generality* (unused hooks/params added "just in case"), and *Message Chains* (deep `a.b().c().d()` chains).
 3. **False-Positive Suppressions**:
    - Suppress every project-verified safe pattern listed in `.agents/skills/review-*/references/false-positive-suppressions.md` (`FP-<PREFIX>-NN`).
 
-### Axis 3: Mandatory Quality & Debloat Review (`@quality-reviewer` — `quality-review-v1`)
+### Mandatory Quality & Debloat Review (`@quality-reviewer` — `quality-review-v1`)
 
 - **Semantic Surface & Code Organization**: Flag dead code, pass-through wrappers failing the deletion test, standalone private `_...` module helpers that belong on their domain class, unnecessary function-scoped imports, inline `#` restatement comments in Python, and leftover compatibility shims.
 - **Test & Gate Strength**: Flag Implementation-Coupled tests, Tautological (mock-echo) tests, horizontal-slicing tests, and standalone `test_*remediation*.py` / `test_*audit*.py` files.
-- **Prose & Documentation Discipline**: Flag count-prefixed buzzwords, AI puffery, chronological sediment, and leaked internal ceremony in docs, specs, or comments.
+- **Prose & Documentation Discipline**: Flag numbered buzzwords, AI puffery, chronological sediment, and leaked internal ceremony in docs, specs, or comments.
 
-## Phase 4: Elephant Adjudication (`ADOPT` / `CONTEST` / `ESCALATE`) & Waiver Rules
+## Phase 4: Finding Adjudication (`ADOPT` / `CONTEST` / `ESCALATE`) & Waiver Rules
 
 Evaluate every finding against the actual repository code and `.agents/skills/review-*/references/false-positive-suppressions.md`:
 
@@ -82,5 +82,5 @@ Evaluate every finding against the actual repository code and `.agents/skills/re
 
 ## Phase 5: Present Adjudication Ledger & Handoff
 
-1. Present the **Review & Adjudication Report** (`Range`, `Axis 1–3 Findings`, `QualityReport`, and `Adjudication Ledger: Finding ID | Axis | Severity | Verdict (ADOPT/CONTEST/ESCALATE) | Evidence / Commit`).
+1. Present the **Review & Adjudication Report** (`Range`, `Review Findings`, `QualityReport`, and `Adjudication Ledger: Finding ID | Axis | Severity | Verdict (ADOPT/CONTEST/ESCALATE) | Evidence / Commit`).
 2. Append a concise review summary to `.agents/bundles/specs/<flow_id>/learnings.md` and hand off to `/flow:finish <flow_id>`.

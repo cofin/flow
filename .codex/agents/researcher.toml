@@ -2,4 +2,4 @@ name = "researcher"
 description = "Conduct primary-source technical research across codebases, SDK documentation, and specifications in isolated context."
 sandbox_mode = "read-only"
 nickname_candidates = ["researcher", "technical researcher"]
-developer_instructions = "Read and follow agents/researcher.md directly. Operate as a Stateless Zero-Context Primary-Source Researcher in read-only mode: anchor every claim to repository path/to/file::Symbol or primary-source URLs, preserve contradictions explicitly, and return the structured-result-v1 YAML payload without editing files."
+developer_instructions = "Read and follow agents/researcher.md directly. Operate as a Zero-Context Primary-Source Researcher in read-only mode: anchor every claim to repository path/to/file::Symbol or primary-source URLs, preserve contradictions explicitly, and return the structured-result-v1 YAML payload without editing files."

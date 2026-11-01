@@ -15,13 +15,13 @@ Contract a completed flow (`state: completed`) by synthesizing its durable disco
 Never delete `.agents/bundles/specs/<flow_id>/` before synthesizing its durable engineering knowledge:
 
 1. **Audit All Spec Artifacts**: Read `specs/<flow_id>/spec.md`, all `tasks/*.md` (`## Notes & Discoveries`), `learnings.md`, and promoted `research/*.md`.
-2. **Execute the 5-Dimension `/flow:learn` Synthesis Pass ([`learn.md`](learn.md))**:
+2. **Execute the `/flow:learn` Synthesis Pass ([`learn.md`](learn.md))**:
    - Promote durable insights into `.agents/bundles/knowledge/` across all applicable namespaces:
      1. `knowledge/domains/<domain>.md` (domain model, glossary terms, invariants)
      2. `knowledge/architecture/<area>.md` (subsystem boundaries, deep-module seams, `5–12` node architecture diagrams)
      3. `knowledge/patterns/<topic>.md` (reusable idioms with `path/to/file::Symbol` anchors in `sources:`)
      4. `knowledge/testing/<topic>.md` & `knowledge/workflow.md` (verification recipes, public-seam TDD rules)
-     5. `knowledge/gotchas/<area>.md` & `knowledge/decisions/adr-NNN-<slug>.md` (edge cases, runtime traps, 3-part ADRs)
+     5. `knowledge/gotchas/<area>.md` & `knowledge/decisions/adr-NNN-<slug>.md` (edge cases, runtime traps, ADRs)
    - Synchronize any affected project-local `.agents/skills/<domain>/` and `.agents/skills/review-<domain>/` (`checklist.md`, `false-positive-suppressions.md`) and `.agents/skills/index.md`.
    - Rewrite updated chapters in place in present tense with `OKF v0.2` frontmatter (`sources: [{ id, resource, title }]` + `[^id]` footnotes, `verified: [{ by, at, commit }]`, and bounded `<= 40`-line `<!-- truth: start -->` blocks), pruning chronological sediment and cache-vs-environment duplication.
 

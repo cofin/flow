@@ -60,13 +60,13 @@ Strip synthetic AI filler and context bloat from docs, specs, worksheets, `.agen
 
 - **No AI puffery**: Remove significance inflation (`pivotal`, `crucial`, `testament to`, `delve`, `tapestry`, `seamless`, `robust`, `comprehensive`, `leverage`, `unlock`, `foster`, `underscore`, `showcase`).
 - **No negative parallelisms or throat-clearing**: Replace `"It is not just X — it is Y"`, `"Not only... but also..."`, `"Moreover"`, `"Furthermore"`, and trailing participle clauses (`"...ensuring seamless integration"`) with direct active-voice statements.
-- **No count-prefixed buzzwords or artificial rule codes**: Never use fragile numbered labels (`3-Layer Sizing`, `7-Point Factor`, `4-Stage Pipeline`) or invented codes in prose, headings, or filenames.
+- **No numbered buzzwords or artificial rule codes**: Never use fragile numbered labels or invented rule codes in prose, headings, or filenames.
 - **Prune `.agents/` cache vs. environment & chronological sediment**: Never duplicate file trees, command matrices, or schema dumps in `.agents/` docs when a context pointer (`path/to/file::Symbol`) points to the live source of truth; rewrite living docs in present tense without revision logs.
 - **Comment and typing discipline**: In Python, never use inline `#` comments; move necessary rationale into module, class, or function docstrings and enforce PEP 585/604 built-in types (`list[str]`, `dict[str, Any]`, `X | None`).
 
 ## Low-signal test policy
 
-Reject and refactor the 3 test anti-patterns:
+Reject and refactor test anti-patterns:
 
 - **Implementation-Coupled Tests**: Tests that assert call counts/order on internal collaborators or break during behavior-preserving refactors.
 - **Tautological (Mock-Echo) Tests**: Tests that mock the System Under Test or internal collaborator and assert that the mock returned what it was configured to return.
