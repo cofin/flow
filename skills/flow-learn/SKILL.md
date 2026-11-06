@@ -14,25 +14,25 @@ Use for `/flow:learn [scope]` (and aliases `resynthesize`, `refresh`, `sync`, `d
 
 ## Workflow
 
-1. **Cross-Machine/Harness Reorientation & Drift Audit (`refresh` + `sync` + `true-up`)**:
-   - **Spec & Task Reconciliation (`sync` / `refresh`)**:
-     - Compare `tasks/*.md` frontmatter (`state`, `commit`, `claimed_by`) and `spec.md` checklist markers (`[ ]`, `[~]`, `[x] [<sha>]`, `[!]`, `[-]`) against live `git log` and working-tree state.
-     - Mark tasks whose commits landed on another machine/session `state: completed` with their verified Git `commit` SHA, release stale cross-harness `in_progress` claims when no active work matches the working tree, and synchronize `spec.md` checklists and `## 5. Continuity Snapshot`.
-     - Flag any open `tasks/<id>-<slug>.md` worksheets whose target `files:` or `path/to/file::Symbol` signatures drifted so `/flow:revise` can re-baseline them.
+1. **Cross-Machine/Harness Reorientation & Multi-Chapter Drift Audit (`refresh` + `sync` + `true-up`)**:
+   - **Spec, Chapter, & Task Reconciliation (`sync` / `refresh`)**:
+     - Compare `tasks/*.md` frontmatter (`state`, `commit`, `claimed_by`), `chapters/<ch_id>/spec.md` (`state`, `planning_status`, `last_reviewed_commit`), `chapters/index.md`, and root `specs/<flow_id>/spec.md` (`chapters:`, `current_chapter`, checklist markers, `## 6. Current State & Remaining Plan Snapshot`) against live `git log` and working-tree state.
+     - Mark tasks whose commits landed on another machine/session `state: completed` with their verified Git `commit` SHA, release stale cross-harness `in_progress` claims when no active work matches the working tree, and rewrite `chapters/index.md`, chapter `spec.md`, and root `spec.md` checklists and state snapshots in place in present tense.
+     - Flag any open `tasks/<id>-<slug>.md` or downstream chapters whose target `files:` or `path/to/file::Symbol` signatures drifted so `/flow:revise <flow_id> [chapter_id]` can re-baseline them.
    - **Source-to-Knowledge Drift (`sources[].resource` Intersection)**:
-     - Intersect modified or deleted files/symbols (`git status`, `git diff <last_verified_commit>..HEAD`) against every `.agents/bundles/knowledge/**/*.md` chapter's `sources[].resource` paths and `path/to/file::Symbol` anchors.
+     - Intersect modified or deleted files/symbols (`git status`, `git diff <last_verified_commit>..HEAD`) against every `.agents/bundles/knowledge/**/*.md` chapter's `sources[].resource` paths and `path/to/file::Symbol` anchors (sharding across `1` read-only subagent per domain on multi-domain repos; `type_name="self"` on Google Antigravity).
    - **Manifest & Toolchain Drift**:
      - Compare `pyproject.toml`, `Cargo.toml`, `package.json`, `go.mod`, `Makefile`, and CI workflows against `product/tech-stack.md`, `product/product.md`, and `knowledge/workflow.md`.
-2. **Active Domain Modeling & OKF v0.2 Knowledge Resynthesis (`.agents/bundles/knowledge/`)**:
-   - Harvest confirmed discoveries from `tasks/*.md` (`## Notes & Discoveries`), `learnings.md`, and promoted `research/*.md`.
-   - Sharpen `knowledge/domains/<domain>.md` (eliminating overloaded nouns and documenting entity invariants) and apply the **ADR Filter** (*hard to reverse + surprising without context + genuine trade-off*) for `knowledge/decisions/adr-NNN-<slug>.md`.
-   - Rewrite drifted chapters in place in present tense across `knowledge/{domains,architecture,patterns,testing,gotchas,decisions}/`, split chapters `> 200` lines or covering multiple seams, and prune chronological sediment, duplicate cache lines, and model-relative no-ops ([`../flow-docs/references/agent-context.md`](../flow-docs/references/agent-context.md)).
+2. **Subagent-Sharded OKF v0.2 Knowledge Resynthesis (`.agents/bundles/knowledge/`)**:
+   - Harvest confirmed discoveries across single-chapter and nested `chapters/<ch_id>/tasks/*.md` (`## Notes & Discoveries`) and promoted `research/*.md`.
+   - When resynthesizing `>= 2` domains, fan out **1 isolated synthesis subagent per domain** (`type_name="self"` on Google Antigravity) so each domain chapter receives thorough present-tense updates with `status: stable`, `<= 40`-line `<!-- truth: start -->` blocks, `sources:` + `[^id]:` footnotes, and zero standalone `---` body rules.
+   - Sharpen `knowledge/domains/<domain>.md` and apply the **ADR Filter** (*hard to reverse + surprising without context + genuine trade-off*) for `knowledge/decisions/adr-NNN-<slug>.md`, pruning chronological sediment and model-relative no-ops ([`../flow-docs/references/agent-context.md`](../flow-docs/references/agent-context.md)).
 3. **Dynamic Project-Local Skill, Subagent, & Documentation Synchronization (`.agents/skills/`, `.agents/agents/`, & `docs/`)**:
-   - Follow [`../multi-harness-plugins/SKILL.md`](../multi-harness-plugins/SKILL.md) to update `.agents/skills/<domain>/SKILL.md` (`<= 200` lines + `references/*.md`), `.agents/skills/review-<domain>/SKILL.md` (`references/checklist.md` + `references/false-positive-suppressions.md`), `.agents/skills/index.md`, paired subagents (`.agents/agents/<domain>-reviewer.md` and `<domain>-specialist.md`), and root `AGENTS.md`.
+   - Follow [`../multi-harness-plugins/SKILL.md`](../multi-harness-plugins/SKILL.md) to update `.agents/skills/<domain>/SKILL.md` (`<= 200` lines + `references/*.md`), `.agents/skills/review-<domain>/SKILL.md` (`references/checklist.md` + `references/false-positive-suppressions.md`), `.agents/skills/index.md`, paired subagents (`.agents/agents/<domain>-reviewer.md` and `<domain>-specialist.md` with `commandExecutionPolicy: sandbox`), and root `AGENTS.md`.
    - When updating user-facing guides, READMEs, or module docs, follow [`../flow-docs/SKILL.md`](../flow-docs/SKILL.md).
    - Remove any legacy `.agents/skills/flow-memory-keeper/` or copied global Flow skills.
-4. **Index Rebuild, `log.md` Audit Entry & True-Up Dashboard**:
-   - Rebuild `.agents/bundles/index.md` and `knowledge/index.md` (verifying all relative links resolve on disk), prepend a `synthesize` / `verify` entry to `.agents/bundles/log.md`, and report the **Project True-Up & Reorientation Dashboard**.
+4. **Frontmatter-Free Index Rebuild, `log.md` Audit Entry & True-Up Dashboard**:
+   - Rebuild root `.agents/bundles/index.md` (`okf_version: "0.2"`) and frontmatter-free subdirectory `index.md` files (`product/index.md`, `knowledge/index.md`, `knowledge/<ns>/index.md`, `specs/index.md`, `chapters/index.md`), prepend a `synthesize` / `verify` entry to `.agents/bundles/log.md`, and report the **Project True-Up & Reorientation Dashboard**.
 
 ## Guardrails
 

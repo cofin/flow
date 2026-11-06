@@ -84,6 +84,7 @@ if (Test-Path -LiteralPath $SetupStateFile -PathType Leaf) {
 }
 
 $ActiveSpecsList = New-Object System.Collections.Generic.List[string]
+$PendingSyncList = New-Object System.Collections.Generic.List[string]
 $SpecsDir = Join-Path $ProjectDir "$BundleRel/specs"
 if (Test-Path -LiteralPath $SpecsDir -PathType Container) {
     $SpecDirs = Get-ChildItem -LiteralPath $SpecsDir -Directory -ErrorAction SilentlyContinue | Sort-Object Name
@@ -91,10 +92,11 @@ if (Test-Path -LiteralPath $SpecsDir -PathType Container) {
         $SpecFile = Join-Path $dir.FullName "spec.md"
         if (Test-Path -LiteralPath $SpecFile -PathType Leaf) {
             try {
-                $Lines = Get-Content -LiteralPath $SpecFile -Encoding UTF8
+                $Lines = @(Get-Content -LiteralPath $SpecFile -Encoding UTF8)
                 if ($Lines.Count -gt 0 -and $Lines[0].Trim() -eq "---") {
                     $FlowId = ""
                     $State = ""
+                    $CurrentChapter = ""
                     $CurrentTask = ""
                     for ($idx = 1; $idx -lt $Lines.Count; $idx++) {
                         $line = $Lines[$idx]
@@ -102,15 +104,80 @@ if (Test-Path -LiteralPath $SpecsDir -PathType Container) {
                             break
                         }
                         if ($line -match '^flow_id:\s*(.+)$') {
-                            $FlowId = $Matches[1].Trim().Trim('"').Trim("'")
+                            $FlowId = ($Matches[1] -replace '\s+#.*$', '').Trim().Trim('"').Trim("'")
                         } elseif ($line -match '^state:\s*(.+)$') {
-                            $State = $Matches[1].Trim().Trim('"').Trim("'")
+                            $State = ($Matches[1] -replace '\s+#.*$', '').Trim().Trim('"').Trim("'")
+                        } elseif ($line -match '^current_chapter:\s*(.+)$') {
+                            $CurrentChapter = ($Matches[1] -replace '\s+#.*$', '').Trim().Trim('"').Trim("'")
                         } elseif ($line -match '^current_task:\s*(.+)$') {
-                            $CurrentTask = $Matches[1].Trim().Trim('"').Trim("'")
+                            $CurrentTask = ($Matches[1] -replace '\s+#.*$', '').Trim().Trim('"').Trim("'")
                         }
                     }
+                    if ([string]::IsNullOrEmpty($FlowId)) {
+                        $FlowId = $dir.Name
+                    }
+
+                    $ChaptersDir = Join-Path $dir.FullName "chapters"
+                    if (Test-Path -LiteralPath $ChaptersDir -PathType Container) {
+                        $ChDirs = @(Get-ChildItem -LiteralPath $ChaptersDir -Filter "ch*" -Directory -ErrorAction SilentlyContinue | Sort-Object Name)
+                        foreach ($chDir in $ChDirs) {
+                            $chSpec = Join-Path $chDir.FullName "spec.md"
+                            if (-not (Test-Path -LiteralPath $chSpec -PathType Leaf)) { continue }
+                            $chLines = @(Get-Content -LiteralPath $chSpec -Encoding UTF8)
+                            $chState = ""
+                            $chRev = ""
+                            if ($chLines.Count -gt 0 -and $chLines[0].Trim() -eq "---") {
+                                for ($ci = 1; $ci -lt $chLines.Count; $ci++) {
+                                    $cln = $chLines[$ci]
+                                    if ($cln.Trim() -eq "---") { break }
+                                    if ($cln -match '^state:\s*(.+)$') {
+                                        $chState = ($Matches[1] -replace '\s+#.*$', '').Trim().Trim('"').Trim("'")
+                                    } elseif ($cln -match '^last_reviewed_commit:\s*(.+)$') {
+                                        $chRev = ($Matches[1] -replace '\s+#.*$', '').Trim().Trim('"').Trim("'")
+                                    }
+                                }
+                            }
+                            if (([string]::IsNullOrEmpty($CurrentChapter) -or $CurrentChapter -eq "null") -and ($chState -notin @("completed", "deferred", "skipped"))) {
+                                $CurrentChapter = $chDir.Name
+                            }
+                            $chTasksDir = Join-Path $chDir.FullName "tasks"
+                            if (Test-Path -LiteralPath $chTasksDir -PathType Container) {
+                                $tTot = 0
+                                $tDone = 0
+                                $tFiles = @(Get-ChildItem -LiteralPath $chTasksDir -Filter "*.md" -File -ErrorAction SilentlyContinue | Sort-Object Name)
+                                foreach ($tf in $tFiles) {
+                                    if ($tf.Name -eq "index.md") { continue }
+                                    $tTot++
+                                    $tLines = @(Get-Content -LiteralPath $tf.FullName -Encoding UTF8)
+                                    $tSt = ""
+                                    if ($tLines.Count -gt 0 -and $tLines[0].Trim() -eq "---") {
+                                        for ($ti = 1; $ti -lt $tLines.Count; $ti++) {
+                                            $tln = $tLines[$ti]
+                                            if ($tln.Trim() -eq "---") { break }
+                                            if ($tln -match '^state:\s*(.+)$') {
+                                                $tSt = ($Matches[1] -replace '\s+#.*$', '').Trim().Trim('"').Trim("'")
+                                                break
+                                            }
+                                        }
+                                    }
+                                    if ($tSt -in @("completed", "closed", "deferred", "skipped")) { $tDone++ }
+                                }
+                                if (($tTot -gt 0 -and $tDone -eq $tTot -and ($chState -notin @("completed", "deferred", "skipped"))) -or
+                                    ($chState -eq "completed" -and ([string]::IsNullOrEmpty($chRev) -or $chRev -eq "null"))) {
+                                    $PendingSyncList.Add("$FlowId/$($chDir.Name)")
+                                }
+                            }
+                        }
+                    }
+
                     if (-not [string]::IsNullOrEmpty($FlowId) -and $State -ne "completed" -and $State -ne "archived") {
-                        if (-not [string]::IsNullOrEmpty($CurrentTask) -and $CurrentTask -ne "null") {
+                        $HasCh = (-not [string]::IsNullOrEmpty($CurrentChapter)) -and ($CurrentChapter -ne "null")
+                        $HasTk = (-not [string]::IsNullOrEmpty($CurrentTask)) -and ($CurrentTask -ne "null")
+                        if ($HasCh -and $HasTk) {
+                            $ActiveSpecsList.Add("$FlowId($State, chapter=$CurrentChapter, task=$CurrentTask)")
+                        } elseif ($HasCh) {
+                            $ActiveSpecsList.Add("$FlowId($State, chapter=$CurrentChapter)")
+                        } elseif ($HasTk) {
                             $ActiveSpecsList.Add("$FlowId($State, task=$CurrentTask)")
                         } else {
                             $ActiveSpecsList.Add("$FlowId($State)")
@@ -125,6 +192,7 @@ if (Test-Path -LiteralPath $SpecsDir -PathType Container) {
 }
 
 $ActiveSpecs = $ActiveSpecsList -join ", "
+$PendingSync = $PendingSyncList -join ", "
 $BaseMsg = "Flow Spec-Driven Development is active. Resolve the bundle root from .agents/setup-state.json (default .agents/bundles/), read its index.md and applicable nested knowledge chapters, and follow skills/flow/references/state.md for direct Markdown + Git continuity."
 $AgentsDir = Join-Path $ProjectDir ".agents"
 if (Test-Path -LiteralPath $AgentsDir -PathType Container) {
@@ -135,6 +203,9 @@ if (Test-Path -LiteralPath $AgentsDir -PathType Container) {
     }
     if (-not [string]::IsNullOrEmpty($ActiveSpecs)) {
         $BaseMsg = "$BaseMsg Active specs: $ActiveSpecs."
+    }
+    if (-not [string]::IsNullOrEmpty($PendingSync)) {
+        $BaseMsg = "$BaseMsg Pending chapter review/Markdown sync: $PendingSync."
     }
 }
 

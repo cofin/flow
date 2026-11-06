@@ -96,12 +96,16 @@ When diagnosing a hard bug, test failure, or performance regression, execute the
   - **`CONTEST`**: False positive, misread of existing code, or YAGNI scope creep — refute by citing the exact `path/to/file::Symbol` or `FP-*` suppression rule.
   - **`ESCALATE`**: Genuine product/architectural trade-off — present a `structured-choice-v1` decision to the user.
 
-## 4. Subagent & Python `run_workflow` Orchestration
+## 4. Thin Coordinator, Horizontal Subagent Scaling, & Present-Tense Sync
 
-- **Always Inherit Model**: Default all subagent dispatches (`invoke_subagent`, `run_workflow` `agent(...)`, or host subagent tools) to `model: inherit` unless the user explicitly asks for another model.
-- **Prefer `run_workflow` When Available (Google Antigravity)**:
-  - Use `phase(name)` and `log(msg)` to surface stage progress.
-  - Use `parallel(items, fn)` with `agent(prompt, schema=..., role=..., type_name=..., model="inherit")` for concurrent zero-context review fan-out and parallel `@researcher` subsystem audits, enforcing strict JSON Schema validation on subagent responses.
-  - Reuse persistent multi-turn subagent handles (`reviewer = agent(...); await reviewer(...)`) across review rounds so reviewers verify `ADOPT` fixes in their existing isolated context.
-  - Use `pipeline(worksheets, fn)` for sequential multi-worksheet execution in isolated `@executor` turns.
-- **Zero-Context Isolation**: Pass **only disk paths** (`spec.md`, `tasks/*.md`, `.agents/skills/`, and `knowledge/` chapters) and exact `base_commit..head_commit` ranges to reviewers—never pass conversational planning transcripts.
+- **Thin Coordinator Budget (`< 25k` Exploration Tokens) & Anti-Truncation**:
+  - Keep the top-level coordinator focused on user co-design, locking cross-chapter contracts in root `specs/<flow_id>/spec.md` + `chapters/index.md`, orchestrating subagents, and enforcing chapter boundaries so sessions never run for hours or compact repeatedly.
+  - Scale detail **horizontally across isolated subagents**, never by truncating scope or compressing distinct behaviors into vague tasks: decompose larger initiatives into as many bounded chapters (`ch01..chNN`, `1–4` tasks per chapter, `<= 250` net lines and `read_set <= 6` files per task) as required—including dedicated OKF knowledge and user-documentation tasks/chapters—authored upfront in parallel Chapter Planner subagents.
+- **Present-Tense Living Markdown Sync (Zero History Inside Docs)**:
+  - Whenever a chapter completes (`/flow:implement`) or a plan changes (`/flow:revise`), rewrite `chapters/<ch_id>/spec.md`, `chapters/index.md`, root `specs/<flow_id>/spec.md` (`## 6. Current State & Remaining Plan Snapshot`), `.agents/bundles/knowledge/**`, and `docs/**` **in place in present tense** *before* chapter code review so reviewers verify both code and Markdown fidelity.
+  - Living Markdown states only current verified reality, remaining chapters/tasks, and the full plan; chronological history belongs exclusively in `.agents/bundles/log.md` and signed Git commits.
+- **Always Inherit Model & Full-Capability Subagent Dispatch**:
+  - Default all subagent dispatches (`invoke_subagent`, `run_workflow` `agent(...)`, or host subagent tools) to `model: inherit` unless the user explicitly asks for another model.
+  - **Google Antigravity (`run_workflow` & `invoke_subagent`)**: Always dispatch subagents with `type_name="self"` (`TypeName="self"`, `model="inherit"`), passing the on-disk `agents/<role>.md` (or `.agents/agents/<domain>-*.md`) contract path in the brief so subagents inherit full file read/write, shell, code search, and MCP capabilities. After read-only scout or review phases (`researcher`, `code-reviewer`, `quality-reviewer`), assert `git status --porcelain` matches the pre-dispatch working tree.
+  - Use `phase(name)` and `log(msg)` to surface stage progress, `parallel(items, fn)` for sharded `SubsystemDigest` scouts, upfront parallel Chapter Planner authoring, per-chapter zero-context reviews (reusing persistent multi-turn handles `reviewer = agent(...); await reviewer(...)` across adjudication rounds), and sharded OKF/documentation synthesis, and `pipeline(worksheets, fn)` for sequential single-chapter task execution (`<= 4` tasks per chapter, then hard stop).
+- **Zero-Context Isolation**: Pass **only disk paths** (`spec.md`, `chapters/`, `tasks/*.md`, `.agents/skills/`, `knowledge/` chapters, and `docs/`) and exact `base_commit..head_commit` ranges to reviewers—never pass conversational planning transcripts.

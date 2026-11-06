@@ -112,31 +112,103 @@ if [ -f "$PROJECT_DIR/.agents/setup-state.json" ]; then
 fi
 
 ACTIVE_SPECS=""
+PENDING_SYNC=""
 if [ -d "$PROJECT_DIR/$BUNDLE_REL/specs" ]; then
   for spec_file in "$PROJECT_DIR/$BUNDLE_REL/specs"/*/spec.md; do
     if [ -f "$spec_file" ]; then
-      SPEC_INFO="$(awk '
+      flow_dir="$(dirname "$spec_file")"
+      flow_dir_name="$(basename "$flow_dir")"
+      SPEC_META="$(awk '
         NR == 1 && /^---[[:space:]]*$/ { in_fm = 1; next }
         in_fm && /^---[[:space:]]*$/ { exit }
         in_fm && /^flow_id:[[:space:]]*/ {
-          val = $0; sub(/^flow_id:[[:space:]]*/, "", val); gsub(/^["'\'']|["'\'']$/, "", val); flow_id = val
+          val = $0; sub(/^flow_id:[[:space:]]*/, "", val); gsub(/^["'\'']|["'\'']$/, "", val); gsub(/[[:space:]]+$/, "", val); flow_id = val
         }
         in_fm && /^state:[[:space:]]*/ {
-          val = $0; sub(/^state:[[:space:]]*/, "", val); gsub(/^["'\'']|["'\'']$/, "", val); state = val
+          val = $0; sub(/^state:[[:space:]]*/, "", val); sub(/[[:space:]]+#.*$/, "", val); gsub(/^["'\'']|["'\'']$/, "", val); gsub(/[[:space:]]+$/, "", val); state = val
+        }
+        in_fm && /^current_chapter:[[:space:]]*/ {
+          val = $0; sub(/^current_chapter:[[:space:]]*/, "", val); sub(/[[:space:]]+#.*$/, "", val); gsub(/^["'\'']|["'\'']$/, "", val); gsub(/[[:space:]]+$/, "", val); chapter = val
         }
         in_fm && /^current_task:[[:space:]]*/ {
-          val = $0; sub(/^current_task:[[:space:]]*/, "", val); gsub(/^["'\'']|["'\'']$/, "", val); task = val
+          val = $0; sub(/^current_task:[[:space:]]*/, "", val); sub(/[[:space:]]+#.*$/, "", val); gsub(/^["'\'']|["'\'']$/, "", val); gsub(/[[:space:]]+$/, "", val); task = val
         }
-        END {
-          if (flow_id != "" && state != "completed" && state != "archived") {
-            if (task != "" && task != "null") {
-              printf "%s(%s, task=%s)", flow_id, state, task
-            } else {
-              printf "%s(%s)", flow_id, state
-            }
-          }
-        }
+        END { printf "%s|%s|%s|%s\n", flow_id, state, chapter, task }
       ' "$spec_file")"
+
+      s_fid="${SPEC_META%%|*}"; s_rest1="${SPEC_META#*|}"
+      s_state="${s_rest1%%|*}"; s_rest2="${s_rest1#*|}"
+      s_ch="${s_rest2%%|*}"; s_task="${s_rest2#*|}"
+      [ -z "$s_fid" ] && s_fid="$flow_dir_name"
+
+      if [ -d "$flow_dir/chapters" ]; then
+        for ch_dir in "$flow_dir/chapters"/ch*; do
+          [ -d "$ch_dir" ] || continue
+          ch_spec="$ch_dir/spec.md"
+          [ -f "$ch_spec" ] || continue
+          ch_id="$(basename "$ch_dir")"
+          CH_META="$(awk '
+            NR == 1 && /^---[[:space:]]*$/ { in_fm = 1; next }
+            in_fm && /^---[[:space:]]*$/ { exit }
+            in_fm && /^state:[[:space:]]*/ {
+              val = $0; sub(/^state:[[:space:]]*/, "", val); sub(/[[:space:]]+#.*$/, "", val); gsub(/^["'\'']|["'\'']$/, "", val); gsub(/[[:space:]]+$/, "", val); st = val
+            }
+            in_fm && /^last_reviewed_commit:[[:space:]]*/ {
+              val = $0; sub(/^last_reviewed_commit:[[:space:]]*/, "", val); sub(/[[:space:]]+#.*$/, "", val); gsub(/^["'\'']|["'\'']$/, "", val); gsub(/[[:space:]]+$/, "", val); lrc = val
+            }
+            END { printf "%s|%s\n", st, lrc }
+          ' "$ch_spec")"
+          c_st="${CH_META%%|*}"
+          c_lrc="${CH_META#*|}"
+          if { [ -z "$s_ch" ] || [ "$s_ch" = "null" ]; } && [ "$c_st" != "completed" ] && [ "$c_st" != "deferred" ] && [ "$c_st" != "skipped" ]; then
+            s_ch="$ch_id"
+          fi
+          if [ -d "$ch_dir/tasks" ]; then
+            t_tot=0
+            t_done=0
+            for tf in "$ch_dir/tasks"/*.md; do
+              [ -f "$tf" ] || continue
+              [ "$(basename "$tf")" = "index.md" ] && continue
+              t_tot=$((t_tot + 1))
+              tst="$(awk '
+                NR == 1 && /^---[[:space:]]*$/ { in_fm = 1; next }
+                in_fm && /^---[[:space:]]*$/ { exit }
+                in_fm && /^state:[[:space:]]*/ {
+                  val = $0; sub(/^state:[[:space:]]*/, "", val); sub(/[[:space:]]+#.*$/, "", val); gsub(/^["'\'']|["'\'']$/, "", val); gsub(/[[:space:]]+$/, "", val); print val; exit
+                }
+              ' "$tf")"
+              case "$tst" in
+                completed|closed|deferred|skipped) t_done=$((t_done + 1)) ;;
+              esac
+            done
+            if { [ "$t_tot" -gt 0 ] && [ "$t_done" -eq "$t_tot" ] && [ "$c_st" != "completed" ] && [ "$c_st" != "deferred" ] && [ "$c_st" != "skipped" ]; } || { [ "$c_st" = "completed" ] && { [ -z "$c_lrc" ] || [ "$c_lrc" = "null" ]; }; }; then
+              if [ -n "$PENDING_SYNC" ]; then
+                PENDING_SYNC="$PENDING_SYNC, $s_fid/$ch_id"
+              else
+                PENDING_SYNC="$s_fid/$ch_id"
+              fi
+            fi
+          fi
+        done
+      fi
+
+      SPEC_INFO=""
+      if [ -n "$s_fid" ] && [ "$s_state" != "completed" ] && [ "$s_state" != "archived" ]; then
+        has_ch=0
+        has_tk=0
+        [ -n "$s_ch" ] && [ "$s_ch" != "null" ] && has_ch=1
+        [ -n "$s_task" ] && [ "$s_task" != "null" ] && has_tk=1
+        if [ "$has_ch" = "1" ] && [ "$has_tk" = "1" ]; then
+          SPEC_INFO="${s_fid}(${s_state}, chapter=${s_ch}, task=${s_task})"
+        elif [ "$has_ch" = "1" ]; then
+          SPEC_INFO="${s_fid}(${s_state}, chapter=${s_ch})"
+        elif [ "$has_tk" = "1" ]; then
+          SPEC_INFO="${s_fid}(${s_state}, task=${s_task})"
+        else
+          SPEC_INFO="${s_fid}(${s_state})"
+        fi
+      fi
+
       if [ -n "$SPEC_INFO" ]; then
         if [ -n "$ACTIVE_SPECS" ]; then
           ACTIVE_SPECS="$ACTIVE_SPECS, $SPEC_INFO"
@@ -156,6 +228,9 @@ if [ -d "$PROJECT_DIR/.agents" ]; then
   fi
   if [ -n "$ACTIVE_SPECS" ]; then
     BASE_MSG="$BASE_MSG Active specs: $ACTIVE_SPECS."
+  fi
+  if [ -n "$PENDING_SYNC" ]; then
+    BASE_MSG="$BASE_MSG Pending chapter review/Markdown sync: $PENDING_SYNC."
   fi
 fi
 

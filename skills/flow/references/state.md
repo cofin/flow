@@ -1,21 +1,27 @@
 # Flow Direct Markdown & Git State Contract
 
-Task worksheets (`.agents/bundles/specs/<flow_id>/tasks/<id>-<slug>.md`) and specifications (`.agents/bundles/specs/<flow_id>/spec.md`) are the sole authority for Flow state and continuity. Agents read and update these Markdown files directly using standard file tools and verify continuity against Git history (`HEAD` and task `commit` SHAs).
+Specifications (`.agents/bundles/specs/<flow_id>/spec.md`), chapter specifications (`.agents/bundles/specs/<flow_id>/chapters/<ch_id>/spec.md`), and task worksheets (`tasks/<id>-<slug>.md`) are the sole authority for Flow state and continuity. Agents read and update these Markdown files directly in present tense and verify continuity against Git commit history (`HEAD`, task `commit` SHAs, and `last_reviewed_commit`).
 
-## Root Resolution
+## Root Resolution & Bundle Layout
 
 - `<configured-root>` is `root_directory` from `.agents/setup-state.json` (default `.agents`).
 - `<bundle-root>` is `bundle_root` from `.agents/setup-state.json` (default `.agents/bundles`).
-- `<flow-root>` is `<bundle-root>/specs/<flow_id>`.
-- Every resolved path must stay inside the repository root, contain no `..`, and traverse no escaping symlink.
+- `<flow-root>` is `<bundle-root>/specs/<flow_id>`. Every resolved path must stay inside the repository root, contain no `..`, and traverse no escaping symlink.
+- **Single-Chapter Flow (`1–4` tasks within one subsystem)**:
+  - `<flow-root>/spec.md` (`has_chapters: false`) + `<flow-root>/tasks/t01-<slug>.md..t04-<slug>.md`.
+- **Multi-Chapter Flow (`> 4` tasks, `>= 2` module boundaries, or `/flow:prd` — `2..N` chapters with zero upper cap)**:
+  - `<flow-root>/spec.md` — Authoritative full-plan roadmap (`has_chapters: true`, `current_chapter`, `chapters: [ch01-<slug>, ...]`, cross-chapter public seams and shared types, Flow-Wide Documentation & OKF Knowledge Plan, full chapter checklist, and present-tense state snapshot).
+  - `<flow-root>/chapters/index.md` — Frontmatter-free OKF v0.2 directory catalog (`# Chapters: <Title>` + `* [ch01 — <Title>](ch01-<slug>/spec.md) — [<state>] <one-sentence present-tense scope>`).
+  - `<flow-root>/chapters/chNN-<slug>/spec.md` + `chapters/chNN-<slug>/tasks/t01-<slug>.md..t04-<slug>.md` (`1–4` vertical-slice tasks per chapter; never mix root `specs/<flow_id>/tasks/` with `chapters/`).
 
-## Lifecycle State Enums & Checklist Mapping
+## Lifecycle Enums, OKF v0.2 Status, & Checklist Mapping
 
 ```yaml
 spec_states: [draft, planned, active, completed]
+chapter_planning_statuses: [complete, empirical_dependent]
+okf_document_statuses: [draft, stable, deprecated]
 task_states: [pending, open, in_progress, completed, closed, blocked, deferred, skipped]
 priorities: [P0, P1, P2, P3, P4]
-default_priority: P2
 verification_strategies:
   - behavior_tdd
   - regression_tdd
@@ -25,74 +31,105 @@ verification_strategies:
   - integration_acceptance
 ```
 
-| Task `state` Frontmatter | `spec.md` Checklist Marker | Meaning |
+| Chapter / Task `state` | `spec.md` Checklist Marker | Meaning |
 | --- | --- | --- |
-| `pending` or `open` | `- [ ] <id> — <summary> (tasks/<id>-<slug>.md)` | Ready once all `depends_on` tasks are `completed`/`closed`. |
-| `in_progress` | `- [~] <id> — <summary> (tasks/<id>-<slug>.md)` | Claimed by an active executor turn. |
-| `completed` or `closed` | `- [x] [<sha>] <id> — <summary> (tasks/<id>-<slug>.md)` | Verified with exit code `0` and committed at `<sha>`. |
-| `blocked` | `- [!] <id> — <summary> (tasks/<id>-<slug>.md)` | Halted on a documented mismatch (`blocked_reason` + `unblock_condition`). |
-| `deferred` or `skipped` | `- [-] <id> — <summary> (tasks/<id>-<slug>.md)` | Explicitly descoped or moved to a follow-up spec. |
+| `pending`, `open`, or `planned` | `- [ ] <id> — <summary> (<rel-path>)` | Ready once `depends_on` / `depends_on_chapters` are `completed` and `planning_status: complete`. |
+| `in_progress` or `active` | `- [~] <id> — <summary> (<rel-path>)` | Claimed by the active chapter or executor turn. |
+| `completed` or `closed` | `- [x] [<sha>] <id> — <summary> (<rel-path>)` | Verified (`exit 0`), committed (and chapter-reviewed at `<sha>`). |
+| `blocked` | `- [!] <id> — <summary> (<rel-path>)` | Halted on a documented mismatch (`blocked_reason` + `unblock_condition`). |
+| `deferred` or `skipped` | `- [-] <id> — <summary> (<rel-path>)` | Descoped or moved to an explicit follow-up flow. |
 
-When `spec.md` checklist markers and `tasks/<id>-<slug>.md` frontmatter disagree, the task worksheet frontmatter + Git commit history are authoritative; reconcile `spec.md` to match.
+- **State vs. Status**: Workflow execution state belongs strictly in `state:`; OKF v0.2 document maturity (`draft | stable | deprecated`) belongs strictly in `status:`.
+- **Empirical Dependency Annotation**: Append `[empirical_dependent: <replan_trigger>]` on root `spec.md` checklist lines whose chapter has `planning_status: empirical_dependent`.
+- **Present-Tense Living Markdown Rule**: Root `spec.md`, `chapters/index.md`, `chapters/<ch_id>/spec.md`, `tasks/*.md`, `knowledge/**`, and `docs/**` state **current verified reality, remaining work, and the full plan** in present tense. Never include `Revision History` / `Changelog` headings, historical narrative (`"in chapter 1 we..."`, `"previously..."`), struck-through checklist remnants (`~~...~~`), or standalone `---` horizontal rules inside bundle Markdown bodies; record chronological history solely in `.agents/bundles/log.md` and Git commits.
 
 ## Normative Document Schemas
 
-### 1. Specification (`specs/<flow_id>/spec.md`)
+### 1. Root or Single-Chapter Specification (`specs/<flow_id>/spec.md`)
 
 ```yaml
 ---
 type: Spec
 flow_id: user-auth
-title: User Authentication
-description: Repository-native JWT authentication and session middleware.
-state: planned                  # draft | planned | active | completed
-parent_prd: null                # <prd_id> when seeded by /flow:prd, else null
-research: []                    # relative paths under specs/<flow_id>/research/
+title: User Authentication and Session Middleware
+description: Repository-native JWT signing, session middleware, and token rotation.
+status: stable
+state: active
+has_chapters: true
+chapters: [ch01-token-signer, ch02-session-middleware, ch03-docs-and-okf]
+current_chapter: ch02-session-middleware
+current_task: user-auth:ch02:t01
+parent_prd: null
+research: [research/jwt-eddsa_20261106.md]
 plan_revision: 1
-plan_commit: null               # Git HEAD SHA stamped when plan is approved
-state_revision: 0
-current_task: null
-last_verified_checkpoint: null
-created_at: 2026-11-01T00:00:00Z
-updated_at: 2026-11-01T00:00:00Z
+plan_commit: 8775d6c
+state_revision: 2
+last_verified_checkpoint: 4f91c2a
+last_reviewed_chapter: ch01-token-signer
+last_reviewed_commit: 4f91c2a
+created_at: 2026-11-06T00:00:00Z
+updated_at: 2026-11-06T01:00:00Z
+generated: { by: flow/0.26.0, at: 2026-11-06T00:00:00Z }
+verified:
+  - by: agent:code-reviewer
+    at: 2026-11-06T01:00:00Z
+    commit: 4f91c2a
+sources:
+  - id: auth-entry
+    resource: src/auth/middleware.py::AuthMiddleware
+    title: Existing HTTP authentication middleware seam
 tags: [feature, auth, security]
 ---
 ```
 
-Required sections for a **Feature Specification (`/flow:plan`)**:
+### 2. Nested Chapter Specification (`specs/<flow_id>/chapters/<ch_id>/spec.md`)
 
-1. `## 1. Specification & Context` (`1.1 Upstream Execution Baseline`, `1.2 Code Analysis Summary` table with `path/to/file::Symbol` anchors, `1.3 Relevant Patterns` linking `.agents/bundles/knowledge/**`)
-2. `## 2. Requirements` (`2.1 Functional Requirements` `R1..RN`, `2.2 Non-Functional & Safety Constraints`, `2.3 Acceptance Scenarios (Given / When / Then)`, `2.4 Alternatives Considered`)
-3. `## 3. Requirement-to-Task Traceability Matrix` (`Requirement | Owning Task(s) | Verification Strategy | Canonical Test / Gate Surface`)
-4. `## 4. Implementation Plan` (grouped by `### Phase 1..N` with `- [ ] <id> — <summary> (tasks/<id>-<slug>.md)` and a mandatory **Phase N Recovery Checkpoint** naming exact verification commands)
-5. `## 5. Continuity Snapshot` (active state, current task, last verified checkpoint, key architectural decisions, and up to 5 newest discoveries)
+Carries the same OKF v0.2 provenance keys (`type: Spec`, `title`, `description`, `status`, `state`, `plan_revision`, `plan_commit`, `current_task`, `last_verified_checkpoint`, `last_reviewed_commit`, `generated`, `verified`, `sources`, `tags`) plus:
 
-Required sections for a **Master PRD (`/flow:prd`)**:
+```yaml
+parent_flow: user-auth
+chapter_id: ch02-session-middleware
+planning_status: complete       # complete | empirical_dependent
+depends_on_chapters: [ch01-token-signer]
+replan_trigger: null            # required string when planning_status == empirical_dependent
+```
 
-1. `## 1. North Star Goal & Context`
-2. `## 2. Locked Architectural Decisions`
-3. `## 3. Master Roadmap (Ordered Child Flows)` (`Chapter | Flow ID | Title | Key Deliverables | Dependencies | State`)
-4. `## 4. Global Constraints (Applicable to All Child Flows)`
-5. `## 5. Backlog (Deferred Items)`
-6. `## Implementation Plan` & `## Continuity Snapshot`
+### Required `spec.md` Body Structure (Root & Chapter)
 
-### 2. Task Worksheet (`specs/<flow_id>/tasks/<id>-<slug>.md`)
+Open the body with a bounded `<= 40`-line `<!-- truth: start --> ... <!-- truth: end -->` block summarizing non-negotiable invariants and `[^source-id]` citations, followed by six present-tense sections:
+
+1. `## 1. Specification, Context & Provenance` — Plain-English Problem Statement & Objectives, Non-Goals, Upstream Baseline, Symbol-Anchored `Code Analysis & Seam Summary` cited via `[^id]` footnotes, and Relevant OKF Knowledge Chapters & Skills.
+2. `## 2. Requirements, Concrete Contracts & Architecture` — `R1..RN`, **Full Public Type/Struct/Schema & Signature Contracts**, **Caller -> Seam -> Collaborator Integration Map**, Non-Functional Constraints, **Edge-Case, Failure-Mode & Invariant Matrix**, Acceptance Scenarios, and **Mandatory Alternatives Comparison**.
+3. `## 3. Documentation & OKF Knowledge Plan` — `[k/N files documented]` manifest of user-facing `README.md` / `docs/**` pages and `.agents/bundles/knowledge/**` + `.agents/skills/` chapters created or updated by this flow/chapter.
+4. `## 4. Requirement-to-Task Traceability Matrix` — `Requirement | Owning Chapter / Task | Verification Strategy | Canonical Test / Doc Gate`.
+5. `## 5. Implementation Plan` — Full chapter roadmap checklist (`chapters/<ch_id>/spec.md` on root `spec.md`; `tasks/<id>-<slug>.md` `1–4` items on chapter or single-chapter `spec.md`) plus the mandatory **Chapter / Phase Recovery Checkpoint** command.
+6. `## 6. Current State & Remaining Plan Snapshot` — Bounded (`<= 25` lines) present-tense summary overwritten at every chapter boundary and `/flow:revise`: verified baseline at `HEAD`, remaining chapters/tasks across the full plan, open `[k/N]` doc/OKF items, and active invariants or `empirical_dependent` triggers.
+
+### 3. Task Worksheet (`tasks/<id>-<slug>.md`)
 
 ```yaml
 ---
 type: Task
-id: user-auth:t01
-title: Add JWT token signer and canonical unit tests
-state: pending                  # pending | open | in_progress | completed | closed | blocked | deferred | skipped
+id: user-auth:ch02:t01
+chapter_id: ch02-session-middleware
+title: Implement ASGI session middleware and canonical public-seam tests
+description: Validate bearer tokens via TokenSigner and attach Principal to request scope.
+status: stable
+state: pending
 priority: P1
 verification_strategy: behavior_tdd
 depends_on: []
-files:
+read_set:
+  - src/auth/middleware.py
   - src/auth/tokens.py
+  - tests/auth/test_middleware.py
+files:
+  - src/auth/middleware.py
 tests:
-  - tests/auth/test_tokens.py
+  - tests/auth/test_middleware.py
+estimated_loc: 140
 plan_revision: 1
-plan_commit: 164b07f
+plan_commit: 8775d6c
 state_revision: 0
 claimed_by: null
 claimed_at: null
@@ -102,26 +139,32 @@ next_step: null
 last_verified_at: null
 last_verified_commit: null
 verification_evidence: null
-created_at: 2026-11-01T00:00:00Z
-updated_at: 2026-11-01T00:00:00Z
+created_at: 2026-11-06T00:00:00Z
+updated_at: 2026-11-06T00:00:00Z
 commit: null
+sources:
+  - id: auth-mw
+    resource: src/auth/middleware.py::AuthMiddleware
+    title: Request authentication middleware
 tags: [feature, auth, tdd]
 ---
 ```
 
-Required sections in every task worksheet:
+Every task worksheet (`1–3` production files, `read_set <= 6` files, `estimated_loc <= 250`) MUST contain these 8 headings:
 
-1. `## Objective` — Single vertical-slice outcome.
-2. `## Context` — Verification strategy rationale, architectural invariants from `.agents/bundles/knowledge/**`, and canonical test module targets.
-3. `## Steps` — Ordered steps (`1. Write failing unit tests (RED)`, `2. Implement ... (GREEN)`, `3. Refactor & verify`) anchored to `path/to/file::Symbol` (never fragile line numbers).
-4. `## Verification` — Exact initial and final CLI commands and expected exit codes/diagnostics.
-5. `## Acceptance Criteria` — Checkboxes (`- [ ]`) mapped to parent requirements.
-6. `## Notes & Discoveries` — Append-only timestamped implementation findings (`- [YYYY-MM-DD HH:MM] ...`).
+1. `## Objective & Scope Boundary` — Exact vertical-slice outcome and explicit out-of-scope boundaries.
+2. `## Bounded Read Manifest` — The `<= 6` repository/OKF files the isolated executor needs to read (`path/to/file::Symbol`).
+3. `## Symbol & Signature Contracts` — Exact class/struct fields, function/method signatures, parameter types, return types, and call-site wiring.
+4. `## Edge Cases & Error Semantics` — Concrete boundary inputs, empty/null/timeout/permission cases, and exact exception or error return contracts.
+5. `## Public-Seam Test Blueprint` — Canonical test file path, seam dependency category, and a non-tautological **Worked Test Matrix** (`Case | Input | Expected Output / Error`) with concrete literals (or manifest/link/OKF assertions for `documentation_validation`).
+6. `## Verification` — Exact initial (Red/baseline) and final (Green + lint/typecheck) CLI commands.
+7. `## Acceptance Criteria` — Checkboxes (`- [ ]`) mapped to parent requirements.
+8. `## Notes & Discoveries` — Concise implementation findings (`- [YYYY-MM-DD HH:MM] ...`).
 
-## Direct State Mutations & Continuity Recovery
+## Direct State Mutations, Pre-Review Sync, & Continuity Recovery
 
-1. **Approve Plan (`plan` / `revise`)**: Stamp `plan_commit: <HEAD_SHA>` and identical `plan_revision` across `spec.md` and all `tasks/<id>-<slug>.md`.
-2. **Claim Task (`implement`)**: Set task `state: in_progress`, `claimed_by`, `claimed_at`, increment `state_revision`, and update `spec.md` (`state: active`, `current_task: <id>`, checklist `[~]`).
-3. **Complete Task (`implement`)**: After verification exits `0`, update the task worksheet (`state: completed`, `commit: <sha>`, `last_verified_at`, `last_verified_commit`, `verification_evidence`) and `spec.md` checklist (`- [x] [<sha>] ...`) and commit the task's owned files atomically.
-4. **Block Task (`implement` &rarr; `revise`)**: Without mutating production files, set task `state: blocked`, `blocked_reason`, `unblock_condition`, `next_step: "/flow:revise <flow_id>"`, and `spec.md` checklist `[!]`.
-5. **Session Continuity Recovery**: After context compaction or session restart, inspect `git status --short -b`, `git log -n 5 --oneline`, `.agents/bundles/specs/*/spec.md`, and `tasks/*.md`. If a task is `in_progress` and its target commit already landed in `git log`, update its `commit` and mark it `completed`; otherwise resume the `in_progress` worksheet from its `## Verification` baseline.
+1. **Approve Plan (`plan` / `prd` / `revise`)**: Author all chapters and task worksheets upfront, run zero-context spec review, and stamp `status: stable`, `plan_commit: <HEAD_SHA>`, and matching `plan_revision` across `spec.md` and its owned tasks.
+2. **Claim & Complete Task (`implement`)**: Claim (`state: in_progress`, checklist `[~]`); after verification exits `0`, update `tasks/<id>-<slug>.md` (`state: completed`, `commit: <sha>`, `last_verified_commit`) and owning `spec.md` checklist (`- [x] [<sha>] ...`) atomically in one signed commit.
+3. **Close Chapter (`implement`)**: Run the Chapter Recovery Checkpoint, rewrite `chapters/<ch_id>/spec.md`, `chapters/index.md`, root `specs/<flow_id>/spec.md`, `knowledge/**`, and `docs/**` **in place in present tense** (current state + remaining full plan), pass Zero-Context Chapter Code & Doc-Sync Review (`@code-reviewer` + `@quality-reviewer`), stamp `last_reviewed_commit: <REVIEWED_SHA>` + `state: completed` on the chapter, mark `[x] [<REVIEWED_SHA>]` and advance `current_chapter` in root `spec.md`, and stop at the chapter boundary.
+4. **Revise Plan (`revise`)**: Rewrite affected chapter specs/worksheets AND root `specs/<flow_id>/spec.md` + `chapters/index.md` in place in present tense without historical sediment; clear `last_reviewed_commit: null` on any reopened chapter.
+5. **Session Continuity Recovery**: After compaction or restart, inspect `git status --short -b`, `git log -n 5 --oneline`, root `specs/*/spec.md`, `chapters/index.md`, and active chapter `tasks/*.md` to reconcile landed commits and resume cleanly.

@@ -106,60 +106,82 @@ tags: [architecture, conventions, patterns]
 ---
 ```
 
-### 2.3 Flow Specification & Task Concepts
+### 2.3 Flow Specification, Chapter, & Task Concepts
 
-#### Spec (`specs/<flow_id>/spec.md`)
+#### Spec (`specs/<flow_id>/spec.md` and `specs/<flow_id>/chapters/<ch_id>/spec.md`)
 
 ```yaml
 ---
 type: Spec
 flow_id: user-auth
 title: User Authentication
-state: planned
+description: Repository-native user authentication with JWT signing and session middleware.
+status: stable
+state: active
+has_chapters: true
+chapters: [ch01-token-signer, ch02-session-middleware]
+current_chapter: ch02-session-middleware
+current_task: user-auth:ch02:t01
 plan_revision: 1
-plan_commit: null
-state_revision: 0
-current_task: null
-last_operation: null
-operation_targets: []
-last_verified_checkpoint: null
-created_at: 2026-08-11T12:00:00Z
-updated_at: 2026-08-11T12:00:00Z
-description: Repository-native user authentication with JWT.
-tags: [auth, security, flow]
+plan_commit: 8775d6c
+state_revision: 1
+last_verified_checkpoint: 4f91c2a
+last_reviewed_chapter: ch01-token-signer
+last_reviewed_commit: 4f91c2a
+created_at: 2026-11-06T00:00:00Z
+updated_at: 2026-11-06T01:00:00Z
+generated: { by: flow/0.26.0, at: 2026-11-06T00:00:00Z }
+verified:
+  - by: agent:code-reviewer
+    at: 2026-11-06T01:00:00Z
+    commit: 4f91c2a
+sources:
+  - id: auth-entry
+    resource: src/auth/middleware.py::AuthMiddleware
+    title: Request authentication middleware seam
+tags: [feature, auth, security]
 ---
 ```
 
-#### Task (`specs/<flow_id>/tasks/<short_id>.md`)
+Nested chapter specs (`specs/<flow_id>/chapters/<ch_id>/spec.md`) additionally declare `parent_flow: <flow_id>`, `chapter_id: ch01-<slug>`, `planning_status: complete | empirical_dependent`, `depends_on_chapters: [...]`, `replan_trigger: null | "<empirical output>"`, and `last_reviewed_commit: null | "<sha>"`.
+
+#### Task (`specs/<flow_id>/tasks/<id>-<slug>.md` or `specs/<flow_id>/chapters/<ch_id>/tasks/<id>-<slug>.md`)
 
 ```yaml
 ---
 type: Task
-id: user-auth:1.1
-title: Add login endpoint
-state: open
-priority: P2
+id: user-auth:ch01:t01
+chapter_id: ch01-token-signer
+title: Add JWT token signer and canonical unit tests
+description: Implement EdDSA JWT signing/verification with parameterized public-seam tests.
+status: stable
+state: pending
+priority: P1
 verification_strategy: behavior_tdd
 depends_on: []
-files: [src/auth.py]
-tests: [tests/test_auth.py]
+read_set: [src/auth/tokens.py, tests/auth/test_tokens.py]
+files: [src/auth/tokens.py]
+tests: [tests/auth/test_tokens.py]
+estimated_loc: 120
 plan_revision: 1
-plan_commit: null
+plan_commit: 8775d6c
 state_revision: 0
 claimed_by: null
 claimed_at: null
 blocked_reason: null
 unblock_condition: null
 next_step: null
-last_operation: null
-operation_targets: []
 last_verified_at: null
 last_verified_commit: null
 verification_evidence: null
-created_at: 2026-08-11T12:00:00Z
-updated_at: 2026-08-11T12:00:00Z
+created_at: 2026-11-06T00:00:00Z
+updated_at: 2026-11-06T00:00:00Z
 commit: null
-tags: [auth, endpoint, tdd]
+sources:
+  - id: token-mod
+    resource: src/auth/tokens.py::TokenSigner
+    title: JWT token signer module
+tags: [feature, auth, tdd]
 ---
 ```
 

@@ -7,5 +7,14 @@
         "timeout": 15
       }
     ]
+  },
+  "flow-stop-check": {
+    "Stop": [
+      {
+        "type": "command",
+        "command": "sh ./hooks/stop-check.sh --harness agy",
+        "timeout": 10
+      }
+    ]
   }
 }

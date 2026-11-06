@@ -39,26 +39,82 @@ function readBundleSummary(workspaceDir) {
   }
 
   const activeSpecs = [];
+  const pendingSync = [];
   const specsDir = path.join(workspaceDir, bundleRel, "specs");
   if (fs.existsSync(specsDir)) {
     try {
-      for (const entry of fs.readdirSync(specsDir, { withFileTypes: true })) {
-        if (!entry.isDirectory()) continue;
-        const specPath = path.join(specsDir, entry.name, "spec.md");
+      const flowEntries = fs
+        .readdirSync(specsDir, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .sort((a, b) => a.name.localeCompare(b.name));
+      for (const entry of flowEntries) {
+        const flowDir = path.join(specsDir, entry.name);
+        const specPath = path.join(flowDir, "spec.md");
         if (!fs.existsSync(specPath)) continue;
         const content = fs.readFileSync(specPath, "utf8");
         const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
         if (!fmMatch) continue;
         const fm = fmMatch[1];
-        const flowId = fm.match(/^flow_id:\s*["']?([^"'\r\n]+)["']?/m)?.[1]?.trim() ?? entry.name;
-        const state = fm.match(/^state:\s*["']?([^"'\r\n]+)["']?/m)?.[1]?.trim() ?? "unknown";
-        const currentTask = fm.match(/^current_task:\s*["']?([^"'\r\n]+)["']?/m)?.[1]?.trim() ?? "";
+        const flowId = fm.match(/^flow_id:\s*["']?([^#"'\r\n]+)["']?/m)?.[1]?.trim() ?? entry.name;
+        const state = fm.match(/^state:\s*["']?([^#"'\r\n]+)["']?/m)?.[1]?.trim() ?? "unknown";
+        let currentChapter = fm.match(/^current_chapter:\s*["']?([^#"'\r\n]+)["']?/m)?.[1]?.trim() ?? "";
+        const currentTask = fm.match(/^current_task:\s*["']?([^#"'\r\n]+)["']?/m)?.[1]?.trim() ?? "";
+
+        const chaptersDir = path.join(flowDir, "chapters");
+        if (fs.existsSync(chaptersDir)) {
+          const chEntries = fs
+            .readdirSync(chaptersDir, { withFileTypes: true })
+            .filter((ch) => ch.isDirectory() && ch.name.startsWith("ch"))
+            .sort((a, b) => a.name.localeCompare(b.name));
+          for (const ch of chEntries) {
+            const chSpecPath = path.join(chaptersDir, ch.name, "spec.md");
+            if (!fs.existsSync(chSpecPath)) continue;
+            const chContent = fs.readFileSync(chSpecPath, "utf8");
+            const chFm = chContent.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1] ?? "";
+            const chState = chFm.match(/^state:\s*["']?([^#"'\r\n]+)["']?/m)?.[1]?.trim() ?? "";
+            const chRev = chFm.match(/^last_reviewed_commit:\s*["']?([^#"'\r\n]+)["']?/m)?.[1]?.trim() ?? "";
+            if ((!currentChapter || currentChapter === "null") && !["completed", "deferred", "skipped"].includes(chState)) {
+              currentChapter = ch.name;
+            }
+            const chTasksDir = path.join(chaptersDir, ch.name, "tasks");
+            if (fs.existsSync(chTasksDir)) {
+              const taskFiles = fs
+                .readdirSync(chTasksDir)
+                .filter((f) => f.endsWith(".md") && f !== "index.md")
+                .sort();
+              let doneCount = 0;
+              for (const tf of taskFiles) {
+                const tContent = fs.readFileSync(path.join(chTasksDir, tf), "utf8");
+                const tFm = tContent.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1] ?? "";
+                const tState = tFm.match(/^state:\s*["']?([^#"'\r\n]+)["']?/m)?.[1]?.trim() ?? "";
+                if (["completed", "closed", "deferred", "skipped"].includes(tState)) {
+                  doneCount += 1;
+                }
+              }
+              const unclosedDone =
+                taskFiles.length > 0 &&
+                doneCount === taskFiles.length &&
+                !["completed", "deferred", "skipped"].includes(chState);
+              const unreviewedCompleted = chState === "completed" && (!chRev || chRev === "null");
+              if (unclosedDone || unreviewedCompleted) {
+                pendingSync.push(`${flowId}/${ch.name}`);
+              }
+            }
+          }
+        }
+
         if (state !== "completed" && state !== "archived") {
-          activeSpecs.push(
-            currentTask && currentTask !== "null"
-              ? `${flowId}(${state}, task=${currentTask})`
-              : `${flowId}(${state})`,
-          );
+          const hasCh = Boolean(currentChapter && currentChapter !== "null");
+          const hasTk = Boolean(currentTask && currentTask !== "null");
+          if (hasCh && hasTk) {
+            activeSpecs.push(`${flowId}(${state}, chapter=${currentChapter}, task=${currentTask})`);
+          } else if (hasCh) {
+            activeSpecs.push(`${flowId}(${state}, chapter=${currentChapter})`);
+          } else if (hasTk) {
+            activeSpecs.push(`${flowId}(${state}, task=${currentTask})`);
+          } else {
+            activeSpecs.push(`${flowId}(${state})`);
+          }
         }
       }
     } catch {
@@ -73,6 +129,9 @@ function readBundleSummary(workspaceDir) {
   if (activeSpecs.length > 0) {
     parts.push(`Active specs: ${activeSpecs.join(", ")}.`);
   }
+  if (pendingSync.length > 0) {
+    parts.push(`Pending chapter review/Markdown sync: ${pendingSync.join(", ")}.`);
+  }
   return parts.join(" ");
 }
 
@@ -80,7 +139,6 @@ const flowPlugin = {
   id: "flow",
   async setup(ctx) {
     const workspaceDir = ctx?.workspace?.root ?? ctx?.cwd ?? process.cwd();
-    const summary = readBundleSummary(workspaceDir);
 
     if (ctx?.agent?.transform) {
       ctx.agent.transform((agents) => {
@@ -98,14 +156,14 @@ const flowPlugin = {
 
     if (ctx?.session?.hook) {
       ctx.session.hook("context", async () => ({
-        systemMessage: summary,
+        systemMessage: readBundleSummary(workspaceDir),
       }));
     }
 
     return {
       "experimental.chat.system.transform": async (_input, output) => {
         if (Array.isArray(output?.system)) {
-          output.system.push(summary);
+          output.system.push(readBundleSummary(workspaceDir));
         }
       },
     };

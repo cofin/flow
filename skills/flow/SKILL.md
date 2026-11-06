@@ -27,8 +27,8 @@ The router owns no disk mutations directly; it resolves the target lifecycle ski
 ## Guardrails
 
 - Load only the selected lifecycle skill and its reference procedure.
-- Task worksheets under `.agents/bundles/specs/<flow_id>/tasks/<id>-<slug>.md` and `spec.md` checklists are the sole authority for task state and commits ([`references/state.md`](references/state.md)).
-- When the `run_workflow` tool is available in the active harness (Google Antigravity), prefer async Python workflow orchestration (`phase()`, `parallel()`, `pipeline()`, `agent(..., schema=..., model="inherit")`, `log()`) for parallel zero-context reviews, persistent multi-turn reviewer handles, sequential task pipelines, and parallel domain audits.
+- Root specifications (`specs/<flow_id>/spec.md`), chapter catalogs (`chapters/index.md`), chapter specs (`chapters/<ch_id>/spec.md`), and task worksheets (`tasks/<id>-<slug>.md`) are kept synchronized in place in present tense—stating current verified state, remaining chapters, and the full plan without historical sediment ([`references/state.md`](references/state.md)).
+- Keep the coordinator thin (`< 25k` exploration tokens) by scaling horizontally across isolated subagents: on Google Antigravity, use `run_workflow` (`phase()`, `parallel()`, `pipeline()`, `agent(..., type_name="self", schema=..., model="inherit")`) or `invoke_subagent(TypeName="self", Model="inherit", ...)` bound to `agents/<role>.md` contracts for sharded scouts, upfront parallel chapter authoring (`ch01..chNN`, `1–4` tasks/chapter, zero upper cap), per-chapter zero-context reviews, single-chapter task execution, and OKF/doc synthesis.
 - Preserve Git history and tag immutability. Never push or open remote PRs without explicit user instruction.
 
 ## Output

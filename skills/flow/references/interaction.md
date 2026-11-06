@@ -29,11 +29,20 @@ draft_gate:
 ## 1. Design-Tree Frontier Discovery & Request Rules
 
 1. **Separate Facts from Decisions**:
-   - **Facts** (existing signatures, DI wiring, config keys, test fixtures, framework versions) belong to the agent's research duty. Read the repository or dispatch `@researcher` first—never ask the user a question that reading the codebase can answer.
-   - **Decisions** (product scope, public seam shape, trade-offs between deep-module designs, risk appetite) belong to the user.
-2. **Walk the Design Tree in Frontier Rounds**:
-   - Treat unresolved decisions as a dependency tree. Identify the current **frontier**—decisions whose prerequisite choices are settled—and ask **one logical decision at a time**, waiting for the normalized result before advancing to dependent branches.
-3. **Request Variant Rules**:
+   - **Facts** (existing signatures, DI wiring, config keys, test fixtures, framework versions, existing OKF chapters, user docs) belong to the agent's research duty. Read the repository or dispatch read-only Scout / `@researcher` subagents first—never ask the user a question that reading the codebase can answer.
+   - **Decisions** (product scope, public seam shape, trade-offs between deep-module designs, boundary error semantics, documentation targets, risk appetite) belong to the user.
+2. **Dependent Fork (`1` Question) vs. Orthogonal Frontier Batch (`2–3` Questions per Round)**:
+   - Treat unresolved decisions as a dependency tree.
+   - **Dependent Fork (`1` question)**: When downstream architectural or behavioral choices depend on the answer (such as selecting the deep-module seam or storage strategy), ask **1** question and wait for the normalized result before advancing to dependent branches.
+   - **Orthogonal Frontier Batch (`2–3` questions)**: Once a branch reaches independent leaf decisions whose answers do not invalidate one another (for example, an edge-case failure contract, canonical test fixture policy, and user documentation target), batch **2–3 orthogonal questions** in a single `ask_question` / `AskUserQuestion` / `question` multi-question call so discovery closes high-detail contracts without excessive round-trips (falling back to sequential `1`-at-a-time prompts on Codex `request_user_input` when multi-question arrays are unsupported).
+3. **Pre-Draft Question Coverage Gate**:
+   - Before dispatching parallel Chapter Planner subagents to author `spec.md` and `tasks/*.md`, verify that all five coverage areas are resolved (either by verified repository facts or explicit user decisions):
+     1. **Deep-Module Seam & Interface Alternative Selection**: Which interface shape won across depth, locality, and adapter count?
+     2. **Concrete Data/Type Contracts & Edge-Case / Failure Semantics**: What exact public structs/types, empty/null/concurrency/timeout boundaries, and error/exception contracts apply?
+     3. **Public Seams & Canonical Test Strategy**: Which confirmed public seams and existing canonical module test files verify the slice without mocking the System Under Test?
+     4. **Documentation (`README.md` / `docs/**`) & OKF Knowledge Scope**: Which user-facing docs and `.agents/bundles/knowledge/**` / `.agents/skills/**` chapters are created or updated?
+     5. **Full Chapter Decomposition (`ch01..chNN`)**: How is the full scope decomposed into context-bounded chapters (`1–4` vertical-slice tasks per chapter, zero scope truncation, zero upper cap on chapter count), and do any downstream chapters require `planning_status: empirical_dependent`?
+4. **Request Variant Rules**:
    - Every choice has `{id, label, description}` (`id` matches `[a-z][a-z0-9_-]{0,31}`, `label` is `1–60` chars, `description` is `1–160` chars stating the concrete `path/to/file::Symbol` trade-off or impact).
    - Place the recommended choice **first** in `choices`, set `recommended_choice_id` to its `id`, and display its label with the ` (Recommended)` suffix.
    - Omit unavailable or disabled options (`disabled_choice_policy: omit`).
@@ -45,12 +54,12 @@ Inspect active tool declarations and use the host's native structured-question t
 
 | Harness | Native Question Tool | Supported Modes & Limits |
 | --- | --- | --- |
-| **Google Antigravity (IDE & CLI)** | `ask_question` | `binary`, `single_select`, `multi_select` (`2–4` choices, custom `Other` input automatic; always emit visible context text before calling `ask_question`) |
-| **Claude Code** | `AskUserQuestion` | `binary`, `single_select`, `multi_select` (`2–4` choices, custom `Other` input) |
-| **Codex CLI** | `request_user_input` | `binary`, `single_select` (`2–3` choices, custom input; fallback to sequential text for 4 choices or `multi_select`) |
-| **Cursor** | `AskUserQuestion` (when declared) or sequential text | `binary`, `single_select`, `multi_select` (`2–4` choices) |
-| **OpenCode V2** | `question` | `binary`, `single_select`, `multi_select` (`2–4` choices, custom input) |
-| **VS Code / Copilot** | `ask_question` / `vscode_askQuestions` (when declared) or sequential text | `binary`, `single_select`, `multi_select` (`2–4` choices) |
+| **Google Antigravity (IDE & CLI)** | `ask_question` | `binary`, `single_select`, `multi_select` (`2–4` choices, `1–3` orthogonal questions per call, custom `Other` input automatic; always emit visible context text before calling `ask_question`) |
+| **Claude Code** | `AskUserQuestion` | `binary`, `single_select`, `multi_select` (`2–4` choices, `1–3` orthogonal questions per call, custom `Other` input) |
+| **Codex CLI** | `request_user_input` | `binary`, `single_select` (`2–3` choices, `1` question per call, custom input; fallback to sequential text for 4 choices or `multi_select`) |
+| **Cursor** | `AskUserQuestion` (when declared) or sequential text | `binary`, `single_select`, `multi_select` (`2–4` choices, `1–3` orthogonal questions per call) |
+| **OpenCode V2** | `question` | `binary`, `single_select`, `multi_select` (`2–4` choices, `1–3` orthogonal questions per call, custom input) |
+| **VS Code / Copilot** | `ask_question` / `vscode_askQuestions` (when declared) or sequential text | `binary`, `single_select`, `multi_select` (`2–4` choices, `1–3` orthogonal questions per call) |
 
 Fallback reasons are recorded in canonical order when falling back to sequential text: `tool_absent`, `tool_denied`, `mode_unsupported`, `choice_count_unsupported`, `bounds_unsupported`, `custom_unsupported`, `disabled_policy_unsupported`.
 
@@ -67,6 +76,6 @@ At every specification or PRD draft checkpoint, use `single_select` and reorder 
 
 - **Before deterministic gap scan and zero-context review pass**: Offer `Revise | Refine` (`Approve` is omitted until quality gates pass).
 - **After deterministic gap scan and zero-context review pass**: Offer `Approve (Recommended) | Revise | Refine`.
-  - **`Approve`**: Stamps `plan_commit = HEAD` across `spec.md` and `tasks/*.md` and advances to `/flow:implement`.
-  - **`Revise`**: Collects `open(free_form_reason=revision_details)`, rewrites affected `spec.md` and `tasks/<id>-<slug>.md` sections in place in present tense ([`revise.md`](revise.md)), increments `plan_revision` once, re-runs Zero-Context Review on the changed surface, and re-presents the gate.
-  - **`Refine`**: Steps through the next structured gap or task-granularity question via [`revise.md`](revise.md), updates and revalidates the worksheets, and re-presents the gate.
+  - **`Approve`**: Stamps `status = stable` and `plan_commit = HEAD` across root `spec.md`, any `chapters/<ch_id>/spec.md`, and all `tasks/*.md`, and advances to `/flow:implement`.
+  - **`Revise`**: Collects `open(free_form_reason=revision_details)`, rewrites affected chapter and root `spec.md`, `chapters/index.md`, and `tasks/<id>-<slug>.md` sections in place in present tense ([`revise.md`](revise.md)), increments `plan_revision` once, re-runs Zero-Context Review on the changed surface, and re-presents the gate.
+  - **`Refine`**: Steps through the next structured gap, edge-case, or chapter-granularity question via [`revise.md`](revise.md), updates and revalidates the blueprints in present tense, and re-presents the gate.
