@@ -68,7 +68,7 @@ model: inherit
 mainAgent: false
 subagent: true
 readonly: true
-commandExecutionPolicy: off
+commandExecutionPolicy: sandbox
 skills:
   - api
   - review-api
@@ -83,7 +83,8 @@ disallowedTools:
 ```
 
 - **Top-Level H1 (`# `) Headings**: Google Antigravity splits subagent Markdown bodies into system-prompt sections only on top-level H1 (`# Header`) lines (`##` headings collapse into a single fallback section). Use `# Role & Identity`, `# Responsibilities`, `# Verification & Constraints`, and `# Output Contract`, with `###` for subsections.
-- **`mainAgent: false` + `subagent: true`**: Keeps specialized reviewers and domain specialists out of the primary top-level agent dropdown while keeping them invokable via subagent tools and `run_workflow`.
+- **`mainAgent: false` + `subagent: true` & Sandboxed Read-Only Verification**: Keeps specialized reviewers and domain specialists out of the primary top-level agent dropdown while keeping them invokable via subagent tools and `run_workflow`. Setting `commandExecutionPolicy: sandbox` alongside `readonly: true` and `disallowedTools` lets read-only reviewers run `git diff` and read-only checks. On Google Antigravity, invoke subagents with `type_name="self"` (`model="inherit"`) pointing at the on-disk `agents/<role>.md` or `.agents/agents/<name>.md` contract so full read, shell, search, and MCP capabilities are inherited cleanly.
+- **Cross-Harness `Stop` Gates**: Pair `SessionStart` priming with zero-dependency `Stop` hooks (`hooks/stop-check.{sh,ps1}` and OpenCode `ctx.session.hook("context", ...)`) that verify task-to-checklist parity, `last_reviewed_commit` chapter review stamps, and history-free present-tense roadmap synchronization before ending a turn.
 - **YAML List `tools` / `disallowedTools`**: Always format tool lists as YAML arrays (`- Edit`). Never use comma-separated strings (`tools: Read, Grep`), which fail YAML list unmarshaling and silently drop the subagent.
 - **Inherit Model**: Always set `model: inherit` for cross-harness compatibility.
 

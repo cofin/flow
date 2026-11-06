@@ -2,6 +2,6 @@
   "$schema": "https://antigravity.google/schemas/v1/plugin.json",
   "name": "flow",
   "displayName": "Flow",
-  "version": "0.26.0",
+  "version": "0.27.0",
   "description": "Unified toolkit for Spec-Driven Development with OKF v0.2 knowledge bundles, TDD execution, and zero-context focused review."
 }

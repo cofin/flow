@@ -13,9 +13,9 @@ Initialize or align a repository for Spec-Driven Development with Flow's core pr
      - `exit` — **Exit**: Keep current setup unchanged.
 2. **Brownfield Alignment & Legacy Layout Migration (`align`)**:
    - Inventory existing `.agents/` files in one read-only pass before proposing writes:
-     - **Legacy Spec & Track Migration**: Detect legacy `.agents/specs/`, `.agents/tracks/`, `tracks.md`, or `metadata.json` manifests and migrate active specifications into `.agents/bundles/specs/<flow_id>/spec.md` with normalized `OKF v0.2` frontmatter and `tasks/<id>-<slug>.md` worksheets.
+     - **Legacy Spec & Track Migration**: Detect legacy `.agents/specs/`, `.agents/tracks/`, `tracks.md`, `metadata.json` manifests, or older sibling PRD child specs (`parent_prd: <prd_id>`), and offer to migrate active specifications into `.agents/bundles/specs/<flow_id>/spec.md` (plus frontmatter-free `chapters/index.md` and nested `chapters/ch01-<slug>/..chNN-<slug>/` for multi-chapter initiatives) with normalized `OKF v0.2` frontmatter and 8-section `tasks/<id>-<slug>.md` blueprints.
      - **Legacy Trackers & Journals**: Detect obsolete `.beads/`, `.agents/beads.json`, `.agents/transactions/` journals, `.git/hooks/pre-commit` tracker hooks, or `.agents/skills/flow-memory-keeper/`. Present exact paths and obtain user confirmation before removing them.
-     - **Knowledge Tree Preservation**: Convert any flat `knowledge/patterns.md` into topic-specific `knowledge/patterns/<topic>.md` chapters while preserving scope-derived nested directories (`architecture/`, `domains/`, `patterns/`, `testing/`, `gotchas/`, `decisions/`) and relative links.
+     - **OKF v0.2 Hygiene & Knowledge Tree Preservation**: Strip YAML frontmatter from subdirectory `index.md` files (`product/index.md`, `knowledge/index.md`, `knowledge/<ns>/index.md`, `research/index.md`, `specs/index.md`, `chapters/index.md`) and `log.md`, remove standalone `---` horizontal rules from bundle Markdown bodies, and convert any flat `knowledge/patterns.md` into topic-specific `knowledge/patterns/<topic>.md` chapters while preserving scope-derived nested directories (`architecture/`, `domains/`, `patterns/`, `testing/`, `gotchas/`, `decisions/`) and relative links.
      - **Research Reorganization**: Reconcile `.agents/bundles/research/` (which holds un-promoted research only) per [`research.md`](research.md):
        1. Promote research consumed by an existing flow into `.agents/bundles/specs/<flow_id>/research/` (`state: promoted`, `promoted_to: <flow_id>`).
        2. Adopt actionable orphaned research into a new `state: planned` spec bundle or keep genuinely open research normalized as `<slug>_<YYYYMMDD>.md` (`state: open`).
@@ -30,23 +30,23 @@ Initialize or align a repository for Spec-Driven Development with Flow's core pr
    - Probe installed binaries (`uv`, `python3`, `cargo`, `go`, `bun`, `pnpm`, `npm`, `make`, `just`, `pwsh`, `powershell`) so `knowledge/workflow.md` records only commands that execute cleanly on the current host.
 2. **Parallel Subsystem Discovery**:
    - Map the repository's core domains, deep-module seams, public interfaces, data models, and canonical test files.
-   - When the `run_workflow` tool is available in the active harness (Google Antigravity), fan out `parallel(subsystems, inspect_subsystem)` using `agent(type_name="researcher", schema=SUBSYSTEM_SCHEMA, model="inherit")` to audit each subsystem concurrently.
+   - When the `run_workflow` tool is available in the active harness (Google Antigravity), fan out `parallel(subsystems, inspect_subsystem)` using `agent(type_name="self", schema=SUBSYSTEM_SCHEMA, model="inherit")` with `agents/researcher.md` (verifying `git status --porcelain` afterward) to audit each subsystem concurrently.
 
 ## Phase 2: Scaffold Core Context Chapters & OKF v0.2 Bundle (`.agents/bundles/`)
 
-Create the hierarchical OKF v0.2 bundle layout:
+Create the hierarchical OKF v0.2 bundle layout (only root `index.md` carries `okf_version: "0.2"` YAML frontmatter; subdirectory `index.md` catalogs and `log.md` are frontmatter-free):
 
 ```text
 .agents/bundles/
 ├── index.md                        # Root manifest (okf_version: "0.2")
-├── log.md                          # Append-only ISO-dated changelog
+├── log.md                          # Frontmatter-free append-only ISO-dated changelog
 ├── product/
-│   ├── index.md
+│   ├── index.md                    # Frontmatter-free catalog
 │   ├── product.md                  # Vision, users, and core capabilities (<= 40-line <!-- truth: start --> block)
-│   ├── product-guidelines.md       # Engineering tenets, deep-module seams, cold-reader prose & anti-bloat standards
+│   ├── product-guidelines.md       # Engineering tenets, deep-module seams, present-tense prose & anti-bloat standards
 │   └── tech-stack.md               # Verified languages, frameworks, runtimes, databases, test/lint toolchain
 ├── knowledge/
-│   ├── index.md
+│   ├── index.md                    # Frontmatter-free catalog
 │   ├── workflow.md                 # Verified setup, lint, typecheck, focused test, and full verification gates
 │   ├── architecture/<area>.md      # Deep modules, public interfaces vs. hidden implementation, seams & adapters
 │   ├── patterns/<topic>.md         # Idiomatic patterns anchored to path/to/file::Symbol + anti-patterns
@@ -55,9 +55,9 @@ Create the hierarchical OKF v0.2 bundle layout:
 │   ├── gotchas/<area>.md           # Non-obvious footguns and runtime traps
 │   └── decisions/adr-NNN-<slug>.md # Architectural Decision Records (hard to reverse + surprising + real trade-off)
 ├── research/
-│   └── index.md
+│   └── index.md                    # Frontmatter-free catalog
 └── specs/
-    └── index.md
+    └── index.md                    # Frontmatter-free catalog (chapters nested under specs/<flow_id>/chapters/)
 ```
 
 - Gather or confirm the core project context chapters one question at a time (`structured-choice-v1`):
@@ -86,21 +86,21 @@ Follow [`../../multi-harness-plugins/SKILL.md`](../../multi-harness-plugins/SKIL
    - `references/false-positive-suppressions.md` with intentional repository patterns (`FP-<PREFIX>-01..NN`) and explicit `"DO NOT FLAG"` rationale.
 4. **Write Skill Routing Index (`.agents/skills/index.md`) & Paired Subagents (`.agents/agents/`)**:
    - `.agents/skills/index.md` mapping `Domain | Rule Prefix | Engineering Skill | Review Skill | Reviewer Subagent | Specialist Subagent | Knowledge Chapters`.
-   - `.agents/agents/<domain>-reviewer.md`: Read-only zero-context reviewer (`model: inherit`, `mainAgent: false`, `subagent: true`, `readonly: true`, `commandExecutionPolicy: off`, YAML list `disallowedTools: [Write, Edit, MultiEdit, NotebookEdit, write_file, edit_file]`, H1 `# ` section headers).
+   - `.agents/agents/<domain>-reviewer.md`: Read-only zero-context reviewer (`model: inherit`, `mainAgent: false`, `subagent: true`, `readonly: true`, `commandExecutionPolicy: sandbox`, YAML list `disallowedTools: [Write, Edit, MultiEdit, NotebookEdit, write_file, edit_file]`, H1 `# ` section headers).
    - `.agents/agents/<domain>-specialist.md`: Write-enabled domain specialist (`model: inherit`, `mainAgent: false`, `subagent: true`, `commandExecutionPolicy: sandbox`, H1 `# ` section headers).
    - Never copy Flow's global plugin skills (`flow`, `flow-*`, `okf`, `debloat`, `multi-harness-plugins`) or legacy `flow-memory-keeper` into `.agents/skills/`.
 
-## Phase 4: Git Tracking Policy, Cross-Harness Bootstrap, `AGENTS.md`, & `setup-state.json`
+## Phase 4: Git Tracking Policy, Cross-Harness & `Stop` Hook Bootstrap, `AGENTS.md`, & `setup-state.json`
 
 1. **Git Tracking Policy (`shared` vs. `local-only` Stealth Mode)**:
    - Ask once via `structured-choice-v1` ([`interaction.md`](interaction.md)) and persist `workflow_preferences.ignore_policy` in `.agents/setup-state.json`:
      - **`shared` (Recommended for teams)**: Track `.agents/bundles/`, `.agents/skills/`, `.agents/agents/`, and `.agents/setup-state.json` in Git; exclude `.agents/scratch/` via `.git/info/exclude` (or `.gitignore`). Git history is the archive.
      - **`local-only` (Stealth mode)**: Append `.agents/` to `.git/info/exclude`. Flow runs normally and writes nothing in `.agents/` to Git; `knowledge/**` and `log.md` on disk are the durable record.
-2. **Opt-In Cross-Harness Policy Bootstrap**:
-   - Detect installed harnesses (`claude`, `opencode`, `codex`, `cursor`, `agy`/`antigravity`) and offer opt-in non-destructive policy merges:
+2. **Opt-In Cross-Harness Policy & `Stop` Hook Bootstrap**:
+   - Detect installed harnesses (`claude`, `opencode`, `codex`, `cursor`, `agy`/`antigravity`) and offer opt-in non-destructive policy merges (note: when Flow is installed as a plugin, `SessionStart` and `Stop` hooks run automatically from the plugin root; project-local hook entries are needed only for standalone project-local setups):
      - **Claude Code**: Offer to merge `plansDirectory: ".agents/bundles/specs"` and workflow-derived read/test `permissions.allow` entries into `.claude/settings.local.json` (always backing up to `.claude/settings.local.json.bak` first and never overwriting existing user permissions).
      - **OpenCode**: Offer to merge Flow-recommended instructions into `opencode.json` if present.
-     - **Google Antigravity / Codex CLI / Cursor / VS Code**: Confirm native discovery of root `AGENTS.md`, `.agents/skills/`, and `.agents/agents/`.
+     - **Google Antigravity / Codex CLI / Cursor / VS Code**: Confirm native discovery of root `AGENTS.md`, `.agents/skills/`, `.agents/agents/`, and plugin `SessionStart` + `Stop` review/sync hooks (`.agents/hooks.json` or `.cursor/hooks.json` when using project-local hook configs).
 3. **Update Root `AGENTS.md` & Write `.agents/setup-state.json`**:
    - Ensure root `AGENTS.md` (`<= 100` lines) routes to `.agents/bundles/index.md`, `.agents/bundles/knowledge/workflow.md`, and `.agents/skills/index.md` while preserving `<!-- project-customization: start -->` blocks.
    - Write `.agents/setup-state.json`:

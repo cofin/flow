@@ -1,10 +1,10 @@
 ---
 name: flow-execution
-description: "Use when executing Flow task worksheets in isolated subagent turns (/flow:implement) or reporting active flow and task status (/flow:status)."
+description: "Use when executing a single Flow chapter's task blueprints in isolated subagent turns with pre-review Markdown sync (/flow:implement) or reporting chapter and task status (/flow:status)."
 disable-model-invocation: true
 ---
 
-# Flow Execution (Isolated Task Executor & Public-Seam TDD)
+# Flow Execution (Single-Chapter Subagent Pipeline, Pre-Review Sync, & Public-Seam TDD)
 
 <!-- lifecycle-ownership: owner=flow-execution; operations=implement,status -->
 
@@ -16,43 +16,43 @@ Use for `implement` ([`../flow/references/implement.md`](../flow/references/impl
 ```yaml
 contract: worksheet-execution-v1
 invariants:
-  - worksheet-first
+  - one-chapter-per-implement-run
+  - worksheet-first-bounded-read-set
   - execution-preflight
   - public-seam-tdd-no-mocked-sut
   - fail-closed-no-production-mutation
   - atomic-task-commit
+  - pre-review-present-tense-markdown-sync
+  - chapter-code-and-doc-review-before-stop
 authority: skills/flow/references/implement.md
 ```
 <!-- flow-execution-policy: end -->
 
 ## Workflow
 
-1. **Status & Execution Preflight (`/flow:status` or `/flow:implement`)**:
-   - Read `.agents/bundles/specs/<flow_id>/spec.md` and `tasks/<id>-<slug>.md` directly ([`../flow/references/state.md`](../flow/references/state.md)).
-   - Run the execution preflight (`dependencies_closed`, `worksheet_complete`, `verification_strategy_declared`, `plan_identity_matches`, `target_symbols_exist`).
-   - If any preflight check fails (such as `code_drift`, `missing_decision`, or `invalid_file_symbol_or_test_target`), stop before any production edit, record the evidence in `## Notes & Discoveries`, mark the task `state: blocked`, and route to `/flow:revise <flow_id>`.
-   - Claim the ready task worksheet by setting `state: in_progress`, `claimed_by`, `claimed_at`, and `[ ]` &rarr; `[~]` in `spec.md`.
-2. **Isolated Subagent or `run_workflow` Pipeline Execution**:
-   - Execute one vertical-slice task worksheet per `@executor` subagent turn (`model: inherit`). When executing multiple ready worksheets on Google Antigravity, prefer `run_workflow` `pipeline(worksheets, run_worksheet)` so each worksheet runs in a fresh isolated `@executor` context with `schema=TASK_RESULT_SCHEMA`.
-3. **Public-Seam Vertical-Slice TDD & Hypothesis-Driven Bug Diagnosis**:
-   - Collect the declared `verification_strategy` initial evidence (`behavior_tdd` and `regression_tdd` require observing the failing test at the confirmed public seam first).
-   - Implement the vertical slice through the real System Under Test (mocking only external boundaries; never mocking the SUT or internal collaborators, and never writing tautological assertions) and place all tests in canonical module test files.
-   - If a test or runtime failure is non-obvious, execute the **Hypothesis-Driven Bug Diagnosis Loop** in [`../flow/references/discipline.md`](../flow/references/discipline.md) (tight red-capable feedback loop &rarr; reproduce & minimize &rarr; ranked falsifiable hypotheses &rarr; `[DEBUG-<id>]` single-variable probe &rarr; public-seam regression test & fix &rarr; strip debug tags).
-4. **Phase Checkpoints, Atomic Commit & Direct Markdown Close**:
-   - Run the worksheet's verification and fast lint gates until exit code `0`.
-   - Update the task worksheet (`state: completed`, `commit`, `last_verified_at`, `last_verified_commit`, `verification_evidence`, `## Notes & Discoveries`) and `spec.md` checklist (`- [x] [<sha>] <id> — ...`), and create one atomic signed local Git commit.
-   - At each **Phase Recovery Checkpoint** in `spec.md`, run the phase's aggregate test/lint/debloat gate and update `last_verified_checkpoint` in `spec.md`.
+1. **Active Chapter Resolution & Execution Preflight (`/flow:status` or `/flow:implement`)**:
+   - Read root `.agents/bundles/specs/<flow_id>/spec.md`, `chapters/index.md` (when `has_chapters: true`), and only the active `current_chapter`'s `spec.md` + `tasks/*.md` ([`../flow/references/state.md`](../flow/references/state.md)).
+   - Verify `depends_on_chapters` are `completed` with non-null `last_reviewed_commit` and `planning_status == "complete"`; if `planning_status == "empirical_dependent"`, stop cleanly with zero production edits and route to `/flow:revise <flow_id> <chapter_id>`.
+   - Run the task preflight (`dependencies_closed`, `worksheet_complete`, `verification_strategy_declared`, `plan_identity_matches`, `target_symbols_exist`). On mismatch, mark the task `state: blocked` (`[!]`) with zero production edits and route to `/flow:revise`.
+2. **Isolated Subagent Task Pipeline (`1–4` Tasks in Active Chapter Only)**:
+   - Execute strictly **one chapter** (`1–4` tasks) per `/flow:implement` run, dispatching one fresh isolated `@executor` subagent per task worksheet (`model: inherit`; `run_workflow` `pipeline()` with `type_name="self"` and `agents/executor.md` on Google Antigravity).
+   - Each `@executor` stays inside its worksheet's `Bounded Read Manifest` (`read_set <= 6` files), collects initial evidence (`behavior_tdd` / `regression_tdd` Red first), implements through the real System Under Test (applying the **Hypothesis-Driven Bug Diagnosis Loop** on non-obvious failures), verifies Green + fast lint (`exit 0`), and atomically commits its owned files plus synced task `state`/`commit` and `[x] [<sha>]` checklist marker.
+3. **Chapter Closeout Sequence (Checkpoint &rarr; Present-Tense Sync &rarr; Zero-Context Review &rarr; Hard Stop)**:
+   - **Chapter Recovery Checkpoint**: Run the chapter's aggregate lint and test suite (`exit 0`).
+   - **Present-Tense Markdown, OKF, & Full-Plan Sync**: Dispatch an isolated sync subagent (`type_name="self"` on Antigravity) to update affected `.agents/bundles/knowledge/**` and user `docs/**` in present tense, rewrite `chapters/<ch_id>/spec.md`, `chapters/index.md`, and root `specs/<flow_id>/spec.md` (`[k/N files documented]` and `## 6. Current State & Remaining Plan Snapshot`) in place with zero chronological history (logging only in `.agents/bundles/log.md`), and commit the synced docs.
+   - **Zero-Context Chapter Code & Markdown-Sync Review**: Dispatch isolated `@code-reviewer` + `@quality-reviewer` (`type_name="self"` on Antigravity) across `chapter_base_commit..HEAD` covering both code/tests and synced Markdown/OKF files; remediate any `ADOPT` findings and re-verify.
+   - **Review Stamp, Pointer Advance, & Hard Stop**: Stamp `last_reviewed_commit: <REVIEWED_HEAD_SHA>` and `state: completed` in `chapters/<ch_id>/spec.md`, mark `- [x] [<REVIEWED_HEAD_SHA>] <ch_id>` and advance `current_chapter` + `last_reviewed_chapter` + `last_reviewed_commit` in root `specs/<flow_id>/spec.md`, commit closeout metadata, and **stop cleanly at the chapter boundary** (recommending `/compact` or a fresh session before the next chapter).
 
 ## Guardrails
 
-- Execute one task worksheet per subagent turn; never batch unrelated tasks into one commit.
-- Never mark a task `completed` without running its verification command freshly and observing exit code `0`.
-- Never create or mutate Git tags or push without explicit user instruction.
+- Execute one task worksheet per subagent turn and at most **one chapter** (`1–4` tasks) per `/flow:implement` invocation; never chain multiple chapters in one session turn.
+- Always run present-tense Markdown/OKF sync **before** Zero-Context Chapter Review so reviewers verify both code and living docs, and stamp `last_reviewed_commit` before stopping so cross-harness `Stop` hooks pass cleanly.
+- Never mark a task or chapter `completed` without fresh `exit 0` verification, and never create/mutate Git tags or push without explicit user instruction.
 
 ## Output
 
-Return the executed task ID, verification output, atomic commit SHA, updated flow status table, and next ready task or `/flow:review` handoff.
+Return the completed chapter/task summary, verification exit codes, atomic task and sync commit SHAs, Chapter Review Adjudication summary, `last_reviewed_commit`, remaining chapters from the full plan, and `/compact` + next `/flow:implement <flow_id>` (or `/flow:finish <flow_id>`) handoff.
 
 ## Validation
 
-Confirm the task worksheet's declared verification command exited `0`, `tasks/<id>-<slug>.md` frontmatter (`state`, `commit`) matches the `spec.md` checklist marker (`[x] [<sha>]`), and only task-owned paths were staged.
+Confirm all chapter verification commands exited `0`, every `tasks/<id>-<slug>.md` `state`/`commit` matches its `spec.md` checklist, root `spec.md` + `chapters/index.md` + `knowledge/**` + `docs/**` are synced in present tense without historical prose, and `last_reviewed_commit` covers every completed task commit in the chapter.

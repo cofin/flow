@@ -31,13 +31,22 @@ Also note that for global plugins, Antigravity sets `cmd.Dir` to the **installed
         "timeout": 15
       }
     ]
+  },
+  "my-plugin-stop-check": {
+    "Stop": [
+      {
+        "type": "command",
+        "command": "sh ./hooks/on-stop.sh --harness agy",
+        "timeout": 10
+      }
+    ]
   }
 }
 ```
 
 ### 2. Claude Code, Codex CLI, & VS Code (`.claude/settings.json` / `.codex/hooks.json` or Plugin Hook Config)
 
-Claude Code and Codex CLI require the **nested** `matcher` structure for all events. Provide `"commandWindows"` invoking a native PowerShell (`hooks/on-session-start.ps1`) equivalent so Windows hosts executing via `%COMSPEC% /C` (`cmd.exe /c`) do not require `sh` on `PATH`:
+Claude Code and Codex CLI require the **nested** `matcher` structure for all events (`SessionStart` and `Stop`). Provide `"commandWindows"` invoking native PowerShell (`hooks/on-session-start.ps1`, `hooks/on-stop.ps1`) equivalents so Windows hosts executing via `%COMSPEC% /C` (`cmd.exe /c`) do not require `sh` on `PATH`:
 
 ```json
 {
@@ -53,17 +62,30 @@ Claude Code and Codex CLI require the **nested** `matcher` structure for all eve
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/on-stop.sh --harness claude",
+            "commandWindows": "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/on-stop.ps1\" --harness claude",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   }
 }
 ```
 
 - In **Claude Code**, `hooks/hooks.json` auto-loads and merges with any file declared in `.claude-plugin/plugin.json` `hooks`. Point `.claude-plugin/plugin.json` at a dedicated file and keep root `hooks.json` for Antigravity so neither harness collides.
-- In **Codex CLI**, project-local `.codex/hooks.json` (or inline `[hooks]` in `.codex/config.toml`) only runs for trusted projects, and plugin hooks require user trust approval on install/upgrade.
+- In **Claude Code** and **Codex CLI**, `Stop` runs on the main agent loop (subagents fire `SubagentStop`). In **Codex CLI**, project-local `.codex/hooks.json` (or inline `[hooks]` in `.codex/config.toml`) only runs for trusted projects, and plugin hooks require user trust approval on install/upgrade.
 
 ### 3. Cursor (Project `.cursor/hooks.json` or Plugin Hook Config)
 
-Cursor uses `version: 1` and camelCase event names (`sessionStart`) with flat command entries. For plugin hooks, Cursor sets `cwd` to the plugin install directory and passes the user's workspace in `CURSOR_PROJECT_DIR` (and `CLAUDE_PROJECT_DIR`) plus stdin `workspace_roots[0]`:
+Cursor uses `version: 1` and camelCase event names (`sessionStart`, `stop`) with flat command entries and `"loop_limit"` on `stop` hooks. For plugin hooks, Cursor sets `cwd` to the plugin install directory and passes the user's workspace in `CURSOR_PROJECT_DIR` (and `CLAUDE_PROJECT_DIR`) plus stdin `workspace_roots[0]`:
 
 ```json
 {
@@ -73,10 +95,20 @@ Cursor uses `version: 1` and camelCase event names (`sessionStart`) with flat co
       {
         "command": "./hooks/on-session-start.sh --harness cursor"
       }
+    ],
+    "stop": [
+      {
+        "command": "./hooks/on-stop.sh --harness cursor",
+        "loop_limit": 2
+      }
     ]
   }
 }
 ```
+
+### 4. OpenCode V2 (`.opencode/plugins/<name>.js`)
+
+In OpenCode V2, `ctx.session.hook("context", async () => ({ systemMessage: readSummary(workspaceDir) }))` and `"experimental.chat.system.transform"` run on **every model request** in the session loop. Re-evaluate bundle state dynamically inside the hook callback (never cache once at `setup(ctx)`) so mid-session chapter progress and pending review/sync warnings surface immediately on the next turn.
 
 ## Harness Stdout JSON Schemas for `SessionStart`
 
@@ -101,6 +133,35 @@ A single POSIX `sh` script can adapt its stdout payload to each harness:
    ```json
    {"continue":true,"additional_context":"..."}
    ```
+
+## Harness Stdout JSON Schemas & Circuit Breakers for `Stop`
+
+`Stop` hooks prevent premature coordinator turn completion when checklists drift, completed chapters lack review stamps, or living Markdown specs are out of sync. Always emit `{}` and exit `0` when clean or when a safety guard fires:
+
+1. **Google Antigravity (`--harness agy`)**:
+   - **Stdin (`StopHookArgs`)**: `executionNum`, `terminationReason` (`"model_stop"`, `"max_steps_exceeded"`, `"error"`), `error`, `fullyIdle`, `workspacePaths`, `lastUserInput`, `parentConversationId`.
+   - **Circuit Breaker & Subagent Guard**: Allow stop (`{}`) if `terminationReason != "model_stop"`, `error` is non-empty, `executionNum >= 2`, or `parentConversationId` / leaf `agents/*.md` indicates a leaf subagent turn without checklist corruption.
+   - **Block Stop (`StopHookResult` — `"block"` is deprecated; always use `"continue"`)**:
+
+     ```json
+     {"decision":"continue","reason":"Synchronize present-tense specs and complete chapter review before stopping."}
+     ```
+
+2. **Claude Code, Codex CLI, & VS Code (`--harness claude`)**:
+   - **Circuit Breaker & Cursor Dedupe**: Allow stop (`{}`) when `CURSOR_VERSION` is set or stdin contains `"stop_hook_active": true`.
+   - **Block Stop**:
+
+     ```json
+     {"decision":"block","reason":"Synchronize present-tense specs and complete chapter review before stopping."}
+     ```
+
+3. **Cursor (`--harness cursor`)**:
+   - **Circuit Breaker**: Allow stop (`{}`) when stdin `"status"` is non-empty and `!= "completed"` or `"loop_count"` `>= 1`.
+   - **Block Stop**:
+
+     ```json
+     {"followup_message":"Synchronize present-tense specs and complete chapter review before stopping."}
+     ```
 
 ## Resolving the Active Workspace in POSIX `sh`
 

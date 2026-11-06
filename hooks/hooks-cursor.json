@@ -5,6 +5,12 @@
       {
         "command": "sh ./hooks/session-start.sh --harness cursor"
       }
+    ],
+    "stop": [
+      {
+        "command": "sh ./hooks/stop-check.sh --harness cursor",
+        "loop_limit": 2
+      }
     ]
   }
 }

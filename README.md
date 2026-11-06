@@ -13,13 +13,14 @@ Flow separates **Stateful Planning & Adjudication** from **Zero-Context Verifica
    - Probes installed host binaries (`uv`, `python3`, `cargo`, `go`, `bun`, `pnpm`, `npm`, `make`, `just`, `pwsh`, `powershell`) and scaffolds Flow's core context chapters (`product/product.md`, `product/product-guidelines.md`, `product/tech-stack.md`, and `knowledge/workflow.md`) with bounded `<= 40`-line `<!-- truth: start -->` blocks and nested `knowledge/{architecture,patterns,domains,testing,gotchas,decisions}/` chapters anchored to `path/to/file::Symbol`.
    - Seeds baseline engineering disciplines (deep-module seams, active domain modeling, public-seam TDD, hypothesis-driven bug diagnosis, and cold-reader documentation accuracy) alongside stack-specific `.agents/skills/<domain>/`, `.agents/skills/review-<domain>/`, and paired `.agents/agents/<domain>-{reviewer,specialist}.md` subagents.
    - Configures Git tracking (`shared` team mode vs. `local-only` stealth mode via `.git/info/exclude`) and opt-in cross-harness settings.
-2. **Plan (`/flow:prd`, `/flow:plan`, `/flow:revise`, `/flow:research`) — Stateful Co-Design & Adjudication**:
-   - **Master PRD (`/flow:prd`)**: Decomposes multi-flow initiatives into plain-English problem framing, locked architectural seams, a Mandatory Alternatives Table, and ordered `state: draft` child flow charters.
-   - **Feature Specification (`/flow:plan`)**: Walks the Design-Tree Frontier one decision at a time (`structured-choice-v1`, separating agent-researched *Facts* from user *Decisions*), authors a 5-section specification (`spec.md`) with deep-module seams and `1–8` disjoint vertical-slice task worksheets (`tasks/<id>-<slug>.md`) anchored to `path/to/file::Symbol`, dispatches isolated zero-context reviewers passing only disk paths, and adjudicates findings (`ADOPT`, `CONTEST`, or `ESCALATE`).
-   - **Research & Prototyping (`/flow:research`, alias `/flow:task`)**: Runs primary-source `@researcher` audits or time-boxed throwaway prototypes in untracked `.agents/scratch/<slug>/`.
-3. **Implement (`/flow:implement`, `/flow:status`) — Isolated Vertical-Slice Execution**:
-   - Runs the execution preflight (`dependencies_closed`, `worksheet_complete`, `verification_strategy_declared`, `plan_identity_matches`, `target_symbols_exist`), failing closed before modifying production files if symbol or requirement drift is detected.
-   - Executes one approved task worksheet per `@executor` subagent turn using **Public-Seam Vertical-Slice TDD** in canonical module test files (or the **Hypothesis-Driven Bug Diagnosis Loop** when blocked), verifies **Phase Recovery Checkpoints**, creates an atomic signed Git commit, and updates task frontmatter + `spec.md` checklists directly.
+2. **Plan (`/flow:prd`, `/flow:plan`, `/flow:revise`, `/flow:research`) — Subagent-Scaled Co-Design & Upfront Chapter Blueprints**:
+   - **Sharded Discovery & Questioning**: Fans out read-only Scout subagents returning structured `SubsystemDigest` payloads, then walks the Design-Tree Frontier (`1` question for dependent forks; `2–3` batched orthogonal leaf questions on settled frontiers via `structured-choice-v1`).
+   - **High-Detail Chaptered Specifications (`/flow:prd` & `/flow:plan`)**: Locks cross-chapter seams, shared types, and a **Documentation & OKF Knowledge Plan** in root `specs/<flow_id>/spec.md` + `chapters/index.md`, then fans out parallel Chapter Planner subagents to author **all chapters (`ch01..chNN`, zero upper cap, `1–4` vertical-slice tasks per chapter) and 8-section task blueprints upfront**—scaling horizontally so plans, edge-case matrices, worked test cases, OKF provenance, and user docs gain depth without ever truncating scope or compacting context.
+   - **Per-Chapter Zero-Context Spec Review & Revision (`/flow:revise`)**: Dispatches per-chapter zero-context reviewers passing only disk paths, adjudicates findings (`ADOPT`, `CONTEST`, `ESCALATE`), and keeps root `spec.md`, `chapters/index.md`, and chapter blueprints synchronized in present tense (current state, remaining chapters, and full plan—zero revision history inside specs).
+   - **Research & Prototyping (`/flow:research`, alias `/flow:task`)**: Runs primary-source `@researcher` audits (promoted into OKF v0.2 `research/*.md` with `sources:` + `[^id]:` footnotes) or time-boxed throwaway prototypes in untracked `.agents/scratch/<slug>/`.
+3. **Implement (`/flow:implement`, `/flow:status`) — Single-Chapter Execution & Pre-Review Sync**:
+   - Resolves the active chapter (`current_chapter`), runs execution preflight (`dependencies_closed`, `worksheet_complete`, `verification_strategy_declared`, `plan_identity_matches`, `target_symbols_exist`), and executes strictly **one chapter (`1–4` tasks)** per `/flow:implement` invocation via isolated `@executor` subagents bound to `Bounded Read Manifests` (`<= 6` files).
+   - Closes each chapter by running the Chapter Recovery Checkpoint, syncing affected `.agents/bundles/knowledge/**`, `docs/**`, `chapters/index.md`, and root `specs/<flow_id>/spec.md` in present tense, passing Zero-Context Chapter Code & Markdown-Sync Review (`@code-reviewer` + `@quality-reviewer`), stamping `last_reviewed_commit`, and stopping cleanly—enforced by cross-harness `Stop` hooks (`hooks/stop-check.{sh,ps1}` and OpenCode session checks).
 4. **Learn & Document (`/flow:learn`, `/flow:docs`)**:
    - **`/flow:learn` (aliases `resynthesize`, `refresh`, `sync`)**: Runs anytime—across machines/harnesses, mid-flow, or post-flow—to reconcile Git history with task worksheets, intersect `git diff` against `sources[].resource` provenance, sharpen domain glossaries and Architectural Decision Records (`knowledge/decisions/adr-NNN-<slug>.md`), resynthesize `knowledge/**` in present tense, and synchronize `.agents/skills/` and `.agents/agents/`.
    - **`/flow:docs` (`write`, `validate`, `capture`, `sync`, `pr`)**: Tool-agnostic documentation, prose, and agent-context discipline grounded in cold-reader comprehension, manifest-driven `[k/N files documented]` source coverage, progressive disclosure ([`agent-context.md`](skills/flow-docs/references/agent-context.md)), and clean PR/commit/changelog hygiene ([`prs-commits-and-changelogs.md`](skills/flow-docs/references/prs-commits-and-changelogs.md)).
@@ -45,7 +46,7 @@ git pull
 agy plugin install ~/.Flow
 ```
 
-When running in Google Antigravity, Flow automatically leverages the `run_workflow` Python orchestration API (`phase()`, `parallel()`, `pipeline()`, `agent(..., schema=..., model="inherit")`) for parallel zero-context reviews, persistent multi-turn reviewer handles, and task worksheet pipelines.
+When running in Google Antigravity, Flow automatically uses the `run_workflow` Python orchestration API (`phase()`, `parallel()`, `pipeline()`, `agent(..., type_name="self", schema=..., model="inherit")`) for sharded discovery scouts, upfront parallel chapter blueprint authoring, zero-context reviews, and isolated single-chapter task pipelines.
 
 ### Claude Code
 
@@ -86,19 +87,19 @@ Install Flow through **Chat: Install Plugin From Source** pointing to a local ch
 | Command | Lifecycle Skill | Reference Procedure | Description |
 | --- | --- | --- | --- |
 | `/flow:setup` | [`flow-setup`](skills/flow-setup/SKILL.md) | [`setup.md`](skills/flow/references/setup.md) | Align brownfield repos or bootstrap `.agents/bundles/`, `.agents/skills/`, and `.agents/agents/` |
-| `/flow:prd <goal>` | [`flow-planning`](skills/flow-planning/SKILL.md) | [`prd.md`](skills/flow/references/prd.md) | Author Master PRD roadmap (`spec.md`) and seed child flow charters |
-| `/flow:plan <goal>` | [`flow-planning`](skills/flow-planning/SKILL.md) | [`plan.md`](skills/flow/references/plan.md) | Author Feature Specification (`spec.md`) and `tasks/<id>-<slug>.md` worksheets |
-| `/flow:revise <flow_id>` | [`flow-planning`](skills/flow-planning/SKILL.md) | [`revise.md`](skills/flow/references/revise.md) | Rewrite `spec.md` and `tasks/*.md` in place in present tense (alias: `refine`) |
+| `/flow:prd <goal>` | [`flow-planning`](skills/flow-planning/SKILL.md) | [`prd.md`](skills/flow/references/prd.md) | Author multi-chapter roadmap (`spec.md` + `chapters/ch01..chNN/`) and upfront blueprints |
+| `/flow:plan <goal>` | [`flow-planning`](skills/flow-planning/SKILL.md) | [`plan.md`](skills/flow/references/plan.md) | Author high-detail specification (`spec.md`), `chapters/`, and `tasks/*.md` blueprints |
+| `/flow:revise <flow_id>` | [`flow-planning`](skills/flow-planning/SKILL.md) | [`revise.md`](skills/flow/references/revise.md) | Rewrite root `spec.md`, `chapters/`, and `tasks/*.md` in place in present tense (alias: `refine`) |
 | `/flow:research <topic>` | [`flow-planning`](skills/flow-planning/SKILL.md) | [`research.md`](skills/flow/references/research.md) | Primary-source research & time-boxed `.agents/scratch/` spikes (alias: `task`) |
-| `/flow:implement [flow_id]` | [`flow-execution`](skills/flow-execution/SKILL.md) | [`implement.md`](skills/flow/references/implement.md) | Execute ready task worksheets with Public-Seam TDD and atomic commits |
-| `/flow:status` | [`flow-execution`](skills/flow-execution/SKILL.md) | [`status.md`](skills/flow/references/status.md) | Inspect active flows, phase progress, and ready tasks |
+| `/flow:implement [flow_id]` | [`flow-execution`](skills/flow-execution/SKILL.md) | [`implement.md`](skills/flow/references/implement.md) | Execute one chapter (`1–4` tasks) with Public-Seam TDD, doc/OKF sync, and chapter review |
+| `/flow:status` | [`flow-execution`](skills/flow-execution/SKILL.md) | [`status.md`](skills/flow/references/status.md) | Inspect active flows, chapter progress, remaining plan, and ready tasks |
 | `/flow:learn [scope]` | [`flow-learn`](skills/flow-learn/SKILL.md) | [`learn.md`](skills/flow/references/learn.md) | Anytime reorientation (`refresh`), sync, `OKF v0.2` knowledge resynthesis, and skill sync |
 | `/flow:docs [mode]` | [`flow-docs`](skills/flow-docs/SKILL.md) | [`prose-and-documentation.md`](skills/flow-docs/references/prose-and-documentation.md) | Tool-agnostic user/developer docs, [`agent-context.md`](skills/flow-docs/references/agent-context.md), changelogs, and clean PRs |
-| `/flow:review [flow_id]` | [`flow-completion`](skills/flow-completion/SKILL.md) | [`review.md`](skills/flow/references/review.md) | Zero-context Spec Conformance, Standards, and mandatory Debloat quality review |
-| `/flow:finish [flow_id]` | [`flow-completion`](skills/flow-completion/SKILL.md) | [`finish.md`](skills/flow/references/finish.md) | Verify gates, evaluate ADR filter, and mark flow `completed` |
+| `/flow:review [flow_id]` | [`flow-completion`](skills/flow-completion/SKILL.md) | [`review.md`](skills/flow/references/review.md) | Zero-context Spec, Markdown-Sync, Standards, and mandatory Debloat quality review |
+| `/flow:finish [flow_id]` | [`flow-completion`](skills/flow-completion/SKILL.md) | [`finish.md`](skills/flow/references/finish.md) | Verify gates, chapter review stamps, ADR filter, and mark flow `completed` |
 | `/flow:archive [flow_id]` | [`flow-completion`](skills/flow-completion/SKILL.md) | [`archive.md`](skills/flow/references/archive.md) | Contract completed flow into `.agents/bundles/knowledge/**` and remove spec dir |
 | `/flow:cleanup` | [`flow-completion`](skills/flow-completion/SKILL.md) | [`cleanup.md`](skills/flow/references/cleanup.md) | Groundskeeping: reconcile specs, archive completed flows, and debloat touched files |
-| `/flow:revert <scope>` | [`flow-completion`](skills/flow-completion/SKILL.md) | [`revert.md`](skills/flow/references/revert.md) | Git-aware revert of a task, phase, or flow |
+| `/flow:revert <scope>` | [`flow-completion`](skills/flow-completion/SKILL.md) | [`revert.md`](skills/flow/references/revert.md) | Git-aware revert of a task, chapter, phase, or flow |
 | `/flow:validate` | [`flow-completion`](skills/flow-completion/SKILL.md) | [`validate.md`](skills/flow/references/validate.md) | Validate `.agents/bundles/`, `.agents/skills/`, `.agents/agents/`, and active specs |
 
 ## Consumer Repository `.agents/` Layout
@@ -128,11 +129,18 @@ Install Flow through **Chat: Install Plugin From Source** pointing to a local ch
     │   ├── gotchas/<area>.md
     │   └── decisions/adr-NNN-<slug>.md
     ├── research/<topic>_<YYYYMMDD>.md
-    └── specs/<flow_id>/
-        ├── spec.md
-        ├── learnings.md
-        ├── research/<topic>_<YYYYMMDD>.md
-        └── tasks/<id>-<slug>.md
+    └── specs/
+        ├── index.md                              # Frontmatter-free spec catalog
+        └── <flow_id>/
+            ├── spec.md                           # Full-plan roadmap & present-tense state snapshot
+            ├── learnings.md
+            ├── research/<topic>_<YYYYMMDD>.md
+            ├── tasks/<id>-<slug>.md              # Single-chapter flows (1-4 tasks)
+            └── chapters/                         # Multi-chapter flows (ch01..chNN, zero upper cap)
+                ├── index.md
+                └── ch01-<slug>/
+                    ├── spec.md
+                    └── tasks/<id>-<slug>.md      # 1-4 vertical-slice tasks per chapter
 ```
 
 ## License

@@ -1,5 +1,5 @@
 {
-  "description": "Flow session priming hook for Claude Code, Codex CLI, and VS Code Agent Plugins.",
+  "description": "Flow session priming and chapter review/sync Stop hooks for Claude Code, Codex CLI, and VS Code Agent Plugins.",
   "hooks": {
     "SessionStart": [
       {
@@ -10,6 +10,19 @@
             "command": "sh \"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-.}}/hooks/session-start.sh\" --harness claude",
             "commandWindows": "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-.}}/hooks/session-start.ps1\" --harness claude",
             "timeout": 15
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh \"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-.}}/hooks/stop-check.sh\" --harness claude",
+            "commandWindows": "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-.}}/hooks/stop-check.ps1\" --harness claude",
+            "timeout": 10
           }
         ]
       }

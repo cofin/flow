@@ -3,16 +3,19 @@
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 
 from tools.validate import (
     EXPECTED_AGENTS,
     EXPECTED_SKILLS,
     MAX_SKILL_FILE_BYTES,
+    READONLY_AGENTS,
     REPO_ROOT,
     main,
     validate_agents,
     validate_anti_sprawl,
+    validate_hooks,
     validate_lockfile,
     validate_manifests,
     validate_markdown_links,
@@ -68,6 +71,75 @@ def test_validate_manifests_detects_version_mismatch_and_invalid_keys(tmp_path: 
     assert any("disallowed Antigravity manifest keys: ['hooks']" in err for err in errors)
 
 
+def test_validate_hooks_enforces_stop_hook_schemas_and_dynamic_opencode_context(tmp_path: Path) -> None:
+    """Verify validate_hooks flags nested Antigravity Stop matchers, missing loop_limit, and static OpenCode caching."""
+    hooks_dir = tmp_path / "hooks"
+    hooks_dir.mkdir(parents=True)
+    for script_name in ("session-start.sh", "session-start.ps1", "stop-check.sh", "stop-check.ps1"):
+        shutil.copy2(REPO_ROOT / "hooks" / script_name, hooks_dir / script_name)
+
+    (tmp_path / "hooks.json").write_text(
+        json.dumps(
+            {
+                "flow-session-start": {"SessionStart": [{"type": "command", "command": "sh ./hooks/session-start.sh"}]},
+                "flow-stop-check": {
+                    "Stop": [{"matcher": "*", "hooks": [{"type": "command", "command": "sh ./hooks/stop-check.sh"}]}]
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (hooks_dir / "hooks-claude.json").write_text(
+        json.dumps(
+            {
+                "hooks": {
+                    "SessionStart": [
+                        {
+                            "matcher": "startup",
+                            "hooks": [
+                                {
+                                    "type": "command",
+                                    "command": "sh ./hooks/session-start.sh",
+                                    "commandWindows": "powershell -File session-start.ps1",
+                                }
+                            ],
+                        }
+                    ],
+                    "Stop": [{"type": "command", "command": "sh ./hooks/stop-check.sh"}],
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    (hooks_dir / "hooks-cursor.json").write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "hooks": {
+                    "sessionStart": [{"command": "sh ./hooks/session-start.sh --harness cursor"}],
+                    "stop": [{"command": "sh ./hooks/stop-check.sh --harness cursor"}],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    opencode_dir = tmp_path / ".opencode" / "plugins"
+    opencode_dir.mkdir(parents=True)
+    (opencode_dir / "flow.js").write_text(
+        'const flowPlugin = { id: "flow", async setup(ctx) {\n'
+        "  const summary = readBundleSummary(ctx.cwd);\n"
+        "  return summary;\n"
+        "} };\n",
+        encoding="utf-8",
+    )
+
+    errors = validate_hooks(tmp_path)
+    assert "hooks.json: Antigravity Stop must be a flat array of command handlers" in errors
+    assert "hooks/hooks-claude.json: Stop must use nested matcher format" in errors
+    assert "hooks/hooks-cursor.json: must declare hooks.stop with integer loop_limit" in errors
+    assert ".opencode/plugins/flow.js: must invoke readBundleSummary dynamically per turn" in errors
+
+
 def test_validate_skills_enforces_byte_cap_and_frontmatter(tmp_path: Path) -> None:
     """Verify that skill validation enforces the 24 KB Antigravity cap and description rules."""
     skills_dir = tmp_path / "skills"
@@ -95,8 +167,8 @@ def test_validate_skills_enforces_byte_cap_and_frontmatter(tmp_path: Path) -> No
     assert any("forbidden term 'Auto-activate'" in err for err in errors)
 
 
-def test_validate_agents_enforces_h1_headings_and_yaml_lists(tmp_path: Path) -> None:
-    """Verify that subagent validation checks H1 headings, mainAgent: false, and YAML list disallowedTools."""
+def test_validate_agents_enforces_sandbox_policy_h1_headings_and_yaml_lists(tmp_path: Path) -> None:
+    """Verify subagent validation enforces commandExecutionPolicy: sandbox, H1 headings, and YAML disallowedTools."""
     agents_dir = tmp_path / "agents"
     codex_dir = tmp_path / ".codex" / "agents"
     agents_dir.mkdir(parents=True)
@@ -115,8 +187,29 @@ def test_validate_agents_enforces_h1_headings_and_yaml_lists(tmp_path: Path) -> 
 
     errors = validate_agents(tmp_path)
     assert any("mainAgent must be false" in err for err in errors)
+    assert any("commandExecutionPolicy must be 'sandbox'" in err for err in errors)
     assert any("missing required H1 heading '# Role & Identity'" in err for err in errors)
     assert any("read-only agent must declare readonly: true" in err for err in errors)
+
+    for name in EXPECTED_AGENTS:
+        is_ro = name in READONLY_AGENTS
+        ro_yaml = (
+            "readonly: true\ndisallowedTools:\n  - Edit\n  - MultiEdit\n  - NotebookEdit\n  - Write\n" if is_ro else ""
+        )
+        codex_sb = "read-only" if is_ro else "workspace-write"
+        (agents_dir / f"{name}.md").write_text(
+            f"---\nname: {name}\ndescription: Desc\nmodel: inherit\nmainAgent: false\nsubagent: true\n"
+            f"commandExecutionPolicy: sandbox\n{ro_yaml}skills:\n  - flow\n---\n\n"
+            "# Role & Identity\n\nRole.\n\n# Responsibilities\n\nWork.\n\n"
+            "# Verification & Constraints\n\nVerify.\n\n# Output Contract\n\nOut.\n",
+            encoding="utf-8",
+        )
+        (codex_dir / f"{name}.toml").write_text(
+            f'name = "{name}"\ndescription = "Desc"\nsandbox_mode = "{codex_sb}"\ndeveloper_instructions = "Follow."\n',
+            encoding="utf-8",
+        )
+
+    assert validate_agents(tmp_path) == []
 
 
 def test_validate_anti_sprawl_and_lockfile(tmp_path: Path) -> None:

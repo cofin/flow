@@ -24,23 +24,25 @@ runtime_dependency: agent_file_tools_only
 
 ## Workflow
 
-1. **Zero-Context Correctness, Standards, & Quality Review (`/flow:review`)**:
-   - Compute the exact `base_commit..head_commit` range and changed file surface.
-   - Dispatch isolated zero-context reviewers (`run_workflow` `parallel()` with `schema=` and persistent reviewer handles when available, or isolated `@code-reviewer`, `@quality-reviewer`, and matching `.agents/agents/<domain>-reviewer` subagents) passing only disk paths (`spec.md`, `tasks/*.md`, `.agents/skills/`, and `knowledge/` chapters) under the **Zero-Context Isolation Rules**.
-   - Evaluate **Spec Conformance**, **Repository Standards, Deep-Module Seams, & Baseline Structural Code Smells**, and **Mandatory Quality & Debloat Review (`quality-review-v1`)**.
-   - Adjudicate findings (`ADOPT` vs. `CONTEST` vs. `ESCALATE`), remediate adopted findings in canonical files/tests, and re-verify with the reviewer.
+1. **Zero-Context Chapter or Flow Correctness, Markdown-Sync, & Quality Review (`/flow:review [flow_id] [chapter_id]`)**:
+   - Compute the exact `base_commit..head_commit` range for the target chapter or full flow and inspect the changed code, test, spec, OKF, and doc surface.
+   - Dispatch isolated zero-context reviewers (`run_workflow` `parallel()` with `type_name="self"` on Google Antigravity, checking `git status --porcelain` afterward; isolated `@code-reviewer`, `@quality-reviewer`, and matching `.agents/agents/<domain>-reviewer` subagents elsewhere) passing only disk paths (`spec.md`, `chapters/index.md`, `chapters/<ch_id>/spec.md`, `tasks/*.md`, `.agents/skills/`, and `knowledge/` chapters) under the **Zero-Context Isolation Rules**.
+   - Evaluate **Spec Conformance**, **Present-Tense Markdown, Full-Plan Roadmap, & Doc-Sync Conformance**, **Repository Standards, Deep-Module Seams, & Baseline Structural Code Smells**, and **Mandatory Quality, Zero-History Doc Hygiene, & Debloat Review (`quality-review-v1`)**.
+   - Adjudicate findings (`ADOPT` vs. `CONTEST` vs. `ESCALATE`), remediate adopted code or Markdown-drift findings, re-verify, and stamp `last_reviewed_commit: <REVIEWED_HEAD_SHA>` on the reviewed chapter/flow `spec.md`.
 2. **Finish Flow (`/flow:finish`)**:
-   - Verify branch-local completion eligibility (or scope-cap follow-up tasks as `deferred` `[-]`), run full verification gates (`knowledge/workflow.md`), confirm review gates passed, evaluate the **ADR Filter** (`knowledge/decisions/adr-NNN-<slug>.md`), mark `spec.md` `state: completed`, and present the structured completion options (`Archive flow now`, `Archive and open/update PR`, `Merge locally and archive`, `Discard work`).
+   - Verify branch-local completion eligibility: every chapter (`chapters/<ch_id>/spec.md`) and task worksheet is `completed` (or `deferred` `[-]`) with a valid `last_reviewed_commit` covering all chapter task commits and `[N/N files documented]` in `## 3. Documentation & OKF Knowledge Plan`.
+   - Run full verification gates (`knowledge/workflow.md`), confirm flow-wide review gates passed, evaluate the **ADR Filter** (`knowledge/decisions/adr-NNN-<slug>.md`), mark root `spec.md` `state: completed` (`current_chapter: null`, `current_task: null`), and present the structured completion options (`Archive flow now`, `Archive and open/update PR`, `Merge locally and archive`, `Discard work`).
 3. **Archive & Contract Flow (`/flow:archive`)**:
-   - Execute the `/flow:learn` contraction pass across all OKF knowledge namespaces and `.agents/skills/**` before deletion.
-   - Enforce strict write ordering: write `knowledge/**` + `.agents/skills/**` first, prepend the `archive` entry to `.agents/bundles/log.md` second, and delete `.agents/bundles/specs/<flow_id>/` last.
+   - Execute the subagent-sharded `/flow:learn` contraction pass (`1` subagent per domain when `>= 2` domains) across all chapters, OKF knowledge namespaces, and `.agents/skills/**` before deletion.
+   - Enforce strict write ordering: write `knowledge/**` + `.agents/skills/**` first, prepend the `archive` entry to `.agents/bundles/log.md` second, and delete `.agents/bundles/specs/<flow_id>/` (including `chapters/`) last.
 4. **Cleanup, Revert, or Validate (`/flow:cleanup`, `/flow:revert`, `/flow:validate`)**:
-   - Run groundskeeping and `debloat` across touched files (`/flow:cleanup`), revert designated task/phase/flow commits safely (`/flow:revert`), or run the OKF bundle, skill, and spec validator (`/flow:validate`).
+   - Run groundskeeping and `debloat` across touched files (`/flow:cleanup`), revert designated `task`, `chapter`, `phase`, or `flow` commits while resetting chapter/root roadmaps in present tense (`/flow:revert`), or run the OKF v0.2 multi-chapter bundle, hook, skill, and spec validator (`/flow:validate`).
 
 ## Guardrails
 
 - Reviewers are strictly read-only isolated agents and receive zero conversational history, rationale, or leading hints.
-- Never delete a completed spec directory during `/flow:archive` until its durable discoveries and patterns have been synthesized into `.agents/bundles/knowledge/**` and logged in `.agents/bundles/log.md`.
+- Never stamp `last_reviewed_commit` or close a chapter/flow until both code/tests AND present-tense Markdown/OKF/user docs (`spec.md`, `chapters/index.md`, `knowledge/**`, `docs/**`) are synchronized and verified free of historical prose.
+- Never delete a completed spec directory during `/flow:archive` until its durable discoveries and patterns across all chapters have been synthesized into `.agents/bundles/knowledge/**` and logged in `.agents/bundles/log.md`.
 - Preserve Git history and never create or mutate Git tags.
 
 ## Output

@@ -40,11 +40,13 @@ Write clear, accurate, zero-bloat technical documentation, user guides, agent in
    - For **READMEs, user guides, module/API docs, or doc audits**, load [`references/prose-and-documentation.md`](references/prose-and-documentation.md).
    - For **`AGENTS.md`, `SKILL.md`, subagents, or `.agents/bundles/knowledge/` chapters**, load [`references/agent-context.md`](references/agent-context.md).
    - For **PRs, commits, changelogs, or code review comments**, load [`references/prs-commits-and-changelogs.md`](references/prs-commits-and-changelogs.md).
-2. **Build Manifest & Inspect Primary Sources**:
+2. **Build Manifest & Shard Primary-Source Authoring**:
    - List every file in scope (`[0/N files documented]`) and read each implementation file before drafting prose.
-3. **Draft to Match Target Length & Hierarchy**:
+   - When documenting or syncing `>= 2` domains, subsystems, or chapters (`/flow:docs write | capture | sync`), fan out isolated per-domain or per-chapter documentation subagents so each file receives thorough, runnable, code-verified examples rather than a compressed summary.
+3. **Draft in Present Tense to Match Target Length & Hierarchy**:
    - Keep user guides focused on a single concept (`<= 200` lines), leading with a runnable example and expected output.
-   - Keep `SKILL.md` files `<= 200` lines (`< 24,000` bytes) and `<!-- truth: start -->` blocks `<= 40` lines, disclosing deep reference material into `references/*.md`.
+   - Keep living specs (`specs/<flow_id>/spec.md`, `chapters/index.md`, `chapters/<ch_id>/spec.md`), `.agents/bundles/knowledge/**` chapters, and user `docs/` strictly in present tense—stating current verified reality, remaining chapters, and the full plan with zero `Revision History` sections or historical layering.
+   - Keep `SKILL.md` files `<= 200` lines (`< 24,000` bytes), `<!-- truth: start -->` blocks `<= 40` lines, and bundle bodies free of standalone `---` horizontal rules, disclosing deep reference material into `references/*.md`.
 4. **Verify & Prune**:
    - Strip puffery, chronological sediment, duplicate cache lines, and workflow ceremony, then verify all links and examples (`make lint`).
 

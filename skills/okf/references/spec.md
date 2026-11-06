@@ -129,9 +129,10 @@ Trust tiers are inferred from signals:
 
 Index files provide directory summaries so agents can explore bundles efficiently:
 
-- Root `index.md` MUST declare `okf_version: "0.2"`.
-- Lists child concepts with `title`, `description`, `type`, and `tags`.
-- Summarizes subdirectories.
+- Root `index.md` MUST declare `okf_version: "0.2"` and `bundle: <slug>`.
+- Subdirectory `index.md` files (`product/index.md`, `knowledge/index.md`, `specs/index.md`, `specs/<flow_id>/chapters/index.md`) and `log.md` MUST omit YAML frontmatter (`# <Title>` followed by `* [Title](link.md) — <summary>`).
+- Concept and reserved Markdown bodies MUST avoid standalone `---` horizontal rules outside fenced code blocks so strict YAML frontmatter splitters never misparse body sections.
+- Lists child concepts with `title`, `description`, `type`, and `tags` and summarizes subdirectories.
 
 ---
 

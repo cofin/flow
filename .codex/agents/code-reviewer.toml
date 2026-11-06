@@ -1,5 +1,5 @@
 name = "code-reviewer"
-description = "Review an exact Git range or spec artifact on disk for Flow correctness, spec conformance, SUT integrity, and missing verification."
+description = "Review an exact Git range or spec/chapter bundle on disk for Flow correctness, blueprint completeness, present-tense Markdown/full-plan sync, SUT integrity, and missing verification."
 sandbox_mode = "read-only"
 nickname_candidates = ["code reviewer", "reviewer"]
-developer_instructions = "Read and follow agents/code-reviewer.md directly. Operate as a Zero-Context Reviewer in read-only mode: evaluate specs across the Core Spec Review Lenses and code diffs across Spec Conformance, Public-Seam TDD, Repository Standards, Deep-Module Seams, and Baseline Structural Code Smells, bind every finding to file:line and path/to/file::Symbol evidence, and enforce attached false-positive suppressions."
+developer_instructions = "Read and follow agents/code-reviewer.md directly. Operate as a Zero-Context Reviewer in read-only mode: evaluate specs/chapters for anti-truncation, concrete signatures, call-site maps, edge-case and worked test matrices, Documentation & OKF Knowledge Plans, Bounded Read Manifests, and OKF v0.2 compliance; evaluate code diffs for Spec Conformance, Present-Tense Markdown/Full-Plan Roadmap & Doc Sync, Public-Seam TDD, Repository Standards, Deep-Module Seams, and Baseline Structural Code Smells, binding every finding to file:line and path/to/file::Symbol evidence."

@@ -66,13 +66,18 @@ archive:
 ├── research/                       # Project-wide promoted primary-source research notes
 │   ├── index.md
 │   └── <topic>_<YYYYMMDD>.md
-└── specs/                          # Active Master PRDs and Feature Specifications
-    ├── index.md
+└── specs/                          # Active Flow Specifications & Chaptered Roadmaps
+    ├── index.md                    # Frontmatter-free directory catalog
     └── <flow_id>/
-        ├── spec.md                 # Master PRD OR Feature Specification (type: Spec)
+        ├── spec.md                 # Root Full-Plan Roadmap OR Single-Chapter Spec (type: Spec)
         ├── learnings.md            # Implementation discoveries awaiting promotion to knowledge/
-        ├── research/<topic>.md     # Spec-scoped primary-source research
-        └── tasks/<id>-<slug>.md    # Atomic vertical-slice task worksheets (type: Task)
+        ├── research/<topic>.md     # Spec-scoped primary-source research (type: Research)
+        ├── tasks/<id>-<slug>.md    # Single-chapter task worksheets (1-4 tasks; type: Task)
+        └── chapters/               # Multi-chapter decomposition (2..N chapters, zero upper cap)
+            ├── index.md            # Frontmatter-free chapter catalog
+            └── ch01-<slug>/
+                ├── spec.md         # Chapter specification (type: Spec)
+                └── tasks/<id>-<slug>.md # Chapter task worksheets (1-4 tasks; type: Task)
 ```
 
 ## Concept Frontmatter & Provenance Schema (`OKF v0.2` + Knowledge Catalog)
@@ -126,8 +131,8 @@ Place a bounded (`<= 40` lines) machine-checkable invariant block at the top of 
 ## Guardrails
 
 - **State vs. Status Invariant**: Workflow state (`draft`, `planned`, `active`, `completed` on `Spec`; `pending`, `in_progress`, `completed`, `blocked`, `deferred` on `Task`) lives strictly in `state:`. Document maturity (`draft`, `stable`, `deprecated`) lives strictly in `status:`. Never mix them.
-- **Reserved Files**: `index.md` and `log.md` are reserved filenames (`log.md` has no frontmatter; root `index.md` declares `okf_version: "0.2"`).
-- **Zero Chronological Sediment**: Update concept chapters in place in present tense during `/flow:learn` and `/flow:archive`; record chronological history only in `log.md`.
+- **Reserved Files & Body Delimiters**: Root `bundles/index.md` carries `okf_version: "0.2"` and `bundle: <repo-slug>`, whereas every subdirectory `index.md` (`product/index.md`, `knowledge/index.md`, `specs/index.md`, `specs/<flow_id>/chapters/index.md`) and `log.md` carry **zero YAML frontmatter**. Never place standalone `---` horizontal rules inside `.agents/bundles/**/*.md` bodies so strict OKF YAML frontmatter splitters parse cleanly.
+- **Zero Chronological Sediment**: Keep concept chapters, root `specs/<flow_id>/spec.md`, `chapters/index.md`, and `chapters/<ch_id>/spec.md` synchronized in place in present tense (current verified state, remaining chapters, and full plan) as chapters finish or revise; record chronological history exclusively in `log.md` and Git commits.
 - **Single-Sentence Chapter Scope**: Whenever a knowledge chapter requires more than one crisp sentence in `description:` or exceeds `~200` lines, split it into focused nested chapters and link them from the parent `index.md`.
 
 ## Validation

@@ -1,0 +1,469 @@
+#!/usr/bin/env pwsh
+# Portable PowerShell Stop review & present-tense Markdown sync hook for Flow.
+# Requires zero Python, Node.js, or external modules on Windows/Linux/macOS.
+$ErrorActionPreference = "Stop"
+
+$Harness = "claude"
+$ProjectDir = ""
+
+for ($i = 0; $i -lt $args.Count; $i++) {
+    $arg = [string]$args[$i]
+    if ($arg -eq "--harness" -or $arg -eq "-Harness") {
+        if ($i + 1 -lt $args.Count) {
+            $Harness = [string]$args[$i + 1]
+            $i++
+        }
+    } elseif ($arg -like "--harness=*") {
+        $Harness = $arg.Substring(10)
+    } elseif ($arg -like "-Harness=*") {
+        $Harness = $arg.Substring(9)
+    } elseif ($arg -eq "--project" -or $arg -eq "-Project") {
+        if ($i + 1 -lt $args.Count) {
+            $ProjectDir = [string]$args[$i + 1]
+            $i++
+        }
+    } elseif ($arg -like "--project=*") {
+        $ProjectDir = $arg.Substring(10)
+    } elseif ($arg -like "-Project=*") {
+        $ProjectDir = $arg.Substring(9)
+    }
+}
+
+function Emit-Allow {
+    if ($Harness -eq "json") {
+        [Console]::Out.WriteLine('{"blocked":false,"reason":""}')
+    } else {
+        [Console]::Out.WriteLine('{}')
+    }
+    exit 0
+}
+
+function ConvertTo-JsonEscaped([string]$Text) {
+    if ($null -eq $Text) { return "" }
+    return $Text.Replace('\', '\\').Replace('"', '\"').Replace("`r", "").Replace("`t", " ").Replace("`n", "\n")
+}
+
+if ($Harness -eq "claude" -and -not [string]::IsNullOrEmpty($env:CURSOR_VERSION)) {
+    Emit-Allow
+}
+
+$StdinPayload = ""
+try {
+    if ([Console]::IsInputRedirected) {
+        $StdinPayload = [Console]::In.ReadToEnd()
+    }
+} catch {
+    $StdinPayload = ""
+}
+
+$IsLeafSubagent = $false
+if (-not [string]::IsNullOrWhiteSpace($StdinPayload)) {
+    if ([string]::IsNullOrEmpty($ProjectDir)) {
+        foreach ($pattern in @(
+            '"workspacePaths"\s*:\s*\[\s*"([^"]+)"',
+            '"workspace_roots"\s*:\s*\[\s*"([^"]+)"',
+            '"cwd"\s*:\s*"([^"]+)"',
+            '"workspaceRoot"\s*:\s*"([^"]+)"'
+        )) {
+            $m = [regex]::Match($StdinPayload, $pattern)
+            if ($m.Success) {
+                $ProjectDir = $m.Groups[1].Value -replace '\\\\', '/'
+                break
+            }
+        }
+    }
+
+    if ($Harness -match '^(agy|antigravity)$') {
+        $trMatch = [regex]::Match($StdinPayload, '"terminationReason"\s*:\s*"([^"]*)"')
+        if ($trMatch.Success -and $trMatch.Groups[1].Value -ne "" -and $trMatch.Groups[1].Value -ne "model_stop") {
+            Emit-Allow
+        }
+        $errMatch = [regex]::Match($StdinPayload, '"error"\s*:\s*"([^"]+)"')
+        if ($errMatch.Success) {
+            Emit-Allow
+        }
+        $execMatch = [regex]::Match($StdinPayload, '"executionNum"\s*:\s*(\d+)')
+        if ($execMatch.Success -and ([int]$execMatch.Groups[1].Value) -ge 2) {
+            Emit-Allow
+        }
+    } elseif ($Harness -eq "cursor") {
+        $stMatch = [regex]::Match($StdinPayload, '"status"\s*:\s*"([^"]*)"')
+        if ($stMatch.Success -and $stMatch.Groups[1].Value -ne "" -and $stMatch.Groups[1].Value -ne "completed") {
+            Emit-Allow
+        }
+        $lcMatch = [regex]::Match($StdinPayload, '"loop_count"\s*:\s*(\d+)')
+        if ($lcMatch.Success -and ([int]$lcMatch.Groups[1].Value) -ge 1) {
+            Emit-Allow
+        }
+    } else {
+        if ([regex]::IsMatch($StdinPayload, '"stop_hook_active"\s*:\s*true')) {
+            Emit-Allow
+        }
+    }
+
+    if ([regex]::IsMatch($StdinPayload, '"parentConversationId"\s*:\s*"[^"]+"') -or
+        [regex]::IsMatch($StdinPayload, '"lastUserInput"\s*:\s*"[^"]*(agents/(executor|researcher|code-reviewer|quality-reviewer|plan-generator)\.md|\.agents/agents/)')) {
+        $IsLeafSubagent = $true
+    }
+}
+
+if ([string]::IsNullOrEmpty($ProjectDir)) {
+    if (-not [string]::IsNullOrEmpty($env:CURSOR_PROJECT_DIR)) {
+        $ProjectDir = $env:CURSOR_PROJECT_DIR
+    } elseif (-not [string]::IsNullOrEmpty($env:CLAUDE_PROJECT_DIR)) {
+        $ProjectDir = $env:CLAUDE_PROJECT_DIR
+    } else {
+        $ProjectDir = (Get-Location).Path
+    }
+}
+
+$BundleRel = ".agents/bundles"
+$SetupStateFile = Join-Path $ProjectDir ".agents/setup-state.json"
+if (Test-Path -LiteralPath $SetupStateFile -PathType Leaf) {
+    try {
+        $SetupRaw = Get-Content -LiteralPath $SetupStateFile -Raw -Encoding UTF8
+        $m = [regex]::Match($SetupRaw, '"bundle_root"\s*:\s*"([^"]+)"')
+        if ($m.Success -and -not [string]::IsNullOrWhiteSpace($m.Groups[1].Value)) {
+            $BundleRel = $m.Groups[1].Value.Trim()
+        }
+    } catch {
+        $BundleRel = ".agents/bundles"
+    }
+}
+
+$SpecsDir = Join-Path $ProjectDir "$BundleRel/specs"
+if (-not (Test-Path -LiteralPath $SpecsDir -PathType Container)) {
+    Emit-Allow
+}
+
+$HasGit = $false
+$GitCmd = Get-Command git -ErrorAction SilentlyContinue
+if ($null -ne $GitCmd) {
+    try {
+        $null = & git -C $ProjectDir rev-parse --is-inside-work-tree 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            $HasGit = $true
+        }
+    } catch {
+        $HasGit = $false
+    }
+}
+
+$Violations = New-Object System.Collections.Generic.List[string]
+
+function Get-FrontmatterMap([string[]]$Lines) {
+    $map = @{}
+    if ($Lines.Count -eq 0 -or $Lines[0].Trim() -ne "---") {
+        return $map
+    }
+    for ($i = 1; $i -lt $Lines.Count; $i++) {
+        $ln = $Lines[$i]
+        if ($ln.Trim() -eq "---") { break }
+        if ($ln -match '^([A-Za-z0-9_-]+):\s*(.*)$') {
+            $k = $Matches[1]
+            $v = ($Matches[2] -replace '\s+#.*$', '').Trim().Trim('"').Trim("'")
+            $map[$k] = $v
+        }
+    }
+    return $map
+}
+
+function Test-LivingDocHygiene([string]$FilePath, [string]$RelLabel, [bool]$IsIndex) {
+    $lines = @(Get-Content -LiteralPath $FilePath -Encoding UTF8)
+    $inFm = $false
+    $inFence = $false
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        $ln = $lines[$i]
+        if ($i -eq 0 -and $ln.Trim() -eq "---") {
+            if ($IsIndex) {
+                $Violations.Add("${RelLabel}: subdirectory index.md must not contain YAML frontmatter")
+                return
+            }
+            $inFm = $true
+            continue
+        }
+        if ($inFm) {
+            if ($ln.Trim() -eq "---") { $inFm = $false }
+            continue
+        }
+        if ($ln -match '^\s*(```|~~~)') {
+            $inFence = -not $inFence
+            continue
+        }
+        if ($inFence) { continue }
+        if ($ln -match '^\s*---\s*$') {
+            $Violations.Add("${RelLabel}: standalone --- horizontal rule forbidden in bundle Markdown body")
+            return
+        }
+        if ($ln -match '(?i)^\s*#+\s*(revision history|change history|changelog|decision history)(\s|:|$)') {
+            $Violations.Add("${RelLabel}: historical changelog/revision section forbidden in present-tense living spec")
+            return
+        }
+        if ($ln -match '^\s*-\s*\[[^\]]*\]\s*~~') {
+            $Violations.Add("${RelLabel}: struck-through obsolete checklist item forbidden; rewrite in place in present tense")
+            return
+        }
+    }
+}
+
+function Test-TasksAgainstSpec([string]$OwnerSpec, [string]$TasksDir, [string]$ScopeLabel) {
+    $res = @{ Total = 0; Done = 0; Shas = (New-Object System.Collections.Generic.List[string]) }
+    if (-not (Test-Path -LiteralPath $TasksDir -PathType Container)) {
+        return $res
+    }
+    $specLines = @(Get-Content -LiteralPath $OwnerSpec -Encoding UTF8)
+    $checklistLines = New-Object System.Collections.Generic.List[string]
+    $inFm = $false
+    $inFence = $false
+    for ($i = 0; $i -lt $specLines.Count; $i++) {
+        $ln = $specLines[$i]
+        if ($i -eq 0 -and $ln.Trim() -eq "---") { $inFm = $true; continue }
+        if ($inFm) { if ($ln.Trim() -eq "---") { $inFm = $false }; continue }
+        if ($ln -match '^\s*(```|~~~)') { $inFence = -not $inFence; continue }
+        if ($inFence) { continue }
+        if ($ln -match '^\s*-\s*\[[ xX~!>-]\]') {
+            $checklistLines.Add($ln)
+        }
+    }
+
+    $taskFiles = Get-ChildItem -LiteralPath $TasksDir -Filter "*.md" -File -ErrorAction SilentlyContinue | Sort-Object Name
+    foreach ($tf in $taskFiles) {
+        if ($tf.Name -eq "index.md") { continue }
+        $res.Total++
+        $tLines = @(Get-Content -LiteralPath $tf.FullName -Encoding UTF8)
+        $tfm = Get-FrontmatterMap $tLines
+        $tStem = ($tf.Name -split '-')[0]
+        $tId = if ($tfm.ContainsKey("id") -and $tfm["id"]) { $tfm["id"] } else { $tStem }
+        $tState = if ($tfm.ContainsKey("state")) { $tfm["state"] } else { "pending" }
+        $tCommit = if ($tfm.ContainsKey("commit")) { $tfm["commit"] } else { "" }
+
+        $expMark = " "
+        switch -Regex ($tState) {
+            '^(completed|closed)$' {
+                $expMark = "x"
+                $res.Done++
+                if ([string]::IsNullOrEmpty($tCommit) -or $tCommit -eq "null" -or $tCommit -eq "~") {
+                    $Violations.Add("$ScopeLabel/$($tf.Name): state is $tState but commit SHA is missing")
+                } elseif ($tCommit -notmatch '^[0-9a-fA-F]{7,40}$') {
+                    $Violations.Add("$ScopeLabel/$($tf.Name): invalid hex commit SHA '$tCommit'")
+                } else {
+                    $res.Shas.Add($tCommit)
+                }
+            }
+            '^(deferred|skipped)$' {
+                $expMark = "-"
+                $res.Done++
+            }
+            '^in_progress$' { $expMark = "~" }
+            '^blocked$' { $expMark = "!" }
+            default { $expMark = " " }
+        }
+
+        $matchedLine = $null
+        foreach ($cl in $checklistLines) {
+            if ($cl.Contains("tasks/$($tf.Name)") -or $cl.Contains("($($tf.Name))") -or
+                $cl.Contains("] $tId ") -or $cl.Contains("] ${tId}:") -or
+                $cl.Contains("] $tStem ") -or $cl.Contains("] ${tStem}:")) {
+                $matchedLine = $cl
+                break
+            }
+        }
+        if ($null -eq $matchedLine) {
+            $Violations.Add("${ScopeLabel}: task worksheet $($tf.Name) is missing from owning spec.md checklist")
+        } else {
+            $mm = [regex]::Match($matchedLine, '^\s*-\s*\[([ xX~!>-])\]')
+            $actualMark = $mm.Groups[1].Value.ToLowerInvariant()
+            if ($actualMark -ne $expMark) {
+                $Violations.Add("${ScopeLabel}: task $($tf.Name) has state marker [$actualMark] in spec.md but expected [$expMark]")
+            } elseif ($expMark -eq "x" -and $tCommit -match '^[0-9a-fA-F]{7,40}$') {
+                $sm = [regex]::Match($matchedLine, '\[([0-9a-fA-F]{7,40})\]')
+                if ($sm.Success) {
+                    $cSha = $sm.Groups[1].Value
+                    if (-not ($tCommit.StartsWith($cSha) -or $cSha.StartsWith($tCommit))) {
+                        $Violations.Add("${ScopeLabel}: task $($tf.Name) commit $tCommit mismatches spec.md checklist SHA $cSha")
+                    }
+                }
+            }
+        }
+    }
+    return $res
+}
+
+function Test-ReviewStamp([string]$RevSha, [System.Collections.Generic.List[string]]$TaskShas, [string]$Label) {
+    if ([string]::IsNullOrEmpty($RevSha) -or $RevSha -eq "null" -or ($RevSha -notmatch '^[0-9a-fA-F]{7,40}$')) {
+        $Violations.Add("${Label}: missing hex last_reviewed_commit (sync present-tense docs and run Zero-Context Review before stopping)")
+        return
+    }
+    if ($HasGit) {
+        $null = & git -C $ProjectDir cat-file -e "$RevSha^{commit}" 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            $Violations.Add("${Label}: last_reviewed_commit '$RevSha' does not exist in Git history")
+            return
+        }
+        foreach ($tSha in $TaskShas) {
+            $null = & git -C $ProjectDir cat-file -e "$tSha^{commit}" 2>$null
+            if ($LASTEXITCODE -eq 0) {
+                $null = & git -C $ProjectDir merge-base --is-ancestor $tSha $RevSha 2>$null
+                if ($LASTEXITCODE -ne 0) {
+                    $Violations.Add("${Label}: task commit $tSha is newer than last_reviewed_commit $RevSha; re-run Zero-Context Review")
+                    return
+                }
+            }
+        }
+    }
+}
+
+$FlowDirs = Get-ChildItem -LiteralPath $SpecsDir -Directory -ErrorAction SilentlyContinue | Sort-Object Name
+foreach ($fDir in $FlowDirs) {
+    $rootSpec = Join-Path $fDir.FullName "spec.md"
+    if (-not (Test-Path -LiteralPath $rootSpec -PathType Leaf)) { continue }
+    $rootRaw = Get-Content -LiteralPath $rootSpec -Raw -Encoding UTF8
+    $rootLines = @(Get-Content -LiteralPath $rootSpec -Encoding UTF8)
+    $rfm = Get-FrontmatterMap $rootLines
+    $rType = if ($rfm.ContainsKey("type")) { $rfm["type"] } else { "" }
+    $rState = if ($rfm.ContainsKey("state")) { $rfm["state"] } else { "" }
+    if ($rState -eq "archived" -or $rType -eq "flow") { continue }
+
+    $rHasCh = ($rfm.ContainsKey("has_chapters") -and $rfm["has_chapters"] -eq "true")
+    $rCurrCh = if ($rfm.ContainsKey("current_chapter")) { $rfm["current_chapter"] } else { "" }
+    $rRevSha = if ($rfm.ContainsKey("last_reviewed_commit")) { $rfm["last_reviewed_commit"] } else { "" }
+
+    Test-LivingDocHygiene $rootSpec "specs/$($fDir.Name)/spec.md" $false
+
+    $rootTasksDir = Join-Path $fDir.FullName "tasks"
+    if (Test-Path -LiteralPath $rootTasksDir -PathType Container) {
+        $rtFiles = Get-ChildItem -LiteralPath $rootTasksDir -Filter "*.md" -File -ErrorAction SilentlyContinue | Sort-Object Name
+        foreach ($rtf in $rtFiles) {
+            Test-LivingDocHygiene $rtf.FullName "specs/$($fDir.Name)/tasks/$($rtf.Name)" ($rtf.Name -eq "index.md")
+        }
+    }
+
+    $chaptersDir = Join-Path $fDir.FullName "chapters"
+    if ((Test-Path -LiteralPath $chaptersDir -PathType Container) -or $rHasCh) {
+        $chIndex = Join-Path $chaptersDir "index.md"
+        $chIndexRaw = ""
+        if (-not (Test-Path -LiteralPath $chIndex -PathType Leaf)) {
+            if (-not $IsLeafSubagent) {
+                $Violations.Add("specs/$($fDir.Name)/chapters/index.md: missing chapter catalog index.md")
+            }
+        } else {
+            Test-LivingDocHygiene $chIndex "specs/$($fDir.Name)/chapters/index.md" $true
+            $chIndexRaw = Get-Content -LiteralPath $chIndex -Raw -Encoding UTF8
+        }
+
+        $chDirs = @()
+        if (Test-Path -LiteralPath $chaptersDir -PathType Container) {
+            $chDirs = @(Get-ChildItem -LiteralPath $chaptersDir -Filter "ch*" -Directory -ErrorAction SilentlyContinue | Sort-Object Name)
+        }
+        $chTotal = $chDirs.Count
+        $chClosed = 0
+        $currChFound = $false
+        $currChCompleted = $false
+
+        foreach ($cDir in $chDirs) {
+            $chId = $cDir.Name
+            $chSpec = Join-Path $cDir.FullName "spec.md"
+            if (-not (Test-Path -LiteralPath $chSpec -PathType Leaf)) {
+                $Violations.Add("specs/$($fDir.Name)/chapters/${chId}: missing spec.md")
+                continue
+            }
+            Test-LivingDocHygiene $chSpec "specs/$($fDir.Name)/chapters/$chId/spec.md" $false
+
+            $chTasksDir = Join-Path $cDir.FullName "tasks"
+            if (Test-Path -LiteralPath $chTasksDir -PathType Container) {
+                $ctFiles = Get-ChildItem -LiteralPath $chTasksDir -Filter "*.md" -File -ErrorAction SilentlyContinue | Sort-Object Name
+                foreach ($ctf in $ctFiles) {
+                    Test-LivingDocHygiene $ctf.FullName "specs/$($fDir.Name)/chapters/$chId/tasks/$($ctf.Name)" ($ctf.Name -eq "index.md")
+                }
+            }
+
+            if (-not $IsLeafSubagent) {
+                if ((Test-Path -LiteralPath $chIndex -PathType Leaf) -and (-not $chIndexRaw.Contains($chId))) {
+                    $Violations.Add("specs/$($fDir.Name)/chapters/index.md: missing entry for chapter $chId")
+                }
+                if (-not $rootRaw.Contains($chId)) {
+                    $Violations.Add("specs/$($fDir.Name)/spec.md: full-plan roadmap is missing chapter $chId")
+                }
+            }
+
+            $cLines = @(Get-Content -LiteralPath $chSpec -Encoding UTF8)
+            $cfm = Get-FrontmatterMap $cLines
+            $cState = if ($cfm.ContainsKey("state")) { $cfm["state"] } else { "" }
+            $cRevSha = if ($cfm.ContainsKey("last_reviewed_commit")) { $cfm["last_reviewed_commit"] } else { "" }
+
+            if ($chId -eq $rCurrCh) {
+                $currChFound = $true
+                if ($cState -in @("completed", "deferred", "skipped")) {
+                    $currChCompleted = $true
+                }
+            }
+
+            $taskCheck = Test-TasksAgainstSpec $chSpec $chTasksDir "specs/$($fDir.Name)/chapters/$chId"
+            if ($cState -in @("deferred", "skipped")) {
+                $chClosed++
+                continue
+            }
+
+            $needReview = $false
+            if ($cState -eq "completed") {
+                $chClosed++
+                $needReview = $true
+            } elseif ((-not $IsLeafSubagent) -and $taskCheck.Total -gt 0 -and $taskCheck.Done -eq $taskCheck.Total) {
+                if ($rState -in @("active", "completed") -or $cState -eq "active") {
+                    $Violations.Add("specs/$($fDir.Name)/chapters/${chId}: all $($taskCheck.Total) task(s) are done, but chapter is not closed (sync present-tense docs/roadmap, run Zero-Context Review, and set state: completed)")
+                    $needReview = $true
+                }
+            }
+
+            if ($needReview) {
+                Test-ReviewStamp $cRevSha $taskCheck.Shas "specs/$($fDir.Name)/chapters/$chId"
+                if ((-not $IsLeafSubagent) -and $cState -eq "completed") {
+                    $escapedId = [regex]::Escape($chId)
+                    if (-not [regex]::IsMatch($rootRaw, "(?m)^\s*-\s*\[[xX]\].*$escapedId")) {
+                        $Violations.Add("specs/$($fDir.Name)/spec.md: completed chapter $chId must be marked [x] in root Implementation Plan")
+                    }
+                }
+            }
+        }
+
+        if ((-not $IsLeafSubagent) -and $chTotal -gt 0) {
+            if ($chClosed -lt $chTotal) {
+                if ([string]::IsNullOrEmpty($rCurrCh) -or $rCurrCh -eq "null" -or (-not $currChFound) -or $currChCompleted) {
+                    $Violations.Add("specs/$($fDir.Name)/spec.md: current_chapter '$rCurrCh' must advance to an open remaining chapter")
+                }
+            } elseif ($rState -eq "completed") {
+                $emptyShas = New-Object System.Collections.Generic.List[string]
+                Test-ReviewStamp $rRevSha $emptyShas "specs/$($fDir.Name)/spec.md"
+            }
+        }
+    } else {
+        $taskCheck = Test-TasksAgainstSpec $rootSpec $rootTasksDir "specs/$($fDir.Name)"
+        if ($rState -eq "completed") {
+            Test-ReviewStamp $rRevSha $taskCheck.Shas "specs/$($fDir.Name)/spec.md"
+        } elseif ((-not $IsLeafSubagent) -and $rState -eq "active" -and $taskCheck.Total -gt 0 -and $taskCheck.Done -eq $taskCheck.Total) {
+            Test-ReviewStamp $rRevSha $taskCheck.Shas "specs/$($fDir.Name)/spec.md"
+        }
+    }
+}
+
+if ($Violations.Count -eq 0) {
+    Emit-Allow
+}
+
+$Reason = "Flow Stop Gate blocked turn completion — synchronize present-tense Markdown and complete Zero-Context Chapter Review before stopping: " + ($Violations -join "; ")
+$EscapedReason = ConvertTo-JsonEscaped $Reason
+
+switch -Regex ($Harness) {
+    '^(agy|antigravity)$' {
+        [Console]::Out.WriteLine("{`"decision`":`"continue`",`"reason`":`"$EscapedReason`"}")
+    }
+    '^cursor$' {
+        [Console]::Out.WriteLine("{`"followup_message`":`"$EscapedReason`"}")
+    }
+    '^json$' {
+        [Console]::Out.WriteLine("{`"blocked`":true,`"reason`":`"$EscapedReason`"}")
+    }
+    default {
+        [Console]::Out.WriteLine("{`"decision`":`"block`",`"reason`":`"$EscapedReason`"}")
+    }
+}

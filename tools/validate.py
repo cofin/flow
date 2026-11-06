@@ -8,6 +8,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import tomllib
 from pathlib import Path
 from typing import Any
@@ -15,10 +16,15 @@ from typing import Any
 __all__ = (
     "EXPECTED_AGENTS",
     "EXPECTED_SKILLS",
+    "MAX_CHAPTER_TASKS",
     "MAX_SKILL_DESCRIPTION_CHARS",
     "MAX_SKILL_FILE_BYTES",
+    "MAX_TASK_ESTIMATED_LOC",
+    "MAX_TASK_READ_SET",
+    "MAX_TRUTH_BLOCK_LINES",
     "READONLY_AGENTS",
     "REPO_ROOT",
+    "REQUIRED_TASK_HEADINGS",
     "RETIRED_PATHS",
     "main",
     "validate_agents",
@@ -39,12 +45,48 @@ CODEX_AGENTS_DIR = REPO_ROOT / ".codex" / "agents"
 
 MAX_SKILL_FILE_BYTES = 24000
 MAX_SKILL_DESCRIPTION_CHARS = 500
+MAX_TRUTH_BLOCK_LINES = 40
+MAX_CHAPTER_TASKS = 4
+MAX_TASK_READ_SET = 6
+MAX_TASK_ESTIMATED_LOC = 250
 SKILL_DESCRIPTION_PREFIX = "Use when"
 FORBIDDEN_SKILL_DESCRIPTION_TERMS = (
     "Auto-activate",
     "Produces",
     "Expert knowledge",
     "Comprehensive",
+)
+
+OKF_DOCUMENT_STATUSES: frozenset[str] = frozenset({"draft", "stable", "deprecated"})
+FORBIDDEN_TAG_STATE_WORDS: frozenset[str] = frozenset(
+    {
+        "active",
+        "archived",
+        "blocked",
+        "closed",
+        "completed",
+        "deferred",
+        "deprecated",
+        "draft",
+        "in-progress",
+        "in_progress",
+        "open",
+        "pending",
+        "planned",
+        "skipped",
+        "stable",
+    }
+)
+
+REQUIRED_TASK_HEADINGS: tuple[str, ...] = (
+    "## Objective & Scope Boundary",
+    "## Bounded Read Manifest",
+    "## Symbol & Signature Contracts",
+    "## Edge Cases & Error Semantics",
+    "## Public-Seam Test Blueprint",
+    "## Verification",
+    "## Acceptance Criteria",
+    "## Notes & Discoveries",
 )
 
 EXPECTED_SKILLS: frozenset[str] = frozenset(
@@ -166,7 +208,21 @@ PUBLIC_LOCK_SOURCE_HOSTS: frozenset[str] = frozenset({"pypi.org", "files.pythonh
 _LOCK_URL_PATTERN = re.compile(r'https?://[^"\s]+')
 _LINK_PATTERN = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
 _FENCED_BLOCK_PATTERN = re.compile(r"```.*?```|~~~.*?~~~|`[^`\n]+`", re.DOTALL)
+_MULTILINE_FENCE_PATTERN = re.compile(r"^[ \t]*(?:```|~~~).*?^[ \t]*(?:```|~~~)[^\n]*$", re.MULTILINE | re.DOTALL)
 _FOOTNOTE_DEF_PATTERN = re.compile(r"^\[\^([A-Za-z0-9_-]+)\]:\s+.+$", re.MULTILINE)
+_TRUTH_START_PATTERN = re.compile(r"<!--\s*truth:\s*start\s*-->")
+_TRUTH_END_PATTERN = re.compile(r"<!--\s*truth:\s*end\s*-->")
+_BODY_HR_PATTERN = re.compile(r"^[ \t]*---[ \t]*$", re.MULTILINE)
+_HISTORY_HEADING_PATTERN = re.compile(
+    r"^[ \t]*#+[ \t]*(?:revision history|change history|changelog|decision history)(?:[ \t:]|$)",
+    re.IGNORECASE | re.MULTILINE,
+)
+_STRUCK_CHECKLIST_PATTERN = re.compile(r"^[ \t]*-[ \t]*\[[^\]]*\][ \t]*~~", re.MULTILINE)
+_TAG_SLUG_PATTERN = re.compile(r"^[a-z0-9][a-z0-9-]*$")
+_CHAPTER_DIR_PATTERN = re.compile(r"^ch\d{2}-[a-z0-9-]+$")
+_HEX_SHA_PATTERN = re.compile(r"^[0-9a-fA-F]{7,40}$")
+_CHECKLIST_LINE_PATTERN = re.compile(r"^[ \t]*-[ \t]*\[([ xX~!>-])\][ \t]*(.+)$", re.MULTILINE)
+_CHECKLIST_SHA_PATTERN = re.compile(r"^\[([0-9a-fA-F]{7,40})\]")
 
 
 def validate_repository(repo_root: Path = REPO_ROOT) -> list[str]:
@@ -287,7 +343,7 @@ def validate_manifests(repo_root: Path = REPO_ROOT) -> list[str]:
 
 
 def validate_hooks(repo_root: Path = REPO_ROOT) -> list[str]:
-    """Validate hook configuration files, OpenCode V2 plugin entry, and POSIX sh + PowerShell SessionStart execution."""
+    """Validate SessionStart and Stop hook configs, OpenCode V2 plugin entry, and sh + PowerShell execution."""
     errors: list[str] = []
     hook_script = repo_root / "hooks" / "session-start.sh"
     if not hook_script.is_file():
@@ -296,6 +352,14 @@ def validate_hooks(repo_root: Path = REPO_ROOT) -> list[str]:
     ps1_script = repo_root / "hooks" / "session-start.ps1"
     if not ps1_script.is_file():
         errors.append("Missing hooks/session-start.ps1")
+
+    stop_sh_script = repo_root / "hooks" / "stop-check.sh"
+    if not stop_sh_script.is_file():
+        errors.append("Missing hooks/stop-check.sh")
+
+    stop_ps1_script = repo_root / "hooks" / "stop-check.ps1"
+    if not stop_ps1_script.is_file():
+        errors.append("Missing hooks/stop-check.ps1")
 
     agy_hooks_path = repo_root / "hooks.json"
     if not agy_hooks_path.is_file():
@@ -307,6 +371,11 @@ def validate_hooks(repo_root: Path = REPO_ROOT) -> list[str]:
             errors.append("hooks.json: missing flow-session-start.SessionStart array")
         elif "matcher" in session_start[0]:
             errors.append("hooks.json: Antigravity SessionStart must be a flat array of command handlers")
+        stop_handlers = agy_hooks.get("flow-stop-check", {}).get("Stop")
+        if not isinstance(stop_handlers, list) or not stop_handlers:
+            errors.append("hooks.json: missing flow-stop-check.Stop array")
+        elif "matcher" in stop_handlers[0]:
+            errors.append("hooks.json: Antigravity Stop must be a flat array of command handlers")
 
     claude_hooks_path = repo_root / "hooks" / "hooks-claude.json"
     if not claude_hooks_path.is_file():
@@ -324,14 +393,33 @@ def validate_hooks(repo_root: Path = REPO_ROOT) -> list[str]:
                 cmd_windows = str(handlers[0].get("commandWindows", ""))
                 if "session-start.ps1" not in cmd_windows:
                     errors.append("hooks/hooks-claude.json: SessionStart handler must include commandWindows")
+        stop_entries = claude_hooks.get("hooks", {}).get("Stop")
+        if not isinstance(stop_entries, list) or not stop_entries or "matcher" not in stop_entries[0]:
+            errors.append("hooks/hooks-claude.json: Stop must use nested matcher format")
+        else:
+            stop_handlers = stop_entries[0].get("hooks", [])
+            if not isinstance(stop_handlers, list) or not stop_handlers:
+                errors.append("hooks/hooks-claude.json: Stop[0].hooks must be a non-empty list")
+            else:
+                stop_win = str(stop_handlers[0].get("commandWindows", ""))
+                if "stop-check.ps1" not in stop_win:
+                    errors.append("hooks/hooks-claude.json: Stop handler must include commandWindows")
 
     cursor_hooks_path = repo_root / "hooks" / "hooks-cursor.json"
     if not cursor_hooks_path.is_file():
         errors.append("Missing hooks/hooks-cursor.json")
     else:
         cursor_hooks = json.loads(cursor_hooks_path.read_text(encoding="utf-8"))
-        if cursor_hooks.get("version") != 1 or "sessionStart" not in cursor_hooks.get("hooks", {}):
+        cursor_events = cursor_hooks.get("hooks", {})
+        if cursor_hooks.get("version") != 1 or "sessionStart" not in cursor_events:
             errors.append("hooks/hooks-cursor.json: must declare version 1 and hooks.sessionStart")
+        cursor_stop = cursor_events.get("stop")
+        if (
+            not isinstance(cursor_stop, list)
+            or not cursor_stop
+            or not isinstance(cursor_stop[0].get("loop_limit"), int)
+        ):
+            errors.append("hooks/hooks-cursor.json: must declare hooks.stop with integer loop_limit")
 
     opencode_plugin = repo_root / ".opencode" / "plugins" / "flow.js"
     if not opencode_plugin.is_file():
@@ -340,66 +428,12 @@ def validate_hooks(repo_root: Path = REPO_ROOT) -> list[str]:
         js_text = opencode_plugin.read_text(encoding="utf-8")
         if 'id: "flow"' not in js_text or "async setup(ctx)" not in js_text:
             errors.append(".opencode/plugins/flow.js: must export OpenCode V2 { id: 'flow', async setup(ctx) }")
+        if "const summary = readBundleSummary" in js_text:
+            errors.append(".opencode/plugins/flow.js: must invoke readBundleSummary dynamically per turn")
 
-    for harness, required_key in (
-        ("agy", "injectSteps"),
-        ("claude", "hookSpecificOutput"),
-        ("cursor", "additional_context"),
-    ):
-        proc = subprocess.run(
-            ["sh", str(hook_script), "--harness", harness, "--project", str(repo_root)],
-            input="{}",
-            text=True,
-            capture_output=True,
-            check=False,
-        )
-        if proc.returncode != 0:
-            errors.append(f"hooks/session-start.sh --harness {harness} failed: {proc.stderr.strip()}")
-            continue
-        try:
-            payload = json.loads(proc.stdout)
-        except json.JSONDecodeError as exc:
-            errors.append(f"hooks/session-start.sh --harness {harness} emitted invalid JSON: {exc}")
-            continue
-        if required_key not in payload:
-            errors.append(f"hooks/session-start.sh --harness {harness} missing top-level key {required_key!r}")
-
-    pwsh_bin = shutil.which("pwsh") or shutil.which("powershell")
-    if pwsh_bin and ps1_script.is_file():
-        for harness, required_key in (
-            ("agy", "injectSteps"),
-            ("claude", "hookSpecificOutput"),
-            ("cursor", "additional_context"),
-        ):
-            proc = subprocess.run(
-                [
-                    pwsh_bin,
-                    "-NoProfile",
-                    "-NonInteractive",
-                    "-ExecutionPolicy",
-                    "Bypass",
-                    "-File",
-                    str(ps1_script),
-                    "--harness",
-                    harness,
-                    "--project",
-                    str(repo_root),
-                ],
-                input="{}",
-                text=True,
-                capture_output=True,
-                check=False,
-            )
-            if proc.returncode != 0:
-                errors.append(f"hooks/session-start.ps1 --harness {harness} failed: {proc.stderr.strip()}")
-                continue
-            try:
-                payload = json.loads(proc.stdout)
-            except json.JSONDecodeError as exc:
-                errors.append(f"hooks/session-start.ps1 --harness {harness} emitted invalid JSON: {exc}")
-                continue
-            if required_key not in payload:
-                errors.append(f"hooks/session-start.ps1 --harness {harness} missing top-level key {required_key!r}")
+    errors.extend(_run_session_start_smoke_checks(hook_script, ps1_script))
+    if stop_sh_script.is_file():
+        errors.extend(_run_stop_hook_smoke_checks(stop_sh_script, stop_ps1_script))
 
     return errors
 
@@ -437,8 +471,8 @@ def validate_agents(repo_root: Path = REPO_ROOT) -> list[str]:
             errors.append(f"agents/{name}.md: mainAgent must be false")
         if frontmatter.get("subagent") is not True:
             errors.append(f"agents/{name}.md: subagent must be true")
-        if not isinstance(frontmatter.get("commandExecutionPolicy"), str):
-            errors.append(f"agents/{name}.md: missing commandExecutionPolicy string")
+        if frontmatter.get("commandExecutionPolicy") != "sandbox":
+            errors.append(f"agents/{name}.md: commandExecutionPolicy must be 'sandbox'")
 
         skills_field = frontmatter.get("skills")
         if not isinstance(skills_field, list) or not skills_field:
@@ -594,7 +628,7 @@ def validate_lockfile(repo_root: Path = REPO_ROOT) -> list[str]:
 
 
 def validate_okf_bundle(bundle_dir: Path) -> list[str]:
-    """Validate an Open Knowledge Format (OKF v0.2) bundle directory."""
+    """Validate an Open Knowledge Format (OKF v0.2) bundle directory, nested chapters, and task blueprints."""
     errors: list[str] = []
     if not bundle_dir.is_dir():
         return [f"Bundle directory does not exist: {bundle_dir}"]
@@ -616,34 +650,30 @@ def validate_okf_bundle(bundle_dir: Path) -> list[str]:
         rel = md_path.relative_to(bundle_dir).as_posix()
         text = md_path.read_text(encoding="utf-8")
         fm, body = _split_frontmatter(text)
+        errors.extend(_validate_bundle_body_hygiene_and_links(md_path, rel, body))
 
-        if md_path.name in ("index.md", "log.md"):
+        if md_path == root_index:
             if fm is not None:
                 for forbidden_key in ("type", "status", "sources"):
                     if forbidden_key in fm:
-                        errors.append(f"{rel}: reserved file {md_path.name} must not declare {forbidden_key!r}")
+                        errors.append(f"{rel}: reserved file index.md must not declare {forbidden_key!r}")
+            continue
+
+        if md_path.name in ("index.md", "log.md"):
+            if fm is not None:
+                errors.append(f"{rel}: {md_path.name} must not contain YAML frontmatter")
             continue
 
         if fm is None:
             errors.append(f"{rel}: missing YAML frontmatter")
             continue
 
-        for req_key in ("type", "title", "description"):
-            if not str(fm.get(req_key, "")).strip():
-                errors.append(f"{rel}: missing required frontmatter key {req_key!r}")
+        errors.extend(_validate_concept_frontmatter_and_truth(rel, fm, body))
 
-        sources = fm.get("sources")
-        if isinstance(sources, list) and sources:
-            footnotes = set(_FOOTNOTE_DEF_PATTERN.findall(body))
-            for src in sources:
-                if not isinstance(src, dict):
-                    errors.append(f"{rel}: each item in sources must be a mapping")
-                    continue
-                src_id = str(src.get("id", "")).strip()
-                if not src_id or not str(src.get("resource", "")).strip():
-                    errors.append(f"{rel}: source entry must declare 'id' and 'resource'")
-                elif src_id not in footnotes:
-                    errors.append(f"{rel}: source id {src_id!r} missing matching [^{src_id}]: footnote in body")
+    specs_dir = bundle_dir / "specs"
+    if specs_dir.is_dir():
+        for flow_dir in sorted(p for p in specs_dir.iterdir() if p.is_dir()):
+            errors.extend(_validate_flow_spec_directory(bundle_dir, flow_dir))
 
     return errors
 
@@ -671,6 +701,466 @@ def main(argv: list[str] | None = None) -> int:
 
     sys.stdout.write("Validation passed: all manifests, hooks, subagents, skills, and links are valid.\n")
     return 0
+
+
+def _run_session_start_smoke_checks(sh_script: Path, ps1_script: Path) -> list[str]:
+    """Execute session-start.sh and session-start.ps1 across harnesses and verify stdout JSON schemas."""
+    errors: list[str] = []
+    expected_keys = (
+        ("agy", "injectSteps"),
+        ("claude", "hookSpecificOutput"),
+        ("cursor", "additional_context"),
+    )
+    with tempfile.TemporaryDirectory() as clean_proj:
+        for harness, required_key in expected_keys:
+            proc = subprocess.run(
+                ["sh", str(sh_script), "--harness", harness, "--project", clean_proj],
+                input="{}",
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            if proc.returncode != 0:
+                errors.append(f"hooks/session-start.sh --harness {harness} failed: {proc.stderr.strip()}")
+                continue
+            try:
+                payload = json.loads(proc.stdout)
+            except json.JSONDecodeError as exc:
+                errors.append(f"hooks/session-start.sh --harness {harness} emitted invalid JSON: {exc}")
+                continue
+            if required_key not in payload:
+                errors.append(f"hooks/session-start.sh --harness {harness} missing top-level key {required_key!r}")
+
+        pwsh_bin = shutil.which("pwsh") or shutil.which("powershell")
+        if pwsh_bin and ps1_script.is_file():
+            for harness, required_key in expected_keys:
+                proc = subprocess.run(
+                    [
+                        pwsh_bin,
+                        "-NoProfile",
+                        "-NonInteractive",
+                        "-ExecutionPolicy",
+                        "Bypass",
+                        "-File",
+                        str(ps1_script),
+                        "--harness",
+                        harness,
+                        "--project",
+                        clean_proj,
+                    ],
+                    input="{}",
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                )
+                if proc.returncode != 0:
+                    errors.append(f"hooks/session-start.ps1 --harness {harness} failed: {proc.stderr.strip()}")
+                    continue
+                try:
+                    payload = json.loads(proc.stdout)
+                except json.JSONDecodeError as exc:
+                    errors.append(f"hooks/session-start.ps1 --harness {harness} emitted invalid JSON: {exc}")
+                    continue
+                if required_key not in payload:
+                    errors.append(f"hooks/session-start.ps1 --harness {harness} missing top-level key {required_key!r}")
+
+    return errors
+
+
+def _run_stop_hook_smoke_checks(sh_script: Path, ps1_script: Path) -> list[str]:
+    """Execute stop-check.sh and stop-check.ps1 across harnesses and verify clean allow JSON."""
+    errors: list[str] = []
+    with tempfile.TemporaryDirectory() as clean_proj:
+        for harness in ("agy", "claude", "cursor"):
+            proc = subprocess.run(
+                ["sh", str(sh_script), "--harness", harness, "--project", clean_proj],
+                input="{}",
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+            if proc.returncode != 0:
+                errors.append(f"hooks/stop-check.sh --harness {harness} failed: {proc.stderr.strip()}")
+                continue
+            try:
+                payload = json.loads(proc.stdout)
+            except json.JSONDecodeError as exc:
+                errors.append(f"hooks/stop-check.sh --harness {harness} emitted invalid JSON: {exc}")
+                continue
+            if payload != {}:
+                errors.append(f"hooks/stop-check.sh --harness {harness} expected {{}} on clean repo, got {payload!r}")
+
+        pwsh_bin = shutil.which("pwsh") or shutil.which("powershell")
+        if pwsh_bin and ps1_script.is_file():
+            for harness in ("agy", "claude", "cursor"):
+                proc = subprocess.run(
+                    [
+                        pwsh_bin,
+                        "-NoProfile",
+                        "-NonInteractive",
+                        "-ExecutionPolicy",
+                        "Bypass",
+                        "-File",
+                        str(ps1_script),
+                        "--harness",
+                        harness,
+                        "--project",
+                        clean_proj,
+                    ],
+                    input="{}",
+                    text=True,
+                    capture_output=True,
+                    check=False,
+                )
+                if proc.returncode != 0:
+                    errors.append(f"hooks/stop-check.ps1 --harness {harness} failed: {proc.stderr.strip()}")
+                    continue
+                try:
+                    payload = json.loads(proc.stdout)
+                except json.JSONDecodeError as exc:
+                    errors.append(f"hooks/stop-check.ps1 --harness {harness} emitted invalid JSON: {exc}")
+                    continue
+                if payload != {}:
+                    errors.append(
+                        f"hooks/stop-check.ps1 --harness {harness} expected {{}} on clean repo, got {payload!r}"
+                    )
+
+    return errors
+
+
+def _validate_bundle_body_hygiene_and_links(md_path: Path, rel: str, body: str) -> list[str]:
+    """Check Markdown body for forbidden horizontal rules, historical headings, struck-through items, and dead links."""
+    errors: list[str] = []
+    unfenced_multiline = _MULTILINE_FENCE_PATTERN.sub("", body)
+    if _BODY_HR_PATTERN.search(unfenced_multiline):
+        errors.append(f"{rel}: standalone '---' horizontal rule forbidden in bundle Markdown body")
+    if _HISTORY_HEADING_PATTERN.search(unfenced_multiline):
+        errors.append(f"{rel}: historical revision/changelog heading forbidden in present-tense bundle file")
+    if _STRUCK_CHECKLIST_PATTERN.search(unfenced_multiline):
+        errors.append(f"{rel}: struck-through checklist item forbidden; rewrite in place in present tense")
+
+    stripped_links = _FENCED_BLOCK_PATTERN.sub("", body)
+    for match in _LINK_PATTERN.finditer(stripped_links):
+        target = match.group(2).strip()
+        if (
+            not target
+            or target.startswith(("#", "http://", "https://", "mailto:", "file://", "conversation://", "sidecar://"))
+            or "<" in target
+            or ">" in target
+            or "{" in target
+        ):
+            continue
+        path_part = target.split("#", 1)[0].strip()
+        if not path_part:
+            continue
+        resolved = (md_path.parent / path_part).resolve()
+        if not resolved.exists():
+            errors.append(f"{rel}: broken relative link {target!r}")
+    return errors
+
+
+def _validate_concept_frontmatter_and_truth(rel: str, fm: dict[str, Any], body: str) -> list[str]:
+    """Validate OKF v0.2 concept frontmatter, status/tags invariants, truth blocks, footnotes, and Task sections."""
+    errors: list[str] = []
+    for req_key in ("type", "title", "description"):
+        if not str(fm.get(req_key, "")).strip():
+            errors.append(f"{rel}: missing required frontmatter key {req_key!r}")
+
+    if "status" in fm:
+        status_val = str(fm.get("status", "")).strip()
+        if status_val not in OKF_DOCUMENT_STATUSES:
+            errors.append(
+                f"{rel}: invalid OKF status {status_val!r} (must be one of {sorted(OKF_DOCUMENT_STATUSES)}; "
+                "workflow execution state belongs in 'state')"
+            )
+
+    if "tags" in fm:
+        tags_val = fm.get("tags")
+        if not isinstance(tags_val, list) or not (1 <= len(tags_val) <= 8):
+            errors.append(f"{rel}: tags must be a list of 1..8 lowercase hyphenated strings")
+        else:
+            for raw_tag in tags_val:
+                tag = str(raw_tag).strip()
+                if not _TAG_SLUG_PATTERN.match(tag):
+                    errors.append(f"{rel}: invalid tag {tag!r} (must be lowercase hyphenated slug)")
+                elif tag in FORBIDDEN_TAG_STATE_WORDS:
+                    errors.append(f"{rel}: tag {tag!r} encodes lifecycle state/status; use domain/work-kind tags")
+
+    start_match = _TRUTH_START_PATTERN.search(body)
+    end_match = _TRUTH_END_PATTERN.search(body)
+    if start_match and not end_match:
+        errors.append(f"{rel}: '<!-- truth: start -->' missing matching '<!-- truth: end -->'")
+    elif end_match and not start_match:
+        errors.append(f"{rel}: '<!-- truth: end -->' missing matching '<!-- truth: start -->'")
+    elif start_match and end_match:
+        if end_match.start() < start_match.end():
+            errors.append(f"{rel}: truth block end appears before start")
+        else:
+            inner_lines = [ln for ln in body[start_match.end() : end_match.start()].strip("\n").splitlines()]
+            if len(inner_lines) > MAX_TRUTH_BLOCK_LINES:
+                errors.append(
+                    f"{rel}: truth block has {len(inner_lines)} lines (exceeds {MAX_TRUTH_BLOCK_LINES}-line limit)"
+                )
+
+    sources = fm.get("sources")
+    if isinstance(sources, list) and sources:
+        footnotes = set(_FOOTNOTE_DEF_PATTERN.findall(body))
+        for src in sources:
+            if not isinstance(src, dict):
+                errors.append(f"{rel}: each item in sources must be a mapping")
+                continue
+            src_id = str(src.get("id", "")).strip()
+            if not src_id or not str(src.get("resource", "")).strip():
+                errors.append(f"{rel}: source entry must declare 'id' and 'resource'")
+            elif src_id not in footnotes:
+                errors.append(f"{rel}: source id {src_id!r} missing matching [^{src_id}]: footnote in body")
+
+    if str(fm.get("type", "")).strip() == "Task":
+        errors.extend(_validate_task_blueprint_contract(rel, fm, body))
+
+    return errors
+
+
+def _validate_task_blueprint_contract(rel: str, fm: dict[str, Any], body: str) -> list[str]:
+    """Validate 8-section Task blueprint headings, read_set cap, and estimated_loc cap."""
+    errors: list[str] = []
+    unfenced = _MULTILINE_FENCE_PATTERN.sub("", body)
+    for heading in REQUIRED_TASK_HEADINGS:
+        if not re.search(rf"^{re.escape(heading)}\s*$", unfenced, re.MULTILINE):
+            errors.append(f"{rel}: missing required Task blueprint heading {heading!r}")
+
+    if "read_set" in fm and fm["read_set"] is not None:
+        read_set = fm["read_set"]
+        if not isinstance(read_set, list):
+            errors.append(f"{rel}: read_set must be a list of file paths")
+        elif len(read_set) > MAX_TASK_READ_SET:
+            errors.append(f"{rel}: read_set has {len(read_set)} entries (exceeds {MAX_TASK_READ_SET}-file cap)")
+
+    if "estimated_loc" in fm and fm["estimated_loc"] is not None:
+        loc_val = fm["estimated_loc"]
+        if not isinstance(loc_val, int) or isinstance(loc_val, bool):
+            errors.append(f"{rel}: estimated_loc must be an integer")
+        elif loc_val > MAX_TASK_ESTIMATED_LOC:
+            errors.append(f"{rel}: estimated_loc {loc_val} exceeds {MAX_TASK_ESTIMATED_LOC}-line cap")
+
+    return errors
+
+
+def _validate_flow_spec_directory(bundle_dir: Path, flow_dir: Path) -> list[str]:
+    """Validate a single-chapter or multi-chapter specs/<flow_id>/ directory for roadmap and review-stamp parity."""
+    errors: list[str] = []
+    rel_flow = flow_dir.relative_to(bundle_dir).as_posix()
+    root_spec = flow_dir / "spec.md"
+    if not root_spec.is_file():
+        return [f"{rel_flow}: missing spec.md"]
+
+    root_fm, root_body = _split_frontmatter(root_spec.read_text(encoding="utf-8"))
+    if root_fm is None:
+        return errors
+
+    chapters_dir = flow_dir / "chapters"
+    has_chapters = chapters_dir.is_dir() or root_fm.get("has_chapters") is True
+    root_state = str(root_fm.get("state", "")).strip()
+    root_rev_sha = str(root_fm.get("last_reviewed_commit") or "").strip()
+
+    if has_chapters:
+        errors.extend(
+            _validate_multi_chapter_flow(bundle_dir, flow_dir, rel_flow, root_fm, root_body, root_state, root_rev_sha)
+        )
+        return errors
+
+    tasks_dir = flow_dir / "tasks"
+    errors.extend(_validate_tasks_for_owner_spec(bundle_dir, f"{rel_flow}/spec.md", root_body, tasks_dir))
+    if root_state == "completed" and not _HEX_SHA_PATTERN.match(root_rev_sha):
+        errors.append(f"{rel_flow}/spec.md: state is 'completed' without valid hex last_reviewed_commit")
+    return errors
+
+
+def _validate_multi_chapter_flow(
+    bundle_dir: Path,
+    flow_dir: Path,
+    rel_flow: str,
+    root_fm: dict[str, Any],
+    root_body: str,
+    root_state: str,
+    root_rev_sha: str,
+) -> list[str]:
+    """Validate nested chapters/<ch_id>/ layout, 1:1 roadmap parity, empirical triggers, and review stamps."""
+    errors: list[str] = []
+    chapters_dir = flow_dir / "chapters"
+    if not chapters_dir.is_dir():
+        return [f"{rel_flow}: has_chapters is true but chapters/ directory is missing"]
+
+    root_tasks_dir = flow_dir / "tasks"
+    if root_tasks_dir.is_dir() and any(p.name != "index.md" for p in root_tasks_dir.glob("*.md")):
+        errors.append(f"{rel_flow}: multi-chapter spec must not mix root tasks/*.md with chapters/")
+
+    ch_index = chapters_dir / "index.md"
+    ch_index_text = ""
+    if not ch_index.is_file():
+        errors.append(f"{rel_flow}/chapters/index.md: missing chapter catalog index.md")
+    else:
+        ch_index_text = ch_index.read_text(encoding="utf-8")
+
+    ch_dirs = sorted(p for p in chapters_dir.iterdir() if p.is_dir())
+    disk_ch_ids = [p.name for p in ch_dirs]
+    for ch_id in disk_ch_ids:
+        if not _CHAPTER_DIR_PATTERN.match(ch_id):
+            errors.append(f"{rel_flow}/chapters/{ch_id}: directory name must match '^ch\\d{{2}}-[a-z0-9-]+$'")
+
+    declared_chapters = root_fm.get("chapters")
+    if isinstance(declared_chapters, list):
+        declared_ids = [str(item).strip() for item in declared_chapters]
+        if sorted(declared_ids) != disk_ch_ids:
+            errors.append(f"{rel_flow}/spec.md: frontmatter chapters {declared_ids} != disk chapters {disk_ch_ids}")
+
+    root_unfenced = _MULTILINE_FENCE_PATTERN.sub("", root_body)
+    open_chapters: list[str] = []
+
+    for ch_dir in ch_dirs:
+        ch_id = ch_dir.name
+        rel_ch = f"{rel_flow}/chapters/{ch_id}"
+        if ch_index_text and ch_id not in ch_index_text:
+            errors.append(f"{rel_flow}/chapters/index.md: missing entry for chapter {ch_id!r}")
+        if ch_id not in root_unfenced:
+            errors.append(f"{rel_flow}/spec.md: full-plan body/checklist missing chapter {ch_id!r}")
+
+        ch_spec = ch_dir / "spec.md"
+        if not ch_spec.is_file():
+            errors.append(f"{rel_ch}: missing spec.md")
+            continue
+
+        ch_fm, ch_body = _split_frontmatter(ch_spec.read_text(encoding="utf-8"))
+        if ch_fm is None:
+            continue
+
+        planning_status = str(ch_fm.get("planning_status", "complete")).strip()
+        if planning_status not in ("complete", "empirical_dependent"):
+            errors.append(f"{rel_ch}/spec.md: invalid planning_status {planning_status!r}")
+        elif planning_status == "empirical_dependent":
+            trigger = str(ch_fm.get("replan_trigger") or "").strip()
+            deps = ch_fm.get("depends_on_chapters")
+            if not trigger:
+                errors.append(f"{rel_ch}/spec.md: empirical_dependent chapter requires non-empty replan_trigger")
+            if not isinstance(deps, list) or not deps:
+                errors.append(f"{rel_ch}/spec.md: empirical_dependent chapter requires non-empty depends_on_chapters")
+
+        ch_state = str(ch_fm.get("state", "")).strip()
+        ch_rev = str(ch_fm.get("last_reviewed_commit") or "").strip()
+        errors.extend(_validate_tasks_for_owner_spec(bundle_dir, f"{rel_ch}/spec.md", ch_body, ch_dir / "tasks"))
+
+        if ch_state == "completed":
+            if not _HEX_SHA_PATTERN.match(ch_rev):
+                errors.append(f"{rel_ch}/spec.md: state is 'completed' without valid hex last_reviewed_commit")
+            if not re.search(rf"^[ \t]*-[ \t]*\[[xX]\].*{re.escape(ch_id)}", root_unfenced, re.MULTILINE):
+                errors.append(f"{rel_flow}/spec.md: completed chapter {ch_id!r} must be marked [x] in checklist")
+        elif ch_state not in ("deferred", "skipped"):
+            open_chapters.append(ch_id)
+
+    curr_ch = str(root_fm.get("current_chapter") or "").strip()
+    if open_chapters and curr_ch not in open_chapters:
+        errors.append(
+            f"{rel_flow}/spec.md: current_chapter {curr_ch!r} must reference an open chapter in {open_chapters}"
+        )
+    if not open_chapters and root_state == "completed" and not _HEX_SHA_PATTERN.match(root_rev_sha):
+        errors.append(f"{rel_flow}/spec.md: state is 'completed' without valid hex last_reviewed_commit")
+
+    return errors
+
+
+def _validate_tasks_for_owner_spec(
+    bundle_dir: Path,
+    owner_rel: str,
+    owner_body: str,
+    tasks_dir: Path,
+) -> list[str]:
+    """Verify <= 4 tasks per chapter/spec and exact task state <-> checklist marker parity."""
+    errors: list[str] = []
+    if not tasks_dir.is_dir():
+        return errors
+
+    task_files = sorted(p for p in tasks_dir.glob("*.md") if p.name != "index.md")
+    if len(task_files) > MAX_CHAPTER_TASKS:
+        rel_tasks = tasks_dir.relative_to(bundle_dir).as_posix()
+        errors.append(
+            f"{rel_tasks}: found {len(task_files)} task worksheets (exceeds {MAX_CHAPTER_TASKS}-task chapter cap; "
+            "split into additional chapters rather than compressing or overloading)"
+        )
+
+    unfenced_owner = _MULTILINE_FENCE_PATTERN.sub("", owner_body)
+    checklist_rows = [
+        (m.group(1).lower(), m.group(2).strip()) for m in _CHECKLIST_LINE_PATTERN.finditer(unfenced_owner)
+    ]
+
+    for tf in task_files:
+        rel_tf = tf.relative_to(bundle_dir).as_posix()
+        tfm, _ = _split_frontmatter(tf.read_text(encoding="utf-8"))
+        if tfm is None:
+            continue
+        t_stem = tf.name.split("-", 1)[0]
+        t_id = str(tfm.get("id") or t_stem).strip()
+        t_state = str(tfm.get("state") or "pending").strip()
+        t_commit = str(tfm.get("commit") or "").strip()
+
+        expected_mark = _expected_checklist_marker(t_state)
+        if t_state in ("completed", "closed") and not _HEX_SHA_PATTERN.match(t_commit):
+            errors.append(f"{rel_tf}: state is {t_state!r} without valid hex commit SHA")
+
+        matched_row = _match_checklist_row(checklist_rows, tf.name, t_id, t_stem)
+        if matched_row is None:
+            errors.append(f"{owner_rel}: checklist missing entry for task worksheet {tf.name!r}")
+            continue
+
+        actual_mark, rest_text = matched_row
+        if actual_mark != expected_mark:
+            errors.append(
+                f"{owner_rel}: task {tf.name!r} has checklist marker [{actual_mark}] "
+                f"but worksheet state {t_state!r} requires [{expected_mark}]"
+            )
+        elif expected_mark == "x" and _HEX_SHA_PATTERN.match(t_commit):
+            sha_match = _CHECKLIST_SHA_PATTERN.match(rest_text)
+            if sha_match:
+                c_sha = sha_match.group(1)
+                if not (t_commit.startswith(c_sha) or c_sha.startswith(t_commit)):
+                    errors.append(
+                        f"{owner_rel}: task {tf.name!r} commit {t_commit!r} mismatches checklist SHA {c_sha!r}"
+                    )
+
+    return errors
+
+
+def _expected_checklist_marker(task_state: str) -> str:
+    """Return the spec.md checklist character corresponding to ``task_state``."""
+    if task_state in ("completed", "closed"):
+        return "x"
+    if task_state in ("deferred", "skipped"):
+        return "-"
+    if task_state == "in_progress":
+        return "~"
+    if task_state == "blocked":
+        return "!"
+    return " "
+
+
+def _match_checklist_row(
+    checklist_rows: list[tuple[str, str]],
+    task_filename: str,
+    task_id: str,
+    task_stem: str,
+) -> tuple[str, str] | None:
+    """Find the checklist `(marker, text)` tuple referencing ``task_filename``, ``task_id``, or ``task_stem``."""
+    for mark, rest in checklist_rows:
+        stripped_rest = _CHECKLIST_SHA_PATTERN.sub("", rest).lstrip()
+        if (
+            f"tasks/{task_filename}" in rest
+            or f"({task_filename})" in rest
+            or stripped_rest.startswith(f"{task_id} ")
+            or stripped_rest.startswith(f"{task_id}:")
+            or stripped_rest.startswith(f"{task_stem} ")
+            or stripped_rest.startswith(f"{task_stem}:")
+        ):
+            return mark, rest
+    return None
 
 
 def _split_frontmatter(text: str) -> tuple[dict[str, Any] | None, str]:

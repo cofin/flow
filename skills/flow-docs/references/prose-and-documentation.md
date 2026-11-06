@@ -35,7 +35,8 @@ When documenting a module, package, or subsystem, never guess from filenames or 
    - **Configuration or manifest file**:
      - **Purpose**: What subsystem the file configures.
      - **Key Settings**: Each setting, its default, and the runtime behavior it controls.
-5. **Cross-Reference & Synthesize**: Map dependency direction across components, verify every `path/to/file::Symbol` reference on disk, and confirm `[N/N files documented]`.
+5. **Shard Across Subagents & Synthesize**: When a manifest spans multiple subsystems or chapters, assign disjoint file slices (`<= 6` source files per subagent) so every module receives concrete examples, signature tables, and edge-case coverage without coordinator context compaction; verify every `path/to/file::Symbol` reference on disk and confirm `[N/N files documented]`.
+6. **Keep Living Markdown Synchronized in Present Tense**: Whenever a chapter finishes or a plan is revised, rewrite affected `docs/**`, `.agents/bundles/knowledge/**`, and `specs/<flow_id>/` roadmaps in place so readers see current state, remaining chapters, and the full plan—never chronological revision diaries.
 
 ## Progressive Guide & Tutorial Structure
 
