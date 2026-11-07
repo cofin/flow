@@ -68,8 +68,8 @@ html,
 body {
   margin: 0;
   padding: 0;
-  background: var(--bg);
-  color: var(--fg);
+  background: var(--bg) !important;
+  color: var(--fg) !important;
   font-family: var(--font-sans);
   font-size: 14px;
   line-height: 1.55;
@@ -237,6 +237,7 @@ body {
 
 .card {
   background: var(--surface);
+  color: var(--fg);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 20px 22px;
