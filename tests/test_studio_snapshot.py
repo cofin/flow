@@ -526,4 +526,3 @@ process.stdout.write(JSON.stringify({
     assert out["activeUrisAfterChange"] == [ws_other.as_uri()]
     assert out["events"][0]["type"] == "workspace.changed"
     assert out["events"][0]["uris"] == [ws_other.as_uri()]
-

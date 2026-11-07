@@ -492,5 +492,3 @@ def test_vscode_extension_installer_creates_self_contained_bundle(tmp_path: Path
     assert (bundle_dir / "extension.mjs").is_file()
     assert (bundle_dir / "sidecars" / "studio" / "router.mjs").is_file()
     assert "./sidecars/studio/" in (bundle_dir / "extension.mjs").read_text(encoding="utf-8")
-
-
