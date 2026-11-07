@@ -7,6 +7,20 @@
  */
 
 import crypto from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const PLUGIN_PACKAGE_JSON = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "package.json");
+
+function readPluginVersion() {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(PLUGIN_PACKAGE_JSON, "utf8"));
+    return typeof parsed.version === "string" && parsed.version ? parsed.version : "0.28.0";
+  } catch {
+    return "0.28.0";
+  }
+}
 
 export class A2AFacade {
   /**
@@ -29,7 +43,7 @@ export class A2AFacade {
       description:
         "Local multi-harness Spec-Driven Development coordinator routing Flow planning, execution, and zero-context reviews across installed agent CLIs.",
       url: `${String(baseUrl || "").replace(/\/+$/, "")}/a2a`,
-      version: "0.27.0",
+      version: readPluginVersion(),
       capabilities: {
         streaming: true,
         pushNotifications: false,
