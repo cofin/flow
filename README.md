@@ -108,7 +108,8 @@ Add Flow to your OpenCode `plugins` configuration (`opencode plugin add cofin/fl
 
 ### VS Code / Copilot ( plus Windsurf & Positron )
 
-1. **Flow Studio Extension (`vscode-extension/`)**: Run the one-line installer directly from GitHub (no Git clone required) to bundle `vscode-extension/` + `sidecars/studio/` and register `cofin.flow-studio` into your editor's `extensions.json` (`~/.vscode/extensions`, `~/.cursor/extensions`, `~/.windsurf/extensions`, or `~/.positron/extensions`), then reload the window (`Developer: Reload Window`):
+1. **Chat / Agent Plugin**: Install Flow through **Chat: Install Plugin From Source** (or from a local checkout, where `make install-vscode` / `node ./vscode-extension/install.mjs --link` can also be used for local development).
+2. **Flow Studio Extension (`vscode-extension/`)**: Run the one-line installer directly from GitHub (no Git clone required) to bundle `vscode-extension/` + `sidecars/studio/` and register `cofin.flow-studio` into your editor's `extensions.json` (`~/.vscode/extensions`, `~/.cursor/extensions`, `~/.windsurf/extensions`, or `~/.positron/extensions`), then reload the window (`Developer: Reload Window`):
 
 ```bash
 # Auto-detect installed VS Code-compatible editors and install cofin.flow-studio
@@ -117,8 +118,6 @@ npx --yes --package github:cofin/flow flow-studio-vscode
 # Or target a specific editor (vscode | vscode-insiders | cursor | windsurf | positron | all)
 npx --yes --package github:cofin/flow flow-studio-vscode --target vscode
 ```
-
-2. **Chat / Agent Plugin**: Install Flow through **Chat: Install Plugin From Source** (or from a local checkout, where `make install-vscode` / `node ./vscode-extension/install.mjs --link` can also be used for local development).
 
 ## Commands & Lifecycle Skills
 
