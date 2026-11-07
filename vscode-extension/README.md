@@ -11,22 +11,28 @@
 
 ## Installation
 
+### End Users (No Repository Clone Required)
+
+1. **Automatic via Flow Agent Plugin (`SessionStart` Hook)**: When you install the Flow plugin in Cursor, Claude Code, OpenCode, or Google Antigravity, Flow's `SessionStart` hook (`hooks/session-start.{sh,ps1}`) automatically installs and registers `cofin.flow-studio` into any detected `~/.vscode/extensions`, `~/.cursor/extensions`, `~/.windsurf/extensions`, or `~/.positron/extensions` directory on your machine.
+2. **One-Command Remote Install via `npx`**: Install or update `cofin.flow-studio` directly from GitHub without cloning the repository:
+
+```bash
+# Auto-detect installed VS Code-compatible editors and install cofin.flow-studio
+npx --yes --package github:cofin/flow flow-studio-vscode
+
+# Target a specific editor (vscode | vscode-insiders | cursor | windsurf | positron | all)
+npx --yes --package github:cofin/flow flow-studio-vscode --target cursor
+```
+
+### Contributors (From a Local Checkout)
+
 From a local checkout of [`cofin/flow`](https://github.com/cofin/flow), run:
 
 ```bash
+# Bundle and install into detected editors
 make install-vscode
-```
 
-Or invoke the zero-dependency installer directly with Node.js (`>= 20`):
-
-```bash
-# Auto-detect and install into ~/.vscode/extensions, ~/.cursor/extensions, etc.
-node ./vscode-extension/install.mjs
-
-# Target a specific editor (vscode | cursor | windsurf | positron | all)
-node ./vscode-extension/install.mjs --target cursor
-
-# Symlink live checkout for extension development
+# Or symlink live checkout for extension development
 node ./vscode-extension/install.mjs --link
 ```
 

@@ -492,3 +492,16 @@ def test_vscode_extension_installer_creates_self_contained_bundle(tmp_path: Path
     assert (bundle_dir / "extension.mjs").is_file()
     assert (bundle_dir / "sidecars" / "studio" / "router.mjs").is_file()
     assert "./sidecars/studio/" in (bundle_dir / "extension.mjs").read_text(encoding="utf-8")
+    manifest_file = ext_dir / "extensions.json"
+    assert manifest_file.is_file()
+    manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
+    assert any(item.get("identifier", {}).get("id") == "cofin.flow-studio" for item in manifest)
+
+    proc_if_needed = subprocess.run(
+        [NODE_BIN, str(installer), "--extensions-dir", str(ext_dir), "--if-needed"],
+        text=True,
+        capture_output=True,
+        cwd=str(REPO_ROOT),
+        check=True,
+    )
+    assert "(up-to-date)" in proc_if_needed.stdout

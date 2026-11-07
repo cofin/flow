@@ -13,7 +13,7 @@ Flow Studio provides a calm, low-noise companion UI for managing specifications,
 3. **VS Code & Cursor Extension (`vscode-extension/`)**:
    - Contributes the `Flow Studio` Activity Bar container (`Specs & Chapters` and `Knowledge Catalog` tree views), quiet `spec.md` CodeLenses (`Open in Flow Studio`, `Implement <chapter>`, `Zero-Context Review`), and Webview Studio panel sharing `StudioApiService` directly with `sidecars/studio/router.mjs`.
    - Follows the active editor's workspace folder (and multi-root workspace changes) automatically, and routes prompts to GitHub Copilot Chat, Cursor Chat, Claude Code, Codex CLI, OpenCode, or Google Antigravity according to `flow.defaultHarness` and `flow.executionMode`.
-   - **Installation**: Run `make install-vscode` or `node ./vscode-extension/install.mjs [--target vscode|cursor|windsurf|positron|all] [--link]` from the Flow checkout to install `cofin.flow-studio` into `~/.vscode/extensions` and `~/.cursor/extensions`, then run `Developer: Reload Window`.
+   - **Installation**: Installed automatically into detected `~/.vscode/extensions` and `~/.cursor/extensions` directories on `SessionStart` (`hooks/session-start.{sh,ps1}`), or run `npx --yes --package github:cofin/flow flow-studio-vscode [--target vscode|cursor|windsurf|positron|all]` directly from GitHub without cloning the repository (or `make install-vscode` from a local checkout), then run `Developer: Reload Window`.
 
 ## Spec Review & Authoring Loop
 

@@ -95,11 +95,11 @@ Then run `/plugins` inside a Codex session to enable `flow`, or update with `cod
 
 ### Cursor
 
-1. **Agent Plugin (`.cursor-plugin/plugin.json`)**: Install Flow as a Cursor plugin from a local clone or repository URL (`https://github.com/cofin/flow`) so skills, subagents, and lifecycle hooks (`hooks/hooks-cursor.json`) load automatically.
-2. **Flow Studio Extension (`vscode-extension/`)**: Install the Activity Bar tree views (`Specs & Chapters`, `Knowledge Catalog`), `spec.md` CodeLenses, and Webview Studio panel into `~/.cursor/extensions`:
+1. **Agent Plugin (`.cursor-plugin/plugin.json`)**: Install Flow as a Cursor plugin (`https://github.com/cofin/flow`) so skills, subagents, and lifecycle hooks (`hooks/hooks-cursor.json`) load automatically.
+2. **Flow Studio Extension (`vscode-extension/`)**: Installed automatically into `~/.cursor/extensions` on your first session (`hooks/session-start.{sh,ps1}`), or run directly from GitHub without cloning the repository:
 
 ```bash
-node ./vscode-extension/install.mjs --target cursor
+npx --yes --package github:cofin/flow flow-studio-vscode --target cursor
 ```
 
 ### OpenCode V2
@@ -108,19 +108,17 @@ Add Flow to your OpenCode `plugins` configuration (`opencode plugin add cofin/fl
 
 ### VS Code / Copilot ( plus Windsurf & Positron )
 
-1. **Chat / Agent Plugin**: Install Flow through **Chat: Install Plugin From Source** pointing to a local checkout of the repository.
-2. **Flow Studio Extension (`vscode-extension/`)**: Run the zero-dependency installer from a local checkout to bundle `vscode-extension/` + `sidecars/studio/` into your editor's extensions directory (`~/.vscode/extensions`, `~/.cursor/extensions`, `~/.windsurf/extensions`, or `~/.positron/extensions`), then reload the window (`Developer: Reload Window`):
+1. **Flow Studio Extension (`vscode-extension/`)**: Run the one-line installer directly from GitHub (no Git clone required) to bundle `vscode-extension/` + `sidecars/studio/` and register `cofin.flow-studio` into your editor's `extensions.json` (`~/.vscode/extensions`, `~/.cursor/extensions`, `~/.windsurf/extensions`, or `~/.positron/extensions`), then reload the window (`Developer: Reload Window`):
 
 ```bash
 # Auto-detect installed VS Code-compatible editors and install cofin.flow-studio
-make install-vscode
+npx --yes --package github:cofin/flow flow-studio-vscode
 
 # Or target a specific editor (vscode | vscode-insiders | cursor | windsurf | positron | all)
-node ./vscode-extension/install.mjs --target vscode
-
-# Or symlink the live checkout for local extension development
-node ./vscode-extension/install.mjs --link
+npx --yes --package github:cofin/flow flow-studio-vscode --target vscode
 ```
+
+2. **Chat / Agent Plugin**: Install Flow through **Chat: Install Plugin From Source** (or from a local checkout, where `make install-vscode` / `node ./vscode-extension/install.mjs --link` can also be used for local development).
 
 ## Commands & Lifecycle Skills
 

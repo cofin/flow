@@ -33,6 +33,8 @@ export function parseArgs(argv) {
   let target = "auto";
   let customExtensionsDir = "";
   let link = false;
+  let ifNeeded = false;
+  let quiet = false;
 
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -48,15 +50,19 @@ export function parseArgs(argv) {
       customExtensionsDir = path.resolve(arg.slice("--extensions-dir=".length));
     } else if (arg === "--link" || arg === "-l") {
       link = true;
+    } else if (arg === "--if-needed") {
+      ifNeeded = true;
+    } else if (arg === "--quiet" || arg === "-q") {
+      quiet = true;
     }
   }
-  return { target, customExtensionsDir, link };
+  return { target, customExtensionsDir, link, ifNeeded, quiet };
 }
 
 /**
  * Resolve target editor extension directories to install into.
  *
- * @param {{ target?: string, customExtensionsDir?: string, homeDir?: string }} [options]
+ * @param {{ target?: string, customExtensionsDir?: string, homeDir?: string, ifNeeded?: boolean }} [options]
  * @returns {{ editor: string, extensionsDir: string }[]}
  */
 export function resolveTargetExtensionDirs(options = {}) {
@@ -90,16 +96,109 @@ export function resolveTargetExtensionDirs(options = {}) {
       detected.push({ editor, extensionsDir: extDir });
     }
   }
-  if (detected.length === 0) {
+  if (detected.length === 0 && !options.ifNeeded) {
     detected.push({ editor: "vscode", extensionsDir: candidates.vscode });
   }
   return detected;
 }
 
 /**
+ * Register or update the extension entry in `<extensionsDir>/extensions.json` and remove stale `.obsolete` entries.
+ *
+ * @param {string} extensionsDir
+ * @param {string} extensionId
+ * @param {string} version
+ * @param {string} bundleFolderName
+ * @param {string} destDir
+ */
+function registerInExtensionsJson(extensionsDir, extensionId, version, bundleFolderName, destDir) {
+  const manifestPath = path.join(extensionsDir, "extensions.json");
+  let entries = [];
+  if (fs.existsSync(manifestPath)) {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+      if (Array.isArray(parsed)) entries = parsed;
+    } catch {
+      entries = [];
+    }
+  }
+  const normalizedFsPath = destDir.replace(/\\/g, "/");
+  const urlPath = normalizedFsPath.startsWith("/") ? normalizedFsPath : `/${normalizedFsPath}`;
+  const entry = {
+    identifier: { id: extensionId.toLowerCase() },
+    version,
+    location: {
+      $mid: 1,
+      fsPath: destDir,
+      path: urlPath,
+      external: `file://${urlPath}`,
+      scheme: "file",
+    },
+    relativeLocation: bundleFolderName,
+    metadata: {
+      installedTimestamp: Date.now(),
+      pinned: false,
+      source: "vsix",
+    },
+  };
+  const filtered = entries.filter(
+    (item) => String(item?.identifier?.id || "").toLowerCase() !== extensionId.toLowerCase()
+  );
+  filtered.push(entry);
+  fs.writeFileSync(manifestPath, JSON.stringify(filtered), "utf8");
+
+  const obsoletePath = path.join(extensionsDir, ".obsolete");
+  if (fs.existsSync(obsoletePath)) {
+    try {
+      const obsolete = JSON.parse(fs.readFileSync(obsoletePath, "utf8"));
+      if (obsolete && typeof obsolete === "object") {
+        let changed = false;
+        for (const key of Object.keys(obsolete)) {
+          if (key.toLowerCase().startsWith(`${extensionId.toLowerCase()}-`)) {
+            delete obsolete[key];
+            changed = true;
+          }
+        }
+        if (changed) {
+          fs.writeFileSync(obsoletePath, JSON.stringify(obsolete), "utf8");
+        }
+      }
+    } catch {
+      // Ignore malformed .obsolete file
+    }
+  }
+}
+
+/**
+ * Return true if `destDir` is already installed and registered in `extensions.json`.
+ *
+ * @param {string} extensionsDir
+ * @param {string} extensionId
+ * @param {string} version
+ * @param {string} destDir
+ */
+function isExtensionUpToDate(extensionsDir, extensionId, version, destDir) {
+  if (!fs.existsSync(path.join(destDir, "package.json"))) return false;
+  if (!fs.existsSync(path.join(destDir, "extension.mjs"))) return false;
+  const manifestPath = path.join(extensionsDir, "extensions.json");
+  if (!fs.existsSync(manifestPath)) return false;
+  try {
+    const parsed = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+    if (!Array.isArray(parsed)) return false;
+    return parsed.some(
+      (item) =>
+        String(item?.identifier?.id || "").toLowerCase() === extensionId.toLowerCase() &&
+        String(item?.version || "") === version
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Install Flow Studio into the resolved editor extension directories.
  *
- * @param {{ target?: string, customExtensionsDir?: string, link?: boolean, homeDir?: string }} [options]
+ * @param {{ target?: string, customExtensionsDir?: string, link?: boolean, homeDir?: string, ifNeeded?: boolean, quiet?: boolean }} [options]
  */
 export function installFlowStudioExtension(options = {}) {
   const pkgPath = path.join(EXT_SRC_DIR, "package.json");
@@ -107,24 +206,32 @@ export function installFlowStudioExtension(options = {}) {
   const publisher = String(pkg.publisher || "cofin");
   const name = String(pkg.name || "flow-studio");
   const version = String(pkg.version || "0.28.0");
-  const bundleFolderName = `${publisher}.${name}-${version}`;
+  const extensionId = `${publisher}.${name}`;
+  const bundleFolderName = `${extensionId}-${version}`;
 
   const targets = resolveTargetExtensionDirs(options);
   const installed = [];
 
   for (const { editor, extensionsDir } of targets) {
     fs.mkdirSync(extensionsDir, { recursive: true });
+    const destDir = path.join(extensionsDir, bundleFolderName);
+
+    if (options.ifNeeded && !options.link && isExtensionUpToDate(extensionsDir, extensionId, version, destDir)) {
+      installed.push({ editor, mode: "up-to-date", path: destDir });
+      continue;
+    }
+
     for (const entry of fs.readdirSync(extensionsDir)) {
-      if (entry.startsWith(`${publisher}.${name}-`) && entry !== bundleFolderName) {
+      if (entry.startsWith(`${extensionId}-`) && entry !== bundleFolderName) {
         fs.rmSync(path.join(extensionsDir, entry), { recursive: true, force: true });
       }
     }
 
-    const destDir = path.join(extensionsDir, bundleFolderName);
     fs.rmSync(destDir, { recursive: true, force: true });
 
     if (options.link) {
       fs.symlinkSync(EXT_SRC_DIR, destDir, "dir");
+      registerInExtensionsJson(extensionsDir, extensionId, version, bundleFolderName, destDir);
       installed.push({ editor, mode: "symlink", path: destDir });
       continue;
     }
@@ -149,11 +256,12 @@ export function installFlowStudioExtension(options = {}) {
       }
     }
 
+    registerInExtensionsJson(extensionsDir, extensionId, version, bundleFolderName, destDir);
     installed.push({ editor, mode: "bundle", path: destDir });
   }
 
   return {
-    extensionId: `${publisher}.${name}`,
+    extensionId,
     version,
     installed,
   };
@@ -162,9 +270,11 @@ export function installFlowStudioExtension(options = {}) {
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const opts = parseArgs(process.argv.slice(2));
   const result = installFlowStudioExtension(opts);
-  for (const item of result.installed) {
-    process.stdout.write(
-      `[flow-studio] Installed ${result.extensionId}@${result.version} (${item.mode}) for ${item.editor}: ${item.path}\n`
-    );
+  if (!opts.quiet) {
+    for (const item of result.installed) {
+      process.stdout.write(
+        `[flow-studio] Installed ${result.extensionId}@${result.version} (${item.mode}) for ${item.editor}: ${item.path}\n`
+      );
+    }
   }
 }

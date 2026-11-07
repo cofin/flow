@@ -108,6 +108,25 @@ record_recent_workspace() {
   mkdir -p "$cfg_dir" 2>/dev/null || return 0
   ts_iso="$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo "2026-01-01T00:00:00Z")"
   printf '%s\t%s\n' "$ts_iso" "$ws_dir" >> "$cfg_dir/recent-workspaces.tsv" 2>/dev/null || true
+
+  if [ -z "${FLOW_CONFIG_DIR:-}" ] && [ -z "${FLOW_SKIP_VSCODE_AUTO_INSTALL:-}" ]; then
+    hook_dir="$(CDPATH= cd -- "$(dirname -- "$0")" 2>/dev/null && pwd || true)"
+    plugin_root="$(CDPATH= cd -- "$hook_dir/.." 2>/dev/null && pwd || true)"
+    if [ -n "$plugin_root" ] && [ -f "$plugin_root/vscode-extension/install.mjs" ] && command -v node >/dev/null 2>&1; then
+      needs_ext_sync=0
+      for ed_dir in "${HOME:-}/.vscode" "${HOME:-}/.vscode-insiders" "${HOME:-}/.cursor" "${HOME:-}/.windsurf" "${HOME:-}/.positron"; do
+        if [ -d "$ed_dir" ]; then
+          if [ ! -f "$ed_dir/extensions/extensions.json" ] || ! grep -q "cofin.flow-studio" "$ed_dir/extensions/extensions.json" 2>/dev/null; then
+            needs_ext_sync=1
+            break
+          fi
+        fi
+      done
+      if [ "$needs_ext_sync" -eq 1 ]; then
+        node "$plugin_root/vscode-extension/install.mjs" --if-needed --quiet >/dev/null 2>&1 || true
+      fi
+    fi
+  fi
 }
 record_recent_workspace "$PROJECT_DIR"
 
