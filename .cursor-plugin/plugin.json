@@ -1,7 +1,7 @@
 {
   "name": "flow",
   "displayName": "Flow",
-  "version": "0.27.0",
+  "version": "0.28.0",
   "description": "Unified toolkit for Spec-Driven Development with OKF v0.2 knowledge bundles, TDD execution, and zero-context focused review.",
   "author": {
     "name": "cofin"
@@ -9,6 +9,7 @@
   "homepage": "https://github.com/cofin/flow",
   "repository": "https://github.com/cofin/flow",
   "license": "MIT",
+  "logo": "./assets/logo.svg",
   "keywords": [
     "flow",
     "spec-driven-development",

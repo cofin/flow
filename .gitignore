@@ -218,6 +218,8 @@ docs/superpowers/
 .codex/config.toml
 opencode.json
 *.db
+*.duckdb
+*.duckdb.wal
 .worktrees/
 
 # Flow's own planning bundles stay local-only; user repos choose their own policy at setup

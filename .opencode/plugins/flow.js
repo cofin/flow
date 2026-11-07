@@ -132,6 +132,7 @@ function readBundleSummary(workspaceDir) {
   if (pendingSync.length > 0) {
     parts.push(`Pending chapter review/Markdown sync: ${pendingSync.join(", ")}.`);
   }
+  parts.push("Flow Studio UI: npx flow-studio.");
   return parts.join(" ");
 }
 

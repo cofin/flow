@@ -117,6 +117,14 @@ test:                                               ## Run the Python test suite
 check: lint validate test                           ## Verify sources, manifests, and tests without fixing them
 	@echo "${OK} All checks passed"
 
+.PHONY: studio
+studio:                                             ## Launch standalone Flow Studio UI on loopback HTTP + SSE
+	@node ./sidecars/studio/server.mjs
+
+.PHONY: catalog-index
+catalog-index:                                      ## Index active workspace into local DuckDB Knowledge Catalog
+	@uv run flow-catalog index .
+
 .PHONY: build
 build:                                              ## Build the package
 	@echo "${INFO} Building package..."

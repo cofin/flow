@@ -8,6 +8,52 @@
       }
     ]
   },
+  "flow-pre-invocation": {
+    "PreInvocation": [
+      {
+        "type": "command",
+        "command": "sh ./hooks/pre-invocation.sh --harness agy",
+        "timeout": 10
+      }
+    ]
+  },
+  "flow-pre-tool-guard": {
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh ./hooks/pre-tool-guard.sh --harness agy",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  },
+  "flow-post-tool-telemetry": {
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh ./hooks/post-tool-telemetry.sh --harness agy",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  },
+  "flow-post-invocation": {
+    "PostInvocation": [
+      {
+        "type": "command",
+        "command": "sh ./hooks/post-invocation.sh --harness agy",
+        "timeout": 10
+      }
+    ]
+  },
   "flow-stop-check": {
     "Stop": [
       {

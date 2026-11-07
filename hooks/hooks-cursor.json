@@ -6,6 +6,11 @@
         "command": "sh ./hooks/session-start.sh --harness cursor"
       }
     ],
+    "beforeShellExecution": [
+      {
+        "command": "sh ./hooks/pre-tool-guard.sh --harness cursor"
+      }
+    ],
     "stop": [
       {
         "command": "sh ./hooks/stop-check.sh --harness cursor",
