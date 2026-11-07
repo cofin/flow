@@ -121,6 +121,10 @@ check: lint validate test                           ## Verify sources, manifests
 studio:                                             ## Launch standalone Flow Studio UI on loopback HTTP + SSE
 	@node ./sidecars/studio/server.mjs
 
+.PHONY: install-vscode
+install-vscode:                                     ## Install Flow Studio extension into VS Code / Cursor / Windsurf
+	@node ./vscode-extension/install.mjs
+
 .PHONY: catalog-index
 catalog-index:                                      ## Index active workspace into local DuckDB Knowledge Catalog
 	@uv run flow-catalog index .

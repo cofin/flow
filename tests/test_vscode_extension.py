@@ -469,3 +469,28 @@ process.stdout.write(JSON.stringify({
     ]
     assert any(ev["workspacePath"] == str(ws_alpha) for ev in ws_events)
 
+
+@pytest.mark.skipif(NODE_BIN is None, reason="node is required")
+def test_vscode_extension_installer_creates_self_contained_bundle(tmp_path: Path) -> None:
+    """Verify vscode-extension/install.mjs bundles extension.mjs and sidecars/studio/ into an extensions dir."""
+    assert NODE_BIN is not None
+    ext_dir = tmp_path / "extensions"
+    installer = EXT_DIR / "install.mjs"
+    proc = subprocess.run(
+        [NODE_BIN, str(installer), "--extensions-dir", str(ext_dir)],
+        text=True,
+        capture_output=True,
+        cwd=str(REPO_ROOT),
+        check=True,
+    )
+    assert "Installed cofin.flow-studio@" in proc.stdout
+    installed_dirs = list(ext_dir.glob("cofin.flow-studio-*"))
+    assert len(installed_dirs) == 1
+    bundle_dir = installed_dirs[0]
+    assert (bundle_dir / "package.json").is_file()
+    assert (bundle_dir / "README.md").is_file()
+    assert (bundle_dir / "extension.mjs").is_file()
+    assert (bundle_dir / "sidecars" / "studio" / "router.mjs").is_file()
+    assert "./sidecars/studio/" in (bundle_dir / "extension.mjs").read_text(encoding="utf-8")
+
+

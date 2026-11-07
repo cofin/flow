@@ -118,4 +118,4 @@ Follow [`../../multi-harness-plugins/SKILL.md`](../../multi-harness-plugins/SKIL
      }
      ```
 
-4. Verify all relative links in `.agents/bundles/index.md`, `knowledge/index.md`, and `.agents/skills/index.md` resolve on disk, and ask whether the user wants to start their first flow (`/flow:plan` or `/flow:prd`).
+4. Verify all relative links in `.agents/bundles/index.md`, `knowledge/index.md`, and `.agents/skills/index.md` resolve on disk, and ask whether the user wants to start their first flow (`/flow:spec` or `/flow:prd`).

@@ -46,7 +46,7 @@ A prototype is **throwaway code that answers a design question** before locking 
 - **Untracked Scratch Location Only**: All spike files live in `.agents/scratch/<slug>/` (`notes.md`, `findings.md`, and prototype scripts). `.agents/scratch/` is untracked and never committed to `main`.
 - **Trivial to Run & In-Memory State**: Start from a single command (or double-clicking an HTML file), keep state in memory, skip polish/abstractions, and print or render full state after every transition.
 - **Explicit Resolution (`Promote`, `Keep Notes`, or `Discard`)**:
-  - **Promote to Spec/PRD**: Fold the validated decision into `spec.md` (`/flow:plan` or `/flow:prd`), document the rejected alternatives, and delete `.agents/scratch/<slug>/`.
+  - **Promote to Spec/PRD**: Fold the validated decision into `spec.md` (`/flow:spec` or `/flow:prd`), document the rejected alternatives, and delete `.agents/scratch/<slug>/`.
   - **Keep Research Notes**: Distill empirical findings into a well-formed OKF Research document (`.agents/bundles/research/<topic>_<YYYYMMDD>.md`), then delete `.agents/scratch/<slug>/` and reset any working tree edits (`git checkout -- .`). Never move raw `findings.md` into `bundles/` as-is.
   - **Discard**: Delete `.agents/scratch/<slug>/` and restore a clean working tree.
 
@@ -88,5 +88,5 @@ Include a concise `<= 40`-line `<!-- truth: start --> ... <!-- truth: end -->` b
 
 ## 4. Promotion & Contraction Contract
 
-- **Promotion into a Spec**: When `/flow:prd` or `/flow:plan` adopts a research note from `.agents/bundles/research/<topic>_<YYYYMMDD>.md`, move it into `.agents/bundles/specs/<flow_id>/research/<topic>_<YYYYMMDD>.md`, set `state: promoted` and `promoted_to: <flow_id>`, update frontmatter-free `research/index.md` if present, and add its path to `research: [...]` in root/chapter `spec.md`. `.agents/bundles/research/` holds un-promoted research only.
+- **Promotion into a Spec**: When `/flow:prd` or `/flow:spec` adopts a research note from `.agents/bundles/research/<topic>_<YYYYMMDD>.md`, move it into `.agents/bundles/specs/<flow_id>/research/<topic>_<YYYYMMDD>.md`, set `state: promoted` and `promoted_to: <flow_id>`, update frontmatter-free `research/index.md` if present, and add its path to `research: [...]` in root/chapter `spec.md`. `.agents/bundles/research/` holds un-promoted research only.
 - **Contraction into Knowledge**: When `/flow:implement` (chapter closeout), `/flow:learn`, or `/flow:archive` synthesizes durable knowledge, verified facts from `specs/<flow_id>/research/*.md` are folded into `.agents/bundles/knowledge/**` chapters in present tense with `sources:` + `[^id]:` provenance footnotes.

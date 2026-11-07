@@ -310,12 +310,12 @@
     const planInput = el("input", {
       type: "text",
       className: "text-input",
-      placeholder: "Describe a feature or initiative to plan in this workspace...",
+      placeholder: "Describe a feature or initiative to spec in this workspace...",
       onKeydown: async (e) => {
         if (e.key === "Enter") {
           const goal = e.target.value.trim();
-          const cmd = goal ? `/flow:plan ${goal}` : "/flow:plan";
-          await runFlowAction(cmd, goal ? `Plan: ${goal.slice(0, 48)}` : "Plan Feature");
+          const cmd = goal ? `/flow:spec ${goal}` : "/flow:spec";
+          await runFlowAction(cmd, goal ? `Spec: ${goal.slice(0, 48)}` : "Spec Feature");
           e.target.value = "";
         }
       },
@@ -330,7 +330,7 @@
         el(
           "div",
           {},
-          el("h3", { className: "card-title" }, "Plan in Selected Workspace"),
+          el("h3", { className: "card-title" }, "Spec in Selected Workspace"),
           el(
             "p",
             { className: "card-desc" },
@@ -358,12 +358,12 @@
             className: "btn btn-primary",
             onClick: async () => {
               const goal = planInput.value.trim();
-              const cmd = goal ? `/flow:plan ${goal}` : "/flow:plan";
-              await runFlowAction(cmd, goal ? `Plan: ${goal.slice(0, 48)}` : "Plan Feature");
+              const cmd = goal ? `/flow:spec ${goal}` : "/flow:spec";
+              await runFlowAction(cmd, goal ? `Spec: ${goal.slice(0, 48)}` : "Spec Feature");
               planInput.value = "";
             },
           },
-          "Plan Feature (/flow:plan)"
+          "Spec Feature (/flow:spec)"
         ),
         el(
           "button",
@@ -1262,7 +1262,7 @@
     const kindSelect = el(
       "select",
       { className: "select-input" },
-      el("option", { value: "Spec" }, "Feature Specification (/flow:plan)"),
+      el("option", { value: "Spec" }, "Feature Specification (/flow:spec)"),
       el("option", { value: "PRD" }, "Master PRD (/flow:prd)")
     );
     const slugInput = el("input", {
@@ -1364,13 +1364,13 @@
               const summary = [titleInput.value.trim(), problemInput.value.trim()]
                 .filter(Boolean)
                 .join(" — ");
-              const baseCmd = kindSelect.value === "PRD" ? "/flow:prd" : "/flow:plan";
+              const baseCmd = kindSelect.value === "PRD" ? "/flow:prd" : "/flow:spec";
               const cmd = summary ? `${baseCmd} ${summary}` : baseCmd;
               closeDrawer();
-              await runFlowAction(cmd, `Plan in ${state.workspacePath.split("/").pop() || "Workspace"}`);
+              await runFlowAction(cmd, `Spec in ${state.workspacePath.split("/").pop() || "Workspace"}`);
             },
           },
-          "Plan Directly with Agent"
+          "Spec Directly with Agent"
         ),
         el(
           "button",
@@ -1388,13 +1388,13 @@
                 });
                 closeDrawer();
                 await refreshSnapshot();
-                await runFlowAction(created.dispatchCommand, `Plan ${created.flowId}`);
+                await runFlowAction(created.dispatchCommand, `Spec ${created.flowId}`);
               } catch (err) {
                 showToast(err instanceof Error ? err.message : String(err));
               }
             },
           },
-          "Create & Co-Plan with Agent"
+          "Create & Co-Spec with Agent"
         )
       )
     );

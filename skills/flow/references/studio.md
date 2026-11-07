@@ -12,11 +12,12 @@ Flow Studio provides a calm, low-noise companion UI for managing specifications,
    - Binds strictly to `127.0.0.1` (`--port 0` dynamic port by default) with Server-Sent Events (`/api/events`) for **Claude Code**, **Codex CLI**, **OpenCode V2**, or browser tabs alongside any terminal harness.
 3. **VS Code & Cursor Extension (`vscode-extension/`)**:
    - Contributes the `Flow Studio` Activity Bar container (`Specs & Chapters` and `Knowledge Catalog` tree views), quiet `spec.md` CodeLenses (`Open in Flow Studio`, `Implement <chapter>`, `Zero-Context Review`), and Webview Studio panel sharing `StudioApiService` directly with `sidecars/studio/router.mjs`.
-   - Routes prompts to GitHub Copilot Chat, Cursor Chat, Claude Code, Codex CLI, OpenCode, or Google Antigravity according to `flow.defaultHarness` and `flow.executionMode`.
+   - Follows the active editor's workspace folder (and multi-root workspace changes) automatically, and routes prompts to GitHub Copilot Chat, Cursor Chat, Claude Code, Codex CLI, OpenCode, or Google Antigravity according to `flow.defaultHarness` and `flow.executionMode`.
+   - **Installation**: Run `make install-vscode` or `node ./vscode-extension/install.mjs [--target vscode|cursor|windsurf|positron|all] [--link]` from the Flow checkout to install `cofin.flow-studio` into `~/.vscode/extensions` and `~/.cursor/extensions`, then run `Developer: Reload Window`.
 
 ## Spec Review & Authoring Loop
 
-- **Create Spec / PRD (`+ New Spec`)**: Scaffolds `.agents/bundles/specs/<flow_id>/spec.md` (and optional `chapters/` directory) on disk and dispatches `/flow:plan` or `/flow:prd` to co-design the full blueprint.
+- **Create Spec / PRD (`+ New Spec`)**: Scaffolds `.agents/bundles/specs/<flow_id>/spec.md` (and optional `chapters/` directory) on disk and dispatches `/flow:spec` or `/flow:prd` to co-design the full blueprint.
 - **Line-Anchored Review Comments**: Select any line or range in rendered `spec.md`, attach calm review notes stored in `.agents/studio-comments.json`, and click **Send Review to `/flow:revise`** to rewrite the specification in place in present tense.
 
 ## Derived Hybrid DuckDB Knowledge Catalog (`flow-catalog`)

@@ -491,14 +491,14 @@ function inferTypeFromSubdir(sub) {
 function buildRecommendedAction(flowId, docKind, state, chapters, nextChapter, allTasks) {
   if (docKind.toUpperCase() === "PRD") {
     return {
-      label: "Plan Next Child Spec",
-      command: `/flow:plan --parent ${flowId}`,
+      label: "Spec Next Child Flow",
+      command: `/flow:spec --parent ${flowId}`,
     };
   }
   if (allTasks.length === 0 && chapters.length === 0) {
     return {
-      label: "Generate Task Plan",
-      command: `/flow:plan ${flowId}`,
+      label: "Generate Spec Blueprint",
+      command: `/flow:spec ${flowId}`,
     };
   }
   const completed = allTasks.filter((t) => t.state === "completed").length;
@@ -1155,7 +1155,7 @@ export class SpecScaffoldWriter {
 
     const relPath = path.relative(root, specFile).split(path.sep).join("/");
     const dispatchCommand =
-      kind === "PRD" ? `/flow:prd ${flowId} — ${title}` : `/flow:plan ${flowId} — ${title}`;
+      kind === "PRD" ? `/flow:prd ${flowId} — ${title}` : `/flow:spec ${flowId} — ${title}`;
     return {
       flowId,
       kind,

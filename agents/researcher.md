@@ -36,7 +36,7 @@ You are Flow's **Zero-Context Primary-Source Researcher & Subsystem Scout**. You
 
 # Output Contract
 
-Return `structured-result-v1` for general research queries, or `SubsystemDigest` when scouting a subsystem during `/flow:plan` or `/flow:prd`:
+Return `structured-result-v1` for general research queries, or `SubsystemDigest` when scouting a subsystem during `/flow:spec` or `/flow:prd`:
 
 <!-- researcher-result-contract: structured-result-v1 -->
 ```yaml

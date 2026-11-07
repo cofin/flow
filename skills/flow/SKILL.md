@@ -16,7 +16,7 @@ Use Flow when `.agents/` exists, spec bundles live under `.agents/bundles/specs/
 Route the requested operation directly to its owning lifecycle skill:
 
 - `setup` &rarr; [`flow-setup`](../flow-setup/SKILL.md) ([`references/setup.md`](references/setup.md), [`multi-harness-plugins`](../multi-harness-plugins/SKILL.md))
-- `prd` | `plan` | `revise` (alias `refine`) | `research` (alias `task`) &rarr; [`flow-planning`](../flow-planning/SKILL.md) ([`references/prd.md`](references/prd.md), [`references/plan.md`](references/plan.md), [`references/revise.md`](references/revise.md), [`references/research.md`](references/research.md))
+- `prd` | `spec` (alias `plan`) | `revise` (alias `refine`) | `research` (alias `task`) &rarr; [`flow-planning`](../flow-planning/SKILL.md) ([`references/prd.md`](references/prd.md), [`references/spec.md`](references/spec.md), [`references/revise.md`](references/revise.md), [`references/research.md`](references/research.md))
 - `implement` | `status` &rarr; [`flow-execution`](../flow-execution/SKILL.md) ([`references/implement.md`](references/implement.md), [`references/status.md`](references/status.md))
 - `learn` (aliases `resynthesize`, `refresh`, `sync`) &rarr; [`flow-learn`](../flow-learn/SKILL.md) ([`references/learn.md`](references/learn.md), [`multi-harness-plugins`](../multi-harness-plugins/SKILL.md))
 - `docs` | `pr` &rarr; [`flow-docs`](../flow-docs/SKILL.md) ([`prose-and-documentation.md`](../flow-docs/references/prose-and-documentation.md), [`agent-context.md`](../flow-docs/references/agent-context.md), [`prs-commits-and-changelogs.md`](../flow-docs/references/prs-commits-and-changelogs.md))
@@ -48,13 +48,13 @@ Confirm one lifecycle owner matches the requested operation and that the active 
 - [Implement](references/implement.md)
 - [Interaction](references/interaction.md)
 - [Learn](references/learn.md)
-- [Plan](references/plan.md)
 - [PRD](references/prd.md)
 - [Research](references/research.md)
 - [Revert](references/revert.md)
 - [Review](references/review.md)
 - [Revise](references/revise.md)
 - [Setup](references/setup.md)
+- [Spec](references/spec.md)
 - [State](references/state.md)
 - [Status](references/status.md)
 - [Studio](references/studio.md)

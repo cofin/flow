@@ -1,16 +1,16 @@
 ---
 name: flow-planning
-description: "Use when co-designing Master PRDs (/flow:prd), authoring high-detail feature and chapter specifications and vertical-slice task blueprints (/flow:plan), revising or refining plans in present tense (/flow:revise, /flow:refine), or running primary-source research and throwaway prototypes (/flow:research, /flow:task)."
+description: "Use when co-designing Master PRDs (/flow:prd), authoring high-detail feature and chapter specifications and vertical-slice task blueprints (/flow:spec, alias /flow:plan), revising or refining plans in present tense (/flow:revise, /flow:refine), or running primary-source research and throwaway prototypes (/flow:research, /flow:task)."
 disable-model-invocation: true
 ---
 
 # Flow Planning (Chaptered High-Detail Co-Design & Zero-Context Verification)
 
-<!-- lifecycle-ownership: owner=flow-planning; operations=prd,plan,revise,refine,research,task -->
+<!-- lifecycle-ownership: owner=flow-planning; operations=prd,spec,plan,revise,refine,research,task -->
 
 ## Trigger
 
-Use for `prd` ([`../flow/references/prd.md`](../flow/references/prd.md)), `plan` ([`../flow/references/plan.md`](../flow/references/plan.md)), `revise` / `refine` ([`../flow/references/revise.md`](../flow/references/revise.md)), and `research` / `task` ([`../flow/references/research.md`](../flow/references/research.md)).
+Use for `prd` ([`../flow/references/prd.md`](../flow/references/prd.md)), `spec` / `plan` ([`../flow/references/spec.md`](../flow/references/spec.md)), `revise` / `refine` ([`../flow/references/revise.md`](../flow/references/revise.md)), and `research` / `task` ([`../flow/references/research.md`](../flow/references/research.md)).
 
 <!-- planning-contract: structured-choice-v1 -->
 ```yaml
@@ -75,9 +75,9 @@ planning_loop:
 
 | Level | Artifact | Command & Owner | Scope & Altitude |
 | --- | --- | --- | --- |
-| **Multi-Chapter Flow / Master PRD** | `specs/<flow_id>/spec.md` + `specs/<flow_id>/chapters/index.md` | `/flow:prd <goal>` or `/flow:plan <goal>` (`> 4` tasks or `>= 2` modules) | Full-plan present-tense roadmap (`2..N` chapters, zero upper cap): plain-English problem statement, shared public types/signatures, Flow-Wide Documentation & OKF Knowledge Plan (`[k/N files documented]`), full chapter checklist, and `Current State & Remaining Plan Snapshot`. |
+| **Multi-Chapter Flow / Master PRD** | `specs/<flow_id>/spec.md` + `specs/<flow_id>/chapters/index.md` | `/flow:prd <goal>` or `/flow:spec <goal>` (`> 4` tasks or `>= 2` modules) | Full-plan present-tense roadmap (`2..N` chapters, zero upper cap): plain-English problem statement, shared public types/signatures, Flow-Wide Documentation & OKF Knowledge Plan (`[k/N files documented]`), full chapter checklist, and `Current State & Remaining Plan Snapshot`. |
 | **Chapter / Single-Chapter Spec** | `specs/<flow_id>/chapters/chNN-<slug>/spec.md` (or root `specs/<flow_id>/spec.md` for `1–4` tasks) | Parallel Chapter Planner subagents (`@plan-generator`) | Cohesive chapter blueprint (`1–4` tasks): OKF v0.2 provenance (`sources:` + `[^id]:`, `<= 40`-line truth block), concrete public types & signatures, `Caller -> Seam -> Collaborator` map, Edge-Case & Failure-Mode Matrix, Alternatives Comparison, Documentation & OKF Plan, and `Chapter Recovery Checkpoint`. |
-| **Task Blueprint (`Task`)** | `chapters/chNN-<slug>/tasks/t01-<slug>.md` (or `specs/<flow_id>/tasks/t01-<slug>.md`) | Authored upfront in `/flow:plan` / `/flow:prd`, revised in `/flow:revise`, executed in `/flow:implement` (`@executor`) | One isolated executor turn and one atomic commit (`read_set <= 6`, `files <= 3`, `estimated_loc <= 250`) containing all 8 blueprint sections and non-tautological Worked Test Matrix literals in canonical module test files. |
+| **Task Blueprint (`Task`)** | `chapters/chNN-<slug>/tasks/t01-<slug>.md` (or `specs/<flow_id>/tasks/t01-<slug>.md`) | Authored upfront in `/flow:spec` / `/flow:prd`, revised in `/flow:revise`, executed in `/flow:implement` (`@executor`) | One isolated executor turn and one atomic commit (`read_set <= 6`, `files <= 3`, `estimated_loc <= 250`) containing all 8 blueprint sections and non-tautological Worked Test Matrix literals in canonical module test files. |
 
 ## Workflow
 

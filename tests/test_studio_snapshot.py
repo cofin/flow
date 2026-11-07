@@ -213,6 +213,7 @@ def test_standalone_studio_server_snapshot_review_and_spec_creation(tmp_path: Pa
             },
         )
         assert created["flowId"] == "ledger-reconciliation"
+        assert created["dispatchCommand"].startswith("/flow:spec ledger-reconciliation")
         assert (ws / created["relPath"]).is_file()
 
         cat_hits = _post_json(
@@ -478,13 +479,13 @@ host.onEvent((evt) => events.push(evt));
 const initialUri = await host.getInitialWorkspaceUri();
 const dispatchActive = await host.dispatchPrompt({
   workspacePath: wsActive,
-  message: "/flow:plan active-feature",
-  title: "Plan Active",
+  message: "/flow:spec active-feature",
+  title: "Spec Active",
 });
 const dispatchOther = await host.dispatchPrompt({
   workspacePath: wsOther,
-  message: "/flow:plan other-feature",
-  title: "Plan Other",
+  message: "/flow:spec other-feature",
+  title: "Spec Other",
 });
 
 workspaceChangeCallback([otherUri]);
@@ -518,7 +519,7 @@ process.stdout.write(JSON.stringify({
     assert out["initialUri"] == ws_active.as_uri()
     assert out["dispatchActive"]["mode"] == "active-conversation"
     assert len(out["sentToActiveChat"]) == 1
-    assert out["sentToActiveChat"][0] == {"msg": "/flow:plan active-feature", "convId": "conv-active-1"}
+    assert out["sentToActiveChat"][0] == {"msg": "/flow:spec active-feature", "convId": "conv-active-1"}
     assert out["dispatchOther"]["mode"] == "workspace-cascade"
     assert out["dispatchOther"]["conversationId"] == "conv-other-2"
     assert out["toggledConversations"] == ["conv-other-2"]

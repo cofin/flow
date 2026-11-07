@@ -15,7 +15,10 @@ import { BundleSnapshotBuilder } from "../sidecars/studio/snapshot.mjs";
 
 const EXT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const PLUGIN_ROOT = path.resolve(EXT_DIR, "..");
-const STUDIO_ASSETS_DIR = path.join(PLUGIN_ROOT, "sidecars", "studio");
+const BUNDLED_STUDIO_DIR = path.join(EXT_DIR, "sidecars", "studio");
+const STUDIO_ASSETS_DIR = fs.existsSync(BUNDLED_STUDIO_DIR)
+  ? BUNDLED_STUDIO_DIR
+  : path.join(PLUGIN_ROOT, "sidecars", "studio");
 
 /** @type {StudioApiService | null} */
 let activeApiService = null;
