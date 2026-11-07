@@ -197,12 +197,36 @@ function buildWebviewHtml(vscode, webview) {
   const appUri = webview.asWebviewUri(vscode.Uri.file(path.join(STUDIO_ASSETS_DIR, "app.js")));
   const logoUri = webview.asWebviewUri(vscode.Uri.file(path.join(STUDIO_ASSETS_DIR, "logo.svg")));
   const faviconUri = webview.asWebviewUri(vscode.Uri.file(path.join(STUDIO_ASSETS_DIR, "favicon.svg")));
+  const themeBridgeStyle = `<style id="flow-vscode-theme-bridge">
+:root,
+body.vscode-light,
+body.vscode-dark,
+body.vscode-high-contrast,
+body.vscode-high-contrast-light {
+  --flow-bg: var(--vscode-editor-background, var(--background));
+  --flow-fg: var(--vscode-editor-foreground, var(--foreground));
+  --flow-surface: var(--vscode-editorWidget-background, var(--vscode-sideBar-background, var(--card)));
+  --flow-surface-subtle: var(--vscode-input-background, var(--vscode-list-hoverBackground, var(--muted)));
+  --flow-muted-fg: var(--vscode-descriptionForeground, var(--vscode-editorLineNumber-foreground, var(--muted-foreground)));
+  --flow-line: var(--vscode-panel-border, var(--vscode-widget-border, var(--vscode-editorWidget-border, var(--border))));
+  --flow-primary: var(--vscode-button-background, var(--primary));
+  --flow-primary-fg: var(--vscode-button-foreground, var(--primary-foreground));
+  --flow-highlight: var(--vscode-focusBorder, var(--brand-gold));
+  --flow-accent-soft: var(--vscode-list-activeSelectionBackground, rgba(0, 122, 204, 0.18));
+  --flow-accent-text: var(--vscode-textLink-foreground, var(--vscode-editor-foreground));
+  --flow-ok: var(--vscode-testing-iconPassed, #3fb950);
+  --flow-warn: var(--vscode-editorWarning-foreground, #cca700);
+  --font-sans: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif);
+  --font-mono: var(--vscode-editor-font-family, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+}
+</style>`;
   const rawHtml = fs.readFileSync(path.join(STUDIO_ASSETS_DIR, "index.html"), "utf8");
   return rawHtml
     .replace('<script src="/preload.js"></script>', `<script>window.__FLOW_LOGO_URI__ = "${logoUri}";</script>`)
     .replace('href="/favicon.svg"', `href="${faviconUri}"`)
     .replace('<link rel="shortcut icon" href="/favicon.ico">', "")
     .replace('href="/styles.css"', `href="${stylesUri}"`)
+    .replace("</head>", `${themeBridgeStyle}\n</head>`)
     .replace('src="/host-bridge.js"', `src="${bridgeUri}"`)
     .replace('src="/app.js"', `src="${appUri}"`);
 }

@@ -17,6 +17,61 @@
     document.documentElement.setAttribute("data-theme", forcedTheme);
   }
 
+  function detectCssColorLuminance(cssColor) {
+    const raw = String(cssColor || "").trim();
+    if (!raw) return null;
+    const probe = document.createElement("span");
+    probe.style.color = raw;
+    probe.style.display = "none";
+    document.documentElement.appendChild(probe);
+    const resolved = getComputedStyle(probe).color;
+    probe.remove();
+    const m = resolved.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/i);
+    if (!m) return null;
+    const r = Number(m[1]) / 255;
+    const g = Number(m[2]) / 255;
+    const b = Number(m[3]) / 255;
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  }
+
+  function syncHostTheme() {
+    if (forcedTheme === "light" || forcedTheme === "dark") {
+      document.documentElement.setAttribute("data-theme", forcedTheme);
+      return;
+    }
+    const bodyClasses = document.body?.classList;
+    if (bodyClasses) {
+      if (bodyClasses.contains("vscode-dark") || bodyClasses.contains("vscode-high-contrast")) {
+        document.documentElement.setAttribute("data-theme", "dark");
+        return;
+      }
+      if (bodyClasses.contains("vscode-light") || bodyClasses.contains("vscode-high-contrast-light")) {
+        document.documentElement.setAttribute("data-theme", "light");
+        return;
+      }
+    }
+    const hostBg =
+      getComputedStyle(document.documentElement).getPropertyValue("--background").trim() ||
+      getComputedStyle(document.documentElement).getPropertyValue("--flow-bg").trim();
+    const lum = detectCssColorLuminance(hostBg);
+    if (lum !== null) {
+      document.documentElement.setAttribute("data-theme", lum < 0.45 ? "dark" : "light");
+    }
+  }
+
+  syncHostTheme();
+  window.addEventListener("message", (event) => {
+    if (event.data?.type === "theme-change") {
+      queueMicrotask(syncHostTheme);
+    }
+  });
+  if (typeof MutationObserver === "function" && document.body) {
+    new MutationObserver(syncHostTheme).observe(document.body, {
+      attributes: true,
+      attributeFilter: ["class", "data-vscode-theme-kind"],
+    });
+  }
+
   const state = {
     tab: urlParams.get("tab") || "roadmap",
     workspacePath: "",

@@ -116,6 +116,7 @@ const treeProviders = new Map();
 const codeLensProviders = [];
 const executedHostCommands = [];
 let webviewMessageListener = null;
+let capturedPanel = null;
 const postedWebviewMessages = [];
 
 const vscodeMock = {
@@ -176,16 +177,19 @@ const vscodeMock = {
       treeProviders.set(id, provider);
       return { dispose() {} };
     },
-    createWebviewPanel: () => ({
-      webview: {
-        html: "",
-        asWebviewUri: (u) => u.toString(),
-        onDidReceiveMessage: (fn) => { webviewMessageListener = fn; return { dispose() {} }; },
-        postMessage: async (msg) => { postedWebviewMessages.push(msg); return true; },
-      },
-      onDidDispose: () => ({ dispose() {} }),
-      reveal: () => {},
-    }),
+    createWebviewPanel: () => {
+      capturedPanel = {
+        webview: {
+          html: "",
+          asWebviewUri: (u) => u.toString(),
+          onDidReceiveMessage: (fn) => { webviewMessageListener = fn; return { dispose() {} }; },
+          postMessage: async (msg) => { postedWebviewMessages.push(msg); return true; },
+        },
+        onDidDispose: () => ({ dispose() {} }),
+        reveal: () => {},
+      };
+      return capturedPanel;
+    },
     showInformationMessage: async () => undefined,
     showWarningMessage: async () => undefined,
     showQuickPick: async (items) => items[0],
@@ -256,6 +260,7 @@ process.stdout.write(JSON.stringify({
   chapterLabels: childChapters.map((item) => item.label),
   catalogLabels: rootCatalog.map((item) => item.label),
   lensTitles: lenses.map((l) => l.command.title),
+  webviewHtml: capturedPanel ? capturedPanel.webview.html : "",
   postedWebviewMessages,
   executedHostCommands,
 }) + "\\n");
@@ -272,6 +277,8 @@ process.stdout.write(JSON.stringify({
     assert any("ch01-core" in lbl for lbl in out["chapterLabels"])
     assert any("DuckDB Catalog" in lbl or "architecture" in lbl.lower() for lbl in out["catalogLabels"])
     assert any("Flow Studio" in t for t in out["lensTitles"])
+    assert "flow-vscode-theme-bridge" in out["webviewHtml"]
+    assert "--vscode-editor-background" in out["webviewHtml"]
     api_resp = next(m for m in out["postedWebviewMessages"] if m.get("type") == "apiResponse" and m.get("id") == 42)
     assert api_resp["result"]["specs"][0]["flowId"] == "studio-ui"
     assert any(cmd["id"] == "workbench.action.chat.open" for cmd in out["executedHostCommands"])
