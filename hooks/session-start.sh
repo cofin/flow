@@ -93,6 +93,24 @@ if [ -z "$PROJECT_DIR" ]; then
   fi
 fi
 
+record_recent_workspace() {
+  ws_dir="$1"
+  [ -n "$ws_dir" ] || return 0
+  [ -d "$ws_dir/.agents" ] || [ -e "$ws_dir/.git" ] || [ -d "$ws_dir/.jj" ] || [ -d "$ws_dir/.hg" ] || return 0
+  if [ -z "${FLOW_CONFIG_DIR:-}" ]; then
+    case "$ws_dir" in
+      /tmp/*|/var/folders/*|*/pytest-of-*|*/Temp/*|*/sidecars/studio|*/.gemini/config/plugins/*)
+        return 0
+        ;;
+    esac
+  fi
+  cfg_dir="${FLOW_CONFIG_DIR:-${XDG_CONFIG_HOME:-${HOME:-/tmp}/.config}/flow}"
+  mkdir -p "$cfg_dir" 2>/dev/null || return 0
+  ts_iso="$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo "2026-01-01T00:00:00Z")"
+  printf '%s\t%s\n' "$ts_iso" "$ws_dir" >> "$cfg_dir/recent-workspaces.tsv" 2>/dev/null || true
+}
+record_recent_workspace "$PROJECT_DIR"
+
 BUNDLE_REL=".agents/bundles"
 if [ -f "$PROJECT_DIR/.agents/setup-state.json" ]; then
   DETECTED_ROOT="$(awk '

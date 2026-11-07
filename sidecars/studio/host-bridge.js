@@ -18,6 +18,44 @@
   const pendingVsCode = new Map();
   /** @type {Set<(evt: any) => void>} */
   const listeners = new Set();
+  /** @type {string[]} */
+  let activeWorkspaceUris =
+    typeof window.__FLOW_INITIAL_WORKSPACE__ === "string" && window.__FLOW_INITIAL_WORKSPACE__.trim()
+      ? [window.__FLOW_INITIAL_WORKSPACE__.trim()]
+      : [];
+
+  /**
+   * Normalize a `file://` URI or filesystem path for comparison.
+   *
+   * @param {string | null | undefined} uriOrPath
+   */
+  function normalizeWorkspaceRef(uriOrPath) {
+    const raw = String(uriOrPath || "").trim();
+    if (!raw) return "";
+    let cleaned = raw;
+    if (cleaned.startsWith("file://")) {
+      try {
+        cleaned = decodeURIComponent(new URL(cleaned).pathname);
+      } catch {
+        cleaned = decodeURIComponent(cleaned.replace(/^file:\/\//i, ""));
+      }
+    }
+    return cleaned.replace(/\\/g, "/").replace(/\/+$/, "");
+  }
+
+  /**
+   * Return true if `workspacePath` matches one of the host's currently active workspace URIs.
+   *
+   * @param {string | null | undefined} workspacePath
+   */
+  function isWorkspaceMatchingActiveChat(workspacePath) {
+    const target = normalizeWorkspaceRef(workspacePath);
+    if (!target || activeWorkspaceUris.length === 0) return false;
+    return activeWorkspaceUris.some((u) => {
+      const candidate = normalizeWorkspaceRef(u);
+      return Boolean(candidate) && (candidate === target || target.startsWith(`${candidate}/`));
+    });
+  }
 
   if (vscodeApi) {
     window.addEventListener("message", (event) => {
@@ -31,6 +69,16 @@
         return;
       }
       if (msg.type === "studioEvent") {
+        if (msg.event?.type === "workspace.changed") {
+          if (Array.isArray(msg.event.uris) && msg.event.uris.length > 0) {
+            activeWorkspaceUris = msg.event.uris.filter(Boolean).map(String);
+          } else if (
+            typeof msg.event.workspacePath === "string" &&
+            msg.event.workspacePath.trim()
+          ) {
+            activeWorkspaceUris = [msg.event.workspacePath.trim()];
+          }
+        }
         for (const fn of listeners) fn(msg.event);
       }
     });
@@ -56,7 +104,12 @@
 
   if (isAntigravity && typeof window.sidecar?.onWorkspaceChange === "function") {
     window.sidecar.onWorkspaceChange((uris) => {
-      for (const fn of listeners) fn({ type: "workspace.changed", uris });
+      if (Array.isArray(uris)) {
+        activeWorkspaceUris = uris.filter(Boolean).map(String);
+      }
+      for (const fn of listeners) {
+        fn({ type: "workspace.changed", uris: activeWorkspaceUris });
+      }
     });
   }
 
@@ -67,11 +120,24 @@
    * @param {Record<string, any>} [payload]
    */
   async function api(routePath, payload = {}) {
+    const enrichedPayload = { ...payload };
+    const convId =
+      enrichedPayload.conversationId ||
+      window.sidecar?.conversationId ||
+      urlParams.get("conversationId") ||
+      "";
+    if (convId && !enrichedPayload.conversationId) {
+      enrichedPayload.conversationId = convId;
+    }
+    if (activeWorkspaceUris.length > 0 && !enrichedPayload.activeWorkspaceUris) {
+      enrichedPayload.activeWorkspaceUris = activeWorkspaceUris;
+    }
+
     if (vscodeApi) {
       return new Promise((resolve, reject) => {
         const id = reqSeq++;
         pendingVsCode.set(id, { resolve, reject });
-        vscodeApi.postMessage({ type: "apiRequest", id, routePath, payload });
+        vscodeApi.postMessage({ type: "apiRequest", id, routePath, payload: enrichedPayload });
       });
     }
 
@@ -82,10 +148,15 @@
       headers["X-Sidecar-Token"] = sidecarToken;
     }
 
-    const resp = await fetch(routePath, {
+    const fetchFn =
+      isAntigravity && typeof window.sidecar?.fetch === "function"
+        ? window.sidecar.fetch.bind(window.sidecar)
+        : fetch;
+
+    const resp = await fetchFn(routePath, {
       method: "POST",
       headers,
-      body: JSON.stringify(payload),
+      body: JSON.stringify(enrichedPayload),
     });
     const data = await resp.json().catch(() => ({}));
     if (!resp.ok) {
@@ -102,7 +173,8 @@
    *   message: string,
    *   title?: string,
    *   targetHarness?: string,
-   *   executionMode?: string
+   *   executionMode?: string,
+   *   startNew?: boolean
    * }} options
    */
   async function dispatchPrompt(options) {
@@ -131,7 +203,14 @@
     }
 
     if (isAntigravity) {
-      if (window.sidecar?.conversationId && window.sidecar?.agent?.sendMessage && !options.startNew) {
+      const matchesActiveChat =
+        activeWorkspaceUris.length === 0 || isWorkspaceMatchingActiveChat(options.workspacePath);
+      if (
+        window.sidecar?.conversationId &&
+        typeof window.sidecar?.agent?.sendMessage === "function" &&
+        !options.startNew &&
+        matchesActiveChat
+      ) {
         await window.sidecar.agent.sendMessage(message, window.sidecar.conversationId);
         return { sent: true, mode: "active-conversation" };
       }
@@ -145,6 +224,14 @@
           window.sidecar.ui.toggleConversation(res.conversation_id);
         }
         return { sent: true, mode: "workspace-cascade", conversationId: res.conversation_id };
+      }
+      if (
+        window.sidecar?.conversationId &&
+        typeof window.sidecar?.agent?.sendMessage === "function" &&
+        matchesActiveChat
+      ) {
+        await window.sidecar.agent.sendMessage(message, window.sidecar.conversationId);
+        return { sent: true, mode: "active-conversation" };
       }
       await copyText(message);
       return {
@@ -182,15 +269,24 @@
     return false;
   }
 
-  function openFullStudio() {
+  /**
+   * Open the full Studio dashboard view, preserving the selected workspace.
+   *
+   * @param {string} [workspacePath]
+   */
+  function openFullStudio(workspacePath) {
+    const wsQuery =
+      typeof workspacePath === "string" && workspacePath.trim()
+        ? `?workspace=${encodeURIComponent(workspacePath.trim())}`
+        : "";
     if (isAntigravity && typeof window.sidecar?.ui?.toggleAuxPane === "function") {
       window.sidecar.ui.toggleAuxPane({
         tabType: "sidecarView",
-        uri: "sidecar://flow/studio/dashboard",
+        uri: `sidecar://flow/studio/dashboard${wsQuery}`,
       });
       return;
     }
-    window.location.href = "/dashboard";
+    window.location.href = `/dashboard${wsQuery}`;
   }
 
   /**
@@ -200,6 +296,53 @@
     if (navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(text);
     }
+  }
+
+  /**
+   * Resolve initial workspace URIs from URL parameters, Antigravity `window.sidecar.getWorkspaceUris()`,
+   * or VS Code injected globals, using a bounded timeout so Sidebar views never hang before a chat opens.
+   *
+   * @param {number} [timeoutMs]
+   * @returns {Promise<string[]>}
+   */
+  async function getInitialWorkspaceUris(timeoutMs = 450) {
+    const explicitUri = urlParams.get("workspaceUri") || "";
+    const explicitWs = urlParams.get("workspace") || "";
+    if (explicitUri.trim()) {
+      return [explicitUri.trim()];
+    }
+    if (explicitWs.trim()) {
+      return [explicitWs.trim()];
+    }
+    if (isAntigravity && typeof window.sidecar?.getWorkspaceUris === "function") {
+      try {
+        const result = await Promise.race([
+          Promise.resolve(window.sidecar.getWorkspaceUris()),
+          new Promise((resolve) => setTimeout(() => resolve(null), timeoutMs)),
+        ]);
+        if (Array.isArray(result) && result.length > 0) {
+          activeWorkspaceUris = result.filter(Boolean).map(String);
+          return activeWorkspaceUris;
+        }
+      } catch {
+        // Ignore host workspace lookup failure and fall back to backend context.
+      }
+    }
+    if (activeWorkspaceUris.length > 0) {
+      return activeWorkspaceUris;
+    }
+    return [];
+  }
+
+  /**
+   * Resolve the primary initial workspace URI or path.
+   *
+   * @param {number} [timeoutMs]
+   * @returns {Promise<string | null>}
+   */
+  async function getInitialWorkspaceUri(timeoutMs = 450) {
+    const uris = await getInitialWorkspaceUris(timeoutMs);
+    return uris.length > 0 ? uris[0] : null;
   }
 
   window.flowHost = {
@@ -217,12 +360,11 @@
       listeners.add(fn);
       return () => listeners.delete(fn);
     },
-    getInitialWorkspaceUri() {
-      if (isAntigravity && typeof window.sidecar?.getWorkspaceUris === "function") {
-        const uris = window.sidecar.getWorkspaceUris();
-        if (Array.isArray(uris) && uris.length > 0) return uris[0];
-      }
-      return null;
+    getInitialWorkspaceUris,
+    getInitialWorkspaceUri,
+    getActiveWorkspaceUris() {
+      return [...activeWorkspaceUris];
     },
+    isWorkspaceMatchingActiveChat,
   };
 })();

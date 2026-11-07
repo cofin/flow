@@ -292,3 +292,237 @@ def test_antigravity_sidecar_main_mounts_pages_and_apis_via_stub_sdk(tmp_path: P
     assert out["snapRepo"] == "payments-service"
     assert "POST:/api/start-workspace-conversation" in out["registeredApis"]
     assert "POST:/api/harness-dispatch" in out["registeredApis"]
+
+
+@pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
+def test_studio_active_workspace_discovery_and_sidecar_filtering(tmp_path: Path) -> None:
+    """Verify StudioApiService filters out sidecars/studio, follows active workspaces, and auto-derives spec slugs."""
+    assert NODE_BIN is not None
+    ws_one = _seed_studio_workspace(tmp_path / "one")
+    ws_two = _seed_studio_workspace(tmp_path / "two")
+    cfg_dir = tmp_path / "flow-cfg"
+    cfg_dir.mkdir(parents=True)
+    ws_cfg = cfg_dir / "workspaces.json"
+    recent_file = cfg_dir / "recent-workspaces.tsv"
+    polluted_sidecar = str(REPO_ROOT / "sidecars" / "studio")
+    ws_cfg.write_text(
+        json.dumps(
+            {
+                "lastActiveWorkspace": polluted_sidecar,
+                "workspaces": [polluted_sidecar, "/nonexistent/fake/workspace"],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    subprocess.run(
+        ["sh", str(REPO_ROOT / "hooks" / "session-start.sh"), "--harness", "agy"],
+        input=json.dumps({"workspacePaths": [str(ws_one)]}),
+        env={**os.environ, "FLOW_CONFIG_DIR": str(cfg_dir)},
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert recent_file.is_file()
+    assert str(ws_one) in recent_file.read_text(encoding="utf-8")
+
+    probe_js = """
+import { pathToFileURL } from "node:url";
+const routerMod = await import(pathToFileURL(process.argv[1]).href);
+const wsOne = process.argv[2];
+const wsTwo = process.argv[3];
+const cfgDir = process.argv[4];
+const wsCfg = process.argv[5];
+
+const service = new routerMod.StudioApiService({
+  env: {
+    ...process.env,
+    ANTIGRAVITY_LS_ADDRESS: "",
+    FLOW_CONFIG_DIR: cfgDir,
+    FLOW_WORKSPACES_CONFIG: wsCfg,
+    FLOW_CATALOG_DB: `${cfgDir}/cat.duckdb`,
+  },
+});
+
+const ctxFromHook = await service.handleApi("/api/studio-context", {});
+const ctxFromHostUris = await service.handleApi("/api/studio-context", {
+  activeWorkspaceUris: [pathToFileURL(wsTwo).href, pathToFileURL(wsOne).href],
+});
+const createdAutoSlug = await service.handleApi("/api/create-spec", {
+  title: "Follow Selected Workspace",
+  kind: "Spec",
+  problem: "Keep Studio synchronized with the active workspace.",
+  hasChapters: true,
+});
+
+process.stdout.write(JSON.stringify({
+  hookDefaultWs: ctxFromHook.defaultWorkspace,
+  hookWorkspaces: ctxFromHook.workspaces,
+  hostActiveWs: ctxFromHostUris.defaultWorkspace,
+  hostWorkspaces: ctxFromHostUris.workspaces,
+  createdFlowId: createdAutoSlug.flowId,
+  createdAbsPath: createdAutoSlug.absPath,
+}) + "\\n");
+service.close();
+"""
+    proc = subprocess.run(
+        [
+            NODE_BIN,
+            "--input-type=module",
+            "-e",
+            probe_js,
+            str(REPO_ROOT / "sidecars" / "studio" / "router.mjs"),
+            str(ws_one),
+            str(ws_two),
+            str(cfg_dir),
+            str(ws_cfg),
+        ],
+        cwd=str(REPO_ROOT / "sidecars" / "studio"),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    out = json.loads(proc.stdout.strip().splitlines()[-1])
+    assert out["hookDefaultWs"] == str(ws_one)
+    assert polluted_sidecar not in out["hookWorkspaces"]
+    assert out["hostActiveWs"] == str(ws_two)
+    assert out["hostWorkspaces"][0] == str(ws_two)
+    assert str(ws_one) in out["hostWorkspaces"]
+    assert out["createdFlowId"] == "follow-selected-workspace"
+    assert Path(out["createdAbsPath"]).is_file()
+    assert str(ws_two) in out["createdAbsPath"]
+
+
+@pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
+def test_host_bridge_awaits_async_workspace_uris_and_dispatches_to_selected_workspace(tmp_path: Path) -> None:
+    """Verify host-bridge.js awaits async getWorkspaceUris() and routes planning to the selected workspace."""
+    assert NODE_BIN is not None
+    ws_active = tmp_path / "active-repo"
+    ws_other = tmp_path / "other-repo"
+    ws_active.mkdir()
+    ws_other.mkdir()
+
+    probe_js = """
+import fs from "node:fs";
+import vm from "node:vm";
+import { pathToFileURL } from "node:url";
+
+const bridgePath = process.argv[1];
+const wsActive = process.argv[2];
+const wsOther = process.argv[3];
+const activeUri = pathToFileURL(wsActive).href;
+const otherUri = pathToFileURL(wsOther).href;
+
+let workspaceChangeCallback = null;
+const sentToActiveChat = [];
+const apiCalls = [];
+const toggledConversations = [];
+
+const sandboxWindow = {
+  location: { pathname: "/", search: "" },
+  navigator: { clipboard: { writeText: async () => {} } },
+  sidecar: {
+    conversationId: "conv-active-1",
+    getWorkspaceUris: async () => {
+      await new Promise((r) => setTimeout(r, 25));
+      return [activeUri];
+    },
+    onWorkspaceChange: (cb) => {
+      workspaceChangeCallback = cb;
+      return () => {};
+    },
+    fetch: async (routePath, init) => {
+      const body = JSON.parse(init.body || "{}");
+      apiCalls.push({ routePath, body });
+      if (routePath === "/api/start-workspace-conversation") {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            conversation_id: "conv-other-2",
+            workspace_bound: true,
+            workspace: body.workspacePath,
+            prompt_sent: true,
+          }),
+        };
+      }
+      return { ok: true, status: 200, json: async () => ({ ok: true }) };
+    },
+    agent: {
+      sendMessage: async (msg, convId) => {
+        sentToActiveChat.push({ msg, convId });
+      },
+    },
+    ui: {
+      toggleConversation: (convId) => {
+        toggledConversations.push(convId);
+      },
+      toggleAuxPane: () => {},
+    },
+  },
+};
+sandboxWindow.window = sandboxWindow;
+sandboxWindow.fetch = sandboxWindow.sidecar.fetch;
+sandboxWindow.URL = URL;
+sandboxWindow.URLSearchParams = URLSearchParams;
+sandboxWindow.setTimeout = setTimeout;
+sandboxWindow.clearTimeout = clearTimeout;
+
+const code = fs.readFileSync(bridgePath, "utf8");
+vm.runInNewContext(code, sandboxWindow);
+
+const host = sandboxWindow.flowHost;
+const events = [];
+host.onEvent((evt) => events.push(evt));
+
+const initialUri = await host.getInitialWorkspaceUri();
+const dispatchActive = await host.dispatchPrompt({
+  workspacePath: wsActive,
+  message: "/flow:plan active-feature",
+  title: "Plan Active",
+});
+const dispatchOther = await host.dispatchPrompt({
+  workspacePath: wsOther,
+  message: "/flow:plan other-feature",
+  title: "Plan Other",
+});
+
+workspaceChangeCallback([otherUri]);
+
+process.stdout.write(JSON.stringify({
+  initialUri,
+  activeUrisAfterChange: host.getActiveWorkspaceUris(),
+  events,
+  dispatchActive,
+  dispatchOther,
+  sentToActiveChat,
+  apiCalls,
+  toggledConversations,
+}) + "\\n");
+"""
+    proc = subprocess.run(
+        [
+            NODE_BIN,
+            "--input-type=module",
+            "-e",
+            probe_js,
+            str(REPO_ROOT / "sidecars" / "studio" / "host-bridge.js"),
+            str(ws_active),
+            str(ws_other),
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    out = json.loads(proc.stdout.strip().splitlines()[-1])
+    assert out["initialUri"] == ws_active.as_uri()
+    assert out["dispatchActive"]["mode"] == "active-conversation"
+    assert len(out["sentToActiveChat"]) == 1
+    assert out["sentToActiveChat"][0] == {"msg": "/flow:plan active-feature", "convId": "conv-active-1"}
+    assert out["dispatchOther"]["mode"] == "workspace-cascade"
+    assert out["dispatchOther"]["conversationId"] == "conv-other-2"
+    assert out["toggledConversations"] == ["conv-other-2"]
+    assert out["activeUrisAfterChange"] == [ws_other.as_uri()]
+    assert out["events"][0]["type"] == "workspace.changed"
+    assert out["events"][0]["uris"] == [ws_other.as_uri()]
+

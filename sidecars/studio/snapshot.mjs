@@ -7,6 +7,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { detectWorkspacePython } from "./python-runner.mjs";
 
@@ -527,65 +528,319 @@ function buildRecommendedAction(flowId, docKind, state, chapters, nextChapter, a
 }
 
 /**
- * Manage persistent list of user workspaces for cross-repo catalog and portfolio views.
+ * Convert a `file://` URI or filesystem path into a resolved workspace directory path.
+ *
+ * @param {string | null | undefined} uriOrPath
+ * @returns {string | null}
+ */
+export function uriToWorkspacePath(uriOrPath) {
+  if (typeof uriOrPath !== "string") return null;
+  const raw = uriOrPath.trim();
+  if (!raw) return null;
+  if (raw.startsWith("file:")) {
+    try {
+      return path.resolve(fileURLToPath(raw));
+    } catch {
+      const stripped = decodeURIComponent(raw.replace(/^file:\/\//i, ""));
+      return stripped ? path.resolve(stripped) : null;
+    }
+  }
+  return path.resolve(raw);
+}
+
+/**
+ * Return true if `dirPath` is the internal `sidecars/studio` runtime directory
+ * or an installed plugin cache path.
+ *
+ * @param {string} dirPath
+ */
+export function isInternalSidecarPath(dirPath) {
+  const normalized = path.resolve(dirPath).replace(/\\/g, "/").replace(/\/+$/, "");
+  if (normalized.endsWith("/sidecars/studio")) return true;
+  if (normalized.includes("/.gemini/config/plugins/")) return true;
+  if (normalized.includes("/.claude/plugins/cache/")) return true;
+  return false;
+}
+
+/**
+ * Return true if `dirPath` is a transient pytest temp directory while `configPath`
+ * points to a non-pytest user configuration file.
+ *
+ * @param {string} dirPath
+ * @param {string} [configPath]
+ */
+function isTransientTestPathForConfig(dirPath, configPath = "") {
+  const normalized = path.resolve(dirPath).replace(/\\/g, "/");
+  const normalizedCfg = String(configPath || "").replace(/\\/g, "/");
+  return !normalizedCfg.includes("/pytest-of-") && normalized.includes("/pytest-of-");
+}
+
+/**
+ * Parse an ISO-8601 timestamp into epoch milliseconds (or 0 when invalid).
+ *
+ * @param {string | null | undefined} ts
+ * @returns {number}
+ */
+function parseIsoMs(ts) {
+  if (typeof ts !== "string" || !ts.trim()) return 0;
+  const ms = Date.parse(ts);
+  return Number.isFinite(ms) ? ms : 0;
+}
+
+/**
+ * Manage persistent list of user workspaces and active workspace selection across sessions.
  */
 export class WorkspaceRegistry {
   /**
-   * @param {string} [defaultWorkspace]
+   * @param {string | null} [defaultWorkspace]
+   * @param {{ env?: NodeJS.ProcessEnv, explicitDefault?: boolean }} [options]
    */
-  constructor(defaultWorkspace) {
-    this.defaultWorkspace = path.resolve(defaultWorkspace || process.cwd());
-    /** @type {Set<string>} */
-    this.runtimeWorkspaces = new Set([this.defaultWorkspace]);
-    const baseConfigDir = process.env.FLOW_CONFIG_DIR
-      ? path.resolve(process.env.FLOW_CONFIG_DIR)
-      : process.env.XDG_CONFIG_HOME
-        ? path.join(path.resolve(process.env.XDG_CONFIG_HOME), "flow")
+  constructor(defaultWorkspace = null, options = {}) {
+    const env = options.env || process.env;
+    const baseConfigDir = env.FLOW_CONFIG_DIR
+      ? path.resolve(env.FLOW_CONFIG_DIR)
+      : env.XDG_CONFIG_HOME
+        ? path.join(path.resolve(env.XDG_CONFIG_HOME), "flow")
         : path.join(os.homedir(), ".config", "flow");
-    this.configPath = process.env.FLOW_WORKSPACES_CONFIG
-      ? path.resolve(process.env.FLOW_WORKSPACES_CONFIG)
+    this.configPath = env.FLOW_WORKSPACES_CONFIG
+      ? path.resolve(env.FLOW_WORKSPACES_CONFIG)
       : path.join(baseConfigDir, "workspaces.json");
+    this.recentWorkspacesPath = env.FLOW_RECENT_WORKSPACES_FILE
+      ? path.resolve(env.FLOW_RECENT_WORKSPACES_FILE)
+      : path.join(path.dirname(this.configPath), "recent-workspaces.tsv");
+
+    const resolvedDefault = defaultWorkspace ? uriToWorkspacePath(defaultWorkspace) : null;
+    const allowDefault =
+      resolvedDefault &&
+      (options.explicitDefault || !isInternalSidecarPath(resolvedDefault));
+    this.defaultWorkspace = allowDefault ? resolvedDefault : null;
+    /** @type {Set<string>} */
+    this.runtimeWorkspaces = new Set();
+    if (this.defaultWorkspace && isExistingDir(this.defaultWorkspace)) {
+      this.runtimeWorkspaces.add(this.defaultWorkspace);
+    }
+    /** @type {string | null} */
+    this.lastActiveWorkspace = null;
+    /** @type {string | null} */
+    this.lastActiveUpdatedAt = null;
   }
 
   /**
-   * Return deduplicated list of existing workspace directories.
+   * Return the most recently active workspace directory, consulting runtime updates,
+   * hook-written `recent-workspaces.tsv`, persisted `workspaces.json`, and `defaultWorkspace`.
+   *
+   * @returns {string | null}
+   */
+  getLastActiveWorkspace() {
+    const { diskActiveWorkspace, diskUpdatedAt } = this.#readDiskState();
+    if (this.lastActiveWorkspace && isExistingDir(this.lastActiveWorkspace)) {
+      const diskMs = parseIsoMs(diskUpdatedAt);
+      const memMs = parseIsoMs(this.lastActiveUpdatedAt);
+      if (diskActiveWorkspace && diskMs > 0 && (memMs === 0 || diskMs > memMs)) {
+        this.lastActiveWorkspace = diskActiveWorkspace;
+        this.lastActiveUpdatedAt = diskUpdatedAt;
+      }
+      return this.lastActiveWorkspace;
+    }
+    if (diskActiveWorkspace) {
+      this.lastActiveWorkspace = diskActiveWorkspace;
+      this.lastActiveUpdatedAt = diskUpdatedAt;
+      return diskActiveWorkspace;
+    }
+    if (this.defaultWorkspace && isExistingDir(this.defaultWorkspace)) {
+      return this.defaultWorkspace;
+    }
+    const all = this.listWorkspaces();
+    return all[0] || null;
+  }
+
+  /**
+   * Return deduplicated list of existing workspace directories with the active workspace first.
    *
    * @returns {string[]}
    */
   listWorkspaces() {
+    const { diskWorkspaces, diskActiveWorkspace } = this.#readDiskState();
     /** @type {Set<string>} */
-    const seen = new Set(this.runtimeWorkspaces);
-    const saved = readJsonIfExists(this.configPath);
-    if (saved && Array.isArray(saved.workspaces)) {
-      for (const raw of saved.workspaces) {
-        if (typeof raw === "string" && raw.trim()) {
-          const resolved = path.resolve(raw);
-          if (fs.existsSync(resolved)) seen.add(resolved);
-        }
+    const seen = new Set();
+    const addCandidate = (candidate) => {
+      if (!candidate) return;
+      const resolved = uriToWorkspacePath(candidate);
+      if (!resolved) return;
+      if (resolved !== this.defaultWorkspace && isInternalSidecarPath(resolved)) {
+        return;
       }
-    }
+      if (isExistingDir(resolved)) {
+        seen.add(resolved);
+      }
+    };
+
+    addCandidate(this.lastActiveWorkspace);
+    addCandidate(diskActiveWorkspace);
+    for (const ws of this.runtimeWorkspaces) addCandidate(ws);
+    for (const ws of diskWorkspaces) addCandidate(ws);
+    addCandidate(this.defaultWorkspace);
     return Array.from(seen);
   }
 
   /**
-   * Register an additional workspace directory.
+   * Register an additional workspace directory and optionally mark it as the active workspace.
    *
    * @param {string} workspacePath
+   * @param {{ setActive?: boolean }} [options]
    */
-  addWorkspace(workspacePath) {
-    const resolved = path.resolve(workspacePath);
-    if (!fs.existsSync(resolved) || !fs.statSync(resolved).isDirectory()) {
-      throw new Error(`Workspace directory does not exist: ${resolved}`);
+  addWorkspace(workspacePath, options = {}) {
+    const resolved = uriToWorkspacePath(workspacePath);
+    if (!resolved || !isExistingDir(resolved)) {
+      throw new Error(`Workspace directory does not exist: ${workspacePath}`);
+    }
+    if (resolved !== this.defaultWorkspace && isInternalSidecarPath(resolved)) {
+      return this.listWorkspaces();
     }
     this.runtimeWorkspaces.add(resolved);
+    if (options.setActive !== false) {
+      this.lastActiveWorkspace = resolved;
+      this.lastActiveUpdatedAt = new Date().toISOString();
+    }
     const list = this.listWorkspaces();
+    this.#persist(list);
+    return list;
+  }
+
+  /**
+   * Record an ordered list of workspace URIs or paths where the first entry is the active workspace.
+   *
+   * @param {string[]} [urisOrPaths]
+   * @returns {string[]}
+   */
+  recordActiveWorkspaces(urisOrPaths = []) {
+    /** @type {string[]} */
+    const valid = [];
+    for (const item of urisOrPaths) {
+      const resolved = uriToWorkspacePath(item);
+      if (
+        resolved &&
+        isExistingDir(resolved) &&
+        (resolved === this.defaultWorkspace || !isInternalSidecarPath(resolved))
+      ) {
+        valid.push(resolved);
+      }
+    }
+    if (valid.length === 0) return [];
+    for (let i = valid.length - 1; i >= 0; i -= 1) {
+      this.runtimeWorkspaces.add(valid[i]);
+    }
+    this.lastActiveWorkspace = valid[0];
+    this.lastActiveUpdatedAt = new Date().toISOString();
+    this.#persist(this.listWorkspaces());
+    return valid;
+  }
+
+  /**
+   * @param {string[]} list
+   */
+  #persist(list) {
     try {
+      const persistable = list.filter((ws) => !isTransientTestPathForConfig(ws, this.configPath));
+      if (persistable.length === 0 && list.length > 0) {
+        return;
+      }
+      const activeToPersist =
+        this.lastActiveWorkspace && !isTransientTestPathForConfig(this.lastActiveWorkspace, this.configPath)
+          ? this.lastActiveWorkspace
+          : persistable[0] || null;
       fs.mkdirSync(path.dirname(this.configPath), { recursive: true });
-      fs.writeFileSync(this.configPath, `${JSON.stringify({ workspaces: list }, null, 2)}\n`, "utf8");
+      const payload = {
+        lastActiveWorkspace: activeToPersist,
+        updatedAt: this.lastActiveUpdatedAt || new Date().toISOString(),
+        workspaces: persistable,
+      };
+      fs.writeFileSync(this.configPath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
     } catch {
       // Sandboxed or read-only $HOME environments retain workspaces in memory.
     }
-    return list;
+  }
+
+  #readDiskState() {
+    /** @type {string[]} */
+    const diskWorkspaces = [];
+    /** @type {string | null} */
+    let diskActiveWorkspace = null;
+    /** @type {string | null} */
+    let diskUpdatedAt = null;
+
+    if (fs.existsSync(this.recentWorkspacesPath)) {
+      try {
+        const lines = fs
+          .readFileSync(this.recentWorkspacesPath, "utf8")
+          .split(/\r?\n/)
+          .map((l) => l.trim())
+          .filter(Boolean);
+        for (let idx = lines.length - 1; idx >= 0; idx -= 1) {
+          const line = lines[idx];
+          const tabIdx = line.indexOf("\t");
+          const ts = tabIdx > 0 ? line.slice(0, tabIdx).trim() : "";
+          const rawPath = tabIdx > 0 ? line.slice(tabIdx + 1).trim() : line;
+          const resolved = uriToWorkspacePath(rawPath);
+          if (
+            resolved &&
+            isExistingDir(resolved) &&
+            !isInternalSidecarPath(resolved) &&
+            !isTransientTestPathForConfig(resolved, this.configPath)
+          ) {
+            if (!diskActiveWorkspace) {
+              diskActiveWorkspace = resolved;
+              diskUpdatedAt = ts || null;
+            }
+            if (!diskWorkspaces.includes(resolved)) {
+              diskWorkspaces.push(resolved);
+            }
+          }
+        }
+      } catch {
+        // Ignore unreadable recent-workspaces.tsv.
+      }
+    }
+
+    const saved = readJsonIfExists(this.configPath);
+    if (saved && typeof saved === "object") {
+      if (typeof saved.lastActiveWorkspace === "string" && saved.lastActiveWorkspace.trim()) {
+        const resolvedSavedActive = uriToWorkspacePath(saved.lastActiveWorkspace);
+        if (
+          resolvedSavedActive &&
+          isExistingDir(resolvedSavedActive) &&
+          !isInternalSidecarPath(resolvedSavedActive) &&
+          !isTransientTestPathForConfig(resolvedSavedActive, this.configPath)
+        ) {
+          const savedTs = typeof saved.updatedAt === "string" ? saved.updatedAt : "";
+          const savedMs = parseIsoMs(savedTs);
+          const diskMs = parseIsoMs(diskUpdatedAt);
+          if (!diskActiveWorkspace || (savedMs > 0 && (diskMs === 0 || savedMs >= diskMs))) {
+            diskActiveWorkspace = resolvedSavedActive;
+            diskUpdatedAt = savedTs || diskUpdatedAt;
+          }
+          if (!diskWorkspaces.includes(resolvedSavedActive)) {
+            diskWorkspaces.unshift(resolvedSavedActive);
+          }
+        }
+      }
+      if (Array.isArray(saved.workspaces)) {
+        for (const raw of saved.workspaces) {
+          const resolved = uriToWorkspacePath(raw);
+          if (
+            resolved &&
+            isExistingDir(resolved) &&
+            !isInternalSidecarPath(resolved) &&
+            !isTransientTestPathForConfig(resolved, this.configPath) &&
+            !diskWorkspaces.includes(resolved)
+          ) {
+            diskWorkspaces.push(resolved);
+          }
+        }
+      }
+    }
+
+    return { diskWorkspaces, diskActiveWorkspace, diskUpdatedAt };
   }
 }
 
@@ -786,14 +1041,20 @@ export class SpecScaffoldWriter {
    */
   static create(workspaceRoot, payload) {
     const root = path.resolve(workspaceRoot);
-    const flowId = String(payload.flowId || "")
-      .trim()
+    const rawFlowId = String(payload.flowId || "").trim();
+    const slugSource = rawFlowId || String(payload.title || payload.problem || "").trim();
+    let flowId = slugSource
       .toLowerCase()
       .replace(/[^a-z0-9-]+/g, "-")
-      .replace(/^-+|-+$/g, "");
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 63)
+      .replace(/-+$/g, "");
+    if (!rawFlowId && flowId.length === 1) {
+      flowId = `${flowId}-spec`;
+    }
 
     if (!VALID_SLUG_RE.test(flowId)) {
-      throw new Error(`Invalid spec slug '${payload.flowId}'. Use lowercase letters, digits, and hyphens.`);
+      throw new Error(`Invalid spec slug '${payload.flowId || flowId}'. Use lowercase letters, digits, and hyphens.`);
     }
     const title = String(payload.title || "").trim() || flowId;
     const kind = payload.kind === "PRD" ? "PRD" : "Spec";
@@ -932,6 +1193,17 @@ function readJsonIfExists(filePath) {
     return JSON.parse(fs.readFileSync(filePath, "utf8"));
   } catch {
     return null;
+  }
+}
+
+/**
+ * @param {string} dirPath
+ */
+function isExistingDir(dirPath) {
+  try {
+    return fs.existsSync(dirPath) && fs.statSync(dirPath).isDirectory();
+  } catch {
+    return false;
   }
 }
 

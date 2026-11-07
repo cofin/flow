@@ -69,6 +69,33 @@ if ([string]::IsNullOrEmpty($ProjectDir)) {
     }
 }
 
+try {
+    $IsRepoWorkspace = (Test-Path -LiteralPath (Join-Path $ProjectDir ".agents")) -or
+                       (Test-Path -LiteralPath (Join-Path $ProjectDir ".git")) -or
+                       (Test-Path -LiteralPath (Join-Path $ProjectDir ".jj")) -or
+                       (Test-Path -LiteralPath (Join-Path $ProjectDir ".hg"))
+    $NormProj = $ProjectDir -replace '\\', '/'
+    $AllowRecord = (-not [string]::IsNullOrEmpty($env:FLOW_CONFIG_DIR)) -or
+                   ($NormProj -notmatch '^/tmp/|/pytest-of-|/sidecars/studio$|/\.gemini/config/plugins/')
+    if ($IsRepoWorkspace -and $AllowRecord) {
+        $CfgDir = if (-not [string]::IsNullOrEmpty($env:FLOW_CONFIG_DIR)) {
+            $env:FLOW_CONFIG_DIR
+        } elseif (-not [string]::IsNullOrEmpty($env:XDG_CONFIG_HOME)) {
+            Join-Path $env:XDG_CONFIG_HOME "flow"
+        } else {
+            Join-Path ([Environment]::GetFolderPath("UserProfile")) ".config/flow"
+        }
+        if (-not (Test-Path -LiteralPath $CfgDir -PathType Container)) {
+            New-Item -ItemType Directory -Path $CfgDir -Force | Out-Null
+        }
+        $RecentFile = Join-Path $CfgDir "recent-workspaces.tsv"
+        $TsIso = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
+        Add-Content -LiteralPath $RecentFile -Value "$TsIso`t$ProjectDir" -Encoding UTF8 -ErrorAction SilentlyContinue
+    }
+} catch {
+    # Ignore read-only config directories in sandboxed environments.
+}
+
 $BundleRel = ".agents/bundles"
 $SetupStateFile = Join-Path $ProjectDir ".agents/setup-state.json"
 if (Test-Path -LiteralPath $SetupStateFile -PathType Leaf) {

@@ -21,11 +21,51 @@ const STUDIO_ASSETS_DIR = path.join(PLUGIN_ROOT, "sidecars", "studio");
 let activeApiService = null;
 /** @type {any} */
 let activePanel = null;
+/** @type {string | null} */
+let selectedWorkspaceRoot = null;
+
+function listVscodeWorkspacePaths(vscode) {
+  const folders = vscode.workspace?.workspaceFolders;
+  if (!Array.isArray(folders)) return [];
+  return folders
+    .map((f) => (f?.uri?.fsPath ? path.resolve(f.uri.fsPath) : null))
+    .filter(Boolean);
+}
+
+function resolveUriWorkspaceRoot(vscode, uri) {
+  if (!uri?.fsPath) return null;
+  if (typeof vscode.workspace?.getWorkspaceFolder === "function") {
+    const matched = vscode.workspace.getWorkspaceFolder(uri);
+    if (matched?.uri?.fsPath) {
+      return path.resolve(matched.uri.fsPath);
+    }
+  }
+  const target = path.resolve(uri.fsPath).replace(/\\/g, "/");
+  for (const folderPath of listVscodeWorkspacePaths(vscode)) {
+    const normFolder = folderPath.replace(/\\/g, "/").replace(/\/+$/, "");
+    if (target === normFolder || target.startsWith(`${normFolder}/`)) {
+      return folderPath;
+    }
+  }
+  return null;
+}
+
+function resolveActiveEditorWorkspaceRoot(vscode) {
+  const activeUri = vscode.window?.activeTextEditor?.document?.uri;
+  return resolveUriWorkspaceRoot(vscode, activeUri);
+}
 
 function resolveWorkspaceRoot(vscode) {
-  const folders = vscode.workspace?.workspaceFolders;
-  if (Array.isArray(folders) && folders.length > 0 && folders[0]?.uri?.fsPath) {
-    return folders[0].uri.fsPath;
+  if (selectedWorkspaceRoot && fs.existsSync(selectedWorkspaceRoot)) {
+    return selectedWorkspaceRoot;
+  }
+  const editorWs = resolveActiveEditorWorkspaceRoot(vscode);
+  if (editorWs) {
+    return editorWs;
+  }
+  const folders = listVscodeWorkspacePaths(vscode);
+  if (folders.length > 0) {
+    return folders[0];
   }
   return process.cwd();
 }
@@ -162,6 +202,7 @@ class SpecCodeLensProvider {
     if (!fsPath.includes("/.agents/bundles/specs/") || !fsPath.endsWith("/spec.md")) {
       return [];
     }
+    const docWorkspace = resolveUriWorkspaceRoot(this.vscode, document.uri);
     const text = typeof document.getText === "function" ? document.getText() : "";
     const flowId = text.match(/^flow_id:\s*["']?([^#"'\r\n]+)["']?/m)?.[1]?.trim() || "spec";
     const curChapter = text.match(/^current_chapter:\s*["']?([^#"'\r\n]+)["']?/m)?.[1]?.trim() || "";
@@ -175,23 +216,23 @@ class SpecCodeLensProvider {
       new this.vscode.CodeLens(topRange, {
         title: "Open in Flow Studio",
         command: "flow.openStudio",
-        arguments: [{ flowId }],
+        arguments: [{ flowId, workspacePath: docWorkspace }],
       }),
       new this.vscode.CodeLens(topRange, {
         title: curChapter && curChapter !== "null" ? `Implement ${curChapter}` : "Implement Flow",
         command: "flow.dispatchTask",
-        arguments: [{ prompt: implCmd }],
+        arguments: [{ prompt: implCmd, workspacePath: docWorkspace }],
       }),
       new this.vscode.CodeLens(topRange, {
         title: "Zero-Context Review",
         command: "flow.dispatchTask",
-        arguments: [{ prompt: `/flow:review ${flowId}` }],
+        arguments: [{ prompt: `/flow:review ${flowId}`, workspacePath: docWorkspace }],
       }),
     ];
   }
 }
 
-function buildWebviewHtml(vscode, webview) {
+function buildWebviewHtml(vscode, webview, initialWorkspace = "") {
   const stylesUri = webview.asWebviewUri(vscode.Uri.file(path.join(STUDIO_ASSETS_DIR, "styles.css")));
   const bridgeUri = webview.asWebviewUri(vscode.Uri.file(path.join(STUDIO_ASSETS_DIR, "host-bridge.js")));
   const appUri = webview.asWebviewUri(vscode.Uri.file(path.join(STUDIO_ASSETS_DIR, "app.js")));
@@ -221,8 +262,9 @@ body.vscode-high-contrast-light {
 }
 </style>`;
   const rawHtml = fs.readFileSync(path.join(STUDIO_ASSETS_DIR, "index.html"), "utf8");
+  const initScript = `<script>window.__FLOW_LOGO_URI__ = "${logoUri}"; window.__FLOW_INITIAL_WORKSPACE__ = ${JSON.stringify(initialWorkspace || "")};</script>`;
   return rawHtml
-    .replace('<script src="/preload.js"></script>', `<script>window.__FLOW_LOGO_URI__ = "${logoUri}";</script>`)
+    .replace('<script src="/preload.js"></script>', initScript)
     .replace('href="/favicon.svg"', `href="${faviconUri}"`)
     .replace('<link rel="shortcut icon" href="/favicon.ico">', "")
     .replace('href="/styles.css"', `href="${stylesUri}"`)
@@ -256,6 +298,8 @@ async function routePromptToHostHarness(vscode, apiService, workspacePath, promp
  * @param {any} vscode
  */
 export async function activateWithVscode(context, vscode) {
+  selectedWorkspaceRoot =
+    resolveActiveEditorWorkspaceRoot(vscode) || listVscodeWorkspacePaths(vscode)[0] || process.cwd();
   const wsRoot = resolveWorkspaceRoot(vscode);
   const cfg = vscode.workspace.getConfiguration("flow");
   const customDb = cfg.get("catalogDbPath", "");
@@ -274,14 +318,87 @@ export async function activateWithVscode(context, vscode) {
     },
   });
 
+  const registerOpenWorkspaceFolders = () => {
+    if (!activeApiService) return;
+    const allFolders = listVscodeWorkspacePaths(vscode);
+    for (const folder of allFolders) {
+      if (fs.existsSync(folder)) {
+        activeApiService.workspaceRegistry.addWorkspace(folder, {
+          setActive: folder === selectedWorkspaceRoot,
+        });
+      }
+    }
+    if (selectedWorkspaceRoot && fs.existsSync(selectedWorkspaceRoot)) {
+      activeApiService.workspaceRegistry.addWorkspace(selectedWorkspaceRoot, { setActive: true });
+    }
+  };
+  registerOpenWorkspaceFolders();
+
   const specsTree = new SpecsTreeProvider(vscode);
   const catalogTree = new CatalogTreeProvider(vscode);
+
+  const syncActiveWorkspace = (nextWorkspacePath, notifyWebview = true) => {
+    if (!nextWorkspacePath) return;
+    const resolved = path.resolve(nextWorkspacePath);
+    if (!fs.existsSync(resolved)) return;
+    const changed = resolved !== selectedWorkspaceRoot;
+    selectedWorkspaceRoot = resolved;
+    registerOpenWorkspaceFolders();
+    if (changed) {
+      specsTree.refresh();
+      catalogTree.refresh();
+    }
+    if (notifyWebview && activePanel?.webview) {
+      const allFolders = listVscodeWorkspacePaths(vscode);
+      const orderedUris = [resolved, ...allFolders.filter((w) => w !== resolved)];
+      activePanel.webview.postMessage({
+        type: "studioEvent",
+        event: {
+          type: "workspace.changed",
+          workspacePath: resolved,
+          uris: orderedUris,
+        },
+      });
+    }
+  };
 
   context.subscriptions.push(
     vscode.window.registerTreeDataProvider("flowSpecsTree", specsTree),
     vscode.window.registerTreeDataProvider("flowCatalogTree", catalogTree),
     vscode.languages.registerCodeLensProvider({ language: "markdown", scheme: "file" }, new SpecCodeLensProvider(vscode))
   );
+
+  if (typeof vscode.window?.onDidChangeActiveTextEditor === "function") {
+    context.subscriptions.push(
+      vscode.window.onDidChangeActiveTextEditor((editor) => {
+        const nextWs = resolveUriWorkspaceRoot(vscode, editor?.document?.uri);
+        if (nextWs && nextWs !== selectedWorkspaceRoot) {
+          syncActiveWorkspace(nextWs, true);
+        }
+      })
+    );
+  }
+
+  if (typeof vscode.workspace?.onDidChangeWorkspaceFolders === "function") {
+    context.subscriptions.push(
+      vscode.workspace.onDidChangeWorkspaceFolders(() => {
+        registerOpenWorkspaceFolders();
+        const folders = listVscodeWorkspacePaths(vscode);
+        const nextWs =
+          (selectedWorkspaceRoot && folders.includes(selectedWorkspaceRoot)
+            ? selectedWorkspaceRoot
+            : null) ||
+          resolveActiveEditorWorkspaceRoot(vscode) ||
+          folders[0];
+        if (nextWs) {
+          syncActiveWorkspace(nextWs, true);
+        } else {
+          specsTree.refresh();
+          catalogTree.refresh();
+        }
+      })
+    );
+  }
 
   const watcher = vscode.workspace.createFileSystemWatcher("**/.agents/**");
   watcher.onDidChange(() => {
@@ -299,7 +416,11 @@ export async function activateWithVscode(context, vscode) {
   context.subscriptions.push(watcher);
 
   context.subscriptions.push(
-    vscode.commands.registerCommand("flow.openStudio", async () => {
+    vscode.commands.registerCommand("flow.openStudio", async (arg) => {
+      const targetWs = arg?.workspacePath || resolveActiveEditorWorkspaceRoot(vscode) || resolveWorkspaceRoot(vscode);
+      if (targetWs) {
+        syncActiveWorkspace(targetWs, Boolean(activePanel));
+      }
       if (activePanel) {
         activePanel.reveal(vscode.ViewColumn.One);
         return;
@@ -315,7 +436,7 @@ export async function activateWithVscode(context, vscode) {
         }
       );
       activePanel = panel;
-      panel.webview.html = buildWebviewHtml(vscode, panel.webview);
+      panel.webview.html = buildWebviewHtml(vscode, panel.webview, resolveWorkspaceRoot(vscode));
       panel.onDidDispose(() => {
         activePanel = null;
       });
@@ -323,7 +444,23 @@ export async function activateWithVscode(context, vscode) {
         if (!msg || typeof msg !== "object" || !activeApiService) return;
         if (msg.type === "apiRequest") {
           try {
-            const result = await activeApiService.handleApi(msg.routePath, msg.payload || {});
+            const reqPayload = { ...(msg.payload || {}) };
+            const currentWs = resolveWorkspaceRoot(vscode);
+            const allFolders = listVscodeWorkspacePaths(vscode);
+            if (!reqPayload.activeWorkspaceUris && currentWs) {
+              reqPayload.activeWorkspaceUris = [
+                currentWs,
+                ...allFolders.filter((w) => w !== currentWs),
+              ];
+            }
+            if (
+              msg.routePath === "/api/bundle-snapshot" &&
+              typeof reqPayload.workspacePath === "string" &&
+              reqPayload.workspacePath.trim()
+            ) {
+              syncActiveWorkspace(reqPayload.workspacePath.trim(), false);
+            }
+            const result = await activeApiService.handleApi(msg.routePath, reqPayload);
             await panel.webview.postMessage({ type: "apiResponse", id: msg.id, result });
           } catch (err) {
             await panel.webview.postMessage({
@@ -335,10 +472,14 @@ export async function activateWithVscode(context, vscode) {
           return;
         }
         if (msg.type === "dispatchPrompt") {
+          const targetDispatchWs = msg.workspacePath || resolveWorkspaceRoot(vscode);
+          if (targetDispatchWs) {
+            syncActiveWorkspace(targetDispatchWs, false);
+          }
           await routePromptToHostHarness(
             vscode,
             activeApiService,
-            msg.workspacePath || resolveWorkspaceRoot(vscode),
+            targetDispatchWs,
             String(msg.message || ""),
             msg.executionMode
           );
@@ -386,7 +527,11 @@ export async function activateWithVscode(context, vscode) {
     vscode.commands.registerCommand("flow.dispatchTask", async (arg) => {
       const prompt = arg?.prompt || (await vscode.window.showInputBox({ prompt: "Enter Flow command or prompt to dispatch" }));
       if (!prompt || !activeApiService) return;
-      await routePromptToHostHarness(vscode, activeApiService, resolveWorkspaceRoot(vscode), prompt);
+      const targetWs = arg?.workspacePath || resolveWorkspaceRoot(vscode);
+      if (targetWs) {
+        syncActiveWorkspace(targetWs, true);
+      }
+      await routePromptToHostHarness(vscode, activeApiService, targetWs, prompt);
     }),
 
     vscode.commands.registerCommand("flow.runEntrypoint", async () => {
@@ -426,4 +571,5 @@ export async function deactivate() {
     activeApiService = null;
   }
   activePanel = null;
+  selectedWorkspaceRoot = null;
 }
