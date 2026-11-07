@@ -57,4 +57,5 @@ Confirm one lifecycle owner matches the requested operation and that the active 
 - [Setup](references/setup.md)
 - [State](references/state.md)
 - [Status](references/status.md)
+- [Studio](references/studio.md)
 - [Validate](references/validate.md)

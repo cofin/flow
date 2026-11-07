@@ -3,5 +3,11 @@
   "name": "flow",
   "displayName": "Flow",
   "version": "0.27.0",
-  "description": "Unified toolkit for Spec-Driven Development with OKF v0.2 knowledge bundles, TDD execution, and zero-context focused review."
+  "description": "Unified toolkit for Spec-Driven Development with OKF v0.2 knowledge bundles, TDD execution, and zero-context focused review.",
+  "logo": "assets/logo.svg",
+  "suggestedPrompts": [
+    "Open Flow Studio to inspect active specs, chapters, and knowledge",
+    "Set up Flow and scaffold OKF v0.2 bundles for this repository",
+    "Plan a new feature specification with vertical-slice tasks"
+  ]
 }

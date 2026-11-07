@@ -232,6 +232,11 @@ if [ -d "$PROJECT_DIR/.agents" ]; then
   if [ -n "$PENDING_SYNC" ]; then
     BASE_MSG="$BASE_MSG Pending chapter review/Markdown sync: $PENDING_SYNC."
   fi
+  if [ "$HARNESS" = "agy" ] || [ "$HARNESS" = "antigravity" ]; then
+    BASE_MSG="$BASE_MSG Flow Studio UI: [Open Flow Studio](sidecar://flow/studio/dashboard)."
+  else
+    BASE_MSG="$BASE_MSG Flow Studio UI: npx flow-studio."
+  fi
 fi
 
 ESCAPED_MSG="$(printf '%s' "$BASE_MSG" | awk '

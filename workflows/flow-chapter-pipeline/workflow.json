@@ -1,0 +1,28 @@
+{
+  "name": "flow-chapter-pipeline",
+  "description": "Execute vertical-slice tasks in a single Flow chapter sequentially, refresh the local DuckDB Knowledge Catalog, and run zero-context chapter review.",
+  "entry": "workflow.py",
+  "args": {
+    "type": "object",
+    "properties": {
+      "flow_id": {
+        "type": "string",
+        "description": "Flow identifier under .agents/bundles/specs/<flow_id>."
+      },
+      "chapter_id": {
+        "type": "string",
+        "description": "Chapter directory slug (for example ch01-core)."
+      },
+      "tasks": {
+        "type": "array",
+        "items": {"type": "string"},
+        "description": "Ordered task worksheet relative paths within the chapter."
+      },
+      "base_commit": {
+        "type": "string",
+        "description": "Base Git commit SHA prior to chapter execution."
+      }
+    },
+    "required": ["flow_id", "chapter_id", "tasks"]
+  }
+}

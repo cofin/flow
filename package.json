@@ -4,8 +4,12 @@
   "description": "Unified toolkit for Context-Driven Development",
   "type": "module",
   "main": ".opencode/plugins/flow.js",
+  "bin": {
+    "flow-studio": "./sidecars/studio/server.mjs"
+  },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "studio": "node ./sidecars/studio/server.mjs",
+    "test": "uv run pytest -q"
   },
   "keywords": [
     "flow",

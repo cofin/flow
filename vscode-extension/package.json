@@ -1,0 +1,118 @@
+{
+  "name": "flow-studio",
+  "displayName": "Flow Studio",
+  "description": "Multi-harness Spec-Driven Development Studio, line-anchored spec review, and local DuckDB + EmbeddingGemma Knowledge Catalog for VS Code, Cursor, Claude Code, Codex CLI, OpenCode, and Google Antigravity.",
+  "version": "0.27.0",
+  "publisher": "cofin",
+  "license": "Apache-2.0",
+  "icon": "icon.png",
+  "galleryBanner": {
+    "color": "#202235",
+    "theme": "dark"
+  },
+  "type": "module",
+  "main": "./extension.mjs",
+  "engines": {
+    "vscode": "^1.93.0"
+  },
+  "categories": [
+    "AI",
+    "Other"
+  ],
+  "activationEvents": [
+    "workspaceContains:.agents/setup-state.json",
+    "workspaceContains:.agents/bundles/index.md",
+    "onView:flowSpecsTree",
+    "onView:flowCatalogTree",
+    "onCommand:flow.openStudio",
+    "onCommand:flow.newSpec"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "flowStudio",
+          "title": "Flow Studio",
+          "icon": "logo.svg"
+        }
+      ]
+    },
+    "views": {
+      "flowStudio": [
+        {
+          "id": "flowSpecsTree",
+          "name": "Specs & Chapters"
+        },
+        {
+          "id": "flowCatalogTree",
+          "name": "Knowledge Catalog"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "flow.openStudio",
+        "title": "Flow: Open Studio",
+        "category": "Flow"
+      },
+      {
+        "command": "flow.newSpec",
+        "title": "Flow: New Spec / PRD",
+        "category": "Flow"
+      },
+      {
+        "command": "flow.searchCatalog",
+        "title": "Flow: Search Knowledge Catalog",
+        "category": "Flow"
+      },
+      {
+        "command": "flow.dispatchTask",
+        "title": "Flow: Dispatch Prompt to Harness",
+        "category": "Flow"
+      },
+      {
+        "command": "flow.runEntrypoint",
+        "title": "Flow: Run Detected Python Entrypoint",
+        "category": "Flow"
+      },
+      {
+        "command": "flow.selectTargetHarness",
+        "title": "Flow: Select Default Target Harness",
+        "category": "Flow"
+      }
+    ],
+    "configuration": {
+      "title": "Flow Studio",
+      "properties": {
+        "flow.defaultHarness": {
+          "type": "string",
+          "enum": [
+            "copilot",
+            "cursor",
+            "claude",
+            "codex",
+            "opencode",
+            "agy"
+          ],
+          "default": "copilot",
+          "description": "Default AI agent harness targeted when dispatching Flow commands from VS Code or Cursor."
+        },
+        "flow.executionMode": {
+          "type": "string",
+          "enum": [
+            "direct-workspace",
+            "worktree-isolated",
+            "read-only"
+          ],
+          "default": "direct-workspace",
+          "description": "Execution mode when dispatching Flow tasks to external CLI harnesses."
+        },
+        "flow.catalogDbPath": {
+          "type": "string",
+          "default": "",
+          "description": "Optional custom path for the derived local DuckDB Knowledge Catalog file."
+        }
+      }
+    }
+  }
+}

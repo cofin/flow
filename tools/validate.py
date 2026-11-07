@@ -148,10 +148,14 @@ ALLOWED_ANTIGRAVITY_PLUGIN_KEYS: frozenset[str] = frozenset(
         "description",
         "displayName",
         "excludeTools",
+        "keywords",
+        "license",
+        "logo",
         "mcpServers",
         "name",
         "rules",
         "skills",
+        "suggestedPrompts",
         "version",
     }
 )
@@ -322,6 +326,9 @@ def validate_manifests(repo_root: Path = REPO_ROOT) -> list[str]:
             errors.append("plugin.json: name must be 'flow'")
         if agy_plugin.get("displayName") != "Flow":
             errors.append("plugin.json: displayName must be 'Flow'")
+        agy_logo = agy_plugin.get("logo")
+        if agy_logo is not None and (not isinstance(agy_logo, str) or not (repo_root / agy_logo).is_file()):
+            errors.append(f"plugin.json: logo {agy_logo!r} does not exist")
 
     claude_plugin = loaded.get(".claude-plugin/plugin.json")
     if claude_plugin is not None and claude_plugin.get("hooks") != "./hooks/hooks-claude.json":
@@ -332,12 +339,77 @@ def validate_manifests(repo_root: Path = REPO_ROOT) -> list[str]:
         errors.append(".codex-plugin/plugin.json: hooks must be './hooks/hooks-claude.json'")
 
     cursor_plugin = loaded.get(".cursor-plugin/plugin.json")
-    if cursor_plugin is not None and cursor_plugin.get("hooks") != "./hooks/hooks-cursor.json":
-        errors.append(".cursor-plugin/plugin.json: hooks must be './hooks/hooks-cursor.json'")
+    if cursor_plugin is not None:
+        if cursor_plugin.get("hooks") != "./hooks/hooks-cursor.json":
+            errors.append(".cursor-plugin/plugin.json: hooks must be './hooks/hooks-cursor.json'")
+        cursor_logo = cursor_plugin.get("logo")
+        if cursor_logo is not None and (not isinstance(cursor_logo, str) or not (repo_root / cursor_logo).is_file()):
+            errors.append(f".cursor-plugin/plugin.json: logo {cursor_logo!r} does not exist")
 
     pkg_json = loaded.get("package.json")
     if pkg_json is not None and pkg_json.get("main") != ".opencode/plugins/flow.js":
         errors.append("package.json: main must be '.opencode/plugins/flow.js'")
+
+    vscode_dir = repo_root / "vscode-extension"
+    if vscode_dir.is_dir():
+        vscode_pkg_path = vscode_dir / "package.json"
+        if not vscode_pkg_path.is_file():
+            errors.append("Missing manifest file: vscode-extension/package.json")
+        else:
+            try:
+                vscode_pkg = json.loads(vscode_pkg_path.read_text(encoding="utf-8"))
+                if vscode_pkg.get("version") != expected_version:
+                    errors.append(
+                        f"vscode-extension/package.json: version {vscode_pkg.get('version')!r} "
+                        f"does not match pyproject.toml {expected_version!r}"
+                    )
+                ext_main = str(vscode_pkg.get("main", ""))
+                if not ext_main or not (vscode_dir / ext_main).is_file():
+                    errors.append(f"vscode-extension/package.json: main {ext_main!r} does not exist")
+                ext_icon = vscode_pkg.get("icon")
+                if ext_icon is not None and (not isinstance(ext_icon, str) or not (vscode_dir / ext_icon).is_file()):
+                    errors.append(f"vscode-extension/package.json: icon {ext_icon!r} does not exist")
+            except json.JSONDecodeError as exc:
+                errors.append(f"vscode-extension/package.json: invalid JSON ({exc})")
+
+    sidecar_dir = repo_root / "sidecars" / "studio"
+    if sidecar_dir.is_dir():
+        sidecar_json_path = sidecar_dir / "sidecar.json"
+        if not sidecar_json_path.is_file():
+            errors.append("Missing sidecars/studio/sidecar.json")
+        else:
+            try:
+                sidecar_cfg = json.loads(sidecar_json_path.read_text(encoding="utf-8"))
+                if sidecar_cfg.get("has_web_ui") is not True:
+                    errors.append("sidecars/studio/sidecar.json: has_web_ui must be true")
+                views = sidecar_cfg.get("ui_config", {}).get("views", [])
+                if not isinstance(views, list) or not views:
+                    errors.append("sidecars/studio/sidecar.json: ui_config.views must be a non-empty list")
+            except json.JSONDecodeError as exc:
+                errors.append(f"sidecars/studio/sidecar.json: invalid JSON ({exc})")
+        if not (sidecar_dir / "main.mjs").is_file():
+            errors.append("Missing sidecars/studio/main.mjs")
+
+    workflows_dir = repo_root / "workflows"
+    if workflows_dir.is_dir():
+        for wf_subdir in sorted(p for p in workflows_dir.iterdir() if p.is_dir()):
+            wf_manifest = wf_subdir / "workflow.json"
+            rel_wf = wf_manifest.relative_to(repo_root).as_posix()
+            if not wf_manifest.is_file():
+                errors.append(f"Missing {rel_wf}")
+                continue
+            try:
+                wf_data = json.loads(wf_manifest.read_text(encoding="utf-8"))
+            except json.JSONDecodeError as exc:
+                errors.append(f"{rel_wf}: invalid JSON ({exc})")
+                continue
+            if not str(wf_data.get("name", "")).strip():
+                errors.append(f"{rel_wf}: missing workflow name")
+            if not str(wf_data.get("description", "")).strip():
+                errors.append(f"{rel_wf}: missing workflow description")
+            entry_rel = str(wf_data.get("entry", "workflow.py"))
+            if not wf_data.get("library", False) and not (wf_subdir / entry_rel).is_file():
+                errors.append(f"{rel_wf}: missing entry script {entry_rel!r}")
 
     return errors
 
@@ -376,6 +448,21 @@ def validate_hooks(repo_root: Path = REPO_ROOT) -> list[str]:
             errors.append("hooks.json: missing flow-stop-check.Stop array")
         elif "matcher" in stop_handlers[0]:
             errors.append("hooks.json: Antigravity Stop must be a flat array of command handlers")
+
+        for hook_group_name, group_spec in agy_hooks.items():
+            if not isinstance(group_spec, dict):
+                continue
+            for flat_event in ("SessionStart", "PreInvocation", "PostInvocation", "Stop"):
+                ev_list = group_spec.get(flat_event)
+                if isinstance(ev_list, list) and ev_list and "matcher" in ev_list[0]:
+                    if flat_event not in ("SessionStart", "Stop"):
+                        errors.append(
+                            f"hooks.json: {hook_group_name}.{flat_event} must be a flat array of command handlers"
+                        )
+            for tool_event in ("PreToolUse", "PostToolUse"):
+                ev_list = group_spec.get(tool_event)
+                if isinstance(ev_list, list) and ev_list and "matcher" not in ev_list[0]:
+                    errors.append(f"hooks.json: {hook_group_name}.{tool_event} must use nested matcher format")
 
     claude_hooks_path = repo_root / "hooks" / "hooks-claude.json"
     if not claude_hooks_path.is_file():

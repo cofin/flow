@@ -9,6 +9,7 @@
   "homepage": "https://github.com/cofin/flow",
   "repository": "https://github.com/cofin/flow",
   "license": "MIT",
+  "logo": "./assets/logo.svg",
   "keywords": [
     "flow",
     "spec-driven-development",
