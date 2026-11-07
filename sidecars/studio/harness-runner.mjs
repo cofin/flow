@@ -45,8 +45,22 @@ export class CrossHarnessRunner {
   resolveBinary(binaryName) {
     const overrideDir = process.env.FLOW_HARNESS_BIN_DIR;
     if (overrideDir) {
-      const candidate = path.join(path.resolve(overrideDir), binaryName);
-      if (fs.existsSync(candidate)) return candidate;
+      const resolvedDir = path.resolve(overrideDir);
+      const exts =
+        process.platform === "win32"
+          ? (process.env.PATHEXT || ".EXE;.CMD;.BAT").split(";").map((e) => e.toLowerCase())
+          : [""];
+      for (const ext of exts) {
+        const candidate = path.join(
+          resolvedDir,
+          ext && !binaryName.toLowerCase().endsWith(ext) ? `${binaryName}${ext}` : binaryName
+        );
+        try {
+          if (fs.statSync(candidate).isFile()) return candidate;
+        } catch {
+          // Ignore missing candidate paths.
+        }
+      }
     }
     return whichSync(binaryName);
   }
@@ -245,7 +259,10 @@ export class CrossHarnessRunner {
     this.#emit({ type: "harness.started", run: this.#summarize(record) });
 
     const completion = new Promise((resolve) => {
-      const child = spawn(binaryPath, cliArgs, {
+      const isWinBatch = process.platform === "win32" && /\.(cmd|bat)$/i.test(binaryPath);
+      const spawnCmd = isWinBatch ? process.env.ComSpec || "cmd.exe" : binaryPath;
+      const spawnArgs = isWinBatch ? ["/d", "/c", binaryPath, ...cliArgs] : cliArgs;
+      const child = spawn(spawnCmd, spawnArgs, {
         cwd: effectiveCwd,
         env: { ...process.env },
         stdio: ["ignore", "pipe", "pipe"],

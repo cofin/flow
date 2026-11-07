@@ -6,6 +6,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -32,13 +33,20 @@ def _seed_git_repo_with_mock_harnesses(base_dir: Path) -> tuple[Path, Path]:
     subprocess.run(["git", "commit", "-q", "-m", "chore: init"], cwd=ws, check=True)
 
     for cli_name in ("claude", "codex", "opencode"):
-        script_path = bin_dir / cli_name
-        script_path.write_text(
-            "#!/usr/bin/env sh\n"
-            f'printf \'{{"type":"assistant","harness":"{cli_name}","cwd":"%s","args":"%s"}}\\n\' "$(pwd)" "$*"\n',
-            encoding="utf-8",
-        )
-        script_path.chmod(0o755)
+        if sys.platform == "win32":
+            script_path = bin_dir / f"{cli_name}.cmd"
+            script_path.write_text(
+                f'@echo off\r\necho {{"type":"assistant","harness":"{cli_name}"}}\r\n',
+                encoding="utf-8",
+            )
+        else:
+            script_path = bin_dir / cli_name
+            script_path.write_text(
+                "#!/usr/bin/env sh\n"
+                f'printf \'{{"type":"assistant","harness":"{cli_name}","cwd":"%s","args":"%s"}}\\n\' "$(pwd)" "$*"\n',
+                encoding="utf-8",
+            )
+            script_path.chmod(0o755)
     return ws, bin_dir
 
 
