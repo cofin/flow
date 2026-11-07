@@ -38,7 +38,7 @@ Use for `/flow:setup`. Follow [`../flow/references/setup.md`](../flow/references
 
 ## Output
 
-Return the initialized or aligned `.agents/bundles/` tree, generated `.agents/skills/` and `.agents/agents/` inventory, verified host commands, and next command (`/flow:plan` or `/flow:prd`).
+Return the initialized or aligned `.agents/bundles/` tree, generated `.agents/skills/` and `.agents/agents/` inventory, verified host commands, and next command (`/flow:spec` or `/flow:prd`).
 
 ## Validation
 

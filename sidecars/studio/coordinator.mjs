@@ -7,6 +7,8 @@
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
+import { uriToWorkspacePath } from "./snapshot.mjs";
+
 const LS_SERVICE_PREFIX = "/exa.language_server_pb.LanguageServerService/";
 
 export class AntigravityCoordinator {
@@ -127,6 +129,110 @@ export class AntigravityCoordinator {
   }
 
   /**
+   * Discover the active conversation workspace and all open project/trajectory workspaces
+   * from Antigravity's LanguageServerService.
+   *
+   * @param {{ conversationId?: string }} [options]
+   */
+  async discoverWorkspaces(options = {}) {
+    if (!this.available) {
+      return { activeWorkspace: null, workspaces: [] };
+    }
+    const conversationId = String(
+      options.conversationId || this.env.ANTIGRAVITY_CONVERSATION_ID || ""
+    ).trim();
+
+    const [trajRes, listProjRes, getProjRes] = await Promise.all([
+      this.call("GetAllCascadeTrajectories", {}),
+      this.call("ListProjects", {}),
+      this.call("GetProjects", {}),
+    ]);
+
+    /** @type {Set<string>} */
+    const discovered = new Set();
+    /** @type {string | null} */
+    let activeWorkspace = null;
+
+    if (trajRes.ok) {
+      const rawMap = trajRes.value?.trajectorySummaries || trajRes.value?.trajectories || {};
+      const entries = Object.entries(rawMap).map(([cascadeId, item]) => {
+        const rawWs = Array.isArray(item?.workspaces)
+          ? item.workspaces
+              .map((w) =>
+                uriToWorkspacePath(
+                  w?.workspaceFolderAbsoluteUri || w?.workspaceFolderUri || w?.folderUri || w
+                )
+              )
+              .filter(Boolean)
+          : [];
+        return {
+          cascadeId,
+          status: String(item?.status || ""),
+          updatedAt: String(item?.lastModifiedTime || ""),
+          workspaces: rawWs,
+        };
+      });
+
+      if (conversationId) {
+        const matched = entries.find(
+          (e) => e.cascadeId === conversationId && e.workspaces.length > 0
+        );
+        if (matched) {
+          activeWorkspace = matched.workspaces[0];
+        }
+      }
+
+      const sorted = entries
+        .filter((e) => e.workspaces.length > 0)
+        .sort((a, b) => {
+          const aRun = a.status.includes("RUNNING") ? 1 : 0;
+          const bRun = b.status.includes("RUNNING") ? 1 : 0;
+          if (aRun !== bRun) return bRun - aRun;
+          return b.updatedAt.localeCompare(a.updatedAt);
+        });
+
+      if (!activeWorkspace && sorted.length > 0) {
+        activeWorkspace = sorted[0].workspaces[0];
+      }
+      for (const entry of sorted) {
+        for (const ws of entry.workspaces) {
+          if (ws) discovered.add(ws);
+        }
+      }
+    }
+
+    const projectObjects = [];
+    if (getProjRes.ok && Array.isArray(getProjRes.value?.projects)) {
+      projectObjects.push(...getProjRes.value.projects);
+    }
+    if (
+      listProjRes.ok &&
+      Array.isArray(listProjRes.value?.ids) &&
+      listProjRes.value.ids.length > 0
+    ) {
+      const readRes = await this.call("ReadProjects", { ids: listProjRes.value.ids });
+      if (readRes.ok && Array.isArray(readRes.value?.projects)) {
+        projectObjects.push(...readRes.value.projects);
+      }
+    }
+
+    for (const proj of projectObjects) {
+      for (const uri of extractProjectFolderUris(proj)) {
+        const resolved = uriToWorkspacePath(uri);
+        if (resolved) {
+          if (!activeWorkspace) activeWorkspace = resolved;
+          discovered.add(resolved);
+        }
+      }
+    }
+
+    return {
+      activeWorkspace,
+      workspaces: Array.from(discovered),
+    };
+  }
+
+  /**
    * Start a new conversation explicitly bound to `workspacePath` and send `message`.
    *
    * @param {{ workspacePath: string, message: string, title?: string, preferredModel?: string }} params
@@ -149,14 +255,30 @@ export class AntigravityCoordinator {
 
     const fileUri = pathToFileURL(workspace).href;
     let matchedProjectId = null;
-    const projectsRes = await this.call("GetProjects", {});
+    const [projectsRes, listProjRes] = await Promise.all([
+      this.call("GetProjects", {}),
+      this.call("ListProjects", {}),
+    ]);
+    const candidates = [];
     if (projectsRes.ok && Array.isArray(projectsRes.value?.projects)) {
-      for (const proj of projectsRes.value.projects) {
-        const uris = Array.isArray(proj?.workspaceUris) ? proj.workspaceUris : [];
-        if (uris.includes(fileUri) && proj.id) {
-          matchedProjectId = proj.id;
-          break;
-        }
+      candidates.push(...projectsRes.value.projects);
+    }
+    if (
+      listProjRes.ok &&
+      Array.isArray(listProjRes.value?.ids) &&
+      listProjRes.value.ids.length > 0
+    ) {
+      const readRes = await this.call("ReadProjects", { ids: listProjRes.value.ids });
+      if (readRes.ok && Array.isArray(readRes.value?.projects)) {
+        candidates.push(...readRes.value.projects);
+      }
+    }
+    for (const proj of candidates) {
+      if (!proj?.id) continue;
+      const uris = extractProjectFolderUris(proj);
+      if (uris.some((u) => u === fileUri || uriToWorkspacePath(u) === workspace)) {
+        matchedProjectId = proj.id;
+        break;
       }
     }
 
@@ -246,4 +368,33 @@ export class AntigravityCoordinator {
   async stopConversation(cascadeId) {
     return this.call("ForceStopCascadeTree", { cascadeId });
   }
+}
+
+/**
+ * Extract all folder URIs from an Antigravity project object (`GetProjects` or `ReadProjects`).
+ *
+ * @param {any} proj
+ * @returns {string[]}
+ */
+function extractProjectFolderUris(proj) {
+  if (!proj || typeof proj !== "object") return [];
+  /** @type {string[]} */
+  const uris = [];
+  if (Array.isArray(proj.workspaceUris)) {
+    for (const u of proj.workspaceUris) {
+      if (typeof u === "string" && u.trim()) uris.push(u.trim());
+    }
+  }
+  const resources = proj.projectResources?.resources;
+  if (Array.isArray(resources)) {
+    for (const r of resources) {
+      if (typeof r?.folderUri === "string" && r.folderUri.trim()) {
+        uris.push(r.folderUri.trim());
+      }
+    }
+  }
+  if (typeof proj.gitFolder?.folderUri === "string" && proj.gitFolder.folderUri.trim()) {
+    uris.push(proj.gitFolder.folderUri.trim());
+  }
+  return uris;
 }

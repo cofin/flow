@@ -39,9 +39,9 @@ Flow separates **Stateful Planning & Adjudication** from **Zero-Context Verifica
    - Probes installed host binaries (`uv`, `python3`, `cargo`, `go`, `bun`, `pnpm`, `npm`, `make`, `just`, `pwsh`, `powershell`) and scaffolds Flow's core context chapters (`product/product.md`, `product/product-guidelines.md`, `product/tech-stack.md`, and `knowledge/workflow.md`) with bounded `<= 40`-line `<!-- truth: start -->` blocks and nested `knowledge/{architecture,patterns,domains,testing,gotchas,decisions}/` chapters anchored to `path/to/file::Symbol`.
    - Seeds baseline engineering disciplines (deep-module seams, active domain modeling, public-seam TDD, hypothesis-driven bug diagnosis, and cold-reader documentation accuracy) alongside stack-specific `.agents/skills/<domain>/`, `.agents/skills/review-<domain>/`, and paired `.agents/agents/<domain>-{reviewer,specialist}.md` subagents.
    - Configures Git tracking (`shared` team mode vs. `local-only` stealth mode via `.git/info/exclude`) and opt-in cross-harness settings.
-2. **Plan (`/flow:prd`, `/flow:plan`, `/flow:revise`, `/flow:research`) — Subagent-Scaled Co-Design & Upfront Chapter Blueprints**:
+2. **Spec (`/flow:prd`, `/flow:spec`, `/flow:revise`, `/flow:research`) — Subagent-Scaled Co-Design & Upfront Chapter Blueprints**:
    - **Sharded Discovery & Questioning**: Fans out read-only Scout subagents returning structured `SubsystemDigest` payloads, then walks the Design-Tree Frontier (`1` question for dependent forks; `2–3` batched orthogonal leaf questions on settled frontiers via `structured-choice-v1`).
-   - **High-Detail Chaptered Specifications (`/flow:prd` & `/flow:plan`)**: Locks cross-chapter seams, shared types, and a **Documentation & OKF Knowledge Plan** in root `specs/<flow_id>/spec.md` + `chapters/index.md`, then fans out parallel Chapter Planner subagents to author **all chapters (`ch01..chNN`, zero upper cap, `1–4` vertical-slice tasks per chapter) and 8-section task blueprints upfront**—scaling horizontally so plans, edge-case matrices, worked test cases, OKF provenance, and user docs gain depth without ever truncating scope or compacting context.
+   - **High-Detail Chaptered Specifications (`/flow:prd` & `/flow:spec`)**: Locks cross-chapter seams, shared types, and a **Documentation & OKF Knowledge Plan** in root `specs/<flow_id>/spec.md` + `chapters/index.md`, then fans out parallel Chapter Planner subagents to author **all chapters (`ch01..chNN`, zero upper cap, `1–4` vertical-slice tasks per chapter) and 8-section task blueprints upfront**—scaling horizontally so plans, edge-case matrices, worked test cases, OKF provenance, and user docs gain depth without ever truncating scope or compacting context.
    - **Per-Chapter Zero-Context Spec Review & Revision (`/flow:revise`)**: Dispatches per-chapter zero-context reviewers passing only disk paths, adjudicates findings (`ADOPT`, `CONTEST`, `ESCALATE`), and keeps root `spec.md`, `chapters/index.md`, and chapter blueprints synchronized in present tense (current state, remaining chapters, and full plan—zero revision history inside specs).
    - **Research & Prototyping (`/flow:research`, alias `/flow:task`)**: Runs primary-source `@researcher` audits (promoted into OKF v0.2 `research/*.md` with `sources:` + `[^id]:` footnotes) or time-boxed throwaway prototypes in untracked `.agents/scratch/<slug>/`.
 3. **Implement (`/flow:implement`, `/flow:status`) — Single-Chapter Execution & Pre-Review Sync**:
@@ -95,15 +95,29 @@ Then run `/plugins` inside a Codex session to enable `flow`, or update with `cod
 
 ### Cursor
 
-Install Flow as a Cursor plugin from a local clone or repository URL (`.cursor-plugin/plugin.json`).
+1. **Agent Plugin (`.cursor-plugin/plugin.json`)**: Install Flow as a Cursor plugin (`https://github.com/cofin/flow`) so skills, subagents, and lifecycle hooks (`hooks/hooks-cursor.json`) load automatically.
+2. **Flow Studio Extension (`vscode-extension/`)**: Installed automatically into `~/.cursor/extensions` on your first session (`hooks/session-start.{sh,ps1}`), or run directly from GitHub without cloning the repository:
+
+```bash
+npx --yes --package github:cofin/flow flow-studio-vscode --target cursor
+```
 
 ### OpenCode V2
 
 Add Flow to your OpenCode `plugins` configuration (`opencode plugin add cofin/flow` or a local checkout path).
 
-### VS Code / Copilot
+### VS Code / Copilot ( plus Windsurf & Positron )
 
-Install Flow through **Chat: Install Plugin From Source** pointing to a local checkout of the repository.
+1. **Chat / Agent Plugin**: Install Flow through **Chat: Install Plugin From Source** (or from a local checkout, where `make install-vscode` / `node ./vscode-extension/install.mjs --link` can also be used for local development).
+2. **Flow Studio Extension (`vscode-extension/`)**: Run the one-line installer directly from GitHub (no Git clone required) to bundle `vscode-extension/` + `sidecars/studio/` and register `cofin.flow-studio` into your editor's `extensions.json` (`~/.vscode/extensions`, `~/.cursor/extensions`, `~/.windsurf/extensions`, or `~/.positron/extensions`), then reload the window (`Developer: Reload Window`):
+
+```bash
+# Auto-detect installed VS Code-compatible editors and install cofin.flow-studio
+npx --yes --package github:cofin/flow flow-studio-vscode
+
+# Or target a specific editor (vscode | vscode-insiders | cursor | windsurf | positron | all)
+npx --yes --package github:cofin/flow flow-studio-vscode --target vscode
+```
 
 ## Commands & Lifecycle Skills
 
@@ -111,7 +125,7 @@ Install Flow through **Chat: Install Plugin From Source** pointing to a local ch
 | --- | --- | --- | --- |
 | `/flow:setup` | [`flow-setup`](skills/flow-setup/SKILL.md) | [`setup.md`](skills/flow/references/setup.md) | Align brownfield repos or bootstrap `.agents/bundles/`, `.agents/skills/`, and `.agents/agents/` |
 | `/flow:prd <goal>` | [`flow-planning`](skills/flow-planning/SKILL.md) | [`prd.md`](skills/flow/references/prd.md) | Author multi-chapter roadmap (`spec.md` + `chapters/ch01..chNN/`) and upfront blueprints |
-| `/flow:plan <goal>` | [`flow-planning`](skills/flow-planning/SKILL.md) | [`plan.md`](skills/flow/references/plan.md) | Author high-detail specification (`spec.md`), `chapters/`, and `tasks/*.md` blueprints |
+| `/flow:spec <goal>` | [`flow-planning`](skills/flow-planning/SKILL.md) | [`spec.md`](skills/flow/references/spec.md) | Author high-detail specification (`spec.md`), `chapters/`, and `tasks/*.md` blueprints (alias: `plan`) |
 | `/flow:revise <flow_id>` | [`flow-planning`](skills/flow-planning/SKILL.md) | [`revise.md`](skills/flow/references/revise.md) | Rewrite root `spec.md`, `chapters/`, and `tasks/*.md` in place in present tense (alias: `refine`) |
 | `/flow:research <topic>` | [`flow-planning`](skills/flow-planning/SKILL.md) | [`research.md`](skills/flow/references/research.md) | Primary-source research & time-boxed `.agents/scratch/` spikes (alias: `task`) |
 | `/flow:implement [flow_id]` | [`flow-execution`](skills/flow-execution/SKILL.md) | [`implement.md`](skills/flow/references/implement.md) | Execute one chapter (`1–4` tasks) with Public-Seam TDD, doc/OKF sync, and chapter review |

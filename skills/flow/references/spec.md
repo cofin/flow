@@ -1,8 +1,8 @@
-# Flow Plan (`/flow:plan`)
+# Flow Spec (`/flow:spec`, alias `/flow:plan`)
 
 Co-design a decision-complete **Feature Specification** (`.agents/bundles/specs/<flow_id>/spec.md`), decompose work exceeding `4` tasks or crossing `>= 2` module boundaries into nested context-bounded **Chapter Specifications** (`specs/<flow_id>/chapters/ch01-<slug>/..chNN-<slug>/spec.md`, `1–4` tasks per chapter, zero upper cap on chapter count), author **all 8-section Task Blueprints upfront in parallel** (`tasks/<id>-<slug>.md`), pressure-test every chapter with **Zero-Context Verification**, and adjudicate findings (`ADOPT` / `CONTEST` / `ESCALATE`) before stamping `status: stable` and `plan_commit: <HEAD_SHA>`.
 
-Use [`interaction.md`](interaction.md) (`structured-choice-v1`) for Design-Tree Frontier decisions and [`state.md`](state.md) for OKF v0.2 Markdown schemas. **No Production Code Rule**: Planning writes exclusively under `.agents/bundles/` (or untracked `.agents/scratch/<slug>/` during throwaway prototypes); never modify application source code during `/flow:plan`.
+Use [`interaction.md`](interaction.md) (`structured-choice-v1`) for Design-Tree Frontier decisions and [`state.md`](state.md) for OKF v0.2 Markdown schemas. **No Production Code Rule**: Planning writes exclusively under `.agents/bundles/` (or untracked `.agents/scratch/<slug>/` during throwaway prototypes); never modify application source code during `/flow:spec`.
 
 <!-- planning-contract: structured-choice-v1 -->
 ```yaml

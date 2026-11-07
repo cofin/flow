@@ -32,9 +32,9 @@ planning_loop:
       - upfront_chapter_and_task_blueprints
 ```
 
-## Unified Multi-Chapter Architecture (`/flow:prd` & Multi-Chapter `/flow:plan`)
+## Unified Multi-Chapter Architecture (`/flow:prd` & Multi-Chapter `/flow:spec`)
 
-- **Unified Nested Layout**: `/flow:prd <goal>` produces the exact same OKF v0.2 nested bundle layout as multi-chapter `/flow:plan`:
+- **Unified Nested Layout**: `/flow:prd <goal>` produces the exact same OKF v0.2 nested bundle layout as multi-chapter `/flow:spec`:
   - `specs/<flow_id>/spec.md` (`has_chapters: true`, `current_chapter: ch01-<slug>`, `chapters: [ch01-<slug>, ...]`) — Full-plan roadmap, plain-English North Star framing, cross-chapter public seams and shared struct/signature contracts, Flow-Wide Documentation & OKF Knowledge Plan (`[0/N files documented]`), full chapter checklist, and `## 6. Current State & Remaining Plan Snapshot`.
   - `specs/<flow_id>/chapters/index.md` — Frontmatter-free OKF v0.2 directory catalog listing all chapters in execution order.
   - `specs/<flow_id>/chapters/ch01-<slug>/..chNN-<slug>/{spec.md,tasks/t01..t04.md}` — `2..N` chapters (zero upper cap, `1–4` vertical-slice tasks per chapter) authored **upfront in parallel** by isolated Chapter Planner subagents so user design context and edge-case decisions are captured completely while fresh.
@@ -70,7 +70,7 @@ planning_loop:
 2. Write frontmatter-free `.agents/bundles/specs/<flow_id>/chapters/index.md` cataloging `ch01-<slug>..chNN-<slug>`.
 3. **Parallel Upfront Chapter Blueprint Generation**:
    - Fan out **1 isolated Chapter Planner subagent per chapter in parallel** (`run_workflow` `parallel()` with `type_name="self"` and `agents/plan-generator.md` on Google Antigravity; parallel `@plan-generator` subagents elsewhere).
-   - Each Chapter Planner writes `specs/<flow_id>/chapters/<ch_id>/spec.md` and `1–4` 8-section `tasks/t01-<slug>.md..t04-<slug>.md` worksheets (`read_set <= 6`, `files <= 3`, `estimated_loc <= 250`) following [`plan.md`](plan.md) and [`state.md`](state.md), including dedicated documentation and OKF knowledge synthesis tasks/chapters so nothing is deferred or truncated.
+   - Each Chapter Planner writes `specs/<flow_id>/chapters/<ch_id>/spec.md` and `1–4` 8-section `tasks/t01-<slug>.md..t04-<slug>.md` worksheets (`read_set <= 6`, `files <= 3`, `estimated_loc <= 250`) following [`spec.md`](spec.md) and [`state.md`](state.md), including dedicated documentation and OKF knowledge synthesis tasks/chapters so nothing is deferred or truncated.
 
 ### Phase 4: Per-Chapter Zero-Context Review & Subagent Adjudication (`ADOPT` / `CONTEST` / `ESCALATE`)
 

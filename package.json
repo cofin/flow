@@ -5,10 +5,12 @@
   "type": "module",
   "main": ".opencode/plugins/flow.js",
   "bin": {
-    "flow-studio": "./sidecars/studio/server.mjs"
+    "flow-studio": "./sidecars/studio/server.mjs",
+    "flow-studio-vscode": "./vscode-extension/install.mjs"
   },
   "scripts": {
     "studio": "node ./sidecars/studio/server.mjs",
+    "install:vscode": "node ./vscode-extension/install.mjs",
     "test": "uv run pytest -q"
   },
   "keywords": [

@@ -15,9 +15,11 @@ import { CrossHarnessRunner } from "./harness-runner.mjs";
 import { buildEntrypointCommand, detectWorkspacePython } from "./python-runner.mjs";
 import {
   BundleSnapshotBuilder,
+  isInternalSidecarPath,
   ReviewCommentsStore,
   SpecMarkdownReader,
   SpecScaffoldWriter,
+  uriToWorkspacePath,
   WorkspaceRegistry,
 } from "./snapshot.mjs";
 
@@ -35,10 +37,23 @@ export class StudioApiService {
     this.env = options.env || process.env;
     this.pluginRoot = path.resolve(options.pluginRoot || DEFAULT_PLUGIN_ROOT);
     this.onEvent = options.onEvent || (() => {});
-    this.defaultWorkspace = path.resolve(
-      this.env.FLOW_STUDIO_DEFAULT_WORKSPACE || process.cwd() || this.pluginRoot
-    );
-    this.workspaceRegistry = new WorkspaceRegistry(this.defaultWorkspace);
+    const explicitEnvDefault = this.env.FLOW_STUDIO_DEFAULT_WORKSPACE
+      ? path.resolve(this.env.FLOW_STUDIO_DEFAULT_WORKSPACE)
+      : null;
+    const cwdCandidate = process.cwd() ? path.resolve(process.cwd()) : null;
+    this.workspaceRegistry = new WorkspaceRegistry(explicitEnvDefault || cwdCandidate, {
+      env: this.env,
+      explicitDefault: Boolean(explicitEnvDefault),
+    });
+    const safeCwd =
+      cwdCandidate && !isInternalSidecarPath(cwdCandidate, this.workspaceRegistry.configPath)
+        ? cwdCandidate
+        : null;
+    this.defaultWorkspace =
+      explicitEnvDefault ||
+      safeCwd ||
+      this.workspaceRegistry.getLastActiveWorkspace() ||
+      this.pluginRoot;
     this.catalog = new CatalogBridge({
       pluginRoot: this.pluginRoot,
       workspaceRoot: this.defaultWorkspace,
@@ -56,7 +71,7 @@ export class StudioApiService {
   }
 
   /**
-   * Resolve workspace path from `{ workspaceUri, workspacePath }` request payload.
+   * Resolve workspace path from `{ workspaceUri, workspacePath, activeWorkspaceUris }` request payload.
    *
    * @param {Record<string, any>} data
    */
@@ -74,6 +89,16 @@ export class StudioApiService {
     if (typeof data.workspacePath === "string" && data.workspacePath.trim()) {
       return path.resolve(data.workspacePath.trim());
     }
+    if (Array.isArray(data.activeWorkspaceUris) && data.activeWorkspaceUris.length > 0) {
+      for (const raw of data.activeWorkspaceUris) {
+        const candidate = uriToWorkspacePath(raw);
+        if (candidate && fs.existsSync(candidate)) {
+          return candidate;
+        }
+      }
+    }
+    const lastActive = this.workspaceRegistry.getLastActiveWorkspace();
+    if (lastActive) return lastActive;
     return this.defaultWorkspace;
   }
 
@@ -85,10 +110,49 @@ export class StudioApiService {
    */
   async handleApi(routePath, data = {}) {
     if (routePath === "/api/studio-context") {
-      const ws = this.resolveWorkspace(data);
+      const hasExplicitWs =
+        (typeof data.workspaceUri === "string" && data.workspaceUri.trim()) ||
+        (typeof data.workspacePath === "string" && data.workspacePath.trim());
+      const explicitWs = hasExplicitWs ? this.resolveWorkspace(data) : null;
+      const activeFromClient = Array.isArray(data.activeWorkspaceUris)
+        ? this.workspaceRegistry.recordActiveWorkspaces(data.activeWorkspaceUris)
+        : [];
+      if (explicitWs && fs.existsSync(explicitWs)) {
+        this.workspaceRegistry.addWorkspace(explicitWs, { setActive: true });
+      }
+
+      if (this.coordinator.available) {
+        const discovered = await this.coordinator.discoverWorkspaces({
+          conversationId: data.conversationId,
+        });
+        for (const dWs of discovered.workspaces) {
+          if (fs.existsSync(dWs)) {
+            this.workspaceRegistry.addWorkspace(dWs, { setActive: false });
+          }
+        }
+        if (
+          !explicitWs &&
+          activeFromClient.length === 0 &&
+          discovered.activeWorkspace &&
+          fs.existsSync(discovered.activeWorkspace)
+        ) {
+          this.workspaceRegistry.addWorkspace(discovered.activeWorkspace, { setActive: true });
+        }
+      }
+
+      const ws =
+        explicitWs ||
+        activeFromClient[0] ||
+        this.workspaceRegistry.getLastActiveWorkspace() ||
+        this.defaultWorkspace;
       const workspaces = this.workspaceRegistry.listWorkspaces();
+      if (ws && !workspaces.includes(ws)) {
+        workspaces.unshift(ws);
+      }
       return {
         defaultWorkspace: ws,
+        activeWorkspace: ws,
+        activeWorkspaces: activeFromClient.length > 0 ? activeFromClient : [ws],
         workspaces,
         antigravityConnected: this.coordinator.available,
         harnesses: this.harnessRunner.detectHarnesses(),
@@ -99,7 +163,7 @@ export class StudioApiService {
     if (routePath === "/api/bundle-snapshot") {
       const ws = this.resolveWorkspace(data);
       if (data.registerWorkspace && fs.existsSync(ws)) {
-        this.workspaceRegistry.addWorkspace(ws);
+        this.workspaceRegistry.addWorkspace(ws, { setActive: data.setActive !== false });
       }
       return BundleSnapshotBuilder.build(ws);
     }

@@ -11,7 +11,7 @@ Complete a flow on the current branch after verifying that every chapter (`chapt
    - Every documentation and OKF knowledge target in `## 3. Documentation & OKF Knowledge Plan` is checked (`[N/N files documented]`), present-tense, and free of historical prose.
 3. **Branch-Local Closure & Scope-Cap Discipline**:
    - Flow completion (`state: completed`) and archival (`/flow:archive`) are strictly branch-local transitions—never block completion waiting for a remote PR merge.
-   - If the original problem is solved and remaining open chapters or tasks represent newly discovered follow-up scope, offer via `structured-choice-v1` to mark them `state: deferred` (`[-]` in `spec.md`), rewrite `## 6. Current State & Remaining Plan Snapshot` in present tense, close the current flow cleanly, and seed a follow-up spec via `/flow:plan <new_flow_id>`.
+   - If the original problem is solved and remaining open chapters or tasks represent newly discovered follow-up scope, offer via `structured-choice-v1` to mark them `state: deferred` (`[-]` in `spec.md`), rewrite `## 6. Current State & Remaining Plan Snapshot` in present tense, close the current flow cleanly, and seed a follow-up spec via `/flow:spec <new_flow_id>`.
 
 ## Phase 2: Full Verification, Flow-Wide Review & ADR Gate
 

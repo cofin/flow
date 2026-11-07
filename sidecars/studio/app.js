@@ -76,6 +76,7 @@
     tab: urlParams.get("tab") || "roadmap",
     workspacePath: "",
     workspaces: [],
+    activeWorkspacePaths: [],
     snapshot: null,
     selectedDocRelPath: null,
     currentDoc: null,
@@ -130,15 +131,38 @@
     setTimeout(() => item.remove(), 4200);
   }
 
+  /**
+   * Build the `/api/studio-context` request payload from an array of workspace URIs or paths.
+   *
+   * @param {string[]} [urisOrPaths]
+   */
+  function buildContextRequestPayload(urisOrPaths = []) {
+    /** @type {Record<string, any>} */
+    const payload = {};
+    const primary = urisOrPaths[0] || "";
+    if (primary) {
+      if (String(primary).startsWith("file:")) {
+        payload.workspaceUri = primary;
+      } else {
+        payload.workspacePath = primary;
+      }
+    }
+    if (urisOrPaths.length > 0) {
+      payload.activeWorkspaceUris = urisOrPaths;
+    }
+    return payload;
+  }
+
   async function bootstrap() {
     try {
-      const initialUri = host.getInitialWorkspaceUri();
-      const ctx = await host.api(
-        "/api/studio-context",
-        initialUri ? { workspaceUri: initialUri } : {}
-      );
+      const initialUris =
+        typeof host.getInitialWorkspaceUris === "function"
+          ? await host.getInitialWorkspaceUris()
+          : [await host.getInitialWorkspaceUri()].filter(Boolean);
+      const ctx = await host.api("/api/studio-context", buildContextRequestPayload(initialUris));
       state.workspacePath = ctx.defaultWorkspace;
       state.workspaces = ctx.workspaces || [ctx.defaultWorkspace];
+      state.activeWorkspacePaths = ctx.activeWorkspaces || [ctx.defaultWorkspace];
       state.harnesses = ctx.harnesses || [];
       await refreshSnapshot();
     } catch (err) {
@@ -153,6 +177,9 @@
       workspacePath: state.workspacePath,
       registerWorkspace: true,
     });
+    if (state.workspacePath && !state.workspaces.includes(state.workspacePath)) {
+      state.workspaces = [state.workspacePath, ...state.workspaces];
+    }
     if (!state.selectedDocRelPath && state.snapshot.specs.length > 0) {
       state.selectedDocRelPath = state.snapshot.specs[0].relPath;
     }
@@ -256,6 +283,113 @@
     else if (state.tab === "activity") rootEl.appendChild(renderActivityView());
   }
 
+  function buildWorkspaceSelectElement() {
+    const activeSet = new Set(state.activeWorkspacePaths || []);
+    return el(
+      "select",
+      {
+        className: "select-input",
+        "aria-label": "Active workspace",
+        onChange: async (e) => {
+          state.workspacePath = e.target.value;
+          state.selectedDocRelPath = null;
+          state.currentDoc = null;
+          await refreshSnapshot();
+        },
+      },
+      ...state.workspaces.map((ws) => {
+        const base = ws.split("/").pop() || ws;
+        const label = activeSet.has(ws) ? `${base} (active)` : base;
+        return el("option", { value: ws, selected: ws === state.workspacePath }, label);
+      })
+    );
+  }
+
+  function renderQuickPlanCard(compact = false) {
+    const snap = state.snapshot;
+    const planInput = el("input", {
+      type: "text",
+      className: "text-input",
+      placeholder: "Describe a feature or initiative to spec in this workspace...",
+      onKeydown: async (e) => {
+        if (e.key === "Enter") {
+          const goal = e.target.value.trim();
+          const cmd = goal ? `/flow:spec ${goal}` : "/flow:spec";
+          await runFlowAction(cmd, goal ? `Spec: ${goal.slice(0, 48)}` : "Spec Feature");
+          e.target.value = "";
+        }
+      },
+    });
+
+    return el(
+      "section",
+      { className: "card", style: compact ? "margin-top:14px;padding:14px 16px" : "" },
+      el(
+        "div",
+        { className: "card-header" },
+        el(
+          "div",
+          {},
+          el("h3", { className: "card-title" }, "Spec in Selected Workspace"),
+          el(
+            "p",
+            { className: "card-desc" },
+            `Target workspace: ${snap?.workspaceRoot || state.workspacePath || "active workspace"}`
+          )
+        ),
+        !snap?.bundleInitialized
+          ? el(
+              "button",
+              {
+                className: "btn",
+                onClick: () => runFlowAction("/flow:setup", "Initialize Flow"),
+              },
+              "Run /flow:setup"
+            )
+          : null
+      ),
+      el(
+        "div",
+        { className: "search-bar", style: "margin-top:12px;margin-bottom:0" },
+        planInput,
+        el(
+          "button",
+          {
+            className: "btn btn-primary",
+            onClick: async () => {
+              const goal = planInput.value.trim();
+              const cmd = goal ? `/flow:spec ${goal}` : "/flow:spec";
+              await runFlowAction(cmd, goal ? `Spec: ${goal.slice(0, 48)}` : "Spec Feature");
+              planInput.value = "";
+            },
+          },
+          "Spec Feature (/flow:spec)"
+        ),
+        el(
+          "button",
+          {
+            className: "btn",
+            onClick: async () => {
+              const goal = planInput.value.trim();
+              const cmd = goal ? `/flow:prd ${goal}` : "/flow:prd";
+              await runFlowAction(cmd, goal ? `PRD: ${goal.slice(0, 48)}` : "Plan Master PRD");
+              planInput.value = "";
+            },
+          },
+          "Master PRD (/flow:prd)"
+        ),
+        el(
+          "button",
+          {
+            className: "btn",
+            onClick: () => openNewSpecDrawer(planInput.value.trim()),
+          },
+          "+ Scaffold Draft"
+        )
+      )
+    );
+  }
+
   function renderCompanionView() {
     const snap = state.snapshot;
     const activeSpec =
@@ -286,13 +420,19 @@
         )
       ),
       el(
-        "button",
-        { className: "btn", onClick: () => host.openFullStudio() },
-        "Open Studio"
+        "div",
+        { className: "topbar-controls" },
+        buildWorkspaceSelectElement(),
+        el("button", { className: "btn btn-primary", onClick: () => openNewSpecDrawer() }, "+ New Spec"),
+        el(
+          "button",
+          { className: "btn", onClick: () => host.openFullStudio(state.workspacePath) },
+          "Open Studio"
+        )
       )
     );
 
-    const container = el("div", {}, header);
+    const container = el("div", {}, header, renderQuickPlanCard(true));
     if (!activeSpec) {
       container.appendChild(
         el(
@@ -368,21 +508,7 @@
 
   function renderTopBar() {
     const snap = state.snapshot;
-    const wsSelect = el(
-      "select",
-      {
-        className: "select-input",
-        "aria-label": "Active workspace",
-        onChange: async (e) => {
-          state.workspacePath = e.target.value;
-          state.selectedDocRelPath = null;
-          await refreshSnapshot();
-        },
-      },
-      ...state.workspaces.map((ws) =>
-        el("option", { value: ws, selected: ws === state.workspacePath }, ws.split("/").pop() || ws)
-      )
-    );
+    const wsSelect = buildWorkspaceSelectElement();
 
     const pyBadge = snap?.python
       ? el(
@@ -469,7 +595,7 @@
     const snap = state.snapshot;
     if (!snap) return el("div", { className: "subtle-meta" }, "Loading workspace...");
 
-    const wrap = el("div", {});
+    const wrap = el("div", {}, renderQuickPlanCard(false));
     if (snap.specs.length === 0) {
       wrap.appendChild(
         el(
@@ -1127,7 +1253,7 @@
     return el("div", {}, bridgeCard, el("div", { className: "grid-two" }, pyCard, runsCard));
   }
 
-  function openNewSpecDrawer() {
+  function openNewSpecDrawer(initialGoal = "") {
     if (!drawerEl || !backdropEl) return;
     drawerEl.textContent = "";
     backdropEl.classList.remove("hidden");
@@ -1136,18 +1262,30 @@
     const kindSelect = el(
       "select",
       { className: "select-input" },
-      el("option", { value: "Spec" }, "Feature Specification (/flow:plan)"),
+      el("option", { value: "Spec" }, "Feature Specification (/flow:spec)"),
       el("option", { value: "PRD" }, "Master PRD (/flow:prd)")
     );
     const slugInput = el("input", {
       type: "text",
       className: "text-input",
-      placeholder: "e.g. multi-region-failover",
+      placeholder: "Optional (auto-derived from title if left blank)",
     });
     const titleInput = el("input", {
       type: "text",
       className: "text-input",
       placeholder: "Human-readable title",
+      value: initialGoal,
+      onInput: (e) => {
+        const autoSlug = String(e.target.value || "")
+          .trim()
+          .toLowerCase()
+          .replace(/[^a-z0-9-]+/g, "-")
+          .replace(/^-+|-+$/g, "")
+          .slice(0, 48);
+        slugInput.placeholder = autoSlug
+          ? `Auto: ${autoSlug}`
+          : "Optional (auto-derived from title if left blank)";
+      },
     });
     const problemInput = el("textarea", {
       className: "textarea-input",
@@ -1169,9 +1307,19 @@
         el("h3", { className: "card-title" }, "New Specification"),
         el("button", { className: "btn btn-quiet", onClick: closeDrawer }, "Close")
       ),
+      el(
+        "div",
+        { className: "subtle-meta" },
+        `Target workspace: ${state.workspacePath || "active workspace"}`
+      ),
       el("div", { className: "field-group" }, el("label", { className: "field-label" }, "Type"), kindSelect),
-      el("div", { className: "field-group" }, el("label", { className: "field-label" }, "Slug (flow_id)"), slugInput),
       el("div", { className: "field-group" }, el("label", { className: "field-label" }, "Title"), titleInput),
+      el(
+        "div",
+        { className: "field-group" },
+        el("label", { className: "field-label" }, "Slug (flow_id)"),
+        slugInput
+      ),
       el("div", { className: "field-group" }, el("label", { className: "field-label" }, "Problem & Context"), problemInput),
       el(
         "label",
@@ -1181,25 +1329,29 @@
       ),
       el(
         "div",
-        { style: "display:flex;gap:10px;margin-top:8px" },
+        { style: "display:flex;gap:10px;margin-top:8px;flex-wrap:wrap" },
         el(
           "button",
           {
             className: "btn",
             onClick: async () => {
-              const created = await host.api("/api/create-spec", {
-                workspacePath: state.workspacePath,
-                kind: kindSelect.value,
-                flowId: slugInput.value,
-                title: titleInput.value,
-                problem: problemInput.value,
-                hasChapters: chaptersCheck.checked,
-              });
-              closeDrawer();
-              state.selectedDocRelPath = created.relPath;
-              state.tab = "review";
-              await refreshSnapshot();
-              showToast(`Created ${created.relPath}`);
+              try {
+                const created = await host.api("/api/create-spec", {
+                  workspacePath: state.workspacePath,
+                  kind: kindSelect.value,
+                  flowId: slugInput.value,
+                  title: titleInput.value,
+                  problem: problemInput.value,
+                  hasChapters: chaptersCheck.checked,
+                });
+                closeDrawer();
+                state.selectedDocRelPath = created.relPath;
+                state.tab = "review";
+                await refreshSnapshot();
+                showToast(`Created ${created.relPath}`);
+              } catch (err) {
+                showToast(err instanceof Error ? err.message : String(err));
+              }
             },
           },
           "Create Draft Only"
@@ -1207,22 +1359,42 @@
         el(
           "button",
           {
-            className: "btn btn-primary",
+            className: "btn",
             onClick: async () => {
-              const created = await host.api("/api/create-spec", {
-                workspacePath: state.workspacePath,
-                kind: kindSelect.value,
-                flowId: slugInput.value,
-                title: titleInput.value,
-                problem: problemInput.value,
-                hasChapters: chaptersCheck.checked,
-              });
+              const summary = [titleInput.value.trim(), problemInput.value.trim()]
+                .filter(Boolean)
+                .join(" — ");
+              const baseCmd = kindSelect.value === "PRD" ? "/flow:prd" : "/flow:spec";
+              const cmd = summary ? `${baseCmd} ${summary}` : baseCmd;
               closeDrawer();
-              await refreshSnapshot();
-              await runFlowAction(created.dispatchCommand, `Plan ${created.flowId}`);
+              await runFlowAction(cmd, `Spec in ${state.workspacePath.split("/").pop() || "Workspace"}`);
             },
           },
-          "Create & Co-Plan with Agent"
+          "Spec Directly with Agent"
+        ),
+        el(
+          "button",
+          {
+            className: "btn btn-primary",
+            onClick: async () => {
+              try {
+                const created = await host.api("/api/create-spec", {
+                  workspacePath: state.workspacePath,
+                  kind: kindSelect.value,
+                  flowId: slugInput.value,
+                  title: titleInput.value,
+                  problem: problemInput.value,
+                  hasChapters: chaptersCheck.checked,
+                });
+                closeDrawer();
+                await refreshSnapshot();
+                await runFlowAction(created.dispatchCommand, `Spec ${created.flowId}`);
+              } catch (err) {
+                showToast(err instanceof Error ? err.message : String(err));
+              }
+            },
+          },
+          "Create & Co-Spec with Agent"
         )
       )
     );
@@ -1244,7 +1416,30 @@
   });
 
   host.onEvent(async (evt) => {
-    if (evt?.type === "bundle.changed" || evt?.type === "workspace.changed") {
+    if (evt?.type === "workspace.changed") {
+      const uris =
+        Array.isArray(evt.uris) && evt.uris.length > 0
+          ? evt.uris
+          : evt.workspacePath
+            ? [evt.workspacePath]
+            : [];
+      const ctx = await host.api("/api/studio-context", buildContextRequestPayload(uris));
+      state.workspaces = ctx.workspaces || state.workspaces;
+      state.activeWorkspacePaths = ctx.activeWorkspaces || [ctx.defaultWorkspace];
+      if (ctx.defaultWorkspace && ctx.defaultWorkspace !== state.workspacePath) {
+        state.workspacePath = ctx.defaultWorkspace;
+        state.selectedDocRelPath = null;
+        state.currentDoc = null;
+      }
+      await refreshSnapshot();
+    } else if (evt?.type === "bundle.changed" || evt?.type === "spec.created") {
+      if (
+        evt.workspacePath &&
+        evt.workspacePath !== state.workspacePath &&
+        !state.workspaces.includes(evt.workspacePath)
+      ) {
+        state.workspaces = [evt.workspacePath, ...state.workspaces];
+      }
       await refreshSnapshot();
     } else if (evt?.type === "harness.completed") {
       if (state.tab === "activity") {
