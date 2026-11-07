@@ -458,7 +458,7 @@ process.stdout.write(JSON.stringify({
     assert any("Beta Workspace Plan" in lbl for lbl in out["initialSpecLabels"])
     assert any("Studio UI" in lbl for lbl in out["specsAfterEditorSwitch"])
     assert any("Beta Workspace Plan" in lbl for lbl in out["specsAfterWebviewSwitch"])
-    assert str(ws_beta) in out["webviewHtml"]
+    assert json.dumps(str(ws_beta)) in out["webviewHtml"]
     ctx_resp = next(m for m in out["postedWebviewMessages"] if m.get("type") == "apiResponse" and m.get("id") == 1)
     assert ctx_resp["result"]["defaultWorkspace"] == str(ws_beta)
     assert str(ws_alpha) in ctx_resp["result"]["workspaces"]

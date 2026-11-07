@@ -40,7 +40,14 @@
         cleaned = decodeURIComponent(cleaned.replace(/^file:\/\//i, ""));
       }
     }
-    return cleaned.replace(/\\/g, "/").replace(/\/+$/, "");
+    cleaned = cleaned
+      .replace(/\\/g, "/")
+      .replace(/^\/+([A-Za-z]:\/)/, "$1")
+      .replace(/\/+$/, "");
+    if (/^[A-Za-z]:\//.test(cleaned)) {
+      cleaned = cleaned[0].toLowerCase() + cleaned.slice(1);
+    }
+    return cleaned;
   }
 
   /**

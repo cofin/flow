@@ -325,7 +325,7 @@ def test_studio_active_workspace_discovery_and_sidecar_filtering(tmp_path: Path)
         check=True,
     )
     assert recent_file.is_file()
-    assert str(ws_one) in recent_file.read_text(encoding="utf-8")
+    assert ws_one.as_posix() in recent_file.read_text(encoding="utf-8").replace("\\", "/")
 
     probe_js = """
 import { pathToFileURL } from "node:url";
@@ -391,7 +391,7 @@ service.close();
     assert str(ws_one) in out["hostWorkspaces"]
     assert out["createdFlowId"] == "follow-selected-workspace"
     assert Path(out["createdAbsPath"]).is_file()
-    assert str(ws_two) in out["createdAbsPath"]
+    assert ws_two.as_posix() in out["createdAbsPath"].replace("\\", "/")
 
 
 @pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
@@ -488,7 +488,12 @@ const dispatchOther = await host.dispatchPrompt({
   title: "Spec Other",
 });
 
-workspaceChangeCallback([otherUri]);
+workspaceChangeCallback([otherUri, "file:///C:/Users/dev/win-repo"]);
+const dispatchWin = await host.dispatchPrompt({
+  workspacePath: "c:\\\\Users\\\\dev\\\\win-repo",
+  message: "/flow:spec win-feature",
+  title: "Spec Win",
+});
 
 process.stdout.write(JSON.stringify({
   initialUri,
@@ -496,6 +501,7 @@ process.stdout.write(JSON.stringify({
   events,
   dispatchActive,
   dispatchOther,
+  dispatchWin,
   sentToActiveChat,
   apiCalls,
   toggledConversations,
@@ -518,11 +524,13 @@ process.stdout.write(JSON.stringify({
     out = json.loads(proc.stdout.strip().splitlines()[-1])
     assert out["initialUri"] == ws_active.as_uri()
     assert out["dispatchActive"]["mode"] == "active-conversation"
-    assert len(out["sentToActiveChat"]) == 1
+    assert out["dispatchWin"]["mode"] == "active-conversation"
+    assert len(out["sentToActiveChat"]) == 2
     assert out["sentToActiveChat"][0] == {"msg": "/flow:spec active-feature", "convId": "conv-active-1"}
+    assert out["sentToActiveChat"][1] == {"msg": "/flow:spec win-feature", "convId": "conv-active-1"}
     assert out["dispatchOther"]["mode"] == "workspace-cascade"
     assert out["dispatchOther"]["conversationId"] == "conv-other-2"
     assert out["toggledConversations"] == ["conv-other-2"]
-    assert out["activeUrisAfterChange"] == [ws_other.as_uri()]
+    assert out["activeUrisAfterChange"] == [ws_other.as_uri(), "file:///C:/Users/dev/win-repo"]
     assert out["events"][0]["type"] == "workspace.changed"
-    assert out["events"][0]["uris"] == [ws_other.as_uri()]
+    assert out["events"][0]["uris"] == [ws_other.as_uri(), "file:///C:/Users/dev/win-repo"]
