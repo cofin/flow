@@ -207,6 +207,11 @@ if (Test-Path -LiteralPath $AgentsDir -PathType Container) {
     if (-not [string]::IsNullOrEmpty($PendingSync)) {
         $BaseMsg = "$BaseMsg Pending chapter review/Markdown sync: $PendingSync."
     }
+    if ($Harness -match '^(agy|antigravity)$') {
+        $BaseMsg = "$BaseMsg Flow Studio UI: [Open Flow Studio](sidecar://flow/studio/dashboard)."
+    } else {
+        $BaseMsg = "$BaseMsg Flow Studio UI: npx flow-studio."
+    }
 }
 
 function ConvertTo-JsonEscaped([string]$Text) {

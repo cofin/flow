@@ -592,6 +592,7 @@ def test_state_contract_and_lifecycle_references_stay_lean() -> None:
         "setup.md",
         "state.md",
         "status.md",
+        "studio.md",
         "validate.md",
     }
     found_refs = {p.name for p in refs_dir.glob("*.md")}

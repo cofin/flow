@@ -70,6 +70,15 @@ def test_validate_manifests_detects_version_mismatch_and_invalid_keys(tmp_path: 
     assert any("package.json: version" in err for err in errors)
     assert any("disallowed Antigravity manifest keys: ['hooks']" in err for err in errors)
 
+    (tmp_path / "vscode-extension").mkdir()
+    (tmp_path / "vscode-extension" / "package.json").write_text(
+        json.dumps({"name": "flow-studio", "version": "0.24.0", "main": "./extension.mjs"}),
+        encoding="utf-8",
+    )
+    ext_errors = validate_manifests(tmp_path)
+    assert any("vscode-extension/package.json: version" in err for err in ext_errors)
+    assert any("vscode-extension/package.json: main './extension.mjs' does not exist" in err for err in ext_errors)
+
 
 def test_validate_hooks_enforces_stop_hook_schemas_and_dynamic_opencode_context(tmp_path: Path) -> None:
     """Verify validate_hooks flags nested Antigravity Stop matchers, missing loop_limit, and static OpenCode caching."""

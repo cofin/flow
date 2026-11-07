@@ -1,6 +1,32 @@
-# Flow
+<div align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/banner-inline-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="assets/banner-inline-light.svg">
+    <img alt="Flow" src="assets/banner-inline-light.svg" width="520">
+  </picture>
 
-**Measure twice, code once.**
+  <p><strong>Spec-First Engineering &amp; Directed Agent Workflows — Measure twice, code once.</strong></p>
+
+  <p>
+    <a href="https://github.com/litestar-org"><img alt="Litestar Ecosystem" src="https://img.shields.io/badge/Litestar%20Org-Flow-202235?labelColor=202235&color=edb641"></a>
+    <a href="skills/okf/SKILL.md"><img alt="OKF v0.2" src="https://img.shields.io/badge/OKF-v0.2-202235?labelColor=202235&color=edb641"></a>
+    <a href="skills/multi-harness-plugins/SKILL.md"><img alt="Harnesses" src="https://img.shields.io/badge/harnesses-6-202235?labelColor=202235&color=edb641"></a>
+    <a href="LICENSE"><img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-202235?labelColor=202235&color=edb641"></a>
+    <a href="https://github.com/astral-sh/ruff"><img alt="Ruff" src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json&labelColor=202235"></a>
+  </p>
+
+  <p>
+    <a href="#architecture--lifecycle">Architecture &amp; Lifecycle</a>
+    &middot;
+    <a href="#flow-studio--local-knowledge-catalog">Flow Studio</a>
+    &middot;
+    <a href="#install">Install</a>
+    &middot;
+    <a href="#commands--lifecycle-skills">Commands</a>
+    &middot;
+    <a href="#consumer-repository-agents-layout">Bundle Layout</a>
+  </p>
+</div>
 
 Flow is a unified toolkit for **Spec-Driven Development** backed by **Open Knowledge Format (`OKF v0.2`)** bundles. It works natively from a single repository root across **Google Antigravity** (IDE & CLI), **Claude Code**, **Codex CLI**, **Cursor**, **OpenCode V2**, and **VS Code / Copilot**.
 
@@ -27,23 +53,20 @@ Flow separates **Stateful Planning & Adjudication** from **Zero-Context Verifica
 5. **Complete (`/flow:review`, `/flow:finish`, `/flow:archive`, `/flow:cleanup`, `/flow:revert`, `/flow:validate`)**:
    - Runs zero-context code review across **Spec Conformance**, **Repository Standards, Deep-Module Seams, & Baseline Structural Code Smells**, and **Mandatory Quality & Debloat Review (`quality-review-v1`)**, verifies release gates on the current branch, contracts durable learnings into `.agents/bundles/knowledge/**` + `.agents/bundles/log.md`, and removes completed spec directories.
 
+## Flow Studio & Local Knowledge Catalog
+
+Flow includes **Flow Studio** ([`studio.md`](skills/flow/references/studio.md))—a shared, low-noise UI core across **Google Antigravity** (`sidecars/studio/` `AuxPane` companion + `Sidebar` full Studio), **VS Code & Cursor** (`vscode-extension/`), and **standalone loopback HTTP + SSE** (`npx flow-studio` / `make studio` for **Claude Code**, **Codex CLI**, and **OpenCode V2**):
+
+- **Roadmap, Spec Authoring, & Line-Anchored Review**: Track chapter progress across single or portfolio workspaces, scaffold new `Spec` or `PRD` bundles (`+ New Spec`), attach line-anchored review notes on rendered `spec.md`, and dispatch batch revisions directly to `/flow:revise`.
+- **Derived Hybrid DuckDB + EmbeddingGemma Catalog (`flow-catalog`)**: Indexes `.agents/bundles/` Markdown into a disposable local DuckDB catalog (`sqlspec` + `EmbeddingGemma-300m` ONNX Matryoshka `FLOAT[256]` embeddings + BM25 Reciprocal Rank Fusion), supporting reverse `path/to/file::Symbol` provenance lookups and source citation drift checks while degrading cleanly to pure BM25 when embeddings are not installed.
+- **Python Runner Auto-Detection & Toggleable Cross-Harness Dispatch**: Automatically detects `uv`, `hatch`, `pdm`, `poetry`, `pipenv`, and `.venv` project entrypoints without requiring PyPI publication, and dispatches tasks or second-opinion reviews across `claude`, `codex`, `opencode`, `cursor-agent`, and `agy` in `direct-workspace` (default), `worktree-isolated`, or `read-only` mode (including loopback A2A v1 `/.well-known/agent-card.json` + `POST /a2a` and 6-stage Antigravity lifecycle hooks).
+
 ## Install
 
 ### Google Antigravity
 
-Install from GitHub or a local checkout:
-
 ```bash
-git clone https://github.com/cofin/flow.git ~/.Flow
-agy plugin install ~/.Flow
-```
-
-Upgrade an existing installation:
-
-```bash
-cd ~/.Flow
-git pull
-agy plugin install ~/.Flow
+agy plugin install https://github.com/cofin/flow
 ```
 
 When running in Google Antigravity, Flow automatically uses the `run_workflow` Python orchestration API (`phase()`, `parallel()`, `pipeline()`, `agent(..., type_name="self", schema=..., model="inherit")`) for sharded discovery scouts, upfront parallel chapter blueprint authoring, zero-context reviews, and isolated single-chapter task pipelines.

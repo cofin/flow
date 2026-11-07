@@ -1,0 +1,19 @@
+{
+  "name": "flow-dual-review",
+  "description": "Run parallel zero-context correctness and quality reviews over a Git range or Flow chapter, then synthesize a unified adjudication report.",
+  "entry": "workflow.py",
+  "args": {
+    "type": "object",
+    "properties": {
+      "git_range": {
+        "type": "string",
+        "description": "Exact Git revision range to review (for example main..HEAD)."
+      },
+      "spec_path": {
+        "type": "string",
+        "description": "Relative path to the active spec.md or chapter spec.md."
+      }
+    },
+    "required": ["git_range"]
+  }
+}

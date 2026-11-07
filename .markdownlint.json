@@ -20,7 +20,14 @@
       "details",
       "summary",
       "sub",
-      "sup"
+      "sup",
+      "div",
+      "picture",
+      "source",
+      "img",
+      "p",
+      "strong",
+      "a"
     ]
   }
 }
