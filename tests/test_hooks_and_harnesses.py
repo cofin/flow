@@ -714,7 +714,8 @@ def _run_opencode_probe(plugin_path: Path, workspace: Path, mode: str = "plain")
 
 def _frontmatter_value(path: Path, key: str) -> str:
     """Return a scalar frontmatter value from a Markdown file, unquoted."""
-    for line in path.read_text(encoding="utf-8").split("---", 2)[1].splitlines():
+    text = path.read_text(encoding="utf-8").replace("\r\n", "\n")
+    for line in text.split("---", 2)[1].splitlines():
         if line.startswith(f"{key}:"):
             return line.split(":", 1)[1].strip().strip('"').strip("'")
     return ""
@@ -781,7 +782,7 @@ def test_opencode_v2_plugin_registers_flow_subagent(opencode_probe: dict[str, An
     agent = agents[agent_id]
     assert agent["mode"] == "subagent"
     assert agent["description"] == _frontmatter_value(agent_file, "description")
-    body = agent_file.read_text(encoding="utf-8").split("---", 2)[2].strip()
+    body = agent_file.read_text(encoding="utf-8").replace("\r\n", "\n").split("---", 2)[2].strip()
     assert agent["system"] == body
     edit_deny = {"action": "edit", "resource": "*", "effect": "deny"}
     if _frontmatter_value(agent_file, "readonly") == "true":
@@ -800,7 +801,7 @@ def test_opencode_v2_plugin_registers_flow_skill(opencode_probe: dict[str, Any],
     assert skill["name"] == name
     assert skill["path"] == str(skill_file)
     assert Path(skill["path"]).is_absolute()
-    assert skill["content"] == skill_file.read_text(encoding="utf-8")
+    assert skill["content"] == skill_file.read_text(encoding="utf-8").replace("\r\n", "\n")
     assert skill["description"] == _frontmatter_value(skill_file, "description")
 
 
@@ -880,3 +881,45 @@ def test_session_start_flags_stale_opencode_v1_plugin_copy(
     if expect_notice:
         assert "opencode plugin add github:cofin/flow" in context
     assert plugin_file.exists() is (installed != "absent")
+
+
+@pytest.mark.skipif(NODE_BIN is None, reason="node is not installed on this host")
+def test_opencode_v2_plugin_handles_windows_crlf_line_endings(tmp_path: Path) -> None:
+    """Verify plugin normalizes CRLF line endings when parsing skills and agents on Windows."""
+    plugin_dir = tmp_path / "flow-pkg"
+    plugin_dir.mkdir()
+    agents_dir = plugin_dir / "agents"
+    agents_dir.mkdir()
+    skills_dir = plugin_dir / "skills" / "sample"
+    skills_dir.mkdir(parents=True)
+    plugin_script_dir = plugin_dir / ".opencode" / "plugins"
+    plugin_script_dir.mkdir(parents=True)
+    (plugin_script_dir / "flow.js").write_text(OPENCODE_PLUGIN.read_text(encoding="utf-8"), encoding="utf-8")
+
+    (agents_dir / "helper.md").write_bytes(
+        b"---\r\n"
+        b"name: helper\r\n"
+        b"description: CRLF agent.\r\n"
+        b"readonly: true\r\n"
+        b"---\r\n\r\n"
+        b"# Prompt\r\n\r\n"
+        b"CRLF body.\r\n"
+    )
+    (skills_dir / "SKILL.md").write_bytes(
+        b"---\r\nname: sample\r\ndescription: CRLF skill.\r\n---\r\n\r\n# Sample\r\n\r\nCRLF content.\r\n"
+    )
+
+    workspace = tmp_path / "ws"
+    workspace.mkdir()
+    _seed_multichapter_workspace(workspace)
+
+    payload, _stderr = _run_opencode_probe(plugin_script_dir / "flow.js", workspace)
+    agent = payload["agents"][0]
+    assert agent["id"] == "helper"
+    assert "\r" not in agent["system"]
+    assert agent["system"] == "# Prompt\n\nCRLF body."
+
+    skill = payload["skills"][0]
+    assert skill["id"] == "sample"
+    assert "\r" not in skill["content"]
+    assert skill["content"] == "---\nname: sample\ndescription: CRLF skill.\n---\n\n# Sample\n\nCRLF content.\n"

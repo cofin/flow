@@ -15,10 +15,11 @@ const INSTALL_HINT = "opencode plugin add github:cofin/flow";
  * @returns {{ data: Record<string, string>, body: string }}
  */
 function parseFrontmatter(content) {
-  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n?/);
-  if (!match) return { data: {}, body: content };
+  const normalized = content.replace(/\r\n/g, "\n");
+  const match = normalized.match(/^---\n([\s\S]*?)\n---\n?/);
+  if (!match) return { data: {}, body: normalized };
   const data = {};
-  for (const line of match[1].split(/\r?\n/)) {
+  for (const line of match[1].split("\n")) {
     const kv = line.match(/^([A-Za-z_][\w-]*):\s*(.*)$/);
     if (!kv || !kv[2]) continue;
     let value = kv[2].trim();
@@ -27,7 +28,7 @@ function parseFrontmatter(content) {
     }
     data[kv[1]] = value;
   }
-  return { data, body: content.slice(match[0].length) };
+  return { data, body: normalized.slice(match[0].length) };
 }
 
 /**
@@ -44,7 +45,7 @@ function loadSkills(pluginRoot = PLUGIN_ROOT) {
     if (!entry.isDirectory()) continue;
     const skillPath = path.join(skillsDir, entry.name, "SKILL.md");
     if (!fs.existsSync(skillPath)) continue;
-    const content = fs.readFileSync(skillPath, "utf8");
+    const content = fs.readFileSync(skillPath, "utf8").replace(/\r\n/g, "\n");
     const { data } = parseFrontmatter(content);
     const name = data.name || entry.name;
     skills.push({
@@ -120,14 +121,14 @@ function readBundleSummary(workspaceDir) {
         const flowDir = path.join(specsDir, entry.name);
         const specPath = path.join(flowDir, "spec.md");
         if (!fs.existsSync(specPath)) continue;
-        const content = fs.readFileSync(specPath, "utf8");
-        const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+        const content = fs.readFileSync(specPath, "utf8").replace(/\r\n/g, "\n");
+        const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
         if (!fmMatch) continue;
         const fm = fmMatch[1];
-        const flowId = fm.match(/^flow_id:\s*["']?([^#"'\r\n]+)["']?/m)?.[1]?.trim() ?? entry.name;
-        const state = fm.match(/^state:\s*["']?([^#"'\r\n]+)["']?/m)?.[1]?.trim() ?? "unknown";
-        let currentChapter = fm.match(/^current_chapter:\s*["']?([^#"'\r\n]+)["']?/m)?.[1]?.trim() ?? "";
-        const currentTask = fm.match(/^current_task:\s*["']?([^#"'\r\n]+)["']?/m)?.[1]?.trim() ?? "";
+        const flowId = fm.match(/^flow_id:\s*["']?([^#"'\n]+)["']?/m)?.[1]?.trim() ?? entry.name;
+        const state = fm.match(/^state:\s*["']?([^#"'\n]+)["']?/m)?.[1]?.trim() ?? "unknown";
+        let currentChapter = fm.match(/^current_chapter:\s*["']?([^#"'\n]+)["']?/m)?.[1]?.trim() ?? "";
+        const currentTask = fm.match(/^current_task:\s*["']?([^#"'\n]+)["']?/m)?.[1]?.trim() ?? "";
 
         const chaptersDir = path.join(flowDir, "chapters");
         if (fs.existsSync(chaptersDir)) {
@@ -138,10 +139,10 @@ function readBundleSummary(workspaceDir) {
           for (const ch of chEntries) {
             const chSpecPath = path.join(chaptersDir, ch.name, "spec.md");
             if (!fs.existsSync(chSpecPath)) continue;
-            const chContent = fs.readFileSync(chSpecPath, "utf8");
-            const chFm = chContent.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1] ?? "";
-            const chState = chFm.match(/^state:\s*["']?([^#"'\r\n]+)["']?/m)?.[1]?.trim() ?? "";
-            const chRev = chFm.match(/^last_reviewed_commit:\s*["']?([^#"'\r\n]+)["']?/m)?.[1]?.trim() ?? "";
+            const chContent = fs.readFileSync(chSpecPath, "utf8").replace(/\r\n/g, "\n");
+            const chFm = chContent.match(/^---\n([\s\S]*?)\n---/)?.[1] ?? "";
+            const chState = chFm.match(/^state:\s*["']?([^#"'\n]+)["']?/m)?.[1]?.trim() ?? "";
+            const chRev = chFm.match(/^last_reviewed_commit:\s*["']?([^#"'\n]+)["']?/m)?.[1]?.trim() ?? "";
             if ((!currentChapter || currentChapter === "null") && !["completed", "deferred", "skipped"].includes(chState)) {
               currentChapter = ch.name;
             }
@@ -153,9 +154,9 @@ function readBundleSummary(workspaceDir) {
                 .sort();
               let doneCount = 0;
               for (const tf of taskFiles) {
-                const tContent = fs.readFileSync(path.join(chTasksDir, tf), "utf8");
-                const tFm = tContent.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1] ?? "";
-                const tState = tFm.match(/^state:\s*["']?([^#"'\r\n]+)["']?/m)?.[1]?.trim() ?? "";
+                const tContent = fs.readFileSync(path.join(chTasksDir, tf), "utf8").replace(/\r\n/g, "\n");
+                const tFm = tContent.match(/^---\n([\s\S]*?)\n---/)?.[1] ?? "";
+                const tState = tFm.match(/^state:\s*["']?([^#"'\n]+)["']?/m)?.[1]?.trim() ?? "";
                 if (["completed", "closed", "deferred", "skipped"].includes(tState)) {
                   doneCount += 1;
                 }
