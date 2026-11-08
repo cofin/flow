@@ -106,16 +106,37 @@ Cursor natively discovers `.cursor-plugin/plugin.json`, `skills/`, `agents/`, an
 
 ### 5. OpenCode V2 (`package.json` & `.opencode/plugins/<name>.js`)
 
-Set `"main": ".opencode/plugins/<name>.js"` in `package.json` and export an OpenCode V2 plugin object `{ id: "<name>", async setup(ctx) { ... } }`:
+Point `main` and `exports` (`"."` and `"./server"`) in `package.json` at `.opencode/plugins/<name>.js`, and list the runtime directories in `files`. OpenCode resolves a package's `./server` export first. For a local directory plugin, it reads `exports` only when `exports` is defined; otherwise it looks for root `server` or `index` files and ignores `main`.
+
+The default export must be `{ id, setup(ctx) }` (or `{ id, effect }`). Anything else fails with "Plugin must export a default definition with an id and an effect or setup function", which is how pre-V2 standalone copies left in `~/.config/opencode/plugins/` break.
 
 ```javascript
-export const MyPlugin = {
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const PLUGIN_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+
+export default {
   id: "my-plugin",
   async setup(ctx) {
-    ctx.config.skills = ctx.config.skills || {};
-    ctx.config.skills.paths = ctx.config.skills.paths || [];
+    await ctx.skill.transform((editor) => {
+      editor.add({ id: "my-skill", name: "my-skill", path: path.join(PLUGIN_ROOT, "skills/my-skill/SKILL.md"), content: "..." });
+    });
+    await ctx.agent.transform((editor) => {
+      editor.update("my-reviewer", (agent) => {
+        agent.mode = "subagent";
+        agent.system = "...";
+        agent.permissions.push({ action: "edit", resource: "*", effect: "deny" });
+      });
+    });
   },
 };
-
-export default MyPlugin;
 ```
+
+- `transform` callbacks receive an editor and their return value is ignored. `agent` editors create missing agents from the default (primary, allow-all) record, so set `mode` and permissions explicitly.
+- OpenCode does not discover skills from a plugin package's `skills/` directory; register them through `ctx.skill.transform`.
+- `setup` must return nothing or a cleanup function. OpenCode calls any returned value on unload.
+
+### npm and npx bin entry points
+
+npm and npx launch `bin` scripts through a `node_modules/.bin/<name>` symlink. Node resolves the symlink for `import.meta.url` but keeps it in `process.argv[1]`, so a guard such as `path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)` never matches and the bin exits silently. Compare `fs.realpathSync` of both paths.

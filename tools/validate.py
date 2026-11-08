@@ -347,8 +347,17 @@ def validate_manifests(repo_root: Path = REPO_ROOT) -> list[str]:
             errors.append(f".cursor-plugin/plugin.json: logo {cursor_logo!r} does not exist")
 
     pkg_json = loaded.get("package.json")
-    if pkg_json is not None and pkg_json.get("main") != ".opencode/plugins/flow.js":
-        errors.append("package.json: main must be '.opencode/plugins/flow.js'")
+    if pkg_json is not None:
+        if pkg_json.get("main") != ".opencode/plugins/flow.js":
+            errors.append("package.json: main must be '.opencode/plugins/flow.js'")
+        pkg_exports = pkg_json.get("exports")
+        if not isinstance(pkg_exports, dict) or any(
+            pkg_exports.get(key) != "./.opencode/plugins/flow.js" for key in (".", "./server")
+        ):
+            errors.append("package.json: exports '.' and './server' must be './.opencode/plugins/flow.js'")
+        pkg_files = pkg_json.get("files")
+        if not isinstance(pkg_files, list) or not {".opencode/plugins/", "agents/", "skills/"} <= set(pkg_files):
+            errors.append("package.json: files must include '.opencode/plugins/', 'agents/', and 'skills/'")
 
     vscode_dir = repo_root / "vscode-extension"
     if vscode_dir.is_dir():
@@ -517,6 +526,11 @@ def validate_hooks(repo_root: Path = REPO_ROOT) -> list[str]:
             errors.append(".opencode/plugins/flow.js: must export OpenCode V2 { id: 'flow', async setup(ctx) }")
         if "const summary = readBundleSummary" in js_text:
             errors.append(".opencode/plugins/flow.js: must invoke readBundleSummary dynamically per turn")
+        if "experimental.chat.system.transform" in js_text or "systemMessage" in js_text:
+            errors.append(
+                ".opencode/plugins/flow.js: must not use V1 hooks; push context with event.system.push in"
+                " ctx.session.hook('context')"
+            )
 
     errors.extend(_run_session_start_smoke_checks(hook_script, ps1_script))
     if stop_sh_script.is_file():

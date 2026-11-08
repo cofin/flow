@@ -4,6 +4,29 @@
   "description": "Unified toolkit for Context-Driven Development",
   "type": "module",
   "main": ".opencode/plugins/flow.js",
+  "exports": {
+    ".": "./.opencode/plugins/flow.js",
+    "./server": "./.opencode/plugins/flow.js"
+  },
+  "files": [
+    ".opencode/plugins/",
+    "agents/",
+    "assets/",
+    "hooks/",
+    "hooks.json",
+    "plugin.json",
+    "rules/",
+    "sidecars/",
+    "skills/",
+    "templates/",
+    "tools/__init__.py",
+    "tools/catalog/",
+    "vscode-extension/",
+    "workflows/",
+    "pyproject.toml",
+    "uv.lock",
+    "!**/__pycache__/**"
+  ],
   "bin": {
     "flow-studio": "./sidecars/studio/server.mjs",
     "flow-studio-vscode": "./vscode-extension/install.mjs"

@@ -8,7 +8,7 @@ Flow Studio provides a calm, low-noise companion UI for managing specifications,
    - **AuxPane Companion (`/`)**: Compact active-chapter progress, next-step launcher, and quick Studio opener.
    - **Full Studio (`/dashboard`, `sidecar://flow/studio/dashboard`)**: Four focused views—`Roadmap`, `Spec & Review`, `Knowledge Catalog`, and `Activity & Hooks`—adapted automatically to host light and dark CSS tokens via `/preload.js`.
    - **Workspace-Bound Dispatch**: Launches new conversations bound directly to the target repository via loopback `LanguageServerService` (`StartCascade` + `SendUserCascadeMessage`) rather than inheriting the plugin checkout directory.
-2. **Standalone Loopback Server (`npx flow-studio` / `make studio`)**:
+2. **Standalone Loopback Server (`npx --yes --package github:cofin/flow flow-studio` / `make studio`)**:
    - Binds strictly to `127.0.0.1` (`--port 0` dynamic port by default) with Server-Sent Events (`/api/events`) for **Claude Code**, **Codex CLI**, **OpenCode V2**, or browser tabs alongside any terminal harness.
 3. **VS Code & Cursor Extension (`vscode-extension/`)**:
    - Contributes the `Flow Studio` Activity Bar container (`Specs & Chapters` and `Knowledge Catalog` tree views), quiet `spec.md` CodeLenses (`Open in Flow Studio`, `Implement <chapter>`, `Zero-Context Review`), and Webview Studio panel sharing `StudioApiService` directly with `sidecars/studio/router.mjs`.

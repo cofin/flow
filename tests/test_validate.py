@@ -6,6 +6,8 @@ import json
 import shutil
 from pathlib import Path
 
+import pytest
+
 from tools.validate import (
     EXPECTED_AGENTS,
     EXPECTED_SKILLS,
@@ -80,6 +82,39 @@ def test_validate_manifests_detects_version_mismatch_and_invalid_keys(tmp_path: 
     assert any("vscode-extension/package.json: main './extension.mjs' does not exist" in err for err in ext_errors)
 
 
+@pytest.mark.parametrize(
+    ("package_overrides", "expected_error"),
+    (
+        ({"exports": None}, "package.json: exports '.' and './server' must be './.opencode/plugins/flow.js'"),
+        (
+            {"exports": {".": "./.opencode/plugins/flow.js"}},
+            "package.json: exports '.' and './server' must be './.opencode/plugins/flow.js'",
+        ),
+        ({"files": None}, "package.json: files must include '.opencode/plugins/', 'agents/', and 'skills/'"),
+        (
+            {"files": [".opencode/plugins/"]},
+            "package.json: files must include '.opencode/plugins/', 'agents/', and 'skills/'",
+        ),
+    ),
+)
+def test_validate_manifests_requires_opencode_package_entrypoints(
+    tmp_path: Path,
+    package_overrides: dict[str, object],
+    expected_error: str,
+) -> None:
+    """Verify package.json keeps OpenCode local-directory exports and ships the plugin's skills and agents."""
+    package = json.loads((REPO_ROOT / "package.json").read_text(encoding="utf-8"))
+    for key, value in package_overrides.items():
+        if value is None:
+            package.pop(key, None)
+        else:
+            package[key] = value
+    (tmp_path / "package.json").write_text(json.dumps(package), encoding="utf-8")
+    shutil.copy2(REPO_ROOT / "pyproject.toml", tmp_path / "pyproject.toml")
+
+    assert expected_error in validate_manifests(tmp_path)
+
+
 def test_validate_hooks_enforces_stop_hook_schemas_and_dynamic_opencode_context(tmp_path: Path) -> None:
     """Verify validate_hooks flags nested Antigravity Stop matchers, missing loop_limit, and static OpenCode caching."""
     hooks_dir = tmp_path / "hooks"
@@ -137,7 +172,7 @@ def test_validate_hooks_enforces_stop_hook_schemas_and_dynamic_opencode_context(
     (opencode_dir / "flow.js").write_text(
         'const flowPlugin = { id: "flow", async setup(ctx) {\n'
         "  const summary = readBundleSummary(ctx.cwd);\n"
-        "  return summary;\n"
+        "  return { 'experimental.chat.system.transform': async () => summary };\n"
         "} };\n",
         encoding="utf-8",
     )
@@ -147,6 +182,7 @@ def test_validate_hooks_enforces_stop_hook_schemas_and_dynamic_opencode_context(
     assert "hooks/hooks-claude.json: Stop must use nested matcher format" in errors
     assert "hooks/hooks-cursor.json: must declare hooks.stop with integer loop_limit" in errors
     assert ".opencode/plugins/flow.js: must invoke readBundleSummary dynamically per turn" in errors
+    assert any(err.startswith(".opencode/plugins/flow.js: must not use V1 hooks") for err in errors)
 
 
 def test_validate_skills_enforces_byte_cap_and_frontmatter(tmp_path: Path) -> None:

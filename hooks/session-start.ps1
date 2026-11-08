@@ -245,8 +245,27 @@ if (Test-Path -LiteralPath $AgentsDir -PathType Container) {
     if ($Harness -match '^(agy|antigravity)$') {
         $BaseMsg = "$BaseMsg Flow Studio UI: [Open Flow Studio](sidecar://flow/studio/dashboard)."
     } else {
-        $BaseMsg = "$BaseMsg Flow Studio UI: npx flow-studio."
+        $BaseMsg = "$BaseMsg Flow Studio UI: npx --yes --package github:cofin/flow flow-studio."
     }
+}
+
+$OpenCodeConfigRoot = if (-not [string]::IsNullOrEmpty($env:XDG_CONFIG_HOME)) {
+    $env:XDG_CONFIG_HOME
+} elseif (-not [string]::IsNullOrEmpty($env:HOME)) {
+    Join-Path $env:HOME ".config"
+} else {
+    Join-Path ([Environment]::GetFolderPath("UserProfile")) ".config"
+}
+$OpenCodeLegacyPlugin = Join-Path $OpenCodeConfigRoot "opencode/plugins/flow.js"
+try {
+    if (Test-Path -LiteralPath $OpenCodeLegacyPlugin -PathType Leaf) {
+        $LegacyRaw = Get-Content -LiteralPath $OpenCodeLegacyPlugin -Raw -Encoding UTF8
+        if ($LegacyRaw -match 'flow-rule-adapter:start' -or $LegacyRaw -match 'export default async') {
+            $BaseMsg = "$BaseMsg Stale pre-0.26 OpenCode Flow plugin at ${OpenCodeLegacyPlugin}: OpenCode V2 rejects it; delete it and run: opencode plugin add github:cofin/flow."
+        }
+    }
+} catch {
+    # Ignore unreadable OpenCode config during startup priming.
 }
 
 function ConvertTo-JsonEscaped([string]$Text) {

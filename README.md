@@ -55,7 +55,7 @@ Flow separates **Stateful Planning & Adjudication** from **Zero-Context Verifica
 
 ## Flow Studio & Local Knowledge Catalog
 
-Flow includes **Flow Studio** ([`studio.md`](skills/flow/references/studio.md))—a shared, low-noise UI core across **Google Antigravity** (`sidecars/studio/` `AuxPane` companion + `Sidebar` full Studio), **VS Code & Cursor** (`vscode-extension/`), and **standalone loopback HTTP + SSE** (`npx flow-studio` / `make studio` for **Claude Code**, **Codex CLI**, and **OpenCode V2**):
+Flow includes **Flow Studio** ([`studio.md`](skills/flow/references/studio.md))—a shared, low-noise UI core across **Google Antigravity** (`sidecars/studio/` `AuxPane` companion + `Sidebar` full Studio), **VS Code & Cursor** (`vscode-extension/`), and **standalone loopback HTTP + SSE** (`npx --yes --package github:cofin/flow flow-studio` / `make studio` for **Claude Code**, **Codex CLI**, and **OpenCode V2**):
 
 - **Roadmap, Spec Authoring, & Line-Anchored Review**: Track chapter progress across single or portfolio workspaces, scaffold new `Spec` or `PRD` bundles (`+ New Spec`), attach line-anchored review notes on rendered `spec.md`, and dispatch batch revisions directly to `/flow:revise`.
 - **Derived Hybrid DuckDB + EmbeddingGemma Catalog (`flow-catalog`)**: Indexes `.agents/bundles/` Markdown into a disposable local DuckDB catalog (`sqlspec` + `EmbeddingGemma-300m` ONNX Matryoshka `FLOAT[256]` embeddings + BM25 Reciprocal Rank Fusion), supporting reverse `path/to/file::Symbol` provenance lookups and source citation drift checks while degrading cleanly to pure BM25 when embeddings are not installed.
@@ -104,7 +104,15 @@ npx --yes --package github:cofin/flow flow-studio-vscode --target cursor
 
 ### OpenCode V2
 
-Add Flow to your OpenCode `plugins` configuration (`opencode plugin add cofin/flow` or a local checkout path).
+Install the packaged plugin. It registers Flow's skills and subagents and adds the live bundle summary to every model request:
+
+```bash
+opencode plugin add github:cofin/flow
+```
+
+For local development, add the checkout directory to the OpenCode `plugins` configuration instead.
+
+If OpenCode reports `Plugin must export a default definition with an id and an effect or setup function` for `~/.config/opencode/plugins/flow.js`, that file is a standalone copy from before Flow 0.26 that OpenCode V2 rejects. Delete it and install the package with the command above.
 
 ### VS Code / Copilot ( plus Windsurf & Positron )
 

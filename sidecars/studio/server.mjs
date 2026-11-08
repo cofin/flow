@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Standalone loopback HTTP + SSE + A2A v1 server (`npx flow-studio`).
+ * Standalone loopback HTTP + SSE + A2A v1 server (`npx --yes --package github:cofin/flow flow-studio`).
  *
  * Serves the exact same calm Flow Studio UI and DuckDB catalog backend for
  * Claude Code, Codex CLI, OpenCode V2, Cursor, and browser workflows without
