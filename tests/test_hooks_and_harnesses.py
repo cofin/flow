@@ -704,6 +704,7 @@ def _run_opencode_probe(plugin_path: Path, workspace: Path, mode: str = "plain")
     proc = subprocess.run(
         [NODE_BIN, "--input-type=module", "-e", OPENCODE_V2_HOST_PROBE, str(plugin_path), str(workspace), mode],
         text=True,
+        encoding="utf-8",
         capture_output=True,
         cwd=str(workspace),
         check=True,
