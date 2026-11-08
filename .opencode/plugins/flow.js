@@ -3,15 +3,85 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const PLUGIN_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+const INSTALL_HINT = "opencode plugin add github:cofin/flow";
 
-const SUBAGENTS = Object.freeze([
-  { id: "code-reviewer", file: "agents/code-reviewer.md", readonly: true },
-  { id: "executor", file: "agents/executor.md", readonly: false },
-  { id: "plan-generator", file: "agents/plan-generator.md", readonly: false },
-  { id: "prd-orchestrator", file: "agents/prd-orchestrator.md", readonly: false },
-  { id: "quality-reviewer", file: "agents/quality-reviewer.md", readonly: true },
-  { id: "researcher", file: "agents/researcher.md", readonly: true },
-]);
+/**
+ * Parse the scalar `key: value` lines of a Markdown file's YAML frontmatter.
+ *
+ * Flow's agent and skill files only use single-line scalars for the keys the plugin reads,
+ * so nested lists and block scalars are skipped rather than parsed.
+ *
+ * @param {string} content Markdown text.
+ * @returns {{ data: Record<string, string>, body: string }}
+ */
+function parseFrontmatter(content) {
+  const normalized = content.replace(/\r\n/g, "\n");
+  const match = normalized.match(/^---\n([\s\S]*?)\n---\n?/);
+  if (!match) return { data: {}, body: normalized };
+  const data = {};
+  for (const line of match[1].split("\n")) {
+    const kv = line.match(/^([A-Za-z_][\w-]*):\s*(.*)$/);
+    if (!kv || !kv[2]) continue;
+    let value = kv[2].trim();
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    data[kv[1]] = value;
+  }
+  return { data, body: normalized.slice(match[0].length) };
+}
+
+/**
+ * Load Flow skills from `<plugin root>/skills/<name>/SKILL.md` as OpenCode V2 `Skill.Info` records.
+ *
+ * @param {string} [pluginRoot]
+ * @returns {Array<{ id: string, name: string, description?: string, path: string, content: string }>}
+ */
+function loadSkills(pluginRoot = PLUGIN_ROOT) {
+  const skillsDir = path.join(pluginRoot, "skills");
+  if (!fs.existsSync(skillsDir)) return [];
+  const skills = [];
+  for (const entry of fs.readdirSync(skillsDir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+    if (!entry.isDirectory()) continue;
+    const skillPath = path.join(skillsDir, entry.name, "SKILL.md");
+    if (!fs.existsSync(skillPath)) continue;
+    const content = fs.readFileSync(skillPath, "utf8").replace(/\r\n/g, "\n");
+    const { data } = parseFrontmatter(content);
+    const name = data.name || entry.name;
+    skills.push({
+      id: name,
+      name,
+      ...(data.description ? { description: data.description } : {}),
+      path: skillPath,
+      content,
+    });
+  }
+  return skills;
+}
+
+/**
+ * Load Flow subagents from `<plugin root>/agents/*.md`.
+ *
+ * @param {string} [pluginRoot]
+ * @returns {Array<{ id: string, name: string, description: string, system: string, readonly: boolean }>}
+ */
+function loadSubagents(pluginRoot = PLUGIN_ROOT) {
+  const agentsDir = path.join(pluginRoot, "agents");
+  if (!fs.existsSync(agentsDir)) return [];
+  const agents = [];
+  for (const file of fs.readdirSync(agentsDir).filter((f) => f.endsWith(".md")).sort()) {
+    const { data, body } = parseFrontmatter(fs.readFileSync(path.join(agentsDir, file), "utf8"));
+    const id = data.name || path.basename(file, ".md");
+    agents.push({
+      id,
+      name: id,
+      description: data.description ?? "",
+      system: body.trim(),
+      readonly: data.readonly === "true",
+    });
+  }
+  return agents;
+}
 
 function readBundleSummary(workspaceDir) {
   const baseMsg =
@@ -51,14 +121,14 @@ function readBundleSummary(workspaceDir) {
         const flowDir = path.join(specsDir, entry.name);
         const specPath = path.join(flowDir, "spec.md");
         if (!fs.existsSync(specPath)) continue;
-        const content = fs.readFileSync(specPath, "utf8");
-        const fmMatch = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+        const content = fs.readFileSync(specPath, "utf8").replace(/\r\n/g, "\n");
+        const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
         if (!fmMatch) continue;
         const fm = fmMatch[1];
-        const flowId = fm.match(/^flow_id:\s*["']?([^#"'\r\n]+)["']?/m)?.[1]?.trim() ?? entry.name;
-        const state = fm.match(/^state:\s*["']?([^#"'\r\n]+)["']?/m)?.[1]?.trim() ?? "unknown";
-        let currentChapter = fm.match(/^current_chapter:\s*["']?([^#"'\r\n]+)["']?/m)?.[1]?.trim() ?? "";
-        const currentTask = fm.match(/^current_task:\s*["']?([^#"'\r\n]+)["']?/m)?.[1]?.trim() ?? "";
+        const flowId = fm.match(/^flow_id:\s*["']?([^#"'\n]+)["']?/m)?.[1]?.trim() ?? entry.name;
+        const state = fm.match(/^state:\s*["']?([^#"'\n]+)["']?/m)?.[1]?.trim() ?? "unknown";
+        let currentChapter = fm.match(/^current_chapter:\s*["']?([^#"'\n]+)["']?/m)?.[1]?.trim() ?? "";
+        const currentTask = fm.match(/^current_task:\s*["']?([^#"'\n]+)["']?/m)?.[1]?.trim() ?? "";
 
         const chaptersDir = path.join(flowDir, "chapters");
         if (fs.existsSync(chaptersDir)) {
@@ -69,10 +139,10 @@ function readBundleSummary(workspaceDir) {
           for (const ch of chEntries) {
             const chSpecPath = path.join(chaptersDir, ch.name, "spec.md");
             if (!fs.existsSync(chSpecPath)) continue;
-            const chContent = fs.readFileSync(chSpecPath, "utf8");
-            const chFm = chContent.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1] ?? "";
-            const chState = chFm.match(/^state:\s*["']?([^#"'\r\n]+)["']?/m)?.[1]?.trim() ?? "";
-            const chRev = chFm.match(/^last_reviewed_commit:\s*["']?([^#"'\r\n]+)["']?/m)?.[1]?.trim() ?? "";
+            const chContent = fs.readFileSync(chSpecPath, "utf8").replace(/\r\n/g, "\n");
+            const chFm = chContent.match(/^---\n([\s\S]*?)\n---/)?.[1] ?? "";
+            const chState = chFm.match(/^state:\s*["']?([^#"'\n]+)["']?/m)?.[1]?.trim() ?? "";
+            const chRev = chFm.match(/^last_reviewed_commit:\s*["']?([^#"'\n]+)["']?/m)?.[1]?.trim() ?? "";
             if ((!currentChapter || currentChapter === "null") && !["completed", "deferred", "skipped"].includes(chState)) {
               currentChapter = ch.name;
             }
@@ -84,9 +154,9 @@ function readBundleSummary(workspaceDir) {
                 .sort();
               let doneCount = 0;
               for (const tf of taskFiles) {
-                const tContent = fs.readFileSync(path.join(chTasksDir, tf), "utf8");
-                const tFm = tContent.match(/^---\r?\n([\s\S]*?)\r?\n---/)?.[1] ?? "";
-                const tState = tFm.match(/^state:\s*["']?([^#"'\r\n]+)["']?/m)?.[1]?.trim() ?? "";
+                const tContent = fs.readFileSync(path.join(chTasksDir, tf), "utf8").replace(/\r\n/g, "\n");
+                const tFm = tContent.match(/^---\n([\s\S]*?)\n---/)?.[1] ?? "";
+                const tState = tFm.match(/^state:\s*["']?([^#"'\n]+)["']?/m)?.[1]?.trim() ?? "";
                 if (["completed", "closed", "deferred", "skipped"].includes(tState)) {
                   doneCount += 1;
                 }
@@ -132,44 +202,60 @@ function readBundleSummary(workspaceDir) {
   if (pendingSync.length > 0) {
     parts.push(`Pending chapter review/Markdown sync: ${pendingSync.join(", ")}.`);
   }
-  parts.push("Flow Studio UI: npx flow-studio.");
+  parts.push("Flow Studio UI: npx --yes --package github:cofin/flow flow-studio.");
   return parts.join(" ");
 }
 
+/**
+ * OpenCode V2 Promise plugin.
+ *
+ * Registers Flow skills and subagents through the domain editors and injects the live
+ * bundle summary into every agent-loop model request through the session `context` hook.
+ * A standalone copy outside the package (for example `~/.config/opencode/plugins/flow.js`)
+ * still injects the summary but cannot find `skills/` or `agents/`, so it warns once.
+ */
 const flowPlugin = {
   id: "flow",
   async setup(ctx) {
-    const workspaceDir = ctx?.workspace?.root ?? ctx?.cwd ?? process.cwd();
+    const workspaceDir = ctx.location?.directory ?? process.cwd();
+    const skills = loadSkills();
+    const agents = loadSubagents();
 
-    if (ctx?.agent?.transform) {
-      ctx.agent.transform((agents) => {
-        const nextAgents = Array.isArray(agents) ? [...agents] : [];
-        for (const subagent of SUBAGENTS) {
-          nextAgents.push({
-            id: subagent.id,
-            promptFile: path.join(PLUGIN_ROOT, subagent.file),
-            readonly: subagent.readonly,
-          });
+    if (skills.length === 0 && agents.length === 0) {
+      console.warn(
+        `[flow] skills/ and agents/ not found next to ${PLUGIN_ROOT}; install the full package with: ${INSTALL_HINT}`
+      );
+    }
+
+    if (skills.length > 0) {
+      await ctx.skill.transform((editor) => {
+        for (const skill of skills) {
+          if (!editor.get(skill.id)) editor.add(skill);
         }
-        return nextAgents;
       });
     }
 
-    if (ctx?.session?.hook) {
-      ctx.session.hook("context", async () => ({
-        systemMessage: readBundleSummary(workspaceDir),
-      }));
+    if (agents.length > 0) {
+      await ctx.agent.transform((editor) => {
+        for (const agent of agents) {
+          editor.update(agent.id, (item) => {
+            item.name = agent.name;
+            item.description = agent.description;
+            item.system = agent.system;
+            item.mode = "subagent";
+            if (agent.readonly) {
+              item.permissions.push({ action: "edit", resource: "*", effect: "deny" });
+            }
+          });
+        }
+      });
     }
 
-    return {
-      "experimental.chat.system.transform": async (_input, output) => {
-        if (Array.isArray(output?.system)) {
-          output.system.push(readBundleSummary(workspaceDir));
-        }
-      },
-    };
+    await ctx.session.hook("context", (event) => {
+      event.system.push({ type: "text", text: readBundleSummary(workspaceDir) });
+    });
   },
 };
 
-export { flowPlugin, readBundleSummary, SUBAGENTS };
+export { flowPlugin, loadSkills, loadSubagents, parseFrontmatter, readBundleSummary };
 export default flowPlugin;

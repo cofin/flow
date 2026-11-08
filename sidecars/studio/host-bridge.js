@@ -4,7 +4,7 @@
  * Adapts API requests, agent prompt dispatch, file opening, and live events across:
  *   1. Google Antigravity Sidecar (`window.sidecar` + `/preload.js`)
  *   2. VS Code / Cursor Webview (`acquireVsCodeApi()`)
- *   3. Standalone Loopback Server (`npx flow-studio` HTTP + SSE)
+ *   3. Standalone Loopback Server (`npx --yes --package github:cofin/flow flow-studio` HTTP + SSE)
  */
 (function initFlowHostBridge() {
   const vscodeApi = typeof window.acquireVsCodeApi === "function" ? window.acquireVsCodeApi() : null;

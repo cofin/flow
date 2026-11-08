@@ -2,7 +2,7 @@
   "name": "flow-studio",
   "displayName": "Flow Studio",
   "description": "Multi-harness Spec-Driven Development Studio, line-anchored spec review, and local DuckDB + EmbeddingGemma Knowledge Catalog for VS Code, Cursor, Claude Code, Codex CLI, OpenCode, and Google Antigravity.",
-  "version": "0.28.0",
+  "version": "0.28.1",
   "publisher": "cofin",
   "license": "Apache-2.0",
   "icon": "icon.png",

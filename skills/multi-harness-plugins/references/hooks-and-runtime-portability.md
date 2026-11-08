@@ -108,7 +108,7 @@ Cursor uses `version: 1` and camelCase event names (`sessionStart`, `stop`) with
 
 ### 4. OpenCode V2 (`.opencode/plugins/<name>.js`)
 
-In OpenCode V2, `ctx.session.hook("context", async () => ({ systemMessage: readSummary(workspaceDir) }))` and `"experimental.chat.system.transform"` run on **every model request** in the session loop. Re-evaluate bundle state dynamically inside the hook callback (never cache once at `setup(ctx)`) so mid-session chapter progress and pending review/sync warnings surface immediately on the next turn.
+In OpenCode V2, `ctx.session.hook("context", (event) => { event.system.push({ type: "text", text: readSummary(workspaceDir) }); })` runs on **every model request** in the agent loop, including tool continuations. The callback mutates `event.system` in place; return values are ignored, and V1 hooks such as `"experimental.chat.system.transform"` never run. Resolve the workspace from `ctx.location.directory`, and re-evaluate bundle state inside the hook callback (never cache once at `setup(ctx)`) so mid-session chapter progress and pending review/sync warnings surface on the next turn.
 
 ## Harness Stdout JSON Schemas for `SessionStart`
 

@@ -505,3 +505,41 @@ def test_vscode_extension_installer_creates_self_contained_bundle(tmp_path: Path
         check=True,
     )
     assert "(up-to-date)" in proc_if_needed.stdout
+
+
+@pytest.mark.skipif(NODE_BIN is None, reason="node is required")
+def test_vscode_extension_installer_runs_through_npm_bin_symlink(tmp_path: Path) -> None:
+    """Verify the installer runs when launched through a node_modules/.bin symlink, as npx does."""
+    assert NODE_BIN is not None
+    bin_dir = tmp_path / "node_modules" / ".bin"
+    bin_dir.mkdir(parents=True)
+    bin_link = bin_dir / "flow-studio-vscode"
+    bin_link.symlink_to(EXT_DIR / "install.mjs")
+    ext_dir = tmp_path / "extensions"
+    proc = subprocess.run(
+        [NODE_BIN, str(bin_link), "--extensions-dir", str(ext_dir)],
+        text=True,
+        capture_output=True,
+        cwd=str(tmp_path),
+        check=True,
+    )
+    assert "Installed cofin.flow-studio@" in proc.stdout
+    assert len(list(ext_dir.glob("cofin.flow-studio-*"))) == 1
+
+
+@pytest.mark.skipif(NODE_BIN is None, reason="node is required")
+@pytest.mark.parametrize("flag", ("--help", "-h"))
+def test_vscode_extension_installer_help_prints_usage_without_installing(tmp_path: Path, flag: str) -> None:
+    """Verify --help prints usage and leaves the target extensions directory untouched."""
+    assert NODE_BIN is not None
+    ext_dir = tmp_path / "extensions"
+    proc = subprocess.run(
+        [NODE_BIN, str(EXT_DIR / "install.mjs"), flag, "--extensions-dir", str(ext_dir)],
+        text=True,
+        capture_output=True,
+        cwd=str(tmp_path),
+        check=True,
+    )
+    assert proc.stdout.startswith("Usage: flow-studio-vscode")
+    assert "--target <name>" in proc.stdout
+    assert not ext_dir.exists()

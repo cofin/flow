@@ -613,54 +613,314 @@ def test_stop_check_respects_circuit_breakers_and_leaf_subagent_guards(
         assert ps_payload == {}, f"[{case_id}] expected PowerShell allow {{}}, got {ps_payload}"
 
 
+OPENCODE_PLUGIN = REPO_ROOT / ".opencode" / "plugins" / "flow.js"
+OPENCODE_AGENT_FILES = sorted((REPO_ROOT / "agents").glob("*.md"))
+OPENCODE_SKILL_FILES = sorted((REPO_ROOT / "skills").glob("*/SKILL.md"))
+OPENCODE_V2_HOST_PROBE = """
+import fs from "node:fs";
+import path from "node:path";
+import { pathToFileURL } from "node:url";
+
+const [pluginPath, ws, mode] = process.argv.slice(1);
+const skills = new Map();
+if (mode === "preexisting") {
+  skills.set("flow", { id: "flow", name: "flow", path: "/user/skills/flow/SKILL.md", content: "user copy" });
+}
+const agents = new Map();
+const hooks = {};
+const registration = { dispose: async () => {} };
+const transformReturns = [];
+
+const skillEditor = {
+  list: () => [...skills.values()],
+  get: (id) => skills.get(id),
+  add: (skill) => skills.set(skill.id, skill),
+  update: (id, fn) => fn(skills.get(id)),
+  remove: (id) => skills.delete(id),
+};
+const agentEditor = {
+  list: () => [...agents.values()],
+  get: (id) => agents.get(id),
+  default: () => {},
+  update: (id, fn) => {
+    const current = agents.get(id) ?? {
+      id,
+      name: id,
+      request: { settings: {}, headers: {}, body: {} },
+      mode: "primary",
+      hidden: false,
+      permissions: [{ action: "*", resource: "*", effect: "allow" }],
+    };
+    agents.set(id, current);
+    fn(current);
+    current.id = id;
+  },
+  remove: (id) => agents.delete(id),
+};
+
+const ctx = {
+  location: { directory: ws, project: { id: "p", directory: ws, canonical: ws } },
+  skill: { transform: async (cb) => { transformReturns.push(cb(skillEditor)); return registration; } },
+  agent: { transform: async (cb) => { transformReturns.push(cb(agentEditor)); return registration; } },
+  session: { hook: async (name, cb) => { hooks[name] = cb; return registration; } },
+};
+
+const mod = await import(pathToFileURL(pluginPath).href);
+const setupResult = await mod.default.setup(ctx);
+
+async function turn() {
+  const event = { sessionID: "s1", agent: "build", model: {}, system: [], messages: [], options: {}, tools: {} };
+  const returned = await hooks.context(event);
+  return { returned: returned === undefined ? null : typeof returned, system: event.system };
+}
+
+const turn1 = await turn();
+if (mode === "mutate") {
+  const ch2Dir = path.join(ws, ".agents/bundles/specs/auth-refactor/chapters/ch02-session");
+  const ch2Spec = path.join(ch2Dir, "spec.md");
+  const doneFm = [
+    "---", "type: Task", "id: auth-refactor:ch02:t02", "state: completed", "commit: 2222222", "---", "",
+  ].join("\\n");
+  fs.writeFileSync(path.join(ch2Dir, "tasks/t02-middleware.md"), doneFm, "utf8");
+  fs.writeFileSync(ch2Spec, fs.readFileSync(ch2Spec, "utf8").replace("- [ ] [t02]", "- [x] [2222222] [t02]"), "utf8");
+}
+const turn2 = await turn();
+
+process.stdout.write(JSON.stringify({
+  setupResult: setupResult === undefined ? null : typeof setupResult,
+  transformReturns: transformReturns.map((value) => (value === undefined ? null : typeof value)),
+  hookNames: Object.keys(hooks),
+  skills: [...skills.values()],
+  agents: [...agents.values()],
+  turn1,
+  turn2,
+}) + "\\n");
+"""
+
+
+def _run_opencode_probe(plugin_path: Path, workspace: Path, mode: str = "plain") -> tuple[dict[str, Any], str]:
+    """Load the plugin into a fake OpenCode V2 host whose editors and hooks follow the Promise-plugin contract."""
+    assert NODE_BIN is not None
+    proc = subprocess.run(
+        [NODE_BIN, "--input-type=module", "-e", OPENCODE_V2_HOST_PROBE, str(plugin_path), str(workspace), mode],
+        text=True,
+        encoding="utf-8",
+        capture_output=True,
+        cwd=str(workspace),
+        check=True,
+    )
+    parsed: dict[str, Any] = json.loads(proc.stdout)
+    return parsed, proc.stderr
+
+
+def _frontmatter_value(path: Path, key: str) -> str:
+    """Return a scalar frontmatter value from a Markdown file, unquoted."""
+    text = path.read_text(encoding="utf-8").replace("\r\n", "\n")
+    for line in text.split("---", 2)[1].splitlines():
+        if line.startswith(f"{key}:"):
+            return line.split(":", 1)[1].strip().strip('"').strip("'")
+    return ""
+
+
+@pytest.fixture(scope="module")
+def opencode_probe(tmp_path_factory: pytest.TempPathFactory) -> dict[str, Any]:
+    """Run the packaged plugin once against a seeded multi-chapter workspace."""
+    if NODE_BIN is None:
+        pytest.skip("node is not installed on this host")
+    workspace = tmp_path_factory.mktemp("opencode-ws")
+    _seed_multichapter_workspace(workspace)
+    payload, _stderr = _run_opencode_probe(OPENCODE_PLUGIN, workspace)
+    return payload
+
+
 def test_opencode_v2_plugin_is_self_contained() -> None:
-    """Verify .opencode/plugins/flow.js uses native node:fs/node:path and exports V2 setup(ctx)."""
-    plugin_js = (REPO_ROOT / ".opencode" / "plugins" / "flow.js").read_text(encoding="utf-8")
+    """Verify .opencode/plugins/flow.js uses native node:fs/node:path and carries no V1 hook surface."""
+    plugin_js = OPENCODE_PLUGIN.read_text(encoding="utf-8")
     assert 'id: "flow"' in plugin_js
     assert "async setup(ctx)" in plugin_js
     assert "node:fs" in plugin_js
     assert "node:path" in plugin_js
     assert "python3" not in plugin_js
     assert "managedConfig" not in plugin_js
+    assert "experimental.chat.system.transform" not in plugin_js
+    assert "systemMessage" not in plugin_js
+
+
+def test_opencode_v2_plugin_setup_follows_promise_plugin_contract(opencode_probe: dict[str, Any]) -> None:
+    """Verify setup resolves to nothing (OpenCode calls any return value as cleanup) and registers via editors."""
+    assert opencode_probe["setupResult"] is None
+    assert opencode_probe["transformReturns"] == [None, None]
+    assert opencode_probe["hookNames"] == ["context"]
+    assert opencode_probe["turn1"]["returned"] is None
+
+
+def test_opencode_v2_plugin_context_hook_pushes_system_text_part(opencode_probe: dict[str, Any]) -> None:
+    """Verify the context hook mutates event.system with a text part carrying the live bundle summary."""
+    system = opencode_probe["turn1"]["system"]
+    assert len(system) == 1
+    assert system[0]["type"] == "text"
+    assert "auth-refactor(active, chapter=ch02-session, task=auth-refactor:ch02:t02)" in system[0]["text"]
+    assert "npx --yes --package github:cofin/flow flow-studio" in system[0]["text"]
 
 
 @pytest.mark.skipif(NODE_BIN is None, reason="node is not installed on this host")
 def test_opencode_v2_plugin_recomputes_bundle_summary_dynamically_per_turn(tmp_path: Path) -> None:
-    """Verify OpenCode V2 context hook re-reads spec/chapter state on each turn without re-running setup(ctx)."""
-    assert NODE_BIN is not None
-    flow_dir = _seed_multichapter_workspace(tmp_path)
-    plugin_path = REPO_ROOT / ".opencode" / "plugins" / "flow.js"
-    probe_js = (
-        'import fs from "node:fs";\n'
-        'import path from "node:path";\n'
-        'import { pathToFileURL } from "node:url";\n'
-        "const mod = await import(pathToFileURL(process.argv[1]).href);\n"
-        "const ws = process.argv[2];\n"
-        "let contextFn = null;\n"
-        "await mod.flowPlugin.setup({\n"
-        "  workspace: { root: ws },\n"
-        "  session: { hook: (_ev, fn) => { contextFn = fn; } },\n"
-        "});\n"
-        "const turn1 = (await contextFn()).systemMessage;\n"
-        'const ch2Dir = path.join(ws, ".agents/bundles/specs/auth-refactor/chapters/ch02-session");\n'
-        'const ch2Spec = path.join(ch2Dir, "spec.md");\n'
-        'const ch2Task = path.join(ch2Dir, "tasks/t02-middleware.md");\n'
-        'const doneFm = ["---", "type: Task", "id: auth-refactor:ch02:t02", '
-        '"state: completed", "commit: 2222222", "---", ""].join("\\n");\n'
-        'fs.writeFileSync(ch2Task, doneFm, "utf8");\n'
-        'const nextSpec = fs.readFileSync(ch2Spec, "utf8").replace("- [ ] [t02]", "- [x] [2222222] [t02]");\n'
-        'fs.writeFileSync(ch2Spec, nextSpec, "utf8");\n'
-        "const turn2 = (await contextFn()).systemMessage;\n"
-        "process.stdout.write(JSON.stringify({ turn1, turn2 }) + '\\n');\n"
+    """Verify the context hook re-reads spec/chapter state on each turn without re-running setup(ctx)."""
+    _seed_multichapter_workspace(tmp_path)
+    payload, _stderr = _run_opencode_probe(OPENCODE_PLUGIN, tmp_path, "mutate")
+    turn1 = payload["turn1"]["system"][0]["text"]
+    turn2 = payload["turn2"]["system"][0]["text"]
+    assert "Pending chapter review/Markdown sync" not in turn1
+    assert "Pending chapter review/Markdown sync: auth-refactor/ch02-session." in turn2
+
+
+@pytest.mark.parametrize("agent_file", OPENCODE_AGENT_FILES, ids=lambda p: p.stem)
+def test_opencode_v2_plugin_registers_flow_subagent(opencode_probe: dict[str, Any], agent_file: Path) -> None:
+    """Verify each agents/*.md becomes a V2 subagent with its prompt body, and read-only agents deny edits."""
+    agents = {agent["id"]: agent for agent in opencode_probe["agents"]}
+    agent_id = _frontmatter_value(agent_file, "name") or agent_file.stem
+    assert agent_id in agents
+    agent = agents[agent_id]
+    assert agent["mode"] == "subagent"
+    assert agent["description"] == _frontmatter_value(agent_file, "description")
+    body = agent_file.read_text(encoding="utf-8").replace("\r\n", "\n").split("---", 2)[2].strip()
+    assert agent["system"] == body
+    edit_deny = {"action": "edit", "resource": "*", "effect": "deny"}
+    if _frontmatter_value(agent_file, "readonly") == "true":
+        assert edit_deny in agent["permissions"]
+    else:
+        assert edit_deny not in agent["permissions"]
+
+
+@pytest.mark.parametrize("skill_file", OPENCODE_SKILL_FILES, ids=lambda p: p.parent.name)
+def test_opencode_v2_plugin_registers_flow_skill(opencode_probe: dict[str, Any], skill_file: Path) -> None:
+    """Verify each skills/*/SKILL.md is added as a V2 Skill.Info with an absolute path and full content."""
+    skills = {skill["id"]: skill for skill in opencode_probe["skills"]}
+    name = _frontmatter_value(skill_file, "name")
+    assert name in skills
+    skill = skills[name]
+    assert skill["name"] == name
+    assert skill["path"] == str(skill_file)
+    assert Path(skill["path"]).is_absolute()
+    assert skill["content"] == skill_file.read_text(encoding="utf-8").replace("\r\n", "\n")
+    assert skill["description"] == _frontmatter_value(skill_file, "description")
+
+
+@pytest.mark.skipif(NODE_BIN is None, reason="node is not installed on this host")
+def test_opencode_v2_plugin_keeps_user_defined_skill(tmp_path: Path) -> None:
+    """Verify a skill the user already defined with the same id is not overwritten by the plugin."""
+    payload, _stderr = _run_opencode_probe(OPENCODE_PLUGIN, tmp_path, "preexisting")
+    flow_skill = next(skill for skill in payload["skills"] if skill["id"] == "flow")
+    assert flow_skill["content"] == "user copy"
+    assert len(payload["skills"]) == len(OPENCODE_SKILL_FILES)
+
+
+@pytest.mark.skipif(NODE_BIN is None, reason="node is not installed on this host")
+def test_opencode_v2_plugin_standalone_copy_injects_summary_and_warns(tmp_path: Path) -> None:
+    """Verify a ~/.config/opencode/plugins/ copy still loads, injects context, and points to the package install."""
+    standalone = tmp_path / "home" / ".config" / "opencode" / "plugins" / "flow.js"
+    standalone.parent.mkdir(parents=True)
+    shutil.copyfile(OPENCODE_PLUGIN, standalone)
+    workspace = tmp_path / "ws"
+    workspace.mkdir()
+    _seed_multichapter_workspace(workspace)
+    payload, stderr = _run_opencode_probe(standalone, workspace)
+    assert payload["setupResult"] is None
+    assert payload["skills"] == []
+    assert payload["agents"] == []
+    assert "auth-refactor(active" in payload["turn1"]["system"][0]["text"]
+    assert "opencode plugin add github:cofin/flow" in stderr
+
+
+LEGACY_OPENCODE_V1_PLUGIN = (
+    "/** Generated from rules/flow-core.md and contracts/flow.yaml. */\n"
+    "// flow-rule-adapter:start\n"
+    "const FLOW_RULE_ADAPTER = Object.freeze({});\n"
+    "// flow-rule-adapter:end\n"
+    "export default async (ctx) => {\n"
+    "  return { 'experimental.chat.system.transform': async (_input, output) => {} };\n"
+    "};\n"
+)
+
+
+@pytest.mark.parametrize(
+    ("shell", "installed", "expect_notice"),
+    (
+        ("sh", "legacy-v1", True),
+        ("sh", "current-v2", False),
+        ("sh", "absent", False),
+        ("ps1", "legacy-v1", True),
+        ("ps1", "current-v2", False),
+        ("ps1", "absent", False),
+    ),
+)
+def test_session_start_flags_stale_opencode_v1_plugin_copy(
+    tmp_path: Path,
+    shell: str,
+    installed: str,
+    expect_notice: bool,
+) -> None:
+    """Verify SessionStart warns about a pre-0.26 standalone OpenCode plugin without deleting it."""
+    if shell == "ps1" and POWERSHELL_BIN is None:
+        pytest.skip("pwsh or powershell is not installed on this host")
+    home = tmp_path / "home"
+    plugin_file = home / ".config" / "opencode" / "plugins" / "flow.js"
+    if installed != "absent":
+        plugin_file.parent.mkdir(parents=True)
+        source = LEGACY_OPENCODE_V1_PLUGIN if installed == "legacy-v1" else OPENCODE_PLUGIN.read_text(encoding="utf-8")
+        plugin_file.write_text(source, encoding="utf-8")
+    workspace = tmp_path / "ws"
+    workspace.mkdir()
+    env = {"HOME": str(home), "XDG_CONFIG_HOME": str(home / ".config"), "FLOW_SKIP_VSCODE_AUTO_INSTALL": "1"}
+
+    runner = _run_sh_hook if shell == "sh" else _run_ps1_hook
+    script = HOOK_SCRIPT if shell == "sh" else POWERSHELL_HOOK_SCRIPT
+    payload = runner(script, "claude", {}, project_dir=workspace, extra_env=env)
+    context = payload["hookSpecificOutput"]["additionalContext"]
+
+    assert ("Stale pre-0.26 OpenCode Flow plugin" in context) is expect_notice
+    if expect_notice:
+        assert "opencode plugin add github:cofin/flow" in context
+    assert plugin_file.exists() is (installed != "absent")
+
+
+@pytest.mark.skipif(NODE_BIN is None, reason="node is not installed on this host")
+def test_opencode_v2_plugin_handles_windows_crlf_line_endings(tmp_path: Path) -> None:
+    """Verify plugin normalizes CRLF line endings when parsing skills and agents on Windows."""
+    plugin_dir = tmp_path / "flow-pkg"
+    plugin_dir.mkdir()
+    agents_dir = plugin_dir / "agents"
+    agents_dir.mkdir()
+    skills_dir = plugin_dir / "skills" / "sample"
+    skills_dir.mkdir(parents=True)
+    plugin_script_dir = plugin_dir / ".opencode" / "plugins"
+    plugin_script_dir.mkdir(parents=True)
+    (plugin_script_dir / "flow.js").write_text(OPENCODE_PLUGIN.read_text(encoding="utf-8"), encoding="utf-8")
+
+    (agents_dir / "helper.md").write_bytes(
+        b"---\r\n"
+        b"name: helper\r\n"
+        b"description: CRLF agent.\r\n"
+        b"readonly: true\r\n"
+        b"---\r\n\r\n"
+        b"# Prompt\r\n\r\n"
+        b"CRLF body.\r\n"
     )
-    proc = subprocess.run(
-        [NODE_BIN, "--input-type=module", "-e", probe_js, str(plugin_path), str(tmp_path)],
-        text=True,
-        capture_output=True,
-        cwd=str(flow_dir),
-        check=True,
+    (skills_dir / "SKILL.md").write_bytes(
+        b"---\r\nname: sample\r\ndescription: CRLF skill.\r\n---\r\n\r\n# Sample\r\n\r\nCRLF content.\r\n"
     )
-    out = json.loads(proc.stdout)
-    assert "auth-refactor(active, chapter=ch02-session, task=auth-refactor:ch02:t02)" in out["turn1"]
-    assert "Pending chapter review/Markdown sync" not in out["turn1"]
-    assert "Pending chapter review/Markdown sync: auth-refactor/ch02-session." in out["turn2"]
+
+    workspace = tmp_path / "ws"
+    workspace.mkdir()
+    _seed_multichapter_workspace(workspace)
+
+    payload, _stderr = _run_opencode_probe(plugin_script_dir / "flow.js", workspace)
+    agent = payload["agents"][0]
+    assert agent["id"] == "helper"
+    assert "\r" not in agent["system"]
+    assert agent["system"] == "# Prompt\n\nCRLF body."
+
+    skill = payload["skills"][0]
+    assert skill["id"] == "sample"
+    assert "\r" not in skill["content"]
+    assert skill["content"] == "---\nname: sample\ndescription: CRLF skill.\n---\n\n# Sample\n\nCRLF content.\n"

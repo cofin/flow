@@ -35,6 +35,7 @@ export function parseArgs(argv) {
   let link = false;
   let ifNeeded = false;
   let quiet = false;
+  let help = false;
 
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
@@ -54,9 +55,43 @@ export function parseArgs(argv) {
       ifNeeded = true;
     } else if (arg === "--quiet" || arg === "-q") {
       quiet = true;
+    } else if (arg === "--help" || arg === "-h") {
+      help = true;
     }
   }
-  return { target, customExtensionsDir, link, ifNeeded, quiet };
+  return { target, customExtensionsDir, link, ifNeeded, quiet, help };
+}
+
+export const USAGE = `Usage: flow-studio-vscode [options]
+
+Install the Flow Studio extension (cofin.flow-studio) into VS Code-compatible editors.
+
+Options:
+  --target <name>          auto (default), all, vscode, vscode-insiders, cursor, windsurf, positron
+  --extensions-dir <path>  Install into an explicit extensions directory
+  --link, -l               Symlink this checkout instead of copying a bundle
+  --if-needed              Skip editors that already have the current version
+  --quiet, -q              Suppress output
+  --help, -h               Show this help
+`;
+
+/**
+ * Report whether this module is the process entry point.
+ *
+ * npm and npx launch bins through a `node_modules/.bin/<name>` symlink. Node resolves that
+ * symlink for `import.meta.url` but keeps it in `process.argv[1]`, so both sides are
+ * compared by real path.
+ *
+ * @param {string | undefined} [argv1]
+ * @returns {boolean}
+ */
+export function isDirectInvocation(argv1 = process.argv[1]) {
+  if (!argv1) return false;
+  try {
+    return fs.realpathSync(argv1) === fs.realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -267,14 +302,21 @@ export function installFlowStudioExtension(options = {}) {
   };
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (isDirectInvocation()) {
   const opts = parseArgs(process.argv.slice(2));
+  if (opts.help) {
+    process.stdout.write(USAGE);
+    process.exit(0);
+  }
   const result = installFlowStudioExtension(opts);
   if (!opts.quiet) {
     for (const item of result.installed) {
       process.stdout.write(
         `[flow-studio] Installed ${result.extensionId}@${result.version} (${item.mode}) for ${item.editor}: ${item.path}\n`
       );
+    }
+    if (result.installed.length === 0) {
+      process.stdout.write("[flow-studio] No VS Code-compatible editor detected; pass --target or --extensions-dir.\n");
     }
   }
 }

@@ -272,8 +272,13 @@ if [ -d "$PROJECT_DIR/.agents" ]; then
   if [ "$HARNESS" = "agy" ] || [ "$HARNESS" = "antigravity" ]; then
     BASE_MSG="$BASE_MSG Flow Studio UI: [Open Flow Studio](sidecar://flow/studio/dashboard)."
   else
-    BASE_MSG="$BASE_MSG Flow Studio UI: npx flow-studio."
+    BASE_MSG="$BASE_MSG Flow Studio UI: npx --yes --package github:cofin/flow flow-studio."
   fi
+fi
+
+OPENCODE_LEGACY_PLUGIN="${XDG_CONFIG_HOME:-${HOME:-}/.config}/opencode/plugins/flow.js"
+if [ -f "$OPENCODE_LEGACY_PLUGIN" ] && grep -q -e 'flow-rule-adapter:start' -e 'export default async' "$OPENCODE_LEGACY_PLUGIN" 2>/dev/null; then
+  BASE_MSG="$BASE_MSG Stale pre-0.26 OpenCode Flow plugin at $OPENCODE_LEGACY_PLUGIN: OpenCode V2 rejects it; delete it and run: opencode plugin add github:cofin/flow."
 fi
 
 ESCAPED_MSG="$(printf '%s' "$BASE_MSG" | awk '
