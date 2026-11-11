@@ -62,7 +62,7 @@ $Reason = ""
 
 $ReadOnlyAgents = @("code-reviewer", "quality-reviewer", "researcher")
 $ShortAgent = ($AgentId -split ':')[-1]
-$MutatingTools = @("write_file", "edit_file", "replace_file_content", "multi_replace_file_content", "delete_file", "Write", "Edit", "MultiEdit", "NotebookEdit")
+$MutatingTools = @("write_file", "write_to_file", "edit_file", "replace_file_content", "multi_replace_file_content", "delete_file", "notebook_edit", "Write", "Edit", "MultiEdit", "NotebookEdit")
 
 if ($ShortAgent -in $ReadOnlyAgents -and $ToolName -in $MutatingTools) {
     $Decision = "deny"
