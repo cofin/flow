@@ -1,4 +1,4 @@
-"""Tests for 6-stage lifecycle hooks, safety guards, live telemetry, and dynamic workflows."""
+"""Tests for lifecycle hooks, safety guards, live telemetry, and dynamic workflows."""
 
 from __future__ import annotations
 
@@ -223,24 +223,27 @@ def test_pre_tool_guard_enforces_git_and_readonly_agent_rules(
 
 
 def test_pre_invocation_detects_external_spec_and_comment_changes(tmp_path: Path) -> None:
-    """Verify pre-invocation stays silent initially and emits a notice when spec.md or comments change."""
+    """Verify pre-invocation skips substeps and emits a notice on turn start when spec.md changes."""
     spec_path = _seed_flow_workspace(tmp_path)
-    first = _run_hook(PRE_INVOCATION_SH, "agy", {"workspacePaths": [str(tmp_path)]})
+    first = _run_hook(PRE_INVOCATION_SH, "agy", {"invocationNum": 0, "workspacePaths": [str(tmp_path)]})
     assert first == {}
 
-    second = _run_hook(PRE_INVOCATION_SH, "agy", {"workspacePaths": [str(tmp_path)]})
+    second = _run_hook(PRE_INVOCATION_SH, "agy", {"invocationNum": 0, "workspacePaths": [str(tmp_path)]})
     assert second == {}
 
     spec_path.write_text(
         spec_path.read_text(encoding="utf-8").replace("Initial objective.", "Updated objective from Studio UI."),
         encoding="utf-8",
     )
-    third = _run_hook(PRE_INVOCATION_SH, "agy", {"workspacePaths": [str(tmp_path)]})
+    substep = _run_hook(PRE_INVOCATION_SH, "agy", {"invocationNum": 1, "workspacePaths": [str(tmp_path)]})
+    assert substep == {}
+
+    third = _run_hook(PRE_INVOCATION_SH, "agy", {"invocationNum": 0, "workspacePaths": [str(tmp_path)]})
     msg = third["injectSteps"][0]["systemMessage"]["systemMessage"]
     assert "Flow Studio notice" in msg
     assert "spec.md" in msg
 
-    fourth = _run_hook(PRE_INVOCATION_SH, "agy", {"workspacePaths": [str(tmp_path)]})
+    fourth = _run_hook(PRE_INVOCATION_SH, "agy", {"invocationNum": 0, "workspacePaths": [str(tmp_path)]})
     assert fourth == {}
 
 
@@ -288,15 +291,17 @@ def test_post_tool_telemetry_and_post_invocation_manage_live_state_cleanly(tmp_p
     assert cleared_state["activeTurn"] is False
 
 
-def test_six_stage_hooks_and_workflows_manifests_are_valid() -> None:
-    """Verify hooks.json declares flat lifecycle hooks, nested tool hooks, and valid workflow manifests."""
+def test_antigravity_hooks_and_workflows_manifests_are_valid() -> None:
+    """Verify hooks.json declares flat lifecycle hooks, targeted tool guards, and valid workflows."""
     agy_hooks = json.loads((REPO_ROOT / "hooks.json").read_text(encoding="utf-8"))
+    assert set(agy_hooks) == {"flow-session-start", "flow-pre-tool-guard", "flow-stop-check"}
     assert "matcher" not in agy_hooks["flow-session-start"]["SessionStart"][0]
-    assert "matcher" not in agy_hooks["flow-pre-invocation"]["PreInvocation"][0]
-    assert "matcher" not in agy_hooks["flow-post-invocation"]["PostInvocation"][0]
     assert "matcher" not in agy_hooks["flow-stop-check"]["Stop"][0]
-    assert "matcher" in agy_hooks["flow-pre-tool-guard"]["PreToolUse"][0]
-    assert "matcher" in agy_hooks["flow-post-tool-telemetry"]["PostToolUse"][0]
+    pre_tool_group = agy_hooks["flow-pre-tool-guard"]["PreToolUse"][0]
+    assert "matcher" in pre_tool_group
+    assert pre_tool_group["matcher"] != "*"
+    assert "run_command" in pre_tool_group["matcher"]
+    assert "write_file" in pre_tool_group["matcher"]
 
     for wf_name in ("flow-dual-review", "flow-chapter-pipeline"):
         wf_dir = REPO_ROOT / "workflows" / wf_name

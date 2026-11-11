@@ -102,7 +102,7 @@ REASON=""
 case "$AGENT_ID" in
   code-reviewer|quality-reviewer|researcher|*:code-reviewer|*:quality-reviewer|*:researcher)
     case "$TOOL_NAME" in
-      write_file|edit_file|replace_file_content|multi_replace_file_content|delete_file|Write|Edit|MultiEdit|NotebookEdit)
+      write_file|write_to_file|edit_file|replace_file_content|multi_replace_file_content|delete_file|notebook_edit|Write|Edit|MultiEdit|NotebookEdit)
         DECISION="deny"
         REASON="Flow safety guard: read-only agent '${AGENT_ID}' is forbidden from mutating repository files."
         ;;

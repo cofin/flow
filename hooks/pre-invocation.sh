@@ -35,6 +35,21 @@ if [ ! -t 0 ]; then
   STDIN_PAYLOAD="$(cat || true)"
 fi
 
+if [ -n "$STDIN_PAYLOAD" ] && printf '%s\n' "$STDIN_PAYLOAD" | awk '
+  { buf = buf " " $0 }
+  END {
+    if (match(buf, /"invocationNum"[[:space:]]*:[[:space:]]*[0-9]+/)) {
+      s = substr(buf, RSTART, RLENGTH)
+      sub(/^.*"invocationNum"[[:space:]]*:[[:space:]]*/, "", s)
+      if ((s + 0) > 0) exit 0
+    }
+    exit 1
+  }
+'; then
+  printf '{}\n'
+  exit 0
+fi
+
 if [ -z "$PROJECT_DIR" ] && [ -n "$STDIN_PAYLOAD" ]; then
   PROJECT_DIR="$(printf '%s\n' "$STDIN_PAYLOAD" | awk '
     { buf = buf " " $0 }
@@ -70,24 +85,6 @@ fi
 if [ -z "$PROJECT_DIR" ]; then
   PROJECT_DIR="$(pwd)"
 fi
-
-record_recent_workspace() {
-  ws_dir="$1"
-  [ -n "$ws_dir" ] || return 0
-  [ -d "$ws_dir/.agents" ] || [ -e "$ws_dir/.git" ] || [ -d "$ws_dir/.jj" ] || [ -d "$ws_dir/.hg" ] || return 0
-  if [ -z "${FLOW_CONFIG_DIR:-}" ]; then
-    case "$ws_dir" in
-      /tmp/*|/var/folders/*|*/pytest-of-*|*/Temp/*|*/sidecars/studio|*/.gemini/config/plugins/*)
-        return 0
-        ;;
-    esac
-  fi
-  cfg_dir="${FLOW_CONFIG_DIR:-${XDG_CONFIG_HOME:-${HOME:-/tmp}/.config}/flow}"
-  mkdir -p "$cfg_dir" 2>/dev/null || return 0
-  ts_iso="$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo "2026-01-01T00:00:00Z")"
-  printf '%s\t%s\n' "$ts_iso" "$ws_dir" >> "$cfg_dir/recent-workspaces.tsv" 2>/dev/null || true
-}
-record_recent_workspace "$PROJECT_DIR"
 
 if [ ! -d "$PROJECT_DIR/.agents" ]; then
   printf '{}\n'
