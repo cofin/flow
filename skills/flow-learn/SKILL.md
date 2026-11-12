@@ -14,7 +14,8 @@ Use for `/flow:learn [scope]` (and aliases `resynthesize`, `refresh`, `sync`, `d
 
 ## Workflow
 
-1. **Cross-Machine/Harness Reorientation & Multi-Chapter Drift Audit (`refresh` + `sync` + `true-up`)**:
+1. **Cross-Machine/Harness/Worktree Reorientation & Multi-Chapter Drift Audit (`refresh` + `sync` + `true-up`)**:
+   - **Linked Git Worktree & Environment Check (`sync --from-main` / `sync --to-main`)**: When running inside a linked `git worktree`, verify `.venv` / `node_modules` symlinks from the primary checkout (`uv run --no-sync`), confirm `shared` (worktree `.agents/`) vs. `local-only` (primary checkout `$MAIN_WORKTREE/.agents/` symlink, or `/flow:learn sync --from-main` and `--to-main` when sandbox mounts forbid cross-worktree writes) routing, and flag any split-brain untracked worktree `.agents/` files.
    - **Spec, Chapter, & Task Reconciliation (`sync` / `refresh`)**:
      - Compare `tasks/*.md` frontmatter (`state`, `commit`, `claimed_by`), `chapters/<ch_id>/spec.md` (`state`, `planning_status`, `last_reviewed_commit`), `chapters/index.md`, and root `specs/<flow_id>/spec.md` (`chapters:`, `current_chapter`, checklist markers, `## 6. Current State & Remaining Plan Snapshot`) against live `git log` and working-tree state.
      - Mark tasks whose commits landed on another machine/session `state: completed` with their verified Git `commit` SHA, release stale cross-harness `in_progress` claims when no active work matches the working tree, and rewrite `chapters/index.md`, chapter `spec.md`, and root `spec.md` checklists and state snapshots in place in present tense.

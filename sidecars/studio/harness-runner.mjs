@@ -22,6 +22,17 @@ const HARNESS_CATALOG = [
 ];
 
 export const VALID_EXECUTION_MODES = ["direct-workspace", "worktree-isolated", "read-only"];
+const QUOTA_ERROR_RE = /\b429\b|rate[_ -]?limit|overloaded_error|resource_exhausted|quota.*exceeded|capacity/i;
+
+function inferQuotaFallbackModel(harness, requestedModel) {
+  if (!requestedModel) return null;
+  const lower = String(requestedModel).toLowerCase();
+  if (harness === "claude" && lower.includes("opus")) return "sonnet";
+  if ((harness === "opencode" || harness === "cursor-agent" || harness === "agy") && lower.includes("pro")) {
+    return lower.replace(/pro/g, "flash");
+  }
+  return null;
+}
 
 export class CrossHarnessRunner {
   /**
@@ -237,7 +248,12 @@ export class CrossHarnessRunner {
       effectiveCwd = this.#provisionWorktree(workspacePath, harness, runId);
     }
 
-    const cliArgs = this.buildHarnessArgs(harness, executionMode, prompt, params.model || null);
+    const requestedModel = params.model || null;
+    const fallbackModel =
+      params.fallbackModel !== undefined
+        ? params.fallbackModel || null
+        : inferQuotaFallbackModel(harness, requestedModel);
+    const cliArgs = this.buildHarnessArgs(harness, executionMode, prompt, requestedModel);
     const record = {
       id: runId,
       harness,
@@ -246,6 +262,9 @@ export class CrossHarnessRunner {
       workspacePath,
       effectiveCwd,
       prompt,
+      requestedModel,
+      effectiveModel: requestedModel,
+      modelFallbackUsed: false,
       argv: [binaryPath, ...cliArgs],
       advisory: writerGuard,
       status: "running",
@@ -258,61 +277,97 @@ export class CrossHarnessRunner {
     this.runs.set(runId, record);
     this.#emit({ type: "harness.started", run: this.#summarize(record) });
 
-    const completion = new Promise((resolve) => {
-      const isWinBatch = process.platform === "win32" && /\.(cmd|bat)$/i.test(binaryPath);
-      const spawnCmd = isWinBatch ? process.env.ComSpec || "cmd.exe" : binaryPath;
-      const spawnArgs = isWinBatch ? ["/d", "/c", binaryPath, ...cliArgs] : cliArgs;
-      const child = spawn(spawnCmd, spawnArgs, {
-        cwd: effectiveCwd,
-        env: { ...process.env },
-        stdio: ["ignore", "pipe", "pipe"],
-      });
-      this.processes.set(runId, child);
+    const runAttempt = (modelForAttempt) =>
+      new Promise((resolve) => {
+        const attemptArgs = this.buildHarnessArgs(harness, executionMode, prompt, modelForAttempt);
+        record.effectiveModel = modelForAttempt;
+        record.argv = [binaryPath, ...attemptArgs];
+        const isWinBatch = process.platform === "win32" && /\.(cmd|bat)$/i.test(binaryPath);
+        const spawnCmd = isWinBatch ? process.env.ComSpec || "cmd.exe" : binaryPath;
+        const spawnArgs = isWinBatch ? ["/d", "/c", binaryPath, ...attemptArgs] : attemptArgs;
+        const child = spawn(spawnCmd, spawnArgs, {
+          cwd: effectiveCwd,
+          env: { ...process.env },
+          stdio: ["ignore", "pipe", "pipe"],
+        });
+        this.processes.set(runId, child);
+        let stderrCombined = "";
 
-      const rlOut = readline.createInterface({ input: child.stdout });
-      rlOut.on("line", (line) => {
-        const trimmed = line.trim();
-        if (!trimmed) return;
-        let parsed = null;
-        try {
-          parsed = JSON.parse(trimmed);
-        } catch {
-          parsed = { type: "raw", text: trimmed };
-        }
-        record.events.push(parsed);
-        const textChunk =
-          parsed?.text ||
-          parsed?.message?.content?.[0]?.text ||
-          parsed?.result ||
-          trimmed;
-        record.outputText = `${record.outputText}${record.outputText ? "\n" : ""}${textChunk}`.slice(-32000);
-        this.#emit({ type: "harness.output", runId, event: parsed });
+        const rlOut = readline.createInterface({ input: child.stdout });
+        rlOut.on("line", (line) => {
+          const trimmed = line.trim();
+          if (!trimmed) return;
+          let parsed = null;
+          try {
+            parsed = JSON.parse(trimmed);
+          } catch {
+            parsed = { type: "raw", text: trimmed };
+          }
+          record.events.push(parsed);
+          const textChunk =
+            parsed?.text ||
+            parsed?.message?.content?.[0]?.text ||
+            parsed?.result ||
+            trimmed;
+          record.outputText = `${record.outputText}${record.outputText ? "\n" : ""}${textChunk}`.slice(-32000);
+          this.#emit({ type: "harness.output", runId, event: parsed });
+        });
+
+        const rlErr = readline.createInterface({ input: child.stderr });
+        rlErr.on("line", (line) => {
+          if (!line.trim()) return;
+          stderrCombined = `${stderrCombined}\n${line}`.slice(-8000);
+          record.events.push({ type: "stderr", text: line });
+        });
+
+        child.on("close", (code) => {
+          this.processes.delete(runId);
+          resolve({ code: code ?? 0, stderrCombined, spawnError: null });
+        });
+
+        child.on("error", (err) => {
+          this.processes.delete(runId);
+          resolve({ code: 1, stderrCombined, spawnError: err });
+        });
       });
 
-      const rlErr = readline.createInterface({ input: child.stderr });
-      rlErr.on("line", (line) => {
-        if (!line.trim()) return;
-        record.events.push({ type: "stderr", text: line });
-      });
+    const completion = (async () => {
+      let attempt = await runAttempt(requestedModel);
+      if (
+        attempt.code !== 0 &&
+        record.status !== "cancelled" &&
+        fallbackModel &&
+        fallbackModel !== requestedModel &&
+        QUOTA_ERROR_RE.test(`${attempt.stderrCombined}\n${record.outputText}`)
+      ) {
+        record.modelFallbackUsed = true;
+        record.events.push({
+          type: "model.fallback",
+          from: requestedModel,
+          to: fallbackModel,
+        });
+        this.#emit({
+          type: "harness.output",
+          runId,
+          event: { type: "model.fallback", from: requestedModel, to: fallbackModel },
+        });
+        record.outputText = "";
+        attempt = await runAttempt(fallbackModel);
+      }
 
-      child.on("close", (code) => {
-        this.processes.delete(runId);
-        record.exitCode = code ?? 0;
-        record.status = record.status === "cancelled" ? "cancelled" : code === 0 ? "completed" : "failed";
-        record.completedAt = new Date().toISOString();
-        this.#emit({ type: "harness.completed", run: this.#summarize(record) });
-        resolve(this.#summarize(record));
-      });
-
-      child.on("error", (err) => {
-        this.processes.delete(runId);
+      if (attempt.spawnError) {
+        record.exitCode = 1;
         record.status = "failed";
-        record.outputText = err.message;
-        record.completedAt = new Date().toISOString();
-        this.#emit({ type: "harness.completed", run: this.#summarize(record) });
-        resolve(this.#summarize(record));
-      });
-    });
+        record.outputText = attempt.spawnError.message;
+      } else {
+        record.exitCode = attempt.code;
+        record.status =
+          record.status === "cancelled" ? "cancelled" : attempt.code === 0 ? "completed" : "failed";
+      }
+      record.completedAt = new Date().toISOString();
+      this.#emit({ type: "harness.completed", run: this.#summarize(record) });
+      return this.#summarize(record);
+    })();
 
     if (params.wait) {
       return await completion;
@@ -367,6 +422,39 @@ export class CrossHarnessRunner {
     if (res.status !== 0) {
       throw new Error(`Failed to create isolated git worktree: ${res.stderr || res.stdout}`);
     }
+    const linkShared = (src, dst) => {
+      try {
+        fs.lstatSync(dst);
+        return;
+      } catch {
+        // Not yet present in worktree.
+      }
+      try {
+        if (!fs.existsSync(src)) return;
+        const isDir = fs.statSync(src).isDirectory();
+        fs.symlinkSync(src, dst, isDir ? (process.platform === "win32" ? "junction" : "dir") : "file");
+      } catch {
+        // Ignore platform symlink errors.
+      }
+    };
+    for (const art of [".venv", "node_modules", "uv.toml", ".npmrc"]) {
+      linkShared(path.join(workspacePath, art), path.join(targetDir, art));
+    }
+    let ignorePolicy = "";
+    try {
+      const parsed = JSON.parse(
+        fs.readFileSync(path.join(workspacePath, ".agents", "setup-state.json"), "utf8")
+      );
+      ignorePolicy = String(parsed?.workflow_preferences?.ignore_policy || parsed?.ignore_policy || "");
+    } catch {
+      ignorePolicy = "";
+    }
+    if (
+      (ignorePolicy === "local-only" || !fs.existsSync(path.join(targetDir, ".agents"))) &&
+      fs.existsSync(path.join(workspacePath, ".agents"))
+    ) {
+      linkShared(path.join(workspacePath, ".agents"), path.join(targetDir, ".agents"));
+    }
     return targetDir;
   }
 
@@ -382,6 +470,9 @@ export class CrossHarnessRunner {
       workspacePath: record.workspacePath,
       effectiveCwd: record.effectiveCwd,
       prompt: record.prompt,
+      requestedModel: record.requestedModel ?? null,
+      effectiveModel: record.effectiveModel ?? null,
+      modelFallbackUsed: Boolean(record.modelFallbackUsed),
       argv: record.argv,
       advisory: record.advisory,
       status: record.status,

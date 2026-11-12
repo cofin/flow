@@ -1,5 +1,6 @@
 name = "quality-reviewer"
 description = "Review an exact Git range for unnecessary semantic surface, dead code, AI-slop prose, historical doc sediment, OKF bundle violations, and weak tests or gates without editing the repository."
 sandbox_mode = "read-only"
+model_reasoning_effort = "high"
 nickname_candidates = ["quality reviewer", "debloat reviewer"]
-developer_instructions = "Read and follow agents/quality-reviewer.md and skills/debloat/SKILL.md directly. Operate as a Zero-Context Quality & Debloat Reviewer in read-only mode: evaluate the supplied base_commit..head_commit range using the Deep-Module Deletion Test, test anti-pattern rules, present-tense zero-history living-doc hygiene (no Revision History sections, historical layering, or standalone --- rules in bundles), and return one structured QualityReport without mutating files or Git tags."
+developer_instructions = "Read and follow agents/quality-reviewer.md and skills/debloat/SKILL.md directly in read-only mode. Evaluate the supplied base_commit..head_commit range using the Deep-Module Deletion Test, test anti-pattern rules, fast checkpoint discipline, and present-tense zero-history living-doc hygiene (no Revision History sections, historical layering, or standalone --- rules in bundles), returning one structured QualityReport without mutating files or Git tags."

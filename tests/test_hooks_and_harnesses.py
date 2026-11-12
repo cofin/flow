@@ -339,6 +339,80 @@ def _mutate_stop_revision_history(flow_dir: Path, _sha1: str, _sha2: str) -> Non
     spec_path.write_text(spec_path.read_text(encoding="utf-8") + "\n## Revision History\n\nOld.\n", encoding="utf-8")
 
 
+def _mutate_stop_completed_root_open_chapter(flow_dir: Path, _sha1: str, _sha2: str) -> None:
+    """Mark root spec.md completed while ch02-session remains active with pending tasks."""
+    spec_path = flow_dir / "spec.md"
+    spec_path.write_text(
+        spec_path.read_text(encoding="utf-8").replace("state: active", "state: completed"),
+        encoding="utf-8",
+    )
+
+
+def _mutate_stop_completed_chapter_open_task(flow_dir: Path, _sha1: str, sha2: str) -> None:
+    """Mark ch02-session completed while task t02-middleware remains pending."""
+    ch2_spec = flow_dir / "chapters" / "ch02-session" / "spec.md"
+    ch2_spec.write_text(
+        ch2_spec.read_text(encoding="utf-8")
+        .replace("state: active", "state: completed")
+        .replace("last_reviewed_commit: null", f"last_reviewed_commit: {sha2}"),
+        encoding="utf-8",
+    )
+
+
+def _mutate_stop_unauthorized_deferred_task(flow_dir: Path, _sha1: str, _sha2: str) -> None:
+    """Mark t02-middleware deferred without deferred_by: user."""
+    ch2_spec = flow_dir / "chapters" / "ch02-session" / "spec.md"
+    ch2_spec.write_text(
+        ch2_spec.read_text(encoding="utf-8").replace("- [ ] [t02]", "- [-] [t02]"),
+        encoding="utf-8",
+    )
+    t02 = flow_dir / "chapters" / "ch02-session" / "tasks" / "t02-middleware.md"
+    t02.write_text(
+        "---\ntype: Task\nid: auth-refactor:ch02:t02\nstate: deferred\ncommit: null\n---\n\nBody.\n",
+        encoding="utf-8",
+    )
+
+
+def _mutate_stop_bogus_commit_ownership(flow_dir: Path, sha1: str, _sha2: str) -> None:
+    """Declare files: [src/nonexistent.py] on t01-signer while commit sha1 only touched app.py."""
+    t01 = flow_dir / "chapters" / "ch01-tokens" / "tasks" / "t01-signer.md"
+    t01.write_text(
+        f"---\ntype: Task\nid: auth-refactor:ch01:t01\nstate: completed\ncommit: {sha1}\n"
+        "files: [src/nonexistent.py]\n---\n\nBody.\n",
+        encoding="utf-8",
+    )
+
+
+def _mutate_stop_invalid_okf_status(flow_dir: Path, _sha1: str, _sha2: str) -> None:
+    """Write invalid OKF document maturity status: active on root spec.md."""
+    spec_path = flow_dir / "spec.md"
+    spec_path.write_text(
+        spec_path.read_text(encoding="utf-8").replace("type: Spec", "type: Spec\nstatus: active"),
+        encoding="utf-8",
+    )
+
+
+def _mutate_stop_missing_source_footnote(flow_dir: Path, _sha1: str, _sha2: str) -> None:
+    """Declare a sources id on root spec.md without a matching [^id]: footnote."""
+    spec_path = flow_dir / "spec.md"
+    spec_path.write_text(
+        spec_path.read_text(encoding="utf-8").replace(
+            "type: Spec",
+            "type: Spec\nsources:\n  - id: missing-ref\n    resource: app.py",
+        ),
+        encoding="utf-8",
+    )
+
+
+def _mutate_stop_degraded_without_reason(flow_dir: Path, _sha1: str, _sha2: str) -> None:
+    """Set planning_quality: degraded on root spec.md without planning_degraded_reason."""
+    spec_path = flow_dir / "spec.md"
+    spec_path.write_text(
+        spec_path.read_text(encoding="utf-8").replace("type: Spec", "type: Spec\nplanning_quality: degraded"),
+        encoding="utf-8",
+    )
+
+
 STOP_VIOLATION_CASES: tuple[tuple[str, Callable[[Path, str, str], None], str], ...] = (
     ("task-checklist-drift", _mutate_stop_task_checklist_drift, "has state marker [ ] in spec.md but expected [x]"),
     ("unclosed-finished-chapter", _mutate_stop_unclosed_chapter, "all 2 task(s) are done, but chapter is not closed"),
@@ -360,6 +434,37 @@ STOP_VIOLATION_CASES: tuple[tuple[str, Callable[[Path, str, str], None], str], .
     ),
     ("standalone-body-hr", _mutate_stop_standalone_hr, "standalone --- horizontal rule forbidden"),
     ("revision-history-heading", _mutate_stop_revision_history, "historical changelog/revision section forbidden"),
+    (
+        "anti-skip-completed-root-open-chapter",
+        _mutate_stop_completed_root_open_chapter,
+        "anti-skip guard",
+    ),
+    (
+        "anti-skip-completed-chapter-open-task",
+        _mutate_stop_completed_chapter_open_task,
+        "chapter cannot be marked completed while 1 of 2 task(s) remain incomplete",
+    ),
+    (
+        "anti-skip-unauthorized-deferred-task",
+        _mutate_stop_unauthorized_deferred_task,
+        "requires deferred_by: user",
+    ),
+    (
+        "anti-skip-bogus-commit-ownership",
+        _mutate_stop_bogus_commit_ownership,
+        "did not modify any declared files or tests",
+    ),
+    ("write-time-okf-invalid-status", _mutate_stop_invalid_okf_status, "invalid OKF status 'active'"),
+    (
+        "write-time-okf-missing-footnote",
+        _mutate_stop_missing_source_footnote,
+        "missing matching [^missing-ref]: footnote",
+    ),
+    (
+        "write-time-okf-degraded-missing-reason",
+        _mutate_stop_degraded_without_reason,
+        "planning_quality is degraded without non-empty planning_degraded_reason",
+    ),
 )
 
 STOP_BYPASS_AND_LEAF_CASES: tuple[tuple[str, str, dict[str, Any], dict[str, str] | None], ...] = (
@@ -924,3 +1029,83 @@ def test_opencode_v2_plugin_handles_windows_crlf_line_endings(tmp_path: Path) ->
     assert skill["id"] == "sample"
     assert "\r" not in skill["content"]
     assert skill["content"] == "---\nname: sample\ndescription: CRLF skill.\n---\n\n# Sample\n\nCRLF content.\n"
+
+
+def test_session_start_worktree_symlinking_subagent_fastpath_and_degraded_warning(tmp_path: Path) -> None:
+    """Verify session-start and flow.js symlink .venv/.agents in local-only worktrees and flag degraded plans."""
+    git_env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "Flow Test",
+        "GIT_AUTHOR_EMAIL": "flow@example.com",
+        "GIT_COMMITTER_NAME": "Flow Test",
+        "GIT_COMMITTER_EMAIL": "flow@example.com",
+    }
+    main_repo = tmp_path / "main-checkout"
+    wt_repo = tmp_path / "linked-worktree"
+    cfg_dir = tmp_path / "cfg"
+    main_repo.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=main_repo, env=git_env, check=True)
+    subprocess.run(["git", "config", "commit.gpgsign", "false"], cwd=main_repo, env=git_env, check=True)
+    (main_repo / "app.py").write_text("X = 1\n", encoding="utf-8")
+    (main_repo / ".venv" / "bin").mkdir(parents=True)
+    subprocess.run(["git", "add", "app.py"], cwd=main_repo, env=git_env, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "chore: init"], cwd=main_repo, env=git_env, check=True)
+
+    flow_dir = _seed_multichapter_workspace(main_repo)
+    (main_repo / ".agents" / "setup-state.json").write_text(
+        json.dumps(
+            {
+                "setup_status": "complete",
+                "bundle_root": ".agents/bundles",
+                "okf_version": "0.2",
+                "workflow_preferences": {"ignore_policy": "local-only"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (flow_dir / "spec.md").write_text(
+        (flow_dir / "spec.md")
+        .read_text(encoding="utf-8")
+        .replace(
+            "state: active",
+            'state: active\nplanning_quality: degraded\nplanning_degraded_reason: "quota fallback"',
+        ),
+        encoding="utf-8",
+    )
+    subprocess.run(
+        ["git", "worktree", "add", "-q", "-b", "feat/linked", str(wt_repo)],
+        cwd=main_repo,
+        env=git_env,
+        check=True,
+    )
+
+    sub_payload = _run_sh_hook(
+        HOOK_SCRIPT,
+        "agy",
+        {"workspacePaths": [str(wt_repo)], "parentConversationId": "parent-conv-99"},
+        extra_env={"FLOW_CONFIG_DIR": str(cfg_dir), "FLOW_SKIP_VSCODE_AUTO_INSTALL": "1"},
+    )
+    sub_msg = sub_payload["injectSteps"][0]["systemMessage"]["systemMessage"]
+    assert "Flow subagent context:" in sub_msg
+    assert not (cfg_dir / "recent-workspaces.tsv").exists()
+    assert (wt_repo / ".venv").is_symlink()
+    assert (wt_repo / ".agents").is_symlink()
+    assert (wt_repo / ".agents").resolve() == (main_repo / ".agents").resolve()
+
+    main_payload = _run_sh_hook(
+        HOOK_SCRIPT,
+        "agy",
+        {"workspacePaths": [str(wt_repo)]},
+        extra_env={"FLOW_CONFIG_DIR": str(cfg_dir), "FLOW_SKIP_VSCODE_AUTO_INSTALL": "1"},
+    )
+    main_msg = main_payload["injectSteps"][0]["systemMessage"]["systemMessage"]
+    assert "Linked Git worktree (local-only .agents)" in main_msg
+    assert "uv run --no-sync" in main_msg
+    assert "planning_quality=degraded" in main_msg
+    assert "auth-refactor(active, chapter=ch02-session, task=auth-refactor:ch02:t02)" in main_msg
+
+    if NODE_BIN is not None:
+        oc_payload, _ = _run_opencode_probe(OPENCODE_PLUGIN, wt_repo)
+        oc_text = oc_payload["turn1"]["system"][0]["text"]
+        assert "Linked Git worktree (local-only .agents)" in oc_text
+        assert "planning_quality=degraded" in oc_text

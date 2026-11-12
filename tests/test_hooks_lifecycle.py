@@ -292,7 +292,7 @@ def test_post_tool_telemetry_and_post_invocation_manage_live_state_cleanly(tmp_p
 
 
 def test_antigravity_hooks_and_workflows_manifests_are_valid() -> None:
-    """Verify hooks.json declares flat lifecycle hooks, targeted tool guards, and valid workflows."""
+    """Verify hooks.json declares flat lifecycle hooks, Claude omits wildcard PostToolUse, and workflows exist."""
     agy_hooks = json.loads((REPO_ROOT / "hooks.json").read_text(encoding="utf-8"))
     assert set(agy_hooks) == {"flow-session-start", "flow-pre-tool-guard", "flow-stop-check"}
     assert "matcher" not in agy_hooks["flow-session-start"]["SessionStart"][0]
@@ -303,10 +303,63 @@ def test_antigravity_hooks_and_workflows_manifests_are_valid() -> None:
     assert "run_command" in pre_tool_group["matcher"]
     assert "write_file" in pre_tool_group["matcher"]
 
-    for wf_name in ("flow-dual-review", "flow-chapter-pipeline"):
+    claude_hooks = json.loads((REPO_ROOT / "hooks" / "hooks-claude.json").read_text(encoding="utf-8"))
+    assert "PostToolUse" not in claude_hooks["hooks"]
+
+    for wf_name in ("flow-scout", "flow-spec-planning", "flow-dual-review", "flow-chapter-pipeline"):
         wf_dir = REPO_ROOT / "workflows" / wf_name
         wf_json = json.loads((wf_dir / "workflow.json").read_text(encoding="utf-8"))
         assert wf_json["name"] == wf_name
         assert isinstance(wf_json["description"], str) and wf_json["description"]
         entry = wf_json.get("entry", "workflow.py")
         assert (wf_dir / entry).is_file()
+
+
+@pytest.mark.parametrize(
+    ("case_id", "flow_completed", "stdin_payload", "expected_agy_decision"),
+    (
+        (
+            "deny-rm-incomplete-spec-dir",
+            False,
+            {"toolCall": {"name": "run_command", "args": {"CommandLine": "rm -rf .agents/bundles/specs/catalog-ui"}}},
+            "deny",
+        ),
+        (
+            "deny-delete-file-incomplete-spec",
+            False,
+            {"toolCall": {"name": "delete_file", "args": {"Path": ".agents/bundles/specs/catalog-ui/spec.md"}}},
+            "deny",
+        ),
+        (
+            "allow-rm-completed-reviewed-spec",
+            True,
+            {"toolCall": {"name": "run_command", "args": {"CommandLine": "rm -rf .agents/bundles/specs/catalog-ui"}}},
+            "allow",
+        ),
+    ),
+)
+def test_pre_tool_guard_blocks_premature_spec_deletion_and_allows_completed(
+    tmp_path: Path,
+    case_id: str,
+    flow_completed: bool,
+    stdin_payload: dict[str, Any],
+    expected_agy_decision: str,
+) -> None:
+    """Verify pre-tool-guard blocks deleting incomplete specs/<flow_id> directories while allowing archive cleanup."""
+    spec_path = _seed_flow_workspace(tmp_path)
+    if flow_completed:
+        spec_path.write_text(
+            "---\n"
+            "type: Spec\n"
+            "flow_id: catalog-ui\n"
+            "title: Catalog UI\n"
+            "state: completed\n"
+            "last_reviewed_commit: a1b2c3d\n"
+            "---\n\n"
+            "## 1. Objective\n\nCompleted.\n",
+            encoding="utf-8",
+        )
+    out = _run_hook(PRE_TOOL_GUARD_SH, "agy", stdin_payload, project_dir=tmp_path)
+    assert out["decision"] == expected_agy_decision, f"[{case_id}] unexpected {out}"
+    if expected_agy_decision == "deny":
+        assert "cannot delete or archive specs/catalog-ui" in out["reason"]

@@ -1,6 +1,6 @@
 {
   "name": "flow",
-  "version": "0.28.1",
+  "version": "0.29.0",
   "description": "Unified toolkit for Context-Driven Development",
   "type": "module",
   "main": ".opencode/plugins/flow.js",
@@ -20,6 +20,8 @@
     "skills/",
     "templates/",
     "tools/__init__.py",
+    "tools/validate.py",
+    "tools/worktree_env.py",
     "tools/catalog/",
     "vscode-extension/",
     "workflows/",

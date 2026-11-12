@@ -9,10 +9,10 @@ It combines four operations into a single coherent workflow that can run **at an
 - **`resynthesize`**: Subagent-sharded OKF v0.2 knowledge rewrite across all namespaces, active domain glossary sharpening, and `.agents/skills/` synchronization.
 - **`docs`**: Synchronizing user-facing documentation (`README.md`, `docs/`) with current codebase truth via [`../../flow-docs/SKILL.md`](../../flow-docs/SKILL.md).
 
-## Phase 1: Cross-Machine/Harness Reorientation & Drift Assessment
+## Phase 1: Cross-Machine/Harness/Worktree Reorientation & Drift Assessment
 
-1. **Cross-Machine & Cross-Harness Spec/Chapter/Task Reorientation (`refresh` + `sync`)**:
-   - Inspect `git status --short -b` and `git log --oneline -n 20`.
+1. **Worktree Resolution & Cross-Machine Spec/Chapter/Task Reorientation (`refresh` + `sync`)**:
+   - Inspect `<hook_context>`, `git status --short -b`, and `git log --oneline -n 20`. In linked `git worktree` checkouts, verify `.venv` / `node_modules` symlinks to the primary checkout (`uv run --no-sync`) and confirm `shared` (worktree `.agents/`) vs. `local-only` (primary checkout `$MAIN_WORKTREE/.agents/`) routing; when sandbox isolation prevents direct writes to `$MAIN_WORKTREE/.agents/`, support `/flow:learn sync --from-main` (seeding `.agents/` from the primary checkout) and `/flow:learn sync --to-main` (merging new `specs/<flow_id>/` directories plus `index.md`, `specs/index.md`, and `log.md` entries back into the primary checkout without overwriting).
    - Compare every `.agents/bundles/specs/<flow_id>/spec.md`, `chapters/index.md`, `chapters/<ch_id>/spec.md`, and `tasks/*.md` against Git history and the working tree:
      - **Committed on another machine/session, task still open**: If a commit in `HEAD` history implements the task's acceptance criteria or references its task ID while task `state` is `pending`/`open`/`in_progress`, set `state: completed` and bind `commit: <sha>`.
      - **Task closed, commit missing**: If a `completed`/`closed` task points to a SHA absent from `HEAD` history, flag the conflict explicitly in the dashboard rather than guessing.

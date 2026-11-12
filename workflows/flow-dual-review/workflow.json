@@ -1,6 +1,6 @@
 {
   "name": "flow-dual-review",
-  "description": "Run parallel zero-context correctness and quality reviews over a Git range or Flow chapter, then synthesize a unified adjudication report.",
+  "description": "Run parallel zero-context correctness and quality reviews over a Git range or Flow chapter with quota-aware model allocation.",
   "entry": "workflow.py",
   "args": {
     "type": "object",
@@ -12,6 +12,19 @@
       "spec_path": {
         "type": "string",
         "description": "Relative path to the active spec.md or chapter spec.md."
+      },
+      "review_mode": {
+        "type": "string",
+        "enum": ["dual", "single"],
+        "description": "Run parallel dual review or single combined review for Small changes (default dual)."
+      },
+      "reviewer_model": {
+        "type": "string",
+        "description": "Preferred reviewer model option (default inherit when session is Pro/Pro-Next, or pass pro when session is Flash; falls back to flash on quota)."
+      },
+      "timeout_seconds": {
+        "type": "integer",
+        "description": "Per-reviewer timeout in seconds (default 600)."
       }
     },
     "required": ["git_range"]

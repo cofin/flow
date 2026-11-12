@@ -1,6 +1,6 @@
 {
   "name": "flow-chapter-pipeline",
-  "description": "Execute vertical-slice tasks in a single Flow chapter sequentially, refresh the local DuckDB Knowledge Catalog, and run zero-context chapter review.",
+  "description": "Execute a single Flow chapter via cohesive chapter-batch edits, validate once with the fast lint and targeted unit gate, synchronize present-tense OKF docs, and run zero-context chapter review.",
   "entry": "workflow.py",
   "args": {
     "type": "object",
@@ -21,6 +21,32 @@
       "base_commit": {
         "type": "string",
         "description": "Base Git commit SHA prior to chapter execution."
+      },
+      "bundle_root": {
+        "type": "string",
+        "description": "Bundle root path (default .agents/bundles)."
+      },
+      "execution_mode": {
+        "type": "string",
+        "enum": ["chapter_batch", "per_task"],
+        "description": "Execute the chapter in one warm batch pass or per-task turns (default chapter_batch)."
+      },
+      "review_mode": {
+        "type": "string",
+        "enum": ["dual", "single"],
+        "description": "Run parallel code + quality review or a single combined review for Small slices (default dual)."
+      },
+      "executor_model": {
+        "type": "string",
+        "description": "Preferred executor model option (default inherit)."
+      },
+      "reviewer_model": {
+        "type": "string",
+        "description": "Preferred reviewer model option (default inherit when session is Pro/Pro-Next, or pass pro when session is Flash; falls back to flash on quota)."
+      },
+      "executor_agent": {
+        "type": "string",
+        "description": "Optional custom agent profile for execution (default self)."
       }
     },
     "required": ["flow_id", "chapter_id", "tasks"]

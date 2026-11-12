@@ -1,22 +1,25 @@
 # Flow Implement (`/flow:implement`)
 
-Execute **strictly one active chapter** (`1–4` vertical-slice task blueprints) per `/flow:implement` run using isolated single-worksheet `@executor` subagents, Bounded Read Manifests (`read_set <= 6`), Public-Seam TDD, pre-review present-tense Markdown/OKF synchronization, Zero-Context Chapter Code & Markdown-Sync Review, `last_reviewed_commit` stamping, and a clean chapter-boundary stop.
+Execute **strictly one active chapter** (`1–4` vertical-slice task blueprints) per `/flow:implement` run using Chapter-Batch Execution (`flow-chapter-pipeline` by default so shared files are edited once), Bounded Read Manifests (`read_set <= 6`), Public-Seam TDD, a single `< 60s` Fast Chapter Gate per chapter, commit-first `<CODE_SHA>` sequencing, pre-review present-tense Markdown/OKF synchronization, Zero-Context Chapter Code & Markdown-Sync Review, `last_reviewed_commit` stamping, and a clean chapter-boundary stop.
 
 <!-- flow-execution-policy: start -->
 ```yaml
 contract: worksheet-execution-v1
 invariants:
   - one-chapter-per-implement-run
+  - chapter-batch-editing-shared-files-once
   - worksheet-first-bounded-read-set
   - execution-preflight
   - public-seam-tdd-no-mocked-sut
   - fail-closed-no-production-mutation
-  - atomic-task-commit
+  - fast-chapter-gate-once-per-chapter
+  - commit-first-sha-sync
   - pre-review-present-tense-markdown-sync
   - chapter-code-and-doc-review-before-stop
 authority: skills/flow/references/implement.md
 preflight:
   checks:
+    - worktree_bundle_and_env_resolved
     - chapter_dependencies_closed_and_reviewed
     - chapter_planning_status_complete
     - dependencies_closed
@@ -42,10 +45,11 @@ mismatch_classes:
 /flow:implement [flow_id] [chapter_id | task_id]
 ```
 
-## Phase 1: Resolve Active Chapter, Load Scoped Context, & Run Execution Preflight
+## Phase 1: Resolve Worktree, Active Chapter, & Run Execution Preflight
 
-1. **Resolve Active Chapter (`< 25k` Coordinator Context)**:
-   - Read root `.agents/bundles/specs/<flow_id>/spec.md`, `.agents/bundles/knowledge/workflow.md`, and `.agents/skills/index.md`.
+1. **Resolve Worktree & Active Chapter (`< 25k` Coordinator Context)**:
+   - In linked `git worktree` checkouts, follow `<hook_context>` worktree routing: under `shared` tracking edit `$WORKTREE/.agents/` directly; under `local-only` stealth tracking route all `.agents/` Markdown reads and writes to `$MAIN_WORKTREE/.agents/` (or its symlink), and invoke Python tools via `uv run --no-sync` against the symlinked `.venv` instead of running `make install` or `uv sync`.
+   - Read root `.agents/bundles/specs/<flow_id>/spec.md`, `.agents/bundles/knowledge/workflow.md`, and `.agents/skills/index.md`. If `planning_quality: degraded` is present on root or chapter `spec.md`, surface `planning_degraded_reason` to the user before executing.
    - When `has_chapters: true`, read `specs/<flow_id>/chapters/index.md` and resolve `current_chapter` (or explicit `[chapter_id]`), then read **only** `specs/<flow_id>/chapters/<ch_id>/spec.md` and `chapters/<ch_id>/tasks/*.md`—never load completed or downstream chapters' task worksheets into the coordinator.
    - Verify chapter-level gates before touching any task:
      1. `chapter_dependencies_closed_and_reviewed`: Every chapter in `depends_on_chapters` has `state: completed` and a valid hex `last_reviewed_commit`.
@@ -54,57 +58,59 @@ mismatch_classes:
    - Record `chapter_base_commit` (the parent of the chapter's first task commit, or `HEAD` when starting the chapter).
    - If a task in the active chapter has `state: in_progress`, inspect `git log -n 5 --oneline` and `git status --short -b` to reconcile any already-landed commit; otherwise select ready `pending`/`open` tasks in `(priority, created_at, id)` order whose `depends_on` tasks are `completed`.
 3. **Execution Preflight & Fail-Closed Mismatch Routing**:
-   - Before each task executes, verify:
+   - Before executing the chapter, verify for each ready task:
      1. `dependencies_closed`: Every task in `depends_on` is `completed`/`closed` with a valid `commit` SHA.
-     2. `worksheet_complete`: All 8 required blueprint headings (`Objective & Scope Boundary`, `Bounded Read Manifest`, `Symbol & Signature Contracts`, `Edge Cases & Error Semantics`, `Public-Seam Test Blueprint`, `Verification`, `Acceptance Criteria`, `Notes & Discoveries`) are populated without placeholders, with `read_set <= 6` and `estimated_loc <= 250`.
+     2. `worksheet_complete`: For `blueprint_tier: full` (default), all required headings (`Objective & Scope Boundary`, `Bounded Read Manifest`, `Symbol & Signature Contracts`, `Edge Cases & Error Semantics`, `Public-Seam Test Blueprint`, `Verification`, `Acceptance Criteria`, `Notes & Discoveries`) are populated without placeholders; for `blueprint_tier: compact` (`estimated_loc <= 60` and `read_set <= 3`), `Objective & Scope Boundary`, `Bounded Read Manifest`, `Verification`, and `Acceptance Criteria` are populated; `read_set <= 6` and `estimated_loc <= 250`.
      3. `verification_strategy_declared`: `verification_strategy` matches the task's change class.
      4. `plan_identity_matches`: `plan_revision` and `plan_commit` match between the owning `spec.md` and the task worksheet.
      5. `target_symbols_exist`: All target `files:`, `tests:`, and `path/to/file::Symbol` anchors match current repository reality.
    - If any check fails, classify the mismatch and **make zero production code edits**: append evidence to `## Notes & Discoveries`, set task `state: blocked` (`[!]`), `blocked_reason`, `unblock_condition`, and `next_step: "/flow:revise <flow_id> [chapter_id]"`, and stop cleanly.
 
-## Phase 2: Claim Task & Dispatch Isolated `@executor` Pipeline (`1–4` Tasks Max)
+## Phase 2: Claim Chapter & Dispatch Chapter-Batch `@executor` (`1–4` Tasks Max)
 
-1. Mark the active chapter `- [~] <ch_id>` in root `specs/<flow_id>/spec.md` (`state: active`, `current_chapter: <ch_id>`) and claim each ready task (`state: in_progress`, `claimed_by`, `claimed_at`, `current_task: <id>`, checklist `- [~] <id> — ...`).
-2. **Isolated Subagent / `run_workflow` Pipeline Execution**:
-   - Dispatch one fresh isolated `@executor` subagent (`model: inherit`) per task worksheet across **only the active chapter's `1–4` tasks**. Never dispatch implementation subagents in parallel when tasks touch shared files.
-   - On Google Antigravity, use `run_workflow` `pipeline(chapter_worksheets, run_worksheet)` where each stage invokes `agent(type_name="self", role=f"Execute {task_id}", schema=TASK_RESULT_SCHEMA, model="inherit")` with `agents/executor.md`, the worksheet path, the owning chapter `spec.md` path, and referenced `.agents/skills/` + `knowledge/` chapters so file reads and test logs stay out of the coordinator context.
-   - Each `@executor` reads **only** its `Bounded Read Manifest` (`read_set <= 6` files + chapter `spec.md` + referenced skills/knowledge chapters); if unstated symbol dependencies would require broad codebase exploration, it fails closed as `state: blocked` rather than compacting its context window, and returns a concise `<= 30`-line structured receipt.
+1. Mark the active chapter `- [~] <ch_id>` in root `specs/<flow_id>/spec.md` (`state: active`, `current_chapter: <ch_id>`) and claim ready tasks (`state: in_progress`, `claimed_by`, `claimed_at`, `current_task: <id>`, checklist `- [~] <id> — ...`).
+2. **Chapter-Batch Dispatch (Default) vs. Disjoint Per-Task Isolation**:
+   - **Default (`execution_mode: "chapter_batch"`)**: Dispatch **one warm `@executor` subagent turn** for the active chapter's `1–4` task blueprints so shared production and test files are read and edited in a single coherent pass and validated **once** with the chapter's `< 60s` Fast Chapter Gate.
+   - **Per-Task Isolation (`execution_mode: "per_task"`)**: Use sequential per-task `@executor` turns only when a specific `[task_id]` was requested or tasks span disjoint subsystems with non-overlapping `read_set`s.
+   - **Google Antigravity (`run_workflow`)**: Execute `run_workflow(ScriptPath="<plugin_root>/workflows/flow-chapter-pipeline/workflow.py", Args={"flow_id": flow_id, "chapter_id": ch_id, "tasks": task_paths, "execution_mode": "chapter_batch", "fast_verify_cmd": fast_gate_cmd})` where `agent(type_name="self", schema=...)` reads `templates/agent/executor-schema-card.md`, `agents/executor.md`, the chapter `spec.md`, and the bounded `read_set` (`with_budget(max_seconds=480)` and automatic quota fallback from `inherit` to `flash` on `429`/`RESOURCE_EXHAUSTED`—never `flash_lite`).
+   - **Claude Code / Codex / Cursor / OpenCode**: Dispatch `@executor` (`model: "sonnet"` on Claude Code when the parent session is Opus—never `"haiku"`; `model_reasoning_effort = "medium"` on Codex) with `templates/agent/executor-schema-card.md`, the chapter `spec.md`, and the chapter's task worksheet paths. If unstated symbol dependencies would require broad codebase exploration, fail closed as `state: blocked` rather than reading outside the bounded manifest.
 
-## Phase 3: Execute Declared Verification Strategy & Public-Seam TDD
+## Phase 3: Execute Public-Seam TDD, Fast Chapter Gate, & Commit-First Sequencing
 
-| Strategy | Initial Evidence | Implementation & Final Evidence |
+| Strategy | Initial Evidence | Implementation & Fast Chapter Gate (`< 60s`) |
 | --- | --- | --- |
-| `behavior_tdd` | Write focused behavioral test(s) from the worksheet's Worked Test Matrix at the confirmed public seam in the canonical test module and run to confirm failure (Red). | Implement the minimal production change, rerun until Green (`exit 0`), and run fast lint/typecheck gates. |
-| `regression_tdd` | Write the minimized reproduction test at the public seam in the canonical test module and confirm it fails (Red) with the defect symptom. | Implement the narrow fix, rerun the regression test and module suite until Green (`exit 0`). |
-| `characterization` | Run the focused behavior baseline at the public seam and confirm it passes before refactoring. | Refactor/debloat while keeping the behavior baseline unchanged and Green (`exit 0`). |
-| `static_validation` | Run the native validator, linter, or typechecker baseline. | Prove any new check catches a representative isolated violation, restore clean state, and verify exit code `0`. |
-| `documentation_validation` | Run the Markdown, link, frontmatter, and example baseline. | Author present-tense docs/OKF chapters and verify all link, schema, and lint checks exit `0`. |
-| `integration_acceptance` | Run the focused integration baseline. | Verify end-to-end composition and negative refusal paths exit `0`. |
+| `behavior_tdd` | Write parameterized behavioral test(s) from the Worked Test Matrix at the confirmed public seam in the canonical test module and observe Red where practical. | Implement the chapter's vertical slices, run the targeted unit test file(s) + offline lint/typecheck gate once (`exit 0`). |
+| `regression_tdd` | Write the minimized reproduction test at the public seam in the canonical test module and confirm it fails (Red) with the defect symptom. | Implement the narrow fix and rerun the targeted test file(s) + fast lint gate (`exit 0`). |
+| `characterization` | Run the focused behavior baseline at the public seam and confirm it passes before refactoring. | Refactor/debloat while keeping the focused behavior baseline and fast lint gate Green (`exit 0`). |
+| `static_validation` | Run the offline native validator, linter, or typechecker baseline. | Prove any new check catches a representative isolated violation, restore clean state, and verify exit code `0`. |
+| `documentation_validation` | Run the offline Markdown, link, frontmatter, and example baseline. | Author present-tense docs/OKF chapters and verify all link, schema, and lint checks exit `0`. |
+| `integration_acceptance` | Run the focused integration target for the touched subsystem. | Verify end-to-end composition and negative refusal paths exit `0`. |
 
-### Public-Seam & Test-Quality Rules
+### Verification Cadence, Public-Seam, & Commit-First Rules
 
-- **The Interface Is the Test Surface**: Test strictly through confirmed public interfaces using domain terms from `knowledge/domains/<domain>.md`.
-- **Never Write Implementation-Coupled or Tautological Tests**: Never mock the System Under Test, mock internal collaborators, test private methods, or recompute expected outputs with production logic; assert against concrete literals from the worksheet's Worked Test Matrix.
-- **Canonical Test Files Only**: Add or update tests inside existing canonical module test files (`tests/<module>/test_<unit>.py`); never create standalone `test_*remediation*.py` or `test_*audit*.py` files.
+- **Fast Chapter Gate (`< 60s`) vs. Full Release Suite**: Validate **once per chapter batch** using offline sandbox-safe commands (`make lint` / `uv run --no-sync ruff check` + targeted unit test file(s) for touched modules—never `npx --yes` network downloads inside background subagents). **Never** run slow (`> 60s`) full repository test suites between individual tasks or intermediate chapters; run the full suite once at `/flow:finish` (or CI).
+- **The Interface Is the Test Surface**: Test strictly through confirmed public interfaces using domain terms from `knowledge/domains/<domain>.md`. Never mock the System Under Test, mock internal collaborators, test private methods, recompute expected outputs with production logic, or create standalone `test_*remediation*.py` / `test_*audit*.py` files.
 - **When Tests Fail**: Follow the **Hypothesis-Driven Bug Diagnosis Loop** in [`discipline.md`](discipline.md). If 3 fixes fail in a row, stop, mark the task `blocked`, and route to `/flow:revise`.
-- **Atomic Task Commit**: After verification exits `0`, each `@executor` updates its `tasks/<id>-<slug>.md` (`state: completed`, `commit: <sha>`, `last_verified_at`, `last_verified_commit`, `verification_evidence`, `claimed_by: null`, `claimed_at: null`) and owning `spec.md` checklist (`- [x] [<sha>] <id> — ...`) together with its owned `files:` and `tests:` in one atomic signed commit (`git commit -S -m "<type>(<scope>): <concise summary>"`), never using `git add -A` or `git add -f`.
+- **Commit-First `<CODE_SHA>` Sequencing (Never `git commit --amend`)**:
+  1. Stage exact owned production and test paths (`files:` + `tests:`, never `git add -A` or `git add -f`) and create a signed commit (`git commit -S -m "<type>(<scope>): <concise summary>"`) **before** writing `commit:` into task frontmatter so `<CODE_SHA>` is immutable and cryptographically valid.
+  2. **Sandbox Read-Only `.git/` Fallback**: If a background subagent runs inside a sandbox where `.git/` is read-only (`Unable to create '.../.git/index.lock'`), it leaves its verified edits cleanly on disk and returns `commit_deferred_to_coordinator: true` + `files_modified` so the coordinator immediately creates `<CODE_SHA>` on its behalf instead of stalling or retrying.
 
-## Phase 4: Chapter Closeout Sequence (Checkpoint &rarr; Present-Tense Sync &rarr; Review &rarr; Hard Stop)
+## Phase 4: Chapter Closeout Sequence (Pre-Review Sync &rarr; OKF Gate &rarr; Review &rarr; Hard Stop)
 
-As soon as all `1–4` tasks in the active chapter (or single-chapter flow) reach `completed` / `deferred`, execute all four closeout steps **before ending the coordinator turn**:
+As soon as the active chapter's `1–4` tasks finish implementation and pass the Fast Chapter Gate, execute all closeout steps **before ending the coordinator turn**:
 
-1. **Step 1 — Chapter Recovery Checkpoint**:
-   - Run `debloat` checks across the chapter's touched files and execute the **Chapter / Phase Recovery Checkpoint** command (`lint` + chapter/module test suite), confirming exit code `0` and recording `last_verified_checkpoint`.
-2. **Step 2 — Present-Tense Markdown, OKF, & Full-Plan Sync (Isolated Sync Subagent)**:
-   - Dispatch an isolated Documentation & Plan Sync subagent (`type_name="self"` on Google Antigravity) to synchronize all living Markdown **before** code review:
-     1. Update or create every `.agents/bundles/knowledge/**` chapter and user `README.md` / `docs/**` file owned by this chapter in present tense (`status: stable`, `<= 40`-line `<!-- truth: start -->` block, `sources:` + `[^id]:` footnotes, `verified:` stamp, frontmatter-free `index.md` catalogs).
-     2. Rewrite `chapters/<ch_id>/spec.md`, `chapters/index.md`, and root `specs/<flow_id>/spec.md` **in place in present tense**: reconcile any refined type/signature contracts across root `spec.md` and remaining downstream chapters (`chK..chNN`), update `[k/N files documented]` in `## 3. Documentation & OKF Knowledge Plan`, and rewrite `## 6. Current State & Remaining Plan Snapshot` with the verified baseline at `HEAD`, remaining chapters/tasks across the full plan, and active invariants—with **zero chronological history or revision logs** inside specs or docs.
-     3. Prepend an ISO-dated `chapter-complete` entry to `.agents/bundles/log.md` and create a signed commit (`docs(<scope>): sync present-tense specs and knowledge for <ch_id>`).
-3. **Step 3 — Zero-Context Chapter Code & Markdown-Sync Review**:
-   - Dispatch isolated read-only `@code-reviewer` and `@quality-reviewer` subagents (`type_name="self"` on Google Antigravity, checking `git status --porcelain` afterward) across `chapter_base_commit..HEAD` ([`review.md`](review.md)).
+1. **Step 1 — Commit-First SHA Recording & Present-Tense Markdown/OKF Sync**:
+   - Perform **pre-review present-tense Markdown/OKF synchronization** (either inside `flow-chapter-pipeline` or via an isolated sync subagent):
+     1. Record each completed task's `<CODE_SHA>` in `tasks/<id>-<slug>.md` (`state: completed`, `commit: <CODE_SHA>`, `last_verified_at`, `last_verified_commit: <CODE_SHA>`, `verification_evidence`, `claimed_by: null`, `claimed_at: null`) and mark `- [x] [<CODE_SHA>] <id> — ...` in the owning `spec.md`—**never** amending `<CODE_SHA>`.
+     2. Update or create every `.agents/bundles/knowledge/**` chapter and user `README.md` / `docs/**` file owned by this chapter in present tense (`status: stable`, `<= 40`-line `<!-- truth: start -->` block, `sources:` + `[^id]:` footnotes, `verified:` stamp, frontmatter-free `index.md` catalogs).
+     3. Rewrite `chapters/<ch_id>/spec.md`, `chapters/index.md`, and root `specs/<flow_id>/spec.md` **in place in present tense**: reconcile any refined type/signature contracts across root `spec.md` and remaining downstream chapters (`chK..chNN`), update `[k/N files documented]` in `## 3. Documentation & OKF Knowledge Plan`, and rewrite `## 6. Current State & Remaining Plan Snapshot` with the verified baseline at `HEAD`, remaining chapters/tasks across the full plan, and active invariants—with **zero chronological history or revision logs** inside specs or docs.
+     4. Run `/flow:validate` on `<flow_id>` (`exit 0`) to deterministically enforce OKF v0.2 structure and Git `diff-tree` task file-ownership proofs, prepend an ISO-dated `chapter-complete` entry to `.agents/bundles/log.md`, and create a signed sync commit (`docs(<scope>): sync present-tense specs and knowledge for <ch_id>`).
+2. **Step 2 — Zero-Context Chapter Code & Markdown-Sync Review**:
+   - Dispatch isolated read-only reviewers across `chapter_base_commit..HEAD` ([`review.md`](review.md); `flow-chapter-pipeline` or `flow-dual-review` with `type_name="self"` on Google Antigravity, checking `git status --porcelain` afterward; `review_mode="single"` for `Small` single-chapter `<= 2`-task flows, `dual` for all others, running reviewers on **Opus** on Claude Code when available [else `sonnet`] and **Gemini Pro** / Pro-Next on Antigravity when available [else `flash` on quota fallback]—**never** `flash_lite` / `haiku`).
    - Reviewers audit both production/test changes AND the synced `spec.md`, `chapters/index.md`, `knowledge/**`, and `docs/**` files for Spec Conformance, Deep-Module Seams, Present-Tense Full-Plan Roadmap Accuracy, and Zero-History Living-Doc Hygiene (`quality-review-v1`).
-   - Remediate any `ADOPT` code or Markdown-sync findings in canonical files, rerun the Chapter Recovery Checkpoint (`exit 0`), and re-verify with the reviewers; let `<REVIEWED_HEAD_SHA>` be the verified `HEAD` commit SHA.
-4. **Step 4 — Review Stamp, Pointer Advance, & Chapter-Boundary Hard Stop**:
+   - Remediate any `ADOPT` code or Markdown-sync findings in canonical files, rerun the Fast Chapter Gate + `/flow:validate` (`exit 0`), and re-verify; let `<REVIEWED_HEAD_SHA>` be the verified `HEAD` commit SHA.
+3. **Step 3 — Anti-Skip Audit, Review Stamp, Pointer Advance, & Chapter-Boundary Hard Stop**:
+   - Verify that zero tasks in `<ch_id>` remain `pending`/`open`/`in_progress`/`blocked` and that any `deferred` item was explicitly approved by the user (`deferred_by: "user"` + non-empty `deferred_reason`).
    - Stamp `last_reviewed_commit: <REVIEWED_HEAD_SHA>`, `verified:`, and `state: completed` (`current_task: null`) in `chapters/<ch_id>/spec.md` (or single-chapter `specs/<flow_id>/spec.md`).
-   - When `has_chapters: true`, update root `specs/<flow_id>/spec.md` and `chapters/index.md`: mark `- [x] [<REVIEWED_HEAD_SHA>] <ch_id> — ...`, set `last_reviewed_chapter: <ch_id>` and `last_reviewed_commit: <REVIEWED_HEAD_SHA>`, and advance `current_chapter` to the next remaining chapter (or set `current_chapter: null` when all chapters are `[x]`), then create a signed chapter-closeout metadata commit so `hooks/stop-check.{sh,ps1}` verifies `merge-base --is-ancestor <task_sha> <REVIEWED_HEAD_SHA>` cleanly.
+   - When `has_chapters: true`, update root `specs/<flow_id>/spec.md` and `chapters/index.md`: mark `- [x] [<REVIEWED_HEAD_SHA>] <ch_id> — ...`, set `last_reviewed_chapter: <ch_id>` and `last_reviewed_commit: <REVIEWED_HEAD_SHA>`, and advance `current_chapter` to the next remaining chapter (never setting root `state: completed` while any chapter in `chapters:` remains open), then create a signed chapter-closeout metadata commit (under `shared` tracking; or sync `.agents/` on disk under `local-only` stealth mode) so `hooks/stop-check.{sh,ps1}` verifies `merge-base --is-ancestor <task_sha> <REVIEWED_HEAD_SHA>` cleanly.
    - **Hard Stop After One Chapter**: Stop immediately after closing the chapter—never automatically start executing the next chapter in the same turn. Report the completed chapter, `<REVIEWED_HEAD_SHA>`, remaining chapters from the full plan, and recommend running `/compact` (or starting a fresh session) before invoking `/flow:implement <flow_id>` for the next chapter (or `/flow:finish <flow_id>` when all chapters are complete).

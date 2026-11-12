@@ -138,3 +138,65 @@ def test_active_writer_advisory_detection_and_a2a_jsonrpc(tmp_path: Path) -> Non
     assert out["card"]["name"] == "Flow Studio Cross-Harness Bridge"
     assert out["rpc"]["id"] == "req-1"
     assert out["rpc"]["result"]["status"]["state"] == "completed"
+
+
+@pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
+def test_cross_harness_runner_worktree_symlinking_and_quota_model_fallback(tmp_path: Path) -> None:
+    """Verify CrossHarnessRunner symlinks .venv/.agents in isolated worktrees and retries opus -> sonnet on 429."""
+    assert NODE_BIN is not None
+    ws, mock_bin = _seed_git_repo_with_mock_harnesses(tmp_path)
+    (ws / ".venv" / "bin").mkdir(parents=True)
+    (ws / ".agents" / "bundles").mkdir(parents=True)
+    (ws / ".agents" / "setup-state.json").write_text(
+        json.dumps({"workflow_preferences": {"ignore_policy": "local-only"}}),
+        encoding="utf-8",
+    )
+
+    if sys.platform != "win32":
+        claude_bin = mock_bin / "claude"
+        claude_bin.write_text(
+            "#!/usr/bin/env sh\n"
+            'case "$*" in\n'
+            '  *"--model opus"*)\n'
+            '    printf "429 rate_limit_error: opus quota exceeded\\n" >&2\n'
+            "    exit 1\n"
+            "    ;;\n"
+            "  *)\n"
+            '    printf \'{"type":"assistant","harness":"claude","args":"%s"}\\n\' "$*"\n'
+            "    exit 0\n"
+            "    ;;\n"
+            "esac\n",
+            encoding="utf-8",
+        )
+        claude_bin.chmod(0o755)
+
+    runner_uri = (REPO_ROOT / "sidecars" / "studio" / "harness-runner.mjs").as_uri()
+    js = (
+        f"import {{ CrossHarnessRunner }} from {json.dumps(runner_uri)};"
+        f"const runner = new CrossHarnessRunner({{ defaultWorkspace: {json.dumps(str(ws))} }});"
+        "const res = await runner.dispatch({"
+        f"  workspacePath: {json.dumps(str(ws))},"
+        "  harness: 'claude',"
+        "  executionMode: 'worktree-isolated',"
+        "  model: 'opus',"
+        "  prompt: '/flow:review demo-spec',"
+        "  wait: true"
+        "});"
+        "process.stdout.write(JSON.stringify(res) + '\\n');"
+    )
+    proc = subprocess.run(
+        [NODE_BIN, "--input-type=module", "-e", js],
+        env={**os.environ, "FLOW_HARNESS_BIN_DIR": str(mock_bin)},
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    out = json.loads(proc.stdout.strip().splitlines()[-1])
+    wt_cwd = Path(out["effectiveCwd"])
+    assert (wt_cwd / ".venv").is_symlink()
+    assert (wt_cwd / ".agents").is_symlink()
+    if sys.platform != "win32":
+        assert out["status"] == "completed"
+        assert out["requestedModel"] == "opus"
+        assert out["effectiveModel"] == "sonnet"
+        assert out["modelFallbackUsed"] is True

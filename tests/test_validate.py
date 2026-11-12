@@ -11,6 +11,8 @@ import pytest
 from tools.validate import (
     EXPECTED_AGENTS,
     EXPECTED_SKILLS,
+    MAX_EXECUTOR_SCHEMA_CARD_LINES,
+    MAX_PLAN_SCHEMA_CARD_LINES,
     MAX_SKILL_FILE_BYTES,
     READONLY_AGENTS,
     REPO_ROOT,
@@ -22,7 +24,9 @@ from tools.validate import (
     validate_manifests,
     validate_markdown_links,
     validate_repository,
+    validate_schema_cards,
     validate_skills,
+    validate_workflows,
 )
 
 
@@ -290,3 +294,163 @@ def test_validate_markdown_links_detects_broken_links(tmp_path: Path) -> None:
     )
     errors = validate_markdown_links(tmp_path)
     assert errors == ["skills/flow/SKILL.md: broken relative link 'references/missing.md'"]
+
+
+@pytest.mark.parametrize(
+    ("case_id", "workflow_py", "required_args", "md_fence", "expected_substring"),
+    (
+        (
+            "top-level-return",
+            'x = args["flow_id"]\nreturn {"status": x}\n',
+            ["flow_id"],
+            "",
+            "top-level 'return' is a runtime error",
+        ),
+        (
+            "syntax-error",
+            "def broken(:\n    pass\n",
+            [],
+            "",
+            "workflow syntax error",
+        ),
+        (
+            "missing-schema-kwarg",
+            'res = await agent("run check", type_name="self")\nprint(res)\n',
+            [],
+            "",
+            "agent() call missing required 'schema=' argument",
+        ),
+        (
+            "forbidden-hardcoded-type-name",
+            'res = await agent("run", schema={"type": "string"}, type_name="executor")\nprint(res)\n',
+            [],
+            "",
+            "must not hardcode type_name='executor'",
+        ),
+        (
+            "unawaited-parallel-call",
+            'parallel(["a"], lambda item: agent(item, schema={"type": "string"}, type_name="self"))\n',
+            [],
+            "",
+            "parallel() call must be awaited",
+        ),
+        (
+            "unread-required-workflow-arg",
+            'print("hello")\n',
+            ["flow_id"],
+            "",
+            "required workflow.json arg 'flow_id' is never read",
+        ),
+        (
+            "markdown-python-fence-violation",
+            'x = args["flow_id"]\nprint(x)\n',
+            ["flow_id"],
+            '```python\nawait agent("bad", type_name="researcher")\n```\n',
+            "agent() call missing required 'schema=' argument",
+        ),
+    ),
+)
+def test_validate_workflows_rejects_ast_and_contract_violations(
+    tmp_path: Path,
+    case_id: str,
+    workflow_py: str,
+    required_args: list[str],
+    md_fence: str,
+    expected_substring: str,
+) -> None:
+    """Verify validate_workflows catches syntax, top-level return, missing schema, type_name, and await bugs."""
+    wf_dir = tmp_path / "workflows" / "sample-wf"
+    wf_dir.mkdir(parents=True)
+    (wf_dir / "workflow.json").write_text(
+        json.dumps(
+            {
+                "name": "sample-wf",
+                "description": "Sample workflow",
+                "entry": "workflow.py",
+                "args": {"type": "object", "properties": {}, "required": required_args},
+            }
+        ),
+        encoding="utf-8",
+    )
+    (wf_dir / "workflow.py").write_text(workflow_py, encoding="utf-8")
+    if md_fence:
+        skill_dir = tmp_path / "skills" / "flow"
+        skill_dir.mkdir(parents=True)
+        (skill_dir / "SKILL.md").write_text(f"# Sample\n\n{md_fence}", encoding="utf-8")
+
+    errors = validate_workflows(tmp_path)
+    assert any(expected_substring in err for err in errors), f"[{case_id}] expected {expected_substring!r} in {errors}"
+
+
+@pytest.mark.parametrize(
+    ("case_id", "plan_override", "exec_override", "expected_substring"),
+    (
+        (
+            "oversized-plan-card",
+            "\n".join(f"line {idx}" for idx in range(MAX_PLAN_SCHEMA_CARD_LINES + 5)),
+            None,
+            f"exceeds {MAX_PLAN_SCHEMA_CARD_LINES}-line cap",
+        ),
+        (
+            "missing-heading-in-plan-card",
+            (
+                "type status state planning_quality planning_degraded_reason "
+                "worksheet_format read_set estimated_loc sources tags\n"
+            ),
+            None,
+            "missing task heading",
+        ),
+        (
+            "oversized-executor-card",
+            None,
+            "\n".join(f"line {idx}" for idx in range(MAX_EXECUTOR_SCHEMA_CARD_LINES + 5)),
+            f"exceeds {MAX_EXECUTOR_SCHEMA_CARD_LINES}-line cap",
+        ),
+    ),
+)
+def test_validate_schema_cards_enforces_line_caps_and_state_parity(
+    tmp_path: Path,
+    case_id: str,
+    plan_override: str | None,
+    exec_override: str | None,
+    expected_substring: str,
+) -> None:
+    """Verify validate_schema_cards enforces line budgets and task/frontmatter parity with state.md."""
+    templates_dir = tmp_path / "templates" / "agent"
+    refs_dir = tmp_path / "skills" / "flow" / "references"
+    templates_dir.mkdir(parents=True)
+    refs_dir.mkdir(parents=True)
+    shutil.copy2(REPO_ROOT / "skills" / "flow" / "references" / "state.md", refs_dir / "state.md")
+    shutil.copy2(REPO_ROOT / "templates" / "agent" / "plan-schema-card.md", templates_dir / "plan-schema-card.md")
+    shutil.copy2(
+        REPO_ROOT / "templates" / "agent" / "executor-schema-card.md",
+        templates_dir / "executor-schema-card.md",
+    )
+
+    if plan_override is not None:
+        (templates_dir / "plan-schema-card.md").write_text(plan_override, encoding="utf-8")
+    if exec_override is not None:
+        (templates_dir / "executor-schema-card.md").write_text(exec_override, encoding="utf-8")
+
+    errors = validate_schema_cards(tmp_path)
+    assert any(expected_substring in err for err in errors), f"[{case_id}] expected {expected_substring!r} in {errors}"
+
+
+def test_validate_hooks_rejects_wildcard_claude_post_tool_use(tmp_path: Path) -> None:
+    """Verify validate_hooks rejects PostToolUse matcher '*' in hooks/hooks-claude.json."""
+    hooks_dir = tmp_path / "hooks"
+    hooks_dir.mkdir(parents=True)
+    for script_name in ("session-start.sh", "session-start.ps1", "stop-check.sh", "stop-check.ps1"):
+        shutil.copy2(REPO_ROOT / "hooks" / script_name, hooks_dir / script_name)
+    shutil.copy2(REPO_ROOT / "hooks.json", tmp_path / "hooks.json")
+    shutil.copy2(REPO_ROOT / "hooks" / "hooks-cursor.json", hooks_dir / "hooks-cursor.json")
+    opencode_dir = tmp_path / ".opencode" / "plugins"
+    opencode_dir.mkdir(parents=True)
+    shutil.copy2(REPO_ROOT / ".opencode" / "plugins" / "flow.js", opencode_dir / "flow.js")
+
+    claude_cfg = json.loads((REPO_ROOT / "hooks" / "hooks-claude.json").read_text(encoding="utf-8"))
+    claude_cfg["hooks"]["PostToolUse"] = [{"matcher": "*", "hooks": [{"type": "command", "command": "true"}]}]
+    (hooks_dir / "hooks-claude.json").write_text(json.dumps(claude_cfg), encoding="utf-8")
+
+    errors = validate_hooks(tmp_path)
+    assert "hooks/hooks-claude.json: wildcard PostToolUse matcher '*' is forbidden due to tool latency" in errors

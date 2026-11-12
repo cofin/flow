@@ -2,20 +2,22 @@
 
 Complete a flow on the current branch after verifying that every chapter (`chapters/<ch_id>/spec.md`) and task blueprint (`tasks/*.md`) is `completed` (or `deferred`/`skipped`), `[N/N files documented]` in `## 3. Documentation & OKF Knowledge Plan` is satisfied, full verification gates pass, and zero-context correctness, Markdown-sync, and quality reviews (`quality-review-v1`) carry valid `last_reviewed_commit` stamps.
 
-## Phase 1: Chapter & Task Closure Audit and Scope-Cap Discipline
+## Phase 1: Deterministic Anti-Skip, OKF, & Task Closure Audit
 
-1. Read root `.agents/bundles/specs/<flow_id>/spec.md`, `chapters/index.md` (when `has_chapters: true`), all `chapters/<ch_id>/spec.md` files, and all `tasks/*.md` files.
-2. Confirm:
-   - Every task worksheet across single-chapter `tasks/*.md` or nested `chapters/<ch_id>/tasks/*.md` is `state: completed` (or `closed` / `deferred` / `skipped`) and matches its owning `spec.md` checklist marker (`[x] [<sha>]` or `[-]`).
-   - When `has_chapters: true`, every `chapters/<ch_id>/spec.md` is `state: completed` (`[-]` if deferred), carries a hex `last_reviewed_commit` covering all completed task commits in that chapter, and is marked `- [x] [<sha>]` in root `specs/<flow_id>/spec.md` and `completed` in `chapters/index.md`.
-   - Every documentation and OKF knowledge target in `## 3. Documentation & OKF Knowledge Plan` is checked (`[N/N files documented]`), present-tense, and free of historical prose.
+1. Resolve the effective `.agents/` bundle root (handling linked `git worktree` `shared` vs. `local-only` primary-checkout routing) and run `/flow:validate` on `<flow_id>` (`--require-completed`) before mutating root `spec.md`.
+2. Read root `.agents/bundles/specs/<flow_id>/spec.md`, `chapters/index.md` (when `has_chapters: true`), all `chapters/<ch_id>/spec.md` files, and all `tasks/*.md` files, and confirm:
+   - **Zero Skipped Chapters or Tasks**: Zero chapters or task worksheets remain `planned`, `active`, `pending`, `open`, `in_progress`, or `blocked`, and every `chapters/<ch_id>/` has `>= 1` task worksheet.
+   - **Authorized Deferrals Only**: Any chapter or task in `state: deferred` (`[-]` in `spec.md`) carries `deferred_by: "user"` and a non-empty `deferred_reason`. Unapproved `deferred`/`skipped` states written unilaterally by an agent are invalid and block completion.
+   - **Git Commit & File-Ownership Proof**: Every `completed` task worksheet carries a valid hex `commit` SHA whose `git diff-tree` modified at least one path declared in the worksheet's `files:` or `tests:`, and matches its owning `spec.md` checklist marker (`[x] [<sha>]`).
+   - **Chapter Review Stamps**: When `has_chapters: true`, every completed `chapters/<ch_id>/spec.md` carries a hex `last_reviewed_commit` covering all completed task commits in that chapter (`git merge-base --is-ancestor`), and is marked `- [x] [<sha>]` in root `specs/<flow_id>/spec.md` and `completed` in `chapters/index.md`.
+   - **Documentation & Degraded-Planning Disclosure**: Every target in `## 3. Documentation & OKF Knowledge Plan` is checked (`[N/N files documented]`), present-tense, and free of historical prose. If `planning_quality: degraded` is stamped on root or chapter `spec.md`, display `planning_degraded_reason` so the user can request deeper verification before closing.
 3. **Branch-Local Closure & Scope-Cap Discipline**:
    - Flow completion (`state: completed`) and archival (`/flow:archive`) are strictly branch-local transitions—never block completion waiting for a remote PR merge.
-   - If the original problem is solved and remaining open chapters or tasks represent newly discovered follow-up scope, offer via `structured-choice-v1` to mark them `state: deferred` (`[-]` in `spec.md`), rewrite `## 6. Current State & Remaining Plan Snapshot` in present tense, close the current flow cleanly, and seed a follow-up spec via `/flow:spec <new_flow_id>`.
+   - If the original problem is solved and remaining open chapters or tasks represent newly discovered follow-up scope, offer via `structured-choice-v1` to mark them `state: deferred` with `deferred_by: "user"` + `deferred_reason` (`[-]` in `spec.md`), rewrite `## 6. Current State & Remaining Plan Snapshot` in present tense, close the current flow cleanly, and seed a follow-up spec via `/flow:spec <new_flow_id>`.
 
-## Phase 2: Full Verification, Flow-Wide Review & ADR Gate
+## Phase 2: Full Release Gate, Flow-Wide Review & ADR Gate
 
-1. **Full Verification Gate**: Run the repository's canonical verification commands from `.agents/bundles/knowledge/workflow.md` (lint, typecheck, bundle/doc validator, and full unit/integration test suite) and confirm exit code `0`.
+1. **Full Release Gate (`> 60s` Suite Executed Once Here)**: Run the repository's full verification commands from `.agents/bundles/knowledge/workflow.md`—including any `> 60s` full unit/integration test suite that was intentionally skipped during intermediate `< 60s` Fast Chapter Gates—alongside lint, typecheck, and `/flow:validate`, confirming exit code `0`.
 2. **Correctness, Markdown-Sync, & Quality Review Gate (`quality-review-v1`)**: If any chapter lacks a valid `last_reviewed_commit` or post-review commits landed since `last_reviewed_commit`, execute [`review.md`](review.md) (`@code-reviewer` + `@quality-reviewer`) across `base_commit..HEAD`, resolve any adopted findings, and stamp `last_reviewed_commit: <REVIEWED_HEAD_SHA>`.
 3. **ADR Filter (`knowledge/decisions/adr-NNN-<slug>.md`)**:
    - Evaluate whether the flow introduced a decision that meets **all three** criteria:

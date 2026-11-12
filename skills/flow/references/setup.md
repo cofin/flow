@@ -13,7 +13,7 @@ Initialize or align a repository for Spec-Driven Development with Flow's core pr
      - `exit` — **Exit**: Keep current setup unchanged.
 2. **Brownfield Alignment & Legacy Layout Migration (`align`)**:
    - Inventory existing `.agents/` files in one read-only pass before proposing writes:
-     - **Legacy Spec & Track Migration**: Detect legacy `.agents/specs/`, `.agents/tracks/`, `tracks.md`, `metadata.json` manifests, or older sibling PRD child specs (`parent_prd: <prd_id>`), and offer to migrate active specifications into `.agents/bundles/specs/<flow_id>/spec.md` (plus frontmatter-free `chapters/index.md` and nested `chapters/ch01-<slug>/..chNN-<slug>/` for multi-chapter initiatives) with normalized `OKF v0.2` frontmatter and 8-section `tasks/<id>-<slug>.md` blueprints.
+     - **Legacy Spec & Track Migration**: Detect legacy `.agents/specs/`, `.agents/tracks/`, `tracks.md`, `metadata.json` manifests, or older sibling PRD child specs (`parent_prd: <prd_id>`), and offer to migrate active specifications into `.agents/bundles/specs/<flow_id>/spec.md` (plus frontmatter-free `chapters/index.md` and nested `chapters/ch01-<slug>/..chNN-<slug>/` for multi-chapter initiatives) with normalized `OKF v0.2` frontmatter and structured `tasks/<id>-<slug>.md` blueprints.
      - **Legacy Trackers & Journals**: Detect obsolete `.beads/`, `.agents/beads.json`, `.agents/transactions/` journals, `.git/hooks/pre-commit` tracker hooks, or `.agents/skills/flow-memory-keeper/`. Present exact paths and obtain user confirmation before removing them.
      - **OKF v0.2 Hygiene & Knowledge Tree Preservation**: Strip YAML frontmatter from subdirectory `index.md` files (`product/index.md`, `knowledge/index.md`, `knowledge/<ns>/index.md`, `research/index.md`, `specs/index.md`, `chapters/index.md`) and `log.md`, remove standalone `---` horizontal rules from bundle Markdown bodies, and convert any flat `knowledge/patterns.md` into topic-specific `knowledge/patterns/<topic>.md` chapters while preserving scope-derived nested directories (`architecture/`, `domains/`, `patterns/`, `testing/`, `gotchas/`, `decisions/`) and relative links.
      - **Research Reorganization**: Reconcile `.agents/bundles/research/` (which holds un-promoted research only) per [`research.md`](research.md):
@@ -30,7 +30,7 @@ Initialize or align a repository for Spec-Driven Development with Flow's core pr
    - Probe installed binaries (`uv`, `python3`, `cargo`, `go`, `bun`, `pnpm`, `npm`, `make`, `just`, `pwsh`, `powershell`) so `knowledge/workflow.md` records only commands that execute cleanly on the current host.
 2. **Parallel Subsystem Discovery**:
    - Map the repository's core domains, deep-module seams, public interfaces, data models, and canonical test files.
-   - When the `run_workflow` tool is available in the active harness (Google Antigravity), fan out `parallel(subsystems, inspect_subsystem)` using `agent(type_name="self", schema=SUBSYSTEM_SCHEMA, model="inherit")` with `agents/researcher.md` (verifying `git status --porcelain` afterward) to audit each subsystem concurrently.
+   - When the `run_workflow` tool is available in the active harness (Google Antigravity), invoke `run_workflow(ScriptPath="<plugin_root>/workflows/flow-scout/workflow.py", Args={"subsystems": [...]})` (`await parallel(...)` with `agent(..., schema=DIGEST_SCHEMA, type_name="self", model="flash")`, verifying `git status --porcelain` afterward) to audit each subsystem concurrently.
 
 ## Phase 2: Scaffold Core Context Chapters & OKF v0.2 Bundle (`.agents/bundles/`)
 
@@ -90,17 +90,19 @@ Follow [`../../multi-harness-plugins/SKILL.md`](../../multi-harness-plugins/SKIL
    - `.agents/agents/<domain>-specialist.md`: Write-enabled domain specialist (`model: inherit`, `mainAgent: false`, `subagent: true`, `commandExecutionPolicy: sandbox`, H1 `# ` section headers).
    - Never copy Flow's global plugin skills (`flow`, `flow-*`, `okf`, `debloat`, `multi-harness-plugins`) or legacy `flow-memory-keeper` into `.agents/skills/`.
 
-## Phase 4: Git Tracking Policy, Cross-Harness & `Stop` Hook Bootstrap, `AGENTS.md`, & `setup-state.json`
+## Phase 4: Git Tracking Policy, Worktrees, Subagent Permissions, `AGENTS.md`, & `setup-state.json`
 
-1. **Git Tracking Policy (`shared` vs. `local-only` Stealth Mode)**:
+1. **Git Tracking Policy & Linked Worktree Routing (`shared` vs. `local-only` Stealth Mode)**:
    - Ask once via `structured-choice-v1` ([`interaction.md`](interaction.md)) and persist `workflow_preferences.ignore_policy` in `.agents/setup-state.json`:
-     - **`shared` (Recommended for teams)**: Track `.agents/bundles/`, `.agents/skills/`, `.agents/agents/`, and `.agents/setup-state.json` in Git; exclude `.agents/scratch/` via `.git/info/exclude` (or `.gitignore`). Git history is the archive.
-     - **`local-only` (Stealth mode)**: Append `.agents/` to `.git/info/exclude`. Flow runs normally and writes nothing in `.agents/` to Git; `knowledge/**` and `log.md` on disk are the durable record.
-2. **Opt-In Cross-Harness Policy & `Stop` Hook Bootstrap**:
-   - Detect installed harnesses (`claude`, `opencode`, `codex`, `cursor`, `agy`/`antigravity`) and offer opt-in non-destructive policy merges (note: when Flow is installed as a plugin, `SessionStart` and `Stop` hooks run automatically from the plugin root; project-local hook entries are needed only for standalone project-local setups):
-     - **Claude Code**: Offer to merge `plansDirectory: ".agents/bundles/specs"` and workflow-derived read/test `permissions.allow` entries into `.claude/settings.local.json` (always backing up to `.claude/settings.local.json.bak` first and never overwriting existing user permissions).
+     - **`shared` (Recommended for teams)**: Track `.agents/bundles/`, `.agents/skills/`, `.agents/agents/`, and `.agents/setup-state.json` in Git; exclude `.agents/scratch/` via `.git/info/exclude` (or `.gitignore`). Linked `git worktree` checkouts already contain tracked `.agents/` files and edit worktree Markdown directly.
+     - **`local-only` (Stealth mode)**: Append `.agents/` to `.git/info/exclude`. Flow writes nothing in `.agents/` to Git; `knowledge/**` and `log.md` on disk are the durable record. When starting inside a linked `git worktree`, `hooks/session-start.{sh,ps1}` (or `tools/worktree_env.py --bootstrap`) symlinks `$WORKTREE/.agents -> $MAIN_WORKTREE/.agents` and routes all Flow Markdown edits to the primary checkout.
+   - **Automatic Linked-Worktree Environment Symlinking**: Regardless of `ignore_policy`, linked `git worktree` checkouts automatically symlink missing `.venv`, `node_modules`, `uv.toml`, and `.npmrc` from `$MAIN_WORKTREE` so agents run `uv run --no-sync` without needing `make install` or `uv sync`.
+2. **Opt-In Cross-Harness Permissions & `Stop` Hook Bootstrap**:
+   - Detect installed harnesses (`claude`, `opencode`, `codex`, `cursor`, `agy`/`antigravity`) and offer opt-in non-destructive policy merges (when Flow is installed as a plugin, `SessionStart` and `Stop` hooks run automatically from the plugin root):
+     - **Claude Code**: Offer to merge `plansDirectory: ".agents/bundles/specs"` and subagent-friendly `permissions.allow` entries (`Bash(git status*)`, `Bash(git diff*)`, `Bash(git log*)`, `Bash(git rev-parse*)`, `Bash(git merge-base*)`, `Bash(uv run *)`, `Bash(make lint*)`, `Edit(/.agents/**)`, `Write(/.agents/**)`) into `.claude/settings.local.json` (always backing up to `.claude/settings.local.json.bak` first and never overwriting existing user permissions) so background `@researcher`, `@executor`, and reviewer subagents do not stall on read/test prompts.
+     - **Codex CLI**: Confirm native discovery of root `AGENTS.md`, `.agents/skills/`, and `.codex/agents/*.toml`; when using `local-only` stealth mode across linked Git worktrees, note adding the primary checkout's `.agents` path to `sandbox_workspace_write.writable_roots` in `.codex/config.toml` so worktree agents can update shared specs directly.
      - **OpenCode**: Offer to merge Flow-recommended instructions into `opencode.json` if present.
-     - **Google Antigravity / Codex CLI / Cursor / VS Code**: Confirm native discovery of root `AGENTS.md`, `.agents/skills/`, `.agents/agents/`, and plugin `SessionStart` + `Stop` review/sync hooks (`.agents/hooks.json` or `.cursor/hooks.json` when using project-local hook configs).
+     - **Google Antigravity / Cursor / VS Code**: Confirm native discovery of root `AGENTS.md`, `.agents/skills/`, `.agents/agents/`, and plugin `SessionStart` + `Stop` review/sync hooks (`.agents/hooks.json` or `.cursor/hooks.json` when using project-local hook configs; on Antigravity, keep Fast Chapter Gate commands offline-safe so `run_workflow` subagents execute without unsandboxed network prompts).
 3. **Update Root `AGENTS.md` & Write `.agents/setup-state.json`**:
    - Ensure root `AGENTS.md` (`<= 100` lines) routes to `.agents/bundles/index.md`, `.agents/bundles/knowledge/workflow.md`, and `.agents/skills/index.md` while preserving `<!-- project-customization: start -->` blocks.
    - Write `.agents/setup-state.json`:
@@ -113,7 +115,8 @@ Follow [`../../multi-harness-plugins/SKILL.md`](../../multi-harness-plugins/SKIL
        "bundle_root": ".agents/bundles",
        "okf_version": "0.2",
        "workflow_preferences": {
-         "ignore_policy": "shared"
+         "ignore_policy": "shared",
+         "model_routing": "auto"
        }
      }
      ```

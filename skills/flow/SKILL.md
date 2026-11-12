@@ -9,7 +9,7 @@ description: "Use when a repository has .agents, when the user asks for Flow lif
 
 ## Trigger
 
-Use Flow when `.agents/` exists, spec bundles live under `.agents/bundles/specs/`, or the user requests a Flow action. Flow is a skill and subagent workflow, not a shell executable; never run `flow` as a shell command.
+Use Flow when `.agents/` exists (in the workspace or linked primary Git worktree), spec bundles live under `.agents/bundles/specs/`, or the user requests a Flow action. Flow is a skill and subagent workflow, not a shell executable; never run `flow` as a shell command.
 
 ## Workflow
 
@@ -27,8 +27,9 @@ The router owns no disk mutations directly; it resolves the target lifecycle ski
 ## Guardrails
 
 - Load only the selected lifecycle skill and its reference procedure.
-- Root specifications (`specs/<flow_id>/spec.md`), chapter catalogs (`chapters/index.md`), chapter specs (`chapters/<ch_id>/spec.md`), and task worksheets (`tasks/<id>-<slug>.md`) are kept synchronized in place in present tense—stating current verified state, remaining chapters, and the full plan without historical sediment ([`references/state.md`](references/state.md)).
-- Keep the coordinator thin (`< 25k` exploration tokens) by scaling horizontally across isolated subagents: on Google Antigravity, use `run_workflow` (`phase()`, `parallel()`, `pipeline()`, `agent(..., type_name="self", schema=..., model="inherit")`) or `invoke_subagent(TypeName="self", Model="inherit", ...)` bound to `agents/<role>.md` contracts for sharded scouts, upfront parallel chapter authoring (`ch01..chNN`, `1–4` tasks/chapter, zero upper cap), per-chapter zero-context reviews, single-chapter task execution, and OKF/doc synthesis.
+- Keep root specifications (`specs/<flow_id>/spec.md`), chapter catalogs (`chapters/index.md`), chapter specs (`chapters/<ch_id>/spec.md`), and task worksheets (`tasks/<id>-<slug>.md`) synchronized in place in present tense ([`references/state.md`](references/state.md)), validating OKF writes with `/flow:validate`.
+- Scale process and models proportionally ([`skills-subagents-and-mcp-limits.md`](../multi-harness-plugins/references/skills-subagents-and-mcp-limits.md)): call shipped packaged workflows (`flow-scout`, `flow-spec-planning`, `flow-chapter-pipeline`, `flow-dual-review`) with `type_name="self"` on Google Antigravity, restrict `haiku`/`flash_lite` strictly to narrow (`<= 3`-file) fetches, surface an explicit warning whenever `planning_quality: degraded` indicates a spec was not planned on the primary frontier thinking model, batch edits across each active chapter with a single fast (`< 60s`) lint + targeted unit gate, and never mark chapters or tasks `deferred` without `deferred_by: "user"`.
+- In linked `git worktree` checkouts, reuse the symlinked `.venv` via `uv run --no-sync` (never run `make install` unless dependencies changed); edit worktree `.agents/` when `ignore_policy` is `shared`, and edit the primary checkout's `.agents/` when `local-only`.
 - Preserve Git history and tag immutability. Never push or open remote PRs without explicit user instruction.
 
 ## Output
