@@ -1,19 +1,24 @@
-"""Validate multi-harness manifests, hooks, subagents, skills, and OKF v0.2 bundles."""
+"""Validate multi-harness manifests, hooks, subagents, skills, workflows, and OKF v0.2 bundles."""
 
 from __future__ import annotations
 
 import argparse
+import ast
 import json
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
+import textwrap
 import tomllib
 from pathlib import Path
 from typing import Any
 
+from tools.worktree_env import is_link_or_junction
+
 __all__ = (
+    "COMPACT_TASK_HEADINGS",
     "EXPECTED_AGENTS",
     "EXPECTED_SKILLS",
     "MAX_CHAPTER_TASKS",
@@ -22,8 +27,10 @@ __all__ = (
     "MAX_TASK_ESTIMATED_LOC",
     "MAX_TASK_READ_SET",
     "MAX_TRUTH_BLOCK_LINES",
+    "PLANNING_QUALITY_VALUES",
     "READONLY_AGENTS",
     "REPO_ROOT",
+    "REQUIRED_SPEC_HEADINGS",
     "REQUIRED_TASK_HEADINGS",
     "RETIRED_PATHS",
     "main",
@@ -35,7 +42,9 @@ __all__ = (
     "validate_markdown_links",
     "validate_okf_bundle",
     "validate_repository",
+    "validate_schema_cards",
     "validate_skills",
+    "validate_workflows",
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -49,6 +58,8 @@ MAX_TRUTH_BLOCK_LINES = 40
 MAX_CHAPTER_TASKS = 4
 MAX_TASK_READ_SET = 6
 MAX_TASK_ESTIMATED_LOC = 250
+MAX_PLAN_SCHEMA_CARD_LINES = 120
+MAX_EXECUTOR_SCHEMA_CARD_LINES = 95
 SKILL_DESCRIPTION_PREFIX = "Use when"
 FORBIDDEN_SKILL_DESCRIPTION_TERMS = (
     "Auto-activate",
@@ -58,6 +69,19 @@ FORBIDDEN_SKILL_DESCRIPTION_TERMS = (
 )
 
 OKF_DOCUMENT_STATUSES: frozenset[str] = frozenset({"draft", "stable", "deprecated"})
+PLANNING_QUALITY_VALUES: frozenset[str] = frozenset({"standard", "degraded"})
+OPEN_TASK_STATES: frozenset[str] = frozenset({"pending", "open", "in_progress", "blocked"})
+DEFERRED_STATES: frozenset[str] = frozenset({"deferred", "skipped"})
+FORBIDDEN_WORKFLOW_AGENT_TYPES: frozenset[str] = frozenset(
+    {
+        "code-reviewer",
+        "executor",
+        "plan-generator",
+        "prd-orchestrator",
+        "quality-reviewer",
+        "researcher",
+    }
+)
 FORBIDDEN_TAG_STATE_WORDS: frozenset[str] = frozenset(
     {
         "active",
@@ -78,6 +102,15 @@ FORBIDDEN_TAG_STATE_WORDS: frozenset[str] = frozenset(
     }
 )
 
+REQUIRED_SPEC_HEADINGS: tuple[str, ...] = (
+    "## 1. Specification, Context & Provenance",
+    "## 2. Requirements, Concrete Contracts & Architecture",
+    "## 3. Documentation & OKF Knowledge Plan",
+    "## 4. Requirement-to-Task Traceability Matrix",
+    "## 5. Implementation Plan",
+    "## 6. Current State & Remaining Plan Snapshot",
+)
+
 REQUIRED_TASK_HEADINGS: tuple[str, ...] = (
     "## Objective & Scope Boundary",
     "## Bounded Read Manifest",
@@ -87,6 +120,28 @@ REQUIRED_TASK_HEADINGS: tuple[str, ...] = (
     "## Verification",
     "## Acceptance Criteria",
     "## Notes & Discoveries",
+)
+
+COMPACT_TASK_HEADINGS: tuple[str, ...] = (
+    "## Objective & Scope Boundary",
+    "## Bounded Read Manifest",
+    "## Contracts & Edge Cases",
+    "## Test Matrix",
+    "## Verification",
+    "## Acceptance Criteria",
+)
+
+SCHEMA_CARD_REQUIRED_KEYS: tuple[str, ...] = (
+    "type",
+    "status",
+    "state",
+    "planning_quality",
+    "planning_degraded_reason",
+    "worksheet_format",
+    "read_set",
+    "estimated_loc",
+    "sources",
+    "tags",
 )
 
 EXPECTED_SKILLS: frozenset[str] = frozenset(
@@ -213,6 +268,7 @@ _LOCK_URL_PATTERN = re.compile(r'https?://[^"\s]+')
 _LINK_PATTERN = re.compile(r"\[([^\]]+)\]\(([^)]+)\)")
 _FENCED_BLOCK_PATTERN = re.compile(r"```.*?```|~~~.*?~~~|`[^`\n]+`", re.DOTALL)
 _MULTILINE_FENCE_PATTERN = re.compile(r"^[ \t]*(?:```|~~~).*?^[ \t]*(?:```|~~~)[^\n]*$", re.MULTILINE | re.DOTALL)
+_PYTHON_FENCE_PATTERN = re.compile(r"^[ \t]*```python[ \t]*\n(.*?)^[ \t]*```[ \t]*$", re.MULTILINE | re.DOTALL)
 _FOOTNOTE_DEF_PATTERN = re.compile(r"^\[\^([A-Za-z0-9_-]+)\]:\s+.+$", re.MULTILINE)
 _TRUTH_START_PATTERN = re.compile(r"<!--\s*truth:\s*start\s*-->")
 _TRUTH_END_PATTERN = re.compile(r"<!--\s*truth:\s*end\s*-->")
@@ -236,6 +292,8 @@ def validate_repository(repo_root: Path = REPO_ROOT) -> list[str]:
     errors.extend(validate_hooks(repo_root))
     errors.extend(validate_agents(repo_root))
     errors.extend(validate_skills(repo_root))
+    errors.extend(validate_workflows(repo_root))
+    errors.extend(validate_schema_cards(repo_root))
     errors.extend(validate_markdown_links(repo_root))
     errors.extend(validate_anti_sprawl(repo_root))
     errors.extend(validate_lockfile(repo_root))
@@ -500,6 +558,9 @@ def validate_hooks(repo_root: Path = REPO_ROOT) -> list[str]:
                 stop_win = str(stop_handlers[0].get("commandWindows", ""))
                 if "stop-check.ps1" not in stop_win:
                     errors.append("hooks/hooks-claude.json: Stop handler must include commandWindows")
+        post_tool_entries = claude_hooks.get("hooks", {}).get("PostToolUse", [])
+        if isinstance(post_tool_entries, list) and any(item.get("matcher") == "*" for item in post_tool_entries):
+            errors.append("hooks/hooks-claude.json: wildcard PostToolUse matcher '*' is forbidden due to tool latency")
 
     cursor_hooks_path = repo_root / "hooks" / "hooks-cursor.json"
     if not cursor_hooks_path.is_file():
@@ -576,12 +637,13 @@ def validate_agents(repo_root: Path = REPO_ROOT) -> list[str]:
             errors.append(f"agents/{name}.md: commandExecutionPolicy must be 'sandbox'")
 
         skills_field = frontmatter.get("skills")
-        if not isinstance(skills_field, list) or not skills_field:
-            errors.append(f"agents/{name}.md: skills must be a non-empty YAML list")
-        else:
-            unknown_skills = sorted(set(skills_field) - EXPECTED_SKILLS)
-            if unknown_skills:
-                errors.append(f"agents/{name}.md: unknown skills in frontmatter: {unknown_skills}")
+        if skills_field is not None:
+            if not isinstance(skills_field, list):
+                errors.append(f"agents/{name}.md: skills must be a YAML list when declared")
+            else:
+                unknown_skills = sorted(set(skills_field) - EXPECTED_SKILLS)
+                if unknown_skills:
+                    errors.append(f"agents/{name}.md: unknown skills in frontmatter: {unknown_skills}")
 
         for heading in REQUIRED_AGENT_H1_HEADINGS:
             if not re.search(rf"^{re.escape(heading)}\s*$", body, re.MULTILINE):
@@ -665,6 +727,105 @@ def validate_skills(repo_root: Path = REPO_ROOT) -> list[str]:
     return errors
 
 
+def validate_workflows(repo_root: Path = REPO_ROOT) -> list[str]:
+    """Validate workflow scripts and fenced Markdown workflow blocks with Python AST checks."""
+    errors: list[str] = []
+    workflows_dir = repo_root / "workflows"
+    if workflows_dir.is_dir():
+        for wf_subdir in sorted(p for p in workflows_dir.iterdir() if p.is_dir()):
+            manifest_path = wf_subdir / "workflow.json"
+            if not manifest_path.is_file():
+                continue
+            try:
+                wf_data = json.loads(manifest_path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                continue
+            if not isinstance(wf_data, dict) or wf_data.get("library", False):
+                continue
+            entry_rel = str(wf_data.get("entry", "workflow.py"))
+            script_path = wf_subdir / entry_rel
+            if not script_path.is_file():
+                continue
+            rel_script = script_path.relative_to(repo_root).as_posix()
+            raw_required = wf_data.get("args", {}).get("required", ())
+            required_args = tuple(str(item) for item in raw_required) if isinstance(raw_required, list) else ()
+            errors.extend(
+                _lint_workflow_source(
+                    script_path.read_text(encoding="utf-8"),
+                    rel_script,
+                    required_args=required_args,
+                    enforce_workflow_agent_type=True,
+                )
+            )
+
+    for sub in ("skills", "rules", "templates"):
+        sub_dir = repo_root / sub
+        if not sub_dir.is_dir():
+            continue
+        for md_path in sorted(sub_dir.rglob("*.md")):
+            rel_md = md_path.relative_to(repo_root).as_posix()
+            content = md_path.read_text(encoding="utf-8").replace("\r\n", "\n")
+            for block_idx, match in enumerate(_PYTHON_FENCE_PATTERN.finditer(content), start=1):
+                snippet = textwrap.dedent(match.group(1))
+                if "agent(" not in snippet and "parallel(" not in snippet and "pipeline(" not in snippet:
+                    continue
+                errors.extend(
+                    _lint_workflow_source(
+                        snippet,
+                        f"{rel_md}#python-block-{block_idx}",
+                        required_args=(),
+                        enforce_workflow_agent_type=True,
+                    )
+                )
+
+    return errors
+
+
+def validate_schema_cards(repo_root: Path = REPO_ROOT) -> list[str]:
+    """Verify schema cards exist within line caps and match ``state.md`` task and frontmatter schemas."""
+    errors: list[str] = []
+    templates_dir = repo_root / "templates" / "agent"
+    state_md = repo_root / "skills" / "flow" / "references" / "state.md"
+    if not templates_dir.is_dir() or not state_md.is_file():
+        return errors
+
+    plan_card = templates_dir / "plan-schema-card.md"
+    exec_card = templates_dir / "executor-schema-card.md"
+    if not plan_card.is_file():
+        errors.append("Missing templates/agent/plan-schema-card.md")
+    else:
+        plan_text = plan_card.read_text(encoding="utf-8").replace("\r\n", "\n")
+        plan_lines = plan_text.splitlines()
+        if len(plan_lines) > MAX_PLAN_SCHEMA_CARD_LINES:
+            errors.append(
+                f"templates/agent/plan-schema-card.md: {len(plan_lines)} lines exceeds "
+                f"{MAX_PLAN_SCHEMA_CARD_LINES}-line cap"
+            )
+        state_text = state_md.read_text(encoding="utf-8")
+        for heading in (*REQUIRED_TASK_HEADINGS, *COMPACT_TASK_HEADINGS):
+            if heading not in plan_text:
+                errors.append(f"templates/agent/plan-schema-card.md: missing task heading {heading!r}")
+            if heading not in state_text:
+                errors.append(f"skills/flow/references/state.md: missing task heading {heading!r}")
+        for key in SCHEMA_CARD_REQUIRED_KEYS:
+            if key not in plan_text:
+                errors.append(f"templates/agent/plan-schema-card.md: missing frontmatter key {key!r}")
+            if key not in state_text:
+                errors.append(f"skills/flow/references/state.md: missing frontmatter key {key!r}")
+
+    if not exec_card.is_file():
+        errors.append("Missing templates/agent/executor-schema-card.md")
+    else:
+        exec_lines = exec_card.read_text(encoding="utf-8").replace("\r\n", "\n").splitlines()
+        if len(exec_lines) > MAX_EXECUTOR_SCHEMA_CARD_LINES:
+            errors.append(
+                f"templates/agent/executor-schema-card.md: {len(exec_lines)} lines exceeds "
+                f"{MAX_EXECUTOR_SCHEMA_CARD_LINES}-line cap"
+            )
+
+    return errors
+
+
 def validate_markdown_links(repo_root: Path = REPO_ROOT) -> list[str]:
     """Verify that relative Markdown file links across shipped files resolve on disk."""
     errors: list[str] = []
@@ -728,12 +889,21 @@ def validate_lockfile(repo_root: Path = REPO_ROOT) -> list[str]:
     return errors
 
 
-def validate_okf_bundle(bundle_dir: Path) -> list[str]:
+def validate_okf_bundle(
+    bundle_dir: Path,
+    *,
+    flow_id: str | None = None,
+    require_completed_flow: str | None = None,
+    project_root: Path | None = None,
+) -> list[str]:
     """Validate an Open Knowledge Format (OKF v0.2) bundle directory, nested chapters, and task blueprints."""
     errors: list[str] = []
     if not bundle_dir.is_dir():
         return [f"Bundle directory does not exist: {bundle_dir}"]
 
+    errors.extend(_validate_bundle_symlinks(bundle_dir, project_root=project_root))
+
+    target_flow = require_completed_flow or flow_id
     root_index = bundle_dir / "index.md"
     if not root_index.is_file():
         return [f"{bundle_dir}: missing root index.md"]
@@ -747,7 +917,16 @@ def validate_okf_bundle(bundle_dir: Path) -> list[str]:
         if not str(root_fm.get("bundle", "")).strip():
             errors.append(f"{root_index}: missing 'bundle' key in root index.md")
 
-    for md_path in sorted(bundle_dir.rglob("*.md")):
+    scan_paths: list[Path]
+    if target_flow is not None:
+        flow_target_dir = bundle_dir / "specs" / target_flow
+        if not flow_target_dir.is_dir():
+            return [*errors, f"specs/{target_flow}: flow spec directory does not exist"]
+        scan_paths = [root_index, *sorted(flow_target_dir.rglob("*.md"))]
+    else:
+        scan_paths = sorted(bundle_dir.rglob("*.md"))
+
+    for md_path in scan_paths:
         rel = md_path.relative_to(bundle_dir).as_posix()
         text = md_path.read_text(encoding="utf-8")
         fm, body = _split_frontmatter(text)
@@ -760,8 +939,8 @@ def validate_okf_bundle(bundle_dir: Path) -> list[str]:
                         errors.append(f"{rel}: reserved file index.md must not declare {forbidden_key!r}")
             continue
 
-        if md_path.name in ("index.md", "log.md"):
-            if fm is not None:
+        if md_path.name in ("index.md", "log.md", "planner-notes.md"):
+            if md_path.name in ("index.md", "log.md") and fm is not None:
                 errors.append(f"{rel}: {md_path.name} must not contain YAML frontmatter")
             continue
 
@@ -769,12 +948,27 @@ def validate_okf_bundle(bundle_dir: Path) -> list[str]:
             errors.append(f"{rel}: missing YAML frontmatter")
             continue
 
-        errors.extend(_validate_concept_frontmatter_and_truth(rel, fm, body))
+        errors.extend(_validate_concept_frontmatter_and_truth(rel, fm, body, project_root=project_root))
 
+    git_root = _resolve_git_worktree_root(project_root or bundle_dir.parent.parent)
     specs_dir = bundle_dir / "specs"
     if specs_dir.is_dir():
-        for flow_dir in sorted(p for p in specs_dir.iterdir() if p.is_dir()):
-            errors.extend(_validate_flow_spec_directory(bundle_dir, flow_dir))
+        flow_dirs = (
+            [specs_dir / target_flow]
+            if target_flow is not None
+            else sorted(p for p in specs_dir.iterdir() if p.is_dir())
+        )
+        for flow_dir in flow_dirs:
+            if not flow_dir.is_dir():
+                continue
+            errors.extend(
+                _validate_flow_spec_directory(
+                    bundle_dir,
+                    flow_dir,
+                    git_root=git_root,
+                    require_completed=(require_completed_flow == flow_dir.name),
+                )
+            )
 
     return errors
 
@@ -788,11 +982,38 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Optional path to an OKF v0.2 .agents/bundles directory to validate.",
     )
+    parser.add_argument(
+        "--flow",
+        type=str,
+        default=None,
+        help="Optional flow_id under specs/<flow_id> to scope OKF spec validation.",
+    )
+    parser.add_argument(
+        "--require-completed",
+        type=str,
+        default=None,
+        help="Verify that specs/<flow_id> is fully completed, reviewed, and backed by Git commits.",
+    )
+    parser.add_argument(
+        "--project-root",
+        type=Path,
+        default=None,
+        help="Optional project root used to resolve cited local source paths and Git history.",
+    )
     args = parser.parse_args(argv)
 
-    errors = validate_repository(REPO_ROOT)
-    if args.bundle is not None:
-        errors.extend(validate_okf_bundle(args.bundle))
+    errors: list[str] = []
+    if args.bundle is None:
+        errors.extend(validate_repository(REPO_ROOT))
+    else:
+        errors.extend(
+            validate_okf_bundle(
+                args.bundle,
+                flow_id=args.flow,
+                require_completed_flow=args.require_completed,
+                project_root=args.project_root,
+            )
+        )
 
     if errors:
         for err in errors:
@@ -800,8 +1021,173 @@ def main(argv: list[str] | None = None) -> int:
         sys.stderr.write(f"Validation failed with {len(errors)} error(s).\n")
         return 1
 
-    sys.stdout.write("Validation passed: all manifests, hooks, subagents, skills, and links are valid.\n")
+    sys.stdout.write("Validation passed: all manifests, hooks, subagents, skills, workflows, and links are valid.\n")
     return 0
+
+
+def _lint_workflow_source(
+    source: str,
+    label: str,
+    *,
+    required_args: tuple[str, ...],
+    enforce_workflow_agent_type: bool,
+) -> list[str]:
+    """Check Python workflow source with top-level await compilation and AST structural rules."""
+    errors: list[str] = []
+    try:
+        tree = ast.parse(source, filename=label)
+    except SyntaxError as exc:
+        return [f"{label}: workflow syntax error at line {exc.lineno}: {exc.msg}"]
+
+    for top_stmt in tree.body:
+        for sub in _walk_excluding_nested_functions(top_stmt):
+            if isinstance(sub, ast.Return):
+                errors.append(f"{label}:{sub.lineno}: top-level 'return' is a runtime error; emit output with print()")
+    if errors:
+        return errors
+
+    try:
+        compile(tree, label, "exec", flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
+    except SyntaxError as exc:
+        return [f"{label}: workflow syntax error at line {exc.lineno}: {exc.msg}"]
+
+    awaited_call_ids = _collect_awaited_call_ids(tree)
+    args_keys_read = _collect_args_keys(tree)
+
+    for req_key in required_args:
+        if req_key not in args_keys_read:
+            errors.append(f"{label}: required workflow.json arg {req_key!r} is never read from 'args'")
+
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func_name = _call_func_name(node.func)
+        if func_name == "agent":
+            has_schema = len(node.args) >= 2 or any(kw.arg == "schema" for kw in node.keywords)
+            if not has_schema:
+                errors.append(f"{label}:{node.lineno}: agent() call missing required 'schema=' argument")
+            if enforce_workflow_agent_type:
+                type_kw = next((kw for kw in node.keywords if kw.arg == "type_name"), None)
+                if (
+                    type_kw is not None
+                    and isinstance(type_kw.value, ast.Constant)
+                    and isinstance(type_kw.value.value, str)
+                ):
+                    val = type_kw.value.value
+                    if val in FORBIDDEN_WORKFLOW_AGENT_TYPES:
+                        errors.append(
+                            f"{label}:{node.lineno}: agent() must not hardcode type_name={val!r} on Antigravity "
+                            "(use type_name='self' so write and shell tools are inherited)"
+                        )
+        elif func_name in ("parallel", "pipeline") and id(node) not in awaited_call_ids:
+            errors.append(f"{label}:{node.lineno}: {func_name}() call must be awaited")
+
+    return errors
+
+
+def _walk_excluding_nested_functions(node: ast.AST) -> list[ast.AST]:
+    """Walk AST children of ``node`` without descending into nested function definitions."""
+    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+        return []
+    collected: list[ast.AST] = [node]
+    for child in ast.iter_child_nodes(node):
+        collected.extend(_walk_excluding_nested_functions(child))
+    return collected
+
+
+def _collect_awaited_call_ids(tree: ast.AST) -> set[int]:
+    """Return object IDs of Call nodes that are awaited, wrapped in ``with_budget``, or returned by a helper."""
+    awaited: set[int] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Await):
+            if isinstance(node.value, ast.Call):
+                awaited.add(id(node.value))
+                if _call_func_name(node.value.func) == "with_budget" and node.value.args:
+                    first_arg = node.value.args[0]
+                    if isinstance(first_arg, ast.Call):
+                        awaited.add(id(first_arg))
+        elif isinstance(node, (ast.AsyncFunctionDef, ast.FunctionDef, ast.Lambda)):
+            for child in ast.walk(node):
+                if isinstance(child, ast.Return) and isinstance(child.value, ast.Call):
+                    awaited.add(id(child.value))
+                elif isinstance(node, ast.Lambda) and isinstance(node.body, ast.Call):
+                    awaited.add(id(node.body))
+    return awaited
+
+
+def _collect_args_keys(tree: ast.AST) -> set[str]:
+    """Extract string keys accessed on ``args[...]`` or ``args.get(...)``."""
+    keys: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Subscript) and isinstance(node.value, ast.Name) and node.value.id == "args":
+            if isinstance(node.slice, ast.Constant) and isinstance(node.slice.value, str):
+                keys.add(node.slice.value)
+        elif (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id == "args"
+            and node.func.attr == "get"
+            and node.args
+            and isinstance(node.args[0], ast.Constant)
+            and isinstance(node.args[0].value, str)
+        ):
+            keys.add(node.args[0].value)
+    return keys
+
+
+def _call_func_name(func: ast.expr) -> str | None:
+    """Return simple function name for ``ast.Name`` call targets."""
+    if isinstance(func, ast.Name):
+        return func.id
+    return None
+
+
+def _validate_bundle_symlinks(bundle_dir: Path, *, project_root: Path | None) -> list[str]:
+    """Allow symlinks targeting the main Git checkout while rejecting escaping arbitrary symlinks."""
+    errors: list[str] = []
+    base_proj = (project_root or bundle_dir.parent.parent).resolve()
+    allowed_roots = {base_proj}
+    main_wt = _resolve_git_worktree_root(base_proj)
+    if main_wt is not None:
+        allowed_roots.add(main_wt.resolve())
+
+    agents_parent = bundle_dir.parent
+    for candidate in (agents_parent, bundle_dir):
+        if is_link_or_junction(candidate):
+            resolved = candidate.resolve()
+            if not any(resolved == root or root in resolved.parents for root in allowed_roots):
+                errors.append(f"{candidate}: symlink target {resolved} escapes repository and main Git worktree")
+    return errors
+
+
+def _resolve_git_worktree_root(start_dir: Path) -> Path | None:
+    """Resolve the primary Git working tree root for ``start_dir`` if inside Git."""
+    git_bin = shutil.which("git")
+    if git_bin is None or not start_dir.exists():
+        return None
+    proc = subprocess.run(
+        [git_bin, "-C", str(start_dir), "rev-parse", "--git-common-dir"],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+    if proc.returncode != 0:
+        return None
+    raw = proc.stdout.strip()
+    if not raw:
+        return None
+    common = Path(raw)
+    if not common.is_absolute():
+        common = (start_dir / common).resolve()
+    else:
+        common = common.resolve()
+    if common.name == ".git":
+        return common.parent
+    if common.parent.name == ".git":
+        return common.parent.parent
+    return common.parent
 
 
 def _run_session_start_smoke_checks(sh_script: Path, ps1_script: Path) -> list[str]:
@@ -818,6 +1204,7 @@ def _run_session_start_smoke_checks(sh_script: Path, ps1_script: Path) -> list[s
                 ["sh", str(sh_script), "--harness", harness, "--project", clean_proj],
                 input="{}",
                 text=True,
+                encoding="utf-8",
                 capture_output=True,
                 check=False,
             )
@@ -851,6 +1238,7 @@ def _run_session_start_smoke_checks(sh_script: Path, ps1_script: Path) -> list[s
                     ],
                     input="{}",
                     text=True,
+                    encoding="utf-8",
                     capture_output=True,
                     check=False,
                 )
@@ -877,6 +1265,7 @@ def _run_stop_hook_smoke_checks(sh_script: Path, ps1_script: Path) -> list[str]:
                 ["sh", str(sh_script), "--harness", harness, "--project", clean_proj],
                 input="{}",
                 text=True,
+                encoding="utf-8",
                 capture_output=True,
                 check=False,
             )
@@ -910,6 +1299,7 @@ def _run_stop_hook_smoke_checks(sh_script: Path, ps1_script: Path) -> list[str]:
                     ],
                     input="{}",
                     text=True,
+                    encoding="utf-8",
                     capture_output=True,
                     check=False,
                 )
@@ -960,12 +1350,20 @@ def _validate_bundle_body_hygiene_and_links(md_path: Path, rel: str, body: str) 
     return errors
 
 
-def _validate_concept_frontmatter_and_truth(rel: str, fm: dict[str, Any], body: str) -> list[str]:
-    """Validate OKF v0.2 concept frontmatter, status/tags invariants, truth blocks, footnotes, and Task sections."""
+def _validate_concept_frontmatter_and_truth(
+    rel: str,
+    fm: dict[str, Any],
+    body: str,
+    *,
+    project_root: Path | None = None,
+) -> list[str]:
+    """Validate OKF v0.2 concept frontmatter, status/tags invariants, truth blocks, footnotes, and Spec/Task bodies."""
     errors: list[str] = []
     for req_key in ("type", "title", "description"):
         if not str(fm.get(req_key, "")).strip():
             errors.append(f"{rel}: missing required frontmatter key {req_key!r}")
+
+    doc_type = str(fm.get("type", "")).strip()
 
     if "status" in fm:
         status_val = str(fm.get("status", "")).strip()
@@ -974,6 +1372,15 @@ def _validate_concept_frontmatter_and_truth(rel: str, fm: dict[str, Any], body: 
                 f"{rel}: invalid OKF status {status_val!r} (must be one of {sorted(OKF_DOCUMENT_STATUSES)}; "
                 "workflow execution state belongs in 'state')"
             )
+
+    if "planning_quality" in fm and fm["planning_quality"] is not None:
+        pq_val = str(fm.get("planning_quality", "")).strip()
+        if pq_val not in PLANNING_QUALITY_VALUES:
+            errors.append(
+                f"{rel}: invalid planning_quality {pq_val!r} (must be one of {sorted(PLANNING_QUALITY_VALUES)})"
+            )
+        elif pq_val == "degraded" and not str(fm.get("planning_degraded_reason") or "").strip():
+            errors.append(f"{rel}: planning_quality is 'degraded' without non-empty planning_degraded_reason")
 
     if "tags" in fm:
         tags_val = fm.get("tags")
@@ -989,6 +1396,8 @@ def _validate_concept_frontmatter_and_truth(rel: str, fm: dict[str, Any], body: 
 
     start_match = _TRUTH_START_PATTERN.search(body)
     end_match = _TRUTH_END_PATTERN.search(body)
+    if doc_type == "Spec" and not start_match:
+        errors.append(f"{rel}: Spec document must include a bounded '<!-- truth: start -->' block")
     if start_match and not end_match:
         errors.append(f"{rel}: '<!-- truth: start -->' missing matching '<!-- truth: end -->'")
     elif end_match and not start_match:
@@ -1004,6 +1413,8 @@ def _validate_concept_frontmatter_and_truth(rel: str, fm: dict[str, Any], body: 
                 )
 
     sources = fm.get("sources")
+    if doc_type == "Spec" and (not isinstance(sources, list) or not sources):
+        errors.append(f"{rel}: Spec document must declare non-empty OKF v0.2 'sources' provenance")
     if isinstance(sources, list) and sources:
         footnotes = set(_FOOTNOTE_DEF_PATTERN.findall(body))
         for src in sources:
@@ -1011,24 +1422,48 @@ def _validate_concept_frontmatter_and_truth(rel: str, fm: dict[str, Any], body: 
                 errors.append(f"{rel}: each item in sources must be a mapping")
                 continue
             src_id = str(src.get("id", "")).strip()
-            if not src_id or not str(src.get("resource", "")).strip():
+            src_res = str(src.get("resource", "")).strip()
+            if not src_id or not src_res:
                 errors.append(f"{rel}: source entry must declare 'id' and 'resource'")
             elif src_id not in footnotes:
                 errors.append(f"{rel}: source id {src_id!r} missing matching [^{src_id}]: footnote in body")
+            elif project_root is not None and not src_res.startswith(("http://", "https://", "mailto:")):
+                local_rel = src_res.split("::", 1)[0].split("#", 1)[0].strip()
+                if local_rel and not (project_root / local_rel).exists():
+                    errors.append(f"{rel}: cited source path {local_rel!r} does not exist under {project_root}")
 
-    if str(fm.get("type", "")).strip() == "Task":
+    if doc_type == "Spec":
+        unfenced = _MULTILINE_FENCE_PATTERN.sub("", body)
+        for spec_heading in REQUIRED_SPEC_HEADINGS:
+            if not re.search(rf"^{re.escape(spec_heading)}\s*$", unfenced, re.MULTILINE):
+                errors.append(f"{rel}: missing required Spec heading {spec_heading!r}")
+
+    if doc_type == "Task":
         errors.extend(_validate_task_blueprint_contract(rel, fm, body))
 
     return errors
 
 
 def _validate_task_blueprint_contract(rel: str, fm: dict[str, Any], body: str) -> list[str]:
-    """Validate 8-section Task blueprint headings, read_set cap, and estimated_loc cap."""
+    """Validate full or compact Task worksheet headings, deferral authorization, read_set cap, and estimated_loc cap."""
     errors: list[str] = []
     unfenced = _MULTILINE_FENCE_PATTERN.sub("", body)
-    for heading in REQUIRED_TASK_HEADINGS:
+    ws_format = str(fm.get("worksheet_format", "full") or "full").strip().lower()
+    if ws_format not in ("full", "compact"):
+        errors.append(f"{rel}: invalid worksheet_format {ws_format!r} (expected 'full' or 'compact')")
+        expected_headings = REQUIRED_TASK_HEADINGS
+    elif ws_format == "compact":
+        expected_headings = COMPACT_TASK_HEADINGS
+    else:
+        expected_headings = REQUIRED_TASK_HEADINGS
+
+    for heading in expected_headings:
         if not re.search(rf"^{re.escape(heading)}\s*$", unfenced, re.MULTILINE):
             errors.append(f"{rel}: missing required Task blueprint heading {heading!r}")
+
+    t_state = str(fm.get("state") or "pending").strip()
+    if t_state in DEFERRED_STATES:
+        errors.extend(_validate_user_deferral(rel, fm, t_state))
 
     if "read_set" in fm and fm["read_set"] is not None:
         read_set = fm["read_set"]
@@ -1047,8 +1482,27 @@ def _validate_task_blueprint_contract(rel: str, fm: dict[str, Any], body: str) -
     return errors
 
 
-def _validate_flow_spec_directory(bundle_dir: Path, flow_dir: Path) -> list[str]:
-    """Validate a single-chapter or multi-chapter specs/<flow_id>/ directory for roadmap and review-stamp parity."""
+def _validate_user_deferral(rel: str, fm: dict[str, Any], state_val: str) -> list[str]:
+    """Require explicit user authorization whenever a task or chapter is marked deferred or skipped."""
+    errors: list[str] = []
+    deferred_by = str(fm.get("deferred_by") or "").strip().lower()
+    deferred_reason = str(fm.get("deferred_reason") or "").strip()
+    if deferred_by != "user" or not deferred_reason:
+        errors.append(
+            f"{rel}: state is {state_val!r} without user authorization "
+            "(requires deferred_by: 'user' and non-empty deferred_reason)"
+        )
+    return errors
+
+
+def _validate_flow_spec_directory(
+    bundle_dir: Path,
+    flow_dir: Path,
+    *,
+    git_root: Path | None = None,
+    require_completed: bool = False,
+) -> list[str]:
+    """Validate a single-chapter or multi-chapter specs/<flow_id>/ directory for anti-skip and review-stamp parity."""
     errors: list[str] = []
     rel_flow = flow_dir.relative_to(bundle_dir).as_posix()
     root_spec = flow_dir / "spec.md"
@@ -1063,17 +1517,45 @@ def _validate_flow_spec_directory(bundle_dir: Path, flow_dir: Path) -> list[str]
     has_chapters = chapters_dir.is_dir() or root_fm.get("has_chapters") is True
     root_state = str(root_fm.get("state", "")).strip()
     root_rev_sha = str(root_fm.get("last_reviewed_commit") or "").strip()
+    plan_commit = str(root_fm.get("plan_commit") or "").strip()
+
+    if require_completed and root_state != "completed":
+        errors.append(f"{rel_flow}/spec.md: --require-completed failed because state is {root_state!r} != 'completed'")
 
     if has_chapters:
         errors.extend(
-            _validate_multi_chapter_flow(bundle_dir, flow_dir, rel_flow, root_fm, root_body, root_state, root_rev_sha)
+            _validate_multi_chapter_flow(
+                bundle_dir,
+                flow_dir,
+                rel_flow,
+                root_fm,
+                root_body,
+                root_state,
+                root_rev_sha,
+                git_root=git_root,
+                default_plan_commit=plan_commit,
+            )
         )
         return errors
 
     tasks_dir = flow_dir / "tasks"
-    errors.extend(_validate_tasks_for_owner_spec(bundle_dir, f"{rel_flow}/spec.md", root_body, tasks_dir))
-    if root_state == "completed" and not _HEX_SHA_PATTERN.match(root_rev_sha):
-        errors.append(f"{rel_flow}/spec.md: state is 'completed' without valid hex last_reviewed_commit")
+    task_errors, task_total, open_task_ids = _validate_tasks_for_owner_spec(
+        bundle_dir,
+        f"{rel_flow}/spec.md",
+        root_body,
+        tasks_dir,
+        git_root=git_root,
+        plan_commit=plan_commit,
+    )
+    errors.extend(task_errors)
+
+    if root_state == "completed" or require_completed:
+        if task_total == 0:
+            errors.append(f"{rel_flow}/spec.md: cannot mark completed with zero task worksheets")
+        elif open_task_ids:
+            errors.append(f"{rel_flow}/spec.md: state is 'completed' while tasks remain incomplete: {open_task_ids}")
+        if not _HEX_SHA_PATTERN.match(root_rev_sha):
+            errors.append(f"{rel_flow}/spec.md: state is 'completed' without valid hex last_reviewed_commit")
     return errors
 
 
@@ -1085,8 +1567,11 @@ def _validate_multi_chapter_flow(
     root_body: str,
     root_state: str,
     root_rev_sha: str,
+    *,
+    git_root: Path | None = None,
+    default_plan_commit: str = "",
 ) -> list[str]:
-    """Validate nested chapters/<ch_id>/ layout, 1:1 roadmap parity, empirical triggers, and review stamps."""
+    """Validate nested chapters/<ch_id>/ layout, 1:1 roadmap parity, anti-skip invariants, and review stamps."""
     errors: list[str] = []
     chapters_dir = flow_dir / "chapters"
     if not chapters_dir.is_dir():
@@ -1129,10 +1614,12 @@ def _validate_multi_chapter_flow(
         ch_spec = ch_dir / "spec.md"
         if not ch_spec.is_file():
             errors.append(f"{rel_ch}: missing spec.md")
+            open_chapters.append(ch_id)
             continue
 
         ch_fm, ch_body = _split_frontmatter(ch_spec.read_text(encoding="utf-8"))
         if ch_fm is None:
+            open_chapters.append(ch_id)
             continue
 
         planning_status = str(ch_fm.get("planning_status", "complete")).strip()
@@ -1148,23 +1635,46 @@ def _validate_multi_chapter_flow(
 
         ch_state = str(ch_fm.get("state", "")).strip()
         ch_rev = str(ch_fm.get("last_reviewed_commit") or "").strip()
-        errors.extend(_validate_tasks_for_owner_spec(bundle_dir, f"{rel_ch}/spec.md", ch_body, ch_dir / "tasks"))
+        ch_plan_commit = str(ch_fm.get("plan_commit") or default_plan_commit).strip()
+        task_errors, task_total, open_tasks = _validate_tasks_for_owner_spec(
+            bundle_dir,
+            f"{rel_ch}/spec.md",
+            ch_body,
+            ch_dir / "tasks",
+            git_root=git_root,
+            plan_commit=ch_plan_commit,
+        )
+        errors.extend(task_errors)
 
-        if ch_state == "completed":
+        if ch_state in DEFERRED_STATES:
+            errors.extend(_validate_user_deferral(f"{rel_ch}/spec.md", ch_fm, ch_state))
+        elif ch_state == "completed":
+            if task_total == 0:
+                errors.append(f"{rel_ch}/spec.md: cannot mark chapter 'completed' with zero task worksheets")
+            elif open_tasks:
+                errors.append(f"{rel_ch}/spec.md: chapter is marked 'completed' while tasks remain open: {open_tasks}")
             if not _HEX_SHA_PATTERN.match(ch_rev):
                 errors.append(f"{rel_ch}/spec.md: state is 'completed' without valid hex last_reviewed_commit")
             if not re.search(rf"^[ \t]*-[ \t]*\[[xX]\].*{re.escape(ch_id)}", root_unfenced, re.MULTILINE):
                 errors.append(f"{rel_flow}/spec.md: completed chapter {ch_id!r} must be marked [x] in checklist")
-        elif ch_state not in ("deferred", "skipped"):
+        else:
             open_chapters.append(ch_id)
 
     curr_ch = str(root_fm.get("current_chapter") or "").strip()
-    if open_chapters and curr_ch not in open_chapters:
+    if root_state == "completed":
+        if not ch_dirs:
+            errors.append(f"{rel_flow}/spec.md: cannot mark multi-chapter flow 'completed' with zero chapters")
+        elif open_chapters:
+            errors.append(
+                f"{rel_flow}/spec.md: state is 'completed' while chapters remain open (cannot skip chapters): "
+                f"{open_chapters}"
+            )
+        if not _HEX_SHA_PATTERN.match(root_rev_sha):
+            errors.append(f"{rel_flow}/spec.md: state is 'completed' without valid hex last_reviewed_commit")
+    elif open_chapters and curr_ch not in open_chapters:
         errors.append(
             f"{rel_flow}/spec.md: current_chapter {curr_ch!r} must reference an open chapter in {open_chapters}"
         )
-    if not open_chapters and root_state == "completed" and not _HEX_SHA_PATTERN.match(root_rev_sha):
-        errors.append(f"{rel_flow}/spec.md: state is 'completed' without valid hex last_reviewed_commit")
 
     return errors
 
@@ -1174,11 +1684,15 @@ def _validate_tasks_for_owner_spec(
     owner_rel: str,
     owner_body: str,
     tasks_dir: Path,
-) -> list[str]:
-    """Verify <= 4 tasks per chapter/spec and exact task state <-> checklist marker parity."""
+    *,
+    git_root: Path | None = None,
+    plan_commit: str = "",
+) -> tuple[list[str], int, list[str]]:
+    """Verify <= 4 tasks per chapter/spec, checklist parity, and Git file-ownership proofs."""
     errors: list[str] = []
+    open_tasks: list[str] = []
     if not tasks_dir.is_dir():
-        return errors
+        return errors, 0, open_tasks
 
     task_files = sorted(p for p in tasks_dir.glob("*.md") if p.name != "index.md")
     if len(task_files) > MAX_CHAPTER_TASKS:
@@ -1197,15 +1711,22 @@ def _validate_tasks_for_owner_spec(
         rel_tf = tf.relative_to(bundle_dir).as_posix()
         tfm, _ = _split_frontmatter(tf.read_text(encoding="utf-8"))
         if tfm is None:
+            open_tasks.append(tf.name)
             continue
         t_stem = tf.name.split("-", 1)[0]
         t_id = str(tfm.get("id") or t_stem).strip()
         t_state = str(tfm.get("state") or "pending").strip()
         t_commit = str(tfm.get("commit") or "").strip()
 
+        if t_state in OPEN_TASK_STATES:
+            open_tasks.append(tf.name)
+
         expected_mark = _expected_checklist_marker(t_state)
-        if t_state in ("completed", "closed") and not _HEX_SHA_PATTERN.match(t_commit):
-            errors.append(f"{rel_tf}: state is {t_state!r} without valid hex commit SHA")
+        if t_state in ("completed", "closed"):
+            if not _HEX_SHA_PATTERN.match(t_commit):
+                errors.append(f"{rel_tf}: state is {t_state!r} without valid hex commit SHA")
+            elif git_root is not None:
+                errors.extend(_verify_task_git_ownership(rel_tf, tfm, t_commit, git_root, plan_commit))
 
         matched_row = _match_checklist_row(checklist_rows, tf.name, t_id, t_stem)
         if matched_row is None:
@@ -1227,7 +1748,80 @@ def _validate_tasks_for_owner_spec(
                         f"{owner_rel}: task {tf.name!r} commit {t_commit!r} mismatches checklist SHA {c_sha!r}"
                     )
 
-    return errors
+    return errors, len(task_files), open_tasks
+
+
+def _verify_task_git_ownership(
+    rel_tf: str,
+    tfm: dict[str, Any],
+    commit_sha: str,
+    git_root: Path,
+    plan_commit: str,
+) -> list[str]:
+    """Verify a completed task's recorded Git commit touched at least one declared path in ``files`` or ``tests``."""
+    declared_paths: list[str] = []
+    for key in ("files", "tests"):
+        raw_list = tfm.get(key)
+        if isinstance(raw_list, list):
+            for entry in raw_list:
+                cleaned = str(entry).split("::", 1)[0].strip().strip("/")
+                if cleaned:
+                    declared_paths.append(cleaned)
+    if not declared_paths:
+        return []
+
+    git_bin = shutil.which("git")
+    if git_bin is None:
+        return []
+
+    exists_proc = subprocess.run(
+        [git_bin, "-C", str(git_root), "cat-file", "-e", f"{commit_sha}^{{commit}}"],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+    if exists_proc.returncode != 0:
+        return [f"{rel_tf}: recorded commit {commit_sha!r} does not exist in Git history"]
+
+    touched = _git_changed_files(git_bin, git_root, commit_sha, plan_commit)
+    if not any(decl in touched for decl in declared_paths):
+        return [f"{rel_tf}: commit {commit_sha!r} modified none of the task's declared files/tests {declared_paths}"]
+    return []
+
+
+def _git_changed_files(git_bin: str, git_root: Path, commit_sha: str, plan_commit: str) -> set[str]:
+    """Collect normalized relative paths touched by ``commit_sha`` (and ``plan_commit..commit_sha`` when valid)."""
+    changed: set[str] = set()
+    single = subprocess.run(
+        [git_bin, "-C", str(git_root), "diff-tree", "--no-commit-id", "--name-only", "-r", "--root", commit_sha],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+    if single.returncode == 0:
+        changed.update(ln.strip() for ln in single.stdout.splitlines() if ln.strip())
+
+    if _HEX_SHA_PATTERN.match(plan_commit):
+        anc = subprocess.run(
+            [git_bin, "-C", str(git_root), "merge-base", "--is-ancestor", plan_commit, commit_sha],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            check=False,
+        )
+        if anc.returncode == 0:
+            span = subprocess.run(
+                [git_bin, "-C", str(git_root), "diff", "--name-only", f"{plan_commit}..{commit_sha}"],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                check=False,
+            )
+            if span.returncode == 0:
+                changed.update(ln.strip() for ln in span.stdout.splitlines() if ln.strip())
+    return changed
 
 
 def _expected_checklist_marker(task_state: str) -> str:

@@ -2,13 +2,13 @@
 
 Contract a completed single-chapter or multi-chapter flow (`state: completed`) by verifying that all durable discoveries, architecture boundaries, domain invariants, patterns, testing recipes, and gotchas across every chapter have been synthesized into `.agents/bundles/knowledge/**` and `.agents/skills/**`, logging the contraction in `.agents/bundles/log.md`, and removing the completed `.agents/bundles/specs/<flow_id>/` directory.
 
-## Branch-Local Eligibility & Tracking Policy
+## Branch-Local Eligibility, Anti-Skip Gate, & Worktree Tracking Policy
 
-1. **Branch-Local Eligibility**: Confirm `specs/<flow_id>/spec.md` is `state: completed` and every `chapters/<ch_id>/spec.md` + `tasks/*.md` is `completed`/`closed`/`deferred`/`skipped` with valid `last_reviewed_commit` stamps on the current branch. Archival never requires waiting for a remote PR merge.
-2. **Tracking Policy (`shared` vs. `local-only` Stealth Mode)**:
-   - Inspect `.agents/bundles/index.md` (`tracking_mode: shared | local-only`).
-   - Under `shared` mode, stage the updated `.agents/` files and deleted `specs/<flow_id>/` directory into one atomic signed `chore(archive): contract <flow_id> into knowledge bundle` commit.
-   - Under `local-only` stealth mode (`.agents/` in `.git/info/exclude`), apply the contraction on disk without staging `.agents/` in Git.
+1. **Deterministic Anti-Skip & Completion Eligibility**: Run `/flow:validate` on `<flow_id>` (`--require-completed`) before touching `specs/<flow_id>/`: confirm `specs/<flow_id>/spec.md` is `state: completed`, zero chapters or tasks remain `planned`/`active`/`pending`/`open`/`in_progress`/`blocked`, any `deferred` item carries `deferred_by: "user"` + `deferred_reason`, every completed task commit SHA modified at least one path in `files:` or `tests:`, and every completed chapter carries a valid `last_reviewed_commit` on the current branch. Archival never requires waiting for a remote PR merge (`hooks/pre-tool-guard.{sh,ps1}` blocks premature `rm` of incomplete spec directories).
+2. **Tracking Policy & Linked Git Worktree Routing (`shared` vs. `local-only` Stealth Mode)**:
+   - Inspect `.agents/bundles/index.md` (`tracking_mode: shared | local-only`) and `<hook_context>` worktree routing.
+   - Under `shared` mode, stage the updated `.agents/` files and deleted `specs/<flow_id>/` directory in the active checkout/worktree into one atomic signed `chore(archive): contract <flow_id> into knowledge bundle` commit.
+   - Under `local-only` stealth mode (`.agents/` in `.git/info/exclude`), apply the contraction and `specs/<flow_id>/` removal directly inside the primary checkout's `$MAIN_WORKTREE/.agents/` bundle (which linked worktrees symlink to) without staging `.agents/` in Git.
 
 ## Subagent-Sharded Pre-Deletion Knowledge & Skill Synthesis
 

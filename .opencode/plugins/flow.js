@@ -83,6 +83,84 @@ function loadSubagents(pluginRoot = PLUGIN_ROOT) {
   return agents;
 }
 
+function resolveWorktreeEnv(workspaceDir) {
+  const root = path.resolve(workspaceDir);
+  const gitMarker = path.join(root, ".git");
+  let mainWorktree = null;
+  try {
+    if (fs.existsSync(gitMarker) && fs.statSync(gitMarker).isFile()) {
+      const rawGit = fs.readFileSync(gitMarker, "utf8").trim();
+      const match = rawGit.match(/^gitdir:\s*(.+)$/m);
+      if (match) {
+        const gitDir = path.resolve(root, match[1].trim());
+        const commonFile = path.join(gitDir, "commondir");
+        const commonGitDir = fs.existsSync(commonFile)
+          ? path.resolve(gitDir, fs.readFileSync(commonFile, "utf8").trim())
+          : path.resolve(gitDir, "../..");
+        const candidateMain = path.dirname(commonGitDir);
+        if (candidateMain && path.resolve(candidateMain) !== root) {
+          mainWorktree = path.resolve(candidateMain);
+        }
+      }
+    }
+  } catch {
+    mainWorktree = null;
+  }
+
+  if (!mainWorktree) {
+    return { effectiveRoot: root, worktreeNote: "" };
+  }
+
+  const linkItem = (src, dst) => {
+    try {
+      fs.lstatSync(dst);
+      return;
+    } catch {
+      // Destination does not exist yet.
+    }
+    try {
+      if (!fs.existsSync(src)) return;
+      const isDir = fs.statSync(src).isDirectory();
+      fs.symlinkSync(src, dst, isDir ? (process.platform === "win32" ? "junction" : "dir") : "file");
+    } catch {
+      // Ignore read-only sandbox link errors.
+    }
+  };
+
+  for (const art of [".venv", "node_modules", "uv.toml", ".npmrc"]) {
+    linkItem(path.join(mainWorktree, art), path.join(root, art));
+  }
+
+  const readPolicy = (base) => {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(path.join(base, ".agents", "setup-state.json"), "utf8"));
+      return parsed?.workflow_preferences?.ignore_policy || parsed?.ignore_policy || "";
+    } catch {
+      return "";
+    }
+  };
+
+  let ignorePolicy = readPolicy(root) || readPolicy(mainWorktree);
+  if (!ignorePolicy) {
+    const localAgents = path.join(root, ".agents");
+    const hasRealLocalAgents = fs.existsSync(localAgents) && !fs.lstatSync(localAgents).isSymbolicLink();
+    ignorePolicy = !hasRealLocalAgents && fs.existsSync(path.join(mainWorktree, ".agents")) ? "local-only" : "shared";
+  }
+
+  if (ignorePolicy === "local-only" && fs.existsSync(path.join(mainWorktree, ".agents"))) {
+    linkItem(path.join(mainWorktree, ".agents"), path.join(root, ".agents"));
+    return {
+      effectiveRoot: mainWorktree,
+      worktreeNote: `Linked Git worktree (local-only .agents): .agents is shared from primary checkout ${mainWorktree}/.agents — edit Flow Markdown there (or via symlinked .agents/), and reuse symlinked .venv with uv run --no-sync (do not run make install).`,
+    };
+  }
+  return {
+    effectiveRoot: root,
+    worktreeNote:
+      "Linked Git worktree (shared .agents): edit worktree .agents/ directly, and reuse symlinked .venv with uv run --no-sync (do not run make install).",
+  };
+}
+
 function readBundleSummary(workspaceDir) {
   const baseMsg =
     "Flow Spec-Driven Development is active. Resolve the bundle root from .agents/setup-state.json (default .agents/bundles/), read its index.md and applicable nested knowledge chapters, and follow skills/flow/references/state.md for direct Markdown + Git continuity.";
@@ -90,9 +168,10 @@ function readBundleSummary(workspaceDir) {
     return baseMsg;
   }
 
-  const agentsDir = path.join(workspaceDir, ".agents");
+  const { effectiveRoot, worktreeNote } = resolveWorktreeEnv(workspaceDir);
+  const agentsDir = path.join(effectiveRoot, ".agents");
   if (!fs.existsSync(agentsDir)) {
-    return baseMsg;
+    return "Flow plugin loaded (no .agents/ bundle in this workspace; run /flow:setup to initialize).";
   }
 
   let bundleRel = ".agents/bundles";
@@ -110,7 +189,8 @@ function readBundleSummary(workspaceDir) {
 
   const activeSpecs = [];
   const pendingSync = [];
-  const specsDir = path.join(workspaceDir, bundleRel, "specs");
+  const degradedPlans = [];
+  const specsDir = path.join(effectiveRoot, bundleRel, "specs");
   if (fs.existsSync(specsDir)) {
     try {
       const flowEntries = fs
@@ -129,6 +209,7 @@ function readBundleSummary(workspaceDir) {
         const state = fm.match(/^state:\s*["']?([^#"'\n]+)["']?/m)?.[1]?.trim() ?? "unknown";
         let currentChapter = fm.match(/^current_chapter:\s*["']?([^#"'\n]+)["']?/m)?.[1]?.trim() ?? "";
         const currentTask = fm.match(/^current_task:\s*["']?([^#"'\n]+)["']?/m)?.[1]?.trim() ?? "";
+        let planningQuality = fm.match(/^planning_quality:\s*["']?([^#"'\n]+)["']?/m)?.[1]?.trim() ?? "";
 
         const chaptersDir = path.join(flowDir, "chapters");
         if (fs.existsSync(chaptersDir)) {
@@ -143,6 +224,8 @@ function readBundleSummary(workspaceDir) {
             const chFm = chContent.match(/^---\n([\s\S]*?)\n---/)?.[1] ?? "";
             const chState = chFm.match(/^state:\s*["']?([^#"'\n]+)["']?/m)?.[1]?.trim() ?? "";
             const chRev = chFm.match(/^last_reviewed_commit:\s*["']?([^#"'\n]+)["']?/m)?.[1]?.trim() ?? "";
+            const chPq = chFm.match(/^planning_quality:\s*["']?([^#"'\n]+)["']?/m)?.[1]?.trim() ?? "";
+            if (chPq === "degraded") planningQuality = "degraded";
             if ((!currentChapter || currentChapter === "null") && !["completed", "deferred", "skipped"].includes(chState)) {
               currentChapter = ch.name;
             }
@@ -185,6 +268,9 @@ function readBundleSummary(workspaceDir) {
           } else {
             activeSpecs.push(`${flowId}(${state})`);
           }
+          if (planningQuality === "degraded") {
+            degradedPlans.push(flowId);
+          }
         }
       }
     } catch {
@@ -193,11 +279,19 @@ function readBundleSummary(workspaceDir) {
   }
 
   const parts = [baseMsg, `Workspace bundle root: ${bundleRel}.`];
+  if (worktreeNote) {
+    parts.push(worktreeNote);
+  }
   if (fs.existsSync(path.join(agentsDir, "skills", "index.md"))) {
     parts.push("Project-local domain and review skills index: .agents/skills/index.md.");
   }
   if (activeSpecs.length > 0) {
     parts.push(`Active specs: ${activeSpecs.join(", ")}.`);
+  }
+  if (degradedPlans.length > 0) {
+    parts.push(
+      `Degraded planning quality warning (planning_quality=degraded — not planned with optimal primary frontier thinking model): ${degradedPlans.join(", ")}.`
+    );
   }
   if (pendingSync.length > 0) {
     parts.push(`Pending chapter review/Markdown sync: ${pendingSync.join(", ")}.`);

@@ -534,3 +534,74 @@ process.stdout.write(JSON.stringify({
     assert out["activeUrisAfterChange"] == [ws_other.as_uri(), "file:///C:/Users/dev/win-repo"]
     assert out["events"][0]["type"] == "workspace.changed"
     assert out["events"][0]["uris"] == [ws_other.as_uri(), "file:///C:/Users/dev/win-repo"]
+
+
+@pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
+def test_bundle_snapshot_surfaces_degraded_planning_and_resolves_linked_worktree(tmp_path: Path) -> None:
+    """Verify BundleSnapshotBuilder resolves local-only Git worktrees to main .agents and surfaces degraded plans."""
+    assert NODE_BIN is not None
+    git_env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "Flow Test",
+        "GIT_AUTHOR_EMAIL": "flow@example.com",
+        "GIT_COMMITTER_NAME": "Flow Test",
+        "GIT_COMMITTER_EMAIL": "flow@example.com",
+    }
+    ws = _seed_studio_workspace(tmp_path)
+    subprocess.run(["git", "init", "-q"], cwd=ws, env=git_env, check=True)
+    subprocess.run(["git", "config", "commit.gpgsign", "false"], cwd=ws, env=git_env, check=True)
+    subprocess.run(["git", "add", "pyproject.toml", "uv.lock"], cwd=ws, env=git_env, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "chore: init"], cwd=ws, env=git_env, check=True)
+
+    (ws / ".agents" / "setup-state.json").write_text(
+        json.dumps(
+            {
+                "setup_status": "complete",
+                "bundle_root": ".agents/bundles",
+                "okf_version": "0.2",
+                "workflow_preferences": {"ignore_policy": "local-only"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    spec_file = ws / ".agents" / "bundles" / "specs" / "idempotent-webhooks" / "spec.md"
+    spec_file.write_text(
+        spec_file.read_text(encoding="utf-8").replace(
+            "state: active",
+            (
+                "state: active\n"
+                "planning_quality: degraded\n"
+                'planning_degraded_reason: "429 quota fallback"\n'
+                "planned_with_model: flash"
+            ),
+        ),
+        encoding="utf-8",
+    )
+
+    wt_dir = tmp_path / "wt-payments"
+    subprocess.run(["git", "worktree", "add", "-q", "-b", "feat/wt", str(wt_dir)], cwd=ws, env=git_env, check=True)
+
+    snap_uri = (REPO_ROOT / "sidecars" / "studio" / "snapshot.mjs").as_uri()
+    spec_rel = ".agents/bundles/specs/idempotent-webhooks/spec.md"
+    js = (
+        f"import {{ BundleSnapshotBuilder, SpecMarkdownReader }} from {json.dumps(snap_uri)};"
+        f"const snap = BundleSnapshotBuilder.build({json.dumps(str(wt_dir))});"
+        f"const doc = SpecMarkdownReader.read({json.dumps(str(wt_dir))}, {json.dumps(spec_rel)});"
+        "process.stdout.write(JSON.stringify({ snap, docTitle: doc.title }) + '\\n');"
+    )
+    proc = subprocess.run(
+        [NODE_BIN, "--input-type=module", "-e", js],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    payload = json.loads(proc.stdout.strip().splitlines()[-1])
+    snap = payload["snap"]
+    assert snap["worktree"]["isLinkedWorktree"] is True
+    assert snap["worktree"]["ignorePolicy"] == "local-only"
+    assert snap["bundleInitialized"] is True
+    assert snap["counts"]["degradedSpecs"] == 1
+    assert snap["specs"][0]["planningQuality"] == "degraded"
+    assert snap["specs"][0]["planningDegradedReason"] == "429 quota fallback"
+    assert snap["specs"][0]["plannedWithModel"] == "flash"
+    assert payload["docTitle"] == "Idempotent Webhook Ingestion"

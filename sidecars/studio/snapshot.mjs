@@ -280,6 +280,74 @@ function escapeRegExp(s) {
 }
 
 /**
+ * Resolve linked Git worktree metadata and effective `.agents` root without spawning child processes.
+ *
+ * @param {string} workspaceRoot
+ */
+export function resolveWorktreeContext(workspaceRoot) {
+  const root = path.resolve(workspaceRoot);
+  const gitMarker = path.join(root, ".git");
+  let mainWorktree = null;
+  try {
+    if (fs.existsSync(gitMarker) && fs.statSync(gitMarker).isFile()) {
+      const rawGit = fs.readFileSync(gitMarker, "utf8").trim();
+      const match = rawGit.match(/^gitdir:\s*(.+)$/m);
+      if (match) {
+        const gitDir = path.resolve(root, match[1].trim());
+        const commonFile = path.join(gitDir, "commondir");
+        const commonGitDir = fs.existsSync(commonFile)
+          ? path.resolve(gitDir, fs.readFileSync(commonFile, "utf8").trim())
+          : path.resolve(gitDir, "../..");
+        const candidateMain = path.dirname(commonGitDir);
+        if (candidateMain && path.resolve(candidateMain) !== root) {
+          mainWorktree = path.resolve(candidateMain);
+        }
+      }
+    }
+  } catch {
+    mainWorktree = null;
+  }
+
+  const localSetup = readJsonIfExists(path.join(root, ".agents", "setup-state.json"));
+  const mainSetup = mainWorktree
+    ? readJsonIfExists(path.join(mainWorktree, ".agents", "setup-state.json"))
+    : null;
+  let ignorePolicy = String(
+    localSetup?.workflow_preferences?.ignore_policy ||
+      localSetup?.ignore_policy ||
+      mainSetup?.workflow_preferences?.ignore_policy ||
+      mainSetup?.ignore_policy ||
+      ""
+  ).trim();
+  if (!ignorePolicy) {
+    if (mainWorktree) {
+      const localAgents = path.join(root, ".agents");
+      let hasRealLocal = false;
+      try {
+        hasRealLocal = fs.existsSync(localAgents) && !fs.lstatSync(localAgents).isSymbolicLink();
+      } catch {
+        hasRealLocal = false;
+      }
+      ignorePolicy =
+        !hasRealLocal && fs.existsSync(path.join(mainWorktree, ".agents")) ? "local-only" : "shared";
+    } else {
+      ignorePolicy = "shared";
+    }
+  }
+
+  const effectiveAgentsRoot =
+    mainWorktree && ignorePolicy === "local-only" && fs.existsSync(path.join(mainWorktree, ".agents"))
+      ? mainWorktree
+      : root;
+  return {
+    isLinkedWorktree: Boolean(mainWorktree),
+    mainWorktree,
+    ignorePolicy,
+    effectiveAgentsRoot,
+  };
+}
+
+/**
  * Build a complete present-tense bundle snapshot for a workspace root.
  */
 export class BundleSnapshotBuilder {
@@ -288,14 +356,16 @@ export class BundleSnapshotBuilder {
    */
   static build(workspaceRoot) {
     const root = path.resolve(workspaceRoot);
+    const worktree = resolveWorktreeContext(root);
+    const agentsBaseRoot = worktree.effectiveAgentsRoot;
     const workspaceId = deriveWorkspaceId(root);
-    const agentsDir = path.join(root, ".agents");
+    const agentsDir = path.join(agentsBaseRoot, ".agents");
     const setupStatePath = path.join(agentsDir, "setup-state.json");
     const setupState = readJsonIfExists(setupStatePath) || {};
     const bundleRel = String(setupState.bundle_root || ".agents/bundles");
-    const bundleRoot = path.join(root, bundleRel);
+    const bundleRoot = path.join(agentsBaseRoot, bundleRel);
     const hasBundle = fs.existsSync(bundleRoot);
-    const pythonInfo = detectWorkspacePython(root);
+    const pythonInfo = detectWorkspacePython(worktree.mainWorktree && !fs.existsSync(path.join(root, ".venv")) ? worktree.mainWorktree : root);
     const liveState = readJsonIfExists(path.join(agentsDir, "studio-live-state.json"));
     const reviewStore = new ReviewCommentsStore(root);
     const commentCounts = reviewStore.countByRelPath();
@@ -317,13 +387,17 @@ export class BundleSnapshotBuilder {
 
         const rawSpec = fs.readFileSync(rootSpecPath, "utf8");
         const { frontmatter, body } = parseFrontmatter(rawSpec);
-        const specRelPath = path.relative(root, rootSpecPath).split(path.sep).join("/");
+        const specRelPath = path.relative(agentsBaseRoot, rootSpecPath).split(path.sep).join("/");
         const headingMatch = body.match(/^#\s+(.+?)\s*$/m);
         const title = String(frontmatter.title || headingMatch?.[1] || flowId);
         const docKind = String(frontmatter.type || "Spec");
         const state = String(frontmatter.state || frontmatter.status || "draft").toLowerCase();
         const chaptersRoot = path.join(specFolder, "chapters");
         const hasChapters = Boolean(frontmatter.has_chapters || fs.existsSync(chaptersRoot));
+        let specPlanningQuality = String(frontmatter.planning_quality || "standard").toLowerCase();
+        let specDegradedReason = frontmatter.planning_degraded_reason
+          ? String(frontmatter.planning_degraded_reason)
+          : null;
 
         /** @type {any[]} */
         const chapters = [];
@@ -340,7 +414,7 @@ export class BundleSnapshotBuilder {
             const chParsed = chRaw ? parseFrontmatter(chRaw) : { frontmatter: {}, body: "" };
             const chTasksDir = path.join(chaptersRoot, chapterId, "tasks");
             const rawTasks = fs.existsSync(chTasksDir)
-              ? walkMarkdownFiles(chTasksDir).map((f) => readTaskWorksheet(f, root))
+              ? walkMarkdownFiles(chTasksDir).map((f) => readTaskWorksheet(f, agentsBaseRoot))
               : [];
             const tasks = reconcileChecklistWithTasks(chParsed.body, rawTasks);
             const completedCount = tasks.filter((t) => t.state === "completed").length;
@@ -354,8 +428,16 @@ export class BundleSnapshotBuilder {
                     : "pending")
             ).toLowerCase();
             const chRelPath = fs.existsSync(chSpecPath)
-              ? path.relative(root, chSpecPath).split(path.sep).join("/")
+              ? path.relative(agentsBaseRoot, chSpecPath).split(path.sep).join("/")
               : null;
+            const chPlanningQuality = String(chParsed.frontmatter.planning_quality || "standard").toLowerCase();
+            const chDegradedReason = chParsed.frontmatter.planning_degraded_reason
+              ? String(chParsed.frontmatter.planning_degraded_reason)
+              : null;
+            if (chPlanningQuality === "degraded") {
+              specPlanningQuality = "degraded";
+              if (!specDegradedReason && chDegradedReason) specDegradedReason = chDegradedReason;
+            }
 
             chapters.push({
               chapterId,
@@ -366,6 +448,8 @@ export class BundleSnapshotBuilder {
               ),
               state: chState,
               planningStatus: String(chParsed.frontmatter.planning_status || "complete"),
+              planningQuality: chPlanningQuality,
+              planningDegradedReason: chDegradedReason,
               dependsOnChapters: Array.isArray(chParsed.frontmatter.depends_on_chapters)
                 ? chParsed.frontmatter.depends_on_chapters.map(String)
                 : [],
@@ -381,7 +465,7 @@ export class BundleSnapshotBuilder {
 
         const directTasksDir = path.join(specFolder, "tasks");
         const rawDirectTasks = fs.existsSync(directTasksDir)
-          ? walkMarkdownFiles(directTasksDir).map((f) => readTaskWorksheet(f, root))
+          ? walkMarkdownFiles(directTasksDir).map((f) => readTaskWorksheet(f, agentsBaseRoot))
           : [];
         const directTasks = reconcileChecklistWithTasks(body, rawDirectTasks);
 
@@ -400,6 +484,9 @@ export class BundleSnapshotBuilder {
           description: String(frontmatter.description || ""),
           state,
           status: String(frontmatter.status || "draft"),
+          planningQuality: specPlanningQuality,
+          planningDegradedReason: specDegradedReason,
+          plannedWithModel: frontmatter.planned_with_model ? String(frontmatter.planned_with_model) : null,
           parentPrd: frontmatter.parent_prd || null,
           hasChapters,
           currentChapter: frontmatter.current_chapter || nextChapter?.chapterId || null,
@@ -423,7 +510,7 @@ export class BundleSnapshotBuilder {
         if (path.basename(mdFile) === "index.md") continue;
         const raw = fs.readFileSync(mdFile, "utf8");
         const { frontmatter, body } = parseFrontmatter(raw);
-        const relPath = path.relative(root, mdFile).split(path.sep).join("/");
+        const relPath = path.relative(agentsBaseRoot, mdFile).split(path.sep).join("/");
         const conceptId = path.relative(bundleRoot, mdFile).replace(/\.md$/i, "").split(path.sep).join("/");
         knowledge.push({
           entryId: `${workspaceId}:${conceptId}`,
@@ -451,6 +538,7 @@ export class BundleSnapshotBuilder {
       workspaceId,
       repoName: path.basename(root),
       workspaceRoot: root,
+      worktree,
       bundleInitialized: hasBundle,
       bundleRoot: bundleRel,
       setupState,
@@ -462,6 +550,7 @@ export class BundleSnapshotBuilder {
       counts: {
         specs: specs.length,
         activeSpecs: specs.filter((s) => s.state === "active" || s.state === "in_progress").length,
+        degradedSpecs: specs.filter((s) => s.planningQuality === "degraded").length,
         knowledge: knowledge.length,
         unresolvedComments: Object.values(commentCounts).reduce((acc, v) => acc + v, 0),
       },
@@ -854,7 +943,10 @@ export class SpecMarkdownReader {
    */
   static read(workspaceRoot, relPath) {
     const root = path.resolve(workspaceRoot);
-    const target = resolveConfinedPath(root, relPath);
+    const { effectiveAgentsRoot } = resolveWorktreeContext(root);
+    const normalizedInput = String(relPath || "").replace(/\\/g, "/");
+    const baseRoot = normalizedInput.startsWith(".agents/") ? effectiveAgentsRoot : root;
+    const target = resolveConfinedPath(baseRoot, relPath);
     if (!fs.existsSync(target) || !fs.statSync(target).isFile()) {
       throw new Error(`Markdown document not found: ${relPath}`);
     }
@@ -874,7 +966,7 @@ export class SpecMarkdownReader {
       }
     }
     const commentsStore = new ReviewCommentsStore(root);
-    const normalizedRel = path.relative(root, target).split(path.sep).join("/");
+    const normalizedRel = path.relative(baseRoot, target).split(path.sep).join("/");
     return {
       relPath: normalizedRel,
       title: String(frontmatter.title || headings[0]?.text || path.basename(target, ".md")),
@@ -899,7 +991,9 @@ export class ReviewCommentsStore {
    */
   constructor(workspaceRoot) {
     this.workspaceRoot = path.resolve(workspaceRoot);
-    this.reviewsDir = path.join(this.workspaceRoot, ".agents", "studio-reviews");
+    const { effectiveAgentsRoot } = resolveWorktreeContext(this.workspaceRoot);
+    this.agentsBaseRoot = effectiveAgentsRoot;
+    this.reviewsDir = path.join(this.agentsBaseRoot, ".agents", "studio-reviews");
   }
 
   /**
@@ -915,7 +1009,10 @@ export class ReviewCommentsStore {
    * @param {{ relPath: string, startLine: number, endLine?: number, quote?: string, body: string, author?: string }} input
    */
   add(input) {
-    const normalizedRel = normalizeRelPath(this.workspaceRoot, input.relPath);
+    const baseRoot = String(input.relPath || "").replace(/\\/g, "/").startsWith(".agents/")
+      ? this.agentsBaseRoot
+      : this.workspaceRoot;
+    const normalizedRel = normalizeRelPath(baseRoot, input.relPath);
     const startLine = Math.max(1, Number(input.startLine) || 1);
     const endLine = Math.max(startLine, Number(input.endLine) || startLine);
     const body = String(input.body || "").trim();
@@ -945,7 +1042,10 @@ export class ReviewCommentsStore {
    * @param {boolean} [resolved]
    */
   setResolved(relPath, commentId, resolved = true) {
-    const normalizedRel = normalizeRelPath(this.workspaceRoot, relPath);
+    const baseRoot = String(relPath || "").replace(/\\/g, "/").startsWith(".agents/")
+      ? this.agentsBaseRoot
+      : this.workspaceRoot;
+    const normalizedRel = normalizeRelPath(baseRoot, relPath);
     const existing = this.list(normalizedRel);
     const target = existing.find((c) => c.id === commentId);
     if (!target) {
@@ -983,7 +1083,10 @@ export class ReviewCommentsStore {
    * @param {string} [flowId]
    */
   buildRevisePrompt(relPath, flowId) {
-    const normalizedRel = normalizeRelPath(this.workspaceRoot, relPath);
+    const baseRoot = String(relPath || "").replace(/\\/g, "/").startsWith(".agents/")
+      ? this.agentsBaseRoot
+      : this.workspaceRoot;
+    const normalizedRel = normalizeRelPath(baseRoot, relPath);
     const unresolved = this.list(normalizedRel).filter((c) => !c.resolved);
     const targetId = flowId || inferFlowIdFromRelPath(normalizedRel) || normalizedRel;
     const lines = [
@@ -1006,7 +1109,10 @@ export class ReviewCommentsStore {
    * @param {string} relPath
    */
   #storageFileFor(relPath) {
-    const normalizedRel = normalizeRelPath(this.workspaceRoot, relPath);
+    const baseRoot = String(relPath || "").replace(/\\/g, "/").startsWith(".agents/")
+      ? this.agentsBaseRoot
+      : this.workspaceRoot;
+    const normalizedRel = normalizeRelPath(baseRoot, relPath);
     const hash = crypto.createHash("sha256").update(normalizedRel).digest("hex").slice(0, 12);
     const safeSlug = normalizedRel.replace(/[^a-zA-Z0-9_-]+/g, "_").slice(-48);
     return path.join(this.reviewsDir, `${safeSlug}-${hash}.json`);
@@ -1062,7 +1168,8 @@ export class SpecScaffoldWriter {
     const problem = String(payload.problem || "Define problem context and target user outcomes.").trim();
     const goals = String(payload.goals || "- Establish clear public-seam interfaces and verification gates.").trim();
 
-    const bundleRoot = path.join(root, ".agents", "bundles");
+    const { effectiveAgentsRoot } = resolveWorktreeContext(root);
+    const bundleRoot = path.join(effectiveAgentsRoot, ".agents", "bundles");
     const indexMd = path.join(bundleRoot, "index.md");
     if (!fs.existsSync(indexMd)) {
       fs.mkdirSync(bundleRoot, { recursive: true });
@@ -1153,7 +1260,7 @@ export class SpecScaffoldWriter {
       );
     }
 
-    const relPath = path.relative(root, specFile).split(path.sep).join("/");
+    const relPath = path.relative(effectiveAgentsRoot, specFile).split(path.sep).join("/");
     const dispatchCommand =
       kind === "PRD" ? `/flow:prd ${flowId} — ${title}` : `/flow:spec ${flowId} — ${title}`;
     return {

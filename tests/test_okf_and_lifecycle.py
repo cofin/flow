@@ -2,12 +2,25 @@
 
 from __future__ import annotations
 
+import ast
+import asyncio
+import json
+import os
+import subprocess
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import pytest
 
-from tools.validate import REPO_ROOT, REQUIRED_TASK_HEADINGS, validate_okf_bundle
+from tools.validate import COMPACT_TASK_HEADINGS, REPO_ROOT, REQUIRED_TASK_HEADINGS, validate_okf_bundle
+from tools.worktree_env import (
+    bootstrap_worktree,
+    inspect_worktree,
+    is_link_or_junction,
+    sync_main_bundle_to_worktree,
+    sync_worktree_bundle_to_main,
+)
 
 SIX_CHAPTER_IDS: tuple[str, ...] = (
     "ch01-tokens",
@@ -477,6 +490,65 @@ def _mutate_mixed_root_tasks_and_chapters(bundle_dir: Path) -> None:
     )
 
 
+def _mutate_degraded_without_reason(bundle_dir: Path) -> None:
+    """Set planning_quality: degraded on root spec.md without planning_degraded_reason."""
+    spec_path = bundle_dir / "specs" / "auth-refactor" / "spec.md"
+    spec_path.write_text(
+        spec_path.read_text(encoding="utf-8").replace(
+            "state: active",
+            "state: active\nplanning_quality: degraded",
+        ),
+        encoding="utf-8",
+    )
+
+
+def _mutate_completed_root_with_open_chapters(bundle_dir: Path) -> None:
+    """Mark root spec.md completed while chapters ch02..ch06 remain planned/active."""
+    spec_path = bundle_dir / "specs" / "auth-refactor" / "spec.md"
+    spec_path.write_text(
+        spec_path.read_text(encoding="utf-8").replace("state: active", "state: completed"),
+        encoding="utf-8",
+    )
+
+
+def _mutate_completed_chapter_with_open_task(bundle_dir: Path) -> None:
+    """Mark ch02-middleware completed while its task t02-slice.md remains pending."""
+    ch_spec = bundle_dir / "specs" / "auth-refactor" / "chapters" / "ch02-middleware" / "spec.md"
+    ch_spec.write_text(
+        ch_spec.read_text(encoding="utf-8")
+        .replace("state: active", "state: completed")
+        .replace("last_reviewed_commit: null", "last_reviewed_commit: 2222222"),
+        encoding="utf-8",
+    )
+
+
+def _mutate_unauthorized_deferred_task(bundle_dir: Path) -> None:
+    """Mark task t02-slice.md deferred without deferred_by: user."""
+    ch_spec = bundle_dir / "specs" / "auth-refactor" / "chapters" / "ch02-middleware" / "spec.md"
+    ch_spec.write_text(
+        ch_spec.read_text(encoding="utf-8").replace("- [ ] [t02]", "- [-] [t02]"),
+        encoding="utf-8",
+    )
+    task_path = bundle_dir / "specs" / "auth-refactor" / "chapters" / "ch02-middleware" / "tasks" / "t02-slice.md"
+    task_path.write_text(
+        _render_task_blueprint(
+            task_id="auth-refactor:ch02-middleware:t02",
+            chapter_id="ch02-middleware",
+            state="deferred",
+        ),
+        encoding="utf-8",
+    )
+
+
+def _mutate_unauthorized_deferred_chapter(bundle_dir: Path) -> None:
+    """Mark chapter ch03-sessions skipped without deferred_by: user."""
+    ch_spec = bundle_dir / "specs" / "auth-refactor" / "chapters" / "ch03-sessions" / "spec.md"
+    ch_spec.write_text(
+        ch_spec.read_text(encoding="utf-8").replace("state: planned", "state: skipped"),
+        encoding="utf-8",
+    )
+
+
 BUNDLE_REJECTION_CASES: tuple[tuple[str, Callable[[Path], None], str], ...] = (
     ("missing-footnote", _mutate_missing_footnote, "source id 'missing-fn' missing matching [^missing-fn]: footnote"),
     ("subdir-index-frontmatter", _mutate_subdir_index_frontmatter, "index.md must not contain YAML frontmatter"),
@@ -544,6 +616,31 @@ BUNDLE_REJECTION_CASES: tuple[tuple[str, Callable[[Path], None], str], ...] = (
         "mixed-root-tasks-and-chapters",
         _mutate_mixed_root_tasks_and_chapters,
         "multi-chapter spec must not mix root tasks/*.md with chapters/",
+    ),
+    (
+        "degraded-without-reason",
+        _mutate_degraded_without_reason,
+        "planning_quality is 'degraded' without non-empty planning_degraded_reason",
+    ),
+    (
+        "completed-root-with-open-chapters",
+        _mutate_completed_root_with_open_chapters,
+        "cannot skip chapters",
+    ),
+    (
+        "completed-chapter-with-open-task",
+        _mutate_completed_chapter_with_open_task,
+        "chapter is marked 'completed' while tasks remain open",
+    ),
+    (
+        "unauthorized-deferred-task",
+        _mutate_unauthorized_deferred_task,
+        "without user authorization",
+    ),
+    (
+        "unauthorized-deferred-chapter",
+        _mutate_unauthorized_deferred_chapter,
+        "without user authorization",
     ),
 )
 
@@ -684,3 +781,337 @@ def test_shipped_files_omit_forbidden_external_and_project_terms(forbidden_term:
         if forbidden_term in path.read_text(encoding="utf-8").lower()
     ]
     assert offenders == []
+
+
+def test_validate_okf_bundle_accepts_compact_worksheet_and_user_deferral(tmp_path: Path) -> None:
+    """Verify validate_okf_bundle accepts compact 6-heading task worksheets and user-authorized deferrals."""
+    bundle_dir = _seed_valid_multichapter_bundle(tmp_path)
+    compact_sections = "\n\n".join(f"{heading}\n\nPopulated[^t-src]." for heading in COMPACT_TASK_HEADINGS)
+    task_path = bundle_dir / "specs" / "auth-refactor" / "chapters" / "ch02-middleware" / "tasks" / "t02-slice.md"
+    task_path.write_text(
+        "---\n"
+        "type: Task\n"
+        "id: auth-refactor:ch02-middleware:t02\n"
+        "chapter_id: ch02-middleware\n"
+        "title: Compact slice\n"
+        "description: Small compact blueprint.\n"
+        "status: stable\n"
+        "state: deferred\n"
+        "deferred_by: user\n"
+        'deferred_reason: "Moved to follow-up release per user decision."\n'
+        "worksheet_format: compact\n"
+        "verification_strategy: behavior_tdd\n"
+        "read_set: [src/auth/tokens.py]\n"
+        "estimated_loc: 45\n"
+        "sources:\n"
+        "  - id: t-src\n"
+        "    resource: src/auth/tokens.py::TokenSigner\n"
+        "tags: [feature, auth]\n"
+        "---\n\n"
+        f"{compact_sections}\n\n"
+        "[^t-src]: `src/auth/tokens.py::TokenSigner` — Signer.\n",
+        encoding="utf-8",
+    )
+    ch_spec = bundle_dir / "specs" / "auth-refactor" / "chapters" / "ch02-middleware" / "spec.md"
+    ch_spec.write_text(
+        ch_spec.read_text(encoding="utf-8").replace("- [ ] [t02]", "- [-] [t02]"),
+        encoding="utf-8",
+    )
+    assert validate_okf_bundle(bundle_dir) == []
+
+
+def test_validate_okf_bundle_verifies_git_commit_file_ownership(tmp_path: Path) -> None:
+    """Verify validate_okf_bundle rejects completed tasks whose Git commit touched zero declared files."""
+    git_env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "Flow Test",
+        "GIT_AUTHOR_EMAIL": "flow@example.com",
+        "GIT_COMMITTER_NAME": "Flow Test",
+        "GIT_COMMITTER_EMAIL": "flow@example.com",
+    }
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, env=git_env, check=True)
+    subprocess.run(["git", "config", "commit.gpgsign", "false"], cwd=tmp_path, env=git_env, check=True)
+    (tmp_path / "src" / "auth").mkdir(parents=True)
+    (tmp_path / "src" / "auth" / "tokens.py").write_text("class TokenSigner:\n    pass\n", encoding="utf-8")
+    subprocess.run(["git", "add", "src/auth/tokens.py"], cwd=tmp_path, env=git_env, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "feat: tokens"], cwd=tmp_path, env=git_env, check=True)
+    good_sha = subprocess.run(
+        ["git", "rev-parse", "--short=7", "HEAD"], cwd=tmp_path, env=git_env, check=True, capture_output=True, text=True
+    ).stdout.strip()
+
+    (tmp_path / "README.md").write_text("# Unrelated\n", encoding="utf-8")
+    subprocess.run(["git", "add", "README.md"], cwd=tmp_path, env=git_env, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "docs: readme"], cwd=tmp_path, env=git_env, check=True)
+    unrelated_sha = subprocess.run(
+        ["git", "rev-parse", "--short=7", "HEAD"], cwd=tmp_path, env=git_env, check=True, capture_output=True, text=True
+    ).stdout.strip()
+
+    bundle_dir = _seed_valid_multichapter_bundle(tmp_path)
+    t1_path = bundle_dir / "specs" / "auth-refactor" / "chapters" / "ch01-tokens" / "tasks" / "t01-slice.md"
+    ch1_spec = bundle_dir / "specs" / "auth-refactor" / "chapters" / "ch01-tokens" / "spec.md"
+    root_spec = bundle_dir / "specs" / "auth-refactor" / "spec.md"
+
+    ch1_spec.write_text(
+        ch1_spec.read_text(encoding="utf-8").replace("1111111", good_sha),
+        encoding="utf-8",
+    )
+    root_spec.write_text(
+        root_spec.read_text(encoding="utf-8").replace("1111111", good_sha),
+        encoding="utf-8",
+    )
+    t1_path.write_text(
+        t1_path.read_text(encoding="utf-8").replace(
+            "commit: 1111111", f"commit: {good_sha}\nfiles: [src/auth/tokens.py]"
+        ),
+        encoding="utf-8",
+    )
+    assert validate_okf_bundle(bundle_dir, flow_id="auth-refactor", project_root=tmp_path) == []
+
+    ch1_spec.write_text(
+        ch1_spec.read_text(encoding="utf-8").replace(f"[{good_sha}]", f"[{unrelated_sha}]"),
+        encoding="utf-8",
+    )
+    t1_path.write_text(
+        t1_path.read_text(encoding="utf-8").replace(f"commit: {good_sha}", f"commit: {unrelated_sha}"),
+        encoding="utf-8",
+    )
+    ownership_errors = validate_okf_bundle(bundle_dir, flow_id="auth-refactor", project_root=tmp_path)
+    assert any("modified none of the task's declared files/tests" in err for err in ownership_errors)
+
+
+@pytest.mark.parametrize("ignore_policy", ("shared", "local-only"))
+def test_worktree_env_routing_symlinking_and_fallback_sync(tmp_path: Path, ignore_policy: str) -> None:
+    """Verify tools/worktree_env.py routes shared vs local-only Git worktrees and symlinks .venv and .agents."""
+    git_env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "Flow Test",
+        "GIT_AUTHOR_EMAIL": "flow@example.com",
+        "GIT_COMMITTER_NAME": "Flow Test",
+        "GIT_COMMITTER_EMAIL": "flow@example.com",
+    }
+    main_repo = tmp_path / "main-repo"
+    wt_repo = tmp_path / "wt-feature"
+    main_repo.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=main_repo, env=git_env, check=True)
+    subprocess.run(["git", "config", "commit.gpgsign", "false"], cwd=main_repo, env=git_env, check=True)
+    (main_repo / "app.py").write_text("X = 1\n", encoding="utf-8")
+    (main_repo / ".venv" / "bin").mkdir(parents=True)
+    (main_repo / "uv.toml").write_text('[[index]]\nurl = "https://pypi.org/simple"\n', encoding="utf-8")
+
+    setup_payload = {
+        "setup_status": "complete",
+        "bundle_root": ".agents/bundles",
+        "okf_version": "0.2",
+        "workflow_preferences": {"ignore_policy": ignore_policy},
+    }
+    (main_repo / ".agents" / "bundles").mkdir(parents=True)
+    (main_repo / ".agents" / "setup-state.json").write_text(json.dumps(setup_payload), encoding="utf-8")
+    (main_repo / ".agents" / "bundles" / "index.md").write_text(
+        '---\nokf_version: "0.2"\nbundle: demo\n---\n\n# Demo\n',
+        encoding="utf-8",
+    )
+    (main_repo / ".agents" / "bundles" / "log.md").write_text("# Log\n\n- 2026-11-01 init\n", encoding="utf-8")
+
+    if ignore_policy == "shared":
+        subprocess.run(["git", "add", "app.py", ".agents"], cwd=main_repo, env=git_env, check=True)
+    else:
+        exclude = main_repo / ".git" / "info" / "exclude"
+        exclude.parent.mkdir(parents=True, exist_ok=True)
+        exclude.write_text(".agents/\n", encoding="utf-8")
+        subprocess.run(["git", "add", "app.py"], cwd=main_repo, env=git_env, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "chore: seed"], cwd=main_repo, env=git_env, check=True)
+    subprocess.run(
+        ["git", "worktree", "add", "-q", "-b", "feat/wt", str(wt_repo)], cwd=main_repo, env=git_env, check=True
+    )
+
+    inspected = inspect_worktree(wt_repo)
+    assert inspected.is_linked_worktree is True
+    assert inspected.ignore_policy == ignore_policy
+
+    bootstrapped = bootstrap_worktree(wt_repo)
+    assert is_link_or_junction(wt_repo / ".venv")
+    assert is_link_or_junction(wt_repo / "uv.toml")
+
+    if ignore_policy == "shared":
+        assert bootstrapped.routing_mode == "shared-worktree"
+        assert Path(bootstrapped.target_agents_dir or "") == (wt_repo / ".agents").resolve()
+        assert not is_link_or_junction(wt_repo / ".agents")
+    else:
+        assert bootstrapped.routing_mode == "local-only-main"
+        assert Path(bootstrapped.target_agents_dir or "") == (main_repo / ".agents").resolve()
+        assert is_link_or_junction(wt_repo / ".agents")
+        assert (wt_repo / ".agents").resolve() == (main_repo / ".agents").resolve()
+
+        (wt_repo / ".agents").unlink()
+        seeded = sync_main_bundle_to_worktree(wt_repo)
+        assert seeded["status"] == "synced"
+        assert (wt_repo / ".agents" / "bundles" / "index.md").is_file()
+        fallback_spec = wt_repo / ".agents" / "bundles" / "specs" / "wt-flow"
+        fallback_spec.mkdir(parents=True)
+        (fallback_spec / "spec.md").write_text("---\ntype: Spec\n---\n", encoding="utf-8")
+        (wt_repo / ".agents" / "bundles" / "log.md").write_text("# Log\n\n- 2026-11-12 wt entry\n", encoding="utf-8")
+        synced = sync_worktree_bundle_to_main(wt_repo)
+        assert synced["status"] == "synced"
+        assert (main_repo / ".agents" / "bundles" / "specs" / "wt-flow" / "spec.md").is_file()
+        assert "2026-11-12 wt entry" in (main_repo / ".agents" / "bundles" / "log.md").read_text(encoding="utf-8")
+
+
+def test_flow_spec_planning_workflow_quota_fallback_and_disk_idle_recovery(tmp_path: Path) -> None:
+    """Verify flow-spec-planning recovers stalled planners from disk and stamps planning_quality: degraded on 429."""
+    bundle_dir = _seed_valid_multichapter_bundle(tmp_path)
+    (tmp_path / "src" / "auth").mkdir(parents=True)
+    (tmp_path / "src" / "auth" / "tokens.py").write_text("class TokenSigner:\n    pass\n", encoding="utf-8")
+
+    flow_dir = bundle_dir / "specs" / "mini-flow"
+    ch_dir = flow_dir / "chapters" / "ch01-core"
+    (ch_dir / "tasks").mkdir(parents=True)
+    (flow_dir / "chapters" / "index.md").write_text(
+        "# Chapters\n\n* [ch01-core](ch01-core/spec.md)\n", encoding="utf-8"
+    )
+    (flow_dir / "spec.md").write_text(
+        "---\n"
+        "type: Spec\n"
+        "flow_id: mini-flow\n"
+        "title: Mini Flow\n"
+        "description: Small multi-chapter test flow.\n"
+        "status: draft\n"
+        "state: planned\n"
+        "has_chapters: true\n"
+        "chapters: [ch01-core]\n"
+        "current_chapter: ch01-core\n"
+        "sources:\n"
+        "  - id: s1\n"
+        "    resource: src/auth/tokens.py::TokenSigner\n"
+        "    title: Signer\n"
+        "tags: [feature, auth]\n"
+        "---\n\n"
+        "<!-- truth: start -->\n"
+        "- Preserves TokenSigner seam[^s1].\n"
+        "<!-- truth: end -->\n\n"
+        "## 1. Specification, Context & Provenance\n\nContext.\n\n"
+        "## 2. Requirements, Concrete Contracts & Architecture\n\nContracts.\n\n"
+        "## 3. Documentation & OKF Knowledge Plan\n\n- [0/1 files documented]\n\n"
+        "## 4. Requirement-to-Task Traceability Matrix\n\n| Req | Ch |\n| --- | --- |\n| R1 | ch01-core |\n\n"
+        "## 5. Implementation Plan\n\n- [ ] [ch01-core](chapters/ch01-core/spec.md) — Core slice\n\n"
+        "## 6. Current State & Remaining Plan Snapshot\n\nPlanned.\n\n"
+        "[^s1]: `src/auth/tokens.py::TokenSigner` — Signer.\n",
+        encoding="utf-8",
+    )
+
+    script_path = REPO_ROOT / "workflows" / "flow-spec-planning" / "workflow.py"
+    source = script_path.read_text(encoding="utf-8")
+    tree = ast.parse(source, filename=str(script_path))
+    code_obj = compile(tree, str(script_path), "exec", flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
+
+    class FakeBudgetExceededError(Exception):
+        pass
+
+    printed_lines: list[str] = []
+    call_models: list[str] = []
+
+    async def fake_agent(
+        prompt: str,
+        *,
+        schema: dict[str, Any],
+        role: str = "",
+        type_name: str = "self",
+        workspace: str = "inherit",
+        model: str = "inherit",
+    ) -> dict[str, Any]:
+        assert type_name == "self"
+        assert schema
+        call_models.append(model)
+        if "Planner" in role and model == "inherit":
+            raise RuntimeError("429 RESOURCE_EXHAUSTED: primary model quota exceeded")
+        if "Planner" in role:
+            (ch_dir / "spec.md").write_text(
+                "---\n"
+                "type: Spec\n"
+                "parent_flow: mini-flow\n"
+                "chapter_id: ch01-core\n"
+                "title: Chapter ch01-core\n"
+                "description: Scoped blueprint.\n"
+                "status: draft\n"
+                "state: planned\n"
+                "planning_status: complete\n"
+                "depends_on_chapters: []\n"
+                "replan_trigger: null\n"
+                "last_reviewed_commit: null\n"
+                "sources:\n"
+                "  - id: cs1\n"
+                "    resource: src/auth/tokens.py::TokenSigner\n"
+                "    title: Signer\n"
+                "tags: [feature, auth]\n"
+                "---\n\n"
+                "<!-- truth: start -->\n"
+                "- Scoped invariant[^cs1].\n"
+                "<!-- truth: end -->\n\n"
+                "## 1. Specification, Context & Provenance\n\nCtx.\n\n"
+                "## 2. Requirements, Concrete Contracts & Architecture\n\nContracts.\n\n"
+                "## 3. Documentation & OKF Knowledge Plan\n\n- [0/1 files documented]\n\n"
+                "## 4. Requirement-to-Task Traceability Matrix\n\n| Req | Task |\n| --- | --- |\n| R1 | t01 |\n\n"
+                "## 5. Implementation Plan\n\n- [ ] [t01](tasks/t01-core.md) — Core task\n\n"
+                "## 6. Current State & Remaining Plan Snapshot\n\nPlanned.\n\n"
+                "[^cs1]: `src/auth/tokens.py::TokenSigner` — Signer.\n",
+                encoding="utf-8",
+            )
+            (ch_dir / "tasks" / "t01-core.md").write_text(
+                _render_task_blueprint(task_id="mini-flow:ch01-core:t01", chapter_id="ch01-core"),
+                encoding="utf-8",
+            )
+            (ch_dir / "planner-notes.md").write_text(
+                "# Planner Notes\n\n## Task Summaries\n\n- t01: Deliver core slice\n\n## Root Spec Issues\n\n- None\n",
+                encoding="utf-8",
+            )
+            old_ts = 1700000000.0
+            for written in (ch_dir / "spec.md", ch_dir / "tasks" / "t01-core.md", ch_dir / "planner-notes.md"):
+                os.utime(written, (old_ts, old_ts))
+            await asyncio.sleep(60)
+        return {"verdict": "APPROVED", "findings": []}
+
+    async def fake_with_budget(coro: Any, **_kwargs: Any) -> Any:
+        return await coro
+
+    async def fake_parallel(items: list[Any], fn: Callable[[Any], Any]) -> list[Any]:
+        return list(await asyncio.gather(*(fn(item) for item in items)))
+
+    ns: dict[str, Any] = {
+        "__builtins__": __builtins__,
+        "args": {
+            "flow_id": "mini-flow",
+            "chapters": [{"id": "ch01-core", "brief": "Implement core slice", "read_files": ["src/auth/tokens.py"]}],
+            "bundle_root": str(bundle_dir),
+            "plugin_root": str(REPO_ROOT),
+            "disk_idle_grace_seconds": 1,
+            "planner_timeout_seconds": 30,
+            "review": "single",
+        },
+        "agent": fake_agent,
+        "with_budget": fake_with_budget,
+        "BudgetExceeded": FakeBudgetExceededError,
+        "parallel": fake_parallel,
+        "phase": lambda _name: None,
+        "log": lambda _msg: None,
+        "tokens_used": lambda: 1234,
+        "print": lambda text: printed_lines.append(str(text)),
+    }
+
+    async def _drive() -> None:
+        coro = eval(code_obj, ns, ns)
+        if asyncio.iscoroutine(coro):
+            await coro
+
+    asyncio.run(_drive())
+    assert printed_lines
+    report = json.loads(printed_lines[-1])
+    assert report["all_chapters_complete"] is True
+    assert report["okf_validation_errors"] == []
+    assert report["planning_quality"] == "degraded"
+    assert report["planning_warning"] is not None
+    assert report["chapters"][0]["completed_from_disk"] is True
+    assert report["chapters"][0]["task_summaries"] == ["t01: Deliver core slice"]
+    assert "flash" in call_models
+
+    stamped_root = (flow_dir / "spec.md").read_text(encoding="utf-8")
+    assert "planning_quality: degraded" in stamped_root
+    assert "planning_degraded_reason:" in stamped_root

@@ -119,7 +119,7 @@ if [ -n "$STDIN_PAYLOAD" ]; then
       if (match(buf, /"parentConversationId"[[:space:]]*:[[:space:]]*"[^"]+"/)) {
         leaf = 1
       }
-      if (match(buf, /"lastUserInput"[[:space:]]*:[[:space:]]*"[^"]*(agents\/(executor|researcher|code-reviewer|quality-reviewer|plan-generator)\.md|\.agents\/agents\/)/)) {
+      if (match(buf, /"lastUserInput"[[:space:]]*:[[:space:]]*"[^"]*(agents\/(executor|researcher|code-reviewer|quality-reviewer|plan-generator)\.md|templates\/agent\/(plan|executor)-schema-card\.md|\.agents\/agents\/)/)) {
         leaf = 1
       }
 
@@ -132,7 +132,7 @@ if [ -n "$STDIN_PAYLOAD" ]; then
   IS_LEAF_SUBAGENT="${REST_STDIN%%|*}"
   DETECTED_PROJ="${REST_STDIN#*|}"
 
-  if [ "$BYPASS_FLAG" = "1" ]; then
+  if [ "$BYPASS_FLAG" = "1" ] || [ "$IS_LEAF_SUBAGENT" = "1" ]; then
     emit_allow
   fi
   if [ -z "$PROJECT_DIR" ] && [ -n "$DETECTED_PROJ" ]; then
@@ -150,8 +150,25 @@ if [ -z "$PROJECT_DIR" ]; then
   fi
 fi
 
+EFFECTIVE_ROOT="$PROJECT_DIR"
+if [ ! -d "$PROJECT_DIR/.agents" ] && [ -f "$PROJECT_DIR/.git" ] && command -v git >/dev/null 2>&1; then
+  GIT_COMMON="$(git -C "$PROJECT_DIR" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || git -C "$PROJECT_DIR" rev-parse --git-common-dir 2>/dev/null || true)"
+  if [ -n "$GIT_COMMON" ]; then
+    case "$GIT_COMMON" in
+      /*) COMMON_ABS="$GIT_COMMON" ;;
+      *) COMMON_ABS="$(CDPATH= cd -- "$PROJECT_DIR" && CDPATH= cd -- "$GIT_COMMON" 2>/dev/null && pwd || true)" ;;
+    esac
+    if [ -n "$COMMON_ABS" ]; then
+      CAND_MAIN="$(CDPATH= cd -- "$COMMON_ABS/.." 2>/dev/null && pwd || true)"
+      if [ -n "$CAND_MAIN" ] && [ -d "$CAND_MAIN/.agents" ]; then
+        EFFECTIVE_ROOT="$CAND_MAIN"
+      fi
+    fi
+  fi
+fi
+
 BUNDLE_REL=".agents/bundles"
-if [ -f "$PROJECT_DIR/.agents/setup-state.json" ]; then
+if [ -f "$EFFECTIVE_ROOT/.agents/setup-state.json" ]; then
   DETECTED_ROOT="$(awk '
     { buf = buf " " $0 }
     END {
@@ -162,13 +179,13 @@ if [ -f "$PROJECT_DIR/.agents/setup-state.json" ]; then
         print s
       }
     }
-  ' "$PROJECT_DIR/.agents/setup-state.json")"
+  ' "$EFFECTIVE_ROOT/.agents/setup-state.json")"
   if [ -n "$DETECTED_ROOT" ]; then
     BUNDLE_REL="$DETECTED_ROOT"
   fi
 fi
 
-SPECS_DIR="$PROJECT_DIR/$BUNDLE_REL/specs"
+SPECS_DIR="$EFFECTIVE_ROOT/$BUNDLE_REL/specs"
 if [ ! -d "$SPECS_DIR" ]; then
   emit_allow
 fi
@@ -191,10 +208,10 @@ check_living_doc_hygiene() {
   doc_file="$1"
   rel_label="$2"
   is_index_file="$3"
-  DOC_ERR="$(awk -v rel="$rel_label" -v is_idx="$is_index_file" '
+  DOC_ERR="$(awk -v v_rel="$rel_label" -v v_is_idx="$is_index_file" '
     NR == 1 && /^---[[:space:]]*$/ {
-      if (is_idx == "1") {
-        printf "%s: subdirectory index.md must not contain YAML frontmatter", rel
+      if (v_is_idx == "1") {
+        printf "%s: subdirectory index.md must not contain YAML frontmatter", v_rel
         exit
       }
       in_fm = 1
@@ -202,25 +219,76 @@ check_living_doc_hygiene() {
     }
     in_fm && /^---[[:space:]]*$/ {
       in_fm = 0
+      in_src = 0
       next
     }
-    in_fm { next }
+    in_fm {
+      if (/^status:[[:space:]]*/) {
+        sv = $0; sub(/^status:[[:space:]]*/, "", sv); sub(/[[:space:]]+#.*$/, "", sv); gsub(/^["'\'']|["'\'']$/, "", sv); gsub(/[[:space:]]+$/, "", sv)
+        if (sv != "" && sv != "draft" && sv != "stable" && sv != "deprecated") {
+          err = sprintf("%s: invalid OKF status \x27%s\x27 (expected draft, stable, or deprecated; use state for workflow lifecycle)", v_rel, sv)
+          exit
+        }
+      }
+      if (/^planning_quality:[[:space:]]*/) {
+        pq = $0; sub(/^planning_quality:[[:space:]]*/, "", pq); sub(/[[:space:]]+#.*$/, "", pq); gsub(/^["'\'']|["'\'']$/, "", pq); gsub(/[[:space:]]+$/, "", pq)
+      }
+      if (/^planning_degraded_reason:[[:space:]]*/) {
+        pdr = $0; sub(/^planning_degraded_reason:[[:space:]]*/, "", pdr); sub(/[[:space:]]+#.*$/, "", pdr); gsub(/^["'\'']|["'\'']$/, "", pdr); gsub(/[[:space:]]+$/, "", pdr)
+      }
+      if (/^sources:[[:space:]]*$/) {
+        in_src = 1
+        next
+      }
+      if (in_src && /^[^[:space:]-]/) {
+        in_src = 0
+      }
+      if (in_src && /^[[:space:]]*-[[:space:]]*id:[[:space:]]*/) {
+        sid = $0; sub(/^[[:space:]]*-[[:space:]]*id:[[:space:]]*/, "", sid); sub(/[[:space:]]+#.*$/, "", sid); gsub(/^["'\'']|["'\'']$/, "", sid); gsub(/[[:space:]]+$/, "", sid)
+        if (sid != "") { src_count++; src_ids[src_count] = sid }
+      } else if (in_src && /^[[:space:]]+id:[[:space:]]*/) {
+        sid = $0; sub(/^[[:space:]]+id:[[:space:]]*/, "", sid); sub(/[[:space:]]+#.*$/, "", sid); gsub(/^["'\'']|["'\'']$/, "", sid); gsub(/[[:space:]]+$/, "", sid)
+        if (sid != "") { src_count++; src_ids[src_count] = sid }
+      }
+      next
+    }
     /^[[:space:]]*(```|~~~)/ {
       in_fence = !in_fence
       next
     }
     in_fence { next }
+    /^\[\^[^]]+\]:/ {
+      fn = $0; sub(/^\[\^/, "", fn); sub(/\]:.*$/, "", fn)
+      fn_defs[fn] = 1
+    }
     /^[[:space:]]*---[[:space:]]*$/ {
-      printf "%s: standalone --- horizontal rule forbidden in bundle Markdown body", rel
+      err = sprintf("%s: standalone --- horizontal rule forbidden in bundle Markdown body", v_rel)
       exit
     }
     tolower($0) ~ /^[[:space:]]*#+[[:space:]]*(revision history|change history|changelog|decision history)([[:space:]:]|$)/ {
-      printf "%s: historical changelog/revision section forbidden in present-tense living spec", rel
+      err = sprintf("%s: historical changelog/revision section forbidden in present-tense living spec", v_rel)
       exit
     }
     /^[[:space:]]*-[[:space:]]*\[[^]]*\][[:space:]]*~~/ {
-      printf "%s: struck-through obsolete checklist item forbidden; rewrite in place in present tense", rel
+      err = sprintf("%s: struck-through obsolete checklist item forbidden; rewrite in place in present tense", v_rel)
       exit
+    }
+    END {
+      if (err != "") {
+        printf "%s", err
+        exit
+      }
+      if (pq == "degraded" && (pdr == "" || pdr == "null" || pdr == "~")) {
+        printf "%s: planning_quality is degraded without non-empty planning_degraded_reason", v_rel
+        exit
+      }
+      for (k = 1; k <= src_count; k++) {
+        want_fn = src_ids[k]
+        if (!(want_fn in fn_defs)) {
+          printf "%s: source id \x27%s\x27 missing matching [^%s]: footnote in body", v_rel, want_fn, want_fn
+          exit
+        }
+      }
     }
   ' "$doc_file")"
   if [ -n "$DOC_ERR" ]; then
@@ -248,24 +316,60 @@ check_tasks_against_spec() {
 
     TASK_TOTAL=$((TASK_TOTAL + 1))
     TASK_META="$(awk '
+      function push_owned(raw,    n, arr, idx, item) {
+        sub(/^\[/, "", raw); sub(/\][[:space:]]*$/, "", raw)
+        n = split(raw, arr, ",")
+        for (idx = 1; idx <= n; idx++) {
+          item = arr[idx]
+          gsub(/^[[:space:]]*["'\'']?|["'\'']?[[:space:]]*$/, "", item)
+          sub(/::.*$/, "", item)
+          if (item != "" && item != "null" && item != "~") {
+            owned = (owned == "" ? item : owned ";" item)
+          }
+        }
+      }
       NR == 1 && /^---[[:space:]]*$/ { in_fm = 1; next }
       in_fm && /^---[[:space:]]*$/ { exit }
       in_fm && /^id:[[:space:]]*/ {
-        v = $0; sub(/^id:[[:space:]]*/, "", v); gsub(/^["'\'']|["'\'']$/, "", v); gsub(/[[:space:]]+$/, "", v); id = v
+        v = $0; sub(/^id:[[:space:]]*/, "", v); gsub(/^["'\'']|["'\'']$/, "", v); gsub(/[[:space:]]+$/, "", v); id = v; list_key = ""; next
       }
       in_fm && /^state:[[:space:]]*/ {
-        v = $0; sub(/^state:[[:space:]]*/, "", v); sub(/[[:space:]]+#.*$/, "", v); gsub(/^["'\'']|["'\'']$/, "", v); gsub(/[[:space:]]+$/, "", v); st = v
+        v = $0; sub(/^state:[[:space:]]*/, "", v); sub(/[[:space:]]+#.*$/, "", v); gsub(/^["'\'']|["'\'']$/, "", v); gsub(/[[:space:]]+$/, "", v); st = v; list_key = ""; next
       }
       in_fm && /^commit:[[:space:]]*/ {
-        v = $0; sub(/^commit:[[:space:]]*/, "", v); sub(/[[:space:]]+#.*$/, "", v); gsub(/^["'\'']|["'\'']$/, "", v); gsub(/[[:space:]]+$/, "", v); cm = v
+        v = $0; sub(/^commit:[[:space:]]*/, "", v); sub(/[[:space:]]+#.*$/, "", v); gsub(/^["'\'']|["'\'']$/, "", v); gsub(/[[:space:]]+$/, "", v); cm = v; list_key = ""; next
       }
-      END { printf "%s|%s|%s\n", id, st, cm }
+      in_fm && /^deferred_by:[[:space:]]*/ {
+        v = $0; sub(/^deferred_by:[[:space:]]*/, "", v); sub(/[[:space:]]+#.*$/, "", v); gsub(/^["'\'']|["'\'']$/, "", v); gsub(/[[:space:]]+$/, "", v); dby = v; list_key = ""; next
+      }
+      in_fm && /^deferred_reason:[[:space:]]*/ {
+        v = $0; sub(/^deferred_reason:[[:space:]]*/, "", v); sub(/[[:space:]]+#.*$/, "", v); gsub(/^["'\'']|["'\'']$/, "", v); gsub(/[[:space:]]+$/, "", v); drsn = v; list_key = ""; next
+      }
+      in_fm && /^(files|tests):[[:space:]]*/ {
+        v = $0; sub(/^(files|tests):[[:space:]]*/, "", v); sub(/[[:space:]]+#.*$/, "", v); gsub(/[[:space:]]+$/, "", v)
+        if (v == "") {
+          list_key = "owned"
+        } else {
+          list_key = ""
+          push_owned(v)
+        }
+        next
+      }
+      in_fm && /^[^[:space:]-]/ {
+        list_key = ""
+      }
+      in_fm && list_key == "owned" && /^[[:space:]]*-[[:space:]]+/ {
+        v = $0; sub(/^[[:space:]]*-[[:space:]]+/, "", v); sub(/[[:space:]]+#.*$/, "", v)
+        push_owned(v)
+      }
+      END { printf "%s|%s|%s|%s|%s|%s\n", id, st, cm, dby, drsn, owned }
     ' "$task_file")"
 
-    t_id="${TASK_META%%|*}"
-    t_rest="${TASK_META#*|}"
-    t_state="${t_rest%%|*}"
-    t_commit="${t_rest#*|}"
+    t_id="${TASK_META%%|*}"; t_r1="${TASK_META#*|}"
+    t_state="${t_r1%%|*}"; t_r2="${t_r1#*|}"
+    t_commit="${t_r2%%|*}"; t_r3="${t_r2#*|}"
+    t_def_by="${t_r3%%|*}"; t_r4="${t_r3#*|}"
+    t_def_reason="${t_r4%%|*}"; t_owned="${t_r4#*|}"
     t_stem="${task_base%%-*}"
     [ -z "$t_id" ] && t_id="$t_stem"
 
@@ -282,6 +386,30 @@ check_tasks_against_spec() {
               append_violation "$scope_label/$task_base: invalid hex commit SHA '$t_commit'"
             else
               COMPLETED_SHAS="$COMPLETED_SHAS $t_commit"
+              if [ "$HAS_GIT" = "1" ] && [ -n "$t_owned" ] && git -C "$PROJECT_DIR" cat-file -e "${t_commit}^{commit}" 2>/dev/null; then
+                DIFF_FILES="$(git -C "$PROJECT_DIR" diff-tree --no-commit-id --name-only -r --root "$t_commit" 2>/dev/null || true)"
+                OWNED_OK="$(printf '%s\n' "$DIFF_FILES" | awk -v v_owned="$t_owned" '
+                  BEGIN {
+                    cnt = split(v_owned, targets, ";")
+                  }
+                  NF > 0 {
+                    changed = $0
+                    for (i = 1; i <= cnt; i++) {
+                      t = targets[i]
+                      sub(/^\.\//, "", t)
+                      if (t == "") continue
+                      if (changed == t || index(changed, t "/") == 1 || index(t, changed "/") == 1) {
+                        matched = 1
+                        exit
+                      }
+                    }
+                  }
+                  END { print (matched ? "1" : "0") }
+                ')"
+                if [ "$OWNED_OK" = "0" ]; then
+                  append_violation "$scope_label/$task_base: commit $t_commit did not modify any declared files or tests ($t_owned)"
+                fi
+              fi
             fi
             ;;
         esac
@@ -289,6 +417,9 @@ check_tasks_against_spec() {
       deferred|skipped)
         expected_mark="-"
         TASK_DONE=$((TASK_DONE + 1))
+        if [ "$t_def_by" != "user" ] || [ -z "$t_def_reason" ] || [ "$t_def_reason" = "null" ] || [ "$t_def_reason" = "~" ]; then
+          append_violation "$scope_label/$task_base: state '$t_state' requires deferred_by: user and a non-empty deferred_reason"
+        fi
         ;;
       in_progress)
         expected_mark="~"
@@ -477,10 +608,17 @@ for root_spec in "$SPECS_DIR"/*/spec.md; do
         in_fm && /^last_reviewed_commit:[[:space:]]*/ {
           v = $0; sub(/^last_reviewed_commit:[[:space:]]*/, "", v); sub(/[[:space:]]+#.*$/, "", v); gsub(/^["'\'']|["'\'']$/, "", v); gsub(/[[:space:]]+$/, "", v); lrc = v
         }
-        END { printf "%s|%s\n", st, lrc }
+        in_fm && /^deferred_by:[[:space:]]*/ {
+          v = $0; sub(/^deferred_by:[[:space:]]*/, "", v); sub(/[[:space:]]+#.*$/, "", v); gsub(/^["'\'']|["'\'']$/, "", v); gsub(/[[:space:]]+$/, "", v); dby = v
+        }
+        in_fm && /^deferred_reason:[[:space:]]*/ {
+          v = $0; sub(/^deferred_reason:[[:space:]]*/, "", v); sub(/[[:space:]]+#.*$/, "", v); gsub(/^["'\'']|["'\'']$/, "", v); gsub(/[[:space:]]+$/, "", v); drsn = v
+        }
+        END { printf "%s|%s|%s|%s\n", st, lrc, dby, drsn }
       ' "$ch_spec")"
-      c_state="${CH_META%%|*}"
-      c_rev_sha="${CH_META#*|}"
+      c_state="${CH_META%%|*}"; c_r1="${CH_META#*|}"
+      c_rev_sha="${c_r1%%|*}"; c_r2="${c_r1#*|}"
+      c_def_by="${c_r2%%|*}"; c_def_reason="${c_r2#*|}"
 
       if [ "$ch_id" = "$r_curr_ch" ]; then
         CURR_CH_FOUND=1
@@ -492,12 +630,18 @@ for root_spec in "$SPECS_DIR"/*/spec.md; do
       check_tasks_against_spec "$ch_spec" "$ch_dir/tasks" "specs/$flow_dir_name/chapters/$ch_id"
 
       if [ "$c_state" = "deferred" ] || [ "$c_state" = "skipped" ]; then
+        if [ "$c_def_by" != "user" ] || [ -z "$c_def_reason" ] || [ "$c_def_reason" = "null" ] || [ "$c_def_reason" = "~" ]; then
+          append_violation "specs/$flow_dir_name/chapters/$ch_id: state '$c_state' requires deferred_by: user and a non-empty deferred_reason"
+        fi
         CH_CLOSED=$((CH_CLOSED + 1))
         continue
       fi
 
       NEED_CH_REVIEW=0
       if [ "$c_state" = "completed" ]; then
+        if [ "$TASK_TOTAL" -eq 0 ] || [ "$TASK_DONE" -lt "$TASK_TOTAL" ]; then
+          append_violation "specs/$flow_dir_name/chapters/$ch_id: chapter cannot be marked completed while $((TASK_TOTAL - TASK_DONE)) of $TASK_TOTAL task(s) remain incomplete (or 0 tasks exist)"
+        fi
         CH_CLOSED=$((CH_CLOSED + 1))
         NEED_CH_REVIEW=1
       elif [ "$IS_LEAF_SUBAGENT" = "0" ] && [ "$TASK_TOTAL" -gt 0 ] && [ "$TASK_DONE" -eq "$TASK_TOTAL" ]; then
@@ -526,9 +670,13 @@ for root_spec in "$SPECS_DIR"/*/spec.md; do
       fi
     done
 
+    if [ "$r_state" = "completed" ] && { [ "$CH_TOTAL" -eq 0 ] || [ "$CH_CLOSED" -lt "$CH_TOTAL" ]; }; then
+      append_violation "specs/$flow_dir_name/spec.md: flow cannot be marked completed while $((CH_TOTAL - CH_CLOSED)) of $CH_TOTAL chapter(s) remain open (anti-skip guard)"
+    fi
+
     if [ "$IS_LEAF_SUBAGENT" = "0" ] && [ "$CH_TOTAL" -gt 0 ]; then
       if [ "$CH_CLOSED" -lt "$CH_TOTAL" ]; then
-        if [ -z "$r_curr_ch" ] || [ "$r_curr_ch" = "null" ] || [ "$CURR_CH_FOUND" = "0" ] || [ "$CURR_CH_IS_COMPLETED" = "1" ]; then
+        if [ "$r_state" != "completed" ] && { [ -z "$r_curr_ch" ] || [ "$r_curr_ch" = "null" ] || [ "$CURR_CH_FOUND" = "0" ] || [ "$CURR_CH_IS_COMPLETED" = "1" ]; }; then
           append_violation "specs/$flow_dir_name/spec.md: current_chapter '$r_curr_ch' must advance to an open remaining chapter"
         fi
       elif [ "$r_state" = "completed" ]; then
@@ -538,6 +686,9 @@ for root_spec in "$SPECS_DIR"/*/spec.md; do
   else
     check_tasks_against_spec "$root_spec" "$flow_dir/tasks" "specs/$flow_dir_name"
     if [ "$r_state" = "completed" ]; then
+      if [ "$TASK_TOTAL" -eq 0 ] || [ "$TASK_DONE" -lt "$TASK_TOTAL" ]; then
+        append_violation "specs/$flow_dir_name/spec.md: single-chapter flow cannot be marked completed while $((TASK_TOTAL - TASK_DONE)) of $TASK_TOTAL task(s) remain incomplete (or 0 tasks exist)"
+      fi
       verify_review_stamp "$r_rev_sha" "$COMPLETED_SHAS" "specs/$flow_dir_name/spec.md"
     elif [ "$IS_LEAF_SUBAGENT" = "0" ] && [ "$r_state" = "active" ] && [ "$TASK_TOTAL" -gt 0 ] && [ "$TASK_DONE" -eq "$TASK_TOTAL" ]; then
       verify_review_stamp "$r_rev_sha" "$COMPLETED_SHAS" "specs/$flow_dir_name/spec.md"

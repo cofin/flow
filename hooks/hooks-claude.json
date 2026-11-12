@@ -1,5 +1,5 @@
 {
-  "description": "Flow session priming, pre-tool safety guards, live Studio telemetry, and chapter Stop gates for Claude Code, Codex CLI, and VS Code Agent Plugins.",
+  "description": "Flow session priming, pre-tool safety guards, and chapter Stop gates for Claude Code, Codex CLI, and VS Code Agent Plugins.",
   "hooks": {
     "SessionStart": [
       {
@@ -22,19 +22,6 @@
             "type": "command",
             "command": "sh \"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-.}}/hooks/pre-tool-guard.sh\" --harness claude",
             "commandWindows": "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-.}}/hooks/pre-tool-guard.ps1\" --harness claude",
-            "timeout": 10
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "sh \"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-.}}/hooks/post-tool-telemetry.sh\" --harness claude",
-            "commandWindows": "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-.}}/hooks/post-tool-telemetry.ps1\" --harness claude",
             "timeout": 10
           }
         ]

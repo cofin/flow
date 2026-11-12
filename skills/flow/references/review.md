@@ -40,13 +40,12 @@ When dispatching reviewers, strictly enforce the **Zero-Context Isolation Rules*
 ### Harness Dispatch Modes
 
 - **When `run_workflow` Is Available (Google Antigravity)**:
-  - Execute an async Python workflow script that enters `phase("Zero-Context Code & Quality Review")` and fans out `parallel()` using `type_name="self"` (`model="inherit"`):
-    - `agent(type_name="self", role="Correctness, Spec, Markdown-Sync & Standards Reviewer", schema=CODE_REVIEW_SCHEMA, model="inherit")` with `agents/code-reviewer.md`
-    - `agent(type_name="self", role="Debloat, Living-Doc Hygiene & Test Strength Reviewer", schema=QUALITY_REPORT_SCHEMA, model="inherit")` with `agents/quality-reviewer.md`
-    - Any matching project-local `.agents/agents/<domain>-reviewer.md` contracts (`type_name="self"`).
-  - Verify `git status --porcelain` is unchanged immediately after reviewer completion, and hold persistent reviewer handles (`code_reviewer = agent(...)`, `quality_reviewer = agent(...)`) for Round 2 verification after `ADOPT` fixes.
+  - Invoke the packaged [`workflows/flow-dual-review/workflow.py`](../../../workflows/flow-dual-review/workflow.py) workflow (`run_workflow(ScriptPath="<plugin_root>/workflows/flow-dual-review/workflow.py", Args={"git_range": f"{base_commit}..{head_commit}", "spec_path": spec_path, "review_mode": review_mode})`), which enters `phase("Zero-Context Review")` with `with_budget(timeout=600)` and `type_name="self"` using Gemini Pro (preferring next-generation Pro via `inherit` when the parent session is on Pro/Pro-Next, or passing `reviewer_model="pro"` when the parent session is on Flash; automatically falling back to next-generation `"flash"` only on `429`/`RESOURCE_EXHAUSTED` quota exhaustion—**never** `flash_lite`):
+    - `review_mode="dual"` (default for `Medium`/`Large` flows or `> 2` tasks): runs `@code-reviewer` (`agents/code-reviewer.md`) and `@quality-reviewer` (`agents/quality-reviewer.md`) in `parallel()`, plus any matching `.agents/agents/<domain>-reviewer.md`.
+    - `review_mode="single"` (`Small` single-chapter flows with `<= 2` tasks and `<= 150` changed lines): runs one unified zero-context pass returning both `findings` and `QualityReport` (`quality-review-v1`).
+  - Verify `git status --porcelain` is unchanged immediately after reviewer completion.
 - **In All Other Harnesses**:
-  - Dispatch `@code-reviewer` (plus any matching `.agents/agents/<domain>-reviewer`) and `@quality-reviewer` (`model: inherit`) with the same disk-only brief and `base_commit..head_commit` range.
+  - Dispatch `@code-reviewer` (plus any matching `.agents/agents/<domain>-reviewer`) and `@quality-reviewer` on the primary frontier review model—**`opus`** on Claude Code (preferring next-generation Opus when available, falling back to `sonnet` only when Opus is unavailable or quota-limited; **never** `haiku`) and `model_reasoning_effort = "high"` on Codex—with the same disk-only brief and `base_commit..head_commit` range (or a single unified pass returning `QualityReport` on `Small` `<= 2`-task diffs).
 
 ## Phase 3: Review Axes
 

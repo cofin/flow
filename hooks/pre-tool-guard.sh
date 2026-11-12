@@ -4,6 +4,7 @@
 set -eu
 
 HARNESS="claude"
+PROJECT_DIR=""
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -16,9 +17,11 @@ while [ "$#" -gt 0 ]; do
       shift 1
       ;;
     --project)
+      PROJECT_DIR="${2:-}"
       shift 2
       ;;
     --project=*)
+      PROJECT_DIR="${1#*=}"
       shift 1
       ;;
     *)
@@ -43,6 +46,26 @@ PARSED="$(printf '%s\n' "$STDIN_PAYLOAD" | awk '
     tool_name = ""
     cmd_line = ""
     agent_id = ""
+    proj = ""
+    target_path = ""
+
+    if (match(buf, /"workspacePaths"[[:space:]]*:[[:space:]]*\[[[:space:]]*"[^"]+"/)) {
+      s = substr(buf, RSTART, RLENGTH)
+      sub(/^.*"workspacePaths"[[:space:]]*:[[:space:]]*\[[[:space:]]*"/, "", s)
+      sub(/"$/, "", s); gsub(/\\\\/, "/", s); proj = s
+    } else if (match(buf, /"workspace_roots"[[:space:]]*:[[:space:]]*\[[[:space:]]*"[^"]+"/)) {
+      s = substr(buf, RSTART, RLENGTH)
+      sub(/^.*"workspace_roots"[[:space:]]*:[[:space:]]*\[[[:space:]]*"/, "", s)
+      sub(/"$/, "", s); gsub(/\\\\/, "/", s); proj = s
+    } else if (match(buf, /"cwd"[[:space:]]*:[[:space:]]*"[^"]+"/)) {
+      s = substr(buf, RSTART, RLENGTH)
+      sub(/^.*"cwd"[[:space:]]*:[[:space:]]*"/, "", s)
+      sub(/"$/, "", s); gsub(/\\\\/, "/", s); proj = s
+    } else if (match(buf, /"workspaceRoot"[[:space:]]*:[[:space:]]*"[^"]+"/)) {
+      s = substr(buf, RSTART, RLENGTH)
+      sub(/^.*"workspaceRoot"[[:space:]]*:[[:space:]]*"/, "", s)
+      sub(/"$/, "", s); gsub(/\\\\/, "/", s); proj = s
+    }
 
     if (match(buf, /"toolCall"[[:space:]]*:[[:space:]]*\{[[:space:]]*"name"[[:space:]]*:[[:space:]]*"[^"]+"/)) {
       s = substr(buf, RSTART, RLENGTH)
@@ -68,6 +91,14 @@ PARSED="$(printf '%s\n' "$STDIN_PAYLOAD" | awk '
       cmd_line = s
     }
 
+    if (match(buf, /"Path"[[:space:]]*:[[:space:]]*"[^"]+"/)) {
+      s = substr(buf, RSTART, RLENGTH); sub(/^.*"Path"[[:space:]]*:[[:space:]]*"/, "", s); sub(/"$/, "", s); gsub(/\\\\/, "/", s); target_path = s
+    } else if (match(buf, /"file_path"[[:space:]]*:[[:space:]]*"[^"]+"/)) {
+      s = substr(buf, RSTART, RLENGTH); sub(/^.*"file_path"[[:space:]]*:[[:space:]]*"/, "", s); sub(/"$/, "", s); gsub(/\\\\/, "/", s); target_path = s
+    } else if (match(buf, /"TargetFile"[[:space:]]*:[[:space:]]*"[^"]+"/)) {
+      s = substr(buf, RSTART, RLENGTH); sub(/^.*"TargetFile"[[:space:]]*:[[:space:]]*"/, "", s); sub(/"$/, "", s); gsub(/\\\\/, "/", s); target_path = s
+    }
+
     if (match(buf, /"agentName"[[:space:]]*:[[:space:]]*"[^"]+"/)) {
       s = substr(buf, RSTART, RLENGTH)
       sub(/^.*"agentName"[[:space:]]*:[[:space:]]*"/, "", s)
@@ -87,14 +118,86 @@ PARSED="$(printf '%s\n' "$STDIN_PAYLOAD" | awk '
 
     gsub(/\|/, " ", tool_name)
     gsub(/\|/, " ", agent_id)
-    printf "%s|%s|%s\n", tool_name, agent_id, cmd_line
+    gsub(/\|/, " ", proj)
+    gsub(/\|/, " ", target_path)
+    printf "%s|%s|%s|%s|%s\n", tool_name, agent_id, proj, target_path, cmd_line
   }
 ')"
 
-TOOL_NAME="${PARSED%%|*}"
-REST_ONE="${PARSED#*|}"
-AGENT_ID="${REST_ONE%%|*}"
-CMD_LINE="${REST_ONE#*|}"
+TOOL_NAME="${PARSED%%|*}"; R_1="${PARSED#*|}"
+AGENT_ID="${R_1%%|*}"; R_2="${R_1#*|}"
+DETECTED_PROJ="${R_2%%|*}"; R_3="${R_2#*|}"
+TARGET_PATH="${R_3%%|*}"; CMD_LINE="${R_3#*|}"
+
+if [ -z "$PROJECT_DIR" ]; then
+  if [ -n "$DETECTED_PROJ" ]; then
+    PROJECT_DIR="$DETECTED_PROJ"
+  elif [ -n "${CURSOR_PROJECT_DIR:-}" ]; then
+    PROJECT_DIR="$CURSOR_PROJECT_DIR"
+  elif [ -n "${CLAUDE_PROJECT_DIR:-}" ]; then
+    PROJECT_DIR="$CLAUDE_PROJECT_DIR"
+  else
+    PROJECT_DIR="$(pwd)"
+  fi
+fi
+
+is_incomplete_flow_spec() {
+  fid="$1"
+  [ -n "$fid" ] || return 1
+  spec_root="$PROJECT_DIR/.agents/bundles/specs/$fid"
+  if [ ! -f "$spec_root/spec.md" ] && [ -f "$PROJECT_DIR/.git" ] && command -v git >/dev/null 2>&1; then
+    gcom="$(git -C "$PROJECT_DIR" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
+    if [ -n "$gcom" ]; then
+      cmain="$(CDPATH= cd -- "$gcom/.." 2>/dev/null && pwd || true)"
+      if [ -n "$cmain" ] && [ -f "$cmain/.agents/bundles/specs/$fid/spec.md" ]; then
+        spec_root="$cmain/.agents/bundles/specs/$fid"
+      fi
+    fi
+  fi
+  [ -f "$spec_root/spec.md" ] || return 1
+
+  R_META="$(awk '
+    NR == 1 && /^---[[:space:]]*$/ { in_fm = 1; next }
+    in_fm && /^---[[:space:]]*$/ { exit }
+    in_fm && /^state:[[:space:]]*/ { v = $0; sub(/^state:[[:space:]]*/, "", v); sub(/[[:space:]]+#.*$/, "", v); gsub(/^["'\'']|["'\'']$/, "", v); gsub(/[[:space:]]+$/, "", v); st = v }
+    in_fm && /^last_reviewed_commit:[[:space:]]*/ { v = $0; sub(/^last_reviewed_commit:[[:space:]]*/, "", v); sub(/[[:space:]]+#.*$/, "", v); gsub(/^["'\'']|["'\'']$/, "", v); gsub(/[[:space:]]+$/, "", v); lrc = v }
+    END { printf "%s|%s\n", st, lrc }
+  ' "$spec_root/spec.md")"
+  rst="${R_META%%|*}"
+  rlrc="${R_META#*|}"
+  if [ "$rst" != "completed" ] || [ -z "$rlrc" ] || [ "$rlrc" = "null" ]; then
+    return 0
+  fi
+  if [ -d "$spec_root/chapters" ]; then
+    for chd in "$spec_root/chapters"/ch*; do
+      [ -d "$chd" ] || continue
+      [ -f "$chd/spec.md" ] || return 0
+      cst="$(awk '
+        NR == 1 && /^---[[:space:]]*$/ { in_fm = 1; next }
+        in_fm && /^---[[:space:]]*$/ { exit }
+        in_fm && /^state:[[:space:]]*/ { v = $0; sub(/^state:[[:space:]]*/, "", v); sub(/[[:space:]]+#.*$/, "", v); gsub(/^["'\'']|["'\'']$/, "", v); gsub(/[[:space:]]+$/, "", v); print v; exit }
+      ' "$chd/spec.md")"
+      case "$cst" in
+        completed|deferred|skipped) ;;
+        *) return 0 ;;
+      esac
+    done
+  fi
+  for tkf in "$spec_root"/tasks/*.md "$spec_root"/chapters/ch*/tasks/*.md; do
+    [ -f "$tkf" ] || continue
+    [ "$(basename "$tkf")" = "index.md" ] && continue
+    tst="$(awk '
+      NR == 1 && /^---[[:space:]]*$/ { in_fm = 1; next }
+      in_fm && /^---[[:space:]]*$/ { exit }
+      in_fm && /^state:[[:space:]]*/ { v = $0; sub(/^state:[[:space:]]*/, "", v); sub(/[[:space:]]+#.*$/, "", v); gsub(/^["'\'']|["'\'']$/, "", v); gsub(/[[:space:]]+$/, "", v); print v; exit }
+    ' "$tkf")"
+    case "$tst" in
+      completed|closed|deferred|skipped) ;;
+      *) return 0 ;;
+    esac
+  done
+  return 1
+}
 
 DECISION="allow"
 REASON=""
@@ -109,6 +212,38 @@ case "$AGENT_ID" in
     esac
     ;;
 esac
+
+if [ "$DECISION" = "allow" ] && [ "$TOOL_NAME" = "delete_file" ] && [ -n "$TARGET_PATH" ]; then
+  DEL_FID="$(printf '%s\n' "$TARGET_PATH" | awk '
+    match($0, /\.agents\/bundles\/specs\/[A-Za-z0-9_-]+(\/spec\.md|\/)?$/) {
+      s = substr($0, RSTART, RLENGTH)
+      sub(/^\.agents\/bundles\/specs\//, "", s)
+      sub(/\/.*$/, "", s)
+      print s
+    }
+  ')"
+  if [ -n "$DEL_FID" ] && is_incomplete_flow_spec "$DEL_FID"; then
+    DECISION="deny"
+    REASON="Flow safety guard: cannot delete or archive specs/${DEL_FID} while chapters or tasks remain incomplete or unreviewed."
+  fi
+fi
+
+if [ "$DECISION" = "allow" ] && [ -n "$CMD_LINE" ]; then
+  RM_FID="$(printf '%s\n' "$CMD_LINE" | awk '
+    /(^|[;&|[:space:]])(git[[:space:]]+rm|rm|rmdir|Remove-Item)([[:space:]]|$)/ {
+      if (match($0, /\.agents\/bundles\/specs\/[A-Za-z0-9_-]+(\/spec\.md|\/)?([[:space:]"'\'';&|]|$)/)) {
+        s = substr($0, RSTART, RLENGTH)
+        sub(/^\.agents\/bundles\/specs\//, "", s)
+        sub(/[^A-Za-z0-9_-].*$/, "", s)
+        print s
+      }
+    }
+  ')"
+  if [ -n "$RM_FID" ] && is_incomplete_flow_spec "$RM_FID"; then
+    DECISION="deny"
+    REASON="Flow safety guard: cannot delete or archive specs/${RM_FID} while chapters or tasks remain incomplete or unreviewed."
+  fi
+fi
 
 if [ "$DECISION" = "allow" ] && [ -n "$CMD_LINE" ]; then
   GIT_VERDICT="$(printf '%s\n' "$CMD_LINE" | awk '

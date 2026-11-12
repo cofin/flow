@@ -102,8 +102,8 @@ if (-not [string]::IsNullOrWhiteSpace($StdinPayload)) {
     }
 
     if ([regex]::IsMatch($StdinPayload, '"parentConversationId"\s*:\s*"[^"]+"') -or
-        [regex]::IsMatch($StdinPayload, '"lastUserInput"\s*:\s*"[^"]*(agents/(executor|researcher|code-reviewer|quality-reviewer|plan-generator)\.md|\.agents/agents/)')) {
-        $IsLeafSubagent = $true
+        [regex]::IsMatch($StdinPayload, '"lastUserInput"\s*:\s*"[^"]*(agents/(executor|researcher|code-reviewer|quality-reviewer|plan-generator)\.md|templates/agent/(plan|executor)-schema-card\.md|\.agents/agents/)')) {
+        Emit-Allow
     }
 }
 
@@ -117,8 +117,23 @@ if ([string]::IsNullOrEmpty($ProjectDir)) {
     }
 }
 
+$EffectiveRoot = $ProjectDir
+if ((-not (Test-Path -LiteralPath (Join-Path $ProjectDir ".agents") -PathType Container)) -and
+    (Test-Path -LiteralPath (Join-Path $ProjectDir ".git") -PathType Leaf) -and
+    (Get-Command git -ErrorAction SilentlyContinue)) {
+    try {
+        $commonDir = (& git -C $ProjectDir rev-parse --path-format=absolute --git-common-dir 2>$null | Select-Object -First 1)
+        if (-not [string]::IsNullOrWhiteSpace($commonDir)) {
+            $candMain = Split-Path -Parent $commonDir.Trim()
+            if (-not [string]::IsNullOrWhiteSpace($candMain) -and (Test-Path -LiteralPath (Join-Path $candMain ".agents") -PathType Container)) {
+                $EffectiveRoot = $candMain
+            }
+        }
+    } catch {}
+}
+
 $BundleRel = ".agents/bundles"
-$SetupStateFile = Join-Path $ProjectDir ".agents/setup-state.json"
+$SetupStateFile = Join-Path $EffectiveRoot ".agents/setup-state.json"
 if (Test-Path -LiteralPath $SetupStateFile -PathType Leaf) {
     try {
         $SetupRaw = Get-Content -LiteralPath $SetupStateFile -Raw -Encoding UTF8
@@ -131,7 +146,7 @@ if (Test-Path -LiteralPath $SetupStateFile -PathType Leaf) {
     }
 }
 
-$SpecsDir = Join-Path $ProjectDir "$BundleRel/specs"
+$SpecsDir = Join-Path $EffectiveRoot "$BundleRel/specs"
 if (-not (Test-Path -LiteralPath $SpecsDir -PathType Container)) {
     Emit-Allow
 }
@@ -168,10 +183,45 @@ function Get-FrontmatterMap([string[]]$Lines) {
     return $map
 }
 
+function Get-OwnedPaths([string[]]$Lines) {
+    $items = New-Object System.Collections.Generic.List[string]
+    if ($Lines.Count -eq 0 -or $Lines[0].Trim() -ne "---") { return $items }
+    $inOwned = $false
+    for ($i = 1; $i -lt $Lines.Count; $i++) {
+        $ln = $Lines[$i]
+        if ($ln.Trim() -eq "---") { break }
+        if ($ln -match '^(files|tests):\s*(.*)$') {
+            $rest = ($Matches[2] -replace '\s+#.*$', '').Trim()
+            if ([string]::IsNullOrEmpty($rest)) {
+                $inOwned = $true
+            } else {
+                $inOwned = $false
+                $trimmed = $rest.TrimStart('[').TrimEnd(']')
+                foreach ($part in ($trimmed -split ',')) {
+                    $clean = (($part.Trim().Trim('"').Trim("'")) -replace '::.*$', '') -replace '^\./', ''
+                    if ($clean -and $clean -notin @("null", "~")) { $items.Add($clean) }
+                }
+            }
+            continue
+        }
+        if ($ln -match '^[^\s-]') { $inOwned = $false }
+        if ($inOwned -and $ln -match '^\s*-\s+(.+)$') {
+            $clean = ((($Matches[1] -replace '\s+#.*$', '').Trim().Trim('"').Trim("'")) -replace '::.*$', '') -replace '^\./', ''
+            if ($clean -and $clean -notin @("null", "~")) { $items.Add($clean) }
+        }
+    }
+    return $items
+}
+
 function Test-LivingDocHygiene([string]$FilePath, [string]$RelLabel, [bool]$IsIndex) {
     $lines = @(Get-Content -LiteralPath $FilePath -Encoding UTF8)
     $inFm = $false
+    $inSrc = $false
     $inFence = $false
+    $srcIds = New-Object System.Collections.Generic.List[string]
+    $fnDefs = @{}
+    $pq = ""
+    $pdr = ""
     for ($i = 0; $i -lt $lines.Count; $i++) {
         $ln = $lines[$i]
         if ($i -eq 0 -and $ln.Trim() -eq "---") {
@@ -183,7 +233,26 @@ function Test-LivingDocHygiene([string]$FilePath, [string]$RelLabel, [bool]$IsIn
             continue
         }
         if ($inFm) {
-            if ($ln.Trim() -eq "---") { $inFm = $false }
+            if ($ln.Trim() -eq "---") { $inFm = $false; $inSrc = $false; continue }
+            if ($ln -match '^status:\s*(.+)$') {
+                $sv = ($Matches[1] -replace '\s+#.*$', '').Trim().Trim('"').Trim("'")
+                if ($sv -and $sv -notin @("draft", "stable", "deprecated")) {
+                    $Violations.Add("${RelLabel}: invalid OKF status '$sv' (expected draft, stable, or deprecated; use state for workflow lifecycle)")
+                    return
+                }
+            }
+            if ($ln -match '^planning_quality:\s*(.+)$') {
+                $pq = ($Matches[1] -replace '\s+#.*$', '').Trim().Trim('"').Trim("'")
+            }
+            if ($ln -match '^planning_degraded_reason:\s*(.+)$') {
+                $pdr = ($Matches[1] -replace '\s+#.*$', '').Trim().Trim('"').Trim("'")
+            }
+            if ($ln -match '^sources:\s*$') { $inSrc = $true; continue }
+            if ($inSrc -and $ln -match '^[^\s-]') { $inSrc = $false }
+            if ($inSrc -and $ln -match '^\s*-?\s*id:\s*(.+)$') {
+                $sid = ($Matches[1] -replace '\s+#.*$', '').Trim().Trim('"').Trim("'")
+                if ($sid) { $srcIds.Add($sid) }
+            }
             continue
         }
         if ($ln -match '^\s*(```|~~~)') {
@@ -191,6 +260,9 @@ function Test-LivingDocHygiene([string]$FilePath, [string]$RelLabel, [bool]$IsIn
             continue
         }
         if ($inFence) { continue }
+        if ($ln -match '^\[\^([^\]]+)\]:') {
+            $fnDefs[$Matches[1]] = $true
+        }
         if ($ln -match '^\s*---\s*$') {
             $Violations.Add("${RelLabel}: standalone --- horizontal rule forbidden in bundle Markdown body")
             return
@@ -201,6 +273,16 @@ function Test-LivingDocHygiene([string]$FilePath, [string]$RelLabel, [bool]$IsIn
         }
         if ($ln -match '^\s*-\s*\[[^\]]*\]\s*~~') {
             $Violations.Add("${RelLabel}: struck-through obsolete checklist item forbidden; rewrite in place in present tense")
+            return
+        }
+    }
+    if ($pq -eq "degraded" -and ([string]::IsNullOrEmpty($pdr) -or $pdr -in @("null", "~"))) {
+        $Violations.Add("${RelLabel}: planning_quality is degraded without non-empty planning_degraded_reason")
+        return
+    }
+    foreach ($sid in $srcIds) {
+        if (-not $fnDefs.ContainsKey($sid)) {
+            $Violations.Add("${RelLabel}: source id '$sid' missing matching [^$sid]: footnote in body")
             return
         }
     }
@@ -248,11 +330,38 @@ function Test-TasksAgainstSpec([string]$OwnerSpec, [string]$TasksDir, [string]$S
                     $Violations.Add("$ScopeLabel/$($tf.Name): invalid hex commit SHA '$tCommit'")
                 } else {
                     $res.Shas.Add($tCommit)
+                    $ownedPaths = Get-OwnedPaths $tLines
+                    if ($HasGit -and $ownedPaths.Count -gt 0) {
+                        $null = & git -C $ProjectDir cat-file -e "$tCommit^{commit}" 2>$null
+                        if ($LASTEXITCODE -eq 0) {
+                            $diffPaths = @(& git -C $ProjectDir diff-tree --no-commit-id --name-only -r --root $tCommit 2>$null)
+                            $ownedOk = $false
+                            foreach ($dp in $diffPaths) {
+                                $cleanDp = $dp.Trim()
+                                if (-not $cleanDp) { continue }
+                                foreach ($op in $ownedPaths) {
+                                    if ($cleanDp -eq $op -or $cleanDp.StartsWith("$op/") -or $op.StartsWith("$cleanDp/")) {
+                                        $ownedOk = $true
+                                        break
+                                    }
+                                }
+                                if ($ownedOk) { break }
+                            }
+                            if (-not $ownedOk) {
+                                $Violations.Add("$ScopeLabel/$($tf.Name): commit $tCommit did not modify any declared files or tests ($($ownedPaths -join ';'))")
+                            }
+                        }
+                    }
                 }
             }
             '^(deferred|skipped)$' {
                 $expMark = "-"
                 $res.Done++
+                $dBy = if ($tfm.ContainsKey("deferred_by")) { $tfm["deferred_by"] } else { "" }
+                $dRsn = if ($tfm.ContainsKey("deferred_reason")) { $tfm["deferred_reason"] } else { "" }
+                if ($dBy -ne "user" -or [string]::IsNullOrEmpty($dRsn) -or $dRsn -in @("null", "~")) {
+                    $Violations.Add("$ScopeLabel/$($tf.Name): state '$tState' requires deferred_by: user and a non-empty deferred_reason")
+                }
             }
             '^in_progress$' { $expMark = "~" }
             '^blocked$' { $expMark = "!" }
@@ -400,12 +509,20 @@ foreach ($fDir in $FlowDirs) {
 
             $taskCheck = Test-TasksAgainstSpec $chSpec $chTasksDir "specs/$($fDir.Name)/chapters/$chId"
             if ($cState -in @("deferred", "skipped")) {
+                $cDefBy = if ($cfm.ContainsKey("deferred_by")) { $cfm["deferred_by"] } else { "" }
+                $cDefRsn = if ($cfm.ContainsKey("deferred_reason")) { $cfm["deferred_reason"] } else { "" }
+                if ($cDefBy -ne "user" -or [string]::IsNullOrEmpty($cDefRsn) -or $cDefRsn -in @("null", "~")) {
+                    $Violations.Add("specs/$($fDir.Name)/chapters/${chId}: state '$cState' requires deferred_by: user and a non-empty deferred_reason")
+                }
                 $chClosed++
                 continue
             }
 
             $needReview = $false
             if ($cState -eq "completed") {
+                if ($taskCheck.Total -eq 0 -or $taskCheck.Done -lt $taskCheck.Total) {
+                    $Violations.Add("specs/$($fDir.Name)/chapters/${chId}: chapter cannot be marked completed while $($taskCheck.Total - $taskCheck.Done) of $($taskCheck.Total) task(s) remain incomplete (or 0 tasks exist)")
+                }
                 $chClosed++
                 $needReview = $true
             } elseif ((-not $IsLeafSubagent) -and $taskCheck.Total -gt 0 -and $taskCheck.Done -eq $taskCheck.Total) {
@@ -426,9 +543,13 @@ foreach ($fDir in $FlowDirs) {
             }
         }
 
+        if ($rState -eq "completed" -and ($chTotal -eq 0 -or $chClosed -lt $chTotal)) {
+            $Violations.Add("specs/$($fDir.Name)/spec.md: flow cannot be marked completed while $($chTotal - $chClosed) of $chTotal chapter(s) remain open (anti-skip guard)")
+        }
+
         if ((-not $IsLeafSubagent) -and $chTotal -gt 0) {
             if ($chClosed -lt $chTotal) {
-                if ([string]::IsNullOrEmpty($rCurrCh) -or $rCurrCh -eq "null" -or (-not $currChFound) -or $currChCompleted) {
+                if ($rState -ne "completed" -and ([string]::IsNullOrEmpty($rCurrCh) -or $rCurrCh -eq "null" -or (-not $currChFound) -or $currChCompleted)) {
                     $Violations.Add("specs/$($fDir.Name)/spec.md: current_chapter '$rCurrCh' must advance to an open remaining chapter")
                 }
             } elseif ($rState -eq "completed") {
@@ -439,6 +560,9 @@ foreach ($fDir in $FlowDirs) {
     } else {
         $taskCheck = Test-TasksAgainstSpec $rootSpec $rootTasksDir "specs/$($fDir.Name)"
         if ($rState -eq "completed") {
+            if ($taskCheck.Total -eq 0 -or $taskCheck.Done -lt $taskCheck.Total) {
+                $Violations.Add("specs/$($fDir.Name)/spec.md: single-chapter flow cannot be marked completed while $($taskCheck.Total - $taskCheck.Done) of $($taskCheck.Total) task(s) remain incomplete (or 0 tasks exist)")
+            }
             Test-ReviewStamp $rRevSha $taskCheck.Shas "specs/$($fDir.Name)/spec.md"
         } elseif ((-not $IsLeafSubagent) -and $rState -eq "active" -and $taskCheck.Total -gt 0 -and $taskCheck.Done -eq $taskCheck.Total) {
             Test-ReviewStamp $rRevSha $taskCheck.Shas "specs/$($fDir.Name)/spec.md"

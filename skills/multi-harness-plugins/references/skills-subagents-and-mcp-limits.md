@@ -93,5 +93,42 @@ disallowedTools:
 
 - **Top-Level H1 (`# `) Headings**: Antigravity's `splitMarkdownSections` splits subagent Markdown bodies only on H1 (`# Header`) lines (`##` headings collapse into a single fallback section). Use `# Role & Identity`, `# Responsibilities`, `# Verification & Constraints`, and `# Output Contract`, with `###` for subsections.
 - **`mainAgent: false` + `subagent: true`**: Keeps specialized reviewers and executors out of the primary top-level agent dropdown while keeping them invokable via `invoke_subagent` and `run_workflow`.
-- **YAML List `tools` / `disallowedTools`**: Never use comma-separated strings (`tools: Read, Grep`), which fail YAML `[]string` unmarshaling in Antigravity.
-- **Valid `model` Values**: Use `model: inherit` (compatibility across Antigravity, Claude Code, and Cursor; Antigravity rejects Claude-specific model aliases like `sonnet` or `opus`).
+- **Lean Subagent Prompt & Preload Budgets**: Omit multi-skill `skills:` arrays on leaf subagents unless a single focused policy is required: Claude Code eagerly injects every listed `SKILL.md` into the subagent's Turn-1 system prompt, inflating context and triggering recursive reference reads. Pass a single compact schema card on disk instead.
+- **YAML List `tools` / `disallowedTools`**: Never use comma-separated strings (`tools: Read, Grep`), which fail YAML `[]string` unmarshaling in Antigravity. Universal `agents/*.md` files omit `tools:` so Claude Code and Cursor inherit parent tools; on Google Antigravity, omitted `tools:` resolves to read-only default tools, so Antigravity workflows and subagent dispatches always pass `type_name="self"` alongside the on-disk `agents/<role>.md` or schema-card path.
+- **Valid `model` Values & Call-Site Model Routing**: Keep `model: inherit` in universal `agents/*.md` frontmatter (Antigravity rejects Claude-specific aliases like `sonnet` or `haiku` in frontmatter) and route models at invocation time:
+  - **Frontier Thinking & Review Tier** (preferring next-generation models when available: `inherit` on Antigravity when the parent session is Pro/Pro-Next or `pro` when the parent session is Flash, falling back to next-gen `flash` only on quota/capacity limits; **`opus`** / `inherit` on Claude Code, falling back to `sonnet` only when Opus is unavailable or quota-limited; `model_reasoning_effort = "high"` on Codex): Architecture co-design, root roadmaps, `Medium`/`Large` chapter planning, and **all zero-context reviews** (`@code-reviewer`, `@quality-reviewer`, and spec review). Whenever quota or capacity exhaustion forces planning onto a fallback tier, stamp `planning_quality: degraded` + `planning_degraded_reason` on `spec.md` and warn the user explicitly before approval.
+  - **Balanced Execution Tier** (`inherit` with automatic `flash` quota fallback on Antigravity; `sonnet` on Claude Code when the parent session is Opus; `model_reasoning_effort = "medium"` on Codex): Chapter-batch blueprint execution (`@executor`).
+  - **Fast Reconnaissance Tier** (`flash` on Antigravity, preferring next-gen Flash; `sonnet` on Claude Code; `model_reasoning_effort = "low"` on Codex; `fast` on Cursor): Multi-file `SubsystemDigest` scouting (`@researcher` / `flow-scout`).
+  - **Strict Ultra-Light Tier Boundary (`flash_lite` / `haiku`)**: Restrict `flash_lite` and `haiku` strictly to narrow file fetching (`<= 3` files) and trivial mechanical checks—never planning, code/quality review, multi-file scouting, or chapter closeout.
+
+## Google Antigravity `run_workflow` Script Rules
+
+Prefer invoking shipped packaged workflows (`workflows/flow-spec-planning/workflow.py`, `workflows/flow-scout/workflow.py`, `workflows/flow-chapter-pipeline/workflow.py`, `workflows/flow-dual-review/workflow.py`) via `run_workflow(ScriptPath=..., Args={...})`. Whenever authoring a custom `run_workflow` script:
+
+1. **Top-Level `await`, Zero Bare `return`**: Scripts compile with `PyCF_ALLOW_TOP_LEVEL_AWAIT` at module scope; a top-level `return` raises `SyntaxError`. Emit structured JSON output with `print(json.dumps(report))`.
+2. **Mandatory `schema=` and `type_name="self"`**: Every `agent(...)` call requires a JSON `schema` (`ValueError: agent: schema is required` when omitted) and `type_name="self"` so write and shell tools are inherited.
+3. **Always `await` `parallel(...)` and `pipeline(...)` with Budgets**: Wrap worker calls in `with_budget(agent(...), max_tokens=..., timeout=...)` and `await parallel(items, fn)` / `await pipeline(items, fn)`:
+
+   ```python
+   import json
+
+   ITEM_SCHEMA = {"type": "object", "properties": {"summary": {"type": "string"}}, "required": ["summary"]}
+   results = await parallel(
+       items,
+       lambda item: with_budget(
+           agent(
+               f"Inspect `{item}` in read-only mode without BypassSandbox.",
+               schema=ITEM_SCHEMA,
+               role=f"Inspect {item}",
+               type_name="self",
+               workspace="inherit",
+               model="flash",
+           ),
+           max_tokens=100000,
+           timeout=300,
+       ),
+   )
+   print(json.dumps(results))
+   ```
+
+4. **Zero Interactive Prompts Inside Workflows**: Background workflow agents cannot prompt the user; instruct workflow agents never to set `BypassSandbox: true`, never to run network-fetching `npx --yes` wrappers, and to defer `git commit` to the coordinator (`commit_deferred_to_coordinator: true`) if `.git/` is read-only inside the terminal sandbox.

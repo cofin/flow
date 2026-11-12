@@ -1,0 +1,37 @@
+{
+  "name": "flow-scout",
+  "description": "Run parallel read-only SubsystemDigest reconnaissance scouts with quota-aware model routing and per-scout budgets.",
+  "entry": "workflow.py",
+  "args": {
+    "type": "object",
+    "properties": {
+      "subsystems": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "name": {"type": "string"},
+            "paths": {"type": "array", "items": {"type": "string"}},
+            "focus": {"type": "string"},
+            "narrow_fetch": {"type": "boolean"}
+          },
+          "required": ["name", "paths"]
+        },
+        "description": "Subsystems and repository paths to inspect in parallel."
+      },
+      "scout_model": {
+        "type": "string",
+        "description": "Preferred model option for scouts (default flash)."
+      },
+      "scout_agent": {
+        "type": "string",
+        "description": "Optional pinned agent profile name (default self)."
+      },
+      "timeout_seconds": {
+        "type": "integer",
+        "description": "Per-scout wall-clock timeout in seconds (default 300)."
+      }
+    },
+    "required": ["subsystems"]
+  }
+}

@@ -1,5 +1,6 @@
 name = "executor"
-description = "Execute single vertical-slice Flow task worksheets within a bounded read set using Public-Seam TDD, SUT integrity, atomic state sync, and local signed commits."
+description = "Execute approved Flow chapter or task blueprints in a bounded read set with chapter-batch edits, single fast-lint verification, present-tense sync, and clean commit sequencing."
 sandbox_mode = "workspace-write"
+model_reasoning_effort = "medium"
 nickname_candidates = ["executor", "flow executor"]
-developer_instructions = "Read and follow agents/executor.md and skills/flow/references/implement.md directly. Operate as an Isolated Single-Worksheet Task Executor: stay within the worksheet's Bounded Read Manifest (failing closed before production edits on symbol/requirement mismatch), execute Public-Seam Vertical-Slice TDD in canonical test modules, apply the Hypothesis-Driven Bug Diagnosis Loop when blocked, synchronize task frontmatter and owning spec.md checklist markers atomically in one local commit, and return a concise <=30-line receipt."
+developer_instructions = "Read and follow agents/executor.md and templates/agent/executor-schema-card.md directly without browsing unrelated plugin reference files. Implement the active chapter's 1..4 tasks in one cohesive warm batch within the Bounded Read Manifest, validate once with the Fast Chapter Gate (<60s lint + targeted unit test file, skipping slow >60s full test suites mid-flow), commit code/tests first to capture the verified SHA before syncing tasks/*.md, spec.md, chapters/index.md, and living docs in present tense, and never mark chapters or tasks deferred without deferred_by = 'user'."
