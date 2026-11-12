@@ -19,7 +19,7 @@ Specifications (`.agents/bundles/specs/<flow_id>/spec.md`), chapter specificatio
 ## Lifecycle Enums, OKF v0.2 Status, & Anti-Skip Rules
 
 ```yaml
-spec_states: [draft, planned, active, completed]
+spec_states: [draft, planned, active, paused, completed]
 chapter_planning_statuses: [complete, empirical_dependent]
 planning_qualities: [standard, degraded]
 okf_document_statuses: [draft, stable, deprecated]
@@ -38,7 +38,8 @@ verification_strategies: [behavior_tdd, regression_tdd, characterization, static
 | `deferred` or `skipped` | `- [-] <id> — <summary> (<rel-path>)` | User-authorized deferral only (`deferred_by: "user"` + non-empty `deferred_reason`). |
 
 - **State vs. Status & Plan Quality**: Workflow state belongs strictly in `state:`; OKF v0.2 maturity (`draft | stable | deprecated`) belongs strictly in `status:`. Set `planning_quality: degraded` + non-empty `planning_degraded_reason` whenever quota fallback or timeout recovery prevented planning on the primary frontier thinking model.
-- **Mechanical Anti-Skip Invariants**: Root `spec.md` cannot be `state: completed` while any chapter is open; a chapter `spec.md` cannot be `state: completed` with `0` tasks or open tasks; `deferred`/`skipped` requires `deferred_by: "user"` + `deferred_reason`; and every `completed` task commit SHA must touch at least one declared path in `files:` or `tests:`.
+- **Mechanical Anti-Skip Invariants**: Root `spec.md` cannot be `state: completed` while any chapter is open; a chapter `spec.md` cannot be `state: completed` with `0` tasks or open tasks; `deferred`/`skipped` requires `deferred_by: "user"` + `deferred_reason`; and every `completed` task commit SHA must touch at least one non-ignored declared path in `files:` or `tests:`.
+- **Pause, Handoff, & Gate Overrides**: Set `state: paused` (or `paused: true` / `handoff: true`) on a root or chapter `spec.md` when deliberately pausing work for human handoff, or set `gate: advisory | off` in spec frontmatter to bypass Stop-gate blocking for that specification. Configure project-wide Stop-gate behavior via `.agents/setup-state.json` (`stop_gate: "enforce" | "advisory" | "off"`, `workflow_preferences.sha_tracking: "strict" | "advisory" | "off"`) or `FLOW_STOP_GATE=off|advisory`. Under default `strict` SHA tracking, `patch-id` equivalence and rewritten-`HEAD` detection tolerate rebased, amended, cherry-picked, and squash-merged commits without disabling stale-review checks on linear history.
 - **Present-Tense Living Markdown Rule**: Root `spec.md`, `chapters/index.md`, `chapters/<ch_id>/spec.md`, `tasks/*.md`, `knowledge/**`, and `docs/**` state current verified reality, remaining work, and the full plan in present tense—zero `Revision History` / `Changelog` headings, zero struck-through `~~` items, and zero standalone `---` body rules.
 
 ## Normative Document Schemas

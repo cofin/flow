@@ -47,6 +47,11 @@ if ($Harness -eq "claude" -and -not [string]::IsNullOrEmpty($env:CURSOR_VERSION)
     Emit-Allow
 }
 
+$StopGateEnv = if (-not [string]::IsNullOrEmpty($env:FLOW_STOP_GATE)) { $env:FLOW_STOP_GATE.Trim().ToLowerInvariant() } else { "" }
+if ($StopGateEnv -in @("off", "0", "false", "no", "advisory", "warn")) {
+    Emit-Allow
+}
+
 $StdinPayload = ""
 try {
     if ([Console]::IsInputRedirected) {
@@ -57,6 +62,7 @@ try {
 }
 
 $IsLeafSubagent = $false
+$ConvId = ""
 if (-not [string]::IsNullOrWhiteSpace($StdinPayload)) {
     if ([string]::IsNullOrEmpty($ProjectDir)) {
         foreach ($pattern in @(
@@ -70,6 +76,14 @@ if (-not [string]::IsNullOrWhiteSpace($StdinPayload)) {
                 $ProjectDir = $m.Groups[1].Value -replace '\\\\', '/'
                 break
             }
+        }
+    }
+
+    foreach ($convPat in @('"conversationId"\s*:\s*"([^"]+)"', '"session_id"\s*:\s*"([^"]+)"', '"conversation_id"\s*:\s*"([^"]+)"')) {
+        $cm = [regex]::Match($StdinPayload, $convPat)
+        if ($cm.Success) {
+            $ConvId = $cm.Groups[1].Value
+            break
         }
     }
 
@@ -103,7 +117,7 @@ if (-not [string]::IsNullOrWhiteSpace($StdinPayload)) {
 
     if ([regex]::IsMatch($StdinPayload, '"parentConversationId"\s*:\s*"[^"]+"') -or
         [regex]::IsMatch($StdinPayload, '"lastUserInput"\s*:\s*"[^"]*(agents/(executor|researcher|code-reviewer|quality-reviewer|plan-generator)\.md|templates/agent/(plan|executor)-schema-card\.md|\.agents/agents/)')) {
-        Emit-Allow
+        $IsLeafSubagent = $true
     }
 }
 
@@ -132,7 +146,28 @@ if ((-not (Test-Path -LiteralPath (Join-Path $ProjectDir ".agents") -PathType Co
     } catch {}
 }
 
+$tmpRaw = if (-not [string]::IsNullOrEmpty($env:TMPDIR)) { $env:TMPDIR.TrimEnd('/', '\') } else { [IO.Path]::GetTempPath().TrimEnd('/', '\') }
+$rtBase = if (-not [string]::IsNullOrEmpty($env:FLOW_RUNTIME_DIR)) { $env:FLOW_RUNTIME_DIR.TrimEnd('/', '\') } else { Join-Path $tmpRaw "flow-runtime" }
+$normRoot = ($EffectiveRoot -replace '\\', '/').TrimEnd('/')
+$wsId = [regex]::Replace($normRoot, '[^A-Za-z0-9._-]', '_')
+if ($wsId.Length -gt 120) { $wsId = $wsId.Substring($wsId.Length - 120) }
+if ([string]::IsNullOrEmpty($wsId)) { $wsId = "default" }
+$SubagentLeaseDir = Join-Path (Join-Path $rtBase $wsId) "subagents"
+$SafeConv = if (-not [string]::IsNullOrEmpty($ConvId)) { [regex]::Replace($ConvId, '[^A-Za-z0-9._-]', '_') } else { "" }
+
+if ($IsLeafSubagent) {
+    if (-not [string]::IsNullOrEmpty($SafeConv)) {
+        $leaseFile = Join-Path $SubagentLeaseDir "$SafeConv.lease"
+        if (Test-Path -LiteralPath $leaseFile -PathType Leaf) {
+            Remove-Item -LiteralPath $leaseFile -Force -ErrorAction SilentlyContinue
+        }
+    }
+    Emit-Allow
+}
+
 $BundleRel = ".agents/bundles"
+$StopGateCfg = "enforce"
+$ShaTracking = "strict"
 $SetupStateFile = Join-Path $EffectiveRoot ".agents/setup-state.json"
 if (Test-Path -LiteralPath $SetupStateFile -PathType Leaf) {
     try {
@@ -141,8 +176,59 @@ if (Test-Path -LiteralPath $SetupStateFile -PathType Leaf) {
         if ($m.Success -and -not [string]::IsNullOrWhiteSpace($m.Groups[1].Value)) {
             $BundleRel = $m.Groups[1].Value.Trim()
         }
+        $gm = [regex]::Match($SetupRaw, '"stop_gate"\s*:\s*"([^"]+)"')
+        if ($gm.Success -and -not [string]::IsNullOrWhiteSpace($gm.Groups[1].Value)) {
+            $StopGateCfg = $gm.Groups[1].Value.Trim().ToLowerInvariant()
+        }
+        $sm = [regex]::Match($SetupRaw, '"sha_tracking"\s*:\s*"([^"]+)"')
+        if ($sm.Success -and -not [string]::IsNullOrWhiteSpace($sm.Groups[1].Value)) {
+            $ShaTracking = $sm.Groups[1].Value.Trim().ToLowerInvariant()
+        }
     } catch {
         $BundleRel = ".agents/bundles"
+    }
+}
+
+if ($StopGateCfg -in @("off", "0", "false", "no", "advisory", "warn")) {
+    Emit-Allow
+}
+if ($ShaTracking -notin @("strict", "advisory", "off")) {
+    $ShaTracking = "strict"
+}
+
+if (Test-Path -LiteralPath $SubagentLeaseDir -PathType Container) {
+    $nowEpoch = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+    foreach ($lf in @(Get-ChildItem -LiteralPath $SubagentLeaseDir -Filter "*.lease" -File -ErrorAction SilentlyContinue)) {
+        $lfBase = [IO.Path]::GetFileNameWithoutExtension($lf.Name)
+        $lfTs = 0L
+        $rawTs = (Get-Content -LiteralPath $lf.FullName -TotalCount 1 -ErrorAction SilentlyContinue)
+        if (-not [long]::TryParse(([string]$rawTs).Trim(), [ref]$lfTs) -or ($nowEpoch - $lfTs) -gt 900) {
+            Remove-Item -LiteralPath $lf.FullName -Force -ErrorAction SilentlyContinue
+            continue
+        }
+        if ([string]::IsNullOrEmpty($SafeConv) -or $lfBase -ne $SafeConv) {
+            Emit-Allow
+        }
+    }
+}
+
+if (-not [string]::IsNullOrEmpty($ConvId)) {
+    foreach ($liveCand in @((Join-Path $EffectiveRoot ".agents/studio-live-state.json"), (Join-Path $ProjectDir ".agents/studio-live-state.json"))) {
+        if (Test-Path -LiteralPath $liveCand -PathType Leaf) {
+            try {
+                $item = Get-Item -LiteralPath $liveCand
+                if (([DateTime]::UtcNow - $item.LastWriteTimeUtc).TotalSeconds -le 900) {
+                    $liveRaw = Get-Content -LiteralPath $liveCand -Raw -Encoding UTF8
+                    $isAct = [regex]::IsMatch($liveRaw, '"activeTurn"\s*:\s*true')
+                    $cm = [regex]::Match($liveRaw, '"conversationId"\s*:\s*"([^"]*)"')
+                    $liveConv = if ($cm.Success) { $cm.Groups[1].Value } else { "" }
+                    if ($isAct -and (-not [string]::IsNullOrEmpty($liveConv)) -and $liveConv -ne $ConvId) {
+                        Emit-Allow
+                    }
+                }
+            } catch {}
+            break
+        }
     }
 }
 
@@ -331,7 +417,7 @@ function Test-TasksAgainstSpec([string]$OwnerSpec, [string]$TasksDir, [string]$S
                 } else {
                     $res.Shas.Add($tCommit)
                     $ownedPaths = Get-OwnedPaths $tLines
-                    if ($HasGit -and $ownedPaths.Count -gt 0) {
+                    if ($ShaTracking -ne "off" -and $HasGit -and $ownedPaths.Count -gt 0) {
                         $null = & git -C $ProjectDir cat-file -e "$tCommit^{commit}" 2>$null
                         if ($LASTEXITCODE -eq 0) {
                             $diffPaths = @(& git -C $ProjectDir diff-tree --no-commit-id --name-only -r --root $tCommit 2>$null)
@@ -348,7 +434,16 @@ function Test-TasksAgainstSpec([string]$OwnerSpec, [string]$TasksDir, [string]$S
                                 if ($ownedOk) { break }
                             }
                             if (-not $ownedOk) {
-                                $Violations.Add("$ScopeLabel/$($tf.Name): commit $tCommit did not modify any declared files or tests ($($ownedPaths -join ';'))")
+                                $nonIgnoredOwned = New-Object System.Collections.Generic.List[string]
+                                foreach ($op in $ownedPaths) {
+                                    $null = & git -C $ProjectDir check-ignore -q -- $op 2>$null
+                                    if ($LASTEXITCODE -ne 0) {
+                                        $nonIgnoredOwned.Add($op)
+                                    }
+                                }
+                                if ($nonIgnoredOwned.Count -gt 0) {
+                                    $Violations.Add("$ScopeLabel/$($tf.Name): commit $tCommit did not modify any declared files or tests ($($nonIgnoredOwned -join ';'))")
+                                }
                             }
                         }
                     }
@@ -384,12 +479,36 @@ function Test-TasksAgainstSpec([string]$OwnerSpec, [string]$TasksDir, [string]$S
             $actualMark = $mm.Groups[1].Value.ToLowerInvariant()
             if ($actualMark -ne $expMark) {
                 $Violations.Add("${ScopeLabel}: task $($tf.Name) has state marker [$actualMark] in spec.md but expected [$expMark]")
-            } elseif ($expMark -eq "x" -and $tCommit -match '^[0-9a-fA-F]{7,40}$') {
+            } elseif ($expMark -eq "x" -and $ShaTracking -eq "strict" -and $tCommit -match '^[0-9a-fA-F]{7,40}$') {
                 $sm = [regex]::Match($matchedLine, '\[([0-9a-fA-F]{7,40})\]')
                 if ($sm.Success) {
                     $cSha = $sm.Groups[1].Value
                     if (-not ($tCommit.StartsWith($cSha) -or $cSha.StartsWith($tCommit))) {
-                        $Violations.Add("${ScopeLabel}: task $($tf.Name) commit $tCommit mismatches spec.md checklist SHA $cSha")
+                        $mmOk = $false
+                        if ($HasGit) {
+                            $null = & git -C $ProjectDir cat-file -e "$tCommit^{commit}" 2>$null
+                            $tExists = ($LASTEXITCODE -eq 0)
+                            $null = & git -C $ProjectDir cat-file -e "$cSha^{commit}" 2>$null
+                            $cExists = ($LASTEXITCODE -eq 0)
+                            if ($tExists -and $cExists) {
+                                $pidT = Get-GitPatchId $tCommit
+                                $pidC = Get-GitPatchId $cSha
+                                if ($pidT -and ($pidT -eq $pidC)) {
+                                    $mmOk = $true
+                                }
+                            } else {
+                                $null = & git -C $ProjectDir merge-base --is-ancestor $tCommit HEAD 2>$null
+                                $tOnHead = ($LASTEXITCODE -eq 0)
+                                $null = & git -C $ProjectDir merge-base --is-ancestor $cSha HEAD 2>$null
+                                $cOnHead = ($LASTEXITCODE -eq 0)
+                                if ($tOnHead -ne $cOnHead) {
+                                    $mmOk = $true
+                                }
+                            }
+                        }
+                        if (-not $mmOk) {
+                            $Violations.Add("${ScopeLabel}: task $($tf.Name) commit $tCommit mismatches spec.md checklist SHA $cSha")
+                        }
                     }
                 }
             }
@@ -398,15 +517,49 @@ function Test-TasksAgainstSpec([string]$OwnerSpec, [string]$TasksDir, [string]$S
     return $res
 }
 
+function Get-GitPatchId([string]$ShaArg) {
+    try {
+        $diffOut = (& git -C $ProjectDir diff-tree --no-ext-diff -p --root $ShaArg 2>$null) -join "`n"
+        if ([string]::IsNullOrEmpty($diffOut)) { return "" }
+        $pidOut = ($diffOut | & git patch-id --stable 2>$null | Select-Object -First 1)
+        if ($pidOut) {
+            return ($pidOut.Trim() -split '\s+')[0]
+        }
+    } catch {}
+    return ""
+}
+
+function Test-PatchInHistory([string]$NeedleSha, [string]$HaystackRev) {
+    $needlePid = Get-GitPatchId $NeedleSha
+    if ([string]::IsNullOrEmpty($needlePid)) { return $false }
+    try {
+        $logOut = (& git -C $ProjectDir log -n 100 --no-ext-diff -p --root $HaystackRev 2>$null) -join "`n"
+        if ([string]::IsNullOrEmpty($logOut)) { return $false }
+        $pidLines = @($logOut | & git patch-id --stable 2>$null)
+        foreach ($pln in $pidLines) {
+            $parts = $pln.Trim() -split '\s+'
+            if ($parts.Count -gt 0 -and $parts[0] -eq $needlePid) {
+                return $true
+            }
+        }
+    } catch {}
+    return $false
+}
+
 function Test-ReviewStamp([string]$RevSha, [System.Collections.Generic.List[string]]$TaskShas, [string]$Label) {
     if ([string]::IsNullOrEmpty($RevSha) -or $RevSha -eq "null" -or ($RevSha -notmatch '^[0-9a-fA-F]{7,40}$')) {
         $Violations.Add("${Label}: missing hex last_reviewed_commit (sync present-tense docs and run Zero-Context Review before stopping)")
         return
     }
+    if ($ShaTracking -eq "off") { return }
     if ($HasGit) {
         $null = & git -C $ProjectDir cat-file -e "$RevSha^{commit}" 2>$null
         if ($LASTEXITCODE -ne 0) {
-            $Violations.Add("${Label}: last_reviewed_commit '$RevSha' does not exist in Git history")
+            return
+        }
+        if ($ShaTracking -eq "advisory") { return }
+        $null = & git -C $ProjectDir merge-base --is-ancestor $RevSha HEAD 2>$null
+        if ($LASTEXITCODE -ne 0) {
             return
         }
         foreach ($tSha in $TaskShas) {
@@ -414,8 +567,10 @@ function Test-ReviewStamp([string]$RevSha, [System.Collections.Generic.List[stri
             if ($LASTEXITCODE -eq 0) {
                 $null = & git -C $ProjectDir merge-base --is-ancestor $tSha $RevSha 2>$null
                 if ($LASTEXITCODE -ne 0) {
-                    $Violations.Add("${Label}: task commit $tSha is newer than last_reviewed_commit $RevSha; re-run Zero-Context Review")
-                    return
+                    if (-not (Test-PatchInHistory $tSha $RevSha)) {
+                        $Violations.Add("${Label}: task commit $tSha is newer than last_reviewed_commit $RevSha; re-run Zero-Context Review")
+                        return
+                    }
                 }
             }
         }
@@ -431,7 +586,12 @@ foreach ($fDir in $FlowDirs) {
     $rfm = Get-FrontmatterMap $rootLines
     $rType = if ($rfm.ContainsKey("type")) { $rfm["type"] } else { "" }
     $rState = if ($rfm.ContainsKey("state")) { $rfm["state"] } else { "" }
+    $rGate = if ($rfm.ContainsKey("gate")) { $rfm["gate"].ToLowerInvariant() } else { "" }
+    $rPaused = if ($rfm.ContainsKey("paused")) { $rfm["paused"].ToLowerInvariant() } else { "" }
+    $rHandoff = if ($rfm.ContainsKey("handoff")) { $rfm["handoff"].ToLowerInvariant() } else { "" }
     if ($rState -eq "archived" -or $rType -eq "flow") { continue }
+    if ($rGate -in @("off", "advisory")) { continue }
+    if ($rState -eq "paused" -or $rPaused -eq "true" -or $rHandoff -eq "true") { continue }
 
     $rHasCh = ($rfm.ContainsKey("has_chapters") -and $rfm["has_chapters"] -eq "true")
     $rCurrCh = if ($rfm.ContainsKey("current_chapter")) { $rfm["current_chapter"] } else { "" }
@@ -499,12 +659,18 @@ foreach ($fDir in $FlowDirs) {
             $cfm = Get-FrontmatterMap $cLines
             $cState = if ($cfm.ContainsKey("state")) { $cfm["state"] } else { "" }
             $cRevSha = if ($cfm.ContainsKey("last_reviewed_commit")) { $cfm["last_reviewed_commit"] } else { "" }
+            $cPaused = if ($cfm.ContainsKey("paused")) { $cfm["paused"].ToLowerInvariant() } else { "" }
+            $cHandoff = if ($cfm.ContainsKey("handoff")) { $cfm["handoff"].ToLowerInvariant() } else { "" }
 
             if ($chId -eq $rCurrCh) {
                 $currChFound = $true
                 if ($cState -in @("completed", "deferred", "skipped")) {
                     $currChCompleted = $true
                 }
+            }
+
+            if ($cState -eq "paused" -or $cPaused -eq "true" -or $cHandoff -eq "true") {
+                continue
             }
 
             $taskCheck = Test-TasksAgainstSpec $chSpec $chTasksDir "specs/$($fDir.Name)/chapters/$chId"

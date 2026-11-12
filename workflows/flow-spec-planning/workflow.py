@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+import tempfile
 import time
 
 PLANNER_SCHEMA = {
@@ -311,21 +312,97 @@ def _run_okf_validator() -> list[str]:
     return [ln.strip() for ln in (proc.stderr + "\n" + proc.stdout).splitlines() if ln.strip().startswith("ERROR:")]
 
 
+def _acquire_runtime_lease() -> Path | None:
+    """Register an active workflow runtime lease for Stop-gate subagent coordination."""
+    raw_tmp = os.environ.get("TMPDIR", "").rstrip("/\\") or tempfile.gettempdir().rstrip("/\\")
+    rt_base = (os.environ.get("FLOW_RUNTIME_DIR", "").rstrip("/\\")) or f"{raw_tmp}/flow-runtime"
+    norm_root = str(Path.cwd()).replace("\\", "/").rstrip("/")
+    ws_id = re.sub(r"[^A-Za-z0-9._-]", "_", norm_root)[-120:] or "default"
+    lease_dir = Path(rt_base) / ws_id / "subagents"
+    try:
+        lease_dir.mkdir(parents=True, exist_ok=True)
+        lease_path = lease_dir / f"workflow-{os.getpid()}.lease"
+        lease_path.write_text(f"{int(time.time())}\n", encoding="utf-8")
+        return lease_path
+    except OSError:
+        return None
+
+
+def _release_runtime_lease(lease_path: Path | None) -> None:
+    """Remove a previously registered workflow runtime lease."""
+    if lease_path is None:
+        return
+    try:
+        lease_path.unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
 chapter_reports: list[dict] = []
+okf_errors: list[str] = []
+review_reports: list[dict] = []
+review_skipped_reason: str | None = None
+all_complete = False
+all_root_issues: list[str] = []
 effective_planner_mode = (
     ("single_batch" if len(chapters) <= 3 else "per_chapter") if planner_mode_arg == "auto" else planner_mode_arg
 )
 
-if run_mode in ("plan_and_review", "plan_only"):
-    phase("Chapter Blueprint Authoring")
-    log(f"Planning {len(chapters)} chapter(s) for {flow_id} in {effective_planner_mode} mode")
-    if effective_planner_mode == "single_batch":
-        batch_out = await _invoke_planner(
-            _build_chapter_prompt(chapters),
-            f"Chapter Planner ({len(chapters)} ch)",
-            [str(c["id"]) for c in chapters],
-        )
-        raw_res = batch_out.get("result") or {}
+_wf_lease = _acquire_runtime_lease()
+try:
+    if run_mode in ("plan_and_review", "plan_only"):
+        phase("Chapter Blueprint Authoring")
+        log(f"Planning {len(chapters)} chapter(s) for {flow_id} in {effective_planner_mode} mode")
+        if effective_planner_mode == "single_batch":
+            batch_out = await _invoke_planner(
+                _build_chapter_prompt(chapters),
+                f"Chapter Planner ({len(chapters)} ch)",
+                [str(c["id"]) for c in chapters],
+            )
+            raw_res = batch_out.get("result") or {}
+            for ch in chapters:
+                cid = str(ch["id"])
+                ok_disk, disk_files, _ = _chapter_disk_status(cid)
+                disk_summaries, disk_issues = _parse_planner_notes(cid)
+                chapter_reports.append(
+                    {
+                        "chapter_id": cid,
+                        "complete_on_disk": ok_disk,
+                        "completed_from_disk": bool(batch_out.get("completed_from_disk")),
+                        "model_used": batch_out.get("model_used", preferred_planner_model),
+                        "degraded_reason": batch_out.get("degraded_reason"),
+                        "files_written": disk_files or list(raw_res.get("files_written", [])),
+                        "task_summaries": disk_summaries or list(raw_res.get("task_summaries", [])),
+                        "root_spec_issues": disk_issues or list(raw_res.get("root_spec_issues", [])),
+                    }
+                )
+        else:
+            raw_parallel = await parallel(
+                chapters,
+                lambda ch: _invoke_planner(
+                    _build_chapter_prompt([ch]),
+                    f"Chapter Planner {ch['id']}",
+                    [str(ch["id"])],
+                ),
+            )
+            for ch, item_out in zip(chapters, raw_parallel):
+                cid = str(ch["id"])
+                raw_res = item_out.get("result") or {}
+                ok_disk, disk_files, _ = _chapter_disk_status(cid)
+                disk_summaries, disk_issues = _parse_planner_notes(cid)
+                chapter_reports.append(
+                    {
+                        "chapter_id": cid,
+                        "complete_on_disk": ok_disk,
+                        "completed_from_disk": bool(item_out.get("completed_from_disk")),
+                        "model_used": item_out.get("model_used", preferred_planner_model),
+                        "degraded_reason": item_out.get("degraded_reason"),
+                        "files_written": disk_files or list(raw_res.get("files_written", [])),
+                        "task_summaries": disk_summaries or list(raw_res.get("task_summaries", [])),
+                        "root_spec_issues": disk_issues or list(raw_res.get("root_spec_issues", [])),
+                    }
+                )
+    else:
         for ch in chapters:
             cid = str(ch["id"])
             ok_disk, disk_files, _ = _chapter_disk_status(cid)
@@ -334,168 +411,124 @@ if run_mode in ("plan_and_review", "plan_only"):
                 {
                     "chapter_id": cid,
                     "complete_on_disk": ok_disk,
-                    "completed_from_disk": bool(batch_out.get("completed_from_disk")),
-                    "model_used": batch_out.get("model_used", preferred_planner_model),
-                    "degraded_reason": batch_out.get("degraded_reason"),
-                    "files_written": disk_files or list(raw_res.get("files_written", [])),
-                    "task_summaries": disk_summaries or list(raw_res.get("task_summaries", [])),
-                    "root_spec_issues": disk_issues or list(raw_res.get("root_spec_issues", [])),
+                    "completed_from_disk": False,
+                    "model_used": preferred_planner_model,
+                    "degraded_reason": None,
+                    "files_written": disk_files,
+                    "task_summaries": disk_summaries,
+                    "root_spec_issues": disk_issues,
                 }
             )
-    else:
-        raw_parallel = await parallel(
-            chapters,
-            lambda ch: _invoke_planner(
-                _build_chapter_prompt([ch]),
-                f"Chapter Planner {ch['id']}",
-                [str(ch["id"])],
-            ),
-        )
-        for ch, item_out in zip(chapters, raw_parallel):
-            cid = str(ch["id"])
-            raw_res = item_out.get("result") or {}
-            ok_disk, disk_files, _ = _chapter_disk_status(cid)
-            disk_summaries, disk_issues = _parse_planner_notes(cid)
-            chapter_reports.append(
-                {
-                    "chapter_id": cid,
-                    "complete_on_disk": ok_disk,
-                    "completed_from_disk": bool(item_out.get("completed_from_disk")),
-                    "model_used": item_out.get("model_used", preferred_planner_model),
-                    "degraded_reason": item_out.get("degraded_reason"),
-                    "files_written": disk_files or list(raw_res.get("files_written", [])),
-                    "task_summaries": disk_summaries or list(raw_res.get("task_summaries", [])),
-                    "root_spec_issues": disk_issues or list(raw_res.get("root_spec_issues", [])),
-                }
-            )
-else:
-    for ch in chapters:
-        cid = str(ch["id"])
-        ok_disk, disk_files, _ = _chapter_disk_status(cid)
-        disk_summaries, disk_issues = _parse_planner_notes(cid)
-        chapter_reports.append(
-            {
-                "chapter_id": cid,
-                "complete_on_disk": ok_disk,
-                "completed_from_disk": False,
-                "model_used": preferred_planner_model,
-                "degraded_reason": None,
-                "files_written": disk_files,
-                "task_summaries": disk_summaries,
-                "root_spec_issues": disk_issues,
-            }
-        )
 
-phase("Completion & Deterministic OKF Gate")
-if degraded_reasons:
-    combined_reason = "; ".join(dict.fromkeys(degraded_reasons))
-    _stamp_degraded_frontmatter(
-        flow_dir / "spec.md", combined_reason, "flash" if quota_state["degraded"] else preferred_planner_model
-    )
-    for rep in chapter_reports:
-        if rep.get("degraded_reason") or quota_state["degraded"]:
-            _stamp_degraded_frontmatter(
-                chapters_dir / rep["chapter_id"] / "spec.md",
-                str(rep.get("degraded_reason") or combined_reason),
-                str(rep.get("model_used", "flash")),
-            )
+    phase("Completion & Deterministic OKF Gate")
+    if degraded_reasons:
+        combined_reason = "; ".join(dict.fromkeys(degraded_reasons))
+        _stamp_degraded_frontmatter(
+            flow_dir / "spec.md", combined_reason, "flash" if quota_state["degraded"] else preferred_planner_model
+        )
+        for rep in chapter_reports:
+            if rep.get("degraded_reason") or quota_state["degraded"]:
+                _stamp_degraded_frontmatter(
+                    chapters_dir / rep["chapter_id"] / "spec.md",
+                    str(rep.get("degraded_reason") or combined_reason),
+                    str(rep.get("model_used", "flash")),
+                )
 
-okf_errors = _run_okf_validator()
-if okf_errors and run_mode != "review_only":
-    log(f"Deterministic OKF gate caught {len(okf_errors)} issue(s); running targeted repair turn")
-    repair_prompt = (
-        f"Fix these exact OKF v0.2 validation errors under `{flow_dir}` without truncating contracts or "
-        f"editing production code (follow `{schema_card_path}`):\n" + "\n".join(okf_errors)
-    )
-    await with_budget(
-        agent(
-            repair_prompt,
-            schema={"type": "string"},
-            role="OKF Schema Repair",
-            type_name=planner_agent,
-            workspace="inherit",
-            model="flash" if quota_state["degraded"] else preferred_planner_model,
-        ),
-        max_tokens=100000,
-        timeout=300,
-    )
     okf_errors = _run_okf_validator()
+    if okf_errors and run_mode != "review_only":
+        log(f"Deterministic OKF gate caught {len(okf_errors)} issue(s); running targeted repair turn")
+        repair_prompt = (
+            f"Fix these exact OKF v0.2 validation errors under `{flow_dir}` without truncating contracts or "
+            f"editing production code (follow `{schema_card_path}`):\n" + "\n".join(okf_errors)
+        )
+        await with_budget(
+            agent(
+                repair_prompt,
+                schema={"type": "string"},
+                role="OKF Schema Repair",
+                type_name=planner_agent,
+                workspace="inherit",
+                model="flash" if quota_state["degraded"] else preferred_planner_model,
+            ),
+            max_tokens=100000,
+            timeout=300,
+        )
+        okf_errors = _run_okf_validator()
 
-all_complete = all(bool(r["complete_on_disk"]) for r in chapter_reports)
-all_root_issues = [iss for r in chapter_reports for iss in r["root_spec_issues"]]
+    all_complete = all(bool(r["complete_on_disk"]) for r in chapter_reports)
+    all_root_issues = [iss for r in chapter_reports for iss in r["root_spec_issues"]]
 
-review_reports: list[dict] = []
-review_skipped_reason: str | None = None
+    if run_mode == "plan_only" or review_mode == "none" or max_review_rounds <= 0:
+        review_skipped_reason = "disabled_by_args"
+    elif not all_complete:
+        review_skipped_reason = "incomplete_chapters"
+    elif okf_errors:
+        review_skipped_reason = "okf_validation_failed"
+    elif all_root_issues and run_mode != "review_only":
+        review_skipped_reason = "root_spec_issues_pending"
+    else:
+        phase("Zero-Context Spec Review")
+        rev_model = (
+            "flash" if (quota_state["degraded"] and preferred_reviewer_model != "flash") else preferred_reviewer_model
+        )
 
-if run_mode == "plan_only" or review_mode == "none" or max_review_rounds <= 0:
-    review_skipped_reason = "disabled_by_args"
-elif not all_complete:
-    review_skipped_reason = "incomplete_chapters"
-elif okf_errors:
-    review_skipped_reason = "okf_validation_failed"
-elif all_root_issues and run_mode != "review_only":
-    review_skipped_reason = "root_spec_issues_pending"
-else:
-    phase("Zero-Context Spec Review")
-    rev_model = (
-        "flash" if (quota_state["degraded"] and preferred_reviewer_model != "flash") else preferred_reviewer_model
-    )
-
-    async def _run_spec_reviewer(scope_name: str, prompt_text: str) -> dict:
-        active_rev = "flash" if (quota_state["degraded"] and rev_model != "flash") else rev_model
-        try:
-            out = await with_budget(
-                agent(
-                    prompt_text,
-                    schema=REVIEW_SCHEMA,
-                    role=f"Spec Review ({scope_name})",
-                    type_name="self",
-                    workspace="inherit",
-                    model=active_rev,
-                ),
-                max_tokens=200000 if scope_name == "combined" else 160000,
-                timeout=reviewer_timeout_s,
-            )
-            return {"scope": scope_name, "model_used": active_rev, **out}
-        except Exception as exc:
-            msg = str(exc).lower()
-            if active_rev != "flash" and any(m in msg for m in QUOTA_MARKERS):
-                quota_state["degraded"] = True
-                log(f"Quota hit on {active_rev} for Spec Review ({scope_name}); retrying on 'flash'")
+        async def _run_spec_reviewer(scope_name: str, prompt_text: str) -> dict:
+            active_rev = "flash" if (quota_state["degraded"] and rev_model != "flash") else rev_model
+            try:
                 out = await with_budget(
                     agent(
                         prompt_text,
                         schema=REVIEW_SCHEMA,
-                        role=f"Spec Review ({scope_name}, flash fallback)",
+                        role=f"Spec Review ({scope_name})",
                         type_name="self",
                         workspace="inherit",
-                        model="flash",
+                        model=active_rev,
                     ),
                     max_tokens=200000 if scope_name == "combined" else 160000,
                     timeout=reviewer_timeout_s,
                 )
-                return {"scope": scope_name, "model_used": "flash", **out}
-            raise
+                return {"scope": scope_name, "model_used": active_rev, **out}
+            except Exception as exc:
+                msg = str(exc).lower()
+                if active_rev != "flash" and any(m in msg for m in QUOTA_MARKERS):
+                    quota_state["degraded"] = True
+                    log(f"Quota hit on {active_rev} for Spec Review ({scope_name}); retrying on 'flash'")
+                    out = await with_budget(
+                        agent(
+                            prompt_text,
+                            schema=REVIEW_SCHEMA,
+                            role=f"Spec Review ({scope_name}, flash fallback)",
+                            type_name="self",
+                            workspace="inherit",
+                            model="flash",
+                        ),
+                        max_tokens=200000 if scope_name == "combined" else 160000,
+                        timeout=reviewer_timeout_s,
+                    )
+                    return {"scope": scope_name, "model_used": "flash", **out}
+                raise
 
-    if review_mode == "single":
-        rev_prompt = (
-            f"Follow `{reviewer_card_path}` and `{schema_card_path}` in strictly read-only mode (never pass "
-            f"BypassSandbox=true). Audit root `{flow_dir / 'spec.md'}`, `{chapters_dir / 'index.md'}`, and all "
-            f"chapters {[c['id'] for c in chapters]} under `{chapters_dir}` in a single combined pass."
-        )
-        review_reports.append(await _run_spec_reviewer("combined", rev_prompt))
-    else:
-        targets = [*[str(c["id"]) for c in chapters], "cross_chapter"]
-        review_reports = await parallel(
-            targets,
-            lambda target: _run_spec_reviewer(
-                target,
-                (
-                    f"Follow `{reviewer_card_path}` and `{schema_card_path}` in strictly read-only mode. "
-                    f"Review `{flow_dir / 'spec.md'}` and scope `{target}` under `{chapters_dir}`."
+        if review_mode == "single":
+            rev_prompt = (
+                f"Follow `{reviewer_card_path}` and `{schema_card_path}` in strictly read-only mode (never pass "
+                f"BypassSandbox=true). Audit root `{flow_dir / 'spec.md'}`, `{chapters_dir / 'index.md'}`, and all "
+                f"chapters {[c['id'] for c in chapters]} under `{chapters_dir}` in a single combined pass."
+            )
+            review_reports.append(await _run_spec_reviewer("combined", rev_prompt))
+        else:
+            targets = [*[str(c["id"]) for c in chapters], "cross_chapter"]
+            review_reports = await parallel(
+                targets,
+                lambda target: _run_spec_reviewer(
+                    target,
+                    (
+                        f"Follow `{reviewer_card_path}` and `{schema_card_path}` in strictly read-only mode. "
+                        f"Review `{flow_dir / 'spec.md'}` and scope `{target}` under `{chapters_dir}`."
+                    ),
                 ),
-            ),
-        )
+            )
+finally:
+    _release_runtime_lease(_wf_lease)
 
 planning_quality = "degraded" if degraded_reasons else "standard"
 planning_warning = (

@@ -42,5 +42,5 @@ Validate `.agents/bundles/`, `.agents/skills/`, `.agents/agents/`, and single-ch
 
 ### 6. Git Commit Ownership Proof & Interactive Auto-Fix (`structured-choice-v1`)
 
-- Verify that every `[x] [<sha>]` task commit and `last_reviewed_commit` in active specs resolves via `git cat-file -t <sha>`, satisfies `git merge-base --is-ancestor <task_sha> <last_reviewed_commit>`, and (when the task declares `files:` or `tests:`) touches at least one declared path in `git diff-tree --no-commit-id --name-only -r --root <task_sha>`.
+- Verify that `[x] [<sha>]` task commits and `last_reviewed_commit` stamps in active specs satisfy the configured `workflow_preferences.sha_tracking` mode (`strict` by default, with `git patch-id --stable` and rewritten-`HEAD` tolerance; `advisory` or `off` for pure squash-merge repositories), and that every `completed` task commit touches at least one non-ignored declared path in `files:` or `tests:` (excluding paths matched by `git check-ignore`, such as `.agents/` under `local-only` stealth tracking).
 - When validation finds repairable drift (missing `index.md` links, out-of-sync checklist markers, frontmatter on subdirectory `index.md`, or unmigrated legacy directories), present an interactive `structured-choice-v1` prompt offering to auto-fix the drift via `/flow:learn sync` or `/flow:cleanup`.

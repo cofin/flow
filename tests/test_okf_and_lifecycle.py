@@ -1115,3 +1115,113 @@ def test_flow_spec_planning_workflow_quota_fallback_and_disk_idle_recovery(tmp_p
     stamped_root = (flow_dir / "spec.md").read_text(encoding="utf-8")
     assert "planning_quality: degraded" in stamped_root
     assert "planning_degraded_reason:" in stamped_root
+
+
+@pytest.mark.parametrize(
+    ("case_id", "sha_tracking", "expect_valid"),
+    (
+        ("gitignored-declared-file", "strict", True),
+        ("advisory-missing-commit", "advisory", True),
+        ("off-unmatched-files", "off", True),
+    ),
+)
+def test_validate_okf_bundle_respects_gitignore_and_sha_tracking_modes(
+    tmp_path: Path,
+    case_id: str,
+    sha_tracking: str,
+    expect_valid: bool,
+) -> None:
+    """Verify validate_okf_bundle excludes gitignored declared paths and respects sha_tracking modes."""
+    git_env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "Flow Test",
+        "GIT_AUTHOR_EMAIL": "flow@example.com",
+        "GIT_COMMITTER_NAME": "Flow Test",
+        "GIT_COMMITTER_EMAIL": "flow@example.com",
+    }
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, env=git_env, check=True)
+    subprocess.run(["git", "config", "commit.gpgsign", "false"], cwd=tmp_path, env=git_env, check=True)
+    (tmp_path / "src" / "auth").mkdir(parents=True)
+    (tmp_path / "src" / "auth" / "tokens.py").write_text("class TokenSigner: pass\n", encoding="utf-8")
+    (tmp_path / "src" / "ser.py").write_text("def encode_json(x): return x\n", encoding="utf-8")
+    (tmp_path / "src" / "app.py").write_text("X = 1\n", encoding="utf-8")
+    subprocess.run(["git", "add", "src/app.py"], cwd=tmp_path, env=git_env, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "feat: init"], cwd=tmp_path, env=git_env, check=True)
+    head_sha = subprocess.run(
+        ["git", "rev-parse", "--short=7", "HEAD"], cwd=tmp_path, capture_output=True, text=True, check=True
+    ).stdout.strip()
+
+    if case_id == "gitignored-declared-file":
+        (tmp_path / ".gitignore").write_text(".agents/\n", encoding="utf-8")
+
+    bundle_dir = _seed_valid_multichapter_bundle(tmp_path)
+    (tmp_path / ".agents" / "setup-state.json").write_text(
+        json.dumps(
+            {
+                "setup_status": "complete",
+                "bundle_root": ".agents/bundles",
+                "okf_version": "0.2",
+                "workflow_preferences": {"sha_tracking": sha_tracking},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    flow_dir = bundle_dir / "specs" / "auth-refactor"
+    ch_spec = flow_dir / "chapters" / "ch01-tokens" / "spec.md"
+    task_file = flow_dir / "chapters" / "ch01-tokens" / "tasks" / "t01-slice.md"
+
+    commit_sha = "deadbeef" if case_id == "advisory-missing-commit" else head_sha
+    ch_spec.write_text(
+        ch_spec.read_text(encoding="utf-8").replace("1111111", commit_sha),
+        encoding="utf-8",
+    )
+    if case_id == "gitignored-declared-file":
+        files_yaml = "[.agents/bundles/knowledge/patterns/serialization.md]"
+    elif case_id == "off-unmatched-files":
+        files_yaml = "[src/missing.py]"
+    else:
+        files_yaml = "[src/app.py]"
+    task_text = (
+        task_file.read_text(encoding="utf-8")
+        .replace("1111111", commit_sha)
+        .replace("files: [src/auth/tokens.py]", f"files: {files_yaml}")
+    )
+    task_file.write_text(task_text, encoding="utf-8")
+
+    errors = validate_okf_bundle(bundle_dir, flow_id="auth-refactor", project_root=tmp_path)
+    if expect_valid:
+        assert errors == []
+    else:
+        assert errors
+
+
+def test_bootstrap_worktree_links_python_version_from_main_checkout(tmp_path: Path) -> None:
+    """Verify bootstrap_worktree links .python-version alongside .venv into linked Git worktrees."""
+    git_env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "Flow Test",
+        "GIT_AUTHOR_EMAIL": "flow@example.com",
+        "GIT_COMMITTER_NAME": "Flow Test",
+        "GIT_COMMITTER_EMAIL": "flow@example.com",
+    }
+    main_repo = tmp_path / "main"
+    wt_repo = tmp_path / "wt"
+    main_repo.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=main_repo, env=git_env, check=True)
+    subprocess.run(["git", "config", "commit.gpgsign", "false"], cwd=main_repo, env=git_env, check=True)
+    (main_repo / "app.py").write_text("X = 1\n", encoding="utf-8")
+    (main_repo / ".python-version").write_text("3.14+gil\n", encoding="utf-8")
+    (main_repo / ".venv" / "bin").mkdir(parents=True)
+    subprocess.run(["git", "add", "app.py"], cwd=main_repo, env=git_env, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "chore: init"], cwd=main_repo, env=git_env, check=True)
+    subprocess.run(
+        ["git", "worktree", "add", "-q", "-b", "feat/wt", str(wt_repo)],
+        cwd=main_repo,
+        env=git_env,
+        check=True,
+    )
+
+    bootstrap_worktree(wt_repo)
+    assert is_link_or_junction(wt_repo / ".python-version")
+    assert (wt_repo / ".python-version").read_text(encoding="utf-8") == "3.14+gil\n"

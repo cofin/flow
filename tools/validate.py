@@ -950,7 +950,9 @@ def validate_okf_bundle(
 
         errors.extend(_validate_concept_frontmatter_and_truth(rel, fm, body, project_root=project_root))
 
-    git_root = _resolve_git_worktree_root(project_root or bundle_dir.parent.parent)
+    effective_project = project_root or bundle_dir.parent.parent
+    git_root = _resolve_git_worktree_root(effective_project)
+    sha_tracking = _read_sha_tracking_mode(effective_project)
     specs_dir = bundle_dir / "specs"
     if specs_dir.is_dir():
         flow_dirs = (
@@ -967,6 +969,7 @@ def validate_okf_bundle(
                     flow_dir,
                     git_root=git_root,
                     require_completed=(require_completed_flow == flow_dir.name),
+                    sha_tracking=sha_tracking,
                 )
             )
 
@@ -1501,6 +1504,7 @@ def _validate_flow_spec_directory(
     *,
     git_root: Path | None = None,
     require_completed: bool = False,
+    sha_tracking: str = "strict",
 ) -> list[str]:
     """Validate a single-chapter or multi-chapter specs/<flow_id>/ directory for anti-skip and review-stamp parity."""
     errors: list[str] = []
@@ -1534,6 +1538,7 @@ def _validate_flow_spec_directory(
                 root_rev_sha,
                 git_root=git_root,
                 default_plan_commit=plan_commit,
+                sha_tracking=sha_tracking,
             )
         )
         return errors
@@ -1546,6 +1551,7 @@ def _validate_flow_spec_directory(
         tasks_dir,
         git_root=git_root,
         plan_commit=plan_commit,
+        sha_tracking=sha_tracking,
     )
     errors.extend(task_errors)
 
@@ -1570,6 +1576,7 @@ def _validate_multi_chapter_flow(
     *,
     git_root: Path | None = None,
     default_plan_commit: str = "",
+    sha_tracking: str = "strict",
 ) -> list[str]:
     """Validate nested chapters/<ch_id>/ layout, 1:1 roadmap parity, anti-skip invariants, and review stamps."""
     errors: list[str] = []
@@ -1643,6 +1650,7 @@ def _validate_multi_chapter_flow(
             ch_dir / "tasks",
             git_root=git_root,
             plan_commit=ch_plan_commit,
+            sha_tracking=sha_tracking,
         )
         errors.extend(task_errors)
 
@@ -1687,6 +1695,7 @@ def _validate_tasks_for_owner_spec(
     *,
     git_root: Path | None = None,
     plan_commit: str = "",
+    sha_tracking: str = "strict",
 ) -> tuple[list[str], int, list[str]]:
     """Verify <= 4 tasks per chapter/spec, checklist parity, and Git file-ownership proofs."""
     errors: list[str] = []
@@ -1725,8 +1734,17 @@ def _validate_tasks_for_owner_spec(
         if t_state in ("completed", "closed"):
             if not _HEX_SHA_PATTERN.match(t_commit):
                 errors.append(f"{rel_tf}: state is {t_state!r} without valid hex commit SHA")
-            elif git_root is not None:
-                errors.extend(_verify_task_git_ownership(rel_tf, tfm, t_commit, git_root, plan_commit))
+            elif git_root is not None and sha_tracking != "off":
+                errors.extend(
+                    _verify_task_git_ownership(
+                        rel_tf,
+                        tfm,
+                        t_commit,
+                        git_root,
+                        plan_commit,
+                        sha_tracking=sha_tracking,
+                    )
+                )
 
         matched_row = _match_checklist_row(checklist_rows, tf.name, t_id, t_stem)
         if matched_row is None:
@@ -1739,16 +1757,111 @@ def _validate_tasks_for_owner_spec(
                 f"{owner_rel}: task {tf.name!r} has checklist marker [{actual_mark}] "
                 f"but worksheet state {t_state!r} requires [{expected_mark}]"
             )
-        elif expected_mark == "x" and _HEX_SHA_PATTERN.match(t_commit):
+        elif expected_mark == "x" and sha_tracking == "strict" and _HEX_SHA_PATTERN.match(t_commit):
             sha_match = _CHECKLIST_SHA_PATTERN.match(rest_text)
             if sha_match:
                 c_sha = sha_match.group(1)
                 if not (t_commit.startswith(c_sha) or c_sha.startswith(t_commit)):
-                    errors.append(
-                        f"{owner_rel}: task {tf.name!r} commit {t_commit!r} mismatches checklist SHA {c_sha!r}"
-                    )
+                    if not (git_root is not None and _shas_represent_same_change(git_root, t_commit, c_sha)):
+                        errors.append(
+                            f"{owner_rel}: task {tf.name!r} commit {t_commit!r} mismatches checklist SHA {c_sha!r}"
+                        )
 
     return errors, len(task_files), open_tasks
+
+
+def _read_sha_tracking_mode(project_root: Path) -> str:
+    """Resolve workflow_preferences.sha_tracking (or top-level sha_tracking) from setup-state.json."""
+    setup_path = project_root / ".agents" / "setup-state.json"
+    if not setup_path.is_file():
+        return "strict"
+    try:
+        data = json.loads(setup_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return "strict"
+    if not isinstance(data, dict):
+        return "strict"
+    raw = data.get("sha_tracking")
+    if raw is None and isinstance(data.get("workflow_preferences"), dict):
+        raw = data["workflow_preferences"].get("sha_tracking")
+    val = str(raw or "strict").strip().lower()
+    return val if val in ("strict", "advisory", "off") else "strict"
+
+
+def _is_gitignored(git_bin: str, git_root: Path, rel_path: str) -> bool:
+    """Return True when git_root's ignore rules exclude rel_path from commit tracking."""
+    proc = subprocess.run(
+        [git_bin, "-C", str(git_root), "check-ignore", "-q", "--", rel_path],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+    return proc.returncode == 0
+
+
+def _git_commit_patch_id(git_bin: str, git_root: Path, commit_sha: str) -> str:
+    """Compute stable git patch-id for commit_sha or return empty string."""
+    diff_proc = subprocess.run(
+        [git_bin, "-C", str(git_root), "diff-tree", "--no-ext-diff", "-p", "--root", commit_sha],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+    if diff_proc.returncode != 0 or not diff_proc.stdout.strip():
+        return ""
+    pid_proc = subprocess.run(
+        [git_bin, "patch-id", "--stable"],
+        input=diff_proc.stdout,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+    if pid_proc.returncode != 0 or not pid_proc.stdout.strip():
+        return ""
+    return pid_proc.stdout.strip().split()[0]
+
+
+def _git_is_ancestor(git_bin: str, git_root: Path, ancestor: str, descendant: str) -> bool:
+    """Return True when ancestor is reachable from descendant in git_root."""
+    proc = subprocess.run(
+        [git_bin, "-C", str(git_root), "merge-base", "--is-ancestor", ancestor, descendant],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+    return proc.returncode == 0
+
+
+def _shas_represent_same_change(git_root: Path, sha_a: str, sha_b: str) -> bool:
+    """Return True when two SHAs share a stable patch-id or one was rewritten off HEAD ancestry."""
+    git_bin = shutil.which("git")
+    if git_bin is None:
+        return False
+    a_exists = (
+        subprocess.run(
+            [git_bin, "-C", str(git_root), "cat-file", "-e", f"{sha_a}^{{commit}}"],
+            capture_output=True,
+            check=False,
+        ).returncode
+        == 0
+    )
+    b_exists = (
+        subprocess.run(
+            [git_bin, "-C", str(git_root), "cat-file", "-e", f"{sha_b}^{{commit}}"],
+            capture_output=True,
+            check=False,
+        ).returncode
+        == 0
+    )
+    if a_exists and b_exists:
+        pid_a = _git_commit_patch_id(git_bin, git_root, sha_a)
+        pid_b = _git_commit_patch_id(git_bin, git_root, sha_b)
+        return bool(pid_a and pid_a == pid_b)
+    return _git_is_ancestor(git_bin, git_root, sha_a, "HEAD") != _git_is_ancestor(git_bin, git_root, sha_b, "HEAD")
 
 
 def _verify_task_git_ownership(
@@ -1757,8 +1870,10 @@ def _verify_task_git_ownership(
     commit_sha: str,
     git_root: Path,
     plan_commit: str,
+    *,
+    sha_tracking: str = "strict",
 ) -> list[str]:
-    """Verify a completed task's recorded Git commit touched at least one declared path in ``files`` or ``tests``."""
+    """Verify a completed task's recorded Git commit touched at least one declared non-ignored path."""
     declared_paths: list[str] = []
     for key in ("files", "tests"):
         raw_list = tfm.get(key)
@@ -1782,11 +1897,19 @@ def _verify_task_git_ownership(
         check=False,
     )
     if exists_proc.returncode != 0:
+        if sha_tracking == "advisory":
+            return []
         return [f"{rel_tf}: recorded commit {commit_sha!r} does not exist in Git history"]
 
     touched = _git_changed_files(git_bin, git_root, commit_sha, plan_commit)
-    if not any(decl in touched for decl in declared_paths):
-        return [f"{rel_tf}: commit {commit_sha!r} modified none of the task's declared files/tests {declared_paths}"]
+    if any(decl in touched for decl in declared_paths):
+        return []
+
+    non_ignored = [decl for decl in declared_paths if not _is_gitignored(git_bin, git_root, decl)]
+    if not non_ignored:
+        return []
+    if not any(decl in touched for decl in non_ignored):
+        return [f"{rel_tf}: commit {commit_sha!r} modified none of the task's declared files/tests {non_ignored}"]
     return []
 
 

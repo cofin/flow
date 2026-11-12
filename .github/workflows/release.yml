@@ -25,10 +25,14 @@ jobs:
           enable-cache: true
 
       - name: Validate shipped manifests
+        env:
+          UV_PYTHON: "3.11"
         run: |
           uv run python tools/validate.py
 
       - name: Build package
+        env:
+          UV_PYTHON: "3.11"
         run: make build
 
       - name: Create GitHub Release
