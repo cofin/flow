@@ -17,6 +17,7 @@ from tools.validate import COMPACT_TASK_HEADINGS, REPO_ROOT, REQUIRED_TASK_HEADI
 from tools.worktree_env import (
     bootstrap_worktree,
     inspect_worktree,
+    is_link_or_junction,
     sync_main_bundle_to_worktree,
     sync_worktree_bundle_to_main,
 )
@@ -928,17 +929,17 @@ def test_worktree_env_routing_symlinking_and_fallback_sync(tmp_path: Path, ignor
     assert inspected.ignore_policy == ignore_policy
 
     bootstrapped = bootstrap_worktree(wt_repo)
-    assert (wt_repo / ".venv").is_symlink()
-    assert (wt_repo / "uv.toml").is_symlink()
+    assert is_link_or_junction(wt_repo / ".venv")
+    assert is_link_or_junction(wt_repo / "uv.toml")
 
     if ignore_policy == "shared":
         assert bootstrapped.routing_mode == "shared-worktree"
         assert Path(bootstrapped.target_agents_dir or "") == (wt_repo / ".agents").resolve()
-        assert not (wt_repo / ".agents").is_symlink()
+        assert not is_link_or_junction(wt_repo / ".agents")
     else:
         assert bootstrapped.routing_mode == "local-only-main"
         assert Path(bootstrapped.target_agents_dir or "") == (main_repo / ".agents").resolve()
-        assert (wt_repo / ".agents").is_symlink()
+        assert is_link_or_junction(wt_repo / ".agents")
         assert (wt_repo / ".agents").resolve() == (main_repo / ".agents").resolve()
 
         (wt_repo / ".agents").unlink()

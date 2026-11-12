@@ -13,6 +13,7 @@ from typing import Any
 import pytest
 
 from tools.validate import REPO_ROOT
+from tools.worktree_env import is_link_or_junction
 
 NODE_BIN = shutil.which("node")
 
@@ -193,8 +194,10 @@ def test_cross_harness_runner_worktree_symlinking_and_quota_model_fallback(tmp_p
     )
     out = json.loads(proc.stdout.strip().splitlines()[-1])
     wt_cwd = Path(out["effectiveCwd"])
-    assert (wt_cwd / ".venv").is_symlink()
-    assert (wt_cwd / ".agents").is_symlink()
+    assert is_link_or_junction(wt_cwd / ".venv")
+    assert is_link_or_junction(wt_cwd / ".agents")
+    assert (wt_cwd / ".venv").resolve() == (ws / ".venv").resolve()
+    assert (wt_cwd / ".agents").resolve() == (ws / ".agents").resolve()
     if sys.platform != "win32":
         assert out["status"] == "completed"
         assert out["requestedModel"] == "opus"

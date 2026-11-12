@@ -6,6 +6,7 @@ import argparse
 import json
 import os
 import shutil
+import stat
 import subprocess
 import sys
 from dataclasses import asdict, dataclass
@@ -17,6 +18,7 @@ __all__ = (
     "WorktreeEnvironment",
     "bootstrap_worktree",
     "inspect_worktree",
+    "is_link_or_junction",
     "main",
     "resolve_git_main_worktree",
     "sync_main_bundle_to_worktree",
@@ -98,6 +100,23 @@ def resolve_git_main_worktree(project_dir: Path) -> Path | None:
     return common_path.parent
 
 
+def is_link_or_junction(path: Path) -> bool:
+    """Return True when ``path`` is a POSIX symlink or Windows symlink/NTFS junction."""
+    if path.is_symlink():
+        return True
+    is_junction = getattr(os.path, "isjunction", None)
+    if callable(is_junction) and bool(is_junction(path)):
+        return True
+    if os.name == "nt":
+        try:
+            st = os.lstat(path)
+            reparse_flag = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x0400)
+            return bool(getattr(st, "st_file_attributes", 0) & reparse_flag)
+        except OSError:
+            return False
+    return False
+
+
 def inspect_worktree(project_dir: Path) -> WorktreeEnvironment:
     """Inspect ``project_dir`` without mutating symlinks on disk."""
     return _evaluate_worktree(project_dir, create_links=False)
@@ -119,7 +138,7 @@ def sync_main_bundle_to_worktree(project_dir: Path) -> dict[str, Any]:
     dst_agents = resolved_proj / ".agents"
     if not src_agents.exists():
         raise FileNotFoundError(f"No primary checkout .agents directory at {src_agents}")
-    if dst_agents.is_symlink() and dst_agents.resolve() == src_agents.resolve():
+    if is_link_or_junction(dst_agents) and dst_agents.resolve() == src_agents.resolve():
         return {
             "status": "noop_already_symlinked",
             "main_worktree": str(main_wt),
@@ -141,7 +160,7 @@ def sync_worktree_bundle_to_main(project_dir: Path) -> dict[str, Any]:
     dst_agents = main_wt / ".agents"
     if not src_agents.exists():
         raise FileNotFoundError(f"No worktree .agents directory at {src_agents}")
-    if src_agents.is_symlink() and src_agents.resolve() == dst_agents.resolve():
+    if is_link_or_junction(src_agents) and src_agents.resolve() == dst_agents.resolve():
         return {
             "status": "noop_already_symlinked",
             "main_worktree": str(main_wt),
@@ -229,7 +248,7 @@ def _evaluate_worktree(project_dir: Path, *, create_links: bool) -> WorktreeEnvi
         for artifact in LINKED_ENV_ARTIFACTS:
             dst = resolved_proj / artifact
             src = main_wt / artifact
-            if dst.is_symlink():
+            if is_link_or_junction(dst):
                 linked_artifacts.append(artifact)
                 continue
             if not dst.exists() and src.exists() and create_links:
@@ -300,12 +319,12 @@ def _evaluate_worktree(project_dir: Path, *, create_links: bool) -> WorktreeEnvi
         )
 
     assert main_agents is not None
-    if not local_agents.exists() and not local_agents.is_symlink() and has_main_agents and create_links:
+    if not local_agents.exists() and not is_link_or_junction(local_agents) and has_main_agents and create_links:
         if _safe_symlink(main_agents, local_agents):
             linked_artifacts.append(".agents")
         else:
             warnings.append(f"Could not symlink .agents to {main_agents}")
-    elif local_agents.is_symlink():
+    elif is_link_or_junction(local_agents):
         linked_artifacts.append(".agents")
     elif local_agents.is_dir() and has_main_agents:
         warnings.append(

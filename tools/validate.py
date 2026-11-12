@@ -15,6 +15,8 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
+from tools.worktree_env import is_link_or_junction
+
 __all__ = (
     "COMPACT_TASK_HEADINGS",
     "EXPECTED_AGENTS",
@@ -1152,7 +1154,7 @@ def _validate_bundle_symlinks(bundle_dir: Path, *, project_root: Path | None) ->
 
     agents_parent = bundle_dir.parent
     for candidate in (agents_parent, bundle_dir):
-        if candidate.is_symlink():
+        if is_link_or_junction(candidate):
             resolved = candidate.resolve()
             if not any(resolved == root or root in resolved.parents for root in allowed_roots):
                 errors.append(f"{candidate}: symlink target {resolved} escapes repository and main Git worktree")

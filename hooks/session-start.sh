@@ -140,11 +140,41 @@ read_setup_field() {
   ' "$json_file"
 }
 
+create_worktree_link() {
+  link_src="$1"
+  link_dst="$2"
+  if [ -e "$link_dst" ] || [ -L "$link_dst" ]; then
+    return 0
+  fi
+  if [ ! -e "$link_src" ]; then
+    return 0
+  fi
+  case "$(uname -s 2>/dev/null || echo "")" in
+    MINGW*|MSYS*|CYGWIN*)
+      if command -v cygpath >/dev/null 2>&1; then
+        win_src="$(cygpath -w "$link_src")"
+        win_dst="$(cygpath -w "$link_dst")"
+        if [ -d "$link_src" ]; then
+          if MSYS_NO_PATHCONV=1 cmd.exe /c mklink /J "$win_dst" "$win_src" >/dev/null 2>&1; then
+            return 0
+          fi
+        else
+          if MSYS_NO_PATHCONV=1 cmd.exe /c mklink /H "$win_dst" "$win_src" >/dev/null 2>&1; then
+            return 0
+          fi
+        fi
+      fi
+      MSYS=winsymlinks:nativestrict ln -s "$link_src" "$link_dst" 2>/dev/null || true
+      ;;
+    *)
+      ln -s "$link_src" "$link_dst" 2>/dev/null || true
+      ;;
+  esac
+}
+
 if [ "$IS_LINKED_WORKTREE" = "1" ] && [ -n "$MAIN_WORKTREE" ]; then
   for shared_art in .venv node_modules uv.toml .npmrc; do
-    if [ ! -e "$PROJECT_DIR/$shared_art" ] && [ ! -L "$PROJECT_DIR/$shared_art" ] && [ -e "$MAIN_WORKTREE/$shared_art" ]; then
-      ln -s "$MAIN_WORKTREE/$shared_art" "$PROJECT_DIR/$shared_art" 2>/dev/null || true
-    fi
+    create_worktree_link "$MAIN_WORKTREE/$shared_art" "$PROJECT_DIR/$shared_art"
   done
 
   IGNORE_POLICY="$(read_setup_field "$PROJECT_DIR/.agents/setup-state.json" "ignore_policy")"
@@ -162,9 +192,7 @@ if [ "$IS_LINKED_WORKTREE" = "1" ] && [ -n "$MAIN_WORKTREE" ]; then
   fi
 
   if [ "$IGNORE_POLICY" = "local-only" ] && [ -d "$MAIN_WORKTREE/.agents" ]; then
-    if [ ! -e "$PROJECT_DIR/.agents" ] && [ ! -L "$PROJECT_DIR/.agents" ]; then
-      ln -s "$MAIN_WORKTREE/.agents" "$PROJECT_DIR/.agents" 2>/dev/null || true
-    fi
+    create_worktree_link "$MAIN_WORKTREE/.agents" "$PROJECT_DIR/.agents"
     EFFECTIVE_ROOT="$MAIN_WORKTREE"
     if [ -w "$MAIN_WORKTREE/.agents" ]; then
       WORKTREE_NOTE="Linked Git worktree (local-only .agents): .agents is shared from primary checkout $MAIN_WORKTREE/.agents — edit Flow Markdown in $MAIN_WORKTREE/.agents (or via symlinked .agents/), and reuse symlinked .venv with uv run --no-sync (do not run make install)."

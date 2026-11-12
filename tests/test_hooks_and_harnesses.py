@@ -13,6 +13,7 @@ from typing import Any
 import pytest
 
 from tools.validate import REPO_ROOT
+from tools.worktree_env import is_link_or_junction
 
 HOOK_SCRIPT = REPO_ROOT / "hooks" / "session-start.sh"
 POWERSHELL_HOOK_SCRIPT = REPO_ROOT / "hooks" / "session-start.ps1"
@@ -1088,8 +1089,9 @@ def test_session_start_worktree_symlinking_subagent_fastpath_and_degraded_warnin
     sub_msg = sub_payload["injectSteps"][0]["systemMessage"]["systemMessage"]
     assert "Flow subagent context:" in sub_msg
     assert not (cfg_dir / "recent-workspaces.tsv").exists()
-    assert (wt_repo / ".venv").is_symlink()
-    assert (wt_repo / ".agents").is_symlink()
+    assert is_link_or_junction(wt_repo / ".venv")
+    assert is_link_or_junction(wt_repo / ".agents")
+    assert (wt_repo / ".venv").resolve() == (main_repo / ".venv").resolve()
     assert (wt_repo / ".agents").resolve() == (main_repo / ".agents").resolve()
 
     main_payload = _run_sh_hook(
