@@ -30,6 +30,7 @@ LINKED_ENV_ARTIFACTS: tuple[str, ...] = (
     "node_modules",
     "uv.toml",
     ".npmrc",
+    ".python-version",
 )
 
 _SKIP_SYNC_NAMES: frozenset[str] = frozenset(

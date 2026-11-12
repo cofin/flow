@@ -33,6 +33,8 @@ jobs:
           enable-cache: true
 
       - name: Install dependencies
+        env:
+          UV_PYTHON: ${{ matrix.python-version }}
         run: |
           uv sync --all-groups
 

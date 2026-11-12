@@ -96,7 +96,7 @@ Follow [`../../multi-harness-plugins/SKILL.md`](../../multi-harness-plugins/SKIL
    - Ask once via `structured-choice-v1` ([`interaction.md`](interaction.md)) and persist `workflow_preferences.ignore_policy` in `.agents/setup-state.json`:
      - **`shared` (Recommended for teams)**: Track `.agents/bundles/`, `.agents/skills/`, `.agents/agents/`, and `.agents/setup-state.json` in Git; exclude `.agents/scratch/` via `.git/info/exclude` (or `.gitignore`). Linked `git worktree` checkouts already contain tracked `.agents/` files and edit worktree Markdown directly.
      - **`local-only` (Stealth mode)**: Append `.agents/` to `.git/info/exclude`. Flow writes nothing in `.agents/` to Git; `knowledge/**` and `log.md` on disk are the durable record. When starting inside a linked `git worktree`, `hooks/session-start.{sh,ps1}` (or `tools/worktree_env.py --bootstrap`) symlinks `$WORKTREE/.agents -> $MAIN_WORKTREE/.agents` and routes all Flow Markdown edits to the primary checkout.
-   - **Automatic Linked-Worktree Environment Symlinking**: Regardless of `ignore_policy`, linked `git worktree` checkouts automatically symlink missing `.venv`, `node_modules`, `uv.toml`, and `.npmrc` from `$MAIN_WORKTREE` so agents run `uv run --no-sync` without needing `make install` or `uv sync`.
+   - **Automatic Linked-Worktree Environment Symlinking**: Regardless of `ignore_policy`, linked `git worktree` checkouts automatically symlink missing `.venv`, `node_modules`, `uv.toml`, `.npmrc`, and `.python-version` from `$MAIN_WORKTREE` so agents run `uv run --no-sync` without needing `make install` or `uv sync`.
 2. **Opt-In Cross-Harness Permissions & `Stop` Hook Bootstrap**:
    - Detect installed harnesses (`claude`, `opencode`, `codex`, `cursor`, `agy`/`antigravity`) and offer opt-in non-destructive policy merges (when Flow is installed as a plugin, `SessionStart` and `Stop` hooks run automatically from the plugin root):
      - **Claude Code**: Offer to merge `plansDirectory: ".agents/bundles/specs"` and subagent-friendly `permissions.allow` entries (`Bash(git status*)`, `Bash(git diff*)`, `Bash(git log*)`, `Bash(git rev-parse*)`, `Bash(git merge-base*)`, `Bash(uv run *)`, `Bash(make lint*)`, `Edit(/.agents/**)`, `Write(/.agents/**)`) into `.claude/settings.local.json` (always backing up to `.claude/settings.local.json.bak` first and never overwriting existing user permissions) so background `@researcher`, `@executor`, and reviewer subagents do not stall on read/test prompts.
@@ -114,9 +114,11 @@ Follow [`../../multi-harness-plugins/SKILL.md`](../../multi-harness-plugins/SKIL
        "root_directory": ".agents",
        "bundle_root": ".agents/bundles",
        "okf_version": "0.2",
+       "stop_gate": "enforce",
        "workflow_preferences": {
          "ignore_policy": "shared",
-         "model_routing": "auto"
+         "model_routing": "auto",
+         "sha_tracking": "strict"
        }
      }
      ```

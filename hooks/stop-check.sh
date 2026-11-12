@@ -44,12 +44,21 @@ if [ "$HARNESS" = "claude" ] && [ -n "${CURSOR_VERSION:-}" ]; then
   emit_allow
 fi
 
+STOP_GATE_ENV="$(printf '%s' "${FLOW_STOP_GATE:-}" | tr '[:upper:]' '[:lower:]')"
+case "$STOP_GATE_ENV" in
+  off|0|false|no|advisory|warn)
+    emit_allow
+    ;;
+esac
+
 STDIN_PAYLOAD=""
 if [ ! -t 0 ]; then
   STDIN_PAYLOAD="$(cat || true)"
 fi
 
 IS_LEAF_SUBAGENT=0
+CONV_ID=""
+BYPASS_FLAG=0
 if [ -n "$STDIN_PAYLOAD" ]; then
   PARSED_STDIN="$(printf '%s\n' "$STDIN_PAYLOAD" | awk -v harness="$HARNESS" '
     { buf = buf " " $0 }
@@ -79,6 +88,24 @@ if [ -n "$STDIN_PAYLOAD" ]; then
         sub(/"$/, "", s)
         gsub(/\\\\/, "/", s)
         proj = s
+      }
+
+      conv = ""
+      if (match(buf, /"conversationId"[[:space:]]*:[[:space:]]*"[^"]+"/)) {
+        s = substr(buf, RSTART, RLENGTH)
+        sub(/^.*"conversationId"[[:space:]]*:[[:space:]]*"/, "", s)
+        sub(/"$/, "", s)
+        conv = s
+      } else if (match(buf, /"session_id"[[:space:]]*:[[:space:]]*"[^"]+"/)) {
+        s = substr(buf, RSTART, RLENGTH)
+        sub(/^.*"session_id"[[:space:]]*:[[:space:]]*"/, "", s)
+        sub(/"$/, "", s)
+        conv = s
+      } else if (match(buf, /"conversation_id"[[:space:]]*:[[:space:]]*"[^"]+"/)) {
+        s = substr(buf, RSTART, RLENGTH)
+        sub(/^.*"conversation_id"[[:space:]]*:[[:space:]]*"/, "", s)
+        sub(/"$/, "", s)
+        conv = s
       }
 
       bypass = 0
@@ -123,16 +150,20 @@ if [ -n "$STDIN_PAYLOAD" ]; then
         leaf = 1
       }
 
-      printf "%d|%d|%s\n", bypass, leaf, proj
+      gsub(/\|/, "_", proj)
+      gsub(/\|/, "_", conv)
+      printf "%d|%d|%s|%s\n", bypass, leaf, proj, conv
     }
   ')"
 
   BYPASS_FLAG="${PARSED_STDIN%%|*}"
   REST_STDIN="${PARSED_STDIN#*|}"
   IS_LEAF_SUBAGENT="${REST_STDIN%%|*}"
-  DETECTED_PROJ="${REST_STDIN#*|}"
+  REST_STDIN2="${REST_STDIN#*|}"
+  DETECTED_PROJ="${REST_STDIN2%%|*}"
+  CONV_ID="${REST_STDIN2#*|}"
 
-  if [ "$BYPASS_FLAG" = "1" ] || [ "$IS_LEAF_SUBAGENT" = "1" ]; then
+  if [ "$BYPASS_FLAG" = "1" ]; then
     emit_allow
   fi
   if [ -z "$PROJECT_DIR" ] && [ -n "$DETECTED_PROJ" ]; then
@@ -167,22 +198,117 @@ if [ ! -d "$PROJECT_DIR/.agents" ] && [ -f "$PROJECT_DIR/.git" ] && command -v g
   fi
 fi
 
+get_runtime_lease_dir() {
+  raw_tmp="${TMPDIR:-/tmp}"
+  raw_tmp="${raw_tmp%/}"
+  [ -n "$raw_tmp" ] || raw_tmp="/tmp"
+  rt_base="${FLOW_RUNTIME_DIR:-$raw_tmp/flow-runtime}"
+  rt_base="${rt_base%/}"
+  ws_id="$(printf '%s' "$EFFECTIVE_ROOT" | tr '\\' '/' | sed 's:/*$::; s/[^A-Za-z0-9._-]/_/g' | awk '{ n = length($0); print (n > 120 ? substr($0, n - 119) : $0) }')"
+  [ -n "$ws_id" ] || ws_id="default"
+  printf '%s/%s/subagents\n' "$rt_base" "$ws_id"
+}
+
+SUBAGENT_LEASE_DIR="$(get_runtime_lease_dir)"
+SAFE_CONV=""
+if [ -n "$CONV_ID" ]; then
+  SAFE_CONV="$(printf '%s' "$CONV_ID" | sed 's/[^A-Za-z0-9._-]/_/g')"
+fi
+
+if [ "$IS_LEAF_SUBAGENT" = "1" ]; then
+  if [ -n "$SAFE_CONV" ] && [ -f "$SUBAGENT_LEASE_DIR/$SAFE_CONV.lease" ]; then
+    rm -f "$SUBAGENT_LEASE_DIR/$SAFE_CONV.lease" 2>/dev/null || true
+  fi
+  emit_allow
+fi
+
 BUNDLE_REL=".agents/bundles"
+STOP_GATE_CFG="enforce"
+SHA_TRACKING="strict"
 if [ -f "$EFFECTIVE_ROOT/.agents/setup-state.json" ]; then
-  DETECTED_ROOT="$(awk '
+  SETUP_PARSED="$(awk '
     { buf = buf " " $0 }
     END {
+      br = ""; sg = ""; st = ""
       if (match(buf, /"bundle_root"[[:space:]]*:[[:space:]]*"[^"]+"/)) {
         s = substr(buf, RSTART, RLENGTH)
         sub(/^.*"bundle_root"[[:space:]]*:[[:space:]]*"/, "", s)
         sub(/"$/, "", s)
-        print s
+        br = s
       }
+      if (match(buf, /"stop_gate"[[:space:]]*:[[:space:]]*"[^"]+"/)) {
+        s = substr(buf, RSTART, RLENGTH)
+        sub(/^.*"stop_gate"[[:space:]]*:[[:space:]]*"/, "", s)
+        sub(/"$/, "", s)
+        sg = tolower(s)
+      }
+      if (match(buf, /"sha_tracking"[[:space:]]*:[[:space:]]*"[^"]+"/)) {
+        s = substr(buf, RSTART, RLENGTH)
+        sub(/^.*"sha_tracking"[[:space:]]*:[[:space:]]*"/, "", s)
+        sub(/"$/, "", s)
+        st = tolower(s)
+      }
+      printf "%s|%s|%s\n", br, sg, st
     }
   ' "$EFFECTIVE_ROOT/.agents/setup-state.json")"
-  if [ -n "$DETECTED_ROOT" ]; then
-    BUNDLE_REL="$DETECTED_ROOT"
-  fi
+  DETECTED_ROOT="${SETUP_PARSED%%|*}"; s_rest="${SETUP_PARSED#*|}"
+  DETECTED_GATE="${s_rest%%|*}"; DETECTED_SHA="${s_rest#*|}"
+  [ -n "$DETECTED_ROOT" ] && BUNDLE_REL="$DETECTED_ROOT"
+  [ -n "$DETECTED_GATE" ] && STOP_GATE_CFG="$DETECTED_GATE"
+  [ -n "$DETECTED_SHA" ] && SHA_TRACKING="$DETECTED_SHA"
+fi
+
+case "$STOP_GATE_CFG" in
+  off|0|false|no|advisory|warn)
+    emit_allow
+    ;;
+esac
+
+case "$SHA_TRACKING" in
+  strict|advisory|off) ;;
+  *) SHA_TRACKING="strict" ;;
+esac
+
+if [ -d "$SUBAGENT_LEASE_DIR" ]; then
+  NOW_EPOCH="$(date -u +%s 2>/dev/null || echo 0)"
+  for lf in "$SUBAGENT_LEASE_DIR"/*.lease; do
+    [ -f "$lf" ] || continue
+    lf_base="$(basename "$lf" .lease)"
+    lf_ts="$(head -n 1 "$lf" 2>/dev/null | tr -dc '0-9' || true)"
+    if [ -z "$lf_ts" ] || [ $((NOW_EPOCH - lf_ts)) -gt 900 ]; then
+      rm -f "$lf" 2>/dev/null || true
+      continue
+    fi
+    if [ -z "$SAFE_CONV" ] || [ "$lf_base" != "$SAFE_CONV" ]; then
+      emit_allow
+    fi
+  done
+fi
+
+if [ -n "$CONV_ID" ]; then
+  for live_cand in "$EFFECTIVE_ROOT/.agents/studio-live-state.json" "$PROJECT_DIR/.agents/studio-live-state.json"; do
+    [ -f "$live_cand" ] || continue
+    if [ -n "$(find "$live_cand" -mmin -15 2>/dev/null || true)" ]; then
+      LIVE_OTHER="$(awk -v self_conv="$CONV_ID" '
+        { buf = buf " " $0 }
+        END {
+          act = (match(buf, /"activeTurn"[[:space:]]*:[[:space:]]*true/) ? 1 : 0)
+          conv = ""
+          if (match(buf, /"conversationId"[[:space:]]*:[[:space:]]*"[^"]*"/)) {
+            s = substr(buf, RSTART, RLENGTH)
+            sub(/^.*"conversationId"[[:space:]]*:[[:space:]]*"/, "", s)
+            sub(/"$/, "", s)
+            conv = s
+          }
+          if (act == 1 && conv != "" && conv != self_conv) print "1"
+        }
+      ' "$live_cand")"
+      if [ "$LIVE_OTHER" = "1" ]; then
+        emit_allow
+      fi
+    fi
+    break
+  done
 fi
 
 SPECS_DIR="$EFFECTIVE_ROOT/$BUNDLE_REL/specs"
@@ -386,7 +512,7 @@ check_tasks_against_spec() {
               append_violation "$scope_label/$task_base: invalid hex commit SHA '$t_commit'"
             else
               COMPLETED_SHAS="$COMPLETED_SHAS $t_commit"
-              if [ "$HAS_GIT" = "1" ] && [ -n "$t_owned" ] && git -C "$PROJECT_DIR" cat-file -e "${t_commit}^{commit}" 2>/dev/null; then
+              if [ "$SHA_TRACKING" != "off" ] && [ "$HAS_GIT" = "1" ] && [ -n "$t_owned" ] && git -C "$PROJECT_DIR" cat-file -e "${t_commit}^{commit}" 2>/dev/null; then
                 DIFF_FILES="$(git -C "$PROJECT_DIR" diff-tree --no-commit-id --name-only -r --root "$t_commit" 2>/dev/null || true)"
                 OWNED_OK="$(printf '%s\n' "$DIFF_FILES" | awk -v v_owned="$t_owned" '
                   BEGIN {
@@ -407,7 +533,24 @@ check_tasks_against_spec() {
                   END { print (matched ? "1" : "0") }
                 ')"
                 if [ "$OWNED_OK" = "0" ]; then
-                  append_violation "$scope_label/$task_base: commit $t_commit did not modify any declared files or tests ($t_owned)"
+                  old_ifs="$IFS"
+                  IFS=";"
+                  NON_IGNORED_OWNED=""
+                  for raw_own in $t_owned; do
+                    clean_own="${raw_own#./}"
+                    [ -n "$clean_own" ] || continue
+                    if ! git -C "$PROJECT_DIR" check-ignore -q -- "$clean_own" 2>/dev/null; then
+                      if [ -n "$NON_IGNORED_OWNED" ]; then
+                        NON_IGNORED_OWNED="$NON_IGNORED_OWNED;$clean_own"
+                      else
+                        NON_IGNORED_OWNED="$clean_own"
+                      fi
+                    fi
+                  done
+                  IFS="$old_ifs"
+                  if [ -n "$NON_IGNORED_OWNED" ]; then
+                    append_violation "$scope_label/$task_base: commit $t_commit did not modify any declared files or tests ($NON_IGNORED_OWNED)"
+                  fi
                 fi
               fi
             fi
@@ -453,7 +596,7 @@ check_tasks_against_spec() {
           if (want_mark == "x" && tsha != "" && tsha != "null" && match(line, /\[[0-9a-fA-F]{7,40}\]/)) {
             csha = substr(line, RSTART + 1, RLENGTH - 2)
             if (index(tsha, csha) != 1 && index(csha, tsha) != 1) {
-              printf "%s: task %s commit %s mismatches spec.md checklist SHA %s", scope, tbase, tsha, csha
+              printf "MISMATCH:%s|%s", tsha, csha
               exit
             }
           }
@@ -467,10 +610,54 @@ check_tasks_against_spec() {
       }
     ' "$owner_spec")"
 
-    if [ -n "$SYNC_ERR" ]; then
-      append_violation "$SYNC_ERR"
-    fi
+    case "$SYNC_ERR" in
+      MISMATCH:*)
+        if [ "$SHA_TRACKING" = "strict" ]; then
+          mm_rest="${SYNC_ERR#MISMATCH:}"
+          mm_tsha="${mm_rest%%|*}"
+          mm_csha="${mm_rest#*|}"
+          mm_ok=0
+          if [ "$HAS_GIT" = "1" ]; then
+            if git -C "$PROJECT_DIR" cat-file -e "${mm_tsha}^{commit}" 2>/dev/null && git -C "$PROJECT_DIR" cat-file -e "${mm_csha}^{commit}" 2>/dev/null; then
+              pid_t="$(git_patch_id_of_commit "$mm_tsha")"
+              pid_c="$(git_patch_id_of_commit "$mm_csha")"
+              if [ -n "$pid_t" ] && [ "$pid_t" = "$pid_c" ]; then
+                mm_ok=1
+              fi
+            elif git -C "$PROJECT_DIR" merge-base --is-ancestor "$mm_tsha" HEAD 2>/dev/null && ! git -C "$PROJECT_DIR" merge-base --is-ancestor "$mm_csha" HEAD 2>/dev/null; then
+              mm_ok=1
+            elif git -C "$PROJECT_DIR" merge-base --is-ancestor "$mm_csha" HEAD 2>/dev/null && ! git -C "$PROJECT_DIR" merge-base --is-ancestor "$mm_tsha" HEAD 2>/dev/null; then
+              mm_ok=1
+            fi
+          fi
+          if [ "$mm_ok" = "0" ]; then
+            append_violation "$scope_label: task $task_base commit $mm_tsha mismatches spec.md checklist SHA $mm_csha"
+          fi
+        fi
+        ;;
+      "")
+        ;;
+      *)
+        append_violation "$SYNC_ERR"
+        ;;
+    esac
   done
+}
+
+git_patch_id_of_commit() {
+  sha_arg="$1"
+  git -C "$PROJECT_DIR" diff-tree --no-ext-diff -p --root "$sha_arg" 2>/dev/null | git patch-id --stable 2>/dev/null | awk 'NR == 1 { print $1; exit }'
+}
+
+commit_patch_in_history() {
+  needle_sha="$1"
+  haystack_rev="$2"
+  needle_pid="$(git_patch_id_of_commit "$needle_sha")"
+  [ -n "$needle_pid" ] || return 1
+  git -C "$PROJECT_DIR" log -n 100 --no-ext-diff -p --root "$haystack_rev" 2>/dev/null | git patch-id --stable 2>/dev/null | awk -v npid="$needle_pid" '
+    $1 == npid { found = 1; exit }
+    END { exit (found ? 0 : 1) }
+  '
 }
 
 verify_review_stamp() {
@@ -483,16 +670,25 @@ verify_review_stamp() {
     return 0
   fi
 
+  [ "$SHA_TRACKING" = "off" ] && return 0
+
   if [ "$HAS_GIT" = "1" ]; then
     if ! git -C "$PROJECT_DIR" cat-file -e "${rev_sha}^{commit}" 2>/dev/null; then
-      append_violation "$label: last_reviewed_commit '$rev_sha' does not exist in Git history"
+      return 0
+    fi
+    if [ "$SHA_TRACKING" = "advisory" ]; then
+      return 0
+    fi
+    if ! git -C "$PROJECT_DIR" merge-base --is-ancestor "$rev_sha" HEAD 2>/dev/null; then
       return 0
     fi
     for t_sha in $shas_list; do
       if git -C "$PROJECT_DIR" cat-file -e "${t_sha}^{commit}" 2>/dev/null; then
         if ! git -C "$PROJECT_DIR" merge-base --is-ancestor "$t_sha" "$rev_sha" 2>/dev/null; then
-          append_violation "$label: task commit $t_sha is newer than last_reviewed_commit $rev_sha; re-run Zero-Context Review"
-          return 0
+          if ! commit_patch_in_history "$t_sha" "$rev_sha"; then
+            append_violation "$label: task commit $t_sha is newer than last_reviewed_commit $rev_sha; re-run Zero-Context Review"
+            return 0
+          fi
         fi
       fi
     done
@@ -525,18 +721,32 @@ for root_spec in "$SPECS_DIR"/*/spec.md; do
     in_fm && /^last_reviewed_commit:[[:space:]]*/ {
       v = $0; sub(/^last_reviewed_commit:[[:space:]]*/, "", v); sub(/[[:space:]]+#.*$/, "", v); gsub(/^["'\'']|["'\'']$/, "", v); gsub(/[[:space:]]+$/, "", v); lrc = v
     }
-    END { printf "%s|%s|%s|%s|%s|%s\n", tp, fid, st, hc, cc, lrc }
+    in_fm && /^gate:[[:space:]]*/ {
+      v = $0; sub(/^gate:[[:space:]]*/, "", v); sub(/[[:space:]]+#.*$/, "", v); gsub(/^["'\'']|["'\'']$/, "", v); gsub(/[[:space:]]+$/, "", v); gt = tolower(v)
+    }
+    in_fm && /^paused:[[:space:]]*/ {
+      v = $0; sub(/^paused:[[:space:]]*/, "", v); sub(/[[:space:]]+#.*$/, "", v); gsub(/^["'\'']|["'\'']$/, "", v); gsub(/[[:space:]]+$/, "", v); psd = tolower(v)
+    }
+    in_fm && /^handoff:[[:space:]]*/ {
+      v = $0; sub(/^handoff:[[:space:]]*/, "", v); sub(/[[:space:]]+#.*$/, "", v); gsub(/^["'\'']|["'\'']$/, "", v); gsub(/[[:space:]]+$/, "", v); hnd = tolower(v)
+    }
+    END { printf "%s|%s|%s|%s|%s|%s|%s|%s|%s\n", tp, fid, st, hc, cc, lrc, gt, psd, hnd }
   ' "$root_spec")"
 
   r_type="${ROOT_META%%|*}"; rest0="${ROOT_META#*|}"
   r_fid="${rest0%%|*}"; rest1="${rest0#*|}"
   r_state="${rest1%%|*}"; rest2="${rest1#*|}"
   r_has_ch="${rest2%%|*}"; rest3="${rest2#*|}"
-  r_curr_ch="${rest3%%|*}"; r_rev_sha="${rest3#*|}"
+  r_curr_ch="${rest3%%|*}"; rest4="${rest3#*|}"
+  r_rev_sha="${rest4%%|*}"; rest5="${rest4#*|}"
+  r_gate="${rest5%%|*}"; rest6="${rest5#*|}"
+  r_paused="${rest6%%|*}"; r_handoff="${rest6#*|}"
   [ -z "$r_fid" ] && r_fid="$flow_dir_name"
 
   [ "$r_state" = "archived" ] && continue
   [ "$r_type" = "flow" ] && continue
+  [ "$r_gate" = "off" ] || [ "$r_gate" = "advisory" ] && continue
+  [ "$r_state" = "paused" ] || [ "$r_paused" = "true" ] || [ "$r_handoff" = "true" ] && continue
 
   check_living_doc_hygiene "$root_spec" "specs/$flow_dir_name/spec.md" "0"
 
@@ -614,17 +824,29 @@ for root_spec in "$SPECS_DIR"/*/spec.md; do
         in_fm && /^deferred_reason:[[:space:]]*/ {
           v = $0; sub(/^deferred_reason:[[:space:]]*/, "", v); sub(/[[:space:]]+#.*$/, "", v); gsub(/^["'\'']|["'\'']$/, "", v); gsub(/[[:space:]]+$/, "", v); drsn = v
         }
-        END { printf "%s|%s|%s|%s\n", st, lrc, dby, drsn }
+        in_fm && /^paused:[[:space:]]*/ {
+          v = $0; sub(/^paused:[[:space:]]*/, "", v); sub(/[[:space:]]+#.*$/, "", v); gsub(/^["'\'']|["'\'']$/, "", v); gsub(/[[:space:]]+$/, "", v); psd = tolower(v)
+        }
+        in_fm && /^handoff:[[:space:]]*/ {
+          v = $0; sub(/^handoff:[[:space:]]*/, "", v); sub(/[[:space:]]+#.*$/, "", v); gsub(/^["'\'']|["'\'']$/, "", v); gsub(/[[:space:]]+$/, "", v); hnd = tolower(v)
+        }
+        END { printf "%s|%s|%s|%s|%s|%s\n", st, lrc, dby, drsn, psd, hnd }
       ' "$ch_spec")"
       c_state="${CH_META%%|*}"; c_r1="${CH_META#*|}"
       c_rev_sha="${c_r1%%|*}"; c_r2="${c_r1#*|}"
-      c_def_by="${c_r2%%|*}"; c_def_reason="${c_r2#*|}"
+      c_def_by="${c_r2%%|*}"; c_r3="${c_r2#*|}"
+      c_def_reason="${c_r3%%|*}"; c_r4="${c_r3#*|}"
+      c_paused="${c_r4%%|*}"; c_handoff="${c_r4#*|}"
 
       if [ "$ch_id" = "$r_curr_ch" ]; then
         CURR_CH_FOUND=1
         if [ "$c_state" = "completed" ] || [ "$c_state" = "deferred" ] || [ "$c_state" = "skipped" ]; then
           CURR_CH_IS_COMPLETED=1
         fi
+      fi
+
+      if [ "$c_state" = "paused" ] || [ "$c_paused" = "true" ] || [ "$c_handoff" = "true" ]; then
+        continue
       fi
 
       check_tasks_against_spec "$ch_spec" "$ch_dir/tasks" "specs/$flow_dir_name/chapters/$ch_id"

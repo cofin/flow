@@ -2,7 +2,11 @@
 
 import json
 import os
+from pathlib import Path
+import re
 import subprocess
+import tempfile
+import time
 
 DIGEST_SCHEMA = {
     "type": "object",
@@ -48,6 +52,32 @@ def _git_porcelain() -> str:
     """Capture working-tree status to confirm read-only scouts leave zero mutations."""
     proc = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True, check=False)
     return proc.stdout if proc.returncode == 0 else ""
+
+
+def _acquire_runtime_lease() -> Path | None:
+    """Register an active workflow runtime lease for Stop-gate subagent coordination."""
+    raw_tmp = os.environ.get("TMPDIR", "").rstrip("/\\") or tempfile.gettempdir().rstrip("/\\")
+    rt_base = (os.environ.get("FLOW_RUNTIME_DIR", "").rstrip("/\\")) or f"{raw_tmp}/flow-runtime"
+    norm_root = str(Path.cwd()).replace("\\", "/").rstrip("/")
+    ws_id = re.sub(r"[^A-Za-z0-9._-]", "_", norm_root)[-120:] or "default"
+    lease_dir = Path(rt_base) / ws_id / "subagents"
+    try:
+        lease_dir.mkdir(parents=True, exist_ok=True)
+        lease_path = lease_dir / f"workflow-{os.getpid()}.lease"
+        lease_path.write_text(f"{int(time.time())}\n", encoding="utf-8")
+        return lease_path
+    except OSError:
+        return None
+
+
+def _release_runtime_lease(lease_path: Path | None) -> None:
+    """Remove a previously registered workflow runtime lease."""
+    if lease_path is None:
+        return
+    try:
+        lease_path.unlink(missing_ok=True)
+    except OSError:
+        pass
 
 
 async def _run_scout(item: dict) -> dict:
@@ -106,7 +136,12 @@ async def _run_scout(item: dict) -> dict:
 before_status = _git_porcelain()
 phase("Sharded Subsystem Reconnaissance")
 log(f"Dispatching {len(subsystems)} read-only scout(s) on model={preferred_model}")
-results = await parallel(subsystems, _run_scout)
+results: list[dict] = []
+_wf_lease = _acquire_runtime_lease()
+try:
+    results = await parallel(subsystems, _run_scout)
+finally:
+    _release_runtime_lease(_wf_lease)
 after_status = _git_porcelain()
 
 summary = {

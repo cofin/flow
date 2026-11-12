@@ -1111,3 +1111,341 @@ def test_session_start_worktree_symlinking_subagent_fastpath_and_degraded_warnin
         oc_text = oc_payload["turn1"]["system"][0]["text"]
         assert "Linked Git worktree (local-only .agents)" in oc_text
         assert "planning_quality=degraded" in oc_text
+
+
+def _init_git_repo_two_commits(tmp_path: Path) -> tuple[str, str, dict[str, str]]:
+    """Initialize a Git repository with two commits and unsigned commit config."""
+    git_env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "Flow Test",
+        "GIT_AUTHOR_EMAIL": "flow@example.com",
+        "GIT_COMMITTER_NAME": "Flow Test",
+        "GIT_COMMITTER_EMAIL": "flow@example.com",
+    }
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, env=git_env, check=True)
+    subprocess.run(["git", "config", "commit.gpgsign", "false"], cwd=tmp_path, env=git_env, check=True)
+    (tmp_path / "app.py").write_text("VALUE = 1\n", encoding="utf-8")
+    subprocess.run(["git", "add", "app.py"], cwd=tmp_path, env=git_env, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "feat: one"], cwd=tmp_path, env=git_env, check=True)
+    sha1 = subprocess.run(
+        ["git", "rev-parse", "--short=7", "HEAD"], cwd=tmp_path, capture_output=True, text=True, check=True
+    ).stdout.strip()
+    (tmp_path / "app.py").write_text("VALUE = 2\n", encoding="utf-8")
+    subprocess.run(["git", "add", "app.py"], cwd=tmp_path, env=git_env, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "feat: two"], cwd=tmp_path, env=git_env, check=True)
+    sha2 = subprocess.run(
+        ["git", "rev-parse", "--short=7", "HEAD"], cwd=tmp_path, capture_output=True, text=True, check=True
+    ).stdout.strip()
+    return sha1, sha2, git_env
+
+
+@pytest.mark.parametrize(
+    ("ignore_target", "declared_files", "expect_block", "expected_snippet"),
+    (
+        ("gitignore", "[.agents/bundles/knowledge/arch.md]", False, None),
+        ("git-exclude", "[.agents/bundles/knowledge/arch.md]", False, None),
+        ("gitignore", "[.agents/bundles/knowledge/arch.md, src/missing.py]", True, "src/missing.py"),
+    ),
+)
+def test_stop_hook_gitignored_declared_files_ownership(
+    tmp_path: Path,
+    ignore_target: str,
+    declared_files: str,
+    expect_block: bool,
+    expected_snippet: str | None,
+) -> None:
+    """Verify stop-check ignores gitignored declared paths while enforcing tracked declared paths."""
+    sha1, sha2, _ = _init_git_repo_two_commits(tmp_path)
+    if ignore_target == "gitignore":
+        (tmp_path / ".gitignore").write_text(".agents/\n", encoding="utf-8")
+    else:
+        exclude_path = tmp_path / ".git" / "info" / "exclude"
+        exclude_path.parent.mkdir(parents=True, exist_ok=True)
+        exclude_path.write_text(".agents/\n", encoding="utf-8")
+
+    flow_dir = _seed_multichapter_workspace(tmp_path, sha1=sha1, sha2=sha2)
+    t01 = flow_dir / "chapters" / "ch01-tokens" / "tasks" / "t01-signer.md"
+    t01.write_text(
+        f"---\ntype: Task\nid: auth-refactor:ch01:t01\nstate: completed\ncommit: {sha1}\n"
+        f"files: {declared_files}\n---\n\nBody.\n",
+        encoding="utf-8",
+    )
+
+    payload = _run_sh_hook(STOP_HOOK_SCRIPT, "claude", {"cwd": str(tmp_path)})
+    if expect_block:
+        assert payload["decision"] == "block"
+        assert expected_snippet is not None
+        assert expected_snippet in payload["reason"]
+        assert ".agents/bundles/knowledge/arch.md" not in payload["reason"]
+    else:
+        assert payload == {}
+
+
+@pytest.mark.parametrize(
+    "case_id",
+    (
+        "cherry-pick-patch-id",
+        "rewritten-head-rebase",
+        "checklist-patch-id-mismatch",
+        "sha-tracking-advisory",
+        "sha-tracking-off",
+    ),
+)
+def test_stop_hook_sha_resilience_across_rewritten_history_and_modes(tmp_path: Path, case_id: str) -> None:
+    """Verify stop-check handles patch-id equivalence, rebased HEAD, and sha_tracking modes without false positives."""
+    sha1, sha2, git_env = _init_git_repo_two_commits(tmp_path)
+    flow_dir = _seed_multichapter_workspace(tmp_path, sha1=sha1, sha2=sha2)
+
+    if case_id == "cherry-pick-patch-id":
+        subprocess.run(["git", "checkout", "-q", "-b", "side"], cwd=tmp_path, env=git_env, check=True)
+        (tmp_path / "feature.py").write_text("FEATURE = 1\n", encoding="utf-8")
+        subprocess.run(["git", "add", "feature.py"], cwd=tmp_path, env=git_env, check=True)
+        subprocess.run(["git", "commit", "-q", "-m", "feat: side"], cwd=tmp_path, env=git_env, check=True)
+        src_sha = subprocess.run(
+            ["git", "rev-parse", "--short=7", "HEAD"], cwd=tmp_path, capture_output=True, text=True, check=True
+        ).stdout.strip()
+        subprocess.run(["git", "checkout", "-q", "-"], cwd=tmp_path, env=git_env, check=True)
+        subprocess.run(
+            ["git", "cherry-pick", src_sha],
+            cwd=tmp_path,
+            env=git_env,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        rev_sha = subprocess.run(
+            ["git", "rev-parse", "--short=7", "HEAD"], cwd=tmp_path, capture_output=True, text=True, check=True
+        ).stdout.strip()
+        (flow_dir / "chapters" / "ch01-tokens" / "spec.md").write_text(
+            "---\ntype: Spec\nchapter_id: ch01-tokens\nstate: completed\n"
+            f"last_reviewed_commit: {rev_sha}\n---\n\n"
+            "## 5. Implementation Plan\n\n"
+            f"- [x] [{src_sha}] [t01](tasks/t01-signer.md) — Signer slice\n",
+            encoding="utf-8",
+        )
+        (flow_dir / "chapters" / "ch01-tokens" / "tasks" / "t01-signer.md").write_text(
+            f"---\ntype: Task\nid: auth-refactor:ch01:t01\nstate: completed\ncommit: {src_sha}\n"
+            "files: [feature.py]\n---\n\nBody.\n",
+            encoding="utf-8",
+        )
+    elif case_id == "rewritten-head-rebase":
+        subprocess.run(["git", "checkout", "-q", "--orphan", "rewritten"], cwd=tmp_path, env=git_env, check=True)
+        (tmp_path / "app.py").write_text("VALUE = 3\n", encoding="utf-8")
+        subprocess.run(["git", "add", "app.py"], cwd=tmp_path, env=git_env, check=True)
+        subprocess.run(["git", "commit", "-q", "-m", "feat: squashed"], cwd=tmp_path, env=git_env, check=True)
+        rebased_sha = subprocess.run(
+            ["git", "rev-parse", "--short=7", "HEAD"], cwd=tmp_path, capture_output=True, text=True, check=True
+        ).stdout.strip()
+        (flow_dir / "chapters" / "ch02-session" / "spec.md").write_text(
+            "---\ntype: Spec\nchapter_id: ch02-session\nstate: active\nlast_reviewed_commit: null\n---\n\n"
+            "## 5. Implementation Plan\n\n"
+            f"- [x] [{rebased_sha}] [t01](tasks/t01-cookie.md) — Cookie slice\n"
+            "- [ ] [t02](tasks/t02-middleware.md) — Middleware slice\n",
+            encoding="utf-8",
+        )
+        (flow_dir / "chapters" / "ch02-session" / "tasks" / "t01-cookie.md").write_text(
+            f"---\ntype: Task\nid: auth-refactor:ch02:t01\nstate: completed\ncommit: {rebased_sha}\n---\n\nBody.\n",
+            encoding="utf-8",
+        )
+    elif case_id == "checklist-patch-id-mismatch":
+        subprocess.run(["git", "checkout", "-q", "-b", "alt"], cwd=tmp_path, env=git_env, check=True)
+        (tmp_path / "auth.py").write_text("TOKEN = 1\n", encoding="utf-8")
+        subprocess.run(["git", "add", "auth.py"], cwd=tmp_path, env=git_env, check=True)
+        subprocess.run(["git", "commit", "-q", "-m", "feat: auth"], cwd=tmp_path, env=git_env, check=True)
+        pre_sha = subprocess.run(
+            ["git", "rev-parse", "--short=7", "HEAD"], cwd=tmp_path, capture_output=True, text=True, check=True
+        ).stdout.strip()
+        subprocess.run(["git", "checkout", "-q", "-"], cwd=tmp_path, env=git_env, check=True)
+        subprocess.run(
+            ["git", "cherry-pick", pre_sha],
+            cwd=tmp_path,
+            env=git_env,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        post_sha = subprocess.run(
+            ["git", "rev-parse", "--short=7", "HEAD"], cwd=tmp_path, capture_output=True, text=True, check=True
+        ).stdout.strip()
+        (flow_dir / "chapters" / "ch01-tokens" / "spec.md").write_text(
+            "---\ntype: Spec\nchapter_id: ch01-tokens\nstate: completed\n"
+            f"last_reviewed_commit: {post_sha}\n---\n\n"
+            "## 5. Implementation Plan\n\n"
+            f"- [x] [{pre_sha}] [t01](tasks/t01-signer.md) — Signer slice\n",
+            encoding="utf-8",
+        )
+        (flow_dir / "chapters" / "ch01-tokens" / "tasks" / "t01-signer.md").write_text(
+            f"---\ntype: Task\nid: auth-refactor:ch01:t01\nstate: completed\ncommit: {post_sha}\n"
+            "files: [auth.py]\n---\n\nBody.\n",
+            encoding="utf-8",
+        )
+    else:
+        mode = "advisory" if case_id == "sha-tracking-advisory" else "off"
+        (tmp_path / ".agents" / "setup-state.json").write_text(
+            json.dumps(
+                {
+                    "setup_status": "complete",
+                    "bundle_root": ".agents/bundles",
+                    "okf_version": "0.2",
+                    "workflow_preferences": {"sha_tracking": mode},
+                }
+            ),
+            encoding="utf-8",
+        )
+        (flow_dir / "chapters" / "ch01-tokens" / "spec.md").write_text(
+            "---\ntype: Spec\nchapter_id: ch01-tokens\nstate: completed\n"
+            f"last_reviewed_commit: {sha1}\n---\n\n"
+            "## 5. Implementation Plan\n\n"
+            f"- [x] [{sha1}] [t01](tasks/t01-signer.md) — Signer slice\n",
+            encoding="utf-8",
+        )
+        untouched_decl = "files: [src/nonexistent.py]\n" if mode == "off" else ""
+        (flow_dir / "chapters" / "ch01-tokens" / "tasks" / "t01-signer.md").write_text(
+            f"---\ntype: Task\nid: auth-refactor:ch01:t01\nstate: completed\ncommit: {sha2}\n"
+            f"{untouched_decl}---\n\nBody.\n",
+            encoding="utf-8",
+        )
+
+    assert _run_sh_hook(STOP_HOOK_SCRIPT, "claude", {"cwd": str(tmp_path)}) == {}
+
+
+@pytest.mark.parametrize(
+    "case_id",
+    (
+        "env-off",
+        "env-advisory",
+        "setup-stop-gate-off",
+        "setup-stop-gate-advisory",
+        "spec-gate-advisory",
+        "spec-gate-off",
+        "root-state-paused",
+        "root-paused-flag",
+        "root-handoff-flag",
+        "chapter-paused",
+    ),
+)
+def test_stop_hook_bypass_and_pause_states_allow_clean_exit(tmp_path: Path, case_id: str) -> None:
+    """Verify explicit bypass flags and paused/handoff states allow clean Stop without blocking."""
+    flow_dir = _seed_multichapter_workspace(tmp_path)
+    _mark_ch02_all_tasks_completed_without_closing(flow_dir)
+    extra_env: dict[str, str] | None = None
+
+    if case_id == "env-off":
+        extra_env = {"FLOW_STOP_GATE": "off"}
+    elif case_id == "env-advisory":
+        extra_env = {"FLOW_STOP_GATE": "advisory"}
+    elif case_id in ("setup-stop-gate-off", "setup-stop-gate-advisory"):
+        gate_val = "off" if case_id == "setup-stop-gate-off" else "advisory"
+        (tmp_path / ".agents" / "setup-state.json").write_text(
+            json.dumps(
+                {
+                    "setup_status": "complete",
+                    "bundle_root": ".agents/bundles",
+                    "okf_version": "0.2",
+                    "stop_gate": gate_val,
+                }
+            ),
+            encoding="utf-8",
+        )
+    elif case_id in ("spec-gate-advisory", "spec-gate-off"):
+        gate_val = "advisory" if case_id == "spec-gate-advisory" else "off"
+        root_spec = flow_dir / "spec.md"
+        root_spec.write_text(
+            root_spec.read_text(encoding="utf-8").replace("state: active", f"state: active\ngate: {gate_val}"),
+            encoding="utf-8",
+        )
+    elif case_id == "root-state-paused":
+        root_spec = flow_dir / "spec.md"
+        root_spec.write_text(
+            root_spec.read_text(encoding="utf-8").replace("state: active", "state: paused"),
+            encoding="utf-8",
+        )
+    elif case_id == "root-paused-flag":
+        root_spec = flow_dir / "spec.md"
+        root_spec.write_text(
+            root_spec.read_text(encoding="utf-8").replace("state: active", "state: active\npaused: true"),
+            encoding="utf-8",
+        )
+    elif case_id == "root-handoff-flag":
+        root_spec = flow_dir / "spec.md"
+        root_spec.write_text(
+            root_spec.read_text(encoding="utf-8").replace("state: active", "state: active\nhandoff: true"),
+            encoding="utf-8",
+        )
+    elif case_id == "chapter-paused":
+        ch2_spec = flow_dir / "chapters" / "ch02-session" / "spec.md"
+        ch2_spec.write_text(
+            ch2_spec.read_text(encoding="utf-8").replace("state: active", "state: paused"),
+            encoding="utf-8",
+        )
+
+    assert _run_sh_hook(STOP_HOOK_SCRIPT, "claude", {"cwd": str(tmp_path)}, extra_env=extra_env) == {}
+
+
+def test_stop_hook_subagent_lease_and_live_telemetry_downgrade(tmp_path: Path) -> None:
+    """Verify live subagent leases and foreign active turns downgrade coordinator Stop until released."""
+    flow_dir = _seed_multichapter_workspace(tmp_path)
+    _mark_ch02_all_tasks_completed_without_closing(flow_dir)
+    runtime_dir = tmp_path / "runtime"
+    env = {"FLOW_RUNTIME_DIR": str(runtime_dir), "FLOW_CONFIG_DIR": str(tmp_path / "cfg")}
+
+    _run_sh_hook(
+        HOOK_SCRIPT,
+        "agy",
+        {
+            "workspacePaths": [str(tmp_path)],
+            "parentConversationId": "coord-1",
+            "conversationId": "sub-1",
+        },
+        extra_env=env,
+    )
+    assert (
+        _run_sh_hook(
+            STOP_HOOK_SCRIPT,
+            "agy",
+            {"workspacePaths": [str(tmp_path)], "conversationId": "coord-1"},
+            extra_env=env,
+        )
+        == {}
+    )
+
+    _run_sh_hook(
+        STOP_HOOK_SCRIPT,
+        "agy",
+        {
+            "workspacePaths": [str(tmp_path)],
+            "parentConversationId": "coord-1",
+            "conversationId": "sub-1",
+        },
+        extra_env=env,
+    )
+    resumed = _run_sh_hook(
+        STOP_HOOK_SCRIPT,
+        "agy",
+        {"workspacePaths": [str(tmp_path)], "conversationId": "coord-1"},
+        extra_env=env,
+    )
+    assert resumed["decision"] == "continue"
+    assert "all 2 task(s) are done" in resumed["reason"]
+
+    live_state = tmp_path / ".agents" / "studio-live-state.json"
+    live_state.write_text(
+        json.dumps({"activeTurn": True, "conversationId": "sub-2"}),
+        encoding="utf-8",
+    )
+    assert (
+        _run_sh_hook(
+            STOP_HOOK_SCRIPT,
+            "agy",
+            {"workspacePaths": [str(tmp_path)], "conversationId": "coord-1"},
+            extra_env=env,
+        )
+        == {}
+    )
+    self_turn = _run_sh_hook(
+        STOP_HOOK_SCRIPT,
+        "agy",
+        {"workspacePaths": [str(tmp_path)], "conversationId": "sub-2"},
+        extra_env=env,
+    )
+    assert self_turn["decision"] == "continue"

@@ -45,9 +45,17 @@ try {
 }
 
 $IsSubagent = $false
+$ConvId = ""
 if (-not [string]::IsNullOrWhiteSpace($StdinPayload)) {
     if ([regex]::IsMatch($StdinPayload, '"parentConversationId"\s*:\s*"[^"]+"')) {
         $IsSubagent = $true
+    }
+    foreach ($convPat in @('"conversationId"\s*:\s*"([^"]+)"', '"session_id"\s*:\s*"([^"]+)"', '"conversation_id"\s*:\s*"([^"]+)"')) {
+        $cm = [regex]::Match($StdinPayload, $convPat)
+        if ($cm.Success) {
+            $ConvId = $cm.Groups[1].Value
+            break
+        }
     }
     if ([string]::IsNullOrEmpty($ProjectDir)) {
         foreach ($pattern in @(
@@ -106,7 +114,7 @@ if ((Test-Path -LiteralPath $GitDotFile -PathType Leaf) -and (Get-Command git -E
         if (-not [string]::IsNullOrWhiteSpace($commonDir)) {
             $candMain = Split-Path -Parent $commonDir.Trim()
             if (-not [string]::IsNullOrWhiteSpace($candMain) -and ([IO.Path]::GetFullPath($candMain) -ne [IO.Path]::GetFullPath($ProjectDir))) {
-                foreach ($sharedArt in @(".venv", "node_modules", "uv.toml", ".npmrc")) {
+                foreach ($sharedArt in @(".venv", "node_modules", "uv.toml", ".npmrc", ".python-version")) {
                     New-WorktreeLink (Join-Path $ProjectDir $sharedArt) (Join-Path $candMain $sharedArt)
                 }
                 $ignorePolicy = Get-SetupField (Join-Path $ProjectDir ".agents/setup-state.json") "ignore_policy"
@@ -145,6 +153,21 @@ $PendingSync = ""
 $DegradedPlans = ""
 
 if ($IsSubagent) {
+    try {
+        $tmpRaw = if (-not [string]::IsNullOrEmpty($env:TMPDIR)) { $env:TMPDIR.TrimEnd('/', '\') } else { [IO.Path]::GetTempPath().TrimEnd('/', '\') }
+        $rtBase = if (-not [string]::IsNullOrEmpty($env:FLOW_RUNTIME_DIR)) { $env:FLOW_RUNTIME_DIR.TrimEnd('/', '\') } else { Join-Path $tmpRaw "flow-runtime" }
+        $normRoot = ($EffectiveRoot -replace '\\', '/').TrimEnd('/')
+        $wsId = [regex]::Replace($normRoot, '[^A-Za-z0-9._-]', '_')
+        if ($wsId.Length -gt 120) { $wsId = $wsId.Substring($wsId.Length - 120) }
+        if ([string]::IsNullOrEmpty($wsId)) { $wsId = "default" }
+        $leaseDir = Join-Path (Join-Path $rtBase $wsId) "subagents"
+        if (-not (Test-Path -LiteralPath $leaseDir -PathType Container)) {
+            New-Item -ItemType Directory -Path $leaseDir -Force | Out-Null
+        }
+        $safeConv = if (-not [string]::IsNullOrEmpty($ConvId)) { [regex]::Replace($ConvId, '[^A-Za-z0-9._-]', '_') } else { "pid-$PID" }
+        $epochNow = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds().ToString()
+        Set-Content -LiteralPath (Join-Path $leaseDir "$safeConv.lease") -Value $epochNow -Encoding UTF8 -ErrorAction SilentlyContinue
+    } catch {}
     if (Test-Path -LiteralPath (Join-Path $EffectiveRoot ".agents") -PathType Container) {
         $BaseMsg = "Flow subagent context: bundle root $EffectiveRoot/$BundleRel. Stay strictly within your assigned Bounded Read Manifest."
     } else {
@@ -266,8 +289,8 @@ if ($IsSubagent) {
                                         }
                                         if ($tSt -in @("completed", "closed", "deferred", "skipped")) { $tDone++ }
                                     }
-                                    if (($tTot -gt 0 -and $tDone -eq $tTot -and ($chState -notin @("completed", "deferred", "skipped"))) -or
-                                        ($chState -eq "completed" -and ([string]::IsNullOrEmpty($chRev) -or $chRev -eq "null"))) {
+                                    if ($chState -ne "paused" -and (($tTot -gt 0 -and $tDone -eq $tTot -and ($chState -notin @("completed", "deferred", "skipped"))) -or
+                                        ($chState -eq "completed" -and ([string]::IsNullOrEmpty($chRev) -or $chRev -eq "null")))) {
                                         $PendingSyncList.Add("$FlowId/$($chDir.Name)")
                                     }
                                 }

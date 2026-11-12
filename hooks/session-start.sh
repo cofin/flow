@@ -42,6 +42,7 @@ if [ ! -t 0 ]; then
 fi
 
 IS_SUBAGENT=0
+CONV_ID=""
 if [ -n "$STDIN_PAYLOAD" ]; then
   PARSED_STDIN="$(printf '%s\n' "$STDIN_PAYLOAD" | awk '
     {
@@ -78,11 +79,32 @@ if [ -n "$STDIN_PAYLOAD" ]; then
         gsub(/\\\\/, "/", s)
         proj = s
       }
-      printf "%d|%s\n", subag, proj
+      conv = ""
+      if (match(buf, /"conversationId"[[:space:]]*:[[:space:]]*"[^"]+"/)) {
+        s = substr(buf, RSTART, RLENGTH)
+        sub(/^.*"conversationId"[[:space:]]*:[[:space:]]*"/, "", s)
+        sub(/"$/, "", s)
+        conv = s
+      } else if (match(buf, /"session_id"[[:space:]]*:[[:space:]]*"[^"]+"/)) {
+        s = substr(buf, RSTART, RLENGTH)
+        sub(/^.*"session_id"[[:space:]]*:[[:space:]]*"/, "", s)
+        sub(/"$/, "", s)
+        conv = s
+      } else if (match(buf, /"conversation_id"[[:space:]]*:[[:space:]]*"[^"]+"/)) {
+        s = substr(buf, RSTART, RLENGTH)
+        sub(/^.*"conversation_id"[[:space:]]*:[[:space:]]*"/, "", s)
+        sub(/"$/, "", s)
+        conv = s
+      }
+      gsub(/\|/, "_", proj)
+      gsub(/\|/, "_", conv)
+      printf "%d|%s|%s\n", subag, proj, conv
     }
   ')"
   IS_SUBAGENT="${PARSED_STDIN%%|*}"
-  DETECTED_PROJ="${PARSED_STDIN#*|}"
+  REST_STDIN="${PARSED_STDIN#*|}"
+  DETECTED_PROJ="${REST_STDIN%%|*}"
+  CONV_ID="${REST_STDIN#*|}"
   if [ -z "$PROJECT_DIR" ] && [ -n "$DETECTED_PROJ" ]; then
     PROJECT_DIR="$DETECTED_PROJ"
   fi
@@ -173,7 +195,7 @@ create_worktree_link() {
 }
 
 if [ "$IS_LINKED_WORKTREE" = "1" ] && [ -n "$MAIN_WORKTREE" ]; then
-  for shared_art in .venv node_modules uv.toml .npmrc; do
+  for shared_art in .venv node_modules uv.toml .npmrc .python-version; do
     create_worktree_link "$MAIN_WORKTREE/$shared_art" "$PROJECT_DIR/$shared_art"
   done
 
@@ -247,6 +269,19 @@ if [ -n "$DETECTED_ROOT" ]; then
 fi
 
 if [ "$IS_SUBAGENT" = "1" ]; then
+  raw_tmp="${TMPDIR:-/tmp}"
+  raw_tmp="${raw_tmp%/}"
+  [ -n "$raw_tmp" ] || raw_tmp="/tmp"
+  rt_base="${FLOW_RUNTIME_DIR:-$raw_tmp/flow-runtime}"
+  rt_base="${rt_base%/}"
+  ws_id="$(printf '%s' "$EFFECTIVE_ROOT" | tr '\\' '/' | sed 's:/*$::; s/[^A-Za-z0-9._-]/_/g' | awk '{ n = length($0); print (n > 120 ? substr($0, n - 119) : $0) }')"
+  [ -n "$ws_id" ] || ws_id="default"
+  lease_dir="$rt_base/$ws_id/subagents"
+  if mkdir -p "$lease_dir" 2>/dev/null; then
+    lease_name="$(printf '%s' "$CONV_ID" | sed 's/[^A-Za-z0-9._-]/_/g')"
+    [ -n "$lease_name" ] || lease_name="pid-$$"
+    printf '%s\n' "$(date -u +%s 2>/dev/null || echo 0)" > "$lease_dir/$lease_name.lease" 2>/dev/null || true
+  fi
   if [ -d "$EFFECTIVE_ROOT/.agents" ]; then
     BASE_MSG="Flow subagent context: bundle root $EFFECTIVE_ROOT/$BUNDLE_REL. Stay strictly within your assigned Bounded Read Manifest."
   else
@@ -339,11 +374,13 @@ else
               ' "$@")"
               t_tot="${TASK_COUNTS%%|*}"
               t_done="${TASK_COUNTS#*|}"
-              if { [ "$t_tot" -gt 0 ] && [ "$t_done" -eq "$t_tot" ] && [ "$c_st" != "completed" ] && [ "$c_st" != "deferred" ] && [ "$c_st" != "skipped" ]; } || { [ "$c_st" = "completed" ] && { [ -z "$c_lrc" ] || [ "$c_lrc" = "null" ]; }; }; then
-                if [ -n "$PENDING_SYNC" ]; then
-                  PENDING_SYNC="$PENDING_SYNC, $s_fid/$ch_id"
-                else
-                  PENDING_SYNC="$s_fid/$ch_id"
+              if [ "$c_st" != "paused" ]; then
+                if { [ "$t_tot" -gt 0 ] && [ "$t_done" -eq "$t_tot" ] && [ "$c_st" != "completed" ] && [ "$c_st" != "deferred" ] && [ "$c_st" != "skipped" ]; } || { [ "$c_st" = "completed" ] && { [ -z "$c_lrc" ] || [ "$c_lrc" = "null" ]; }; }; then
+                  if [ -n "$PENDING_SYNC" ]; then
+                    PENDING_SYNC="$PENDING_SYNC, $s_fid/$ch_id"
+                  else
+                    PENDING_SYNC="$s_fid/$ch_id"
+                  fi
                 fi
               fi
             fi

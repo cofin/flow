@@ -3,8 +3,11 @@
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
+import tempfile
+import time
 
 EXECUTION_SCHEMA = {
     "type": "object",
@@ -89,6 +92,32 @@ root_spec = bundle_root / "specs" / flow_id / "spec.md"
 quota_state = {"degraded": False}
 
 
+def _acquire_runtime_lease() -> Path | None:
+    """Register an active workflow runtime lease for Stop-gate subagent coordination."""
+    raw_tmp = os.environ.get("TMPDIR", "").rstrip("/\\") or tempfile.gettempdir().rstrip("/\\")
+    rt_base = (os.environ.get("FLOW_RUNTIME_DIR", "").rstrip("/\\")) or f"{raw_tmp}/flow-runtime"
+    norm_root = str(Path.cwd()).replace("\\", "/").rstrip("/")
+    ws_id = re.sub(r"[^A-Za-z0-9._-]", "_", norm_root)[-120:] or "default"
+    lease_dir = Path(rt_base) / ws_id / "subagents"
+    try:
+        lease_dir.mkdir(parents=True, exist_ok=True)
+        lease_path = lease_dir / f"workflow-{os.getpid()}.lease"
+        lease_path.write_text(f"{int(time.time())}\n", encoding="utf-8")
+        return lease_path
+    except OSError:
+        return None
+
+
+def _release_runtime_lease(lease_path: Path | None) -> None:
+    """Remove a previously registered workflow runtime lease."""
+    if lease_path is None:
+        return
+    try:
+        lease_path.unlink(missing_ok=True)
+    except OSError:
+        pass
+
+
 async def _run_exec_turn(prompt: str, role: str) -> tuple[dict, str]:
     """Run an executor turn with automatic quota fallback to flash (never flash_lite)."""
     active_model = "flash" if quota_state["degraded"] else preferred_exec_model
@@ -131,126 +160,128 @@ phase(f"Execute Chapter {chapter_id} ({execution_mode})")
 log(f"Executing {len(task_paths)} task worksheet(s) for {flow_id}/{chapter_id}")
 
 execution_receipts: list[dict] = []
-if execution_mode == "chapter_batch":
-    batch_prompt = (
-        f"Follow `{exec_card}` to execute chapter `{flow_id}/{chapter_id}` (`{chapter_spec}`, root `{root_spec}`) "
-        f"across ordered task worksheets {task_paths} in ONE cohesive warm batch:\n"
-        "1. Read only the chapter spec, assigned worksheets, and their bounded `read_set` files.\n"
-        "2. Apply all code and canonical unit test edits across the chapter batch so shared files are edited once.\n"
-        "3. Validate ONCE with the Fast Chapter Gate (`< 60s`: offline ruff/mypy/pyright + targeted unit test file; "
-        "do NOT run slow full test suites or `npx --yes` network wrappers, and never pass BypassSandbox=true).\n"
-        "4. Commit owned code/test files first to obtain `<CODE_SHA>` (if `.git/` is read-only inside the sandbox "
-        "and `git commit` is denied, set `commit_deferred_to_coordinator: true` without looping), then synchronize "
-        "`tasks/*.md`, chapter `spec.md`, `chapters/index.md`, root `spec.md`, affected `knowledge/**`/`docs/**`, "
-        "and `log.md` in present tense."
-    )
-    receipt, model_used = await _run_exec_turn(batch_prompt, f"Batch Execute {chapter_id}")
-    execution_receipts.append({"mode": "chapter_batch", "model_used": model_used, **receipt})
-else:
-    per_task_out = await pipeline(
-        task_paths,
-        lambda task_path: _run_exec_turn(
-            f"Follow `{exec_card}` to execute single Flow worksheet `{task_path}` for `{flow_id}/{chapter_id}` "
-            f"(`{chapter_spec}`). Validate with the fast static + targeted unit test gate (`< 60s`), never pass "
-            "BypassSandbox=true, and synchronize task + chapter checklists in present tense.",
-            f"Execute {Path(task_path).name}",
-        ),
-    )
-    for task_path, (receipt, model_used) in zip(task_paths, per_task_out):
-        execution_receipts.append({"task_path": task_path, "model_used": model_used, **receipt})
-
 okf_errors: list[str] = []
-if validator_script.is_file():
-    val_proc = subprocess.run(
-        [sys.executable, str(validator_script), "--bundle", str(bundle_root), "--flow", flow_id],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if val_proc.returncode != 0:
-        okf_errors = [
-            ln.strip()
-            for ln in (val_proc.stderr + "\n" + val_proc.stdout).splitlines()
-            if ln.strip().startswith("ERROR:")
-        ]
-
-any_blocked = any(r.get("status") == "blocked" for r in execution_receipts)
 reviews: list[dict] = []
-
-
-async def _run_reviewer_turn(reviewer_id: str, role: str, prompt: str) -> dict:
-    """Run one zero-context chapter reviewer on Pro/inherit first, falling back to flash only on quota."""
-    active_model = "flash" if (quota_state["degraded"] and preferred_rev_model != "flash") else preferred_rev_model
-    try:
-        out = await with_budget(
-            agent(
-                prompt,
-                schema=REVIEW_SCHEMA,
-                role=role,
-                type_name="self",
-                workspace="inherit",
-                model=active_model,
-            ),
-            max_tokens=200000,
-            timeout=600,
+_wf_lease = _acquire_runtime_lease()
+try:
+    if execution_mode == "chapter_batch":
+        batch_prompt = (
+            f"Follow `{exec_card}` to execute chapter `{flow_id}/{chapter_id}` (`{chapter_spec}`, root `{root_spec}`) "
+            f"across ordered task worksheets {task_paths} in ONE cohesive warm batch:\n"
+            "1. Read only the chapter spec, assigned worksheets, and their bounded `read_set` files.\n"
+            "2. Apply all code and canonical unit test edits across the chapter batch so shared files are edited once.\n"
+            "3. Validate ONCE with the Fast Chapter Gate (`< 60s`: offline ruff/mypy/pyright + targeted unit test file; "
+            "do NOT run slow full test suites or `npx --yes` network wrappers, and never pass BypassSandbox=true).\n"
+            "4. Commit owned code/test files first to obtain `<CODE_SHA>` (if `.git/` is read-only inside the sandbox "
+            "and `git commit` is denied, set `commit_deferred_to_coordinator: true` without looping), then synchronize "
+            "`tasks/*.md`, chapter `spec.md`, `chapters/index.md`, root `spec.md`, affected `knowledge/**`/`docs/**`, "
+            "and `log.md` in present tense."
         )
-        return {"reviewer": reviewer_id, "model_used": active_model, **out}
-    except Exception as exc:
-        msg = str(exc).lower()
-        if active_model != "flash" and any(m in msg for m in QUOTA_MARKERS):
-            quota_state["degraded"] = True
-            log(f"Quota hit on {active_model} for {role}; retrying on 'flash'")
+        receipt, model_used = await _run_exec_turn(batch_prompt, f"Batch Execute {chapter_id}")
+        execution_receipts.append({"mode": "chapter_batch", "model_used": model_used, **receipt})
+    else:
+        per_task_out = await pipeline(
+            task_paths,
+            lambda task_path: _run_exec_turn(
+                f"Follow `{exec_card}` to execute single Flow worksheet `{task_path}` for `{flow_id}/{chapter_id}` "
+                f"(`{chapter_spec}`). Validate with the fast static + targeted unit test gate (`< 60s`), never pass "
+                "BypassSandbox=true, and synchronize task + chapter checklists in present tense.",
+                f"Execute {Path(task_path).name}",
+            ),
+        )
+        for task_path, (receipt, model_used) in zip(task_paths, per_task_out):
+            execution_receipts.append({"task_path": task_path, "model_used": model_used, **receipt})
+
+    if validator_script.is_file():
+        val_proc = subprocess.run(
+            [sys.executable, str(validator_script), "--bundle", str(bundle_root), "--flow", flow_id],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if val_proc.returncode != 0:
+            okf_errors = [
+                ln.strip()
+                for ln in (val_proc.stderr + "\n" + val_proc.stdout).splitlines()
+                if ln.strip().startswith("ERROR:")
+            ]
+
+    any_blocked = any(r.get("status") == "blocked" for r in execution_receipts)
+
+    async def _run_reviewer_turn(reviewer_id: str, role: str, prompt: str) -> dict:
+        """Run one zero-context chapter reviewer on Pro/inherit first, falling back to flash only on quota."""
+        active_model = "flash" if (quota_state["degraded"] and preferred_rev_model != "flash") else preferred_rev_model
+        try:
             out = await with_budget(
                 agent(
                     prompt,
                     schema=REVIEW_SCHEMA,
-                    role=f"{role} (flash fallback)",
+                    role=role,
                     type_name="self",
                     workspace="inherit",
-                    model="flash",
+                    model=active_model,
                 ),
                 max_tokens=200000,
                 timeout=600,
             )
-            return {"reviewer": reviewer_id, "model_used": "flash", **out}
-        raise
+            return {"reviewer": reviewer_id, "model_used": active_model, **out}
+        except Exception as exc:
+            msg = str(exc).lower()
+            if active_model != "flash" and any(m in msg for m in QUOTA_MARKERS):
+                quota_state["degraded"] = True
+                log(f"Quota hit on {active_model} for {role}; retrying on 'flash'")
+                out = await with_budget(
+                    agent(
+                        prompt,
+                        schema=REVIEW_SCHEMA,
+                        role=f"{role} (flash fallback)",
+                        type_name="self",
+                        workspace="inherit",
+                        model="flash",
+                    ),
+                    max_tokens=200000,
+                    timeout=600,
+                )
+                return {"reviewer": reviewer_id, "model_used": "flash", **out}
+            raise
 
-
-if not any_blocked:
-    phase("Zero-Context Chapter Review")
-    git_range = f"{base_commit}..HEAD"
-    if review_mode == "single":
-        single_out = await _run_reviewer_turn(
-            "combined",
-            f"Combined Chapter Review ({chapter_id})",
-            (
-                f"Follow `{code_rev_card}` and `{qual_rev_card}` in strictly read-only mode (never edit files or "
-                f"pass BypassSandbox=true). Review chapter `{flow_id}/{chapter_id}` (`{chapter_spec}`, root "
-                f"`{root_spec}`) across Git range `{git_range}` (and working-tree diff if commit was deferred)."
-            ),
-        )
-        reviews.append(single_out)
-    else:
-        reviewer_specs = [
-            (
-                "code-reviewer",
-                "Chapter Correctness & Spec-Sync Review",
-                f"Follow `{code_rev_card}` in strictly read-only mode (never edit files or pass BypassSandbox=true). "
-                f"Review `{flow_id}/{chapter_id}` (`{chapter_spec}`, root `{root_spec}`) across `{git_range}` "
-                "(and working-tree diff if commit was deferred).",
-            ),
-            (
-                "quality-reviewer",
-                "Chapter Quality & Debloat Review",
-                f"Follow `{qual_rev_card}` in strictly read-only mode (never edit files or pass BypassSandbox=true). "
-                f"Review `{flow_id}/{chapter_id}` (`{chapter_spec}`) across `{git_range}` "
-                "(and working-tree diff if commit was deferred).",
-            ),
-        ]
-        reviews = await parallel(
-            reviewer_specs,
-            lambda item: _run_reviewer_turn(item[0], item[1], item[2]),
-        )
+    if not any_blocked:
+        phase("Zero-Context Chapter Review")
+        git_range = f"{base_commit}..HEAD"
+        if review_mode == "single":
+            single_out = await _run_reviewer_turn(
+                "combined",
+                f"Combined Chapter Review ({chapter_id})",
+                (
+                    f"Follow `{code_rev_card}` and `{qual_rev_card}` in strictly read-only mode (never edit files or "
+                    f"pass BypassSandbox=true). Review chapter `{flow_id}/{chapter_id}` (`{chapter_spec}`, root "
+                    f"`{root_spec}`) across Git range `{git_range}` (and working-tree diff if commit was deferred)."
+                ),
+            )
+            reviews.append(single_out)
+        else:
+            reviewer_specs = [
+                (
+                    "code-reviewer",
+                    "Chapter Correctness & Spec-Sync Review",
+                    f"Follow `{code_rev_card}` in strictly read-only mode (never edit files or pass BypassSandbox=true). "
+                    f"Review `{flow_id}/{chapter_id}` (`{chapter_spec}`, root `{root_spec}`) across `{git_range}` "
+                    "(and working-tree diff if commit was deferred).",
+                ),
+                (
+                    "quality-reviewer",
+                    "Chapter Quality & Debloat Review",
+                    f"Follow `{qual_rev_card}` in strictly read-only mode (never edit files or pass BypassSandbox=true). "
+                    f"Review `{flow_id}/{chapter_id}` (`{chapter_spec}`) across `{git_range}` "
+                    "(and working-tree diff if commit was deferred).",
+                ),
+            ]
+            reviews = await parallel(
+                reviewer_specs,
+                lambda item: _run_reviewer_turn(item[0], item[1], item[2]),
+            )
+finally:
+    _release_runtime_lease(_wf_lease)
 
 summary = {
     "flow_id": flow_id,
