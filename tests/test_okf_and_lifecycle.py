@@ -1225,3 +1225,64 @@ def test_bootstrap_worktree_links_python_version_from_main_checkout(tmp_path: Pa
     bootstrap_worktree(wt_repo)
     assert is_link_or_junction(wt_repo / ".python-version")
     assert (wt_repo / ".python-version").read_text(encoding="utf-8") == "3.14+gil\n"
+
+
+def test_validate_okf_bundle_checks_knowledge_catalog_schema_stale_after_and_byte_budget(tmp_path: Path) -> None:
+    """Verify validate_okf_bundle validates knowledge_catalog state, UTC stale_after, and byte budget."""
+    bundle = tmp_path / "bundle"
+    (bundle / "documents").mkdir(parents=True)
+    (tmp_path / ".agents").mkdir(parents=True)
+    (tmp_path / ".agents" / "setup-state.json").write_text(
+        json.dumps(
+            {
+                "setup_status": "complete",
+                "bundle_root": "bundle",
+                "okf_version": "0.2",
+                "knowledge_catalog": {
+                    "enabled": True,
+                    "project_id": "db-black-belts-beekeeper-01",
+                    "location": "us-central1",
+                    "entry_group": "beekeeper-context",
+                    "content_layout": "okf",
+                    "last_synced_sha256": "abc123",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "catalog.yaml").write_text(
+        "scope: kb.db-black-belts-beekeeper-01.us-central1.beekeeper-context\nlayout: okf\n",
+        encoding="utf-8",
+    )
+    (bundle / "index.md").write_text("---\nokf_version: '0.2'\n---\n\n# Root\n", encoding="utf-8")
+    (bundle / "documents" / "good.md").write_text(
+        "---\n"
+        "type: Knowledge\n"
+        "title: Good Doc\n"
+        "description: Valid UTC offset timestamp.\n"
+        "stale_after: '2026-12-31T23:59:59Z'\n"
+        "---\n\n# Good\n\nSafe body.\n",
+        encoding="utf-8",
+    )
+    assert validate_okf_bundle(bundle, project_root=tmp_path) == []
+
+    (bundle / "documents" / "bad_stale.md").write_text(
+        "---\n"
+        "type: Knowledge\n"
+        "title: Bad Stale\n"
+        "description: Bare date without UTC offset.\n"
+        "stale_after: '2026-12-31'\n"
+        "---\n\n# Bad Stale\n",
+        encoding="utf-8",
+    )
+    (bundle / "documents" / "big.md").write_text(
+        "---\n"
+        "type: Knowledge\n"
+        "title: Too Big\n"
+        "description: Exceeds escaped limit.\n"
+        "---\n\n## Section One\n\n" + ("<" * 21_000) + "\n",
+        encoding="utf-8",
+    )
+    errs = validate_okf_bundle(bundle, project_root=tmp_path)
+    assert any("stale_after" in err and "UTC offset" in err for err in errs)
+    assert any("120832" in err and "Section One" in err for err in errs)
