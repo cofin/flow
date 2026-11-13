@@ -12,6 +12,7 @@ import sys
 import tempfile
 import textwrap
 import tomllib
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -72,6 +73,7 @@ OKF_DOCUMENT_STATUSES: frozenset[str] = frozenset({"draft", "stable", "deprecate
 PLANNING_QUALITY_VALUES: frozenset[str] = frozenset({"standard", "degraded"})
 OPEN_TASK_STATES: frozenset[str] = frozenset({"pending", "open", "in_progress", "blocked"})
 DEFERRED_STATES: frozenset[str] = frozenset({"deferred", "skipped"})
+KNOWN_CLAIM_HARNESSES: frozenset[str] = frozenset({"agy", "claude", "codex", "cursor", "opencode", "vscode", "cli"})
 FORBIDDEN_WORKFLOW_AGENT_TYPES: frozenset[str] = frozenset(
     {
         "code-reviewer",
@@ -1727,6 +1729,8 @@ def _validate_tasks_for_owner_spec(
         t_state = str(tfm.get("state") or "pending").strip()
         t_commit = str(tfm.get("commit") or "").strip()
 
+        errors.extend(_validate_task_claim_fields(rel_tf, tfm))
+
         if t_state in OPEN_TASK_STATES:
             open_tasks.append(tf.name)
 
@@ -1945,6 +1949,36 @@ def _git_changed_files(git_bin: str, git_root: Path, commit_sha: str, plan_commi
             if span.returncode == 0:
                 changed.update(ln.strip() for ln in span.stdout.splitlines() if ln.strip())
     return changed
+
+
+def _validate_task_claim_fields(rel_tf: str, tfm: dict[str, Any]) -> list[str]:
+    """Validate task ``claimed_by`` and ``claimed_at`` frontmatter fields while preserving legacy strings."""
+    errors: list[str] = []
+    if "claimed_by" in tfm and tfm["claimed_by"] is not None:
+        claimed_by = tfm["claimed_by"]
+        if not isinstance(claimed_by, str) or not claimed_by.strip():
+            errors.append(f"{rel_tf}: claimed_by must be null or a non-empty string")
+        elif ":" in claimed_by:
+            parts = [part.strip() for part in claimed_by.split(":")]
+            if parts[0].lower() in KNOWN_CLAIM_HARNESSES and (len(parts) < 2 or not parts[1]):
+                errors.append(
+                    f"{rel_tf}: structured claimed_by {claimed_by!r} must match "
+                    "'<harness>:<session_id>[:<role_or_worktree>]'"
+                )
+
+    if "claimed_at" in tfm and tfm["claimed_at"] is not None:
+        claimed_at = tfm["claimed_at"]
+        if isinstance(claimed_at, str) and claimed_at.strip():
+            raw_ts = claimed_at.strip()
+            if raw_ts.endswith("Z"):
+                raw_ts = f"{raw_ts[:-1]}+00:00"
+            try:
+                datetime.fromisoformat(raw_ts)
+            except ValueError:
+                errors.append(f"{rel_tf}: claimed_at {claimed_at!r} must be a valid ISO-8601 UTC timestamp")
+        elif not isinstance(claimed_at, datetime):
+            errors.append(f"{rel_tf}: claimed_at must be null or a valid ISO-8601 UTC timestamp")
+    return errors
 
 
 def _expected_checklist_marker(task_state: str) -> str:

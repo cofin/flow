@@ -12,6 +12,7 @@ import path from "node:path";
 import readline from "node:readline";
 
 import { whichSync } from "./python-runner.mjs";
+import { readStudioLiveState } from "./snapshot.mjs";
 
 const HARNESS_CATALOG = [
   { id: "claude", label: "Claude Code", binary: "claude" },
@@ -108,21 +109,14 @@ export class CrossHarnessRunner {
       };
     }
 
-    const liveStatePath = path.join(root, ".agents", "studio-live-state.json");
-    if (fs.existsSync(liveStatePath)) {
-      try {
-        const state = JSON.parse(fs.readFileSync(liveStatePath, "utf8"));
-        if (state?.activeTurn && state?.updatedAt) {
-          const ageMs = Date.now() - Date.parse(state.updatedAt);
-          if (Number.isFinite(ageMs) && ageMs >= 0 && ageMs < 30000) {
-            return {
-              activeWriter: true,
-              reason: `Active agent turn detected (${state.harness || "agent"} updated ${Math.round(ageMs / 1000)}s ago).`,
-            };
-          }
-        }
-      } catch {
-        // Ignore malformed telemetry file.
+    const state = readStudioLiveState(root, { agentsDir: path.join(root, ".agents") });
+    if (state?.activeTurn && state?.updatedAt) {
+      const ageMs = Date.now() - Date.parse(state.updatedAt);
+      if (Number.isFinite(ageMs) && ageMs >= 0 && ageMs < 30000) {
+        return {
+          activeWriter: true,
+          reason: `Active agent turn detected (${state.harness || "agent"} updated ${Math.round(ageMs / 1000)}s ago).`,
+        };
       }
     }
 

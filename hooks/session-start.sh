@@ -43,6 +43,7 @@ fi
 
 IS_SUBAGENT=0
 CONV_ID=""
+PARENT_CONV_ID=""
 if [ -n "$STDIN_PAYLOAD" ]; then
   PARSED_STDIN="$(printf '%s\n' "$STDIN_PAYLOAD" | awk '
     {
@@ -50,8 +51,19 @@ if [ -n "$STDIN_PAYLOAD" ]; then
     }
     END {
       subag = 0
+      parent_conv = ""
       if (match(buf, /"parentConversationId"[[:space:]]*:[[:space:]]*"[^"]+"/)) {
         subag = 1
+        s = substr(buf, RSTART, RLENGTH)
+        sub(/^.*"parentConversationId"[[:space:]]*:[[:space:]]*"/, "", s)
+        sub(/"$/, "", s)
+        parent_conv = s
+      } else if (match(buf, /"parent_conversation_id"[[:space:]]*:[[:space:]]*"[^"]+"/)) {
+        subag = 1
+        s = substr(buf, RSTART, RLENGTH)
+        sub(/^.*"parent_conversation_id"[[:space:]]*:[[:space:]]*"/, "", s)
+        sub(/"$/, "", s)
+        parent_conv = s
       }
       proj = ""
       if (match(buf, /"workspacePaths"[[:space:]]*:[[:space:]]*\[[[:space:]]*"[^"]+"/)) {
@@ -98,13 +110,16 @@ if [ -n "$STDIN_PAYLOAD" ]; then
       }
       gsub(/\|/, "_", proj)
       gsub(/\|/, "_", conv)
-      printf "%d|%s|%s\n", subag, proj, conv
+      gsub(/\|/, "_", parent_conv)
+      printf "%d|%s|%s|%s\n", subag, proj, conv, parent_conv
     }
   ')"
   IS_SUBAGENT="${PARSED_STDIN%%|*}"
   REST_STDIN="${PARSED_STDIN#*|}"
   DETECTED_PROJ="${REST_STDIN%%|*}"
-  CONV_ID="${REST_STDIN#*|}"
+  REST_STDIN2="${REST_STDIN#*|}"
+  CONV_ID="${REST_STDIN2%%|*}"
+  PARENT_CONV_ID="${REST_STDIN2#*|}"
   if [ -z "$PROJECT_DIR" ] && [ -n "$DETECTED_PROJ" ]; then
     PROJECT_DIR="$DETECTED_PROJ"
   fi
@@ -268,6 +283,21 @@ if [ -n "$DETECTED_ROOT" ]; then
   BUNDLE_REL="$DETECTED_ROOT"
 fi
 
+json_escape_str() {
+  printf '%s' "$1" | awk '
+    BEGIN { ORS = "" }
+    {
+      gsub(/\\/, "\\\\")
+      gsub(/"/, "\\\"")
+      gsub(/\t/, "\\t")
+      gsub(/\r/, "")
+      gsub(/[\001-\010\013\014\016-\037]/, "")
+      if (NR > 1) printf "\\n"
+      printf "%s", $0
+    }
+  '
+}
+
 if [ "$IS_SUBAGENT" = "1" ]; then
   raw_tmp="${TMPDIR:-/tmp}"
   raw_tmp="${raw_tmp%/}"
@@ -280,7 +310,42 @@ if [ "$IS_SUBAGENT" = "1" ]; then
   if mkdir -p "$lease_dir" 2>/dev/null; then
     lease_name="$(printf '%s' "$CONV_ID" | sed 's/[^A-Za-z0-9._-]/_/g')"
     [ -n "$lease_name" ] || lease_name="pid-$$"
-    printf '%s\n' "$(date -u +%s 2>/dev/null || echo 0)" > "$lease_dir/$lease_name.lease" 2>/dev/null || true
+    lease_conv="${CONV_ID:-$lease_name}"
+    norm_ws="$(printf '%s' "$EFFECTIVE_ROOT" | tr '\\' '/' | sed 's:/*$::')"
+    norm_wt="$(printf '%s' "$PROJECT_DIR" | tr '\\' '/' | sed 's:/*$::')"
+    lease_flow_id=""
+    lease_ch_id=""
+    if [ -d "$EFFECTIVE_ROOT/$BUNDLE_REL/specs" ]; then
+      for sf in "$EFFECTIVE_ROOT/$BUNDLE_REL/specs"/*/spec.md; do
+        [ -f "$sf" ] || continue
+        sf_meta="$(awk '
+          NR == 1 && /^---[[:space:]]*$/ { in_fm = 1; next }
+          in_fm && /^---[[:space:]]*$/ { exit }
+          in_fm && /^flow_id:[[:space:]]*/ { v = $0; sub(/^flow_id:[[:space:]]*/, "", v); gsub(/^["'\'']|["'\'']$/, "", v); gsub(/[[:space:]]+$/, "", v); fid = v }
+          in_fm && /^state:[[:space:]]*/ { v = $0; sub(/^state:[[:space:]]*/, "", v); sub(/[[:space:]]+#.*$/, "", v); gsub(/^["'\'']|["'\'']$/, "", v); gsub(/[[:space:]]+$/, "", v); st = v }
+          in_fm && /^current_chapter:[[:space:]]*/ { v = $0; sub(/^current_chapter:[[:space:]]*/, "", v); sub(/[[:space:]]+#.*$/, "", v); gsub(/^["'\'']|["'\'']$/, "", v); gsub(/[[:space:]]+$/, "", v); ch = v }
+          END { if (st == "active" || st == "in_progress") printf "%s|%s\n", fid, ch }
+        ' "$sf")"
+        if [ -n "$sf_meta" ]; then
+          lease_flow_id="${sf_meta%%|*}"
+          lease_ch_id="${sf_meta#*|}"
+          [ -n "$lease_flow_id" ] || lease_flow_id="$(basename "$(dirname "$sf")")"
+          [ "$lease_ch_id" = "null" ] && lease_ch_id=""
+          break
+        fi
+      done
+    fi
+    epoch_now="$(date -u +%s 2>/dev/null || echo 0)"
+    printf '%s\n{"v":1,"harness":"%s","conversation_id":"%s","parent_conversation_id":"%s","workspace":"%s","worktree":"%s","role":"flow-subagent","flow_id":"%s","chapter_id":"%s","task_ids":[]}\n' \
+      "$epoch_now" \
+      "$(json_escape_str "$HARNESS")" \
+      "$(json_escape_str "$lease_conv")" \
+      "$(json_escape_str "$PARENT_CONV_ID")" \
+      "$(json_escape_str "$norm_ws")" \
+      "$(json_escape_str "$norm_wt")" \
+      "$(json_escape_str "$lease_flow_id")" \
+      "$(json_escape_str "$lease_ch_id")" \
+      > "$lease_dir/$lease_name.lease" 2>/dev/null || true
   fi
   if [ -d "$EFFECTIVE_ROOT/.agents" ]; then
     BASE_MSG="Flow subagent context: bundle root $EFFECTIVE_ROOT/$BUNDLE_REL. Stay strictly within your assigned Bounded Read Manifest."

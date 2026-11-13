@@ -55,21 +55,45 @@ if ([string]::IsNullOrEmpty($ProjectDir)) {
 }
 
 $AgentsDir = Join-Path $ProjectDir ".agents"
-if (-not (Test-Path -LiteralPath $AgentsDir -PathType Container)) {
+if (-not (Test-Path -LiteralPath $AgentsDir)) {
     [Console]::Out.WriteLine('{}')
     exit 0
 }
 
-$BundleRel = ".agents/bundles"
-$SetupState = Join-Path $AgentsDir "setup-state.json"
-if (Test-Path -LiteralPath $SetupState -PathType Leaf) {
-    $raw = Get-Content -LiteralPath $SetupState -Raw -Encoding UTF8
-    $m = [regex]::Match($raw, '"bundle_root"\s*:\s*"([^"]+)"')
-    if ($m.Success) { $BundleRel = $m.Groups[1].Value.Trim() }
+function Get-SetupField([string]$PathArg, [string]$Key) {
+    if (-not (Test-Path -LiteralPath $PathArg -PathType Leaf)) { return "" }
+    try {
+        $raw = Get-Content -LiteralPath $PathArg -Raw -Encoding UTF8
+        $m = [regex]::Match($raw, "`"$Key`"\s*:\s*`"([^`"]+)`"")
+        if ($m.Success) { return $m.Groups[1].Value.Trim() }
+    } catch {}
+    return ""
 }
 
+$EffectiveRoot = $ProjectDir
+if ((Test-Path -LiteralPath (Join-Path $ProjectDir ".git") -PathType Leaf) -and (Get-Command git -ErrorAction SilentlyContinue)) {
+    try {
+        $commonDir = (& git -C $ProjectDir rev-parse --path-format=absolute --git-common-dir 2>$null)
+        if (-not [string]::IsNullOrWhiteSpace($commonDir)) {
+            $candMain = Split-Path -Parent $commonDir.Trim()
+            if (-not [string]::IsNullOrWhiteSpace($candMain) -and (Test-Path -LiteralPath (Join-Path $candMain ".agents") -PathType Container)) {
+                $ign = Get-SetupField (Join-Path $AgentsDir "setup-state.json") "ignore_policy"
+                if ([string]::IsNullOrEmpty($ign)) {
+                    $ign = Get-SetupField (Join-Path $candMain ".agents/setup-state.json") "ignore_policy"
+                }
+                if ($ign -ne "shared") {
+                    $EffectiveRoot = $candMain
+                }
+            }
+        }
+    } catch {}
+}
+
+$BundleRel = Get-SetupField (Join-Path $EffectiveRoot ".agents/setup-state.json") "bundle_root"
+if ([string]::IsNullOrEmpty($BundleRel)) { $BundleRel = ".agents/bundles" }
+
 $Acc = New-Object System.Collections.Generic.List[string]
-$SpecsDir = Join-Path $ProjectDir "$BundleRel/specs"
+$SpecsDir = Join-Path $EffectiveRoot "$BundleRel/specs"
 if (Test-Path -LiteralPath $SpecsDir -PathType Container) {
     $Dirs = Get-ChildItem -LiteralPath $SpecsDir -Directory -ErrorAction SilentlyContinue | Sort-Object Name
     foreach ($d in $Dirs) {
@@ -80,7 +104,7 @@ if (Test-Path -LiteralPath $SpecsDir -PathType Container) {
         }
     }
 }
-$CommentsFile = Join-Path $AgentsDir "studio-comments.json"
+$CommentsFile = Join-Path $EffectiveRoot ".agents/studio-comments.json"
 if (Test-Path -LiteralPath $CommentsFile -PathType Leaf) {
     $chash = (Get-FileHash -LiteralPath $CommentsFile -Algorithm SHA256).Hash.Substring(0, 16)
     $Acc.Add("comments=$chash")
@@ -92,31 +116,82 @@ if ($Acc.Count -eq 0) {
 }
 
 $FinalDigest = ($Acc -join ";")
-$StateFile = Join-Path $AgentsDir "studio-live-state.json"
+$tmpRaw = if (-not [string]::IsNullOrEmpty($env:TMPDIR)) { $env:TMPDIR.TrimEnd('/', '\') } else { [IO.Path]::GetTempPath().TrimEnd('/', '\') }
+$rtBase = if (-not [string]::IsNullOrEmpty($env:FLOW_RUNTIME_DIR)) { $env:FLOW_RUNTIME_DIR.TrimEnd('/', '\') } else { Join-Path $tmpRaw "flow-runtime" }
+$normRoot = ($EffectiveRoot -replace '\\', '/').TrimEnd('/')
+$wsId = [regex]::Replace($normRoot, '[^A-Za-z0-9._-]', '_')
+if ($wsId.Length -gt 120) { $wsId = $wsId.Substring($wsId.Length - 120) }
+if ([string]::IsNullOrEmpty($wsId)) { $wsId = "default" }
+$RuntimeWsDir = Join-Path $rtBase $wsId
+if (-not (Test-Path -LiteralPath $RuntimeWsDir -PathType Container)) {
+    New-Item -ItemType Directory -Path $RuntimeWsDir -Force | Out-Null
+}
+$StateFile = Join-Path $RuntimeWsDir "studio-live-state.json"
+$LegacyStateFile = Join-Path $AgentsDir "studio-live-state.json"
+$ReadStateFile = if (Test-Path -LiteralPath $StateFile -PathType Leaf) { $StateFile } elseif (Test-Path -LiteralPath $LegacyStateFile -PathType Leaf) { $LegacyStateFile } else { "" }
+
 $PrevDigest = ""
 $ActiveTurn = $false
-if (Test-Path -LiteralPath $StateFile -PathType Leaf) {
-    $sRaw = Get-Content -LiteralPath $StateFile -Raw -Encoding UTF8
-    $mDig = [regex]::Match($sRaw, '"specDigest"\s*:\s*"([^"]*)"')
-    if ($mDig.Success) { $PrevDigest = $mDig.Groups[1].Value }
-    if ($sRaw -match '"activeTurn"\s*:\s*true') { $ActiveTurn = $true }
+$ConvId = ""
+$Role = "coordinator"
+$FlowId = $null
+$ChapterId = $null
+$TaskIds = @()
+$Activity = ""
+$LastTool = ""
+$LastFile = ""
+if (-not [string]::IsNullOrEmpty($ReadStateFile)) {
+    try {
+        $prev = Get-Content -LiteralPath $ReadStateFile -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ($prev.specDigest) { $PrevDigest = [string]$prev.specDigest }
+        if ($prev.activeTurn -eq $true) { $ActiveTurn = $true }
+        if ($prev.conversationId) { $ConvId = [string]$prev.conversationId }
+        if ($prev.role) { $Role = [string]$prev.role }
+        if ($prev.flowId) { $FlowId = [string]$prev.flowId }
+        if ($prev.chapterId) { $ChapterId = [string]$prev.chapterId }
+        if ($prev.taskIds) { $TaskIds = @($prev.taskIds | ForEach-Object { [string]$_ }) }
+        if ($prev.activity) { $Activity = [string]$prev.activity }
+        if ($prev.lastTool) { $LastTool = [string]$prev.lastTool }
+        if ($prev.lastFilePath) { $LastFile = [string]$prev.lastFilePath }
+    } catch {}
+}
+if (-not [string]::IsNullOrWhiteSpace($StdinPayload)) {
+    foreach ($pat in @('"conversationId"\s*:\s*"([^"]+)"', '"session_id"\s*:\s*"([^"]+)"')) {
+        $m = [regex]::Match($StdinPayload, $pat)
+        if ($m.Success) { $ConvId = $m.Groups[1].Value; break }
+    }
+    if ([regex]::IsMatch($StdinPayload, '"parentConversationId"\s*:\s*"[^"]+"')) {
+        $Role = "flow-subagent"
+    }
 }
 
+$WorktreeNorm = ($ProjectDir -replace '\\', '/').TrimEnd('/')
 $NowIso = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
-$StateObj = @{
+$StateObj = [ordered]@{
+    v = 1
     updatedAt = $NowIso
     harness = $Harness
+    conversationId = $ConvId
+    role = $Role
+    flowId = $FlowId
+    chapterId = $ChapterId
+    taskIds = @($TaskIds)
+    worktree = $WorktreeNorm
+    activity = $Activity
     activeTurn = $ActiveTurn
+    lastTool = $LastTool
+    lastFilePath = $LastFile
     specDigest = $FinalDigest
 } | ConvertTo-Json -Compress
 
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
 if ([string]::IsNullOrEmpty($PrevDigest) -or $PrevDigest -eq $FinalDigest -or $ActiveTurn) {
-    Set-Content -LiteralPath $StateFile -Value $StateObj -Encoding UTF8
+    [System.IO.File]::WriteAllText($StateFile, "$StateObj`n", $utf8NoBom)
     [Console]::Out.WriteLine('{}')
     exit 0
 }
 
-Set-Content -LiteralPath $StateFile -Value $StateObj -Encoding UTF8
+[System.IO.File]::WriteAllText($StateFile, "$StateObj`n", $utf8NoBom)
 $Notice = "Flow Studio notice: Active spec.md or Studio review comments changed on disk since the previous turn. Re-read the active spec.md and .agents/studio-comments.json before mutating code."
 
 switch -Regex ($Harness) {

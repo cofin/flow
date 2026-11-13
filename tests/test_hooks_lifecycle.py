@@ -54,9 +54,12 @@ def _run_hook(
     stdin_payload: dict[str, Any],
     *,
     project_dir: Path | None = None,
+    extra_env: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Execute a POSIX sh hook script and return its parsed JSON stdout."""
     env = {k: v for k, v in os.environ.items() if k != "CURSOR_VERSION"}
+    if extra_env:
+        env.update(extra_env)
     cmd = ["sh", str(sh_script), "--harness", harness]
     if project_dir is not None:
         cmd.extend(["--project", str(project_dir)])
@@ -79,10 +82,13 @@ def _run_ps1(
     stdin_payload: dict[str, Any],
     *,
     project_dir: Path | None = None,
+    extra_env: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Execute a PowerShell hook script and return its parsed JSON stdout."""
     assert POWERSHELL_BIN is not None
     env = {k: v for k, v in os.environ.items() if k != "CURSOR_VERSION"}
+    if extra_env:
+        env.update(extra_env)
     cmd = [
         POWERSHELL_BIN,
         "-NoProfile",
@@ -225,30 +231,39 @@ def test_pre_tool_guard_enforces_git_and_readonly_agent_rules(
 def test_pre_invocation_detects_external_spec_and_comment_changes(tmp_path: Path) -> None:
     """Verify pre-invocation skips substeps and emits a notice on turn start when spec.md changes."""
     spec_path = _seed_flow_workspace(tmp_path)
-    first = _run_hook(PRE_INVOCATION_SH, "agy", {"invocationNum": 0, "workspacePaths": [str(tmp_path)]})
+    rt_env = {"FLOW_RUNTIME_DIR": str(tmp_path / "rt")}
+    payload_turn = {"invocationNum": 0, "workspacePaths": [str(tmp_path)]}
+    first = _run_hook(PRE_INVOCATION_SH, "agy", payload_turn, extra_env=rt_env)
     assert first == {}
 
-    second = _run_hook(PRE_INVOCATION_SH, "agy", {"invocationNum": 0, "workspacePaths": [str(tmp_path)]})
+    second = _run_hook(PRE_INVOCATION_SH, "agy", payload_turn, extra_env=rt_env)
     assert second == {}
 
     spec_path.write_text(
         spec_path.read_text(encoding="utf-8").replace("Initial objective.", "Updated objective from Studio UI."),
         encoding="utf-8",
     )
-    substep = _run_hook(PRE_INVOCATION_SH, "agy", {"invocationNum": 1, "workspacePaths": [str(tmp_path)]})
+    substep = _run_hook(
+        PRE_INVOCATION_SH,
+        "agy",
+        {"invocationNum": 1, "workspacePaths": [str(tmp_path)]},
+        extra_env=rt_env,
+    )
     assert substep == {}
 
-    third = _run_hook(PRE_INVOCATION_SH, "agy", {"invocationNum": 0, "workspacePaths": [str(tmp_path)]})
+    third = _run_hook(PRE_INVOCATION_SH, "agy", payload_turn, extra_env=rt_env)
     msg = third["injectSteps"][0]["systemMessage"]["systemMessage"]
     assert "Flow Studio notice" in msg
     assert "spec.md" in msg
 
-    fourth = _run_hook(PRE_INVOCATION_SH, "agy", {"invocationNum": 0, "workspacePaths": [str(tmp_path)]})
+    fourth = _run_hook(PRE_INVOCATION_SH, "agy", payload_turn, extra_env=rt_env)
     assert fourth == {}
 
 
 def test_post_tool_telemetry_and_post_invocation_manage_live_state_cleanly(tmp_path: Path) -> None:
-    """Verify post-tool-telemetry and post-invocation update studio-live-state.json only in .agents repos."""
+    """Verify post-tool-telemetry and post-invocation write v1 studio-live-state.json into FLOW_RUNTIME_DIR."""
+    rt_dir = tmp_path / "rt"
+    rt_env = {"FLOW_RUNTIME_DIR": str(rt_dir)}
     non_flow_dir = tmp_path / "plain-repo"
     non_flow_dir.mkdir()
     assert (
@@ -256,6 +271,7 @@ def test_post_tool_telemetry_and_post_invocation_manage_live_state_cleanly(tmp_p
             POST_TOOL_TELEMETRY_SH,
             "agy",
             {"workspacePaths": [str(non_flow_dir)], "toolCall": {"name": "edit_file", "args": {"Path": "x.py"}}},
+            extra_env=rt_env,
         )
         == {}
     )
@@ -269,26 +285,60 @@ def test_post_tool_telemetry_and_post_invocation_manage_live_state_cleanly(tmp_p
         {
             "conversationId": "conv-abc-123",
             "workspacePaths": [str(flow_repo)],
-            "toolCall": {"name": "edit_file", "args": {"Path": "tools/catalog/service.py"}},
+            "toolCall": {
+                "name": "edit_file",
+                "args": {"Path": ".agents/bundles/specs/catalog-ui/chapters/ch01-core/tasks/t01-init.md"},
+            },
         },
+        extra_env=rt_env,
     )
     assert telemetry_out == {}
-    live_state_path = flow_repo / ".agents" / "studio-live-state.json"
-    assert live_state_path.is_file()
+    assert not (flow_repo / ".agents" / "studio-live-state.json").exists()
+    runtime_files = list(rt_dir.glob("*/studio-live-state.json"))
+    assert len(runtime_files) == 1
+    live_state_path = runtime_files[0]
     live_state = json.loads(live_state_path.read_text(encoding="utf-8"))
+    assert live_state["v"] == 1
     assert live_state["activeTurn"] is True
     assert live_state["harness"] == "agy"
+    assert live_state["conversationId"] == "conv-abc-123"
+    assert live_state["role"] == "coordinator"
+    assert live_state["flowId"] == "catalog-ui"
+    assert live_state["chapterId"] == "ch01-core"
+    assert live_state["taskIds"] == ["t01"]
+    assert live_state["worktree"] == flow_repo.as_posix()
+    assert "edit_file" in live_state["activity"]
     assert live_state["lastTool"] == "edit_file"
-    assert "tools/catalog/service.py" in live_state["lastFilePath"]
+    assert "t01-init.md" in live_state["lastFilePath"]
+
+    pre_inv_out = _run_hook(
+        PRE_INVOCATION_SH,
+        "agy",
+        {"invocationNum": 0, "conversationId": "conv-abc-123", "workspacePaths": [str(flow_repo)]},
+        extra_env=rt_env,
+    )
+    assert pre_inv_out == {}
+    after_pre = json.loads(live_state_path.read_text(encoding="utf-8"))
+    assert after_pre["v"] == 1
+    assert after_pre["flowId"] == "catalog-ui"
+    assert after_pre["chapterId"] == "ch01-core"
+    assert after_pre["taskIds"] == ["t01"]
 
     post_inv_out = _run_hook(
         POST_INVOCATION_SH,
         "agy",
         {"conversationId": "conv-abc-123", "workspacePaths": [str(flow_repo)]},
+        extra_env=rt_env,
     )
     assert post_inv_out == {}
     cleared_state = json.loads(live_state_path.read_text(encoding="utf-8"))
+    assert cleared_state["v"] == 1
     assert cleared_state["activeTurn"] is False
+    assert cleared_state["flowId"] == "catalog-ui"
+    assert cleared_state["chapterId"] == "ch01-core"
+    assert cleared_state["taskIds"] == ["t01"]
+    assert cleared_state["worktree"] == flow_repo.as_posix()
+    assert cleared_state["activity"] == live_state["activity"]
 
 
 def test_antigravity_hooks_and_workflows_manifests_are_valid() -> None:

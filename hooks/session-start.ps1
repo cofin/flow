@@ -46,9 +46,15 @@ try {
 
 $IsSubagent = $false
 $ConvId = ""
+$ParentConvId = ""
 if (-not [string]::IsNullOrWhiteSpace($StdinPayload)) {
-    if ([regex]::IsMatch($StdinPayload, '"parentConversationId"\s*:\s*"[^"]+"')) {
-        $IsSubagent = $true
+    foreach ($pPat in @('"parentConversationId"\s*:\s*"([^"]+)"', '"parent_conversation_id"\s*:\s*"([^"]+)"')) {
+        $pm = [regex]::Match($StdinPayload, $pPat)
+        if ($pm.Success) {
+            $IsSubagent = $true
+            $ParentConvId = $pm.Groups[1].Value
+            break
+        }
     }
     foreach ($convPat in @('"conversationId"\s*:\s*"([^"]+)"', '"session_id"\s*:\s*"([^"]+)"', '"conversation_id"\s*:\s*"([^"]+)"')) {
         $cm = [regex]::Match($StdinPayload, $convPat)
@@ -165,8 +171,42 @@ if ($IsSubagent) {
             New-Item -ItemType Directory -Path $leaseDir -Force | Out-Null
         }
         $safeConv = if (-not [string]::IsNullOrEmpty($ConvId)) { [regex]::Replace($ConvId, '[^A-Za-z0-9._-]', '_') } else { "pid-$PID" }
+        $leaseConv = if (-not [string]::IsNullOrEmpty($ConvId)) { $ConvId } else { $safeConv }
+        $normWt = ($ProjectDir -replace '\\', '/').TrimEnd('/')
+        $leaseFlowId = ""
+        $leaseChId = ""
+        $specsScanDir = Join-Path $EffectiveRoot "$BundleRel/specs"
+        if (Test-Path -LiteralPath $specsScanDir -PathType Container) {
+            foreach ($sDir in @(Get-ChildItem -LiteralPath $specsScanDir -Directory -ErrorAction SilentlyContinue | Sort-Object Name)) {
+                $sf = Join-Path $sDir.FullName "spec.md"
+                if (-not (Test-Path -LiteralPath $sf -PathType Leaf)) { continue }
+                $rawSf = Get-Content -LiteralPath $sf -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
+                if ($rawSf -match '(?m)^state:\s*(active|in_progress)\b') {
+                    $mFid = [regex]::Match($rawSf, '(?m)^flow_id:\s*["'']?([^"''\r\n]+)')
+                    $leaseFlowId = if ($mFid.Success) { $mFid.Groups[1].Value.Trim() } else { $sDir.Name }
+                    $mCh = [regex]::Match($rawSf, '(?m)^current_chapter:\s*["'']?([^"''\r\n#]+)')
+                    if ($mCh.Success -and $mCh.Groups[1].Value.Trim() -ne "null") {
+                        $leaseChId = $mCh.Groups[1].Value.Trim()
+                    }
+                    break
+                }
+            }
+        }
         $epochNow = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds().ToString()
-        Set-Content -LiteralPath (Join-Path $leaseDir "$safeConv.lease") -Value $epochNow -Encoding UTF8 -ErrorAction SilentlyContinue
+        $metaJson = [ordered]@{
+            v = 1
+            harness = $Harness
+            conversation_id = $leaseConv
+            parent_conversation_id = $ParentConvId
+            workspace = $normRoot
+            worktree = $normWt
+            role = "flow-subagent"
+            flow_id = $leaseFlowId
+            chapter_id = $leaseChId
+            task_ids = @()
+        } | ConvertTo-Json -Compress
+        $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+        [System.IO.File]::WriteAllText((Join-Path $leaseDir "$safeConv.lease"), "$epochNow`n$metaJson`n", $utf8NoBom)
     } catch {}
     if (Test-Path -LiteralPath (Join-Path $EffectiveRoot ".agents") -PathType Container) {
         $BaseMsg = "Flow subagent context: bundle root $EffectiveRoot/$BundleRel. Stay strictly within your assigned Bounded Read Manifest."

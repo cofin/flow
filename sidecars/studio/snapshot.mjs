@@ -16,6 +16,111 @@ const TRUTH_RE = /<!--\s*truth:\s*start\s*-->([\s\S]*?)<!--\s*truth:\s*end\s*-->
 const CHECKLIST_RE = /^\s*-\s*\[( |~|x|!|-)\]\s*(?:\[([0-9a-f]{6,40})\]\s*)?(.*)$/i;
 const HEADING_RE = /^(#{1,4})\s+(.+?)\s*$/;
 const VALID_SLUG_RE = /^[a-z0-9][a-z0-9-]{1,62}$/;
+const LIVE_STATE_TTL_MS = 10 * 60 * 1000;
+const KNOWN_CLAIM_HARNESSES = new Set(["agy", "claude", "codex", "cursor", "opencode", "vscode", "cli"]);
+
+/**
+ * Parse the shared v1 `claimed_by` format `<harness>:<session_id>[:<role_or_worktree>]`
+ * while preserving legacy free-form claim strings.
+ *
+ * @param {unknown} raw
+ */
+export function parseClaimIdentity(raw) {
+  if (typeof raw !== "string") return null;
+  const text = raw.trim().replace(/^['"]|['"]$/g, "");
+  if (!text || text === "null") return null;
+  const parts = text.split(":").map((part) => part.trim());
+  if (parts.length >= 2 && KNOWN_CLAIM_HARNESSES.has(parts[0].toLowerCase()) && parts[1]) {
+    return {
+      raw: text,
+      structured: true,
+      harness: parts[0].toLowerCase(),
+      sessionId: parts[1],
+      role: parts.slice(2).join(":") || null,
+    };
+  }
+  return {
+    raw: text,
+    structured: false,
+    harness: null,
+    sessionId: null,
+    role: parts.length >= 2 ? parts.slice(1).join(":") : text,
+  };
+}
+
+/**
+ * Resolve the ephemeral runtime base directory (`FLOW_RUNTIME_DIR` or `$TMPDIR/flow-runtime`).
+ *
+ * @param {Record<string, string | undefined>} [env]
+ */
+export function runtimeBaseDir(env = process.env) {
+  const explicit = String(env.FLOW_RUNTIME_DIR || "").trim().replace(/[/\\]+$/, "");
+  if (explicit) return explicit;
+  const rawTmp = String(env.TMPDIR || "").trim().replace(/[/\\]+$/, "") || os.tmpdir().replace(/[/\\]+$/, "") || "/tmp";
+  return path.join(rawTmp, "flow-runtime");
+}
+
+/**
+ * Derive the sanitized workspace runtime directory key matching hooks and workflows.
+ *
+ * @param {string} workspacePath
+ */
+export function workspaceRuntimeId(workspacePath) {
+  const norm = String(workspacePath || "")
+    .replace(/\\/g, "/")
+    .replace(/\/+$/, "");
+  const cleaned = norm.replace(/[^A-Za-z0-9._-]/g, "_");
+  const tail = cleaned.length > 120 ? cleaned.slice(cleaned.length - 120) : cleaned;
+  return tail || "default";
+}
+
+/**
+ * Read live telemetry heartbeat from the workspace runtime directory with legacy `.agents/` fallback,
+ * marking heartbeats older than 10 minutes as expired.
+ *
+ * @param {string} workspaceRoot
+ * @param {{ agentsDir?: string, env?: Record<string, string | undefined>, nowMs?: number }} [options]
+ */
+export function readStudioLiveState(workspaceRoot, { agentsDir, env = process.env, nowMs = Date.now() } = {}) {
+  const rtBase = runtimeBaseDir(env);
+  const wsId = workspaceRuntimeId(workspaceRoot);
+  const candidates = [path.join(rtBase, wsId, "studio-live-state.json")];
+  if (agentsDir) {
+    candidates.push(path.join(agentsDir, "studio-live-state.json"));
+  }
+  const localLegacy = path.join(path.resolve(workspaceRoot), ".agents", "studio-live-state.json");
+  if (!candidates.includes(localLegacy)) {
+    candidates.push(localLegacy);
+  }
+
+  for (const stateFile of candidates) {
+    let stat;
+    try {
+      stat = fs.statSync(stateFile);
+    } catch {
+      continue;
+    }
+    if (!stat.isFile()) continue;
+    const raw = readJsonIfExists(stateFile);
+    if (!raw || typeof raw !== "object") continue;
+
+    const updatedIso = typeof raw.updatedAt === "string" && raw.updatedAt.trim() ? raw.updatedAt.trim() : stat.mtime.toISOString();
+    const updatedMs = Date.parse(updatedIso);
+    const effectiveMs = Number.isFinite(updatedMs) ? updatedMs : stat.mtimeMs;
+    const ageMs = nowMs - effectiveMs;
+    const fresh = Number.isFinite(ageMs) && ageMs <= LIVE_STATE_TTL_MS;
+
+    return {
+      ...raw,
+      v: typeof raw.v === "number" ? raw.v : 1,
+      updatedAt: updatedIso,
+      fresh,
+      activeTurn: Boolean(raw.activeTurn) && fresh,
+      sourcePath: stateFile,
+    };
+  }
+  return null;
+}
 
 /**
  * Parse YAML frontmatter and body from an OKF or Flow Markdown document.
@@ -205,12 +310,18 @@ function readTaskWorksheet(taskFile, workspaceRoot) {
   const files = Array.isArray(frontmatter.files) ? frontmatter.files.map(String) : [];
   const readSet = Array.isArray(frontmatter.read_set) ? frontmatter.read_set.map(String) : [];
 
+  const claimedBy = frontmatter.claimed_by ? String(frontmatter.claimed_by) : null;
+  const claimedAt = frontmatter.claimed_at ? String(frontmatter.claimed_at) : null;
+
   return {
     id,
     shortId,
     slug: fileBase,
     title,
     state,
+    claimedBy,
+    claimedAt,
+    claimIdentity: parseClaimIdentity(claimedBy),
     commitSha: frontmatter.commit_sha || frontmatter.commit || null,
     verificationStrategy: frontmatter.verification_strategy || frontmatter.verification || null,
     files,
@@ -366,7 +477,7 @@ export class BundleSnapshotBuilder {
     const bundleRoot = path.join(agentsBaseRoot, bundleRel);
     const hasBundle = fs.existsSync(bundleRoot);
     const pythonInfo = detectWorkspacePython(worktree.mainWorktree && !fs.existsSync(path.join(root, ".venv")) ? worktree.mainWorktree : root);
-    const liveState = readJsonIfExists(path.join(agentsDir, "studio-live-state.json"));
+    const liveState = readStudioLiveState(agentsBaseRoot, { agentsDir });
     const reviewStore = new ReviewCommentsStore(root);
     const commentCounts = reviewStore.countByRelPath();
 
