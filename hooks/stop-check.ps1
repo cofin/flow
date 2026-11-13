@@ -213,11 +213,12 @@ if (Test-Path -LiteralPath $SubagentLeaseDir -PathType Container) {
 }
 
 if (-not [string]::IsNullOrEmpty($ConvId)) {
-    foreach ($liveCand in @((Join-Path $EffectiveRoot ".agents/studio-live-state.json"), (Join-Path $ProjectDir ".agents/studio-live-state.json"))) {
+    $runtimeLiveState = Join-Path (Split-Path -Parent $SubagentLeaseDir) "studio-live-state.json"
+    foreach ($liveCand in @($runtimeLiveState, (Join-Path $EffectiveRoot ".agents/studio-live-state.json"), (Join-Path $ProjectDir ".agents/studio-live-state.json"))) {
         if (Test-Path -LiteralPath $liveCand -PathType Leaf) {
             try {
                 $item = Get-Item -LiteralPath $liveCand
-                if (([DateTime]::UtcNow - $item.LastWriteTimeUtc).TotalSeconds -le 900) {
+                if (([DateTime]::UtcNow - $item.LastWriteTimeUtc).TotalSeconds -le 600) {
                     $liveRaw = Get-Content -LiteralPath $liveCand -Raw -Encoding UTF8
                     $isAct = [regex]::IsMatch($liveRaw, '"activeTurn"\s*:\s*true')
                     $cm = [regex]::Match($liveRaw, '"conversationId"\s*:\s*"([^"]*)"')

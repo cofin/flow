@@ -68,7 +68,7 @@ mismatch_classes:
 
 ## Phase 2: Claim Chapter & Dispatch Chapter-Batch `@executor` (`1–4` Tasks Max)
 
-1. Mark the active chapter `- [~] <ch_id>` in root `specs/<flow_id>/spec.md` (`state: active`, `current_chapter: <ch_id>`) and claim ready tasks (`state: in_progress`, `claimed_by`, `claimed_at`, `current_task: <id>`, checklist `- [~] <id> — ...`).
+1. Mark the active chapter `- [~] <ch_id>` in root `specs/<flow_id>/spec.md` (`state: active`, `current_chapter: <ch_id>`) and claim ready tasks (`state: in_progress`, `claimed_by: <harness>:<session_id>[:<role_or_worktree>]` where `<harness> ∈ {agy, claude, codex, cursor, opencode, vscode, cli}`, `claimed_at: <ISO-8601 UTC>`, `current_task: <id>`, checklist `- [~] <id> — ...`); reset both `claimed_by: null` and `claimed_at: null` when releasing a claim back to `pending` or completing a task.
 2. **Chapter-Batch Dispatch (Default) vs. Disjoint Per-Task Isolation**:
    - **Default (`execution_mode: "chapter_batch"`)**: Dispatch **one warm `@executor` subagent turn** for the active chapter's `1–4` task blueprints so shared production and test files are read and edited in a single coherent pass and validated **once** with the chapter's `< 60s` Fast Chapter Gate.
    - **Per-Task Isolation (`execution_mode: "per_task"`)**: Use sequential per-task `@executor` turns only when a specific `[task_id]` was requested or tasks span disjoint subsystems with non-overlapping `read_set`s.

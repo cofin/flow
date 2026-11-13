@@ -605,3 +605,108 @@ def test_bundle_snapshot_surfaces_degraded_planning_and_resolves_linked_worktree
     assert snap["specs"][0]["planningDegradedReason"] == "429 quota fallback"
     assert snap["specs"][0]["plannedWithModel"] == "flash"
     assert payload["docTitle"] == "Idempotent Webhook Ingestion"
+
+
+@pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
+def test_studio_snapshot_reads_runtime_heartbeat_ttl_and_claim_identity(tmp_path: Path) -> None:
+    """Verify readStudioLiveState enforces 10-minute expiration with runtime/legacy fallback and parses claims."""
+    assert NODE_BIN is not None
+    ws = _seed_studio_workspace(tmp_path)
+    t02_path = (
+        ws
+        / ".agents"
+        / "bundles"
+        / "specs"
+        / "idempotent-webhooks"
+        / "chapters"
+        / "ch01-dedup-store"
+        / "tasks"
+        / "t02-idempotency.md"
+    )
+    t02_path.write_text(
+        "---\n"
+        "type: Task\n"
+        "id: idempotent-webhooks:ch01:t02\n"
+        "state: in_progress\n"
+        "claimed_by: agy:conv-coord-99:executor\n"
+        "claimed_at: 2026-11-13T16:55:00Z\n"
+        "---\n\n"
+        "# Enforce unique idempotency key\n",
+        encoding="utf-8",
+    )
+
+    rt_dir = tmp_path / "rt"
+    snap_uri = (REPO_ROOT / "sidecars" / "studio" / "snapshot.mjs").as_uri()
+    js = (
+        "import fs from 'node:fs';"
+        "import path from 'node:path';"
+        f"import {{ BundleSnapshotBuilder, readStudioLiveState, workspaceRuntimeId }} from {json.dumps(snap_uri)};"
+        f"const ws = {json.dumps(str(ws))};"
+        f"const rt = {json.dumps(str(rt_dir))};"
+        "const wsId = workspaceRuntimeId(ws);"
+        "const rtFile = path.join(rt, wsId, 'studio-live-state.json');"
+        "fs.mkdirSync(path.dirname(rtFile), { recursive: true });"
+        "const now = Date.now();"
+        "const freshPayload = {"
+        "  v: 1,"
+        "  updatedAt: new Date(now - 2 * 60 * 1000).toISOString(),"
+        "  activeTurn: true,"
+        "  harness: 'agy',"
+        "  conversationId: 'conv-1',"
+        "  role: 'coordinator',"
+        "  flowId: 'idempotent-webhooks',"
+        "  chapterId: 'ch01-dedup-store',"
+        "  taskIds: ['t02'],"
+        "  worktree: ws,"
+        "  activity: 'edit_file t02',"
+        "};"
+        "fs.writeFileSync(rtFile, JSON.stringify(freshPayload));"
+        "const readOpts = { agentsDir: path.join(ws, '.agents'), env: { FLOW_RUNTIME_DIR: rt }, nowMs: now };"
+        "const freshState = readStudioLiveState(ws, readOpts);"
+        "const expiredPayload = {"
+        "  v: 1,"
+        "  updatedAt: new Date(now - 11 * 60 * 1000).toISOString(),"
+        "  activeTurn: true,"
+        "  harness: 'agy',"
+        "  conversationId: 'conv-1',"
+        "};"
+        "fs.writeFileSync(rtFile, JSON.stringify(expiredPayload));"
+        "const expiredState = readStudioLiveState(ws, readOpts);"
+        "fs.unlinkSync(rtFile);"
+        "const legacyPayload = {"
+        "  updatedAt: new Date(now - 30 * 1000).toISOString(),"
+        "  activeTurn: true,"
+        "  harness: 'claude',"
+        "  conversationId: 'conv-legacy',"
+        "};"
+        "fs.writeFileSync(path.join(ws, '.agents', 'studio-live-state.json'), JSON.stringify(legacyPayload));"
+        "const legacyState = readStudioLiveState(ws, readOpts);"
+        "const snap = BundleSnapshotBuilder.build(ws);"
+        "process.stdout.write(JSON.stringify({ freshState, expiredState, legacyState, snap }) + '\\n');"
+    )
+    proc = subprocess.run(
+        [NODE_BIN, "--input-type=module", "-e", js],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    data = json.loads(proc.stdout.strip().splitlines()[-1])
+    assert data["freshState"]["fresh"] is True
+    assert data["freshState"]["activeTurn"] is True
+    assert data["freshState"]["flowId"] == "idempotent-webhooks"
+    assert data["expiredState"]["fresh"] is False
+    assert data["expiredState"]["activeTurn"] is False
+    assert data["legacyState"]["fresh"] is True
+    assert data["legacyState"]["conversationId"] == "conv-legacy"
+
+    tasks = data["snap"]["specs"][0]["chapters"][0]["tasks"]
+    t02 = next(t for t in tasks if t["shortId"] == "t02")
+    assert t02["claimedBy"] == "agy:conv-coord-99:executor"
+    assert t02["claimedAt"] == "2026-11-13T16:55:00Z"
+    assert t02["claimIdentity"] == {
+        "raw": "agy:conv-coord-99:executor",
+        "structured": True,
+        "harness": "agy",
+        "sessionId": "conv-coord-99",
+        "role": "executor",
+    }

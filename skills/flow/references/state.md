@@ -110,11 +110,15 @@ tests: [tests/auth/test_middleware.py]
 estimated_loc: 140
 plan_revision: 1
 plan_commit: 8775d6c
+claimed_by: null
+claimed_at: null
 commit: null
 sources: [{ id: auth-mw, resource: src/auth/middleware.py::AuthMiddleware, title: Request middleware }]
 tags: [feature, auth, tdd]
 ---
 ```
+
+- **Structured Task Claim Identity**: When claiming a task (`state: in_progress`), stamp `claimed_by: <harness>:<session_id>[:<role_or_worktree>]` (`<harness> ∈ {agy, claude, codex, cursor, opencode, vscode, cli}`) and `claimed_at: <ISO-8601 UTC>`. Reset both `claimed_by` and `claimed_at` to `null` when releasing a claim back to `pending` or completing the task.
 
 - **Full Task Blueprint Headings (`worksheet_format: full` — `Medium` & `Large` Tiers)**:
   1. `## Objective & Scope Boundary`

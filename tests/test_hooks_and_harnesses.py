@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import json
 import os
 import shutil
@@ -1399,6 +1400,20 @@ def test_stop_hook_subagent_lease_and_live_telemetry_downgrade(tmp_path: Path) -
         },
         extra_env=env,
     )
+    lease_files = list(runtime_dir.glob("*/subagents/sub-1.lease"))
+    assert len(lease_files) == 1
+    lease_lines = lease_files[0].read_text(encoding="utf-8").splitlines()
+    assert len(lease_lines) == 2
+    assert lease_lines[0].isdigit()
+    lease_meta = json.loads(lease_lines[1])
+    assert lease_meta["v"] == 1
+    assert lease_meta["harness"] == "agy"
+    assert lease_meta["conversation_id"] == "sub-1"
+    assert lease_meta["parent_conversation_id"] == "coord-1"
+    assert lease_meta["workspace"] == tmp_path.as_posix()
+    assert lease_meta["worktree"] == tmp_path.as_posix()
+    assert lease_meta["role"] == "flow-subagent"
+    assert lease_meta["task_ids"] == []
     assert (
         _run_sh_hook(
             STOP_HOOK_SCRIPT,
@@ -1428,6 +1443,22 @@ def test_stop_hook_subagent_lease_and_live_telemetry_downgrade(tmp_path: Path) -
     assert resumed["decision"] == "continue"
     assert "all 2 task(s) are done" in resumed["reason"]
 
+    runtime_live_state = lease_files[0].parent.parent / "studio-live-state.json"
+    runtime_live_state.write_text(
+        json.dumps({"v": 1, "activeTurn": True, "conversationId": "sub-rt"}),
+        encoding="utf-8",
+    )
+    assert (
+        _run_sh_hook(
+            STOP_HOOK_SCRIPT,
+            "agy",
+            {"workspacePaths": [str(tmp_path)], "conversationId": "coord-1"},
+            extra_env=env,
+        )
+        == {}
+    )
+    runtime_live_state.unlink()
+
     live_state = tmp_path / ".agents" / "studio-live-state.json"
     live_state.write_text(
         json.dumps({"activeTurn": True, "conversationId": "sub-2"}),
@@ -1449,3 +1480,53 @@ def test_stop_hook_subagent_lease_and_live_telemetry_downgrade(tmp_path: Path) -
         extra_env=env,
     )
     assert self_turn["decision"] == "continue"
+
+
+def test_flow_chapter_pipeline_lease_writes_v1_two_line_metadata(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Verify workflows/flow-chapter-pipeline/workflow.py writes a two-line v1 .lease file."""
+    wf_path = REPO_ROOT / "workflows" / "flow-chapter-pipeline" / "workflow.py"
+    source = wf_path.read_text(encoding="utf-8")
+    tree = ast.parse(source, filename=str(wf_path))
+    helper_nodes: list[ast.stmt] = [
+        node
+        for node in tree.body
+        if isinstance(node, (ast.Import, ast.ImportFrom))
+        or (
+            isinstance(node, ast.FunctionDef)
+            and node.name in {"_extract_task_ids", "_acquire_runtime_lease", "_release_runtime_lease"}
+        )
+    ]
+    helper_mod = ast.Module(body=helper_nodes, type_ignores=[])
+    ast.fix_missing_locations(helper_mod)
+
+    runtime_dir = tmp_path / "rt"
+    monkeypatch.setenv("FLOW_RUNTIME_DIR", str(runtime_dir))
+    monkeypatch.chdir(tmp_path)
+
+    namespace: dict[str, Any] = {
+        "__name__": "flow_chapter_pipeline_test",
+        "flow_id": "payments-v2",
+        "chapter_id": "ch02-webhooks",
+        "tasks": ["tasks/t01-handler.md", "tasks/t02-retry.md"],
+    }
+    exec(compile(helper_mod, str(wf_path), "exec"), namespace)
+    lease_path = namespace["_acquire_runtime_lease"]()
+    assert lease_path is not None
+    try:
+        lines = lease_path.read_text(encoding="utf-8").splitlines()
+        assert len(lines) == 2
+        assert lines[0].isdigit()
+        meta = json.loads(lines[1])
+        assert meta["v"] == 1
+        assert meta["harness"] == "agy"
+        assert meta["role"] == "flow-subagent"
+        assert meta["flow_id"] == "payments-v2"
+        assert meta["chapter_id"] == "ch02-webhooks"
+        assert meta["task_ids"] == ["t01", "t02"]
+        assert meta["workspace"] == tmp_path.as_posix()
+        assert meta["worktree"] == tmp_path.as_posix()
+    finally:
+        namespace["_release_runtime_lease"](lease_path)
+    assert not lease_path.exists()

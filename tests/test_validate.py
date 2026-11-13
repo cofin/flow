@@ -23,6 +23,7 @@ from tools.validate import (
     validate_lockfile,
     validate_manifests,
     validate_markdown_links,
+    validate_okf_bundle,
     validate_repository,
     validate_schema_cards,
     validate_skills,
@@ -454,3 +455,99 @@ def test_validate_hooks_rejects_wildcard_claude_post_tool_use(tmp_path: Path) ->
 
     errors = validate_hooks(tmp_path)
     assert "hooks/hooks-claude.json: wildcard PostToolUse matcher '*' is forbidden due to tool latency" in errors
+
+
+@pytest.mark.parametrize(
+    ("case_id", "claimed_by", "claimed_at", "expect_error_substring"),
+    (
+        ("structured-v1-claim", "agy:conv-coord-01:executor", "2026-11-13T16:00:00Z", ""),
+        ("legacy-freeform-claim", "alice", "2026-11-13T16:00:00Z", ""),
+        ("null-unclaimed", "null", "null", ""),
+        ("invalid-structured-missing-session", "claude:", "2026-11-13T16:00:00Z", "must match"),
+        ("invalid-claimed-at", "agy:conv-coord-01:executor", "not-an-iso-timestamp", "ISO-8601"),
+    ),
+)
+def test_validate_okf_bundle_checks_task_claim_identity_and_legacy_compat(
+    tmp_path: Path,
+    case_id: str,
+    claimed_by: str,
+    claimed_at: str,
+    expect_error_substring: str,
+) -> None:
+    """Verify validate_okf_bundle enforces structured claimed_by/claimed_at while allowing legacy claims."""
+    bundle = tmp_path / ".agents" / "bundles"
+    spec_dir = bundle / "specs" / "claim-check"
+    tasks_dir = spec_dir / "tasks"
+    tasks_dir.mkdir(parents=True)
+    (bundle / "index.md").write_text("---\nokf_version: '0.2'\nbundle: demo\n---\n\n# Demo\n", encoding="utf-8")
+    (spec_dir / "spec.md").write_text(
+        "---\n"
+        "type: Spec\n"
+        "flow_id: claim-check\n"
+        "title: Claim Check\n"
+        "description: Verify task claim fields.\n"
+        "status: stable\n"
+        "state: active\n"
+        "planning_quality: standard\n"
+        "planning_degraded_reason: null\n"
+        "has_chapters: false\n"
+        "plan_revision: 1\n"
+        "plan_commit: abc1234\n"
+        "sources:\n"
+        "  - id: src-1\n"
+        "    resource: tools/validate.py::main\n"
+        "    title: Validator\n"
+        "tags: [validation, telemetry]\n"
+        "---\n\n"
+        "<!-- truth: start -->\n- Check task claims[^src-1].\n<!-- truth: end -->\n\n"
+        "## 1. Specification, Context & Provenance\n\nContext[^src-1].\n\n"
+        "## 2. Requirements, Concrete Contracts & Architecture\n\nContracts.\n\n"
+        "## 3. Documentation & OKF Knowledge Plan\n\n[0/0 files documented]\n\n"
+        "## 4. Requirement-to-Task Traceability Matrix\n\nMatrix.\n\n"
+        "## 5. Implementation Plan\n\n- [~] t01 — Claim task (tasks/t01-claim.md)\n\n"
+        "## 6. Current State & Remaining Plan Snapshot\n\nActive.\n\n"
+        "[^src-1]: tools/validate.py::main\n",
+        encoding="utf-8",
+    )
+    (tasks_dir / "t01-claim.md").write_text(
+        "---\n"
+        "type: Task\n"
+        "id: claim-check:t01\n"
+        "title: Claim Task\n"
+        "description: Test claim fields.\n"
+        "status: stable\n"
+        "state: in_progress\n"
+        "priority: P1\n"
+        "verification_strategy: static_validation\n"
+        "worksheet_format: compact\n"
+        "depends_on: []\n"
+        "read_set: [tools/validate.py]\n"
+        "files: [tools/validate.py]\n"
+        "tests: [tests/test_validate.py]\n"
+        "estimated_loc: 20\n"
+        "plan_revision: 1\n"
+        "plan_commit: abc1234\n"
+        f"claimed_by: {claimed_by}\n"
+        f"claimed_at: {claimed_at}\n"
+        "commit: null\n"
+        "sources:\n"
+        "  - id: src-1\n"
+        "    resource: tools/validate.py::main\n"
+        "    title: Validator\n"
+        "tags: [validation]\n"
+        "---\n\n"
+        "## Objective & Scope Boundary\n\nScope.\n\n"
+        "## Bounded Read Manifest\n\n- tools/validate.py\n\n"
+        "## Contracts & Edge Cases\n\nContracts.\n\n"
+        "## Test Matrix\n\nMatrix.\n\n"
+        "## Verification\n\nCommand.\n\n"
+        "## Acceptance Criteria\n\nDone.\n\n"
+        "[^src-1]: tools/validate.py::main\n",
+        encoding="utf-8",
+    )
+
+    errors = validate_okf_bundle(bundle)
+    if expect_error_substring:
+        assert any(expect_error_substring in err for err in errors), f"[{case_id}] unexpected errors: {errors}"
+    else:
+        assert errors == [], f"[{case_id}] unexpected errors: {errors}"

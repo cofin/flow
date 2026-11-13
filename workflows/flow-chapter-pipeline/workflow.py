@@ -92,6 +92,18 @@ root_spec = bundle_root / "specs" / flow_id / "spec.md"
 quota_state = {"degraded": False}
 
 
+def _extract_task_ids(raw_tasks: list[Any]) -> list[str]:
+    """Extract normalized short task identifiers from task path or identifier strings."""
+    ids: list[str] = []
+    for item in raw_tasks:
+        name = Path(str(item)).name
+        stem = Path(str(item)).stem
+        task_id = name.split("-", 1)[0] if "-" in name else stem
+        if task_id:
+            ids.append(task_id)
+    return ids
+
+
 def _acquire_runtime_lease() -> Path | None:
     """Register an active workflow runtime lease for Stop-gate subagent coordination."""
     raw_tmp = os.environ.get("TMPDIR", "").rstrip("/\\") or tempfile.gettempdir().rstrip("/\\")
@@ -101,8 +113,24 @@ def _acquire_runtime_lease() -> Path | None:
     lease_dir = Path(rt_base) / ws_id / "subagents"
     try:
         lease_dir.mkdir(parents=True, exist_ok=True)
-        lease_path = lease_dir / f"workflow-{os.getpid()}.lease"
-        lease_path.write_text(f"{int(time.time())}\n", encoding="utf-8")
+        lease_id = f"workflow-{os.getpid()}"
+        lease_path = lease_dir / f"{lease_id}.lease"
+        meta = {
+            "v": 1,
+            "harness": "agy",
+            "conversation_id": lease_id,
+            "parent_conversation_id": "",
+            "workspace": norm_root,
+            "worktree": norm_root,
+            "role": "flow-subagent",
+            "flow_id": flow_id,
+            "chapter_id": chapter_id,
+            "task_ids": _extract_task_ids(list(tasks)),
+        }
+        lease_path.write_text(
+            f"{int(time.time())}\n{json.dumps(meta, separators=(',', ':'))}\n",
+            encoding="utf-8",
+        )
         return lease_path
     except OSError:
         return None

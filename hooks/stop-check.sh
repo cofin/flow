@@ -286,9 +286,10 @@ if [ -d "$SUBAGENT_LEASE_DIR" ]; then
 fi
 
 if [ -n "$CONV_ID" ]; then
-  for live_cand in "$EFFECTIVE_ROOT/.agents/studio-live-state.json" "$PROJECT_DIR/.agents/studio-live-state.json"; do
+  RUNTIME_LIVE_STATE="$(dirname "$SUBAGENT_LEASE_DIR")/studio-live-state.json"
+  for live_cand in "$RUNTIME_LIVE_STATE" "$EFFECTIVE_ROOT/.agents/studio-live-state.json" "$PROJECT_DIR/.agents/studio-live-state.json"; do
     [ -f "$live_cand" ] || continue
-    if [ -n "$(find "$live_cand" -mmin -15 2>/dev/null || true)" ]; then
+    if [ -n "$(find "$live_cand" -mmin -10 2>/dev/null || true)" ]; then
       LIVE_OTHER="$(awk -v self_conv="$CONV_ID" '
         { buf = buf " " $0 }
         END {
