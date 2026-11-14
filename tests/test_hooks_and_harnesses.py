@@ -479,6 +479,9 @@ STOP_BYPASS_AND_LEAF_CASES: tuple[tuple[str, str, dict[str, Any], dict[str, str]
     ("cursor-aborted-status", "cursor", {"status": "aborted"}, None),
     ("agy-leaf-subagent-parent-id", "agy", {"parentConversationId": "conv-parent-123"}, None),
     ("agy-leaf-subagent-prompt-path", "agy", {"lastUserInput": "Follow agents/executor.md for task t02"}, None),
+    ("agy-leaf-swarm-worker-prompt", "agy", {"lastUserInput": "[Flow Swarm Worker] Execute task t02 in share"}, None),
+    ("agy-leaf-swarm-runtime-agent", "agy", {"agentName": "runtime-executor"}, None),
+    ("agy-leaf-swarm-worker-env", "agy", {}, {"FLOW_SWARM_WORKER": "1"}),
 )
 
 

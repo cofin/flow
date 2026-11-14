@@ -146,7 +146,10 @@ if [ -n "$STDIN_PAYLOAD" ]; then
       if (match(buf, /"parentConversationId"[[:space:]]*:[[:space:]]*"[^"]+"/)) {
         leaf = 1
       }
-      if (match(buf, /"lastUserInput"[[:space:]]*:[[:space:]]*"[^"]*(agents\/(executor|researcher|code-reviewer|quality-reviewer|plan-generator)\.md|templates\/agent\/(plan|executor)-schema-card\.md|\.agents\/agents\/)/)) {
+      if (match(buf, /"agentName"[[:space:]]*:[[:space:]]*"runtime-[^"]+"/)) {
+        leaf = 1
+      }
+      if (match(buf, /"lastUserInput"[[:space:]]*:[[:space:]]*"[^"]*(agents\/(executor|researcher|code-reviewer|quality-reviewer|plan-generator)\.md|templates\/agent\/(plan|executor)-schema-card\.md|\.agents\/agents\/|\[Flow Swarm Worker\]|swarm-worker)/)) {
         leaf = 1
       }
 
@@ -169,6 +172,10 @@ if [ -n "$STDIN_PAYLOAD" ]; then
   if [ -z "$PROJECT_DIR" ] && [ -n "$DETECTED_PROJ" ]; then
     PROJECT_DIR="$DETECTED_PROJ"
   fi
+fi
+
+if [ "${FLOW_SWARM_WORKER:-0}" = "1" ]; then
+  IS_LEAF_SUBAGENT=1
 fi
 
 if [ -z "$PROJECT_DIR" ]; then
