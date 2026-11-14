@@ -47,6 +47,14 @@
       "executor_agent": {
         "type": "string",
         "description": "Optional custom agent profile for execution (default self)."
+      },
+      "reviewer_agent": {
+        "type": "string",
+        "description": "Optional custom agent profile for zero-context chapter review (default self)."
+      },
+      "fallback_model": {
+        "type": "string",
+        "description": "Optional quota fallback model tier (default flash)."
       }
     },
     "required": ["flow_id", "chapter_id", "tasks"]

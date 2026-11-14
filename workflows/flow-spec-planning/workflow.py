@@ -68,6 +68,8 @@ max_review_rounds = int(args.get("max_review_rounds", 1))
 preferred_planner_model = str(args.get("planner_model") or os.environ.get("FLOW_PLANNER_MODEL") or "inherit")
 preferred_reviewer_model = str(args.get("reviewer_model") or os.environ.get("FLOW_REVIEWER_MODEL") or "inherit")
 planner_agent = str(args.get("planner_agent") or os.environ.get("FLOW_PLANNER_AGENT") or "self")
+reviewer_agent = str(args.get("reviewer_agent") or os.environ.get("FLOW_REVIEWER_AGENT") or "self")
+planner_degraded_flag = bool(args.get("planner_degraded", False))
 planner_timeout_s = int(args.get("planner_timeout_seconds", 900))
 disk_idle_grace_s = int(args.get("disk_idle_grace_seconds", 90))
 reviewer_timeout_s = int(args.get("reviewer_timeout_seconds", 600))
@@ -84,9 +86,10 @@ validator_script = plugin_root / "tools" / "validate.py"
 flow_dir = bundle_root / "specs" / flow_id
 chapters_dir = flow_dir / "chapters"
 
-quota_state = {"degraded": preferred_planner_model in ("flash", "flash_lite")}
+_is_non_frontier = preferred_planner_model in ("flash", "flash_lite", "sonnet", "haiku") or planner_degraded_flag
+quota_state = {"degraded": _is_non_frontier}
 degraded_reasons: list[str] = []
-if preferred_planner_model in ("flash", "flash_lite"):
+if _is_non_frontier:
     degraded_reasons.append(f"configured planner_model={preferred_planner_model!r} instead of primary frontier model")
 
 
@@ -204,14 +207,14 @@ async def _invoke_planner(prompt: str, role: str, ch_ids: list[str]) -> dict:
     active_model = "flash" if quota_state["degraded"] else preferred_planner_model
     fallback_model = "flash" if active_model != "flash" else None
 
-    async def _call_model(target_model: str) -> dict:
+    async def _call_model(target_model: str, target_agent: str) -> dict:
         agent_fut = asyncio.ensure_future(
             with_budget(
                 agent(
                     prompt,
                     schema=PLANNER_SCHEMA,
                     role=role if target_model == preferred_planner_model else f"{role} ({target_model} fallback)",
-                    type_name=planner_agent,
+                    type_name=target_agent,
                     workspace="inherit",
                     model=target_model,
                 ),
@@ -249,7 +252,7 @@ async def _invoke_planner(prompt: str, role: str, ch_ids: list[str]) -> dict:
         }
 
     try:
-        return await _call_model(active_model)
+        return await _call_model(active_model, planner_agent)
     except BudgetExceeded as exc:
         reason = f"planner timed out ({exc})"
         degraded_reasons.append(f"{','.join(ch_ids)}: {reason}")
@@ -269,7 +272,7 @@ async def _invoke_planner(prompt: str, role: str, ch_ids: list[str]) -> dict:
             )
             degraded_reasons.append(q_reason)
             log(f"WARNING: {q_reason}")
-            out = await _call_model(fallback_model)
+            out = await _call_model(fallback_model, "self")
             out["degraded_reason"] = q_reason
             return out
         raise
@@ -474,20 +477,21 @@ try:
 
         async def _run_spec_reviewer(scope_name: str, prompt_text: str) -> dict:
             active_rev = "flash" if (quota_state["degraded"] and rev_model != "flash") else rev_model
+            active_rev_agent = "self" if quota_state["degraded"] else reviewer_agent
             try:
                 out = await with_budget(
                     agent(
                         prompt_text,
                         schema=REVIEW_SCHEMA,
                         role=f"Spec Review ({scope_name})",
-                        type_name="self",
+                        type_name=active_rev_agent,
                         workspace="inherit",
                         model=active_rev,
                     ),
                     max_tokens=200000 if scope_name == "combined" else 160000,
                     timeout=reviewer_timeout_s,
                 )
-                return {"scope": scope_name, "model_used": active_rev, **out}
+                return {"scope": scope_name, "agent_used": active_rev_agent, "model_used": active_rev, **out}
             except Exception as exc:
                 msg = str(exc).lower()
                 if active_rev != "flash" and any(m in msg for m in QUOTA_MARKERS):

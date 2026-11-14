@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import fnmatch
 import json
 import re
 import shutil
@@ -61,6 +62,7 @@ MAX_TASK_READ_SET = 6
 MAX_TASK_ESTIMATED_LOC = 250
 MAX_PLAN_SCHEMA_CARD_LINES = 120
 MAX_EXECUTOR_SCHEMA_CARD_LINES = 95
+MAX_CATALOG_OVERVIEW_BYTES = 120832
 SKILL_DESCRIPTION_PREFIX = "Use when"
 FORBIDDEN_SKILL_DESCRIPTION_TERMS = (
     "Auto-activate",
@@ -275,6 +277,11 @@ _FOOTNOTE_DEF_PATTERN = re.compile(r"^\[\^([A-Za-z0-9_-]+)\]:\s+.+$", re.MULTILI
 _TRUTH_START_PATTERN = re.compile(r"<!--\s*truth:\s*start\s*-->")
 _TRUTH_END_PATTERN = re.compile(r"<!--\s*truth:\s*end\s*-->")
 _BODY_HR_PATTERN = re.compile(r"^[ \t]*---[ \t]*$", re.MULTILINE)
+_ISO_UTC_OFFSET_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$")
+_CATALOG_SCOPE_SHORTHAND_PATTERN = re.compile(r"^(?:kb|entryGroup)\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[@a-zA-Z0-9_-]+$")
+_CATALOG_SCOPE_CANONICAL_PATTERN = re.compile(
+    r"^projects/[a-zA-Z0-9_-]+/locations/[a-zA-Z0-9_-]+/entryGroups/[@a-zA-Z0-9_-]+$"
+)
 _HISTORY_HEADING_PATTERN = re.compile(
     r"^[ \t]*#+[ \t]*(?:revision history|change history|changelog|decision history)(?:[ \t:]|$)",
     re.IGNORECASE | re.MULTILINE,
@@ -906,9 +913,15 @@ def validate_okf_bundle(
     errors.extend(_validate_bundle_symlinks(bundle_dir, project_root=project_root))
 
     target_flow = require_completed_flow or flow_id
+    effective_project = project_root or (bundle_dir.parent if bundle_dir.name == "bundle" else bundle_dir.parent.parent)
+    kc_cfg, kc_excludes, kc_errors = _load_knowledge_catalog_config(effective_project, bundle_dir)
+    errors.extend(kc_errors)
+    catalog_enabled = bool(kc_cfg.get("enabled"))
+    has_catalog_yaml = (effective_project / "catalog.yaml").is_file() or (bundle_dir / "catalog.yaml").is_file()
+
     root_index = bundle_dir / "index.md"
     if not root_index.is_file():
-        return [f"{bundle_dir}: missing root index.md"]
+        return [*errors, f"{bundle_dir}: missing root index.md"]
 
     root_fm, _ = _split_frontmatter(root_index.read_text(encoding="utf-8"))
     if root_fm is None:
@@ -916,7 +929,7 @@ def validate_okf_bundle(
     else:
         if str(root_fm.get("okf_version", "")) != "0.2":
             errors.append(f"{root_index}: okf_version must be '0.2'")
-        if not str(root_fm.get("bundle", "")).strip():
+        if not has_catalog_yaml and not str(root_fm.get("bundle", "")).strip():
             errors.append(f"{root_index}: missing 'bundle' key in root index.md")
 
     scan_paths: list[Path]
@@ -950,9 +963,17 @@ def validate_okf_bundle(
             errors.append(f"{rel}: missing YAML frontmatter")
             continue
 
-        errors.extend(_validate_concept_frontmatter_and_truth(rel, fm, body, project_root=project_root))
+        is_excluded = _is_catalog_excluded(md_path, bundle_dir, effective_project, fm, kc_excludes)
+        errors.extend(
+            _validate_concept_frontmatter_and_truth(
+                rel,
+                fm,
+                body,
+                project_root=project_root,
+                check_overview_budget=catalog_enabled and not is_excluded,
+            )
+        )
 
-    effective_project = project_root or bundle_dir.parent.parent
     git_root = _resolve_git_worktree_root(effective_project)
     sha_tracking = _read_sha_tracking_mode(effective_project)
     specs_dir = bundle_dir / "specs"
@@ -1355,12 +1376,123 @@ def _validate_bundle_body_hygiene_and_links(md_path: Path, rel: str, body: str) 
     return errors
 
 
+def _html_safe_json_byte_len(text: str) -> int:
+    """Measure UTF-8 byte length after HTML-safe JSON escaping matching Knowledge Catalog limits."""
+    escaped = (
+        json.dumps(text, ensure_ascii=False).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+    )
+    return len(escaped.encode("utf-8"))
+
+
+def _load_knowledge_catalog_config(
+    project_root: Path,
+    bundle_dir: Path,
+) -> tuple[dict[str, Any], list[str], list[str]]:
+    """Load and validate optional setup-state knowledge_catalog configuration and catalog.yaml excludes."""
+    errors: list[str] = []
+    kc_cfg: dict[str, Any] = {}
+    excludes: list[str] = []
+
+    setup_path = project_root / ".agents" / "setup-state.json"
+    if setup_path.is_file():
+        try:
+            raw_setup = json.loads(setup_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            errors.append(".agents/setup-state.json: invalid JSON")
+        else:
+            raw_kc = raw_setup.get("knowledge_catalog")
+            if raw_kc is not None:
+                if not isinstance(raw_kc, dict):
+                    errors.append(".agents/setup-state.json: knowledge_catalog must be a JSON object")
+                else:
+                    kc_cfg = raw_kc
+                    if "enabled" in kc_cfg and not isinstance(kc_cfg["enabled"], bool):
+                        errors.append(".agents/setup-state.json: knowledge_catalog.enabled must be a boolean")
+                    for key in ("project_id", "location", "entry_group"):
+                        if key in kc_cfg and kc_cfg[key] is not None:
+                            val = kc_cfg[key]
+                            if not isinstance(val, str) or not val.strip():
+                                errors.append(
+                                    f".agents/setup-state.json: knowledge_catalog.{key} must be a non-empty string"
+                                )
+                    layout = kc_cfg.get("content_layout")
+                    if layout is not None and layout not in ("progressive_disclosure", "okf"):
+                        errors.append(
+                            ".agents/setup-state.json: knowledge_catalog.content_layout must be "
+                            "'progressive_disclosure' or 'okf'"
+                        )
+                    extra_groups = kc_cfg.get("entry_groups")
+                    if extra_groups is not None and (
+                        not isinstance(extra_groups, list)
+                        or any(not isinstance(item, str) or not item.strip() for item in extra_groups)
+                    ):
+                        errors.append(
+                            ".agents/setup-state.json: knowledge_catalog.entry_groups must be a list of strings"
+                        )
+
+    for candidate in (project_root / "catalog.yaml", bundle_dir / "catalog.yaml"):
+        if not candidate.is_file():
+            continue
+        rel_yaml = (
+            candidate.relative_to(project_root).as_posix() if candidate.is_relative_to(project_root) else candidate.name
+        )
+        raw_yaml = candidate.read_text(encoding="utf-8")
+        yaml_fm, _ = _split_frontmatter(f"---\n{raw_yaml.strip()}\n---\n")
+        if yaml_fm is None:
+            errors.append(f"{rel_yaml}: invalid YAML mapping")
+            continue
+        scope_val = str(yaml_fm.get("scope") or "").strip()
+        if (
+            scope_val
+            and not _CATALOG_SCOPE_SHORTHAND_PATTERN.match(scope_val)
+            and not _CATALOG_SCOPE_CANONICAL_PATTERN.match(scope_val)
+        ):
+            errors.append(
+                f"{rel_yaml}: scope must match kb.<project>.<location>.<entry_group> or projects/.../entryGroups/..."
+            )
+        yaml_layout = str(yaml_fm.get("layout") or "").strip()
+        if yaml_layout and yaml_layout not in ("okf", "progressive_disclosure"):
+            errors.append(f"{rel_yaml}: layout must be 'okf' or 'progressive_disclosure'")
+        raw_ex = yaml_fm.get("catalog_exclude") if "catalog_exclude" in yaml_fm else yaml_fm.get("exclude")
+        if isinstance(raw_ex, list):
+            for pat in raw_ex:
+                cleaned = str(pat).strip().lstrip("/")
+                if cleaned and cleaned not in excludes:
+                    excludes.append(cleaned)
+
+    return kc_cfg, excludes, errors
+
+
+def _is_catalog_excluded(
+    md_path: Path,
+    bundle_dir: Path,
+    project_root: Path,
+    fm: dict[str, Any],
+    excludes: list[str],
+) -> bool:
+    """Return True when frontmatter, glob rules, or a .kc-no-export marker exclude md_path from catalog sync."""
+    if fm.get("catalog_publish") is False or str(fm.get("catalog_publish", "")).strip().lower() == "false":
+        return True
+    cur = md_path.parent
+    bundle_res = bundle_dir.resolve()
+    while True:
+        if (cur / ".kc-no-export").exists():
+            return True
+        if cur.resolve() == bundle_res or cur.parent == cur:
+            break
+        cur = cur.parent
+    rel_bundle = md_path.relative_to(bundle_dir).as_posix()
+    rel_proj = md_path.relative_to(project_root).as_posix() if md_path.is_relative_to(project_root) else rel_bundle
+    return any(fnmatch.fnmatch(rel_bundle, pat) or fnmatch.fnmatch(rel_proj, pat) for pat in excludes)
+
+
 def _validate_concept_frontmatter_and_truth(
     rel: str,
     fm: dict[str, Any],
     body: str,
     *,
     project_root: Path | None = None,
+    check_overview_budget: bool = False,
 ) -> list[str]:
     """Validate OKF v0.2 concept frontmatter, status/tags invariants, truth blocks, footnotes, and Spec/Task bodies."""
     errors: list[str] = []
@@ -1376,6 +1508,23 @@ def _validate_concept_frontmatter_and_truth(
             errors.append(
                 f"{rel}: invalid OKF status {status_val!r} (must be one of {sorted(OKF_DOCUMENT_STATUSES)}; "
                 "workflow execution state belongs in 'state')"
+            )
+
+    if "stale_after" in fm and fm["stale_after"] is not None:
+        stale_val = str(fm.get("stale_after", "")).strip()
+        if stale_val and not _ISO_UTC_OFFSET_PATTERN.match(stale_val):
+            errors.append(
+                f"{rel}: stale_after {stale_val!r} must use full ISO-8601 timestamp with UTC offset "
+                "(YYYY-MM-DDTHH:MM:SSZ or ±HH:MM)"
+            )
+
+    if check_overview_budget:
+        byte_len = _html_safe_json_byte_len(body.strip())
+        if byte_len > MAX_CATALOG_OVERVIEW_BYTES:
+            h2s = re.findall(r"^##\s+(.+)$", body, re.MULTILINE)[:5]
+            hint = f" Split on ## headings: {', '.join(h2s)}." if h2s else ""
+            errors.append(
+                f"{rel}: body exceeds {MAX_CATALOG_OVERVIEW_BYTES} HTML-safe JSON-escaped bytes ({byte_len}).{hint}"
             )
 
     if "planning_quality" in fm and fm["planning_quality"] is not None:

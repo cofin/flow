@@ -23,9 +23,17 @@
         "type": "string",
         "description": "Preferred model option for scouts (default flash)."
       },
+      "narrow_model": {
+        "type": "string",
+        "description": "Optional faster model option for narrow <=3-file scouts (default flash_lite fallback)."
+      },
       "scout_agent": {
         "type": "string",
-        "description": "Optional pinned agent profile name (default self)."
+        "description": "Optional pinned agent profile name for heavy scouts (default self)."
+      },
+      "narrow_agent": {
+        "type": "string",
+        "description": "Optional pinned agent profile name for narrow <=3-file scouts (defaults to scout_agent)."
       },
       "timeout_seconds": {
         "type": "integer",

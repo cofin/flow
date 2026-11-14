@@ -27,6 +27,7 @@ It combines four operations into a single coherent workflow that can run **at an
 3. **Manifest & Command Surface Drift**:
    - Compare `pyproject.toml`, `Cargo.toml`, `package.json`, `go.mod`, `Makefile`, and `.github/workflows/*.yml` against `.agents/bundles/product/{product,product-guidelines,tech-stack}.md` and `.agents/bundles/knowledge/workflow.md`.
    - Probe installed host binaries (`uv`, `python3`, `cargo`, `go`, `bun`, `pnpm`, `npm`, `make`, `just`, `pwsh`, `powershell`) so `knowledge/workflow.md` only documents commands that execute cleanly.
+   - When `.agents/setup-state.json` declares `knowledge_catalog.enabled: true` (or `catalog.yaml` is present), compare current OKF bundle files against `knowledge_catalog.last_synced_sha256` and report any Knowledge Catalog ingestion drift in the True-Up Dashboard.
 
 ## Phase 2: Subagent-Sharded Domain Modeling & OKF v0.2 Knowledge Resynthesis
 

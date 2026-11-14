@@ -487,7 +487,7 @@ wheels = [
 
 [[package]]
 name = "flow"
-version = "0.29.1"
+version = "0.30.1"
 source = { editable = "." }
 
 [package.dev-dependencies]

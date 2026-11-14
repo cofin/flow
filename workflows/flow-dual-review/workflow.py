@@ -48,6 +48,11 @@ spec_path = str(args.get("spec_path", ""))
 review_mode = str(args.get("review_mode", "dual"))
 timeout_seconds = int(args.get("timeout_seconds", 600))
 preferred_review_model = str(args.get("reviewer_model") or os.environ.get("FLOW_REVIEWER_MODEL") or "inherit")
+fallback_model = str(args.get("fallback_model") or os.environ.get("FLOW_FALLBACK_MODEL") or "flash")
+code_reviewer_agent = str(args.get("code_reviewer_agent") or os.environ.get("FLOW_REVIEWER_AGENT") or "self")
+quality_reviewer_agent = str(
+    args.get("quality_reviewer_agent") or os.environ.get("FLOW_QUALITY_REVIEWER_AGENT") or code_reviewer_agent
+)
 
 plugin_root = Path(str(args.get("plugin_root") or os.environ.get("FLOW_PLUGIN_ROOT") or Path.cwd()))
 if not (plugin_root / "agents" / "code-reviewer.md").is_file():
@@ -93,41 +98,42 @@ def _release_runtime_lease(lease_path: Path | None) -> None:
         pass
 
 
-async def _run_reviewer(role_id: str, card_title: str, model_tier: str, prompt: str) -> dict:
-    """Run one zero-context reviewer on Pro/inherit first, falling back to flash only on quota exhaustion."""
-    active_model = "flash" if (quota_state["degraded"] and model_tier != "flash") else model_tier
+async def _run_reviewer(role_id: str, card_title: str, model_tier: str, agent_name: str, prompt: str) -> dict:
+    """Run one zero-context reviewer on the resolved profile first, falling back only on quota exhaustion."""
+    active_model = fallback_model if (quota_state["degraded"] and model_tier != fallback_model) else model_tier
+    active_agent = "self" if quota_state["degraded"] else agent_name
     try:
         out = await with_budget(
             agent(
                 prompt,
                 schema=REVIEW_SCHEMA,
                 role=card_title,
-                type_name="self",
+                type_name=active_agent,
                 workspace="inherit",
                 model=active_model,
             ),
             max_tokens=200000,
             timeout=timeout_seconds,
         )
-        return {"reviewer": role_id, "model_used": active_model, **out}
+        return {"reviewer": role_id, "agent_used": active_agent, "model_used": active_model, **out}
     except Exception as exc:
         msg = str(exc).lower()
-        if active_model != "flash" and any(m in msg for m in QUOTA_MARKERS):
+        if active_model != fallback_model and any(m in msg for m in QUOTA_MARKERS):
             quota_state["degraded"] = True
-            log(f"Quota hit on {active_model} for {card_title}; retrying on 'flash'")
+            log(f"Quota hit on {active_model} for {card_title}; retrying on '{fallback_model}'")
             out = await with_budget(
                 agent(
                     prompt,
                     schema=REVIEW_SCHEMA,
-                    role=f"{card_title} (flash fallback)",
+                    role=f"{card_title} ({fallback_model} fallback)",
                     type_name="self",
                     workspace="inherit",
-                    model="flash",
+                    model=fallback_model,
                 ),
                 max_tokens=200000,
                 timeout=timeout_seconds,
             )
-            return {"reviewer": role_id, "model_used": "flash", **out}
+            return {"reviewer": role_id, "agent_used": "self", "model_used": fallback_model, **out}
         raise
 
 
@@ -143,6 +149,7 @@ try:
             "combined",
             "Combined Correctness & Quality Review",
             preferred_review_model,
+            code_reviewer_agent,
             (
                 f"Follow `{code_card}` and `{qual_card}` in strictly read-only mode (never edit files or pass "
                 f"BypassSandbox=true). Review exact Git range `{git_range}`{spec_clause} for correctness, spec/Markdown "
@@ -156,6 +163,7 @@ try:
                 "code-reviewer",
                 "Correctness & Spec Review",
                 preferred_review_model,
+                code_reviewer_agent,
                 (
                     f"Follow `{code_card}` in strictly read-only mode (never edit files or pass BypassSandbox=true). "
                     f"Review exact Git range `{git_range}`{spec_clause} for correctness, spec/Markdown sync, anti-skip "
@@ -166,6 +174,7 @@ try:
                 "quality-reviewer",
                 "Quality & Debloat Review",
                 preferred_review_model,
+                quality_reviewer_agent,
                 (
                     f"Follow `{qual_card}` in strictly read-only mode (never edit files or pass BypassSandbox=true). "
                     f"Review exact Git range `{git_range}`{spec_clause} for dead code, prose sediment, OKF hygiene, "
@@ -175,7 +184,7 @@ try:
         ]
         reports = await parallel(
             reviewer_defs,
-            lambda item: _run_reviewer(item[0], item[1], item[2], item[3]),
+            lambda item: _run_reviewer(item[0], item[1], item[2], item[3], item[4]),
         )
 finally:
     _release_runtime_lease(_wf_lease)

@@ -62,6 +62,14 @@
         "type": "string",
         "description": "Optional custom agent profile for planning (default self)."
       },
+      "reviewer_agent": {
+        "type": "string",
+        "description": "Optional custom agent profile for zero-context spec review (default self)."
+      },
+      "planner_degraded": {
+        "type": "boolean",
+        "description": "Flag whether coordinator quota routing forced planner onto a non-frontier model."
+      },
       "planner_timeout_seconds": {
         "type": "integer",
         "description": "Per-planner wall-clock timeout in seconds (default 900)."

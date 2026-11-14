@@ -123,4 +123,6 @@ Follow [`../../multi-harness-plugins/SKILL.md`](../../multi-harness-plugins/SKIL
      }
      ```
 
+   - Preserve any existing optional `knowledge_catalog` block (`enabled`, `project_id`, `location`, `entry_group`, `entry_groups`, `content_layout`, `last_synced_sha256`) when reading or updating `.agents/setup-state.json`.
+
 4. Verify all relative links in `.agents/bundles/index.md`, `knowledge/index.md`, and `.agents/skills/index.md` resolve on disk, and ask whether the user wants to start their first flow (`/flow:spec` or `/flow:prd`).

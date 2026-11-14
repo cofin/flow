@@ -22,6 +22,18 @@
         "type": "string",
         "description": "Preferred reviewer model option (default inherit when session is Pro/Pro-Next, or pass pro when session is Flash; falls back to flash on quota)."
       },
+      "code_reviewer_agent": {
+        "type": "string",
+        "description": "Optional pinned agent profile for correctness and spec review (default self)."
+      },
+      "quality_reviewer_agent": {
+        "type": "string",
+        "description": "Optional pinned agent profile for quality and debloat review (defaults to code_reviewer_agent or self)."
+      },
+      "fallback_model": {
+        "type": "string",
+        "description": "Optional fallback model tier when primary review quota is exhausted (default flash)."
+      },
       "timeout_seconds": {
         "type": "integer",
         "description": "Per-reviewer timeout in seconds (default 600)."
