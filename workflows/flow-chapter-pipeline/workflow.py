@@ -72,9 +72,12 @@ base_commit = str(args.get("base_commit", "HEAD"))
 bundle_root = Path(str(args.get("bundle_root", ".agents/bundles")))
 execution_mode = str(args.get("execution_mode", "chapter_batch"))
 review_mode = str(args.get("review_mode", "dual"))
-preferred_exec_model = str(args.get("executor_model") or os.environ.get("FLOW_EXECUTOR_MODEL") or "inherit")
-preferred_rev_model = str(args.get("reviewer_model") or os.environ.get("FLOW_REVIEWER_MODEL") or "inherit")
+preferred_exec_model = str(args.get("executor_model") or os.environ.get("FLOW_EXECUTOR_MODEL") or "flash")
+preferred_rev_model = str(args.get("reviewer_model") or os.environ.get("FLOW_REVIEWER_MODEL") or "flash")
+fallback_model = str(args.get("fallback_model") or os.environ.get("FLOW_FALLBACK_MODEL") or "flash")
+batch_size = max(1, min(20, int(args.get("batch_size") or 5)))
 executor_agent = str(args.get("executor_agent") or os.environ.get("FLOW_EXECUTOR_AGENT") or "self")
+reviewer_agent = str(args.get("reviewer_agent") or os.environ.get("FLOW_REVIEWER_AGENT") or "self")
 
 plugin_root = Path(str(args.get("plugin_root") or os.environ.get("FLOW_PLUGIN_ROOT") or Path.cwd()))
 if not (plugin_root / "templates" / "agent" / "executor-schema-card.md").is_file():
@@ -125,7 +128,7 @@ def _acquire_runtime_lease() -> Path | None:
             "role": "flow-subagent",
             "flow_id": flow_id,
             "chapter_id": chapter_id,
-            "task_ids": _extract_task_ids(list(tasks)),
+            "task_ids": _extract_task_ids(task_paths),
         }
         lease_path.write_text(
             f"{int(time.time())}\n{json.dumps(meta, separators=(',', ':'))}\n",
@@ -147,15 +150,16 @@ def _release_runtime_lease(lease_path: Path | None) -> None:
 
 
 async def _run_exec_turn(prompt: str, role: str) -> tuple[dict, str]:
-    """Run an executor turn with automatic quota fallback to flash (never flash_lite)."""
-    active_model = "flash" if quota_state["degraded"] else preferred_exec_model
+    """Run an executor turn with automatic quota fallback to configured fallback tier (never flash_lite)."""
+    active_model = fallback_model if quota_state["degraded"] else preferred_exec_model
+    active_agent = "self" if quota_state["degraded"] else executor_agent
     try:
         res = await with_budget(
             agent(
                 prompt,
                 schema=EXECUTION_SCHEMA,
                 role=role,
-                type_name=executor_agent,
+                type_name=active_agent,
                 workspace="inherit",
                 model=active_model,
             ),
@@ -165,22 +169,22 @@ async def _run_exec_turn(prompt: str, role: str) -> tuple[dict, str]:
         return res, active_model
     except Exception as exc:
         msg = str(exc).lower()
-        if active_model != "flash" and any(m in msg for m in QUOTA_MARKERS):
+        if active_model != fallback_model and any(m in msg for m in QUOTA_MARKERS):
             quota_state["degraded"] = True
-            log(f"Quota hit on {active_model} for {role}; retrying on 'flash'")
+            log(f"Quota hit on {active_model} for {role}; retrying on '{fallback_model}'")
             res = await with_budget(
                 agent(
                     prompt,
                     schema=EXECUTION_SCHEMA,
-                    role=f"{role} (flash fallback)",
-                    type_name=executor_agent,
+                    role=f"{role} ({fallback_model} fallback)",
+                    type_name="self",
                     workspace="inherit",
-                    model="flash",
+                    model=fallback_model,
                 ),
                 max_tokens=320000,
                 timeout=1200,
             )
-            return res, "flash"
+            return res, fallback_model
         raise
 
 
@@ -193,20 +197,35 @@ reviews: list[dict] = []
 _wf_lease = _acquire_runtime_lease()
 try:
     if execution_mode == "chapter_batch":
-        batch_prompt = (
-            f"Follow `{exec_card}` to execute chapter `{flow_id}/{chapter_id}` (`{chapter_spec}`, root `{root_spec}`) "
-            f"across ordered task worksheets {task_paths} in ONE cohesive warm batch:\n"
-            "1. Read only the chapter spec, assigned worksheets, and their bounded `read_set` files.\n"
-            "2. Apply all code and canonical unit test edits across the chapter batch so shared files are edited once.\n"
-            "3. Validate ONCE with the Fast Chapter Gate (`< 60s`: offline ruff/mypy/pyright + targeted unit test file; "
-            "do NOT run slow full test suites or `npx --yes` network wrappers, and never pass BypassSandbox=true).\n"
-            "4. Commit owned code/test files first to obtain `<CODE_SHA>` (if `.git/` is read-only inside the sandbox "
-            "and `git commit` is denied, set `commit_deferred_to_coordinator: true` without looping), then synchronize "
-            "`tasks/*.md`, chapter `spec.md`, `chapters/index.md`, root `spec.md`, affected `knowledge/**`/`docs/**`, "
-            "and `log.md` in present tense."
-        )
-        receipt, model_used = await _run_exec_turn(batch_prompt, f"Batch Execute {chapter_id}")
-        execution_receipts.append({"mode": "chapter_batch", "model_used": model_used, **receipt})
+        chunks = [task_paths[i : i + batch_size] for i in range(0, len(task_paths), batch_size)] or [task_paths]
+        total_chunks = len(chunks)
+        for chunk_idx, chunk_paths in enumerate(chunks, start=1):
+            chunk_label = f"{chapter_id}" if total_chunks == 1 else f"{chapter_id} batch {chunk_idx}/{total_chunks}"
+            batch_prompt = (
+                f"Follow `{exec_card}` to execute `{flow_id}/{chapter_id}` (`{chapter_spec}`, root `{root_spec}`) "
+                f"across ordered task worksheets {chunk_paths} (batch {chunk_idx} of {total_chunks}) in one bounded turn:\n"
+                "1. Read only the chapter spec, assigned worksheets in this batch, and their bounded `read_set` files.\n"
+                "2. Apply all code and canonical unit test edits for this batch cleanly.\n"
+                "3. Validate ONCE with the Fast Chapter Gate (`< 60s`: offline ruff/mypy/pyright + targeted unit test file; "
+                "do NOT run slow full test suites or `npx --yes` network wrappers, and never pass BypassSandbox=true).\n"
+                "4. Commit owned code/test files first to obtain `<CODE_SHA>` (if `.git/` is read-only inside the sandbox "
+                "and `git commit` is denied, set `commit_deferred_to_coordinator: true` without looping), then synchronize "
+                "`tasks/*.md`, chapter `spec.md`, `chapters/index.md`, root `spec.md`, affected `knowledge/**`/`docs/**`, "
+                "and `log.md` in present tense."
+            )
+            receipt, model_used = await _run_exec_turn(batch_prompt, f"Batch Execute {chunk_label}")
+            execution_receipts.append(
+                {
+                    "mode": "chapter_batch",
+                    "batch_index": chunk_idx,
+                    "total_batches": total_chunks,
+                    "tasks": chunk_paths,
+                    "model_used": model_used,
+                    **receipt,
+                }
+            )
+            if receipt.get("status") == "blocked":
+                break
     else:
         per_task_out = await pipeline(
             task_paths,
@@ -237,40 +256,41 @@ try:
     any_blocked = any(r.get("status") == "blocked" for r in execution_receipts)
 
     async def _run_reviewer_turn(reviewer_id: str, role: str, prompt: str) -> dict:
-        """Run one zero-context chapter reviewer on Pro/inherit first, falling back to flash only on quota."""
-        active_model = "flash" if (quota_state["degraded"] and preferred_rev_model != "flash") else preferred_rev_model
+        """Run one zero-context chapter reviewer with quota fallback."""
+        active_model = fallback_model if (quota_state["degraded"] and preferred_rev_model != fallback_model) else preferred_rev_model
+        active_agent = "self" if quota_state["degraded"] else reviewer_agent
         try:
             out = await with_budget(
                 agent(
                     prompt,
                     schema=REVIEW_SCHEMA,
                     role=role,
-                    type_name="self",
+                    type_name=active_agent,
                     workspace="inherit",
                     model=active_model,
                 ),
                 max_tokens=200000,
                 timeout=600,
             )
-            return {"reviewer": reviewer_id, "model_used": active_model, **out}
+            return {"reviewer": reviewer_id, "agent_used": active_agent, "model_used": active_model, **out}
         except Exception as exc:
             msg = str(exc).lower()
-            if active_model != "flash" and any(m in msg for m in QUOTA_MARKERS):
+            if active_model != fallback_model and any(m in msg for m in QUOTA_MARKERS):
                 quota_state["degraded"] = True
-                log(f"Quota hit on {active_model} for {role}; retrying on 'flash'")
+                log(f"Quota hit on {active_model} for {role}; retrying on '{fallback_model}'")
                 out = await with_budget(
                     agent(
                         prompt,
                         schema=REVIEW_SCHEMA,
-                        role=f"{role} (flash fallback)",
+                        role=f"{role} ({fallback_model} fallback)",
                         type_name="self",
                         workspace="inherit",
-                        model="flash",
+                        model=fallback_model,
                     ),
                     max_tokens=200000,
                     timeout=600,
                 )
-                return {"reviewer": reviewer_id, "model_used": "flash", **out}
+                return {"reviewer": reviewer_id, "agent_used": "self", "model_used": fallback_model, **out}
             raise
 
     if not any_blocked:

@@ -87,7 +87,7 @@ tags: [<tag>, <tag>, ...]          # Optional list of strings
 - **`resource`**: Canonical URI identifying the underlying asset (e.g. table URI, URL).
 - **`tags`**: List of lowercase hyphenated strings for cross-cutting categorization.
 - **`status`**: OKF document lifecycle ONLY (`draft`, `stable`, `deprecated`). Never store workflow state in `status:`.
-- **`stale_after`**: ISO-8601 date or timestamp (`YYYY-MM-DD` or `YYYY-MM-DDTHH:MM:SSZ`).
+- **`stale_after`**: Full ISO-8601 timestamp with explicit UTC offset (`YYYY-MM-DDTHH:MM:SSZ` or `±HH:MM`; bare `YYYY-MM-DD` dates are invalid for Knowledge Catalog ingestion).
 - **`created_at` / `updated_at`**: ISO-8601 UTC timestamps (`YYYY-MM-DDTHH:MM:SSZ`).
 
 ### 3.2 Provenance, Trust & Lifecycle Families

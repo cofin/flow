@@ -248,3 +248,64 @@ def test_catalog_cli_json_and_stdio_server(tmp_path: Path) -> None:
     assert "adr-004-tenant-gucs" in lines[0]
     assert '"id":2' in lines[1].replace(" ", "")
     assert "pool-reset" in lines[1]
+
+
+def test_catalog_supports_kcmd_bundle_exclusions_and_extra_parent_links(tmp_path: Path) -> None:
+    """``CatalogService`` indexes ``bundle/`` layouts, enforces exclusions, and links ``extra.resource.parent``."""
+    ws = tmp_path / "kcmd-repo"
+    bundle = ws / "bundle"
+    (bundle / "documents").mkdir(parents=True)
+    (bundle / "agents").mkdir(parents=True)
+    (bundle / "private").mkdir(parents=True)
+    (bundle / "noexport").mkdir(parents=True)
+    (bundle / "noexport" / ".kc-no-export").write_text("", encoding="utf-8")
+
+    (ws / "catalog.yaml").write_text(
+        "scope: kb.team-proj.us-central1.ctx\nlayout: okf\ncatalog_exclude:\n  - bundle/private/**\n",
+        encoding="utf-8",
+    )
+    (bundle / "index.md").write_text("---\nokf_version: '0.2'\n---\n\n# Root\n", encoding="utf-8")
+    (bundle / "agents" / "guide.md").write_text(
+        "---\ntype: ContextSet\ntitle: Root Guide\ndescription: Agent entry point.\n---\n\n# Root Guide\n",
+        encoding="utf-8",
+    )
+    (bundle / "documents" / "spanner.md").write_text(
+        "---\n"
+        "type: Knowledge\n"
+        "title: Spanner Schema Guide\n"
+        "description: Spanner table sharding guidance.\n"
+        "extra:\n"
+        "  resource:\n"
+        "    parent: projects/team-proj/locations/us-central1/entryGroups/ctx/entries/agents/guide\n"
+        "---\n\n# Spanner Schema Guide\n\nAvoid hotspot keys.\n",
+        encoding="utf-8",
+    )
+    (bundle / "documents" / "unpublished.md").write_text(
+        "---\ntype: Knowledge\ntitle: Hidden\ndescription: Excluded.\ncatalog_publish: false\n---\n\nSecret.\n",
+        encoding="utf-8",
+    )
+    (bundle / "private" / "glob_skip.md").write_text(
+        "---\ntype: Knowledge\ntitle: Private\ndescription: Glob skipped.\n---\n\nHidden.\n",
+        encoding="utf-8",
+    )
+    (bundle / "noexport" / "marker_skip.md").write_text(
+        "---\ntype: Knowledge\ntitle: Marker Skip\ndescription: Marker skipped.\n---\n\nHidden.\n",
+        encoding="utf-8",
+    )
+
+    db_path = tmp_path / "kcmd.duckdb"
+    service = CatalogService(db_path=db_path, embedder=NullEmbeddingProvider())
+    stats = service.index_workspaces([ws])
+    assert stats.workspaces_indexed == 1
+    assert stats.entries_indexed == 2
+
+    hits = service.search("hotspot keys", mode="bm25")
+    assert len(hits) == 1
+    assert hits[0].concept_id == "documents/spanner"
+
+    detail = service.get_entry_detail(hits[0].entry_id)
+    assert detail is not None
+    assert any(
+        edge.edge_kind == "parent" and edge.to_entry_id and edge.to_entry_id.endswith(":agents/guide")
+        for edge in detail.outbound_links
+    )

@@ -17,10 +17,10 @@ You are a **stateless, zero-context specification, chapter blueprint, and OKF v0
    - Are domain terms consistent with `.agents/bundles/knowledge/domains/*.md`? If `planning_quality: degraded` is set on any spec, is `planning_degraded_reason` explicit and accurate, and were any subtle edge cases missed by the fallback planner?
 2. **Architectural, Deep-Module Seam, & Anti-Truncation Review**:
    - Does the design solve the root problem, reuse existing repository modules, hide complexity behind small public interfaces, and compare viable alternatives across depth, locality, and adapter count?
-   - Did the planner compress distinct behaviors into a vague task, omit edge cases, or skip documentation/OKF deliverables? Verify chapters stay `<= 4` tasks (`read_set <= 6`, `files <= 3`, `estimated_loc <= 250`) while expanding horizontally into additional chapters when needed.
+   - Did the planner compress distinct behaviors into an ambiguous task, omit edge cases, split one deliverable unnecessarily into tiny chapters, or skip documentation/OKF deliverables? Keep chapters concise around deliverables (zero artificial caps on chapter task count, `read_set`, `files`, or `estimated_loc`).
 3. **Blueprint Depth, Worksheet Format (`full` | `compact`), & Fast Verification Gates**:
    - Does `spec.md` define concrete public types/structs/schemas, exact function/method signatures, a `Caller -> Seam -> Collaborator` integration map, and an **Edge-Case, Failure-Mode & Invariant Matrix** verified against disk (`path/to/file::Symbol`)?
-   - Do task worksheets satisfy [`plan-schema-card.md`](plan-schema-card.md) (`worksheet_format: compact` allowed on `Small` `<= 400`-LOC single-module specs; `full` required on `Medium`/`Large` specs) with concrete Worked Test Matrix literals in canonical module test files?
+   - Do task worksheets satisfy [`plan-schema-card.md`](plan-schema-card.md) (`worksheet_format: compact` allowed across all tiers for cohesive straightforward slices; `full` for complex public contracts and multi-seam edge-case matrices) with concrete Worked Test Matrix literals in canonical module test files?
    - Does every **Chapter / Phase Recovery Checkpoint** use a fast (`< 60s`) static lint + targeted unit test command rather than running a slow full repository test suite mid-flow?
 4. **Documentation Plan, OKF v0.2 Conformance, & Cross-Chapter Parity**:
    - Does `## 3. Documentation & OKF Knowledge Plan` (`[k/N files documented]`) assign every affected user doc and `.agents/bundles/knowledge/**` chapter to an owning task/chapter?

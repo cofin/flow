@@ -363,6 +363,8 @@ def test_antigravity_hooks_and_workflows_manifests_are_valid() -> None:
         assert isinstance(wf_json["description"], str) and wf_json["description"]
         entry = wf_json.get("entry", "workflow.py")
         assert (wf_dir / entry).is_file()
+        props = wf_json["args"]["properties"]
+        assert any(key.endswith("_agent") for key in props)
 
 
 @pytest.mark.parametrize(

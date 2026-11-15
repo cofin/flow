@@ -31,17 +31,17 @@ draft_gate:
 1. **Separate Facts from Decisions**:
    - **Facts** (existing signatures, DI wiring, config keys, test fixtures, framework versions, existing OKF chapters, user docs) belong to the agent's research duty. Read the repository or dispatch read-only Scout / `@researcher` subagents first—never ask the user a question that reading the codebase can answer.
    - **Decisions** (product scope, public seam shape, trade-offs between deep-module designs, boundary error semantics, documentation targets, risk appetite) belong to the user.
-2. **Dependent Fork (`1` Question) vs. Orthogonal Frontier Batch (`2–3` Questions per Round)**:
-   - Treat unresolved decisions as a dependency tree.
+2. **Skip Settled Areas; Walk Unresolved Forks (`1` Question) & Orthogonal Frontier Batches (`2–3` Questions)**:
+   - Treat unresolved decisions as a dependency tree, and skip questions for any area already settled cleanly by the user's request and repository code.
    - **Dependent Fork (`1` question)**: When downstream architectural or behavioral choices depend on the answer (such as selecting the deep-module seam or storage strategy), ask **1** question and wait for the normalized result before advancing to dependent branches.
-   - **Orthogonal Frontier Batch (`2–3` questions)**: Once a branch reaches independent leaf decisions whose answers do not invalidate one another (for example, an edge-case failure contract, canonical test fixture policy, and user documentation target), batch **2–3 orthogonal questions** in a single `ask_question` / `AskUserQuestion` / `question` multi-question call so discovery closes high-detail contracts without excessive round-trips (falling back to sequential `1`-at-a-time prompts on Codex `request_user_input` when multi-question arrays are unsupported).
+   - **Orthogonal Frontier Batch (`2–3` questions)**: Once a branch reaches independent leaf decisions whose answers do not invalidate one another (for example, an edge-case failure contract, canonical test fixture policy, and user documentation target), batch **2–3 orthogonal questions** in a single `ask_question` / `AskUserQuestion` / `question` multi-question call so discovery closes contracts without extra round-trips (falling back to sequential `1`-at-a-time prompts on Codex `request_user_input` when multi-question arrays are unsupported).
 3. **Pre-Draft Question Coverage Gate**:
-   - Before dispatching parallel Chapter Planner subagents to author `spec.md` and `tasks/*.md`, verify that all five coverage areas are resolved (either by verified repository facts or explicit user decisions):
+   - Before dispatching Chapter Planner subagents or drafting `spec.md`, ensure these five areas are resolved (by verified repository facts, clear user instructions, or targeted questions only where genuinely ambiguous):
      1. **Deep-Module Seam & Interface Alternative Selection**: Which interface shape won across depth, locality, and adapter count?
      2. **Concrete Data/Type Contracts & Edge-Case / Failure Semantics**: What exact public structs/types, empty/null/concurrency/timeout boundaries, and error/exception contracts apply?
      3. **Public Seams & Canonical Test Strategy**: Which confirmed public seams and existing canonical module test files verify the slice without mocking the System Under Test?
      4. **Documentation (`README.md` / `docs/**`) & OKF Knowledge Scope**: Which user-facing docs and `.agents/bundles/knowledge/**` / `.agents/skills/**` chapters are created or updated?
-     5. **Full Chapter Decomposition (`ch01..chNN`)**: How is the full scope decomposed into context-bounded chapters (`1–4` vertical-slice tasks per chapter, zero scope truncation, zero upper cap on chapter count), and do any downstream chapters require `planning_status: empirical_dependent`?
+     5. **Deliverable Decomposition (`spec.md` / `ch01..chNN`)**: Whether a single-chapter `spec.md` covers the deliverable cleanly or genuine staged checkpoints, independent parallel subsystems, or `empirical_dependent` triggers require `chapters/` (with zero artificial caps on task count, `read_set`, or `estimated_loc`).
 4. **Request Variant Rules**:
    - Every choice has `{id, label, description}` (`id` matches `[a-z][a-z0-9_-]{0,31}`, `label` is `1–60` chars, `description` is `1–160` chars stating the concrete `path/to/file::Symbol` trade-off or impact).
    - Place the recommended choice **first** in `choices`, set `recommended_choice_id` to its `id`, and display its label with the ` (Recommended)` suffix.

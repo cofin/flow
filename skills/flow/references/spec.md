@@ -10,11 +10,11 @@ Choose the tier from estimated production LOC and impacted modules:
 
 | Tier | Trigger | Scouting | Layout | Worksheet | Planners | Review |
 | --- | --- | --- | --- | --- | --- | --- |
-| **Small** | `<= 400` LOC, `1` module | Coordinator direct read (`<= 8` files) | Single-chapter `spec.md` (`1..4` tasks) | Compact (`worksheet_format: compact`) | Coordinator only | `1` combined reviewer (`1` round) |
-| **Medium** | `<= 1,500` LOC or `<= 3` modules | Direct read (`<= 8` files) or `flow-scout` | Chapters (`<= 4`) + `chapters/index.md` | Full (`worksheet_format: full`) | `flow-spec-planning` (`single_batch` for `<= 3` ch; parallel for `4`) | `1` combined reviewer (`2nd` round only on adopted blocking findings) |
-| **Large** | `> 1,500` LOC, `> 3` modules, `> 4` chapters, or `/flow:prd` | `flow-scout` parallel digests | Chapters (`2..N`, zero cap) + `chapters/index.md` | Full (`worksheet_format: full`) | `flow-spec-planning` (`per_chapter` parallel) | Per-chapter + cross-chapter reviewers |
+| **Small / Single-Chapter** | Cohesive single deliverable (no intermediate checkpoint needed) | Coordinator direct read (`<= 8` files) or `flow-scout` | Single-chapter `spec.md` (`has_chapters: false`) | Compact by default (`full` only for complex public seams) | Coordinator only | `1` combined reviewer (`1` round) |
+| **Medium** | `2..4` genuine stages, parallel subsystems, or `empirical_dependent` gates | Direct read (`<= 8` files) or `flow-scout` | Chapters (`2..4`) + `chapters/index.md` | Compact or Full (`worksheet_format: compact \| full`) | `flow-spec-planning` (`per_chapter` parallel for `>= 2` chapters) | `1` combined reviewer (`2nd` round only on adopted blocking findings) |
+| **Large** | `> 4` chapters or `/flow:prd` | `flow-scout` parallel digests | Chapters (`ch01..chNN`, zero cap) + `chapters/index.md` | Compact or Full (`worksheet_format: compact \| full`) | `flow-spec-planning` (`per_chapter` parallel) | Per-chapter + cross-chapter reviewers |
 
-- **Anti-Truncation Rule**: Tiers scale document ceremony and subagent count, never engineering scope. Every requirement, concrete contract, edge case, and documentation/OKF target maps to a task and verification surface; whenever work exceeds `4` tasks or crosses module boundaries, expand into nested `chapters/ch01-<slug>/..chNN-<slug>/` with zero upper cap on chapter count.
+- **Anti-Truncation Rule & Concise Deliverable Sizing**: Tiers scale document ceremony and subagent count, never engineering scope. Default cohesive deliverables of any LOC or module count to a single-chapter `spec.md`, split into `chapters/` only at genuine checkpoints, independent parallel subsystems, or `empirical_dependent` gates, and allow `compact` worksheets across all tiers—with zero artificial caps on task count per chapter, `read_set`, `files`, or `estimated_loc`. During execution, chapters with `> 5` tasks automatically split into parallel disjoint waves or bounded `<= 5`-task worker batches.
 
 ## Phase 1: Bundle Grounding & Right-Sized Scouting (`Facts First`)
 
@@ -22,8 +22,8 @@ Choose the tier from estimated production LOC and impacted modules:
 2. **Direct Read vs. Shipped `flow-scout` Workflow**:
    - When the request touches `<= 8` files across `<= 2` modules, inspect those files directly in the coordinator (`< 15k` tokens) with zero scout subagent overhead.
    - When touching `> 8` files or `>= 3` subsystems:
-     - **Google Antigravity**: Call the shipped scout workflow (`type_name="self"`, `model="flash"`—restricting `flash_lite` strictly to `narrow_fetch: true` items with `<= 3` paths):
-       `run_workflow(ScriptPath="<plugin_root>/workflows/flow-scout/workflow.py", Args={"subsystems": [{"name": "auth", "paths": ["src/auth/"]}]})`
+     - **Google Antigravity**: Probe live quotas via `swarm(action="models", all=True)` + `tools/model_router.py` (optionally pinning ephemeral conversation-scoped `runtime-<role>/agent.json` profiles) and call the shipped scout workflow (routing multi-turn subsystems onto high/extra-thinking Flash and restricting lightweight fast Flash/`flash_lite` strictly to `narrow_fetch: true` items with `<= 3` paths):
+       `run_workflow(ScriptPath="<plugin_root>/workflows/flow-scout/workflow.py", Args={"subsystems": [{"name": "auth", "paths": ["src/auth/"]}], "scout_agent": heavy_agent, "narrow_agent": narrow_agent})`
      - **Other Harnesses**: Invoke `@researcher` in parallel (`model: "sonnet"` on Claude Code; restrict `"haiku"` strictly to narrow `<= 3`-file fetches).
 3. **Classify Dependency Boundaries**: Classify collaborators into **In-process**, **Local-substitutable**, **Remote-owned (Ports & Adapters)**, and **External boundary (Mock)**. Promote external SDK/multi-domain research to OKF v0.2 `specs/<flow_id>/research/<topic>_<YYYYMMDD>.md` ([`research.md`](research.md)).
 
@@ -31,22 +31,22 @@ Choose the tier from estimated production LOC and impacted modules:
 
 1. Present the **Code Analysis & Seam Summary** (`Area | Files Examined (path/to/file::Symbol) | Public Seam & Dependency Category | Affected Docs / OKF Chapters`).
 2. **Compare Interface Alternatives**: Compare at least 2–3 distinct interface shapes on **depth**, **locality**, and **seam placement** (*one adapter = hypothetical seam; two concrete callers/adapters = real seam*).
-3. **Walk the Frontier & Satisfy the Pre-Draft Question Coverage Gate (`structured-choice-v1`)**:
-   - Ask `1` question at dependent forks and batch `2–3` orthogonal leaf questions once on a settled frontier ([`interaction.md`](interaction.md)), placing `<Label> (Recommended)` first across seam selection, concrete data/error contracts, public-seam test strategy, fast (`< 60s`) lint + targeted unit file checkpoints, `docs/**` + OKF targets, and tier/chapter decomposition.
+3. **Walk Unresolved Frontier Decisions Only (`structured-choice-v1`)**:
+   - Skip questions for areas already settled by the prompt and repository code; ask `1` question only at unresolved dependent forks and batch `2–3` unresolved orthogonal questions once ([`interaction.md`](interaction.md)), placing `<Label> (Recommended)` first across seam choice, contracts, public-seam tests, fast (`< 60s`) lint + targeted unit file checkpoints, `docs/**` + OKF targets, and chapter decomposition.
 
 ## Phase 3: Author OKF v0.2 Specifications, Schema-Card Blueprints, & Write-Time Validation
 
-### 3.1 Single-Chapter (`Small`) vs. Shipped `flow-spec-planning` (`Medium` / `Large`)
+### 3.1 Single-Chapter (`has_chapters: false`) vs. Shipped `flow-spec-planning` (`Medium` / `Large`)
 
-- **`Small` Single-Chapter Flow (`<= 400` LOC, `1` module, `1..4` tasks)**:
-  - Coordinator writes `specs/<flow_id>/spec.md` (`has_chapters: false`) and `specs/<flow_id>/tasks/t01-<slug>.md..t04-<slug>.md` (`worksheet_format: compact`) directly following [`plan-schema-card.md`](../../../templates/agent/plan-schema-card.md), then runs `/flow:validate` (`exit 0`).
+- **Single-Chapter Flow (`has_chapters: false`)**:
+  - Coordinator writes `specs/<flow_id>/spec.md` (`has_chapters: false`) and `specs/<flow_id>/tasks/tNN-<slug>.md` (`worksheet_format: compact` by default, or `full` for complex public seams) directly following [`plan-schema-card.md`](../../../templates/agent/plan-schema-card.md), then runs `/flow:validate` (`exit 0`).
 - **`Medium` & `Large` Multi-Chapter Flows**:
   1. Coordinator writes root `specs/<flow_id>/spec.md` (`has_chapters: true`, `current_chapter: ch01-<slug>`, `chapters: [...]`) and frontmatter-free `specs/<flow_id>/chapters/index.md`.
-  2. **Google Antigravity**: Call the shipped planning workflow (never hand-write orchestration scripts):
-     `run_workflow(ScriptPath="<plugin_root>/workflows/flow-spec-planning/workflow.py", Args={"flow_id": "<flow_id>", "chapters": [{"id": "ch01-core", "brief": "...", "read_files": ["src/core.py"]}], "review": "single"})`
-     - `flow-spec-planning` passes [`plan-schema-card.md`](../../../templates/agent/plan-schema-card.md) (`type_name="self"`), writes `chapters/<id>/planner-notes.md` on disk before returning, recovers stalled planners automatically once all chapter files sit idle on disk, runs deterministic OKF validation, flags `planning_quality: degraded` whenever quota fallback prevented planning on the primary frontier thinking model, and runs Zero-Context Review when `root_spec_issues` is empty.
-     - **Manual Fallback Rule**: If a background workflow has written every chapter's `spec.md`, `tasks/*.md`, and `planner-notes.md` on disk and makes no progress for `10` minutes, cancel the workflow and continue from the files on disk, folding every `planner-notes.md` `Root Spec Issues` entry into root `spec.md` before review.
-  3. **Other Harnesses**: Dispatch `1` batch `@plan-generator` (`Medium` `<= 3` chapters) or parallel `@plan-generator` subagents (`Large`) on the primary frontier thinking model (`inherit` / Opus family / `high`), passing only root `spec.md`, [`plan-schema-card.md`](../../../templates/agent/plan-schema-card.md), and scoped chapter files, then fold `planner-notes.md` issues into root `spec.md` and run `/flow:validate` (`exit 0`).
+  2. **Google Antigravity**: Resolve Planner and Spec Review via `tools/model_router.py` (`>= 25%` Pro quota floor, falling back to high/extra-thinking Flash only when Pro drops below `25%`), structure non-overlapping task `files:`/`tests:` paths where feasible, and call the shipped planning workflow (`planner_mode="auto"` runs parallel `per_chapter` planners automatically whenever `>= 2` chapters exist):
+     `run_workflow(ScriptPath="<plugin_root>/workflows/flow-spec-planning/workflow.py", Args={"flow_id": "<flow_id>", "chapters": [{"id": "ch01-core", "brief": "...", "read_files": ["src/core.py"]}], "review": "single", "planner_agent": planner_agent, "reviewer_agent": spec_rev_agent, "planner_degraded": is_degraded})`
+     - `flow-spec-planning` passes [`plan-schema-card.md`](../../../templates/agent/plan-schema-card.md) (`type_name="self"`), writes `chapters/<id>/planner-notes.md` on disk before returning, recovers stalled planners automatically after `45s` disk idle, runs deterministic OKF validation, flags `planning_quality: degraded` whenever quota fallback prevented planning on the primary frontier thinking model, and runs Zero-Context Review when `root_spec_issues` is empty.
+     - **Manual Fallback Rule**: If a background workflow has written every chapter's `spec.md`, `tasks/*.md`, and `planner-notes.md` on disk and makes no progress, cancel the workflow and continue from the files on disk, folding every `planner-notes.md` `Root Spec Issues` entry into root `spec.md` before review.
+  3. **Other Harnesses**: Dispatch parallel `@plan-generator` subagents (`>= 2` chapters) on the primary frontier thinking model (`inherit` / Opus family / `high`), passing only root `spec.md`, [`plan-schema-card.md`](../../../templates/agent/plan-schema-card.md), and scoped chapter files, then fold `planner-notes.md` issues into root `spec.md` and run `/flow:validate` (`exit 0`).
 
 ### 3.2 Specification Body (`spec.md`) & Task Worksheet Contracts
 
@@ -59,7 +59,7 @@ Follow [`state.md`](state.md) and [`plan-schema-card.md`](../../../templates/age
   4. `## 4. Requirement-to-Task Traceability Matrix`.
   5. `## 5. Implementation Plan` — Checklist + fast (`< 60s`) **Chapter / Phase Recovery Checkpoint** (`make lint` + targeted unit test file, never a slow `> 60s` full test suite).
   6. `## 6. Current State & Remaining Plan Snapshot`.
-- **Task Worksheets (`tasks/<id>-<slug>.md`)**: Reference shared structs/signatures defined in `spec.md` instead of copy-pasting duplicate blocks; use the 6 `compact` headings on `Small` specs and the 8 `full` headings on `Medium`/`Large` specs.
+- **Task Worksheets (`tasks/<id>-<slug>.md`)**: Reference shared structs/signatures defined in `spec.md` instead of copy-pasting duplicate blocks; use the 6 `compact` headings by default across all tiers for cohesive slices and the 8 `full` headings when complex contracts/edge-case matrices benefit from full detail.
 
 ## Phase 4: Zero-Context Spec Verification & Adjudication (`1` Combined Reviewer Default)
 

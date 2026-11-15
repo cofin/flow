@@ -14,7 +14,7 @@ Self-contained reference for authoring Flow specifications, chapter specificatio
 
 - **Required Frontmatter Keys**: `type: Spec`, `title`, `description`, `status`, `state`, `planning_quality`, `planning_degraded_reason`, `plan_revision`, `plan_commit`, `current_task`, `last_verified_checkpoint`, `last_reviewed_commit`, `generated`, `verified`, `sources`, `tags`.
   - Root multi-chapter specs add: `flow_id`, `has_chapters: true`, `chapters: [ch01-<slug>, ...]`, `current_chapter`, `last_reviewed_chapter`.
-  - Nested chapter specs (`chapters/<ch_id>/spec.md`, `1..4` tasks max) add: `parent_flow`, `chapter_id`, `planning_status: complete | empirical_dependent`, `depends_on_chapters: [...]`, `replan_trigger` (non-empty when `empirical_dependent`).
+  - Nested chapter specs (`chapters/<ch_id>/spec.md`, `1..N` tasks with no task-count cap; split chapters only for genuine checkpoints, independent parallel subsystems, or `empirical_dependent` gates) add: `parent_flow`, `chapter_id`, `planning_status: complete | empirical_dependent`, `depends_on_chapters: [...]`, `replan_trigger` (non-empty when `empirical_dependent`).
 - **Required Body Headings**:
   - `## 1. Specification, Context & Provenance`
   - `## 2. Requirements, Concrete Contracts & Architecture`
@@ -25,10 +25,10 @@ Self-contained reference for authoring Flow specifications, chapter specificatio
 
 ## 3. Task Worksheet Schema (`tasks/<id>-<slug>.md`)
 
-- **Budgets & Deduplication**: `read_set` (`<= 6` files), `files` (`<= 3` production files), `tests` (canonical module test files), `estimated_loc` (`<= 250`). Reference concrete types/signatures defined in owning `spec.md` by name rather than duplicating multi-line struct definitions across tasks.
+- **Sizing & Deduplication**: Keep each task cohesive around a deliverable vertical slice (`read_set`, `files`, `tests`, and `estimated_loc` have no arbitrary hard caps—avoid bloated multi-domain tasks). Reference concrete types/signatures defined in owning `spec.md` by name rather than duplicating multi-line struct definitions across tasks.
 - **Required Frontmatter Keys**: `type: Task`, `id`, `chapter_id`, `title`, `description`, `status`, `state`, `priority`, `verification_strategy`, `worksheet_format: full | compact`, `depends_on`, `read_set`, `files`, `tests`, `estimated_loc`, `plan_revision`, `plan_commit`, `commit`, `sources`, `tags`.
 
-### Full Task Blueprint Headings (`worksheet_format: full` — Medium & Large Tiers)
+### Full Task Blueprint Headings (`worksheet_format: full` — Complex Contracts & Multi-Seam Slices)
 
 - `## Objective & Scope Boundary`
 - `## Bounded Read Manifest`
@@ -39,7 +39,7 @@ Self-contained reference for authoring Flow specifications, chapter specificatio
 - `## Acceptance Criteria`
 - `## Notes & Discoveries`
 
-### Compact Task Worksheet Headings (`worksheet_format: compact` — Small Tier `<= 400` LOC)
+### Compact Task Worksheet Headings (`worksheet_format: compact` — Default for Cohesive Slices Across All Tiers)
 
 - `## Objective & Scope Boundary`
 - `## Bounded Read Manifest`

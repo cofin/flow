@@ -36,17 +36,29 @@
         "enum": ["dual", "single"],
         "description": "Run parallel code + quality review or a single combined review for Small slices (default dual)."
       },
+      "batch_size": {
+        "type": "integer",
+        "description": "Maximum task worksheets per worker subagent turn when batching chapters (default 5; clamped 1..20)."
+      },
       "executor_model": {
         "type": "string",
-        "description": "Preferred executor model option (default inherit)."
+        "description": "Preferred executor model option (default flash; reserve Pro quota for planning)."
       },
       "reviewer_model": {
         "type": "string",
-        "description": "Preferred reviewer model option (default inherit when session is Pro/Pro-Next, or pass pro when session is Flash; falls back to flash on quota)."
+        "description": "Preferred reviewer model option (default flash; reserve Pro quota for planning)."
       },
       "executor_agent": {
         "type": "string",
         "description": "Optional custom agent profile for execution (default self)."
+      },
+      "reviewer_agent": {
+        "type": "string",
+        "description": "Optional custom agent profile for zero-context chapter review (default self)."
+      },
+      "fallback_model": {
+        "type": "string",
+        "description": "Optional quota fallback model tier (default flash)."
       }
     },
     "required": ["flow_id", "chapter_id", "tasks"]

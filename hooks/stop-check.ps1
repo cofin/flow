@@ -61,7 +61,7 @@ try {
     $StdinPayload = ""
 }
 
-$IsLeafSubagent = $false
+$IsLeafSubagent = ($env:FLOW_SWARM_WORKER -eq "1")
 $ConvId = ""
 if (-not [string]::IsNullOrWhiteSpace($StdinPayload)) {
     if ([string]::IsNullOrEmpty($ProjectDir)) {
@@ -116,7 +116,8 @@ if (-not [string]::IsNullOrWhiteSpace($StdinPayload)) {
     }
 
     if ([regex]::IsMatch($StdinPayload, '"parentConversationId"\s*:\s*"[^"]+"') -or
-        [regex]::IsMatch($StdinPayload, '"lastUserInput"\s*:\s*"[^"]*(agents/(executor|researcher|code-reviewer|quality-reviewer|plan-generator)\.md|templates/agent/(plan|executor)-schema-card\.md|\.agents/agents/)')) {
+        [regex]::IsMatch($StdinPayload, '"agentName"\s*:\s*"runtime-[^"]+"') -or
+        [regex]::IsMatch($StdinPayload, '"lastUserInput"\s*:\s*"[^"]*(agents/(executor|researcher|code-reviewer|quality-reviewer|plan-generator)\.md|templates/agent/(plan|executor)-schema-card\.md|\.agents/agents/|\[Flow Swarm Worker\]|swarm-worker)')) {
         $IsLeafSubagent = $true
     }
 }

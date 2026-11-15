@@ -43,7 +43,9 @@ QUOTA_MARKERS = (
 
 subsystems = list(args.get("subsystems", []))
 preferred_model = str(args.get("scout_model") or os.environ.get("FLOW_SCOUT_MODEL") or "flash")
+narrow_model_arg = str(args.get("narrow_model") or "").strip()
 scout_agent = str(args.get("scout_agent") or os.environ.get("FLOW_SCOUT_AGENT") or "self")
+narrow_agent = str(args.get("narrow_agent") or os.environ.get("FLOW_SCOUT_NARROW_AGENT") or scout_agent)
 timeout_seconds = int(args.get("timeout_seconds", 300))
 quota_state = {"degraded": False}
 
@@ -86,8 +88,14 @@ async def _run_scout(item: dict) -> dict:
     paths = [str(p) for p in item.get("paths", [])]
     focus = str(item.get("focus", "")).strip()
     allow_lite = bool(item.get("narrow_fetch", False)) and len(paths) <= 3
-    fallback_model = "flash_lite" if allow_lite and preferred_model == "flash" else None
-    active_model = fallback_model if (quota_state["degraded"] and fallback_model) else preferred_model
+    selected_agent = narrow_agent if allow_lite else scout_agent
+    initial_model = narrow_model_arg if (allow_lite and narrow_model_arg) else preferred_model
+    fallback_model = (
+        narrow_model_arg
+        if (allow_lite and narrow_model_arg and initial_model != narrow_model_arg)
+        else ("flash_lite" if allow_lite and initial_model == "flash" else None)
+    )
+    active_model = fallback_model if (quota_state["degraded"] and fallback_model) else initial_model
     focus_clause = f" Focus: {focus}" if focus else ""
     prompt = (
         f"Scout subsystem `{name}` across exact paths {paths}.{focus_clause}\n"
@@ -101,17 +109,30 @@ async def _run_scout(item: dict) -> dict:
                 prompt,
                 schema=DIGEST_SCHEMA,
                 role=f"Scout {name}",
-                type_name=scout_agent,
+                type_name=selected_agent,
                 workspace="inherit",
                 model=active_model,
             ),
             max_tokens=120000,
             timeout=timeout_seconds,
         )
-        return {"subsystem": name, "status": "completed", "model_used": active_model, "digest": digest}
+        return {
+            "subsystem": name,
+            "status": "completed",
+            "agent_used": selected_agent,
+            "model_used": active_model,
+            "digest": digest,
+        }
     except BudgetExceeded as exc:
         log(f"Scout {name} hit budget limit: {exc}")
-        return {"subsystem": name, "status": "timed_out", "model_used": active_model, "error": str(exc), "digest": None}
+        return {
+            "subsystem": name,
+            "status": "timed_out",
+            "agent_used": selected_agent,
+            "model_used": active_model,
+            "error": str(exc),
+            "digest": None,
+        }
     except Exception as exc:
         msg = str(exc).lower()
         if fallback_model and active_model != fallback_model and any(m in msg for m in QUOTA_MARKERS):
@@ -122,15 +143,28 @@ async def _run_scout(item: dict) -> dict:
                     prompt,
                     schema=DIGEST_SCHEMA,
                     role=f"Scout {name} ({fallback_model})",
-                    type_name=scout_agent,
+                    type_name="self",
                     workspace="inherit",
                     model=fallback_model,
                 ),
                 max_tokens=80000,
                 timeout=timeout_seconds,
             )
-            return {"subsystem": name, "status": "completed", "model_used": fallback_model, "digest": digest}
-        return {"subsystem": name, "status": "failed", "model_used": active_model, "error": str(exc), "digest": None}
+            return {
+                "subsystem": name,
+                "status": "completed",
+                "agent_used": "self",
+                "model_used": fallback_model,
+                "digest": digest,
+            }
+        return {
+            "subsystem": name,
+            "status": "failed",
+            "agent_used": selected_agent,
+            "model_used": active_model,
+            "error": str(exc),
+            "digest": None,
+        }
 
 
 before_status = _git_porcelain()

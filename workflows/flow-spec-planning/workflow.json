@@ -29,7 +29,7 @@
       "planner_mode": {
         "type": "string",
         "enum": ["auto", "single_batch", "per_chapter"],
-        "description": "Batch 1-3 chapters in one warm planner or fan out one planner per chapter (default auto)."
+        "description": "Batch 1 chapter in one warm planner or fan out parallel per-chapter planners for >= 2 chapters (default auto)."
       },
       "worksheet_format": {
         "type": "string",
@@ -62,13 +62,21 @@
         "type": "string",
         "description": "Optional custom agent profile for planning (default self)."
       },
+      "reviewer_agent": {
+        "type": "string",
+        "description": "Optional custom agent profile for zero-context spec review (default self)."
+      },
+      "planner_degraded": {
+        "type": "boolean",
+        "description": "Flag whether coordinator quota routing forced planner onto a non-frontier model."
+      },
       "planner_timeout_seconds": {
         "type": "integer",
         "description": "Per-planner wall-clock timeout in seconds (default 900)."
       },
       "disk_idle_grace_seconds": {
         "type": "integer",
-        "description": "Idle seconds after all chapter files exist on disk before recovering a stalled planner (default 90)."
+        "description": "Idle seconds after all chapter files exist on disk before recovering a stalled planner (default 45)."
       },
       "reviewer_timeout_seconds": {
         "type": "integer",

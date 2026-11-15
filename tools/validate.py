@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import fnmatch
 import json
 import re
 import shutil
@@ -22,11 +23,8 @@ __all__ = (
     "COMPACT_TASK_HEADINGS",
     "EXPECTED_AGENTS",
     "EXPECTED_SKILLS",
-    "MAX_CHAPTER_TASKS",
     "MAX_SKILL_DESCRIPTION_CHARS",
     "MAX_SKILL_FILE_BYTES",
-    "MAX_TASK_ESTIMATED_LOC",
-    "MAX_TASK_READ_SET",
     "MAX_TRUTH_BLOCK_LINES",
     "PLANNING_QUALITY_VALUES",
     "READONLY_AGENTS",
@@ -56,11 +54,9 @@ CODEX_AGENTS_DIR = REPO_ROOT / ".codex" / "agents"
 MAX_SKILL_FILE_BYTES = 24000
 MAX_SKILL_DESCRIPTION_CHARS = 500
 MAX_TRUTH_BLOCK_LINES = 40
-MAX_CHAPTER_TASKS = 4
-MAX_TASK_READ_SET = 6
-MAX_TASK_ESTIMATED_LOC = 250
 MAX_PLAN_SCHEMA_CARD_LINES = 120
 MAX_EXECUTOR_SCHEMA_CARD_LINES = 95
+MAX_CATALOG_OVERVIEW_BYTES = 120832
 SKILL_DESCRIPTION_PREFIX = "Use when"
 FORBIDDEN_SKILL_DESCRIPTION_TERMS = (
     "Auto-activate",
@@ -275,6 +271,11 @@ _FOOTNOTE_DEF_PATTERN = re.compile(r"^\[\^([A-Za-z0-9_-]+)\]:\s+.+$", re.MULTILI
 _TRUTH_START_PATTERN = re.compile(r"<!--\s*truth:\s*start\s*-->")
 _TRUTH_END_PATTERN = re.compile(r"<!--\s*truth:\s*end\s*-->")
 _BODY_HR_PATTERN = re.compile(r"^[ \t]*---[ \t]*$", re.MULTILINE)
+_ISO_UTC_OFFSET_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$")
+_CATALOG_SCOPE_SHORTHAND_PATTERN = re.compile(r"^(?:kb|entryGroup)\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[@a-zA-Z0-9_-]+$")
+_CATALOG_SCOPE_CANONICAL_PATTERN = re.compile(
+    r"^projects/[a-zA-Z0-9_-]+/locations/[a-zA-Z0-9_-]+/entryGroups/[@a-zA-Z0-9_-]+$"
+)
 _HISTORY_HEADING_PATTERN = re.compile(
     r"^[ \t]*#+[ \t]*(?:revision history|change history|changelog|decision history)(?:[ \t:]|$)",
     re.IGNORECASE | re.MULTILINE,
@@ -906,9 +907,15 @@ def validate_okf_bundle(
     errors.extend(_validate_bundle_symlinks(bundle_dir, project_root=project_root))
 
     target_flow = require_completed_flow or flow_id
+    effective_project = project_root or (bundle_dir.parent if bundle_dir.name == "bundle" else bundle_dir.parent.parent)
+    kc_cfg, kc_excludes, kc_errors = _load_knowledge_catalog_config(effective_project, bundle_dir)
+    errors.extend(kc_errors)
+    catalog_enabled = bool(kc_cfg.get("enabled"))
+    has_catalog_yaml = (effective_project / "catalog.yaml").is_file() or (bundle_dir / "catalog.yaml").is_file()
+
     root_index = bundle_dir / "index.md"
     if not root_index.is_file():
-        return [f"{bundle_dir}: missing root index.md"]
+        return [*errors, f"{bundle_dir}: missing root index.md"]
 
     root_fm, _ = _split_frontmatter(root_index.read_text(encoding="utf-8"))
     if root_fm is None:
@@ -916,7 +923,7 @@ def validate_okf_bundle(
     else:
         if str(root_fm.get("okf_version", "")) != "0.2":
             errors.append(f"{root_index}: okf_version must be '0.2'")
-        if not str(root_fm.get("bundle", "")).strip():
+        if not has_catalog_yaml and not str(root_fm.get("bundle", "")).strip():
             errors.append(f"{root_index}: missing 'bundle' key in root index.md")
 
     scan_paths: list[Path]
@@ -950,13 +957,35 @@ def validate_okf_bundle(
             errors.append(f"{rel}: missing YAML frontmatter")
             continue
 
-        errors.extend(_validate_concept_frontmatter_and_truth(rel, fm, body, project_root=project_root))
+        is_excluded = _is_catalog_excluded(md_path, bundle_dir, effective_project, fm, kc_excludes)
+        errors.extend(
+            _validate_concept_frontmatter_and_truth(
+                rel,
+                fm,
+                body,
+                project_root=project_root,
+                check_overview_budget=catalog_enabled and not is_excluded,
+            )
+        )
 
-    effective_project = project_root or bundle_dir.parent.parent
     git_root = _resolve_git_worktree_root(effective_project)
     sha_tracking = _read_sha_tracking_mode(effective_project)
     specs_dir = bundle_dir / "specs"
     if specs_dir.is_dir():
+        child_specs_by_prd: dict[str, list[tuple[str, str, dict[str, Any]]]] = {}
+        for all_flow_dir in sorted(p for p in specs_dir.iterdir() if p.is_dir()):
+            child_spec = all_flow_dir / "spec.md"
+            if not child_spec.is_file():
+                continue
+            child_fm, _ = _split_frontmatter(child_spec.read_text(encoding="utf-8"))
+            if child_fm is None:
+                continue
+            parent_prd = str(child_fm.get("parent_prd") or "").strip()
+            if parent_prd:
+                child_specs_by_prd.setdefault(parent_prd, []).append(
+                    (all_flow_dir.name, str(child_fm.get("state") or "").strip(), child_fm)
+                )
+
         flow_dirs = (
             [specs_dir / target_flow]
             if target_flow is not None
@@ -972,6 +1001,7 @@ def validate_okf_bundle(
                     git_root=git_root,
                     require_completed=(require_completed_flow == flow_dir.name),
                     sha_tracking=sha_tracking,
+                    child_specs=child_specs_by_prd.get(flow_dir.name, ()),
                 )
             )
 
@@ -1355,12 +1385,123 @@ def _validate_bundle_body_hygiene_and_links(md_path: Path, rel: str, body: str) 
     return errors
 
 
+def _html_safe_json_byte_len(text: str) -> int:
+    """Measure UTF-8 byte length after HTML-safe JSON escaping matching Knowledge Catalog limits."""
+    escaped = (
+        json.dumps(text, ensure_ascii=False).replace("<", "\\u003c").replace(">", "\\u003e").replace("&", "\\u0026")
+    )
+    return len(escaped.encode("utf-8"))
+
+
+def _load_knowledge_catalog_config(
+    project_root: Path,
+    bundle_dir: Path,
+) -> tuple[dict[str, Any], list[str], list[str]]:
+    """Load and validate optional setup-state knowledge_catalog configuration and catalog.yaml excludes."""
+    errors: list[str] = []
+    kc_cfg: dict[str, Any] = {}
+    excludes: list[str] = []
+
+    setup_path = project_root / ".agents" / "setup-state.json"
+    if setup_path.is_file():
+        try:
+            raw_setup = json.loads(setup_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            errors.append(".agents/setup-state.json: invalid JSON")
+        else:
+            raw_kc = raw_setup.get("knowledge_catalog")
+            if raw_kc is not None:
+                if not isinstance(raw_kc, dict):
+                    errors.append(".agents/setup-state.json: knowledge_catalog must be a JSON object")
+                else:
+                    kc_cfg = raw_kc
+                    if "enabled" in kc_cfg and not isinstance(kc_cfg["enabled"], bool):
+                        errors.append(".agents/setup-state.json: knowledge_catalog.enabled must be a boolean")
+                    for key in ("project_id", "location", "entry_group"):
+                        if key in kc_cfg and kc_cfg[key] is not None:
+                            val = kc_cfg[key]
+                            if not isinstance(val, str) or not val.strip():
+                                errors.append(
+                                    f".agents/setup-state.json: knowledge_catalog.{key} must be a non-empty string"
+                                )
+                    layout = kc_cfg.get("content_layout")
+                    if layout is not None and layout not in ("progressive_disclosure", "okf"):
+                        errors.append(
+                            ".agents/setup-state.json: knowledge_catalog.content_layout must be "
+                            "'progressive_disclosure' or 'okf'"
+                        )
+                    extra_groups = kc_cfg.get("entry_groups")
+                    if extra_groups is not None and (
+                        not isinstance(extra_groups, list)
+                        or any(not isinstance(item, str) or not item.strip() for item in extra_groups)
+                    ):
+                        errors.append(
+                            ".agents/setup-state.json: knowledge_catalog.entry_groups must be a list of strings"
+                        )
+
+    for candidate in (project_root / "catalog.yaml", bundle_dir / "catalog.yaml"):
+        if not candidate.is_file():
+            continue
+        rel_yaml = (
+            candidate.relative_to(project_root).as_posix() if candidate.is_relative_to(project_root) else candidate.name
+        )
+        raw_yaml = candidate.read_text(encoding="utf-8")
+        yaml_fm, _ = _split_frontmatter(f"---\n{raw_yaml.strip()}\n---\n")
+        if yaml_fm is None:
+            errors.append(f"{rel_yaml}: invalid YAML mapping")
+            continue
+        scope_val = str(yaml_fm.get("scope") or "").strip()
+        if (
+            scope_val
+            and not _CATALOG_SCOPE_SHORTHAND_PATTERN.match(scope_val)
+            and not _CATALOG_SCOPE_CANONICAL_PATTERN.match(scope_val)
+        ):
+            errors.append(
+                f"{rel_yaml}: scope must match kb.<project>.<location>.<entry_group> or projects/.../entryGroups/..."
+            )
+        yaml_layout = str(yaml_fm.get("layout") or "").strip()
+        if yaml_layout and yaml_layout not in ("okf", "progressive_disclosure"):
+            errors.append(f"{rel_yaml}: layout must be 'okf' or 'progressive_disclosure'")
+        raw_ex = yaml_fm.get("catalog_exclude") if "catalog_exclude" in yaml_fm else yaml_fm.get("exclude")
+        if isinstance(raw_ex, list):
+            for pat in raw_ex:
+                cleaned = str(pat).strip().lstrip("/")
+                if cleaned and cleaned not in excludes:
+                    excludes.append(cleaned)
+
+    return kc_cfg, excludes, errors
+
+
+def _is_catalog_excluded(
+    md_path: Path,
+    bundle_dir: Path,
+    project_root: Path,
+    fm: dict[str, Any],
+    excludes: list[str],
+) -> bool:
+    """Return True when frontmatter, glob rules, or a .kc-no-export marker exclude md_path from catalog sync."""
+    if fm.get("catalog_publish") is False or str(fm.get("catalog_publish", "")).strip().lower() == "false":
+        return True
+    cur = md_path.parent
+    bundle_res = bundle_dir.resolve()
+    while True:
+        if (cur / ".kc-no-export").exists():
+            return True
+        if cur.resolve() == bundle_res or cur.parent == cur:
+            break
+        cur = cur.parent
+    rel_bundle = md_path.relative_to(bundle_dir).as_posix()
+    rel_proj = md_path.relative_to(project_root).as_posix() if md_path.is_relative_to(project_root) else rel_bundle
+    return any(fnmatch.fnmatch(rel_bundle, pat) or fnmatch.fnmatch(rel_proj, pat) for pat in excludes)
+
+
 def _validate_concept_frontmatter_and_truth(
     rel: str,
     fm: dict[str, Any],
     body: str,
     *,
     project_root: Path | None = None,
+    check_overview_budget: bool = False,
 ) -> list[str]:
     """Validate OKF v0.2 concept frontmatter, status/tags invariants, truth blocks, footnotes, and Spec/Task bodies."""
     errors: list[str] = []
@@ -1376,6 +1517,23 @@ def _validate_concept_frontmatter_and_truth(
             errors.append(
                 f"{rel}: invalid OKF status {status_val!r} (must be one of {sorted(OKF_DOCUMENT_STATUSES)}; "
                 "workflow execution state belongs in 'state')"
+            )
+
+    if "stale_after" in fm and fm["stale_after"] is not None:
+        stale_val = str(fm.get("stale_after", "")).strip()
+        if stale_val and not _ISO_UTC_OFFSET_PATTERN.match(stale_val):
+            errors.append(
+                f"{rel}: stale_after {stale_val!r} must use full ISO-8601 timestamp with UTC offset "
+                "(YYYY-MM-DDTHH:MM:SSZ or ±HH:MM)"
+            )
+
+    if check_overview_budget:
+        byte_len = _html_safe_json_byte_len(body.strip())
+        if byte_len > MAX_CATALOG_OVERVIEW_BYTES:
+            h2s = re.findall(r"^##\s+(.+)$", body, re.MULTILINE)[:5]
+            hint = f" Split on ## headings: {', '.join(h2s)}." if h2s else ""
+            errors.append(
+                f"{rel}: body exceeds {MAX_CATALOG_OVERVIEW_BYTES} HTML-safe JSON-escaped bytes ({byte_len}).{hint}"
             )
 
     if "planning_quality" in fm and fm["planning_quality"] is not None:
@@ -1450,7 +1608,7 @@ def _validate_concept_frontmatter_and_truth(
 
 
 def _validate_task_blueprint_contract(rel: str, fm: dict[str, Any], body: str) -> list[str]:
-    """Validate full or compact Task worksheet headings, deferral authorization, read_set cap, and estimated_loc cap."""
+    """Validate full or compact Task worksheet headings, deferral authorization, and metadata types."""
     errors: list[str] = []
     unfenced = _MULTILINE_FENCE_PATTERN.sub("", body)
     ws_format = str(fm.get("worksheet_format", "full") or "full").strip().lower()
@@ -1472,17 +1630,15 @@ def _validate_task_blueprint_contract(rel: str, fm: dict[str, Any], body: str) -
 
     if "read_set" in fm and fm["read_set"] is not None:
         read_set = fm["read_set"]
-        if not isinstance(read_set, list):
+        if not isinstance(read_set, list) or not all(isinstance(item, str) for item in read_set):
             errors.append(f"{rel}: read_set must be a list of file paths")
-        elif len(read_set) > MAX_TASK_READ_SET:
-            errors.append(f"{rel}: read_set has {len(read_set)} entries (exceeds {MAX_TASK_READ_SET}-file cap)")
 
     if "estimated_loc" in fm and fm["estimated_loc"] is not None:
         loc_val = fm["estimated_loc"]
         if not isinstance(loc_val, int) or isinstance(loc_val, bool):
             errors.append(f"{rel}: estimated_loc must be an integer")
-        elif loc_val > MAX_TASK_ESTIMATED_LOC:
-            errors.append(f"{rel}: estimated_loc {loc_val} exceeds {MAX_TASK_ESTIMATED_LOC}-line cap")
+        elif loc_val < 0:
+            errors.append(f"{rel}: estimated_loc {loc_val} must be non-negative")
 
     return errors
 
@@ -1507,6 +1663,7 @@ def _validate_flow_spec_directory(
     git_root: Path | None = None,
     require_completed: bool = False,
     sha_tracking: str = "strict",
+    child_specs: tuple[tuple[str, str, dict[str, Any]], ...] | list[tuple[str, str, dict[str, Any]]] = (),
 ) -> list[str]:
     """Validate a single-chapter or multi-chapter specs/<flow_id>/ directory for anti-skip and review-stamp parity."""
     errors: list[str] = []
@@ -1525,8 +1682,20 @@ def _validate_flow_spec_directory(
     root_rev_sha = str(root_fm.get("last_reviewed_commit") or "").strip()
     plan_commit = str(root_fm.get("plan_commit") or "").strip()
 
-    if require_completed and root_state != "completed":
+    if require_completed and root_state not in ("completed", "closed"):
         errors.append(f"{rel_flow}/spec.md: --require-completed failed because state is {root_state!r} != 'completed'")
+
+    if root_state in ("completed", "closed") or require_completed:
+        open_children: list[str] = []
+        for child_id, child_state, child_fm in child_specs:
+            if child_state in DEFERRED_STATES:
+                errors.extend(_validate_user_deferral(f"specs/{child_id}/spec.md", child_fm, child_state))
+            elif child_state not in ("completed", "closed"):
+                open_children.append(f"{child_id} ({child_state or 'unspecified'})")
+        if open_children:
+            errors.append(
+                f"{rel_flow}/spec.md: PRD cannot be marked 'completed' while child specs remain open: {open_children}"
+            )
 
     if has_chapters:
         errors.extend(
@@ -1541,6 +1710,7 @@ def _validate_flow_spec_directory(
                 git_root=git_root,
                 default_plan_commit=plan_commit,
                 sha_tracking=sha_tracking,
+                require_completed=require_completed,
             )
         )
         return errors
@@ -1557,7 +1727,7 @@ def _validate_flow_spec_directory(
     )
     errors.extend(task_errors)
 
-    if root_state == "completed" or require_completed:
+    if root_state in ("completed", "closed") or require_completed:
         if task_total == 0:
             errors.append(f"{rel_flow}/spec.md: cannot mark completed with zero task worksheets")
         elif open_task_ids:
@@ -1579,6 +1749,7 @@ def _validate_multi_chapter_flow(
     git_root: Path | None = None,
     default_plan_commit: str = "",
     sha_tracking: str = "strict",
+    require_completed: bool = False,
 ) -> list[str]:
     """Validate nested chapters/<ch_id>/ layout, 1:1 roadmap parity, anti-skip invariants, and review stamps."""
     errors: list[str] = []
@@ -1658,7 +1829,7 @@ def _validate_multi_chapter_flow(
 
         if ch_state in DEFERRED_STATES:
             errors.extend(_validate_user_deferral(f"{rel_ch}/spec.md", ch_fm, ch_state))
-        elif ch_state == "completed":
+        elif ch_state in ("completed", "closed"):
             if task_total == 0:
                 errors.append(f"{rel_ch}/spec.md: cannot mark chapter 'completed' with zero task worksheets")
             elif open_tasks:
@@ -1671,7 +1842,7 @@ def _validate_multi_chapter_flow(
             open_chapters.append(ch_id)
 
     curr_ch = str(root_fm.get("current_chapter") or "").strip()
-    if root_state == "completed":
+    if root_state in ("completed", "closed") or require_completed:
         if not ch_dirs:
             errors.append(f"{rel_flow}/spec.md: cannot mark multi-chapter flow 'completed' with zero chapters")
         elif open_chapters:
@@ -1699,19 +1870,13 @@ def _validate_tasks_for_owner_spec(
     plan_commit: str = "",
     sha_tracking: str = "strict",
 ) -> tuple[list[str], int, list[str]]:
-    """Verify <= 4 tasks per chapter/spec, checklist parity, and Git file-ownership proofs."""
+    """Verify chapter/spec task checklists and Git file-ownership proofs."""
     errors: list[str] = []
     open_tasks: list[str] = []
     if not tasks_dir.is_dir():
         return errors, 0, open_tasks
 
     task_files = sorted(p for p in tasks_dir.glob("*.md") if p.name != "index.md")
-    if len(task_files) > MAX_CHAPTER_TASKS:
-        rel_tasks = tasks_dir.relative_to(bundle_dir).as_posix()
-        errors.append(
-            f"{rel_tasks}: found {len(task_files)} task worksheets (exceeds {MAX_CHAPTER_TASKS}-task chapter cap; "
-            "split into additional chapters rather than compressing or overloading)"
-        )
 
     unfenced_owner = _MULTILINE_FENCE_PATTERN.sub("", owner_body)
     checklist_rows = [
@@ -2057,7 +2222,7 @@ def _parse_scalar(val: str) -> Any:
                 k, v = pair.split(":", 1)
                 result[k.strip()] = _parse_scalar(v)
         return result
-    if stripped.isdigit():
+    if stripped.isdigit() or (stripped.startswith("-") and stripped[1:].isdigit()):
         return int(stripped)
     return stripped
 

@@ -41,11 +41,11 @@ Flow separates **Stateful Planning & Adjudication** from **Zero-Context Verifica
    - Configures Git tracking (`shared` team mode vs. `local-only` stealth mode via `.git/info/exclude`) and opt-in cross-harness settings.
 2. **Spec (`/flow:prd`, `/flow:spec`, `/flow:revise`, `/flow:research`) — Subagent-Scaled Co-Design & Upfront Chapter Blueprints**:
    - **Sharded Discovery & Questioning**: Fans out read-only Scout subagents returning structured `SubsystemDigest` payloads, then walks the Design-Tree Frontier (`1` question for dependent forks; `2–3` batched orthogonal leaf questions on settled frontiers via `structured-choice-v1`).
-   - **High-Detail Chaptered Specifications (`/flow:prd` & `/flow:spec`)**: Locks cross-chapter seams, shared types, and a **Documentation & OKF Knowledge Plan** in root `specs/<flow_id>/spec.md` + `chapters/index.md`, then fans out parallel Chapter Planner subagents to author **all chapters (`ch01..chNN`, zero upper cap, `1–4` vertical-slice tasks per chapter) and structured task blueprints upfront**—validating `OKF v0.2` compliance on write and disclosing any quota-degraded planning fallback (`planning_quality: degraded`) so plans stay deep and accurate without truncating scope.
-   - **Per-Chapter Zero-Context Spec Review & Revision (`/flow:revise`)**: Dispatches per-chapter zero-context reviewers passing only disk paths, adjudicates findings (`ADOPT`, `CONTEST`, `ESCALATE`), and keeps root `spec.md`, `chapters/index.md`, and chapter blueprints synchronized in present tense (current state, remaining chapters, and full plan—zero revision history inside specs).
+   - **Deliverable-Sized Specifications (`/flow:prd` & `/flow:spec`)**: Defaults cohesive features to a single-chapter `spec.md` (`has_chapters: false`) and splits into `chapters/ch01..chNN/` only at real checkpoints or independent subsystems—with zero artificial limits on tasks per chapter, `read_set`, or LOC, `compact` worksheets allowed across tiers, parallel per-chapter planners when `>= 2` chapters exist, write-time `OKF v0.2` validation, and `planning_quality: degraded` fallback warnings.
+   - **Per-Chapter Zero-Context Spec Review & Revision (`/flow:revise`)**: Dispatches zero-context reviewers (`1` combined reviewer up to `4` chapters) passing only disk paths, adjudicates findings (`ADOPT`, `CONTEST`, `ESCALATE`), and keeps root `spec.md`, `chapters/index.md`, and chapter blueprints synchronized in present tense (current state, remaining chapters, and full plan—zero revision history inside specs).
    - **Research & Prototyping (`/flow:research`, alias `/flow:task`)**: Runs primary-source `@researcher` audits (promoted into OKF v0.2 `research/*.md` with `sources:` + `[^id]:` footnotes) or time-boxed throwaway prototypes in untracked `.agents/scratch/<slug>/`.
-3. **Implement (`/flow:implement`, `/flow:status`) — Chapter-Batch Execution, Fast Chapter Gate, & Anti-Skip Guards**:
-   - Resolves linked `git worktree` checkouts automatically (symlinking `.venv`/`node_modules` and routing `shared` vs. `local-only` `.agents/` bundles), runs execution preflight, and executes strictly **one chapter (`1–4` tasks)** per `/flow:implement` invocation via warm chapter-batch `@executor` passes bound to `Bounded Read Manifests` (`<= 6` files per task).
+3. **Implement (`/flow:implement`, `/flow:status`) — Cross-Harness Parallel Waves, Chapter-Batch Execution, & Fast Gate**:
+   - Resolves linked `git worktree` checkouts automatically (symlinking `.venv`/`node_modules` and routing `shared` vs. `local-only` `.agents/` bundles), runs execution preflight, and executes the active chapter (`1..N` tasks; or consecutive ready chapters with `--all`) via parallel disjoint workers (`small_swarm` on Antigravity; isolated `parallel_subagents` on Claude Code, Codex CLI, Cursor, and OpenCode) or bounded `<= 5`-task `chapter_batch` passes.
    - Validates each chapter once with the `< 60s` **Fast Chapter Gate** (reserving `> 60s` full test suites for `/flow:finish`), records code commit SHAs before syncing affected `.agents/bundles/knowledge/**`, `docs/**`, `chapters/index.md`, and root `specs/<flow_id>/spec.md` in present tense, passes Zero-Context Chapter Code & Markdown-Sync Review (`@code-reviewer` + `@quality-reviewer`), stamps `last_reviewed_commit`, and stops cleanly—enforced by deterministic anti-skip and OKF checks in cross-harness `Stop` hooks (`hooks/stop-check.{sh,ps1}`).
 4. **Learn & Document (`/flow:learn`, `/flow:docs`)**:
    - **`/flow:learn` (aliases `resynthesize`, `refresh`, `sync`)**: Runs anytime—across machines/harnesses, mid-flow, or post-flow—to reconcile Git history with task worksheets, intersect `git diff` against `sources[].resource` provenance, sharpen domain glossaries and Architectural Decision Records (`knowledge/decisions/adr-NNN-<slug>.md`), resynthesize `knowledge/**` in present tense, and synchronize `.agents/skills/` and `.agents/agents/`.
@@ -136,7 +136,7 @@ npx --yes --package github:cofin/flow flow-studio-vscode --target vscode
 | `/flow:spec <goal>` | [`flow-planning`](skills/flow-planning/SKILL.md) | [`spec.md`](skills/flow/references/spec.md) | Author high-detail specification (`spec.md`), `chapters/`, and `tasks/*.md` blueprints (alias: `plan`) |
 | `/flow:revise <flow_id>` | [`flow-planning`](skills/flow-planning/SKILL.md) | [`revise.md`](skills/flow/references/revise.md) | Rewrite root `spec.md`, `chapters/`, and `tasks/*.md` in place in present tense (alias: `refine`) |
 | `/flow:research <topic>` | [`flow-planning`](skills/flow-planning/SKILL.md) | [`research.md`](skills/flow/references/research.md) | Primary-source research & time-boxed `.agents/scratch/` spikes (alias: `task`) |
-| `/flow:implement [flow_id]` | [`flow-execution`](skills/flow-execution/SKILL.md) | [`implement.md`](skills/flow/references/implement.md) | Execute one chapter (`1–4` tasks) with Public-Seam TDD, doc/OKF sync, and chapter review |
+| `/flow:implement [flow_id]` | [`flow-execution`](skills/flow-execution/SKILL.md) | [`implement.md`](skills/flow/references/implement.md) | Execute active chapter (`1..N` tasks, or `--all` chapters) with Public-Seam TDD, doc/OKF sync, and review |
 | `/flow:status` | [`flow-execution`](skills/flow-execution/SKILL.md) | [`status.md`](skills/flow/references/status.md) | Inspect active flows, chapter progress, remaining plan, and ready tasks |
 | `/flow:learn [scope]` | [`flow-learn`](skills/flow-learn/SKILL.md) | [`learn.md`](skills/flow/references/learn.md) | Anytime reorientation (`refresh`), sync, `OKF v0.2` knowledge resynthesis, and skill sync |
 | `/flow:docs [mode]` | [`flow-docs`](skills/flow-docs/SKILL.md) | [`prose-and-documentation.md`](skills/flow-docs/references/prose-and-documentation.md) | Tool-agnostic user/developer docs, [`agent-context.md`](skills/flow-docs/references/agent-context.md), changelogs, and clean PRs |
@@ -180,12 +180,12 @@ npx --yes --package github:cofin/flow flow-studio-vscode --target vscode
             ├── spec.md                           # Full-plan roadmap & present-tense state snapshot
             ├── learnings.md
             ├── research/<topic>_<YYYYMMDD>.md
-            ├── tasks/<id>-<slug>.md              # Single-chapter flows (1-4 tasks)
+            ├── tasks/<id>-<slug>.md              # Single-chapter flows (1..N tasks)
             └── chapters/                         # Multi-chapter flows (ch01..chNN, zero upper cap)
                 ├── index.md
                 └── ch01-<slug>/
                     ├── spec.md
-                    └── tasks/<id>-<slug>.md      # 1-4 vertical-slice tasks per chapter
+                    └── tasks/<id>-<slug>.md      # Deliverable chapter task worksheets (1..N tasks)
 ```
 
 ## License

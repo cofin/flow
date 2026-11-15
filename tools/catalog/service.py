@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import datetime as dt
+import fnmatch
 import hashlib
+import json
 import os
 import re
 from collections import Counter
@@ -109,10 +111,16 @@ class OkfMarkdownParser:
         if posix_rel in {"index.md", "log.md"}:
             return False
         frontmatter, _ = cls._split_frontmatter(raw_text)
+        raw_publish = frontmatter.get("catalog_publish")
+        if raw_publish is False or str(raw_publish).strip().lower() == "false":
+            return False
         if rel_to_bundle.stem == "index" and "type" not in frontmatter:
             return False
         top_dir = rel_to_bundle.parts[0] if len(rel_to_bundle.parts) > 1 else ""
-        return bool(top_dir in {"knowledge", "specs", "research", "decisions"} or "type" in frontmatter)
+        return bool(
+            top_dir in {"knowledge", "specs", "research", "decisions", "agents", "assets", "documents"}
+            or "type" in frontmatter
+        )
 
     @classmethod
     def parse_file(
@@ -453,6 +461,146 @@ class OkfMarkdownParser:
             )
         return tuple(edges)
 
+    @classmethod
+    def parse_catalog_yaml(cls, catalog_path: Path) -> list[str]:
+        """Extract ``catalog_exclude`` / ``exclude`` globs from ``catalog.yaml``."""
+        if not catalog_path.is_file():
+            return []
+        raw_text = catalog_path.read_text(encoding="utf-8", errors="ignore")
+        parsed = cls._parse_yaml_subset(raw_text)
+        raw_excludes = parsed.get("catalog_exclude") if "catalog_exclude" in parsed else parsed.get("exclude")
+        if not isinstance(raw_excludes, list):
+            return []
+        return [str(pat).strip().lstrip("/") for pat in raw_excludes if str(pat).strip()]
+
+    @staticmethod
+    def is_kc_excluded(
+        md_path: Path,
+        bundle_root: Path,
+        workspace_root: Path,
+        excludes: Sequence[str],
+    ) -> bool:
+        """Return True when a ``.kc-no-export`` marker or glob excludes ``md_path``."""
+        cur = md_path.parent.resolve()
+        bundle_res = bundle_root.resolve()
+        while True:
+            if (cur / ".kc-no-export").exists():
+                return True
+            if cur == bundle_res or cur.parent == cur:
+                break
+            cur = cur.parent
+        if not excludes:
+            return False
+        rel_bundle = md_path.relative_to(bundle_root).as_posix()
+        rel_ws = (
+            md_path.relative_to(workspace_root).as_posix() if md_path.is_relative_to(workspace_root) else rel_bundle
+        )
+        return any(fnmatch.fnmatch(rel_bundle, pat) or fnmatch.fnmatch(rel_ws, pat) for pat in excludes)
+
+    @classmethod
+    def extract_extra_parent(cls, raw_text: str) -> str | None:
+        """Read nested ``extra.resource.parent`` from ``kcmd --format okf`` frontmatter."""
+        lines = raw_text.splitlines()
+        if not lines or lines[0].strip() != "---":
+            return None
+        yaml_lines: list[str] = []
+        for line in lines[1:]:
+            if line.strip() in {"---", "..."}:
+                break
+            yaml_lines.append(line)
+        stack: list[tuple[int, str]] = []
+        for line in yaml_lines:
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#") or stripped.startswith("-"):
+                continue
+            indent = len(line) - len(line.lstrip())
+            if ":" not in stripped:
+                continue
+            key, val = stripped.split(":", 1)
+            key = key.strip()
+            val = val.strip().strip("\"'")
+            while stack and stack[-1][0] >= indent:
+                stack.pop()
+            if not val:
+                stack.append((indent, key))
+                continue
+            path_keys = [item[1] for item in stack] + [key]
+            if path_keys == ["extra", "resource", "parent"] and val:
+                return val
+        return None
+
+    @staticmethod
+    def load_links_yaml(links_path: Path) -> dict[str, list[tuple[str, str]]]:
+        """Parse ``kcmd`` ``_links.yaml`` edges mapping source slug/path to ``(target, kind)`` tuples."""
+        if not links_path.is_file():
+            return {}
+        edges_by_source: dict[str, list[tuple[str, str]]] = {}
+        current: dict[str, str] = {}
+
+        def _flush() -> None:
+            src = current.get("source") or current.get("from") or ""
+            tgt = current.get("target") or current.get("to") or ""
+            kind = current.get("kind") or current.get("type") or "related"
+            if src and tgt:
+                edges_by_source.setdefault(src.strip().strip("/"), []).append((tgt.strip().strip("/"), kind.strip()))
+            current.clear()
+
+        for raw_line in links_path.read_text(encoding="utf-8", errors="ignore").splitlines():
+            stripped = raw_line.strip()
+            if not stripped or stripped.startswith("#") or stripped in {"links:", "edges:"}:
+                continue
+            if stripped.startswith("- "):
+                _flush()
+                stripped = stripped[2:].strip()
+            if ":" in stripped:
+                k, v = stripped.split(":", 1)
+                current[k.strip()] = v.strip().strip("\"'")
+        _flush()
+        return edges_by_source
+
+    @staticmethod
+    def build_kcmd_edges(
+        *,
+        entry_id: str,
+        concept_id: str,
+        workspace_id: str,
+        bundle_root: Path,
+        raw_text: str,
+        links_map: dict[str, list[tuple[str, str]]],
+    ) -> tuple[CatalogLinkEdge, ...]:
+        """Build ``CatalogLinkEdge`` rows from ``extra.resource.parent`` and ``_links.yaml``."""
+        edges: list[CatalogLinkEdge] = []
+        extra_parent = OkfMarkdownParser.extract_extra_parent(raw_text)
+        candidates: list[tuple[str, str]] = []
+        if extra_parent:
+            candidates.append((extra_parent, "parent"))
+        for key in (concept_id, f"{concept_id}.md"):
+            candidates.extend(links_map.get(key, []))
+
+        for raw_target, kind in candidates:
+            clean = raw_target.strip()
+            if not clean:
+                continue
+            if "/entries/" in clean:
+                entry_slug = clean.split("/entries/", 1)[1].strip("/")
+                to_entry = f"{workspace_id}:{entry_slug}" if (bundle_root / f"{entry_slug}.md").is_file() else None
+                exists = to_entry is not None
+            else:
+                target_no_ext = clean[:-3] if clean.endswith(".md") else clean
+                candidate_file = bundle_root / f"{target_no_ext}.md"
+                exists = candidate_file.is_file()
+                to_entry = f"{workspace_id}:{target_no_ext}" if exists else None
+            edges.append(
+                CatalogLinkEdge(
+                    from_entry_id=entry_id,
+                    to_target=clean,
+                    to_entry_id=to_entry,
+                    edge_kind=kind,
+                    target_exists=exists,
+                )
+            )
+        return tuple(edges)
+
 
 class CatalogService:
     """SQLSpec + DuckDB hybrid BM25 and vector knowledge catalog service."""
@@ -545,9 +693,16 @@ class CatalogService:
                     existing_by_rel = {str(r["rel_path"]): r for r in existing_rows}
                     seen_rel_paths: set[str] = set()
                     changed_docs: list[OkfMarkdownDocument] = []
+                    kc_excludes = [
+                        *OkfMarkdownParser.parse_catalog_yaml(ws_root / "catalog.yaml"),
+                        *OkfMarkdownParser.parse_catalog_yaml(bundle_root / "catalog.yaml"),
+                    ]
+                    links_yaml_map = OkfMarkdownParser.load_links_yaml(bundle_root / "_links.yaml")
 
                     for md_file in sorted(bundle_root.rglob("*.md")):
                         if not md_file.is_file():
+                            continue
+                        if OkfMarkdownParser.is_kc_excluded(md_file, bundle_root, ws_root, kc_excludes):
                             continue
                         rel_to_bundle = md_file.relative_to(bundle_root)
                         raw_bytes = md_file.read_bytes()
@@ -578,6 +733,21 @@ class CatalogService:
                             raw_bytes=raw_bytes,
                             mtime_ms=mtime_ms,
                         )
+                        extra_edges = OkfMarkdownParser.build_kcmd_edges(
+                            entry_id=parsed.entry.entry_id,
+                            concept_id=parsed.entry.concept_id,
+                            workspace_id=workspace_id,
+                            bundle_root=bundle_root,
+                            raw_text=raw_text,
+                            links_map=links_yaml_map,
+                        )
+                        if extra_edges:
+                            parsed = OkfMarkdownDocument(
+                                entry=parsed.entry,
+                                sources=parsed.sources,
+                                links=(*parsed.links, *extra_edges),
+                                term_counts=parsed.term_counts,
+                            )
                         if prior is not None and str(prior["content_sha256"]) == parsed.entry.content_sha256:
                             session.execute(
                                 "UPDATE entries SET mtime_ms = :mtime_ms, file_size = :file_size "
@@ -984,10 +1154,26 @@ class CatalogService:
 
     @staticmethod
     def _locate_bundle_root(workspace_root: Path) -> Path | None:
-        """Resolve ``.agents/bundles`` inside ``workspace_root`` when initialized."""
+        """Resolve OKF bundle root from ``setup-state.json``, ``.agents/bundles``, or ``catalog.yaml`` + ``bundle/``."""
+        setup_file = workspace_root / ".agents" / "setup-state.json"
+        if setup_file.is_file():
+            try:
+                raw = json.loads(setup_file.read_text(encoding="utf-8"))
+                configured = str(raw.get("bundle_root") or "").strip()
+                if configured:
+                    candidate = (workspace_root / configured).resolve()
+                    if candidate.is_dir():
+                        return candidate
+            except (json.JSONDecodeError, OSError):
+                pass
         default_bundle = workspace_root / ".agents" / "bundles"
         if default_bundle.is_dir():
             return default_bundle
+        kcmd_bundle = workspace_root / "bundle"
+        if kcmd_bundle.is_dir() and (
+            (workspace_root / "catalog.yaml").is_file() or (kcmd_bundle / "index.md").is_file()
+        ):
+            return kcmd_bundle
         return None
 
     @staticmethod
