@@ -10,11 +10,11 @@ Choose the tier from estimated production LOC and impacted modules:
 
 | Tier | Trigger | Scouting | Layout | Worksheet | Planners | Review |
 | --- | --- | --- | --- | --- | --- | --- |
-| **Small** | `<= 400` LOC, `1` module | Coordinator direct read (`<= 8` files) | Single-chapter `spec.md` (`1..4` tasks) | Compact (`worksheet_format: compact`) | Coordinator only | `1` combined reviewer (`1` round) |
+| **Small** | `<= 400` LOC, `1` module | Coordinator direct read (`<= 8` files) | Single-chapter `spec.md` (single module) | Compact (`worksheet_format: compact`) | Coordinator only | `1` combined reviewer (`1` round) |
 | **Medium** | `<= 1,500` LOC or `<= 3` modules | Direct read (`<= 8` files) or `flow-scout` | Chapters (`<= 4`) + `chapters/index.md` | Full (`worksheet_format: full`) | `flow-spec-planning` (`single_batch` for `<= 3` ch; parallel for `4`) | `1` combined reviewer (`2nd` round only on adopted blocking findings) |
 | **Large** | `> 1,500` LOC, `> 3` modules, `> 4` chapters, or `/flow:prd` | `flow-scout` parallel digests | Chapters (`2..N`, zero cap) + `chapters/index.md` | Full (`worksheet_format: full`) | `flow-spec-planning` (`per_chapter` parallel) | Per-chapter + cross-chapter reviewers |
 
-- **Anti-Truncation Rule**: Tiers scale document ceremony and subagent count, never engineering scope. Every requirement, concrete contract, edge case, and documentation/OKF target maps to a task and verification surface; whenever work exceeds `4` tasks or crosses module boundaries, expand into nested `chapters/ch01-<slug>/..chNN-<slug>/` with zero upper cap on chapter count.
+- **Anti-Truncation Rule & Concise Deliverable Sizing**: Tiers scale document ceremony and subagent count, never engineering scope. Keep specifications concise by organizing chapters strictly around real deliverables, checkpoints, or `empirical_dependent` gates (no arbitrary 4-task cap splitting one deliverable into many small chapters), while keeping every individual task bounded (`read_set <= 6`, `estimated_loc <= 250`). During execution, large chapters automatically split into bounded `<= 5`-task Flash worker batches.
 
 ## Phase 1: Bundle Grounding & Right-Sized Scouting (`Facts First`)
 
@@ -38,8 +38,8 @@ Choose the tier from estimated production LOC and impacted modules:
 
 ### 3.1 Single-Chapter (`Small`) vs. Shipped `flow-spec-planning` (`Medium` / `Large`)
 
-- **`Small` Single-Chapter Flow (`<= 400` LOC, `1` module, `1..4` tasks)**:
-  - Coordinator writes `specs/<flow_id>/spec.md` (`has_chapters: false`) and `specs/<flow_id>/tasks/t01-<slug>.md..t04-<slug>.md` (`worksheet_format: compact`) directly following [`plan-schema-card.md`](../../../templates/agent/plan-schema-card.md), then runs `/flow:validate` (`exit 0`).
+- **`Small` Single-Chapter Flow (`<= 400` LOC, `1` module)**:
+  - Coordinator writes `specs/<flow_id>/spec.md` (`has_chapters: false`) and `specs/<flow_id>/tasks/tNN-<slug>.md` (`worksheet_format: compact`) directly following [`plan-schema-card.md`](../../../templates/agent/plan-schema-card.md), then runs `/flow:validate` (`exit 0`).
 - **`Medium` & `Large` Multi-Chapter Flows**:
   1. Coordinator writes root `specs/<flow_id>/spec.md` (`has_chapters: true`, `current_chapter: ch01-<slug>`, `chapters: [...]`) and frontmatter-free `specs/<flow_id>/chapters/index.md`.
   2. **Google Antigravity**: Resolve Planner and Spec Review via `tools/model_router.py` (`>= 25%` Pro quota floor, falling back to high/extra-thinking Flash only when Pro drops below `25%`), structure non-overlapping task `files:`/`tests:` paths where feasible, and call the shipped planning workflow (never hand-write orchestration scripts):

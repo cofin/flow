@@ -33,6 +33,7 @@ DEFAULT_PRO_QUOTA_FLOOR = 25.0
 DEFAULT_SWARM_QUOTA_FLOOR = 25.0
 MAX_SWARM_WRITERS = 3
 MAX_SWARM_WORKERS = 4
+MAX_TASKS_PER_WORKER = 5
 
 _CLOSED_TASK_STATES: frozenset[str] = frozenset({"completed", "closed", "deferred", "skipped"})
 _EFFORT_SCORES: dict[str, int] = {
@@ -149,6 +150,8 @@ class DisjointPlan:
     ready_task_ids: tuple[str, ...]
     conflicts: tuple[str, ...]
     assignments: tuple[SwarmAssignment, ...]
+    batch_size: int = MAX_TASKS_PER_WORKER
+    waves: int = 1
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize disjoint execution plan to JSON-compatible form."""
@@ -158,6 +161,8 @@ class DisjointPlan:
             "writer_count": self.writer_count,
             "verifier_count": self.verifier_count,
             "total_workers": self.total_workers,
+            "batch_size": self.batch_size,
+            "waves": self.waves,
             "ready_task_ids": list(self.ready_task_ids),
             "conflicts": list(self.conflicts),
             "assignments": [item.to_dict() for item in self.assignments],
@@ -739,8 +744,10 @@ def check_chapter_disjoint(
     harness: str = "agy",
     flash_quota: float | None = None,
     swarm_quota_floor: float = DEFAULT_SWARM_QUOTA_FLOOR,
+    max_tasks_per_worker: int = MAX_TASKS_PER_WORKER,
 ) -> DisjointPlan:
     """Determine whether active chapter tasks qualify for bounded disjoint ``small_swarm`` execution."""
+    bounded_batch = max(1, min(10, int(max_tasks_per_worker or MAX_TASKS_PER_WORKER)))
     if harness.strip().lower() not in ("agy", "antigravity"):
         return DisjointPlan(
             mode="chapter_batch",
@@ -751,6 +758,7 @@ def check_chapter_disjoint(
             ready_task_ids=(),
             conflicts=(),
             assignments=(),
+            batch_size=bounded_batch,
         )
 
     if flash_quota is not None and flash_quota <= swarm_quota_floor:
@@ -763,6 +771,7 @@ def check_chapter_disjoint(
             ready_task_ids=(),
             conflicts=(),
             assignments=(),
+            batch_size=bounded_batch,
         )
 
     tasks_dir = bundle_root / "specs" / flow_id / "chapters" / chapter_id / "tasks"
@@ -807,25 +816,14 @@ def check_chapter_disjoint(
     if len(parsed_tasks) < 2:
         return DisjointPlan(
             mode="chapter_batch",
-            reason=f"chapter has {len(parsed_tasks)} open task(s); requires 2-4 disjoint tasks for small_swarm",
+            reason=f"chapter has {len(parsed_tasks)} open task(s); requires >= 2 disjoint tasks for small_swarm",
             writer_count=0,
             verifier_count=0,
             total_workers=0,
             ready_task_ids=tuple(item["id"] for item in parsed_tasks),
             conflicts=(),
             assignments=(),
-        )
-
-    if len(parsed_tasks) > MAX_SWARM_WORKERS:
-        return DisjointPlan(
-            mode="chapter_batch",
-            reason=f"chapter has {len(parsed_tasks)} open tasks exceeding 4-task cap; use chapter_batch",
-            writer_count=0,
-            verifier_count=0,
-            total_workers=0,
-            ready_task_ids=(),
-            conflicts=(),
-            assignments=(),
+            batch_size=bounded_batch,
         )
 
     ready_tasks: list[dict[str, Any]] = []
@@ -833,6 +831,8 @@ def check_chapter_disjoint(
         unresolved_deps = [d for d in item["deps"] if d and d not in closed_ids]
         if not unresolved_deps:
             ready_tasks.append(item)
+
+    sequential_waves = max(1, (max(1, len(ready_tasks)) + bounded_batch - 1) // bounded_batch)
 
     if len(ready_tasks) < 2:
         return DisjointPlan(
@@ -844,6 +844,8 @@ def check_chapter_disjoint(
             ready_task_ids=tuple(item["id"] for item in ready_tasks),
             conflicts=(),
             assignments=(),
+            batch_size=bounded_batch,
+            waves=sequential_waves,
         )
 
     undeclared = [item["id"] for item in ready_tasks if not item["owned_paths"]]
@@ -857,6 +859,8 @@ def check_chapter_disjoint(
             ready_task_ids=tuple(item["id"] for item in ready_tasks),
             conflicts=(),
             assignments=(),
+            batch_size=bounded_batch,
+            waves=sequential_waves,
         )
 
     path_owners: dict[str, list[str]] = {}
@@ -869,17 +873,26 @@ def check_chapter_disjoint(
     if conflicts:
         return DisjointPlan(
             mode="chapter_batch",
-            reason="overlapping files/tests across chapter tasks; falling back to sequential chapter_batch",
+            reason=(
+                "overlapping files/tests across chapter tasks; "
+                f"falling back to bounded chapter_batch chunks (max {bounded_batch} tasks/worker)"
+            ),
             writer_count=0,
             verifier_count=0,
             total_workers=0,
             ready_task_ids=tuple(item["id"] for item in ready_tasks),
             conflicts=conflicts,
             assignments=(),
+            batch_size=bounded_batch,
+            waves=sequential_waves,
         )
 
-    buckets: list[list[dict[str, Any]]] = [[item] for item in ready_tasks[:MAX_SWARM_WRITERS]]
-    for extra_idx, extra_task in enumerate(ready_tasks[MAX_SWARM_WRITERS:]):
+    wave_capacity = MAX_SWARM_WRITERS * bounded_batch
+    wave_tasks = ready_tasks[:wave_capacity]
+    swarm_waves = max(1, (len(ready_tasks) + wave_capacity - 1) // wave_capacity)
+
+    buckets: list[list[dict[str, Any]]] = [[item] for item in wave_tasks[:MAX_SWARM_WRITERS]]
+    for extra_idx, extra_task in enumerate(wave_tasks[MAX_SWARM_WRITERS:]):
         buckets[extra_idx % MAX_SWARM_WRITERS].append(extra_task)
 
     assignments = tuple(
@@ -896,7 +909,9 @@ def check_chapter_disjoint(
     return DisjointPlan(
         mode="small_swarm",
         reason=(
-            f"disjoint write sets across {len(ready_tasks)} ready tasks and Flash quota above {swarm_quota_floor:.0f}%"
+            f"disjoint write sets across {len(ready_tasks)} ready tasks "
+            f"(wave 1: {len(wave_tasks)} task(s) across {writer_count} writer(s), max {bounded_batch}/worker) "
+            f"and Flash quota above {swarm_quota_floor:.0f}%"
         ),
         writer_count=writer_count,
         verifier_count=verifier_count,
@@ -904,6 +919,8 @@ def check_chapter_disjoint(
         ready_task_ids=tuple(item["id"] for item in ready_tasks),
         conflicts=(),
         assignments=assignments,
+        batch_size=bounded_batch,
+        waves=swarm_waves,
     )
 
 
@@ -952,6 +969,12 @@ def main(argv: list[str] | None = None) -> int:
         help="Live worker Flash remaining quota percent.",
     )
     disjoint_parser.add_argument("--swarm-quota-floor", type=float, default=DEFAULT_SWARM_QUOTA_FLOOR)
+    disjoint_parser.add_argument(
+        "--max-tasks-per-worker",
+        type=int,
+        default=MAX_TASKS_PER_WORKER,
+        help="Maximum ready tasks assigned to one worker subagent turn or swarm wave.",
+    )
 
     ns = parser.parse_args(argv)
     if ns.command == "check-disjoint":
@@ -962,6 +985,7 @@ def main(argv: list[str] | None = None) -> int:
             harness=ns.harness,
             flash_quota=ns.flash_quota,
             swarm_quota_floor=ns.swarm_quota_floor,
+            max_tasks_per_worker=ns.max_tasks_per_worker,
         )
         print(json.dumps(plan.to_dict(), indent=2))
         return 0

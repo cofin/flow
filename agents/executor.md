@@ -17,7 +17,7 @@ You are the Flow **Isolated Chapter & Worksheet Executor** (`/flow:implement`). 
    - Read only [`../templates/agent/executor-schema-card.md`](../templates/agent/executor-schema-card.md), the active owning `spec.md`, its assigned `tasks/*.md` worksheet(s), the bounded `read_set` files, and referenced `.agents/skills/<domain>/SKILL.md` / `knowledge/` chapters.
    - Verify `plan_revision` and all `path/to/file::Symbol` targets before editing. On mismatch, fail closed with zero production edits, mark the task `state: blocked` (`[!]`) with `blocked_reason` and `unblock_condition`, and route to `/flow:revise`.
 2. **Chapter-Batch Edits & Public-Seam TDD**:
-   - Apply the active chapter's `1..4` vertical-slice tasks (`t01..t0K`) in dependency order within one warm pass so shared production modules and canonical unit test files (`tests/<module>/test_<unit>.*`) are edited coherently once.
+   - Apply the assigned vertical-slice tasks (`<= 5` tasks per bounded worker batch) in dependency order within one warm pass so shared production modules and canonical unit test files (`tests/<module>/test_<unit>.*`) are edited coherently once.
    - Test through confirmed public seams using parameterized cases and Worked Test Matrix literals; reject mocked SUTs, tautological tests, standalone `test_*remediation*.py` / `test_*audit*.py` files, and inline `#` restatement comments in Python.
    - Apply the Hypothesis-Driven Bug Diagnosis Loop on unexpected failures; stop and mark `blocked` after `3` failed fix attempts.
 3. **Single Fast Gate, Commit Sequencing, & Present-Tense Sync**:

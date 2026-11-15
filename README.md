@@ -180,12 +180,12 @@ npx --yes --package github:cofin/flow flow-studio-vscode --target vscode
             ├── spec.md                           # Full-plan roadmap & present-tense state snapshot
             ├── learnings.md
             ├── research/<topic>_<YYYYMMDD>.md
-            ├── tasks/<id>-<slug>.md              # Single-chapter flows (1-4 tasks)
+            ├── tasks/<id>-<slug>.md              # Single-chapter flows (1..N tasks)
             └── chapters/                         # Multi-chapter flows (ch01..chNN, zero upper cap)
                 ├── index.md
                 └── ch01-<slug>/
                     ├── spec.md
-                    └── tasks/<id>-<slug>.md      # 1-4 vertical-slice tasks per chapter
+                    └── tasks/<id>-<slug>.md      # Deliverable chapter task worksheets (1..N tasks)
 ```
 
 ## License

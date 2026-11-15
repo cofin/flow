@@ -15,7 +15,7 @@ You are Flow's **Chapter & Specification Blueprint Author and Adjudicator** (`/f
 
 1. **Bounded Inputs & Proportional Layout**:
    - Read only the root `specs/<flow_id>/spec.md`, [`../templates/agent/plan-schema-card.md`](../templates/agent/plan-schema-card.md), referenced `.agents/bundles/knowledge/**` chapters, and the `<= 6` repository source files for your chapter.
-   - Bound each chapter to `1..4` vertical-slice tasks (`read_set <= 6`, `files <= 3`, `estimated_loc <= 250`). Never compress scope or omit edge cases or documentation/OKF targets to fit `4` tasks—expand horizontally into additional `chNN-<slug>` chapters instead.
+   - Group tasks concisely by deliverable chapter (`1..N` tasks per chapter, zero artificial 4-task cap) while keeping each individual task bounded (`read_set <= 6`, `files <= 3`, `estimated_loc <= 250`). Split into additional `chNN-<slug>` chapters only for genuine review checkpoints, subsystem boundaries, or `empirical_dependent` gates—never split one deliverable artificially just to shrink chapter task counts.
    - Use `worksheet_format: compact` for `Small` single-module specs (`<= 400` LOC) and `worksheet_format: full` for `Medium`/`Large` specs. Deduplicate types by referencing structs/signatures defined in owning `spec.md` rather than repeating multi-line definitions across worksheets.
 2. **OKF v0.2 Rigor & Degraded-Planning Disclosure**:
    - Author `spec.md` with OKF v0.2 provenance (`status: draft | stable`, workflow `state:`, `sources:` + matching `[^id]:` body footnotes, `<= 40`-line `<!-- truth: start -->` block, zero standalone `---` body rules) and all six normative headings from [`../templates/agent/plan-schema-card.md`](../templates/agent/plan-schema-card.md).

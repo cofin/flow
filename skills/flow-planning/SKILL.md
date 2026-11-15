@@ -18,7 +18,7 @@ Scale orchestration ceremony and worksheet format to the size of the change whil
 
 | Tier | Trigger | Scouting | Layout & Worksheet | Planners | Spec Review |
 | --- | --- | --- | --- | --- | --- |
-| **Small** | `<= 400` LOC, `1` module, `1..4` tasks | Coordinator direct read (`<= 8` files) | Single-chapter `spec.md` + `compact` worksheets ([`plan-schema-card.md`](../../templates/agent/plan-schema-card.md)) | Coordinator directly (`0` subagents) | `1` combined reviewer (`1` round) |
+| **Small** | `<= 400` LOC, `1` module | Coordinator direct read (`<= 8` files) | Single-chapter `spec.md` + `compact` worksheets ([`plan-schema-card.md`](../../templates/agent/plan-schema-card.md)) | Coordinator directly (`0` subagents) | `1` combined reviewer (`1` round) |
 | **Medium** | `<= 1,500` LOC or `<= 3` modules (`<= 4` chapters) | Direct read (`<= 8` files) or `flow-scout` (`flash`/`sonnet`) | Root `spec.md` + `chapters/index.md` + `<= 4` chapters (`full` worksheets) | `flow-spec-planning` (`single_batch` for `<= 3` ch; parallel for `4`) | `1` combined reviewer (`2nd` round only on adopted `Critical`/`Important` findings) |
 | **Large** | `> 1,500` LOC, `> 3` modules, `> 4` chapters, or `/flow:prd` | `flow-scout` parallel digests (`flash`/`sonnet`) | Root `spec.md` + `chapters/index.md` + `ch01..chNN` (`full` worksheets, no cap) | `flow-spec-planning` (`per_chapter` parallel) | Per-chapter + cross-chapter reviewers |
 
@@ -31,7 +31,7 @@ Scale orchestration ceremony and worksheet format to the size of the change whil
    - Ask `1` question at dependent design forks and batch `2–3` orthogonal leaf questions once on a settled frontier ([`../flow/references/interaction.md`](../flow/references/interaction.md)), placing `<Label> (Recommended)` first.
    - Resolve seam alternatives, concrete data/error contracts, public-seam test surfaces, fast (`< 60s`) chapter lint/test checkpoints, `docs/**` + OKF targets, and `Small` / `Medium` / `Large` decomposition before drafting.
 3. **Author OKF v0.2 Specs, Planner Notes, & Deterministic OKF Gate**:
-   - **`Small`**: Author `specs/<flow_id>/spec.md` (`has_chapters: false`) and `specs/<flow_id>/tasks/t01..t04.md` (`worksheet_format: compact`) directly in the coordinator and run `/flow:validate`.
+   - **`Small`**: Author `specs/<flow_id>/spec.md` (`has_chapters: false`) and `specs/<flow_id>/tasks/tNN-*.md` (`worksheet_format: compact`) directly in the coordinator and run `/flow:validate`.
    - **`Medium` & `Large`**: Write root `specs/<flow_id>/spec.md` and frontmatter-free `specs/<flow_id>/chapters/index.md`, then invoke `run_workflow(ScriptPath="<plugin_root>/workflows/flow-spec-planning/workflow.py", Args={...})` on Google Antigravity (or `@plan-generator` subagents passing [`plan-schema-card.md`](../../templates/agent/plan-schema-card.md) on other harnesses). Each planner writes `chapters/<ch_id>/planner-notes.md` on disk before finishing, and deterministic OKF validation runs before LLM review.
    - **Degraded-Model Warning (`planning_quality: degraded`)**: On Google Antigravity, probe live quotas (`swarm(action="models", all=True)`) and resolve via `tools/model_router.py`: route Coordinator, Planner, and Spec Review to the highest-quota frontier Pro model when remaining quota is `>= 25%` (`Opus` on Claude Code; `high` reasoning on Codex), and declare non-overlapping task `files:`/`tests:` paths wherever module boundaries allow so `/flow:implement` qualifies for `small_swarm`. Whenever Pro quota `< 25%`, fallback, or timeout disk-recovery forces planning onto Flash/Sonnet, stamp `planning_quality: degraded` + `planning_degraded_reason` in `spec.md` and display an explicit warning banner before approval.
 4. **Zero-Context Spec Review & Adjudication (`ADOPT` / `CONTEST` / `ESCALATE`)**:
@@ -42,7 +42,7 @@ Scale orchestration ceremony and worksheet format to the size of the change whil
 ## Guardrails
 
 - **No Production Code During Planning**: Modify files exclusively under `.agents/bundles/` (or untracked `.agents/scratch/<slug>/` spikes).
-- **Zero Scope Truncation, Zero Body `---`, & Fast Checkpoints**: Never drop edge cases or docs to fit `4` tasks, never place standalone `---` rules or `Revision History` sections in bundle bodies, and never configure slow (`> 60s`) full test suites as intermediate chapter checkpoints.
+- **Zero Scope Truncation, Zero Body `---`, & Fast Checkpoints**: Keep individual tasks focused (`read_set <= 6`, `estimated_loc <= 250`) with zero artificial task-count limit per chapter, never place standalone `---` rules or `Revision History` sections in bundle bodies, and never configure slow (`> 60s`) full test suites as intermediate chapter checkpoints.
 
 ## Output
 

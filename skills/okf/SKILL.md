@@ -72,12 +72,12 @@ archive:
         ├── spec.md                 # Root Full-Plan Roadmap OR Single-Chapter Spec (type: Spec)
         ├── learnings.md            # Implementation discoveries awaiting promotion to knowledge/
         ├── research/<topic>.md     # Spec-scoped primary-source research (type: Research)
-        ├── tasks/<id>-<slug>.md    # Single-chapter task worksheets (1-4 tasks; type: Task)
+        ├── tasks/<id>-<slug>.md    # Single-chapter task worksheets (1..N tasks; type: Task)
         └── chapters/               # Multi-chapter decomposition (2..N chapters, zero upper cap)
             ├── index.md            # Frontmatter-free chapter catalog
             └── ch01-<slug>/
                 ├── spec.md         # Chapter specification (type: Spec)
-                └── tasks/<id>-<slug>.md # Chapter task worksheets (1-4 tasks; type: Task)
+                └── tasks/<id>-<slug>.md # Chapter task worksheets (1..N tasks; type: Task)
 ```
 
 ## Concept Frontmatter & Provenance Schema (`OKF v0.2` + Knowledge Catalog)

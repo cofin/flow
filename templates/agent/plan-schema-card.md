@@ -14,7 +14,7 @@ Self-contained reference for authoring Flow specifications, chapter specificatio
 
 - **Required Frontmatter Keys**: `type: Spec`, `title`, `description`, `status`, `state`, `planning_quality`, `planning_degraded_reason`, `plan_revision`, `plan_commit`, `current_task`, `last_verified_checkpoint`, `last_reviewed_commit`, `generated`, `verified`, `sources`, `tags`.
   - Root multi-chapter specs add: `flow_id`, `has_chapters: true`, `chapters: [ch01-<slug>, ...]`, `current_chapter`, `last_reviewed_chapter`.
-  - Nested chapter specs (`chapters/<ch_id>/spec.md`, `1..4` tasks max) add: `parent_flow`, `chapter_id`, `planning_status: complete | empirical_dependent`, `depends_on_chapters: [...]`, `replan_trigger` (non-empty when `empirical_dependent`).
+  - Nested chapter specs (`chapters/<ch_id>/spec.md`, concise deliverable scope, `1..N` tasks with no artificial task-count cap) add: `parent_flow`, `chapter_id`, `planning_status: complete | empirical_dependent`, `depends_on_chapters: [...]`, `replan_trigger` (non-empty when `empirical_dependent`).
 - **Required Body Headings**:
   - `## 1. Specification, Context & Provenance`
   - `## 2. Requirements, Concrete Contracts & Architecture`

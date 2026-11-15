@@ -9,12 +9,12 @@ Specifications (`.agents/bundles/specs/<flow_id>/spec.md`), chapter specificatio
 - `<flow-root>` is `<bundle-root>/specs/<flow_id>`. Resolved paths stay inside the repository root or, inside a linked `git worktree` (`git rev-parse --git-common-dir`), a symlink targeting the primary checkout's `.agents` / `.venv` directory:
   - **`ignore_policy: shared`**: `.agents/` is tracked in Git; work directly in the worktree's `.agents/bundles/` Markdown.
   - **`ignore_policy: local-only`**: `.agents/` lives in the primary checkout (`$MAIN_WORKTREE/.agents`, symlinked at `$WORKTREE/.agents`); read and write all Flow Markdown in the primary checkout so zero diverging copies exist.
-- **Single-Chapter Flow (`Small` Tier — `<= 400` LOC, `1` module, `1..4` tasks)**:
-  - `<flow-root>/spec.md` (`has_chapters: false`) + `<flow-root>/tasks/t01-<slug>.md..t04-<slug>.md` (`worksheet_format: compact` or `full`).
-- **Multi-Chapter Flow (`Medium` & `Large` Tiers — `> 4` tasks, `>= 2` module boundaries, or `/flow:prd`)**:
+- **Single-Chapter Flow (`Small` Tier — `<= 400` LOC, `1` module)**:
+  - `<flow-root>/spec.md` (`has_chapters: false`) + `<flow-root>/tasks/tNN-<slug>.md` (`worksheet_format: compact` or `full`).
+- **Multi-Chapter Flow (`Medium` & `Large` Tiers — `>= 2` module boundaries, staged checkpoints, or `/flow:prd`)**:
   - `<flow-root>/spec.md` — Full-plan roadmap (`has_chapters: true`, `current_chapter`, `chapters: [ch01-<slug>, ...]`, cross-chapter public seams and shared types, Flow-Wide Documentation & OKF Knowledge Plan, full chapter checklist, and present-tense state snapshot).
   - `<flow-root>/chapters/index.md` — Frontmatter-free OKF v0.2 directory catalog (`# Chapters: <Title>` + `* [ch01 — <Title>](ch01-<slug>/spec.md) — [<state>] <one-sentence present-tense scope>`).
-  - `<flow-root>/chapters/chNN-<slug>/{spec.md,planner-notes.md,tasks/t01-<slug>.md..t04-<slug>.md}` (`1..4` tasks per chapter; never mix root `specs/<flow_id>/tasks/` with `chapters/`).
+  - `<flow-root>/chapters/chNN-<slug>/{spec.md,planner-notes.md,tasks/tNN-<slug>.md}` (never mix root `specs/<flow_id>/tasks/` with `chapters/`).
 
 ## Lifecycle Enums, OKF v0.2 Status, & Anti-Skip Rules
 
@@ -141,4 +141,4 @@ tags: [feature, auth, tdd]
 ## Direct State Mutations & Commit Sequencing
 
 1. **Plan & Validate**: Author specs, task worksheets, and `chapters/<ch_id>/planner-notes.md`, run `/flow:validate` (`exit 0`), pass Zero-Context Review, and stamp `status: stable` + `plan_commit: <HEAD_SHA>`.
-2. **Execute Chapter Batch & Sync**: Apply the active chapter's `1..4` tasks in one warm batch, run the Fast Chapter Gate (`< 60s`), commit owned `files:`/`tests:` first to obtain `<CODE_SHA>`, and stamp `commit: <CODE_SHA>` + `[x] [<CODE_SHA>]` + present-tense Markdown/OKF updates in the pre-review sync commit (never `git commit --amend`) before stamping `last_reviewed_commit`.
+2. **Execute Bounded Worker Batches & Sync**: Apply the active chapter's tasks in bounded worker subagent batches (`<= 5` tasks per worker turn on high/extra-high thinking Flash), run the Fast Chapter Gate (`< 60s`), commit owned `files:`/`tests:` first to obtain `<CODE_SHA>`, and stamp `commit: <CODE_SHA>` + `[x] [<CODE_SHA>]` + present-tense Markdown/OKF updates in the pre-review sync commit (never `git commit --amend`) before stamping `last_reviewed_commit`.

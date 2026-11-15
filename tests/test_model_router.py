@@ -235,6 +235,22 @@ def _write_task(
             "chapter_batch",
             0,
         ),
+        (
+            "six-disjoint-tasks-no-cap-small-swarm",
+            [(f"t0{i}-m{i}.md", "pending", [f"src/m{i}.py"], [f"tests/test_m{i}.py"], []) for i in range(1, 7)],
+            "agy",
+            80.0,
+            "small_swarm",
+            3,
+        ),
+        (
+            "six-conflicting-tasks-chunked-chapter-batch",
+            [(f"t0{i}-m{i}.md", "pending", ["src/shared.py"], [f"tests/test_m{i}.py"], []) for i in range(1, 7)],
+            "agy",
+            80.0,
+            "chapter_batch",
+            0,
+        ),
     ),
 )
 def test_check_chapter_disjoint_gates_small_swarm_vs_chapter_batch(
@@ -261,10 +277,35 @@ def test_check_chapter_disjoint_gates_small_swarm_vs_chapter_batch(
     )
     assert plan.mode == expected_mode, f"[{case_id}] {plan.reason}"
     assert plan.writer_count == expected_writers
+    assert plan.batch_size == 5
     if expected_mode == "small_swarm":
         assert plan.total_workers <= 4
         assert plan.verifier_count == 1
         assert plan.conflicts == ()
+
+
+def test_check_chapter_disjoint_waves_large_disjoint_chapters(tmp_path: Path) -> None:
+    """Verify chapters with >15 disjoint tasks bound each wave to <=5 tasks/worker across <=3 writers."""
+    bundle = tmp_path / ".agents" / "bundles"
+    tasks_dir = bundle / "specs" / "demo" / "chapters" / "ch01-large" / "tasks"
+    for idx in range(1, 19):
+        stem = f"t{idx:02d}-item.md"
+        _write_task(
+            tasks_dir,
+            stem,
+            state="pending",
+            files=[f"src/m{idx}.py"],
+            tests=[f"tests/test_m{idx}.py"],
+            deps=[],
+        )
+
+    plan = check_chapter_disjoint(bundle, "demo", "ch01-large", harness="agy", flash_quota=80.0)
+    assert plan.mode == "small_swarm"
+    assert plan.writer_count == 3
+    assert plan.total_workers == 4
+    assert plan.batch_size == 5
+    assert plan.waves == 2
+    assert sum(len(a.task_ids) for a in plan.assignments) == 15
 
 
 def test_cli_check_disjoint_and_resolve_roundtrip(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
