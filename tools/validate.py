@@ -25,8 +25,6 @@ __all__ = (
     "EXPECTED_SKILLS",
     "MAX_SKILL_DESCRIPTION_CHARS",
     "MAX_SKILL_FILE_BYTES",
-    "MAX_TASK_ESTIMATED_LOC",
-    "MAX_TASK_READ_SET",
     "MAX_TRUTH_BLOCK_LINES",
     "PLANNING_QUALITY_VALUES",
     "READONLY_AGENTS",
@@ -56,8 +54,6 @@ CODEX_AGENTS_DIR = REPO_ROOT / ".codex" / "agents"
 MAX_SKILL_FILE_BYTES = 24000
 MAX_SKILL_DESCRIPTION_CHARS = 500
 MAX_TRUTH_BLOCK_LINES = 40
-MAX_TASK_READ_SET = 6
-MAX_TASK_ESTIMATED_LOC = 250
 MAX_PLAN_SCHEMA_CARD_LINES = 120
 MAX_EXECUTOR_SCHEMA_CARD_LINES = 95
 MAX_CATALOG_OVERVIEW_BYTES = 120832
@@ -1612,7 +1608,7 @@ def _validate_concept_frontmatter_and_truth(
 
 
 def _validate_task_blueprint_contract(rel: str, fm: dict[str, Any], body: str) -> list[str]:
-    """Validate full or compact Task worksheet headings, deferral authorization, read_set cap, and estimated_loc cap."""
+    """Validate full or compact Task worksheet headings, deferral authorization, and metadata types."""
     errors: list[str] = []
     unfenced = _MULTILINE_FENCE_PATTERN.sub("", body)
     ws_format = str(fm.get("worksheet_format", "full") or "full").strip().lower()
@@ -1634,17 +1630,15 @@ def _validate_task_blueprint_contract(rel: str, fm: dict[str, Any], body: str) -
 
     if "read_set" in fm and fm["read_set"] is not None:
         read_set = fm["read_set"]
-        if not isinstance(read_set, list):
+        if not isinstance(read_set, list) or not all(isinstance(item, str) for item in read_set):
             errors.append(f"{rel}: read_set must be a list of file paths")
-        elif len(read_set) > MAX_TASK_READ_SET:
-            errors.append(f"{rel}: read_set has {len(read_set)} entries (exceeds {MAX_TASK_READ_SET}-file cap)")
 
     if "estimated_loc" in fm and fm["estimated_loc"] is not None:
         loc_val = fm["estimated_loc"]
         if not isinstance(loc_val, int) or isinstance(loc_val, bool):
             errors.append(f"{rel}: estimated_loc must be an integer")
-        elif loc_val > MAX_TASK_ESTIMATED_LOC:
-            errors.append(f"{rel}: estimated_loc {loc_val} exceeds {MAX_TASK_ESTIMATED_LOC}-line cap")
+        elif loc_val < 0:
+            errors.append(f"{rel}: estimated_loc {loc_val} must be non-negative")
 
     return errors
 
@@ -2228,7 +2222,7 @@ def _parse_scalar(val: str) -> Any:
                 k, v = pair.split(":", 1)
                 result[k.strip()] = _parse_scalar(v)
         return result
-    if stripped.isdigit():
+    if stripped.isdigit() or (stripped.startswith("-") and stripped[1:].isdigit()):
         return int(stripped)
     return stripped
 

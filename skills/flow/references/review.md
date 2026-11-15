@@ -41,11 +41,11 @@ When dispatching reviewers, strictly enforce the **Zero-Context Isolation Rules*
 
 - **When `run_workflow` Is Available (Google Antigravity)**:
   - Invoke the packaged [`workflows/flow-dual-review/workflow.py`](../../../workflows/flow-dual-review/workflow.py) workflow (`run_workflow(ScriptPath="<plugin_root>/workflows/flow-dual-review/workflow.py", Args={"git_range": f"{base_commit}..{head_commit}", "spec_path": spec_path, "review_mode": review_mode, "code_reviewer_agent": code_rev_agent, "quality_reviewer_agent": qual_rev_agent})`), which enters `phase("Zero-Context Review")` with `with_budget(timeout=600)` defaulting strictly to high/extra-high thinking Flash so Pro quota remains maximized for planning:
-    - `review_mode="dual"` (default for `Medium`/`Large` flows or `> 2` tasks): runs `@code-reviewer` (`agents/code-reviewer.md`) and `@quality-reviewer` (`agents/quality-reviewer.md`) in `parallel()`, plus any matching `.agents/agents/<domain>-reviewer.md`.
-    - `review_mode="single"` (`Small` single-chapter flows with `<= 2` tasks and `<= 150` changed lines): runs one unified zero-context pass returning both `findings` and `QualityReport` (`quality-review-v1`).
+    - `review_mode="dual"` (default for `> 3` tasks or `> 400` changed lines): runs `@code-reviewer` (`agents/code-reviewer.md`) and `@quality-reviewer` (`agents/quality-reviewer.md`) in `parallel()`, plus any matching `.agents/agents/<domain>-reviewer.md`.
+    - `review_mode="single"` (`Small` slices with `<= 3` tasks and `<= 400` changed lines): runs one unified zero-context pass returning both `findings` and `QualityReport` (`quality-review-v1`).
   - Verify `git status --porcelain` is unchanged immediately after reviewer completion.
 - **In All Other Harnesses**:
-  - Dispatch `@code-reviewer` (plus any matching `.agents/agents/<domain>-reviewer`) and `@quality-reviewer` on `sonnet` (Claude Code, saving `opus` for planning and architecture) or `model_reasoning_effort = "medium"` (Codex) with the same disk-only brief and `base_commit..head_commit` range (or a single unified pass returning `QualityReport` on `Small` `<= 2`-task diffs; never `flash_lite` / `haiku`).
+  - Dispatch `@code-reviewer` (plus any matching `.agents/agents/<domain>-reviewer`) and `@quality-reviewer` on `sonnet` (Claude Code, saving `opus` for planning and architecture) or `model_reasoning_effort = "medium"` (Codex) with the same disk-only brief and `base_commit..head_commit` range (or a single unified pass returning `QualityReport` on `Small` `<= 3`-task / `<= 400`-line diffs; never `flash_lite` / `haiku`).
 
 ## Phase 3: Review Axes
 

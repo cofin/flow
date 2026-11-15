@@ -406,27 +406,26 @@ def _mutate_missing_task_heading(bundle_dir: Path) -> None:
     )
 
 
-def _mutate_oversized_read_set(bundle_dir: Path) -> None:
-    """Declare 7 files in read_set to exceed MAX_TASK_READ_SET (6)."""
+def _mutate_invalid_read_set_type(bundle_dir: Path) -> None:
+    """Set read_set to a non-list scalar to trigger type validation."""
     task_path = bundle_dir / "specs" / "auth-refactor" / "chapters" / "ch02-middleware" / "tasks" / "t02-slice.md"
     task_path.write_text(
-        _render_task_blueprint(
-            task_id="auth-refactor:ch02-middleware:t02",
-            chapter_id="ch02-middleware",
-            read_set=[f"src/mod_{idx}.py" for idx in range(7)],
+        task_path.read_text(encoding="utf-8").replace(
+            "read_set:\n  - src/auth/tokens.py\n  - tests/auth/test_tokens.py",
+            "read_set: src/auth/tokens.py",
         ),
         encoding="utf-8",
     )
 
 
-def _mutate_oversized_estimated_loc(bundle_dir: Path) -> None:
-    """Declare estimated_loc > 250 on a task worksheet."""
+def _mutate_negative_estimated_loc(bundle_dir: Path) -> None:
+    """Set a negative estimated_loc on a task worksheet."""
     task_path = bundle_dir / "specs" / "auth-refactor" / "chapters" / "ch02-middleware" / "tasks" / "t02-slice.md"
     task_path.write_text(
         _render_task_blueprint(
             task_id="auth-refactor:ch02-middleware:t02",
             chapter_id="ch02-middleware",
-            estimated_loc=300,
+            estimated_loc=-10,
         ),
         encoding="utf-8",
     )
@@ -603,8 +602,8 @@ BUNDLE_REJECTION_CASES: tuple[tuple[str, Callable[[Path], None], str], ...] = (
         _mutate_missing_task_heading,
         "missing required Task blueprint heading '## Edge Cases & Error Semantics'",
     ),
-    ("oversized-read-set", _mutate_oversized_read_set, "read_set has 7 entries (exceeds 6-file cap)"),
-    ("oversized-estimated-loc", _mutate_oversized_estimated_loc, "estimated_loc 300 exceeds 250-line cap"),
+    ("invalid-read-set-type", _mutate_invalid_read_set_type, "read_set must be a list of file paths"),
+    ("negative-estimated-loc", _mutate_negative_estimated_loc, "estimated_loc -10 must be non-negative"),
     (
         "chapter-missing-from-index",
         _mutate_chapter_missing_from_index,
@@ -1321,18 +1320,49 @@ def test_validate_okf_bundle_checks_knowledge_catalog_schema_stale_after_and_byt
     assert any("120832" in err and "Section One" in err for err in errs)
 
 
-def test_validate_okf_bundle_allows_uncapped_chapter_tasks_and_workflow_flash_defaults(tmp_path: Path) -> None:
-    """Verify chapters may hold >4 tasks cleanly while execution/review workflows default off Pro."""
+def test_validate_okf_bundle_allows_uncapped_tasks_read_set_loc_and_compact_format(tmp_path: Path) -> None:
+    """Verify chapters allow >4 tasks, >6 read_set, >250 LOC, compact format, and Flash workflow defaults."""
     bundle_dir = _seed_valid_multichapter_bundle(tmp_path)
     ch_dir = bundle_dir / "specs" / "auth-refactor" / "chapters" / "ch02-middleware"
     tasks_dir = ch_dir / "tasks"
+    compact_sections = "\n\n".join(f"{heading}\n\nPopulated[^t-src]." for heading in COMPACT_TASK_HEADINGS)
     extra_lines: list[str] = []
     for num in range(3, 9):
         fname = f"t0{num}-extra.md"
-        (tasks_dir / fname).write_text(
-            _render_task_blueprint(task_id=f"auth-refactor:ch02-middleware:t0{num}", chapter_id="ch02-middleware"),
-            encoding="utf-8",
-        )
+        if num == 3:
+            reads = "\n".join(f"  - src/mod_{idx}.py" for idx in range(10))
+            (tasks_dir / fname).write_text(
+                "---\n"
+                "type: Task\n"
+                "id: auth-refactor:ch02-middleware:t03\n"
+                "chapter_id: ch02-middleware\n"
+                "title: Compact multi-file slice\n"
+                "description: Larger slice using compact worksheet.\n"
+                "status: stable\n"
+                "state: pending\n"
+                "worksheet_format: compact\n"
+                "verification_strategy: behavior_tdd\n"
+                f"read_set:\n{reads}\n"
+                "estimated_loc: 450\n"
+                "sources:\n"
+                "  - id: t-src\n"
+                "    resource: src/auth/tokens.py::TokenSigner\n"
+                "tags: [feature, auth]\n"
+                "---\n\n"
+                f"{compact_sections}\n\n"
+                "[^t-src]: `src/auth/tokens.py::TokenSigner` — Signer.\n",
+                encoding="utf-8",
+            )
+        else:
+            (tasks_dir / fname).write_text(
+                _render_task_blueprint(
+                    task_id=f"auth-refactor:ch02-middleware:t0{num}",
+                    chapter_id="ch02-middleware",
+                    read_set=[f"src/mod_{idx}.py" for idx in range(8)],
+                    estimated_loc=420,
+                ),
+                encoding="utf-8",
+            )
         extra_lines.append(f"- [ ] [t0{num}](tasks/{fname}) — Extra slice")
     ch_spec = ch_dir / "spec.md"
     ch_spec.write_text(
@@ -1346,8 +1376,87 @@ def test_validate_okf_bundle_allows_uncapped_chapter_tasks_and_workflow_flash_de
 
     ch_pipe = (REPO_ROOT / "workflows" / "flow-chapter-pipeline" / "workflow.py").read_text(encoding="utf-8")
     dual_rev = (REPO_ROOT / "workflows" / "flow-dual-review" / "workflow.py").read_text(encoding="utf-8")
+    spec_plan = (REPO_ROOT / "workflows" / "flow-spec-planning" / "workflow.py").read_text(encoding="utf-8")
     assert 'or "flash"' in ch_pipe
     assert 'or "flash"' in dual_rev
+    assert "len(chapters) <= 1" in spec_plan
+
+
+def test_flow_chapter_pipeline_workflow_executes_bounded_batches_and_lease(tmp_path: Path, monkeypatch: Any) -> None:
+    """Verify flow-chapter-pipeline acquires runtime leases cleanly, defaults to flash, and chunks batches."""
+    monkeypatch.setenv("FLOW_RUNTIME_DIR", str(tmp_path / "runtime"))
+    bundle_dir = _seed_valid_multichapter_bundle(tmp_path)
+    script_path = REPO_ROOT / "workflows" / "flow-chapter-pipeline" / "workflow.py"
+    source = script_path.read_text(encoding="utf-8")
+    tree = ast.parse(source, filename=str(script_path))
+    code_obj = compile(tree, str(script_path), "exec", flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
+
+    exec_models: list[str] = []
+    rev_models: list[str] = []
+    printed: list[str] = []
+
+    async def fake_agent(
+        prompt: str,
+        *,
+        schema: dict[str, Any],
+        role: str = "",
+        type_name: str = "self",
+        workspace: str = "inherit",
+        model: str = "inherit",
+    ) -> dict[str, Any]:
+        assert type_name == "self"
+        assert schema
+        if "Batch Execute" in role:
+            exec_models.append(model)
+            return {
+                "status": "completed",
+                "code_commit": "abc1234",
+                "commit_deferred_to_coordinator": False,
+                "files_modified": ["src/app.py"],
+                "tests_verified": ["tests/test_app.py"],
+                "verification_evidence": "pytest 1 passed",
+            }
+        rev_models.append(model)
+        return {"verdict": "PASS", "findings": []}
+
+    async def fake_with_budget(coro: Any, **_kwargs: Any) -> Any:
+        return await coro
+
+    async def fake_parallel(items: list[Any], fn: Callable[[Any], Any]) -> list[Any]:
+        return list(await asyncio.gather(*(fn(item) for item in items)))
+
+    ns: dict[str, Any] = {
+        "__builtins__": __builtins__,
+        "args": {
+            "flow_id": "auth-refactor",
+            "chapter_id": "ch02-middleware",
+            "tasks": [f"tasks/t0{i}-slice.md" for i in range(1, 8)],
+            "bundle_root": str(bundle_dir),
+            "plugin_root": str(REPO_ROOT),
+        },
+        "agent": fake_agent,
+        "with_budget": fake_with_budget,
+        "parallel": fake_parallel,
+        "pipeline": fake_parallel,
+        "phase": lambda _name: None,
+        "log": lambda _msg: None,
+        "tokens_used": lambda: 500,
+        "print": lambda text: printed.append(str(text)),
+    }
+
+    async def _drive() -> None:
+        coro = eval(code_obj, ns, ns)
+        if asyncio.iscoroutine(coro):
+            await coro
+
+    asyncio.run(_drive())
+    summary = json.loads(printed[-1])
+    assert len(summary["executions"]) == 2
+    assert len(summary["executions"][0]["tasks"]) == 5
+    assert len(summary["executions"][1]["tasks"]) == 2
+    assert exec_models == ["flash", "flash"]
+    assert rev_models == ["flash", "flash"]
+    assert list((tmp_path / "runtime").rglob("*.lease")) == []
 
 
 def test_optimize_specs_compacts_fragmented_chapters_and_preserves_shas_and_deps(tmp_path: Path) -> None:

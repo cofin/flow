@@ -36,6 +36,7 @@ MAX_SWARM_WORKERS = 4
 MAX_TASKS_PER_WORKER = 5
 
 _CLOSED_TASK_STATES: frozenset[str] = frozenset({"completed", "closed", "deferred", "skipped"})
+_PARALLEL_SUBAGENT_HARNESSES: frozenset[str] = frozenset({"claude", "codex", "cursor", "opencode"})
 _EFFORT_SCORES: dict[str, int] = {
     "xhigh": 4,
     "extra_high": 4,
@@ -140,7 +141,7 @@ class SwarmAssignment:
 
 @dataclass(frozen=True, slots=True)
 class DisjointPlan:
-    """Disjointness and quota check result determining small_swarm vs chapter_batch mode."""
+    """Disjointness and quota check result determining parallel execution vs chapter_batch mode."""
 
     mode: str
     reason: str
@@ -739,19 +740,25 @@ def _normalize_declared_paths(fm: dict[str, Any]) -> tuple[str, ...]:
 def check_chapter_disjoint(
     bundle_root: Path,
     flow_id: str,
-    chapter_id: str,
+    chapter_id: str = "",
     *,
     harness: str = "agy",
     flash_quota: float | None = None,
     swarm_quota_floor: float = DEFAULT_SWARM_QUOTA_FLOOR,
     max_tasks_per_worker: int = MAX_TASKS_PER_WORKER,
 ) -> DisjointPlan:
-    """Determine whether active chapter tasks qualify for bounded disjoint ``small_swarm`` execution."""
+    """Determine whether open chapter or single-chapter tasks qualify for bounded parallel execution."""
     bounded_batch = max(1, min(10, int(max_tasks_per_worker or MAX_TASKS_PER_WORKER)))
-    if harness.strip().lower() not in ("agy", "antigravity"):
+    norm_harness = harness.strip().lower()
+    is_agy = norm_harness in ("agy", "antigravity")
+    if is_agy:
+        parallel_mode = "small_swarm"
+    elif norm_harness in _PARALLEL_SUBAGENT_HARNESSES:
+        parallel_mode = "parallel_subagents"
+    else:
         return DisjointPlan(
             mode="chapter_batch",
-            reason=f"harness {harness!r} executes chapter batches sequentially rather than native swarm",
+            reason=f"harness {harness!r} executes chapter batches sequentially",
             writer_count=0,
             verifier_count=0,
             total_workers=0,
@@ -761,7 +768,7 @@ def check_chapter_disjoint(
             batch_size=bounded_batch,
         )
 
-    if flash_quota is not None and flash_quota <= swarm_quota_floor:
+    if is_agy and flash_quota is not None and flash_quota <= swarm_quota_floor:
         return DisjointPlan(
             mode="chapter_batch",
             reason=f"worker Flash quota {flash_quota:.0f}% <= {swarm_quota_floor:.0f}% swarm floor",
@@ -774,7 +781,15 @@ def check_chapter_disjoint(
             batch_size=bounded_batch,
         )
 
-    tasks_dir = bundle_root / "specs" / flow_id / "chapters" / chapter_id / "tasks"
+    clean_chapter = chapter_id.strip()
+    if clean_chapter.lower() in ("", "root", "none", "null"):
+        tasks_dir = bundle_root / "specs" / flow_id / "tasks"
+    else:
+        tasks_dir = bundle_root / "specs" / flow_id / "chapters" / clean_chapter / "tasks"
+        if not tasks_dir.is_dir():
+            root_tasks = bundle_root / "specs" / flow_id / "tasks"
+            if root_tasks.is_dir():
+                tasks_dir = root_tasks
     if not tasks_dir.is_dir():
         return DisjointPlan(
             mode="chapter_batch",
@@ -785,6 +800,7 @@ def check_chapter_disjoint(
             ready_task_ids=(),
             conflicts=(),
             assignments=(),
+            batch_size=bounded_batch,
         )
 
     task_files = sorted(p for p in tasks_dir.glob("*.md") if p.name != "index.md")
@@ -905,13 +921,14 @@ def check_chapter_disjoint(
         for idx, group in enumerate(buckets, start=1)
     )
     writer_count = len(assignments)
-    verifier_count = 1
+    verifier_count = 1 if is_agy else 0
+    quota_note = f" and Flash quota above {swarm_quota_floor:.0f}%" if is_agy else ""
     return DisjointPlan(
-        mode="small_swarm",
+        mode=parallel_mode,
         reason=(
             f"disjoint write sets across {len(ready_tasks)} ready tasks "
-            f"(wave 1: {len(wave_tasks)} task(s) across {writer_count} writer(s), max {bounded_batch}/worker) "
-            f"and Flash quota above {swarm_quota_floor:.0f}%"
+            f"(wave 1: {len(wave_tasks)} task(s) across {writer_count} writer(s), max {bounded_batch}/worker)"
+            f"{quota_note}"
         ),
         writer_count=writer_count,
         verifier_count=verifier_count,

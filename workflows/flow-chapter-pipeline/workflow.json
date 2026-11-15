@@ -38,7 +38,7 @@
       },
       "batch_size": {
         "type": "integer",
-        "description": "Maximum task worksheets per worker subagent turn when batching chapters (default 5; clamped 1..10)."
+        "description": "Maximum task worksheets per worker subagent turn when batching chapters (default 5; clamped 1..20)."
       },
       "executor_model": {
         "type": "string",

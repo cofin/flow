@@ -75,7 +75,7 @@ review_mode = str(args.get("review_mode", "dual"))
 preferred_exec_model = str(args.get("executor_model") or os.environ.get("FLOW_EXECUTOR_MODEL") or "flash")
 preferred_rev_model = str(args.get("reviewer_model") or os.environ.get("FLOW_REVIEWER_MODEL") or "flash")
 fallback_model = str(args.get("fallback_model") or os.environ.get("FLOW_FALLBACK_MODEL") or "flash")
-batch_size = max(1, min(10, int(args.get("batch_size") or 5)))
+batch_size = max(1, min(20, int(args.get("batch_size") or 5)))
 executor_agent = str(args.get("executor_agent") or os.environ.get("FLOW_EXECUTOR_AGENT") or "self")
 reviewer_agent = str(args.get("reviewer_agent") or os.environ.get("FLOW_REVIEWER_AGENT") or "self")
 
@@ -128,7 +128,7 @@ def _acquire_runtime_lease() -> Path | None:
             "role": "flow-subagent",
             "flow_id": flow_id,
             "chapter_id": chapter_id,
-            "task_ids": _extract_task_ids(list(tasks)),
+            "task_ids": _extract_task_ids(task_paths),
         }
         lease_path.write_text(
             f"{int(time.time())}\n{json.dumps(meta, separators=(',', ':'))}\n",

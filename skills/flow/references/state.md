@@ -9,9 +9,9 @@ Specifications (`.agents/bundles/specs/<flow_id>/spec.md`), chapter specificatio
 - `<flow-root>` is `<bundle-root>/specs/<flow_id>`. Resolved paths stay inside the repository root or, inside a linked `git worktree` (`git rev-parse --git-common-dir`), a symlink targeting the primary checkout's `.agents` / `.venv` directory:
   - **`ignore_policy: shared`**: `.agents/` is tracked in Git; work directly in the worktree's `.agents/bundles/` Markdown.
   - **`ignore_policy: local-only`**: `.agents/` lives in the primary checkout (`$MAIN_WORKTREE/.agents`, symlinked at `$WORKTREE/.agents`); read and write all Flow Markdown in the primary checkout so zero diverging copies exist.
-- **Single-Chapter Flow (`Small` Tier — `<= 400` LOC, `1` module)**:
+- **Single-Chapter Flow (Default for Cohesive Deliverables)**:
   - `<flow-root>/spec.md` (`has_chapters: false`) + `<flow-root>/tasks/tNN-<slug>.md` (`worksheet_format: compact` or `full`).
-- **Multi-Chapter Flow (`Medium` & `Large` Tiers — `>= 2` module boundaries, staged checkpoints, or `/flow:prd`)**:
+- **Multi-Chapter Flow (`Medium` & `Large` Tiers — Staged Checkpoints, Parallel Subsystems, `empirical_dependent` Gates, or `/flow:prd`)**:
   - `<flow-root>/spec.md` — Full-plan roadmap (`has_chapters: true`, `current_chapter`, `chapters: [ch01-<slug>, ...]`, cross-chapter public seams and shared types, Flow-Wide Documentation & OKF Knowledge Plan, full chapter checklist, and present-tense state snapshot).
   - `<flow-root>/chapters/index.md` — Frontmatter-free OKF v0.2 directory catalog (`# Chapters: <Title>` + `* [ch01 — <Title>](ch01-<slug>/spec.md) — [<state>] <one-sentence present-tense scope>`).
   - `<flow-root>/chapters/chNN-<slug>/{spec.md,planner-notes.md,tasks/tNN-<slug>.md}` (never mix root `specs/<flow_id>/tasks/` with `chapters/`).
@@ -120,7 +120,7 @@ tags: [feature, auth, tdd]
 
 - **Structured Task Claim Identity**: When claiming a task (`state: in_progress`), stamp `claimed_by: <harness>:<session_id>[:<role_or_worktree>]` (`<harness> ∈ {agy, claude, codex, cursor, opencode, vscode, cli}`) and `claimed_at: <ISO-8601 UTC>`. Reset both `claimed_by` and `claimed_at` to `null` when releasing a claim back to `pending` or completing the task.
 
-- **Full Task Blueprint Headings (`worksheet_format: full` — `Medium` & `Large` Tiers)**:
+- **Full Task Blueprint Headings (`worksheet_format: full` — Complex Contracts & Multi-Seam Slices)**:
   1. `## Objective & Scope Boundary`
   2. `## Bounded Read Manifest`
   3. `## Symbol & Signature Contracts`
@@ -129,7 +129,7 @@ tags: [feature, auth, tdd]
   6. `## Verification`
   7. `## Acceptance Criteria`
   8. `## Notes & Discoveries`
-- **Compact Task Worksheet Headings (`worksheet_format: compact` — `Small` Tier `<= 400` LOC)**:
+- **Compact Task Worksheet Headings (`worksheet_format: compact` — Default for Cohesive Slices Across All Tiers)**:
   1. `## Objective & Scope Boundary`
   2. `## Bounded Read Manifest`
   3. `## Contracts & Edge Cases`

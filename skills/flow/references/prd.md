@@ -15,8 +15,8 @@ Use [`interaction.md`](interaction.md) (`structured-choice-v1`), [`state.md`](st
 
 ### Phase 2: Design-Tree Frontier Discovery & Coverage Gate (`structured-choice-v1`)
 
-1. Ask `1` question at dependent architectural forks and batch `2–3` orthogonal leaf questions once on a settled frontier ([`interaction.md`](interaction.md)), placing `<Label> (Recommended)` first.
-2. Resolve seam selection + rejected alternatives, concrete shared types & edge-case semantics, public-seam test surfaces, fast (`< 60s`) chapter lint/test checkpoints, `docs/**` + OKF targets, and `ch01..chNN` decomposition (with any `empirical_dependent` triggers) before drafting.
+1. Skip questioning for already-clear areas; ask `1` question at unresolved dependent architectural forks and batch `2–3` unresolved orthogonal leaf questions once on a settled frontier ([`interaction.md`](interaction.md)), placing `<Label> (Recommended)` first.
+2. Ensure seam selection + alternatives, shared types & edge cases, public-seam tests, fast (`< 60s`) lint/test checkpoints, `docs/**` + OKF targets, and deliverable `ch01..chNN` chapters (with any `empirical_dependent` triggers and zero artificial task/read_set/LOC caps; allowing `compact` worksheets for straightforward slices) are settled before drafting.
 
 ### Phase 3: Lock Root Roadmap & Invoke `flow-spec-planning`
 

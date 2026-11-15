@@ -23,7 +23,7 @@ authority: skills/flow/references/revise.md
 
 1. Read root `.agents/bundles/specs/<flow_id>/spec.md`, `chapters/index.md` (when `has_chapters: true`), [`../../../templates/agent/plan-schema-card.md`](../../../templates/agent/plan-schema-card.md), and only the target `chapters/<ch_id>/spec.md`, `planner-notes.md`, and `tasks/*.md`.
 2. Inspect `blocked_reason`/`unblock_condition` (when `state: blocked`), upstream empirical measurements in `replan_trigger` (when `planning_status: empirical_dependent`, promoting to `planning_status: complete` and `replan_trigger: null`), or `planning_degraded_reason` (upgrading to `planning_quality: standard` + `planning_degraded_reason: null` once re-verified on the primary frontier thinking model).
-3. **Anti-Truncation & Deliverable-Sizing Check**: Never compress capabilities or omit docs/edge cases, and never split one cohesive deliverable into unnecessary tiny chapters. Keep each individual task focused (`read_set <= 6`, `estimated_loc <= 250`) while allowing `1..N` tasks per deliverable chapter, and ensure checkpoints use fast (`< 60s`) lint + targeted unit test commands.
+3. **Anti-Truncation & Deliverable-Sizing Check**: Never compress capabilities or omit docs/edge cases, and never split one cohesive deliverable into unnecessary tiny chapters. Keep tasks cohesive around vertical slices (zero artificial caps on chapter task count, `read_set`, or `estimated_loc`; `compact` worksheets allowed across all tiers), and ensure checkpoints use fast (`< 60s`) lint + targeted unit test commands.
 
 ### Phase 2: Present-Tense Rewrite & Mandatory Root Roadmap Sync (Zero History)
 
