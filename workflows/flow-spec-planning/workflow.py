@@ -71,7 +71,7 @@ planner_agent = str(args.get("planner_agent") or os.environ.get("FLOW_PLANNER_AG
 reviewer_agent = str(args.get("reviewer_agent") or os.environ.get("FLOW_REVIEWER_AGENT") or "self")
 planner_degraded_flag = bool(args.get("planner_degraded", False))
 planner_timeout_s = int(args.get("planner_timeout_seconds", 900))
-disk_idle_grace_s = int(args.get("disk_idle_grace_seconds", 90))
+disk_idle_grace_s = int(args.get("disk_idle_grace_seconds", 45))
 reviewer_timeout_s = int(args.get("reviewer_timeout_seconds", 600))
 
 plugin_root = Path(str(args.get("plugin_root") or os.environ.get("FLOW_PLUGIN_ROOT") or Path.cwd()))
@@ -292,8 +292,10 @@ def _build_chapter_prompt(ch_list: list[dict]) -> str:
         "2. Do NOT read Flow plugin `skills/*/references/*.md`, do NOT edit production code, and do NOT pass "
         "BypassSandbox=true.\n"
         "3. Follow OKF v0.2 strictly: `status: draft`, workflow `state: planned`, `<= 40`-line `<!-- truth: start -->` "
-        "block, `sources:` with matching `[^id]:` body footnotes, all 6 Spec headings, fast (`< 60s`) lint + targeted "
-        "unit file checkpoints (never full test suites), and zero standalone `---` body rules.\n"
+        "block, `sources:` with matching `[^id]:` body footnotes, all 6 Spec headings, concise deliverable-sized "
+        "chapters with zero artificial task-count, read_set, or LOC caps (`compact` worksheets allowed for "
+        "straightforward tasks, `full` for complex public seams), fast (`< 60s`) lint + targeted unit file "
+        "checkpoints, and zero standalone `---` rules.\n"
         "4. Write `chapters/<id>/planner-notes.md` (`## Files Written`, `## Task Summaries`, `## Root Spec Issues`, "
         "`## Open Questions`) BEFORE calling finish.\n\n"
         f"{joined_blocks}"
@@ -348,7 +350,7 @@ review_skipped_reason: str | None = None
 all_complete = False
 all_root_issues: list[str] = []
 effective_planner_mode = (
-    ("single_batch" if len(chapters) <= 3 else "per_chapter") if planner_mode_arg == "auto" else planner_mode_arg
+    ("single_batch" if len(chapters) <= 1 else "per_chapter") if planner_mode_arg == "auto" else planner_mode_arg
 )
 
 _wf_lease = _acquire_runtime_lease()

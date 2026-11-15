@@ -1512,7 +1512,7 @@ def test_flow_chapter_pipeline_lease_writes_v1_two_line_metadata(
         "__name__": "flow_chapter_pipeline_test",
         "flow_id": "payments-v2",
         "chapter_id": "ch02-webhooks",
-        "tasks": ["tasks/t01-handler.md", "tasks/t02-retry.md"],
+        "task_paths": ["tasks/t01-handler.md", "tasks/t02-retry.md"],
     }
     exec(compile(helper_mod, str(wf_path), "exec"), namespace)
     lease_path = namespace["_acquire_runtime_lease"]()

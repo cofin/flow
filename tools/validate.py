@@ -23,11 +23,8 @@ __all__ = (
     "COMPACT_TASK_HEADINGS",
     "EXPECTED_AGENTS",
     "EXPECTED_SKILLS",
-    "MAX_CHAPTER_TASKS",
     "MAX_SKILL_DESCRIPTION_CHARS",
     "MAX_SKILL_FILE_BYTES",
-    "MAX_TASK_ESTIMATED_LOC",
-    "MAX_TASK_READ_SET",
     "MAX_TRUTH_BLOCK_LINES",
     "PLANNING_QUALITY_VALUES",
     "READONLY_AGENTS",
@@ -57,9 +54,6 @@ CODEX_AGENTS_DIR = REPO_ROOT / ".codex" / "agents"
 MAX_SKILL_FILE_BYTES = 24000
 MAX_SKILL_DESCRIPTION_CHARS = 500
 MAX_TRUTH_BLOCK_LINES = 40
-MAX_CHAPTER_TASKS = 4
-MAX_TASK_READ_SET = 6
-MAX_TASK_ESTIMATED_LOC = 250
 MAX_PLAN_SCHEMA_CARD_LINES = 120
 MAX_EXECUTOR_SCHEMA_CARD_LINES = 95
 MAX_CATALOG_OVERVIEW_BYTES = 120832
@@ -978,6 +972,20 @@ def validate_okf_bundle(
     sha_tracking = _read_sha_tracking_mode(effective_project)
     specs_dir = bundle_dir / "specs"
     if specs_dir.is_dir():
+        child_specs_by_prd: dict[str, list[tuple[str, str, dict[str, Any]]]] = {}
+        for all_flow_dir in sorted(p for p in specs_dir.iterdir() if p.is_dir()):
+            child_spec = all_flow_dir / "spec.md"
+            if not child_spec.is_file():
+                continue
+            child_fm, _ = _split_frontmatter(child_spec.read_text(encoding="utf-8"))
+            if child_fm is None:
+                continue
+            parent_prd = str(child_fm.get("parent_prd") or "").strip()
+            if parent_prd:
+                child_specs_by_prd.setdefault(parent_prd, []).append(
+                    (all_flow_dir.name, str(child_fm.get("state") or "").strip(), child_fm)
+                )
+
         flow_dirs = (
             [specs_dir / target_flow]
             if target_flow is not None
@@ -993,6 +1001,7 @@ def validate_okf_bundle(
                     git_root=git_root,
                     require_completed=(require_completed_flow == flow_dir.name),
                     sha_tracking=sha_tracking,
+                    child_specs=child_specs_by_prd.get(flow_dir.name, ()),
                 )
             )
 
@@ -1599,7 +1608,7 @@ def _validate_concept_frontmatter_and_truth(
 
 
 def _validate_task_blueprint_contract(rel: str, fm: dict[str, Any], body: str) -> list[str]:
-    """Validate full or compact Task worksheet headings, deferral authorization, read_set cap, and estimated_loc cap."""
+    """Validate full or compact Task worksheet headings, deferral authorization, and metadata types."""
     errors: list[str] = []
     unfenced = _MULTILINE_FENCE_PATTERN.sub("", body)
     ws_format = str(fm.get("worksheet_format", "full") or "full").strip().lower()
@@ -1621,17 +1630,15 @@ def _validate_task_blueprint_contract(rel: str, fm: dict[str, Any], body: str) -
 
     if "read_set" in fm and fm["read_set"] is not None:
         read_set = fm["read_set"]
-        if not isinstance(read_set, list):
+        if not isinstance(read_set, list) or not all(isinstance(item, str) for item in read_set):
             errors.append(f"{rel}: read_set must be a list of file paths")
-        elif len(read_set) > MAX_TASK_READ_SET:
-            errors.append(f"{rel}: read_set has {len(read_set)} entries (exceeds {MAX_TASK_READ_SET}-file cap)")
 
     if "estimated_loc" in fm and fm["estimated_loc"] is not None:
         loc_val = fm["estimated_loc"]
         if not isinstance(loc_val, int) or isinstance(loc_val, bool):
             errors.append(f"{rel}: estimated_loc must be an integer")
-        elif loc_val > MAX_TASK_ESTIMATED_LOC:
-            errors.append(f"{rel}: estimated_loc {loc_val} exceeds {MAX_TASK_ESTIMATED_LOC}-line cap")
+        elif loc_val < 0:
+            errors.append(f"{rel}: estimated_loc {loc_val} must be non-negative")
 
     return errors
 
@@ -1656,6 +1663,7 @@ def _validate_flow_spec_directory(
     git_root: Path | None = None,
     require_completed: bool = False,
     sha_tracking: str = "strict",
+    child_specs: tuple[tuple[str, str, dict[str, Any]], ...] | list[tuple[str, str, dict[str, Any]]] = (),
 ) -> list[str]:
     """Validate a single-chapter or multi-chapter specs/<flow_id>/ directory for anti-skip and review-stamp parity."""
     errors: list[str] = []
@@ -1674,8 +1682,20 @@ def _validate_flow_spec_directory(
     root_rev_sha = str(root_fm.get("last_reviewed_commit") or "").strip()
     plan_commit = str(root_fm.get("plan_commit") or "").strip()
 
-    if require_completed and root_state != "completed":
+    if require_completed and root_state not in ("completed", "closed"):
         errors.append(f"{rel_flow}/spec.md: --require-completed failed because state is {root_state!r} != 'completed'")
+
+    if root_state in ("completed", "closed") or require_completed:
+        open_children: list[str] = []
+        for child_id, child_state, child_fm in child_specs:
+            if child_state in DEFERRED_STATES:
+                errors.extend(_validate_user_deferral(f"specs/{child_id}/spec.md", child_fm, child_state))
+            elif child_state not in ("completed", "closed"):
+                open_children.append(f"{child_id} ({child_state or 'unspecified'})")
+        if open_children:
+            errors.append(
+                f"{rel_flow}/spec.md: PRD cannot be marked 'completed' while child specs remain open: {open_children}"
+            )
 
     if has_chapters:
         errors.extend(
@@ -1690,6 +1710,7 @@ def _validate_flow_spec_directory(
                 git_root=git_root,
                 default_plan_commit=plan_commit,
                 sha_tracking=sha_tracking,
+                require_completed=require_completed,
             )
         )
         return errors
@@ -1706,7 +1727,7 @@ def _validate_flow_spec_directory(
     )
     errors.extend(task_errors)
 
-    if root_state == "completed" or require_completed:
+    if root_state in ("completed", "closed") or require_completed:
         if task_total == 0:
             errors.append(f"{rel_flow}/spec.md: cannot mark completed with zero task worksheets")
         elif open_task_ids:
@@ -1728,6 +1749,7 @@ def _validate_multi_chapter_flow(
     git_root: Path | None = None,
     default_plan_commit: str = "",
     sha_tracking: str = "strict",
+    require_completed: bool = False,
 ) -> list[str]:
     """Validate nested chapters/<ch_id>/ layout, 1:1 roadmap parity, anti-skip invariants, and review stamps."""
     errors: list[str] = []
@@ -1807,7 +1829,7 @@ def _validate_multi_chapter_flow(
 
         if ch_state in DEFERRED_STATES:
             errors.extend(_validate_user_deferral(f"{rel_ch}/spec.md", ch_fm, ch_state))
-        elif ch_state == "completed":
+        elif ch_state in ("completed", "closed"):
             if task_total == 0:
                 errors.append(f"{rel_ch}/spec.md: cannot mark chapter 'completed' with zero task worksheets")
             elif open_tasks:
@@ -1820,7 +1842,7 @@ def _validate_multi_chapter_flow(
             open_chapters.append(ch_id)
 
     curr_ch = str(root_fm.get("current_chapter") or "").strip()
-    if root_state == "completed":
+    if root_state in ("completed", "closed") or require_completed:
         if not ch_dirs:
             errors.append(f"{rel_flow}/spec.md: cannot mark multi-chapter flow 'completed' with zero chapters")
         elif open_chapters:
@@ -1848,19 +1870,13 @@ def _validate_tasks_for_owner_spec(
     plan_commit: str = "",
     sha_tracking: str = "strict",
 ) -> tuple[list[str], int, list[str]]:
-    """Verify <= 4 tasks per chapter/spec, checklist parity, and Git file-ownership proofs."""
+    """Verify chapter/spec task checklists and Git file-ownership proofs."""
     errors: list[str] = []
     open_tasks: list[str] = []
     if not tasks_dir.is_dir():
         return errors, 0, open_tasks
 
     task_files = sorted(p for p in tasks_dir.glob("*.md") if p.name != "index.md")
-    if len(task_files) > MAX_CHAPTER_TASKS:
-        rel_tasks = tasks_dir.relative_to(bundle_dir).as_posix()
-        errors.append(
-            f"{rel_tasks}: found {len(task_files)} task worksheets (exceeds {MAX_CHAPTER_TASKS}-task chapter cap; "
-            "split into additional chapters rather than compressing or overloading)"
-        )
 
     unfenced_owner = _MULTILINE_FENCE_PATTERN.sub("", owner_body)
     checklist_rows = [
@@ -2206,7 +2222,7 @@ def _parse_scalar(val: str) -> Any:
                 k, v = pair.split(":", 1)
                 result[k.strip()] = _parse_scalar(v)
         return result
-    if stripped.isdigit():
+    if stripped.isdigit() or (stripped.startswith("-") and stripped[1:].isdigit()):
         return int(stripped)
     return stripped
 

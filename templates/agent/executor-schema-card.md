@@ -4,7 +4,7 @@ Self-contained execution and present-tense synchronization contract for `/flow:i
 
 ## 1. Chapter-Batch Execution & Public-Seam TDD
 
-- **Batch Edits Across the Active Chapter**: Implement the active chapter's `1..4` vertical-slice worksheets (`t01..t0K`) in dependency order within a single warm pass so shared production modules and canonical unit test files (`tests/<module>/test_<unit>.*`) are read and edited coherently once.
+- **Batch Edits Across the Assigned Slice**: Implement the assigned vertical-slice worksheets (`<= 5` tasks per bounded worker batch) in dependency order within a single warm pass so shared production modules and canonical unit test files (`tests/<module>/test_<unit>.*`) are read and edited coherently once.
 - **Public-Seam Integrity**: Test strictly through confirmed public interfaces with parameterized cases and concrete Worked Test Matrix literals. Never mock the System Under Test, write tautological assertions, use inline `#` restatement comments in Python, or create standalone `test_*remediation*.py` / `test_*audit*.py` files.
 - **Fail-Closed Preflight & Escalation**: If target `path/to/file::Symbol` anchors are missing or contracts contradict live code, stop before editing production files, mark the affected task `state: blocked` (`[!]`) with `blocked_reason` and `unblock_condition`, and route to `/flow:revise`. Apply the Hypothesis-Driven Bug Diagnosis Loop on unexpected failures; escalate after `3` failed fix attempts.
 - **Anti-Skip Rule**: Never mark a chapter or task `completed` without running verification (`exit 0`) and modifying its declared `files:`/`tests:`, and never mark a chapter or task `deferred`/`skipped` without `deferred_by: "user"` and `deferred_reason`.

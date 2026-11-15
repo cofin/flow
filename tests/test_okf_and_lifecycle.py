@@ -13,6 +13,7 @@ from typing import Any
 
 import pytest
 
+from tools.optimize_specs import audit_specs, compact_specs
 from tools.validate import COMPACT_TASK_HEADINGS, REPO_ROOT, REQUIRED_TASK_HEADINGS, validate_okf_bundle
 from tools.worktree_env import (
     bootstrap_worktree,
@@ -348,20 +349,48 @@ def _mutate_broken_relative_link(bundle_dir: Path) -> None:
     )
 
 
-def _mutate_five_tasks_in_chapter(bundle_dir: Path) -> None:
-    """Create 5 task worksheets inside a single chapter to exceed MAX_CHAPTER_TASKS (4)."""
-    ch_dir = bundle_dir / "specs" / "auth-refactor" / "chapters" / "ch02-middleware"
-    tasks_dir = ch_dir / "tasks"
-    extra_lines: list[str] = []
-    for num in range(3, 7):
-        fname = f"t0{num}-extra.md"
-        (tasks_dir / fname).write_text(
-            _render_task_blueprint(task_id=f"auth-refactor:ch02:t0{num}", chapter_id="ch02-middleware"),
-            encoding="utf-8",
-        )
-        extra_lines.append(f"- [ ] [t0{num}](tasks/{fname}) — Extra slice")
-    ch_spec = ch_dir / "spec.md"
-    ch_spec.write_text(ch_spec.read_text(encoding="utf-8") + "\n" + "\n".join(extra_lines) + "\n", encoding="utf-8")
+def _mutate_completed_prd_with_open_child_spec(bundle_dir: Path) -> None:
+    """Create an open child flow referencing parent_prd while marking the parent PRD completed."""
+    child_dir = bundle_dir / "specs" / "child-slice"
+    child_tasks = child_dir / "tasks"
+    child_tasks.mkdir(parents=True)
+    (child_dir / "spec.md").write_text(
+        "---\n"
+        "type: Spec\n"
+        "flow_id: child-slice\n"
+        "parent_prd: auth-refactor\n"
+        "title: Child Slice\n"
+        "description: Child flow belonging to auth-refactor PRD.\n"
+        "status: stable\n"
+        "state: active\n"
+        "has_chapters: false\n"
+        "sources:\n"
+        "  - id: c-src\n"
+        "    resource: src/auth/tokens.py::TokenSigner\n"
+        "    title: Token signer\n"
+        "tags: [feature, auth]\n"
+        "---\n\n"
+        "<!-- truth: start -->\n"
+        "- Child spec invariant[^c-src].\n"
+        "<!-- truth: end -->\n\n"
+        "## 1. Specification, Context & Provenance\n\nChild spec.\n\n"
+        "## 2. Requirements, Concrete Contracts & Architecture\n\nContract.\n\n"
+        "## 3. Documentation & OKF Knowledge Plan\n\n- [0/1 files documented]\n\n"
+        "## 4. Requirement-to-Task Traceability Matrix\n\n| R1 | t01 |\n\n"
+        "## 5. Implementation Plan\n\n- [ ] [t01](tasks/t01-child.md) — Deliver child\n\n"
+        "## 6. Current State & Remaining Plan Snapshot\n\nActive child task.\n\n"
+        "[^c-src]: `src/auth/tokens.py::TokenSigner`\n",
+        encoding="utf-8",
+    )
+    (child_tasks / "t01-child.md").write_text(
+        _render_task_blueprint(task_id="child-slice:t01", chapter_id="null"),
+        encoding="utf-8",
+    )
+    root_spec = bundle_dir / "specs" / "auth-refactor" / "spec.md"
+    root_spec.write_text(
+        root_spec.read_text(encoding="utf-8").replace("state: active", "state: completed", 1),
+        encoding="utf-8",
+    )
 
 
 def _mutate_missing_task_heading(bundle_dir: Path) -> None:
@@ -377,27 +406,26 @@ def _mutate_missing_task_heading(bundle_dir: Path) -> None:
     )
 
 
-def _mutate_oversized_read_set(bundle_dir: Path) -> None:
-    """Declare 7 files in read_set to exceed MAX_TASK_READ_SET (6)."""
+def _mutate_invalid_read_set_type(bundle_dir: Path) -> None:
+    """Set read_set to a non-list scalar to trigger type validation."""
     task_path = bundle_dir / "specs" / "auth-refactor" / "chapters" / "ch02-middleware" / "tasks" / "t02-slice.md"
     task_path.write_text(
-        _render_task_blueprint(
-            task_id="auth-refactor:ch02-middleware:t02",
-            chapter_id="ch02-middleware",
-            read_set=[f"src/mod_{idx}.py" for idx in range(7)],
+        task_path.read_text(encoding="utf-8").replace(
+            "read_set:\n  - src/auth/tokens.py\n  - tests/auth/test_tokens.py",
+            "read_set: src/auth/tokens.py",
         ),
         encoding="utf-8",
     )
 
 
-def _mutate_oversized_estimated_loc(bundle_dir: Path) -> None:
-    """Declare estimated_loc > 250 on a task worksheet."""
+def _mutate_negative_estimated_loc(bundle_dir: Path) -> None:
+    """Set a negative estimated_loc on a task worksheet."""
     task_path = bundle_dir / "specs" / "auth-refactor" / "chapters" / "ch02-middleware" / "tasks" / "t02-slice.md"
     task_path.write_text(
         _render_task_blueprint(
             task_id="auth-refactor:ch02-middleware:t02",
             chapter_id="ch02-middleware",
-            estimated_loc=300,
+            estimated_loc=-10,
         ),
         encoding="utf-8",
     )
@@ -564,14 +592,18 @@ BUNDLE_REJECTION_CASES: tuple[tuple[str, Callable[[Path], None], str], ...] = (
     ("state-word-in-tags", _mutate_state_word_in_tags, "tag 'completed' encodes lifecycle state/status"),
     ("oversized-truth-block", _mutate_oversized_truth_block, "truth block has 41 lines (exceeds 40-line limit)"),
     ("broken-relative-link", _mutate_broken_relative_link, "broken relative link 'chapters/ch99-missing/spec.md'"),
-    ("five-tasks-in-chapter", _mutate_five_tasks_in_chapter, "found 5 task worksheets (exceeds 4-task chapter cap"),
+    (
+        "completed-prd-with-open-child-spec",
+        _mutate_completed_prd_with_open_child_spec,
+        "PRD cannot be marked 'completed' while child specs remain open",
+    ),
     (
         "missing-task-heading",
         _mutate_missing_task_heading,
         "missing required Task blueprint heading '## Edge Cases & Error Semantics'",
     ),
-    ("oversized-read-set", _mutate_oversized_read_set, "read_set has 7 entries (exceeds 6-file cap)"),
-    ("oversized-estimated-loc", _mutate_oversized_estimated_loc, "estimated_loc 300 exceeds 250-line cap"),
+    ("invalid-read-set-type", _mutate_invalid_read_set_type, "read_set must be a list of file paths"),
+    ("negative-estimated-loc", _mutate_negative_estimated_loc, "estimated_loc -10 must be non-negative"),
     (
         "chapter-missing-from-index",
         _mutate_chapter_missing_from_index,
@@ -1286,3 +1318,186 @@ def test_validate_okf_bundle_checks_knowledge_catalog_schema_stale_after_and_byt
     errs = validate_okf_bundle(bundle, project_root=tmp_path)
     assert any("stale_after" in err and "UTC offset" in err for err in errs)
     assert any("120832" in err and "Section One" in err for err in errs)
+
+
+def test_validate_okf_bundle_allows_uncapped_tasks_read_set_loc_and_compact_format(tmp_path: Path) -> None:
+    """Verify chapters allow >4 tasks, >6 read_set, >250 LOC, compact format, and Flash workflow defaults."""
+    bundle_dir = _seed_valid_multichapter_bundle(tmp_path)
+    ch_dir = bundle_dir / "specs" / "auth-refactor" / "chapters" / "ch02-middleware"
+    tasks_dir = ch_dir / "tasks"
+    compact_sections = "\n\n".join(f"{heading}\n\nPopulated[^t-src]." for heading in COMPACT_TASK_HEADINGS)
+    extra_lines: list[str] = []
+    for num in range(3, 9):
+        fname = f"t0{num}-extra.md"
+        if num == 3:
+            reads = "\n".join(f"  - src/mod_{idx}.py" for idx in range(10))
+            (tasks_dir / fname).write_text(
+                "---\n"
+                "type: Task\n"
+                "id: auth-refactor:ch02-middleware:t03\n"
+                "chapter_id: ch02-middleware\n"
+                "title: Compact multi-file slice\n"
+                "description: Larger slice using compact worksheet.\n"
+                "status: stable\n"
+                "state: pending\n"
+                "worksheet_format: compact\n"
+                "verification_strategy: behavior_tdd\n"
+                f"read_set:\n{reads}\n"
+                "estimated_loc: 450\n"
+                "sources:\n"
+                "  - id: t-src\n"
+                "    resource: src/auth/tokens.py::TokenSigner\n"
+                "tags: [feature, auth]\n"
+                "---\n\n"
+                f"{compact_sections}\n\n"
+                "[^t-src]: `src/auth/tokens.py::TokenSigner` — Signer.\n",
+                encoding="utf-8",
+            )
+        else:
+            (tasks_dir / fname).write_text(
+                _render_task_blueprint(
+                    task_id=f"auth-refactor:ch02-middleware:t0{num}",
+                    chapter_id="ch02-middleware",
+                    read_set=[f"src/mod_{idx}.py" for idx in range(8)],
+                    estimated_loc=420,
+                ),
+                encoding="utf-8",
+            )
+        extra_lines.append(f"- [ ] [t0{num}](tasks/{fname}) — Extra slice")
+    ch_spec = ch_dir / "spec.md"
+    ch_spec.write_text(
+        ch_spec.read_text(encoding="utf-8").replace(
+            "## 6. Current State & Remaining Plan Snapshot",
+            "\n".join(extra_lines) + "\n\n## 6. Current State & Remaining Plan Snapshot",
+        ),
+        encoding="utf-8",
+    )
+    assert validate_okf_bundle(bundle_dir) == []
+
+    ch_pipe = (REPO_ROOT / "workflows" / "flow-chapter-pipeline" / "workflow.py").read_text(encoding="utf-8")
+    dual_rev = (REPO_ROOT / "workflows" / "flow-dual-review" / "workflow.py").read_text(encoding="utf-8")
+    spec_plan = (REPO_ROOT / "workflows" / "flow-spec-planning" / "workflow.py").read_text(encoding="utf-8")
+    assert 'or "flash"' in ch_pipe
+    assert 'or "flash"' in dual_rev
+    assert "len(chapters) <= 1" in spec_plan
+
+
+def test_flow_chapter_pipeline_workflow_executes_bounded_batches_and_lease(tmp_path: Path, monkeypatch: Any) -> None:
+    """Verify flow-chapter-pipeline acquires runtime leases cleanly, defaults to flash, and chunks batches."""
+    monkeypatch.setenv("FLOW_RUNTIME_DIR", str(tmp_path / "runtime"))
+    bundle_dir = _seed_valid_multichapter_bundle(tmp_path)
+    script_path = REPO_ROOT / "workflows" / "flow-chapter-pipeline" / "workflow.py"
+    source = script_path.read_text(encoding="utf-8")
+    tree = ast.parse(source, filename=str(script_path))
+    code_obj = compile(tree, str(script_path), "exec", flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
+
+    exec_models: list[str] = []
+    rev_models: list[str] = []
+    printed: list[str] = []
+
+    async def fake_agent(
+        prompt: str,
+        *,
+        schema: dict[str, Any],
+        role: str = "",
+        type_name: str = "self",
+        workspace: str = "inherit",
+        model: str = "inherit",
+    ) -> dict[str, Any]:
+        assert type_name == "self"
+        assert schema
+        if "Batch Execute" in role:
+            exec_models.append(model)
+            return {
+                "status": "completed",
+                "code_commit": "abc1234",
+                "commit_deferred_to_coordinator": False,
+                "files_modified": ["src/app.py"],
+                "tests_verified": ["tests/test_app.py"],
+                "verification_evidence": "pytest 1 passed",
+            }
+        rev_models.append(model)
+        return {"verdict": "PASS", "findings": []}
+
+    async def fake_with_budget(coro: Any, **_kwargs: Any) -> Any:
+        return await coro
+
+    async def fake_parallel(items: list[Any], fn: Callable[[Any], Any]) -> list[Any]:
+        return list(await asyncio.gather(*(fn(item) for item in items)))
+
+    ns: dict[str, Any] = {
+        "__builtins__": __builtins__,
+        "args": {
+            "flow_id": "auth-refactor",
+            "chapter_id": "ch02-middleware",
+            "tasks": [f"tasks/t0{i}-slice.md" for i in range(1, 8)],
+            "bundle_root": str(bundle_dir),
+            "plugin_root": str(REPO_ROOT),
+        },
+        "agent": fake_agent,
+        "with_budget": fake_with_budget,
+        "parallel": fake_parallel,
+        "pipeline": fake_parallel,
+        "phase": lambda _name: None,
+        "log": lambda _msg: None,
+        "tokens_used": lambda: 500,
+        "print": lambda text: printed.append(str(text)),
+    }
+
+    async def _drive() -> None:
+        coro = eval(code_obj, ns, ns)
+        if asyncio.iscoroutine(coro):
+            await coro
+
+    asyncio.run(_drive())
+    summary = json.loads(printed[-1])
+    assert len(summary["executions"]) == 2
+    assert len(summary["executions"][0]["tasks"]) == 5
+    assert len(summary["executions"][1]["tasks"]) == 2
+    assert exec_models == ["flash", "flash"]
+    assert rev_models == ["flash", "flash"]
+    assert list((tmp_path / "runtime").rglob("*.lease")) == []
+
+
+def test_optimize_specs_compacts_fragmented_chapters_and_preserves_shas_and_deps(tmp_path: Path) -> None:
+    """Verify tools.optimize_specs collapses over-fragmented specs cleanly while keeping valid OKF state."""
+    bundle_dir = _seed_valid_multichapter_bundle(tmp_path)
+    audit_before = audit_specs(bundle_dir)
+    assert any(
+        p.flow_id == "auth-refactor" and ("ch02-middleware", "ch03-sessions") in p.merge_runs for p in audit_before
+    )
+
+    t3 = bundle_dir / "specs" / "auth-refactor" / "chapters" / "ch03-sessions" / "tasks" / "t03-slice.md"
+    t3_text = t3.read_text(encoding="utf-8").replace(
+        "depends_on: []",
+        "depends_on: [auth-refactor:ch02-middleware:t02]",
+    )
+    t3.write_text(t3_text, encoding="utf-8")
+
+    results = compact_specs(bundle_dir, flow_id="auth-refactor")
+    assert len(results) == 1
+    assert results[0].before_chapters == 6
+    assert results[0].after_chapters == 5
+    assert results[0].removed_chapters == ("ch03-sessions",)
+    assert validate_okf_bundle(bundle_dir) == []
+
+    all_open_bundle = tmp_path / "open_only" / ".agents" / "bundles"
+    all_open_seed = _seed_valid_multichapter_bundle(tmp_path / "open_only")
+    for cid in SIX_CHAPTER_IDS:
+        cspec = all_open_seed / "specs" / "auth-refactor" / "chapters" / cid / "spec.md"
+        cspec.write_text(
+            cspec.read_text(encoding="utf-8")
+            .replace("state: completed", "state: planned")
+            .replace("planning_status: empirical_dependent", "planning_status: complete")
+            .replace('replan_trigger: "Latency p99 baseline from ch04-audit"', "replan_trigger: null")
+            .replace("depends_on_chapters: [ch04-audit]", "depends_on_chapters: []")
+            .replace("last_reviewed_commit: 1111111", "last_reviewed_commit: null"),
+            encoding="utf-8",
+        )
+    rspec = all_open_seed / "specs" / "auth-refactor" / "spec.md"
+    rspec.write_text(rspec.read_text(encoding="utf-8").replace("- [x] [1111111]", "- [ ]"), encoding="utf-8")
+    collapsed = compact_specs(all_open_bundle, flow_id="auth-refactor")
+    assert len(collapsed) == 1
+    assert collapsed[0].collapsed_to_single_chapter is True
+    assert not (all_open_bundle / "specs" / "auth-refactor" / "chapters").exists()
+    assert validate_okf_bundle(all_open_bundle) == []
