@@ -303,7 +303,7 @@ function Split-CommandSegments([string]$Cmd) {
     }
     $last = $sb.ToString().Trim()
     if ($last.Length -gt 0) { $segs.Add($last) }
-    return ,$segs.ToArray()
+    return $segs.ToArray()
 }
 
 function Split-SegmentTokens([string]$Seg) {
@@ -349,7 +349,7 @@ function Split-SegmentTokens([string]$Seg) {
         $hasTok = $true
     }
     if ($hasTok) { $toks.Add($sb.ToString()) }
-    return ,$toks.ToArray()
+    return $toks.ToArray()
 }
 
 function Expand-GuardPath([string]$RawToken, [bool]$IsPsDelete) {
@@ -376,7 +376,7 @@ function Expand-GuardPath([string]$RawToken, [bool]$IsPsDelete) {
             $out.Add($cur)
         }
     }
-    return ,$out.ToArray()
+    return $out.ToArray()
 }
 
 if ($Decision -eq "allow" -and $ToolName -eq "delete_file" -and -not [string]::IsNullOrWhiteSpace($TargetPath)) {
@@ -399,7 +399,7 @@ if ($Decision -eq "allow" -and -not [string]::IsNullOrWhiteSpace($CmdLine) -and 
     while ($workQueue.Count -gt 0 -and $Decision -eq "allow") {
         $item = $workQueue.Dequeue()
         $curDir = [string]$item.Dir
-        foreach ($seg in (Split-CommandSegments ([string]$item.Cmd))) {
+        foreach ($seg in @(Split-CommandSegments ([string]$item.Cmd))) {
             if ($Decision -ne "allow") { break }
             $toks = @(Split-SegmentTokens $seg)
             if ($toks.Count -eq 0) { continue }
@@ -490,7 +490,7 @@ if ($Decision -eq "allow" -and -not [string]::IsNullOrWhiteSpace($CmdLine) -and 
                     elseif ($alc -match '^-literalpath=.+$') { $at = $at.Substring(13) }
                 }
                 if ($at.StartsWith('-')) { continue }
-                foreach ($cand in (Expand-GuardPath $at $isPsDel)) {
+                foreach ($cand in @(Expand-GuardPath $at $isPsDel)) {
                     $mc = [regex]::Match($cand, '^(?:([A-Za-z]:/)|(.+?)/|(/))?\.agents/bundles/specs/([A-Za-z0-9_-]+)(?:/spec\.md|/)?$')
                     if ($mc.Success) {
                         $tokPrefix = if ($mc.Groups[1].Success) { $mc.Groups[1].Value } elseif ($mc.Groups[3].Success) { "/" } elseif ($mc.Groups[2].Success) { $mc.Groups[2].Value } else { "" }
