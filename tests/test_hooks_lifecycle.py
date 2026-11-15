@@ -415,3 +415,343 @@ def test_pre_tool_guard_blocks_premature_spec_deletion_and_allows_completed(
     assert out["decision"] == expected_agy_decision, f"[{case_id}] unexpected {out}"
     if expected_agy_decision == "deny":
         assert "cannot delete or archive specs/catalog-ui" in out["reason"]
+
+
+def _write_flow_spec(workspace: Path, flow_id: str, *, state: str, last_reviewed_commit: str = "") -> Path:
+    """Seed a spec file with explicit lifecycle state inside ``workspace``."""
+    agents_dir = workspace / ".agents"
+    agents_dir.mkdir(parents=True, exist_ok=True)
+    setup_path = agents_dir / "setup-state.json"
+    if not setup_path.exists():
+        setup_path.write_text(
+            json.dumps({"setup_status": "complete", "bundle_root": ".agents/bundles", "okf_version": "0.2"}),
+            encoding="utf-8",
+        )
+    spec_dir = agents_dir / "bundles" / "specs" / flow_id
+    spec_dir.mkdir(parents=True, exist_ok=True)
+    lrc_line = f"last_reviewed_commit: {last_reviewed_commit}\n" if last_reviewed_commit else ""
+    spec_path = spec_dir / "spec.md"
+    spec_path.write_text(
+        "---\n"
+        "type: Spec\n"
+        f"flow_id: {flow_id}\n"
+        f"title: {flow_id}\n"
+        f"state: {state}\n"
+        f"{lrc_line}"
+        "---\n\n"
+        "## 1. Objective\n\nScoped spec.\n",
+        encoding="utf-8",
+    )
+    return spec_path
+
+
+def _init_git_worktree_pair(tmp_path: Path) -> tuple[Path, Path, Path]:
+    """Create a main Git checkout, a shared linked worktree, and a stealth linked worktree."""
+    git_env = {
+        **os.environ,
+        "GIT_AUTHOR_NAME": "Flow Test",
+        "GIT_AUTHOR_EMAIL": "flow@example.com",
+        "GIT_COMMITTER_NAME": "Flow Test",
+        "GIT_COMMITTER_EMAIL": "flow@example.com",
+    }
+    main_repo = tmp_path / "main-repo"
+    wt_feature = tmp_path / "wt-feature"
+    wt_stealth = tmp_path / "wt-stealth"
+    main_repo.mkdir()
+    subprocess.run(["git", "init", "-q"], cwd=main_repo, env=git_env, check=True)
+    subprocess.run(["git", "config", "commit.gpgsign", "false"], cwd=main_repo, env=git_env, check=True)
+    (main_repo / "app.py").write_text("VALUE = 1\n", encoding="utf-8")
+    subprocess.run(["git", "add", "app.py"], cwd=main_repo, env=git_env, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", "chore: init"], cwd=main_repo, env=git_env, check=True)
+    subprocess.run(
+        ["git", "worktree", "add", "-q", "-b", "feat/worktree", str(wt_feature)],
+        cwd=main_repo,
+        env=git_env,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "worktree", "add", "-q", "-b", "feat/stealth", str(wt_stealth)],
+        cwd=main_repo,
+        env=git_env,
+        check=True,
+    )
+    return main_repo, wt_feature, wt_stealth
+
+
+def _assert_guard_verdict(
+    sh_payload: dict[str, Any],
+    *,
+    case_id: str,
+    expected_decision: str,
+    expected_spec_fragment: str = "",
+    ps_payload: dict[str, Any] | None = None,
+) -> None:
+    """Assert expected Antigravity verdict and optional denied spec ID across shell and PowerShell hooks."""
+    for label, payload in [("sh", sh_payload), *([("ps1", ps_payload)] if ps_payload is not None else [])]:
+        assert payload.get("decision") == expected_decision, f"[{case_id}:{label}] unexpected {payload}"
+        if expected_spec_fragment:
+            assert expected_spec_fragment in payload.get("reason", ""), f"[{case_id}:{label}] {payload}"
+
+
+@pytest.mark.parametrize(
+    ("case_id", "mode", "expected_decision", "expected_spec"),
+    (
+        ("delete-file-target-path-wt-complete", "delete-targetpath-wt-a", "allow", ""),
+        ("delete-file-path-wt-complete", "delete-path-wt-a", "allow", ""),
+        ("explicit-prefix-rm-wt-complete", "rm-prefix-wt-a", "allow", ""),
+        ("cd-prefix-rm-wt-complete", "cd-rm-wt-a", "allow", ""),
+        ("set-location-remove-item-wt-complete", "set-location-wt-a", "allow", ""),
+        ("git-dash-c-rm-wt-complete", "git-c-wt-a", "allow", ""),
+        ("payload-cwd-overrides-workspace-paths", "payload-cwd-wt-a", "allow", ""),
+        ("shared-wt-missing-spec-no-main-leak", "shared-wt-missing-x", "allow", ""),
+        ("wt-incomplete-delete-file-target-path", "delete-targetpath-wt-open", "deny", "specs/flow-open"),
+        ("wt-incomplete-explicit-prefix-rm", "rm-prefix-wt-open", "deny", "specs/flow-open"),
+        ("wt-incomplete-cd-rm", "cd-rm-wt-open", "deny", "specs/flow-open"),
+        ("wt-incomplete-git-c-rm", "git-c-wt-open", "deny", "specs/flow-open"),
+        ("stealth-wt-without-agents-falls-back-to-main", "rm-stealth-wt-a", "deny", "specs/flow-a"),
+    ),
+)
+def test_pre_tool_guard_resolves_target_worktree_and_command_dirs(
+    tmp_path: Path,
+    case_id: str,
+    mode: str,
+    expected_decision: str,
+    expected_spec: str,
+) -> None:
+    """Verify pre-tool-guard resolves deleted spec roots from target paths, cd, git -C, and cwd."""
+    main_repo, wt_feature, wt_stealth = _init_git_worktree_pair(tmp_path)
+    _write_flow_spec(main_repo, "flow-a", state="planned")
+    _write_flow_spec(main_repo, "flow-x", state="planned")
+    _write_flow_spec(main_repo, "flow-open", state="completed", last_reviewed_commit="abc1234")
+    _write_flow_spec(wt_feature, "flow-a", state="completed", last_reviewed_commit="abc1234")
+    _write_flow_spec(wt_feature, "flow-open", state="planned")
+
+    payload_by_mode: dict[str, dict[str, Any]] = {
+        "delete-targetpath-wt-a": {
+            "workspacePaths": [str(main_repo)],
+            "toolCall": {
+                "name": "delete_file",
+                "args": {"TargetPath": str(wt_feature / ".agents" / "bundles" / "specs" / "flow-a" / "spec.md")},
+            },
+        },
+        "delete-path-wt-a": {
+            "workspacePaths": [str(main_repo)],
+            "toolCall": {
+                "name": "delete_file",
+                "args": {"Path": str(wt_feature / ".agents" / "bundles" / "specs" / "flow-a" / "spec.md")},
+            },
+        },
+        "rm-prefix-wt-a": {
+            "workspacePaths": [str(main_repo)],
+            "toolCall": {
+                "name": "run_command",
+                "args": {"CommandLine": f"rm -rf {wt_feature}/.agents/bundles/specs/flow-a"},
+            },
+        },
+        "cd-rm-wt-a": {
+            "workspacePaths": [str(main_repo)],
+            "toolCall": {
+                "name": "run_command",
+                "args": {"CommandLine": f"cd {wt_feature} && rm -rf .agents/bundles/specs/flow-a"},
+            },
+        },
+        "set-location-wt-a": {
+            "workspacePaths": [str(main_repo)],
+            "toolCall": {
+                "name": "run_command",
+                "args": {
+                    "CommandLine": f"Set-Location {wt_feature}; Remove-Item "
+                    "-Recurse -Force .agents/bundles/specs/flow-a"
+                },
+            },
+        },
+        "git-c-wt-a": {
+            "workspacePaths": [str(main_repo)],
+            "toolCall": {
+                "name": "run_command",
+                "args": {"CommandLine": f"git -C {wt_feature} rm -r .agents/bundles/specs/flow-a"},
+            },
+        },
+        "payload-cwd-wt-a": {
+            "workspacePaths": [str(main_repo)],
+            "cwd": str(wt_feature),
+            "toolCall": {"name": "run_command", "args": {"CommandLine": "rm -rf .agents/bundles/specs/flow-a"}},
+        },
+        "shared-wt-missing-x": {
+            "workspacePaths": [str(main_repo)],
+            "toolCall": {
+                "name": "run_command",
+                "args": {"CommandLine": f"cd {wt_feature} && rm -rf .agents/bundles/specs/flow-x"},
+            },
+        },
+        "delete-targetpath-wt-open": {
+            "workspacePaths": [str(main_repo)],
+            "toolCall": {
+                "name": "delete_file",
+                "args": {"TargetPath": str(wt_feature / ".agents" / "bundles" / "specs" / "flow-open" / "spec.md")},
+            },
+        },
+        "rm-prefix-wt-open": {
+            "workspacePaths": [str(main_repo)],
+            "toolCall": {
+                "name": "run_command",
+                "args": {"CommandLine": f"rm -rf {wt_feature}/.agents/bundles/specs/flow-open"},
+            },
+        },
+        "cd-rm-wt-open": {
+            "workspacePaths": [str(main_repo)],
+            "toolCall": {
+                "name": "run_command",
+                "args": {"CommandLine": f"cd {wt_feature} && rm -rf .agents/bundles/specs/flow-open"},
+            },
+        },
+        "git-c-wt-open": {
+            "workspacePaths": [str(main_repo)],
+            "toolCall": {
+                "name": "run_command",
+                "args": {"CommandLine": f"git -C {wt_feature} rm -r .agents/bundles/specs/flow-open"},
+            },
+        },
+        "rm-stealth-wt-a": {
+            "workspacePaths": [str(main_repo)],
+            "toolCall": {
+                "name": "run_command",
+                "args": {"CommandLine": f"cd {wt_stealth} && rm -rf .agents/bundles/specs/flow-a"},
+            },
+        },
+    }
+    stdin_payload = payload_by_mode[mode]
+    sh_out = _run_hook(PRE_TOOL_GUARD_SH, "agy", stdin_payload)
+    ps_out = _run_ps1(PRE_TOOL_GUARD_PS1, "agy", stdin_payload) if POWERSHELL_BIN is not None else None
+    _assert_guard_verdict(
+        sh_out,
+        case_id=case_id,
+        expected_decision=expected_decision,
+        expected_spec_fragment=expected_spec,
+        ps_payload=ps_out,
+    )
+
+
+@pytest.mark.parametrize(
+    ("case_id", "cmd_template", "expected_decision", "expected_spec"),
+    (
+        (
+            "multi-arg-second-incomplete",
+            "rm -rf .agents/bundles/specs/flow-done .agents/bundles/specs/flow-open",
+            "deny",
+            "specs/flow-open",
+        ),
+        (
+            "brace-expansion-second-incomplete",
+            "rm -rf .agents/bundles/specs/{flow-done,flow-open}",
+            "deny",
+            "specs/flow-open",
+        ),
+        (
+            "brace-expansion-spec-md",
+            "rm -rf .agents/bundles/specs/{flow-done,flow-open}/spec.md",
+            "deny",
+            "specs/flow-open",
+        ),
+        ("brace-expansion-all-complete", "rm -rf .agents/bundles/specs/{flow-done,flow-done-2}", "allow", ""),
+        (
+            "mixed-roots-second-incomplete",
+            "rm -rf __WT_DONE__/.agents/bundles/specs/flow-done-wt __MAIN_REPO__/.agents/bundles/specs/flow-open",
+            "deny",
+            "specs/flow-open",
+        ),
+        (
+            "chained-cd-second-incomplete",
+            "cd __WT_DONE__ && rm -rf .agents/bundles/specs/flow-done-wt"
+            " && cd __MAIN_REPO__ && rm -rf .agents/bundles/specs/flow-open",
+            "deny",
+            "specs/flow-open",
+        ),
+        ("subshell-parens-completed-wt", "(cd __WT_DONE__ && rm -rf .agents/bundles/specs/flow-done-wt)", "allow", ""),
+        (
+            "subshell-sh-c-completed-wt",
+            "sh -c 'cd __WT_DONE__ && rm -rf .agents/bundles/specs/flow-done-wt'",
+            "allow",
+            "",
+        ),
+        (
+            "subshell-sh-c-incomplete-second",
+            "sh -c 'cd __MAIN_REPO__ && rm -rf .agents/bundles/specs/{flow-done,flow-open}'",
+            "deny",
+            "specs/flow-open",
+        ),
+    ),
+)
+def test_pre_tool_guard_checks_all_spec_targets_and_braces(
+    tmp_path: Path,
+    case_id: str,
+    cmd_template: str,
+    expected_decision: str,
+    expected_spec: str,
+) -> None:
+    """Verify pre-tool-guard inspects every spec argument and brace expansion across directories."""
+    main_repo = tmp_path / "main-repo"
+    wt_done = tmp_path / "wt-done"
+    main_repo.mkdir()
+    wt_done.mkdir()
+    _write_flow_spec(main_repo, "flow-done", state="completed", last_reviewed_commit="abc1234")
+    _write_flow_spec(main_repo, "flow-done-2", state="completed", last_reviewed_commit="def5678")
+    _write_flow_spec(main_repo, "flow-open", state="planned")
+    _write_flow_spec(wt_done, "flow-done-wt", state="completed", last_reviewed_commit="999aaaa")
+
+    cmd_line = cmd_template.replace("__MAIN_REPO__", str(main_repo)).replace("__WT_DONE__", str(wt_done))
+    stdin_payload = {
+        "workspacePaths": [str(main_repo)],
+        "toolCall": {"name": "run_command", "args": {"CommandLine": cmd_line}},
+    }
+    sh_out = _run_hook(PRE_TOOL_GUARD_SH, "agy", stdin_payload)
+    ps_out = _run_ps1(PRE_TOOL_GUARD_PS1, "agy", stdin_payload) if POWERSHELL_BIN is not None else None
+    _assert_guard_verdict(
+        sh_out,
+        case_id=case_id,
+        expected_decision=expected_decision,
+        expected_spec_fragment=expected_spec,
+        ps_payload=ps_out,
+    )
+
+
+@pytest.mark.parametrize(
+    ("harness", "use_complete_wt", "expected_decision"),
+    (
+        ("claude", True, "allow"),
+        ("claude", False, "deny"),
+        ("cursor", True, "allow"),
+        ("cursor", False, "deny"),
+    ),
+)
+def test_pre_tool_guard_worktree_resolution_for_claude_and_cursor(
+    tmp_path: Path,
+    harness: str,
+    use_complete_wt: bool,
+    expected_decision: str,
+) -> None:
+    """Verify Claude and Cursor hook payload schemas respect worktree-resolved spec targets."""
+    main_repo, wt_feature, _ = _init_git_worktree_pair(tmp_path)
+    _write_flow_spec(main_repo, "flow-open", state="planned")
+    _write_flow_spec(wt_feature, "flow-done", state="completed", last_reviewed_commit="abc1234")
+
+    cmd = (
+        f"rm -rf {wt_feature}/.agents/bundles/specs/flow-done"
+        if use_complete_wt
+        else "rm -rf .agents/bundles/specs/flow-open"
+    )
+    payload: dict[str, Any] = (
+        {"tool_name": "Bash", "tool_input": {"command": cmd}, "cwd": str(main_repo)}
+        if harness == "claude"
+        else {"command": cmd, "workspace_roots": [str(main_repo)]}
+    )
+    sh_out = _run_hook(PRE_TOOL_GUARD_SH, harness, payload)
+    ps_out = _run_ps1(PRE_TOOL_GUARD_PS1, harness, payload) if POWERSHELL_BIN is not None else None
+    for verdict in [sh_out, *([ps_out] if ps_out is not None else [])]:
+        if harness == "claude":
+            if expected_decision == "allow":
+                assert verdict == {}
+            else:
+                assert verdict["hookSpecificOutput"]["permissionDecision"] == "deny"
+        else:
+            assert verdict["permission"] == expected_decision
