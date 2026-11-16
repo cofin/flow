@@ -1,6 +1,6 @@
 {
   "name": "flow-scout",
-  "description": "Run parallel read-only SubsystemDigest reconnaissance scouts with quota-aware model routing and per-scout budgets.",
+  "description": "Run parallel read-only SubsystemDigest reconnaissance scouts with federated local+sibling search and worker-slice boundary hints.",
   "entry": "workflow.py",
   "args": {
     "type": "object",
@@ -19,26 +19,14 @@
         },
         "description": "Subsystems and repository paths to inspect in parallel."
       },
-      "scout_model": {
-        "type": "string",
-        "description": "Preferred model option for scouts (default flash)."
-      },
-      "narrow_model": {
-        "type": "string",
-        "description": "Optional faster model option for narrow <=3-file scouts (default flash_lite fallback)."
-      },
-      "scout_agent": {
-        "type": "string",
-        "description": "Optional pinned agent profile name for heavy scouts (default self)."
-      },
-      "narrow_agent": {
-        "type": "string",
-        "description": "Optional pinned agent profile name for narrow <=3-file scouts (defaults to scout_agent)."
-      },
-      "timeout_seconds": {
-        "type": "integer",
-        "description": "Per-scout wall-clock timeout in seconds (default 300)."
-      }
+      "query": {"type": "string", "description": "Optional federated knowledge search query."},
+      "planes": {"type": "array", "items": {"type": "string"}, "description": "Search planes (local, siblings)."},
+      "harness": {"type": "string", "description": "Active harness identifier."},
+      "scout_model": {"type": "string", "description": "Explicit scout model override."},
+      "narrow_model": {"type": "string", "description": "Explicit narrow-fetch model override."},
+      "scout_agent": {"type": "string", "description": "Custom agent profile for heavy scouts."},
+      "narrow_agent": {"type": "string", "description": "Custom agent profile for narrow scouts."},
+      "timeout_seconds": {"type": "integer", "description": "Per-scout timeout in seconds."}
     },
     "required": ["subsystems"]
   }

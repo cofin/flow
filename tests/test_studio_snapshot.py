@@ -513,7 +513,7 @@ process.stdout.write(JSON.stringify({
             "--input-type=module",
             "-e",
             probe_js,
-            str(REPO_ROOT / "sidecars" / "studio" / "host-bridge.js"),
+            str(REPO_ROOT / "sidecars" / "studio" / "web" / "host-bridge.js"),
             str(ws_active),
             str(ws_other),
         ],
@@ -710,3 +710,205 @@ def test_studio_snapshot_reads_runtime_heartbeat_ttl_and_claim_identity(tmp_path
         "sessionId": "conv-coord-99",
         "role": "executor",
     }
+
+
+@pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
+def test_spec_engine_preflight_dangling_dep_cross_chapter_collision_and_import_urls(tmp_path: Path) -> None:
+    """Verify SpecEngine preflight catches dangling deps, isolates short_ids, and strips file:// URLs."""
+    assert NODE_BIN is not None
+    ws = tmp_path / "engine-ws"
+    ch1 = ws / ".agents" / "bundles" / "specs" / "multi-ch" / "chapters" / "ch01-alpha" / "tasks"
+    ch2 = ws / ".agents" / "bundles" / "specs" / "multi-ch" / "chapters" / "ch02-beta" / "tasks"
+    ch1.mkdir(parents=True)
+    ch2.mkdir(parents=True)
+    (ws / "src").mkdir()
+    (ws / "src" / "app.py").write_text("def handle():\n    return True\n", encoding="utf-8")
+    (ws / ".agents" / "setup-state.json").write_text(
+        '{"setup_status":"complete","bundle_root":".agents/bundles","okf_version":"0.2"}\n',
+        encoding="utf-8",
+    )
+    (ws / ".agents" / "bundles" / "index.md").write_text("---\nokf_version: '0.2'\n---\n\n# Index\n", encoding="utf-8")
+    (ws / ".agents" / "bundles" / "specs" / "multi-ch" / "spec.md").write_text(
+        "---\ntype: Spec\nflow_id: multi-ch\ntitle: Multi\nstate: active\nhas_chapters: true\n"
+        "current_chapter: ch02-beta\nplan_revision: 1\n---\n\n- [x] ch01-alpha\n- [ ] ch02-beta\n",
+        encoding="utf-8",
+    )
+    (ws / ".agents" / "bundles" / "specs" / "multi-ch" / "chapters" / "ch01-alpha" / "spec.md").write_text(
+        "---\ntype: Spec\nflow_id: multi-ch\nchapter_id: ch01-alpha\nstate: completed\n"
+        "last_reviewed_commit: abc1234\nplan_revision: 1\n---\n\n- [x] [abc1234] t01\n",
+        encoding="utf-8",
+    )
+    (ch1 / "t01-done.md").write_text(
+        "---\ntype: Task\nid: multi-ch:ch01-alpha:t01\ntitle: Done\nstate: completed\ncommit: abc1234\n"
+        "worksheet_format: compact\nverification_strategy: unit\ndepends_on: []\n"
+        "read_set: [src/app.py]\nfiles: [src/generated.py]\ntests: []\nplan_revision: 1\n---\n\n"
+        "## Objective & Scope Boundary\nDone.\n## Bounded Read Manifest\n- src/app.py\n"
+        "## Contracts & Edge Cases\nNone.\n## Test Matrix\nUnit.\n## Verification\npytest\n"
+        "## Acceptance Criteria\nDone.\n",
+        encoding="utf-8",
+    )
+    (ws / ".agents" / "bundles" / "specs" / "multi-ch" / "chapters" / "ch02-beta" / "spec.md").write_text(
+        "---\ntype: Spec\nflow_id: multi-ch\nchapter_id: ch02-beta\nstate: active\nplan_revision: 1\n---\n\n"
+        "- [ ] t01\n- [ ] t02\n",
+        encoding="utf-8",
+    )
+    (ch2 / "t01-dep.md").write_text(
+        "---\ntype: Task\nid: multi-ch:ch02-beta:t01\ntitle: Second Ch Open\nstate: pending\n"
+        "worksheet_format: compact\nverification_strategy: unit\ndepends_on: [multi-ch:ch01-alpha:t01]\n"
+        "read_set: [src/generated.py]\nfiles: [src/beta.py]\ntests: []\nplan_revision: 1\n---\n\n"
+        "## Objective & Scope Boundary\nDep.\n## Bounded Read Manifest\n- src/generated.py\n"
+        "## Contracts & Edge Cases\nNone.\n## Test Matrix\nUnit.\n## Verification\npytest\n"
+        "## Acceptance Criteria\nDone.\n",
+        encoding="utf-8",
+    )
+    (ch2 / "t02-dangling.md").write_text(
+        "---\ntype: Task\nid: multi-ch:ch02-beta:t02\ntitle: Dangling\nstate: pending\n"
+        "worksheet_format: compact\nverification_strategy: unit\ndepends_on: [t01, nonexistent-task]\n"
+        "read_set: [src/app.py]\nfiles: [src/gamma.py]\ntests: []\nplan_revision: 1\n---\n\n"
+        "## Objective & Scope Boundary\nDangle.\n## Bounded Read Manifest\n- src/app.py\n"
+        "## Contracts & Edge Cases\nNone.\n## Test Matrix\nUnit.\n## Verification\npytest\n"
+        "## Acceptance Criteria\nDone.\n",
+        encoding="utf-8",
+    )
+
+    engine_uri = (REPO_ROOT / "sidecars" / "studio" / "spec" / "spec-engine.mjs").as_uri()
+    plan_md = (
+        "# Imported API Plan\n\n"
+        "## 1. Implement Handler\n\n"
+        f"- Update [app.py](file://{(ws / 'src' / 'app.py').as_posix()}#L1-L2)\n"
+    )
+    js = (
+        f"import {{ SpecEngine }} from {json.dumps(engine_uri)};"
+        f"const engine = new SpecEngine({json.dumps(str(ws))});"
+        "const pre = engine.preflight('multi-ch', { chapterId: 'ch02-beta' });"
+        "const dag = engine.buildDag('multi-ch');"
+        "const imp = engine.importPlan({"
+        f"  markdownText: {json.dumps(plan_md)}, flowId: 'imported-api', sourcePath: 'implementation_plan.md'"
+        "});"
+        "process.stdout.write(JSON.stringify({ pre, dag, imp }) + '\\n');"
+    )
+    proc = subprocess.run(
+        [NODE_BIN, "--input-type=module", "-e", js],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    )
+    out = json.loads(proc.stdout.strip().splitlines()[-1])
+
+    codes = {f["code"] for f in out["pre"]["findings"]}
+    assert "DANGLING_TASK_DEP" in codes
+    assert "TARGET_PATH_MISSING" not in codes
+    ready_ids = [t["id"] for t in out["pre"]["ready_tasks"]]
+    assert "multi-ch:ch02-beta:t01" in ready_ids
+    assert "multi-ch:ch02-beta:t02" not in ready_ids
+    t02_edges = [e for e in out["dag"]["edges"] if e["target"] == "multi-ch:ch02-beta:t02"]
+    assert all(e["source"] == "multi-ch:ch02-beta:t01" for e in t02_edges)
+
+    task_files = [ws / p for p in out["imp"]["written_files"] if "/tasks/" in p]
+    assert len(task_files) == 1
+    imp_task = task_files[0].read_text(encoding="utf-8")
+    assert "file://" not in imp_task
+    assert "src/app.py" in imp_task
+
+
+@pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
+def test_spec_feedback_store_collaborative_authors_upvotes_and_state(tmp_path: Path) -> None:
+    """Verify SpecFeedbackStore stores per-author JSON files, upvotes, and state transitions cleanly."""
+    assert NODE_BIN is not None
+    ws = _seed_studio_workspace(tmp_path)
+    fb_uri = (REPO_ROOT / "sidecars" / "studio" / "spec" / "feedback.mjs").as_uri()
+    js = (
+        f"import {{ SpecFeedbackStore }} from {json.dumps(fb_uri)};"
+        f"const store = new SpecFeedbackStore({json.dumps(str(ws))});"
+        "const rel = '.agents/bundles/specs/idempotent-webhooks/spec.md';"
+        "const c1 = store.add({"
+        "  flowId: 'idempotent-webhooks', relPath: rel, authorEmail: 'alice@example.com',"
+        "  authorName: 'Alice', commentKind: 'change_request', body: 'Add retry backoff contract',"
+        "  lineStart: 12, lineEnd: 14"
+        "});"
+        "const c2 = store.add({"
+        "  flowId: 'idempotent-webhooks', relPath: rel, authorEmail: 'bob@example.com',"
+        "  authorName: 'Bob', commentKind: 'approval'"
+        "});"
+        "const up = store.setResolvedOrUpdate("
+        "  'idempotent-webhooks', c1.id, { toggleUpvote: true, actorEmail: 'bob@example.com' });"
+        "const addr = store.setResolvedOrUpdate('idempotent-webhooks', c1.id, { state: 'addressed' });"
+        "const listed = store.listForFlow('idempotent-webhooks', { viewerEmail: 'bob@example.com' });"
+        "process.stdout.write(JSON.stringify({ c1, c2, up, addr, listed }) + '\\n');"
+    )
+    proc = subprocess.run(
+        [NODE_BIN, "--input-type=module", "-e", js],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    )
+    out = json.loads(proc.stdout.strip().splitlines()[-1])
+
+    fb_dir = ws / ".agents" / "bundles" / "specs" / "idempotent-webhooks" / "feedback"
+    assert (fb_dir / "alice-example-com.json").is_file()
+    assert (fb_dir / "bob-example-com.json").is_file()
+    assert out["c2"]["body"] == "Approved."
+    assert out["up"]["upvoteCount"] == 1
+    assert out["addr"]["state"] == "addressed"
+    alice_entry = next(item for item in out["listed"] if item["id"] == out["c1"]["id"])
+    assert alice_entry["viewerHasUpvoted"] is True
+
+
+@pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
+def test_mcp_server_and_claude_mod_hooks(tmp_path: Path) -> None:
+    """Verify Flow MCP server tool/resource handlers and Claude Mod Agent tier/pack injection."""
+    assert NODE_BIN is not None
+    ws = _seed_studio_workspace(tmp_path)
+    mcp_uri = (REPO_ROOT / "sidecars" / "studio" / "mcp-server.mjs").as_uri()
+    mod_uri = (REPO_ROOT / "mods" / "claude-flow" / "hooks" / "register.mjs").as_uri()
+    js = (
+        f"import {{ handleMcpRequest }} from {json.dumps(mcp_uri)};"
+        f"import {{ register }} from {json.dumps(mod_uri)};"
+        f"const ws = {json.dumps(str(ws))};"
+        "const initRes = await handleMcpRequest({ jsonrpc: '2.0', id: 1, method: 'initialize' },"
+        "  { defaultWorkspace: ws });"
+        "const toolsRes = await handleMcpRequest({ jsonrpc: '2.0', id: 2, method: 'tools/list' },"
+        "  { defaultWorkspace: ws });"
+        "const resRead = await handleMcpRequest({"
+        "  jsonrpc: '2.0', id: 3, method: 'resources/read', params: { uri: 'ui://flow/studio' }"
+        "}, { defaultWorkspace: ws });"
+        "const sliceRes = await handleMcpRequest({"
+        "  jsonrpc: '2.0', id: 4, method: 'tools/call',"
+        "  params: { name: 'flow_slice_pack', arguments: { workspace: ws, flow_id: 'idempotent-webhooks' } }"
+        "}, { defaultWorkspace: ws });"
+        "const handlers = [];"
+        "const on = (evt, filter, fn) => handlers.push({ evt, filter, fn });"
+        "register(on, { workspaceRoot: ws });"
+        "const toolHandler = handlers.find((h) => h.evt === 'tool.call').fn;"
+        "const ev = { input: { subagent_type: 'executor', prompt: 'Implement webhook key uniqueness' } };"
+        "await toolHandler({}, ev, async (arg) => arg);"
+        "const aboveFn = handlers.find("
+        "  (h) => h.evt === 'ui.render' && h.filter.component === 'AbovePrompt').fn;"
+        "const banner = aboveFn("
+        "  { ui: { resolve: () => ({ Box: (p, ...c) => ({ p, c }), Text: (p, t) => t }) } }, {});"
+        "process.stdout.write(JSON.stringify({"
+        "  initRes, toolsRes, resRead, sliceRes, modInput: ev.input, banner"
+        "}) + '\\n');"
+    )
+    proc = subprocess.run(
+        [NODE_BIN, "--input-type=module", "-e", js],
+        env={**os.environ, "FLOW_RUNTIME_DIR": str(tmp_path / "rt")},
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    )
+    out = json.loads(proc.stdout.strip().splitlines()[-1])
+
+    assert out["initRes"]["result"]["serverInfo"]["name"] == "flow"
+    tool_names = [t["name"] for t in out["toolsRes"]["result"]["tools"]]
+    assert all(len(name) <= 20 for name in tool_names)
+    assert "flow_slice_pack" in tool_names
+    assert "<!doctype html>" in out["resRead"]["result"]["contents"][0]["text"].lower()
+    assert out["sliceRes"]["result"]["structuredContent"]["waves"]
+    assert out["modInput"]["subagent_type"].startswith("flow-tier-")
+    assert "FLOW CONTEXT PACK" in out["modInput"]["prompt"]
+    assert (ws / ".claude" / "agents" / "flow-tier-frontier.md").is_file()
+    assert "idempotent-webhooks" in out["banner"]["c"][0]

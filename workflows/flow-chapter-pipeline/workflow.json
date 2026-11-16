@@ -1,65 +1,32 @@
 {
   "name": "flow-chapter-pipeline",
-  "description": "Execute a single Flow chapter via cohesive chapter-batch edits, validate once with the fast lint and targeted unit gate, synchronize present-tense OKF docs, and run zero-context chapter review.",
+  "description": "Execute a Flow chapter using micro-sliced Context Packs, zero-token checklist synchronization, dynamic (model, effort) routing, and consolidated closeout review.",
   "entry": "workflow.py",
   "args": {
     "type": "object",
     "properties": {
-      "flow_id": {
-        "type": "string",
-        "description": "Flow identifier under .agents/bundles/specs/<flow_id>."
-      },
-      "chapter_id": {
-        "type": "string",
-        "description": "Chapter directory slug (for example ch01-core)."
-      },
-      "tasks": {
-        "type": "array",
-        "items": {"type": "string"},
-        "description": "Ordered task worksheet relative paths within the chapter."
-      },
-      "base_commit": {
-        "type": "string",
-        "description": "Base Git commit SHA prior to chapter execution."
-      },
-      "bundle_root": {
-        "type": "string",
-        "description": "Bundle root path (default .agents/bundles)."
-      },
+      "flow_id": {"type": "string", "description": "Flow identifier under .agents/bundles/specs/<flow_id>."},
+      "chapter_id": {"type": "string", "description": "Chapter directory slug."},
+      "tasks": {"type": "array", "items": {"type": "string"}, "description": "Ordered task worksheet relative paths."},
+      "base_commit": {"type": "string", "description": "Base Git commit SHA prior to chapter execution."},
+      "bundle_root": {"type": "string", "description": "Bundle root path (default .agents/bundles)."},
       "execution_mode": {
         "type": "string",
-        "enum": ["chapter_batch", "per_task"],
-        "description": "Execute the chapter in one warm batch pass or per-task turns (default chapter_batch)."
+        "enum": ["wave_slices", "chapter_batch", "per_task"],
+        "description": "Execute via micro-sliced Context Pack waves (default), warm batch, or per-task."
       },
       "review_mode": {
         "type": "string",
-        "enum": ["dual", "single"],
-        "description": "Run parallel code + quality review or a single combined review for Small slices (default dual)."
+        "enum": ["auto", "dual", "single", "committee"],
+        "description": "Review mode (default auto via ReviewRoster)."
       },
-      "batch_size": {
-        "type": "integer",
-        "description": "Maximum task worksheets per worker subagent turn when batching chapters (default 5; clamped 1..20)."
-      },
-      "executor_model": {
-        "type": "string",
-        "description": "Preferred executor model option (default flash; reserve Pro quota for planning)."
-      },
-      "reviewer_model": {
-        "type": "string",
-        "description": "Preferred reviewer model option (default flash; reserve Pro quota for planning)."
-      },
-      "executor_agent": {
-        "type": "string",
-        "description": "Optional custom agent profile for execution (default self)."
-      },
-      "reviewer_agent": {
-        "type": "string",
-        "description": "Optional custom agent profile for zero-context chapter review (default self)."
-      },
-      "fallback_model": {
-        "type": "string",
-        "description": "Optional quota fallback model tier (default flash)."
-      }
+      "harness": {"type": "string", "description": "Active harness identifier for dynamic routing."},
+      "batch_size": {"type": "integer", "description": "Maximum tasks per batch (default 4; clamped 1..20)."},
+      "executor_model": {"type": "string", "description": "Optional explicit executor model override."},
+      "reviewer_model": {"type": "string", "description": "Optional explicit reviewer model override."},
+      "executor_agent": {"type": "string", "description": "Optional custom agent profile for execution."},
+      "reviewer_agent": {"type": "string", "description": "Optional custom agent profile for review."},
+      "fallback_model": {"type": "string", "description": "Optional quota fallback model tier."}
     },
     "required": ["flow_id", "chapter_id", "tasks"]
   }

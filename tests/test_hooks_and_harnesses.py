@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import ast
+import importlib
 import json
 import os
 import shutil
@@ -13,8 +13,7 @@ from typing import Any
 
 import pytest
 
-from tools.validate import REPO_ROOT
-from tools.worktree_env import is_link_or_junction
+from tools.validate import REPO_ROOT, is_link_or_junction
 
 HOOK_SCRIPT = REPO_ROOT / "hooks" / "session-start.sh"
 POWERSHELL_HOOK_SCRIPT = REPO_ROOT / "hooks" / "session-start.ps1"
@@ -549,9 +548,10 @@ def test_powershell_hook_surface_and_windows_manifest_wiring() -> None:
     assert POWERSHELL_HOOK_SCRIPT.is_file()
     assert POWERSHELL_STOP_HOOK_SCRIPT.is_file()
     ps1_text = POWERSHELL_HOOK_SCRIPT.read_text(encoding="utf-8")
+    common_ps1_text = (REPO_ROOT / "hooks" / "lib" / "common.ps1").read_text(encoding="utf-8")
     assert '$ErrorActionPreference = "Stop"' in ps1_text
-    assert "--harness" in ps1_text
-    assert "--project" in ps1_text
+    assert "--harness" in common_ps1_text
+    assert "--project" in common_ps1_text
     assert "injectSteps" in ps1_text
     assert "hookSpecificOutput" in ps1_text
     assert "additional_context" in ps1_text
@@ -1488,34 +1488,25 @@ def test_stop_hook_subagent_lease_and_live_telemetry_downgrade(tmp_path: Path) -
 def test_flow_chapter_pipeline_lease_writes_v1_two_line_metadata(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """Verify workflows/flow-chapter-pipeline/workflow.py writes a two-line v1 .lease file."""
-    wf_path = REPO_ROOT / "workflows" / "flow-chapter-pipeline" / "workflow.py"
-    source = wf_path.read_text(encoding="utf-8")
-    tree = ast.parse(source, filename=str(wf_path))
-    helper_nodes: list[ast.stmt] = [
-        node
-        for node in tree.body
-        if isinstance(node, (ast.Import, ast.ImportFrom))
-        or (
-            isinstance(node, ast.FunctionDef)
-            and node.name in {"_extract_task_ids", "_acquire_runtime_lease", "_release_runtime_lease"}
-        )
-    ]
-    helper_mod = ast.Module(body=helper_nodes, type_ignores=[])
-    ast.fix_missing_locations(helper_mod)
+    """Verify flow_common and flow-chapter-pipeline write a two-line v1 .lease file."""
+    flow_common = importlib.import_module("workflows.flow_common")
+    acquire_runtime_lease = flow_common.acquire_runtime_lease
+    release_runtime_lease = flow_common.release_runtime_lease
+
+    wf_source = (REPO_ROOT / "workflows" / "flow-chapter-pipeline" / "workflow.py").read_text(encoding="utf-8")
+    assert "acquire_runtime_lease" in wf_source
+    assert "release_runtime_lease" in wf_source
 
     runtime_dir = tmp_path / "rt"
     monkeypatch.setenv("FLOW_RUNTIME_DIR", str(runtime_dir))
     monkeypatch.chdir(tmp_path)
 
-    namespace: dict[str, Any] = {
-        "__name__": "flow_chapter_pipeline_test",
-        "flow_id": "payments-v2",
-        "chapter_id": "ch02-webhooks",
-        "task_paths": ["tasks/t01-handler.md", "tasks/t02-retry.md"],
-    }
-    exec(compile(helper_mod, str(wf_path), "exec"), namespace)
-    lease_path = namespace["_acquire_runtime_lease"]()
+    lease_path = acquire_runtime_lease(
+        tmp_path,
+        flow_id="payments-v2",
+        chapter_id="ch02-webhooks",
+        task_ids=["t01", "t02"],
+    )
     assert lease_path is not None
     try:
         lines = lease_path.read_text(encoding="utf-8").splitlines()
@@ -1531,5 +1522,5 @@ def test_flow_chapter_pipeline_lease_writes_v1_two_line_metadata(
         assert meta["workspace"] == tmp_path.as_posix()
         assert meta["worktree"] == tmp_path.as_posix()
     finally:
-        namespace["_release_runtime_lease"](lease_path)
+        release_runtime_lease(lease_path)
     assert not lease_path.exists()

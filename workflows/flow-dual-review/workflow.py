@@ -1,12 +1,25 @@
-"""Orchestrate parallel zero-context code and quality reviews with quota-aware model routing."""
+"""Orchestrate ReviewRoster-planned zero-context reviews with cross-vendor adversarial seats."""
+
+from __future__ import annotations
 
 import json
 import os
 from pathlib import Path
-import re
-import subprocess
-import tempfile
-import time
+import sys
+
+_WF_PARENT = Path(__file__).resolve().parent.parent if "__file__" in globals() else Path.cwd() / "workflows"
+if str(_WF_PARENT) not in sys.path:
+    sys.path.insert(0, str(_WF_PARENT))
+
+from flow_common import (
+    QUOTA_MARKERS,
+    acquire_runtime_lease,
+    git_porcelain,
+    release_runtime_lease,
+    resolve_dynamic_route,
+    resolve_plugin_root,
+    run_node_cli,
+)
 
 REVIEW_SCHEMA = {
     "type": "object",
@@ -32,173 +45,107 @@ REVIEW_SCHEMA = {
     "required": ["verdict", "findings"],
 }
 
-QUOTA_MARKERS = (
-    "429",
-    "resource_exhausted",
-    "quota",
-    "rate limit",
-    "rate_limit",
-    "capacity",
-    "overloaded",
-    "exhausted",
-)
-
 git_range = str(args["git_range"])
 spec_path = str(args.get("spec_path", ""))
-review_mode = str(args.get("review_mode", "dual"))
+review_mode = str(args.get("review_mode", "auto"))
+harness = str(args.get("harness") or os.environ.get("FLOW_HARNESS") or "agy")
+author_vendor = str(args.get("author_vendor") or "")
 timeout_seconds = int(args.get("timeout_seconds", 600))
-preferred_review_model = str(args.get("reviewer_model") or os.environ.get("FLOW_REVIEWER_MODEL") or "flash")
+plugin_root = resolve_plugin_root(args.get("plugin_root"), marker="agents/code-reviewer.md")
+
+route = resolve_dynamic_route(plugin_root, "spec_review", harness=harness, author_vendor=author_vendor or None)
+preferred_review_model = str(args.get("reviewer_model") or os.environ.get("FLOW_REVIEWER_MODEL") or route["runtime_target"])
 fallback_model = str(args.get("fallback_model") or os.environ.get("FLOW_FALLBACK_MODEL") or "flash")
 code_reviewer_agent = str(args.get("code_reviewer_agent") or os.environ.get("FLOW_REVIEWER_AGENT") or "self")
-quality_reviewer_agent = str(
-    args.get("quality_reviewer_agent") or os.environ.get("FLOW_QUALITY_REVIEWER_AGENT") or code_reviewer_agent
-)
-
-plugin_root = Path(str(args.get("plugin_root") or os.environ.get("FLOW_PLUGIN_ROOT") or Path.cwd()))
-if not (plugin_root / "agents" / "code-reviewer.md").is_file():
-    candidate = Path.home() / ".gemini" / "config" / "plugins" / "flow"
-    if (candidate / "agents" / "code-reviewer.md").is_file():
-        plugin_root = candidate
+quality_reviewer_agent = str(args.get("quality_reviewer_agent") or os.environ.get("FLOW_QUALITY_REVIEWER_AGENT") or code_reviewer_agent)
 
 code_card = plugin_root / "agents" / "code-reviewer.md"
 qual_card = plugin_root / "agents" / "quality-reviewer.md"
 spec_clause = f" against `{spec_path}`" if spec_path else ""
 quota_state = {"degraded": False}
 
+cli_args = ["review", "plan", "--range", git_range, "--mode", review_mode, "--harness", harness, "--root", str(Path.cwd())]
+if spec_path:
+    cli_args.extend(["--spec", spec_path])
+if author_vendor:
+    cli_args.extend(["--author-vendor", author_vendor])
+_, roster_plan, _, _ = run_node_cli(plugin_root, cli_args)
+effective_mode = str(roster_plan.get("mode", review_mode)) if isinstance(roster_plan, dict) else review_mode
+suppressions = list(roster_plan.get("suppressions", [])) if isinstance(roster_plan, dict) else []
+suppression_clause = f" Respect verified false-positive suppressions: {suppressions}." if suppressions else ""
 
-def _git_porcelain() -> str:
-    """Capture working-tree status to confirm reviewers made zero file mutations."""
-    proc = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True, check=False)
-    return proc.stdout if proc.returncode == 0 else ""
+before_status = git_porcelain()
+phase("Zero-Context Review")
+log(f"Running {effective_mode} review on {git_range}{spec_clause} (preferred_model={preferred_review_model})")
 
-
-def _acquire_runtime_lease() -> Path | None:
-    """Register an active workflow runtime lease for Stop-gate subagent coordination."""
-    raw_tmp = os.environ.get("TMPDIR", "").rstrip("/\\") or tempfile.gettempdir().rstrip("/\\")
-    rt_base = (os.environ.get("FLOW_RUNTIME_DIR", "").rstrip("/\\")) or f"{raw_tmp}/flow-runtime"
-    norm_root = str(Path.cwd()).replace("\\", "/").rstrip("/")
-    ws_id = re.sub(r"[^A-Za-z0-9._-]", "_", norm_root)[-120:] or "default"
-    lease_dir = Path(rt_base) / ws_id / "subagents"
-    try:
-        lease_dir.mkdir(parents=True, exist_ok=True)
-        lease_path = lease_dir / f"workflow-{os.getpid()}.lease"
-        lease_path.write_text(f"{int(time.time())}\n", encoding="utf-8")
-        return lease_path
-    except OSError:
-        return None
-
-
-def _release_runtime_lease(lease_path: Path | None) -> None:
-    """Remove a previously registered workflow runtime lease."""
-    if lease_path is None:
-        return
-    try:
-        lease_path.unlink(missing_ok=True)
-    except OSError:
-        pass
-
-
-async def _run_reviewer(role_id: str, card_title: str, model_tier: str, agent_name: str, prompt: str) -> dict:
-    """Run one zero-context reviewer on the resolved profile first, falling back only on quota exhaustion."""
-    active_model = fallback_model if (quota_state["degraded"] and model_tier != fallback_model) else model_tier
-    active_agent = "self" if quota_state["degraded"] else agent_name
-    try:
+reports: list[dict] = []
+_wf_lease = acquire_runtime_lease()
+try:
+    seats = list(roster_plan.get("reviewers") or roster_plan.get("seats") or []) if isinstance(roster_plan, dict) else []
+    if not seats:
+        seats = [
+            {"id": "code-reviewer", "title": "Correctness & Spec-Sync Review", "card": str(code_card), "model": preferred_review_model},
+            {"id": "quality-reviewer", "title": "Quality & Debloat Review", "card": str(qual_card), "model": preferred_review_model},
+        ]
+    if effective_mode == "single":
         out = await with_budget(
             agent(
-                prompt,
+                f"Follow `{code_card}` and `{qual_card}` in strictly read-only mode across `{git_range}`{spec_clause}.{suppression_clause}",
                 schema=REVIEW_SCHEMA,
-                role=card_title,
-                type_name=active_agent,
+                role="Combined Correctness & Quality Review",
+                type_name=code_reviewer_agent,
                 workspace="inherit",
-                model=active_model,
+                model=preferred_review_model,
             ),
             max_tokens=200000,
             timeout=timeout_seconds,
         )
-        return {"reviewer": role_id, "agent_used": active_agent, "model_used": active_model, **out}
-    except Exception as exc:
-        msg = str(exc).lower()
-        if active_model != fallback_model and any(m in msg for m in QUOTA_MARKERS):
-            quota_state["degraded"] = True
-            log(f"Quota hit on {active_model} for {card_title}; retrying on '{fallback_model}'")
-            out = await with_budget(
+        reports = [{"reviewer": "combined", "model_used": preferred_review_model, **out}]
+    else:
+        raw_reports = await parallel(
+            seats,
+            lambda seat: with_budget(
                 agent(
-                    prompt,
+                    (
+                        f"Follow `{seat.get('card') or code_card}` in strictly read-only mode as seat `{seat['id']}` "
+                        f"({seat.get('reason') or seat.get('title', seat['id'])}) across `{git_range}`{spec_clause}.{suppression_clause}"
+                    ),
                     schema=REVIEW_SCHEMA,
-                    role=f"{card_title} ({fallback_model} fallback)",
-                    type_name="self",
+                    role=str(seat.get("title") or seat.get("agent") or seat["id"]),
+                    type_name=quality_reviewer_agent if "quality" in str(seat["id"]) or seat.get("agent") == "quality-reviewer" else code_reviewer_agent,
                     workspace="inherit",
-                    model=fallback_model,
+                    model=str(
+                        args.get("review_model")
+                        or seat.get("model")
+                        or (seat.get("model_route") or {}).get("runtime_target")
+                        or preferred_review_model
+                    ),
                 ),
                 max_tokens=200000,
                 timeout=timeout_seconds,
+            ),
+        )
+        for seat, out in zip(seats, raw_reports):
+            used_model = (
+                args.get("review_model")
+                or seat.get("model")
+                or (seat.get("model_route") or {}).get("runtime_target")
+                or preferred_review_model
             )
-            return {"reviewer": role_id, "agent_used": "self", "model_used": fallback_model, **out}
-        raise
-
-
-before_status = _git_porcelain()
-phase("Zero-Context Review")
-log(f"Running {review_mode} review on {git_range}{spec_clause} (preferred_model={preferred_review_model})")
-
-reports: list[dict] = []
-_wf_lease = _acquire_runtime_lease()
-try:
-    if review_mode == "single":
-        single_report = await _run_reviewer(
-            "combined",
-            "Combined Correctness & Quality Review",
-            preferred_review_model,
-            code_reviewer_agent,
-            (
-                f"Follow `{code_card}` and `{qual_card}` in strictly read-only mode (never edit files or pass "
-                f"BypassSandbox=true). Review exact Git range `{git_range}`{spec_clause} for correctness, spec/Markdown "
-                "sync, SUT test integrity, dead code, and OKF hygiene."
-            ),
-        )
-        reports = [single_report]
-    else:
-        reviewer_defs = [
-            (
-                "code-reviewer",
-                "Correctness & Spec Review",
-                preferred_review_model,
-                code_reviewer_agent,
-                (
-                    f"Follow `{code_card}` in strictly read-only mode (never edit files or pass BypassSandbox=true). "
-                    f"Review exact Git range `{git_range}`{spec_clause} for correctness, spec/Markdown sync, anti-skip "
-                    "file ownership, and SUT test integrity."
-                ),
-            ),
-            (
-                "quality-reviewer",
-                "Quality & Debloat Review",
-                preferred_review_model,
-                quality_reviewer_agent,
-                (
-                    f"Follow `{qual_card}` in strictly read-only mode (never edit files or pass BypassSandbox=true). "
-                    f"Review exact Git range `{git_range}`{spec_clause} for dead code, prose sediment, OKF hygiene, "
-                    "and test strength."
-                ),
-            ),
-        ]
-        reports = await parallel(
-            reviewer_defs,
-            lambda item: _run_reviewer(item[0], item[1], item[2], item[3], item[4]),
-        )
+            reports.append({"reviewer": seat["id"], "model_used": used_model, **out})
 finally:
-    _release_runtime_lease(_wf_lease)
+    release_runtime_lease(_wf_lease)
 
-after_status = _git_porcelain()
-combined = {
-    "git_range": git_range,
-    "spec_path": spec_path,
-    "review_mode": review_mode,
-    "quota_degraded": quota_state["degraded"],
-    "worktree_clean": before_status == after_status,
-    "reviews": reports,
-    "code_review": reports[0],
-    "quality_review": reports[1] if len(reports) > 1 else reports[0],
-    "tokens": tokens_used(),
-}
-print(json.dumps(combined))
+after_status = git_porcelain()
+print(
+    json.dumps(
+        {
+            "git_range": git_range,
+            "review_mode": effective_mode,
+            "quota_degraded": quota_state["degraded"],
+            "git_status_unchanged": before_status == after_status,
+            "reports": reports,
+            "tokens": tokens_used(),
+        }
+    )
+)

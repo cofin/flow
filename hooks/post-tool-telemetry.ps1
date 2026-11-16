@@ -2,195 +2,136 @@
 # Portable PowerShell PostToolUse live telemetry writer for Flow Studio.
 $ErrorActionPreference = "Stop"
 
-$Harness = "agy"
-$ProjectDir = ""
+. (Join-Path $PSScriptRoot "lib/common.ps1")
 
-for ($i = 0; $i -lt $args.Count; $i++) {
-    $arg = [string]$args[$i]
-    if ($arg -eq "--harness" -or $arg -eq "-Harness") {
-        if ($i + 1 -lt $args.Count) {
-            $Harness = [string]$args[$i + 1]
-            $i++
-        }
-    } elseif ($arg -like "--harness=*") {
-        $Harness = $arg.Substring(10)
-    } elseif ($arg -eq "--project" -or $arg -eq "-Project") {
-        if ($i + 1 -lt $args.Count) {
-            $ProjectDir = [string]$args[$i + 1]
-            $i++
-        }
-    } elseif ($arg -like "--project=*") {
-        $ProjectDir = $arg.Substring(10)
-    }
-}
+$parsedArgs = Parse-FlowHookArgs -RawArgs $args -DefaultHarness "agy"
+$Harness = $parsedArgs.Harness
+$ProjectDir = $parsedArgs.ProjectDir
+$StdinPayload = Read-FlowStdinPayload
+$ProjectDir = Resolve-FlowProjectDir -ExplicitProjectDir $ProjectDir -StdinPayload $StdinPayload
 
-$StdinPayload = ""
-try {
-    if ([Console]::IsInputRedirected) {
-        $StdinPayload = [Console]::In.ReadToEnd()
-    }
-} catch {
-    $StdinPayload = ""
-}
-
-$ConvId = ""
-$ParentConvId = ""
-$ToolName = ""
-$FilePath = ""
+$PConv = ""
+$PParent = ""
+$PTool = ""
+$PFile = ""
+$PStep = ""
+$PTranscript = ""
+$PArtifactDir = ""
 
 if (-not [string]::IsNullOrWhiteSpace($StdinPayload)) {
-    if ([string]::IsNullOrEmpty($ProjectDir)) {
-        foreach ($pat in @('"workspacePaths"\s*:\s*\[\s*"([^"]+)"', '"cwd"\s*:\s*"([^"]+)"', '"workspace_roots"\s*:\s*\[\s*"([^"]+)"')) {
-            $m = [regex]::Match($StdinPayload, $pat)
-            if ($m.Success) { $ProjectDir = $m.Groups[1].Value -replace '\\\\', '/'; break }
-        }
-    }
-    foreach ($pat in @('"conversationId"\s*:\s*"([^"]+)"', '"session_id"\s*:\s*"([^"]+)"', '"conversation_id"\s*:\s*"([^"]+)"')) {
+    foreach ($pat in @('"conversationId"\s*:\s*"([^"]+)"', '"session_id"\s*:\s*"([^"]+)"')) {
         $m = [regex]::Match($StdinPayload, $pat)
-        if ($m.Success) { $ConvId = $m.Groups[1].Value; break }
+        if ($m.Success) { $PConv = $m.Groups[1].Value; break }
     }
     foreach ($pat in @('"parentConversationId"\s*:\s*"([^"]+)"', '"parent_conversation_id"\s*:\s*"([^"]+)"')) {
         $m = [regex]::Match($StdinPayload, $pat)
-        if ($m.Success) { $ParentConvId = $m.Groups[1].Value; break }
+        if ($m.Success) { $PParent = $m.Groups[1].Value; break }
     }
     foreach ($pat in @('"toolCall"\s*:\s*\{\s*"name"\s*:\s*"([^"]+)"', '"tool_name"\s*:\s*"([^"]+)"')) {
         $m = [regex]::Match($StdinPayload, $pat)
-        if ($m.Success) { $ToolName = $m.Groups[1].Value; break }
+        if ($m.Success) { $PTool = $m.Groups[1].Value; break }
     }
     foreach ($pat in @('"Path"\s*:\s*"([^"]+)"', '"file_path"\s*:\s*"([^"]+)"')) {
         $m = [regex]::Match($StdinPayload, $pat)
-        if ($m.Success) { $FilePath = ($m.Groups[1].Value -replace '\\\\', '/'); break }
+        if ($m.Success) { $PFile = ($m.Groups[1].Value -replace '\\\\', '/'); break }
+    }
+    $mStep = [regex]::Match($StdinPayload, '"stepIdx"\s*:\s*(\d+)')
+    if ($mStep.Success) { $PStep = $mStep.Groups[1].Value }
+    $mTp = [regex]::Match($StdinPayload, '"transcriptPath"\s*:\s*"([^"]+)"')
+    if ($mTp.Success) { $PTranscript = ($mTp.Groups[1].Value -replace '\\\\', '/') }
+    $mArt = [regex]::Match($StdinPayload, '"artifactDirectoryPath"\s*:\s*"([^"]+)"')
+    if ($mArt.Success) { $PArtifactDir = ($mArt.Groups[1].Value -replace '\\\\', '/') }
+}
+
+if (([string]::IsNullOrEmpty($PTool) -or [string]::IsNullOrEmpty($PFile)) -and -not [string]::IsNullOrEmpty($PTranscript) -and (Test-Path -LiteralPath $PTranscript -PathType Leaf)) {
+    $lines = Get-Content -LiteralPath $PTranscript -Encoding UTF8 -ErrorAction SilentlyContinue
+    if ($PStep) {
+        $lines = $lines | Where-Object { $_ -match ('"step_index"\s*:\s*' + [regex]::Escape($PStep) + '\b') }
+    }
+    $lastLine = $lines | Select-Object -Last 1
+    if ($lastLine) {
+        if (-not $PTool) {
+            $mt = [regex]::Match($lastLine, '"name"\s*:\s*"([^"]+)"')
+            if ($mt.Success) { $PTool = $mt.Groups[1].Value }
+        }
+        if (-not $PFile) {
+            $mf = [regex]::Match($lastLine, '"Path"\s*:\s*"([^"]+)"')
+            if ($mf.Success) { $PFile = ($mf.Groups[1].Value -replace '\\\\', '/') }
+        }
     }
 }
 
-if ([string]::IsNullOrEmpty($ProjectDir)) { $ProjectDir = (Get-Location).Path }
 $AgentsDir = Join-Path $ProjectDir ".agents"
 if (-not (Test-Path -LiteralPath $AgentsDir)) {
     [Console]::Out.WriteLine('{}')
     exit 0
 }
 
-function Get-SetupField([string]$PathArg, [string]$Key) {
-    if (-not (Test-Path -LiteralPath $PathArg -PathType Leaf)) { return "" }
-    try {
-        $raw = Get-Content -LiteralPath $PathArg -Raw -Encoding UTF8
-        $m = [regex]::Match($raw, "`"$Key`"\s*:\s*`"([^`"]+)`"")
-        if ($m.Success) { return $m.Groups[1].Value.Trim() }
-    } catch {}
-    return ""
-}
+$wtCtx = Resolve-FlowWorktreeContext -ProjectDir $ProjectDir
+$EffectiveRoot = $wtCtx.EffectiveRoot
+$BundleRel = $wtCtx.BundleRel
+$rtPaths = Get-FlowRuntimePaths -EffectiveRoot $EffectiveRoot -ProjectDir $ProjectDir
+$RuntimeWsDir = $rtPaths.RuntimeWsDir
+$StateFile = $rtPaths.StateFile
+$ReadStateFile = $rtPaths.ReadStateFile
 
-$EffectiveRoot = $ProjectDir
-if ((Test-Path -LiteralPath (Join-Path $ProjectDir ".git") -PathType Leaf) -and (Get-Command git -ErrorAction SilentlyContinue)) {
+New-Item -ItemType Directory -Path $RuntimeWsDir -Force -ErrorAction SilentlyContinue | Out-Null
+
+$PrevDigest = ""; $Role = "coordinator"; $FlowId = ""; $ChapterId = ""; $TaskIds = @()
+if (Test-Path -LiteralPath $ReadStateFile -PathType Leaf) {
     try {
-        $commonDir = (& git -C $ProjectDir rev-parse --path-format=absolute --git-common-dir 2>$null)
-        if (-not [string]::IsNullOrWhiteSpace($commonDir)) {
-            $candMain = Split-Path -Parent $commonDir.Trim()
-            if (-not [string]::IsNullOrWhiteSpace($candMain) -and (Test-Path -LiteralPath (Join-Path $candMain ".agents") -PathType Container)) {
-                $ign = Get-SetupField (Join-Path $AgentsDir "setup-state.json") "ignore_policy"
-                if ([string]::IsNullOrEmpty($ign)) {
-                    $ign = Get-SetupField (Join-Path $candMain ".agents/setup-state.json") "ignore_policy"
-                }
-                if ($ign -ne "shared") {
-                    $EffectiveRoot = $candMain
-                }
-            }
-        }
+        $prevObj = Get-Content -LiteralPath $ReadStateFile -Raw -Encoding UTF8 | ConvertFrom-Json
+        if ($prevObj.specDigest) { $PrevDigest = [string]$prevObj.specDigest }
+        if ($prevObj.role) { $Role = [string]$prevObj.role }
+        if ($prevObj.flowId) { $FlowId = [string]$prevObj.flowId }
+        if ($prevObj.chapterId) { $ChapterId = [string]$prevObj.chapterId }
+        if ($prevObj.taskIds) { $TaskIds = @($prevObj.taskIds) }
     } catch {}
 }
 
-$tmpRaw = if (-not [string]::IsNullOrEmpty($env:TMPDIR)) { $env:TMPDIR.TrimEnd('/', '\') } else { [IO.Path]::GetTempPath().TrimEnd('/', '\') }
-$rtBase = if (-not [string]::IsNullOrEmpty($env:FLOW_RUNTIME_DIR)) { $env:FLOW_RUNTIME_DIR.TrimEnd('/', '\') } else { Join-Path $tmpRaw "flow-runtime" }
-$normRoot = ($EffectiveRoot -replace '\\', '/').TrimEnd('/')
-$wsId = [regex]::Replace($normRoot, '[^A-Za-z0-9._-]', '_')
-if ($wsId.Length -gt 120) { $wsId = $wsId.Substring($wsId.Length - 120) }
-if ([string]::IsNullOrEmpty($wsId)) { $wsId = "default" }
-$RuntimeWsDir = Join-Path $rtBase $wsId
-if (-not (Test-Path -LiteralPath $RuntimeWsDir -PathType Container)) {
-    New-Item -ItemType Directory -Path $RuntimeWsDir -Force | Out-Null
-}
-$StateFile = Join-Path $RuntimeWsDir "studio-live-state.json"
-$LegacyStateFile = Join-Path $AgentsDir "studio-live-state.json"
-$ReadStateFile = if (Test-Path -LiteralPath $StateFile -PathType Leaf) { $StateFile } elseif (Test-Path -LiteralPath $LegacyStateFile -PathType Leaf) { $LegacyStateFile } else { "" }
+if (-not [string]::IsNullOrEmpty($PParent)) { $Role = "flow-subagent" }
 
-$PrevDigest = ""
-$Role = "coordinator"
-$FlowId = $null
-$ChapterId = $null
-$TaskIds = @()
-if (-not [string]::IsNullOrEmpty($ReadStateFile)) {
-    try {
-        $prev = Get-Content -LiteralPath $ReadStateFile -Raw -Encoding UTF8 | ConvertFrom-Json
-        if ($prev.specDigest) { $PrevDigest = [string]$prev.specDigest }
-        if ($prev.role) { $Role = [string]$prev.role }
-        if ($prev.flowId) { $FlowId = [string]$prev.flowId }
-        if ($prev.chapterId) { $ChapterId = [string]$prev.chapterId }
-        if ($prev.taskIds) { $TaskIds = @($prev.taskIds | ForEach-Object { [string]$_ }) }
-    } catch {}
-}
-if (-not [string]::IsNullOrEmpty($ParentConvId)) { $Role = "flow-subagent" }
-
-if (-not [string]::IsNullOrEmpty($FilePath)) {
-    $mFl = [regex]::Match($FilePath, '/specs/([^/]+)')
-    if ($mFl.Success) { $FlowId = $mFl.Groups[1].Value }
-    $mCh = [regex]::Match($FilePath, '/chapters/([^/]+)')
-    if ($mCh.Success) { $ChapterId = $mCh.Groups[1].Value }
-    $mTk = [regex]::Match($FilePath, '/tasks/([^/]+)\.md$')
-    if ($mTk.Success -and $mTk.Groups[1].Value -ne "index") {
-        $tk = ($mTk.Groups[1].Value -replace '-.*$', '')
-        if ($tk) { $TaskIds = @($tk) }
+if (-not [string]::IsNullOrEmpty($PFile)) {
+    $normFile = $PFile -replace '\\', '/'
+    $mf = [regex]::Match($normFile, '/specs/([^/]+)')
+    if ($mf.Success) { $FlowId = $mf.Groups[1].Value }
+    $mc = [regex]::Match($normFile, '/chapters/([^/]+)')
+    if ($mc.Success) { $ChapterId = $mc.Groups[1].Value }
+    $mt = [regex]::Match($normFile, '/tasks/([^/]+)\.md$')
+    if ($mt.Success -and $mt.Groups[1].Value -ne "index") {
+        $tid = ($mt.Groups[1].Value -replace '-.*$', '')
+        if ($tid) { $TaskIds = @($tid) }
     }
 }
 
-if ([string]::IsNullOrEmpty($FlowId)) {
-    $BundleRel = Get-SetupField (Join-Path $EffectiveRoot ".agents/setup-state.json") "bundle_root"
-    if ([string]::IsNullOrEmpty($BundleRel)) { $BundleRel = ".agents/bundles" }
-    $SpecsScanDir = Join-Path $EffectiveRoot "$BundleRel/specs"
-    if (Test-Path -LiteralPath $SpecsScanDir -PathType Container) {
-        foreach ($sDir in @(Get-ChildItem -LiteralPath $SpecsScanDir -Directory -ErrorAction SilentlyContinue | Sort-Object Name)) {
-            $sf = Join-Path $sDir.FullName "spec.md"
-            if (-not (Test-Path -LiteralPath $sf -PathType Leaf)) { continue }
-            $rawSf = Get-Content -LiteralPath $sf -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
-            if ($rawSf -match '(?m)^state:\s*(active|in_progress)\b') {
-                $mFid = [regex]::Match($rawSf, '(?m)^flow_id:\s*["'']?([^"''\r\n]+)')
-                $FlowId = if ($mFid.Success) { $mFid.Groups[1].Value.Trim() } else { $sDir.Name }
-                if ([string]::IsNullOrEmpty($ChapterId)) {
-                    $mCh = [regex]::Match($rawSf, '(?m)^current_chapter:\s*["'']?([^"''\r\n#]+)')
-                    if ($mCh.Success -and $mCh.Groups[1].Value.Trim() -ne "null") {
-                        $ChapterId = $mCh.Groups[1].Value.Trim()
-                    }
-                }
-                break
-            }
+$ProceedGuard = ""
+if (-not [string]::IsNullOrEmpty($PArtifactDir) -and -not [string]::IsNullOrEmpty($PFile)) {
+    if ($PFile -eq "$PArtifactDir/implementation_plan.md" -or $PFile -eq "$PArtifactDir/learning_proposal.md") {
+        if (-not (Test-Path -LiteralPath "${PFile}.metadata.json" -PathType Leaf)) {
+            $ProceedGuard = "missing_artifact_metadata"
         }
     }
 }
 
-$Activity = ""
-if (-not [string]::IsNullOrEmpty($ToolName) -and -not [string]::IsNullOrEmpty($FilePath)) {
-    $Activity = "$ToolName $FilePath"
-} elseif (-not [string]::IsNullOrEmpty($ToolName)) {
-    $Activity = "Running $ToolName"
+$Activity = if ($PTool -and $PFile) { "$PTool $PFile" } elseif ($PTool) { "Running $PTool" } else { "" }
+
+$payload = [ordered]@{
+    v              = 1
+    updatedAt      = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
+    harness        = $Harness
+    conversationId = $PConv
+    role           = $Role
+    flowId         = if ($FlowId) { $FlowId } else { $null }
+    chapterId      = if ($ChapterId) { $ChapterId } else { $null }
+    taskIds        = $TaskIds
+    worktree       = ($ProjectDir -replace '\\', '/').TrimEnd('/')
+    activity       = $Activity
+    activeTurn     = $true
+    lastTool       = $PTool
+    lastFilePath   = $PFile
+    proceedGuard   = $ProceedGuard
+    specDigest     = $PrevDigest
 }
 
-$WorktreeNorm = ($ProjectDir -replace '\\', '/').TrimEnd('/')
-$StateObj = [ordered]@{
-    v = 1
-    updatedAt = [DateTime]::UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ")
-    harness = $Harness
-    conversationId = $ConvId
-    role = $Role
-    flowId = $FlowId
-    chapterId = $ChapterId
-    taskIds = @($TaskIds)
-    worktree = $WorktreeNorm
-    activity = $Activity
-    activeTurn = $true
-    lastTool = $ToolName
-    lastFilePath = $FilePath
-    specDigest = $PrevDigest
-} | ConvertTo-Json -Compress
-
-$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
-[System.IO.File]::WriteAllText($StateFile, "$StateObj`n", $utf8NoBom)
+($payload | ConvertTo-Json -Compress) | Set-Content -LiteralPath $StateFile -Encoding UTF8
 [Console]::Out.WriteLine('{}')

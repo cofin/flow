@@ -1,350 +1,370 @@
-"""Tests for quota-aware model routing, ephemeral runtime pinning, and chapter disjoint gating."""
+"""Public-seam tests for DynamicModelCatalog, DecisionEngine, AdaptiveModelRouter, and HarnessProfileMaterializer."""
 
 from __future__ import annotations
 
 import json
+import os
+import shutil
+import subprocess
 from pathlib import Path
 from typing import Any
 
 import pytest
 
-from tools.model_router import (
-    check_chapter_disjoint,
-    classify_model,
-    load_local_model_config,
-    main,
-    materialize_runtime_agents,
-    parse_models_input,
-    parse_quota_percent,
-    resolve_models,
-)
+from tools.validate import REPO_ROOT
+
+NODE_BIN = shutil.which("node")
+INVENTORY_MOD = (REPO_ROOT / "sidecars" / "studio" / "models" / "inventory.mjs").as_uri()
+ROUTING_MOD = (REPO_ROOT / "sidecars" / "studio" / "models" / "routing.mjs").as_uri()
+PROFILES_MOD = (REPO_ROOT / "sidecars" / "studio" / "models" / "profiles.mjs").as_uri()
+FLOW_CLI = REPO_ROOT / "sidecars" / "studio" / "flow-cli.mjs"
 
 
+def _run_node(js: str, *, env: dict[str, str] | None = None) -> dict[str, Any]:
+    """Execute an ES module snippet via Node.js and parse the trailing JSON line."""
+    assert NODE_BIN is not None
+    proc = subprocess.run(
+        [NODE_BIN, "--input-type=module", "-e", js],
+        env={**os.environ, **(env or {})},
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    )
+    return json.loads(proc.stdout.strip().splitlines()[-1])
+
+
+@pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
 @pytest.mark.parametrize(
     ("raw_val", "expected"),
     (
-        (77, 77.0),
-        ("77%", 77.0),
-        ("0.54", 54.0),
-        (0.25, 25.0),
+        (77, 0.77),
+        ("77%", 0.77),
+        ("0.54", 0.54),
+        (0.25, 0.25),
         (1, 1.0),
         ("0%", 0.0),
         (-5, 0.0),
-        (150, 100.0),
+        (150, 1.0),
         (None, None),
         ("", None),
         (True, None),
     ),
 )
-def test_parse_quota_percent_normalizes_formats(raw_val: Any, expected: float | None) -> None:
-    """Verify percentage strings, integers, and fractional floats normalize onto 0..100."""
-    assert parse_quota_percent(raw_val) == expected
+def test_normalize_quota_fraction_formats(raw_val: Any, expected: float | None) -> None:
+    """Verify percentage strings, integers, and fractional floats normalize cleanly onto 0..1."""
+    js = (
+        f"import {{ normalizeQuotaFraction }} from {json.dumps(INVENTORY_MOD)};"
+        f"process.stdout.write(JSON.stringify({{ v: normalizeQuotaFraction({json.dumps(raw_val)}) }}) + '\\n');"
+    )
+    assert _run_node(js)["v"] == expected
 
 
-def test_resolve_models_prefers_frontier_pro_above_floor_and_high_thinking_flash_for_workers() -> None:
-    """Verify coordinator/planner pick highest >=25% Pro while workers pick extra/high thinking Flash."""
-    sample_inventory = [
-        {"model": "opus-tier-high", "display_name": "Opus (High)", "quota": "22%"},
-        {"model": "pro-primary-coord", "display_name": "Pro Coordinator", "quota": "54%"},
-        {"model": "pro-alt-high", "display_name": "Pro Alt (High)", "quota": "69%"},
-        {"model": "flash-think-high", "display_name": "Flash Thinking (High)", "quota": "77%"},
-        {"model": "flash-think-xhigh", "display_name": "Flash Thinking (XHigh)", "quota": "77%"},
-        {"model": "flash-next", "display_name": "Flash Next", "quota": "99%"},
+@pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
+def test_adaptive_model_router_enforces_frontier_floor_cost_efficiency_and_vendor_diversity(tmp_path: Path) -> None:
+    """Verify continuous utility scoring, Frontier degradation flagging, and orthogonal adversarial routing."""
+    inventory = [
+        {
+            "model": "gemini-pro-primary",
+            "displayName": "Gemini Pro Coordinator",
+            "vendor": "google",
+            "tiered_role": "pro",
+            "quota_remaining": "80%",
+            "reasoning": True,
+            "supported_efforts": ["high", "xhigh"],
+            "cost_input": 1.25,
+            "cost_output": 10.0,
+        },
+        {
+            "model": "claude-opus-adv",
+            "displayName": "Claude Opus",
+            "vendor": "anthropic",
+            "tiered_role": "frontier",
+            "quota_remaining": "75%",
+            "reasoning": True,
+            "supported_efforts": ["high", "xhigh"],
+            "cost_input": 5.0,
+            "cost_output": 25.0,
+        },
+        {
+            "model": "gemini-flash-worker",
+            "displayName": "Gemini Flash Thinking",
+            "vendor": "google",
+            "tiered_role": "thinking_flash",
+            "quota_remaining": "85%",
+            "reasoning": True,
+            "supported_efforts": ["medium", "high"],
+            "cost_input": 0.15,
+            "cost_output": 0.6,
+        },
+        {
+            "model": "gemini-flash-lite",
+            "displayName": "Gemini Flash Lite",
+            "vendor": "google",
+            "tiered_role": "light",
+            "quota_remaining": "99%",
+            "reasoning": False,
+            "supported_efforts": ["default"],
+            "cost_input": 0.05,
+            "cost_output": 0.2,
+        },
     ]
-    candidates = [classify_model(item) for item in sample_inventory]
-    report = resolve_models(candidates)
-
-    assert report.planning_quality == "standard"
-    assert report.degraded_reason is None
-    assert report.roles["coordinator"].model == "pro-alt-high"
-    assert report.roles["planner"].model == "pro-alt-high"
-    assert report.roles["spec_reviewer"].model == "pro-alt-high"
-    assert "opus-tier-high" not in report.roles["coordinator"].fallback_chain[:2]
-
-    assert report.roles["executor"].model == "flash-think-xhigh"
-    assert report.roles["verifier"].model == "flash-think-xhigh"
-    assert report.roles["code_reviewer"].model == "flash-think-xhigh"
-    assert report.roles["scout_heavy"].model == "flash-think-xhigh"
-    assert report.roles["scout_narrow"].model == "flash-next"
-    assert report.small_swarm_quota_ok is True
-
-
-def test_resolve_models_marks_degraded_when_all_pro_below_floor_and_disables_swarm_when_flash_low() -> None:
-    """Verify Pro exhaustion flags degraded planning and <=25% Flash quota blocks small_swarm."""
-    low_inventory = [
-        {"model": "pro-main", "display_name": "Pro Main", "quota": "12%"},
-        {"model": "flash-think-xhigh", "display_name": "Flash Thinking (XHigh)", "quota": "25%"},
-        {"model": "flash-next", "display_name": "Flash Next", "quota": "60%"},
+    exhausted_frontier = [
+        {
+            "model": "gemini-pro-primary",
+            "vendor": "google",
+            "tiered_role": "pro",
+            "quota_remaining": "0%",
+            "reasoning": True,
+            "supported_efforts": ["xhigh"],
+        },
+        {
+            "model": "gemini-flash-lite",
+            "vendor": "google",
+            "tiered_role": "light",
+            "quota_remaining": "95%",
+            "reasoning": False,
+            "supported_efforts": ["default"],
+        },
     ]
-    report = resolve_models([classify_model(item) for item in low_inventory])
 
-    assert report.planning_quality == "degraded"
-    assert report.degraded_reason is not None and "25%" in report.degraded_reason
-    assert report.roles["planner"].model == "flash-think-xhigh"
-    assert report.small_swarm_quota_ok is False
-    assert "25%" in report.swarm_quota_reason
-
-
-def test_local_config_overrides_and_materialize_runtime_agents(tmp_path: Path) -> None:
-    """Verify user/project config overrides family/placeholder and writes isolated runtime agent.json files."""
-    cfg_file = tmp_path / "models.json"
-    cfg_file.write_text(
-        json.dumps(
-            {
-                "pro_quota_floor": 25,
-                "swarm_quota_floor": 25,
-                "models": {
-                    "custom-fast-worker": {
-                        "family": "thinking_flash",
-                        "thinking": "xhigh",
-                        "placeholder": "RUNTIME_ENUM_CUSTOM_FAST",
-                        "priority": 50,
-                    }
-                },
-            }
-        ),
-        encoding="utf-8",
+    js = (
+        f"import {{ DynamicModelCatalog }} from {json.dumps(INVENTORY_MOD)};"
+        f"import {{ AdaptiveModelRouter }} from {json.dumps(ROUTING_MOD)};"
+        f"const catalog = new DynamicModelCatalog({{ projectRoot: {json.dumps(str(tmp_path))} }});"
+        f"const cands = await catalog.discoverHarnessCatalog("
+        f"{{ harness: 'agy', customInventory: {json.dumps(inventory)} }});"
+        f"const lowCands = await catalog.discoverHarnessCatalog("
+        f"{{ harness: 'agy', customInventory: {json.dumps(exhausted_frontier)} }});"
+        "const router = new AdaptiveModelRouter();"
+        "const plan = router.select(cands, { taskKind: 'planning', risk: 'high' });"
+        "const adv = router.select(cands, {"
+        "  taskKind: 'adversarial', risk: 'high', authorVendor: 'google', requireVendorDiversity: true"
+        "});"
+        "const syncRoute = router.select(cands, { taskKind: 'sync', risk: 'low' });"
+        "const degradedPlan = router.select(lowCands, { taskKind: 'planning', risk: 'high' });"
+        "process.stdout.write(JSON.stringify({ plan, adv, syncRoute, degradedPlan }) + '\\n');"
     )
-    project_root = tmp_path / "proj"
-    (project_root / ".agents").mkdir(parents=True)
-    (project_root / ".agents" / "setup-state.json").write_text(
-        json.dumps({"model_routing": {"swarm_quota_floor": 30}}),
-        encoding="utf-8",
+    out = _run_node(js, env={"FLOW_RUNTIME_DIR": str(tmp_path / "rt")})
+
+    assert out["plan"]["degraded"] is False
+    assert out["plan"]["capability_index"] >= 0.8
+    assert out["plan"]["tier"] == "frontier"
+    assert len(out["plan"]["fallback_chain"]) >= 2
+
+    assert out["adv"]["model"] == "claude-opus-adv"
+    assert out["adv"]["vendor"] == "anthropic"
+
+    assert out["syncRoute"]["model"] == "gemini-flash-lite"
+    assert out["syncRoute"]["tier"] == "light"
+
+    assert out["degradedPlan"]["degraded"] is True
+    assert "frontier floor" in out["degradedPlan"]["degraded_reason"]
+    assert out["degradedPlan"]["model"] == "gemini-flash-lite"
+
+
+@pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
+def test_decision_engine_escalates_on_retries_and_handles_http_confidence(tmp_path: Path) -> None:
+    """Verify DecisionEngine escalates lane/replan on failed attempts and adjusts low-confidence HTTP scores."""
+    js = (
+        f"import {{ DecisionEngine }} from {json.dumps(ROUTING_MOD)};"
+        "const builtin = new DecisionEngine();"
+        "const fast = await builtin.evaluate("
+        "{ taskKind: 'implementation', filesCount: 1, estimatedLoc: 40, failedAttempts: 0 });"
+        "const escalated = await builtin.evaluate("
+        "{ taskKind: 'implementation', filesCount: 3, estimatedLoc: 150, failedAttempts: 3 });"
+        "const httpEngine = new DecisionEngine({"
+        "  provider: 'systemone-http',"
+        "  endpoint: 'http://127.0.0.1:9999/v1/systemone',"
+        "  fetchImpl: async () => ({"
+        "    ok: true,"
+        "    json: async () => ({ answers: {"
+        "      execution_lane: 'small_swarm', complexity_rubric: 2.0, confidence: 0.4,"
+        "      should_replan: true, needs_adversarial: true, needs_frontier_validation: true"
+        "    } })"
+        "  })"
+        "});"
+        "const remote = await httpEngine.evaluate({ taskKind: 'planning', filesCount: 6, estimatedLoc: 320 });"
+        "process.stdout.write(JSON.stringify({ fast, escalated, remote }) + '\\n');"
     )
+    out = _run_node(js, env={"FLOW_RUNTIME_DIR": str(tmp_path / "rt")})
 
-    cfg = load_local_model_config(project_root=project_root, config_path=cfg_file)
-    assert cfg["swarm_quota_floor"] == 30.0
-
-    raw_text = "- `custom-fast-worker` (Custom Worker) — 80% remaining\n- `pro-main` (Pro) — 50% remaining\n"
-    candidates = parse_models_input(raw_text, cfg)
-    report = resolve_models(candidates, config=cfg)
-
-    assert report.roles["executor"].model == "custom-fast-worker"
-    assert report.roles["executor"].runtime_target == "RUNTIME_ENUM_CUSTOM_FAST"
-    assert report.small_swarm_quota_ok is True
-
-    out_dir = tmp_path / "brain" / "conv-1" / ".agents" / "agents"
-    written = materialize_runtime_agents(report, out_dir)
-    exec_json = json.loads(Path(written["executor"]).read_text(encoding="utf-8"))
-    assert exec_json == {
-        "name": "runtime-executor",
-        "role": "executor",
-        "model": "RUNTIME_ENUM_CUSTOM_FAST",
-        "requested_model": "custom-fast-worker",
-        "disable_model_selection": True,
-    }
+    assert out["fast"]["execution_lane"] == "inline_fast_path"
+    assert out["fast"]["should_replan"] is False
+    assert out["escalated"]["should_replan"] is True
+    assert out["escalated"]["needs_frontier_validation"] is True
+    assert out["escalated"]["complexity_rubric"] > out["fast"]["complexity_rubric"]
+    assert out["remote"]["provider"] == "systemone-http"
+    assert out["remote"]["complexity_rubric"] == pytest.approx(2.75)
+    assert out["remote"]["needs_adversarial"] is True
 
 
-def _write_task(
-    tasks_dir: Path,
-    filename: str,
-    *,
-    state: str,
-    files: list[str],
-    tests: list[str],
-    deps: list[str],
-) -> None:
-    """Write a minimal Flow task frontmatter file inside ``tasks_dir``."""
-    tasks_dir.mkdir(parents=True, exist_ok=True)
-    tid = filename.split("-", 1)[0]
-    files_yaml = json.dumps(files)
-    tests_yaml = json.dumps(tests)
-    deps_yaml = json.dumps(deps)
-    (tasks_dir / filename).write_text(
-        "---\n"
-        "type: Task\n"
-        f"id: demo:{tid}\n"
-        f"state: {state}\n"
-        f"files: {files_yaml}\n"
-        f"tests: {tests_yaml}\n"
-        f"depends_on: {deps_yaml}\n"
-        "---\n\n"
-        "## Objective & Scope Boundary\n\nScoped slice.\n",
-        encoding="utf-8",
-    )
-
-
+@pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
 @pytest.mark.parametrize(
-    ("case_id", "task_specs", "harness", "flash_quota", "expected_mode", "expected_writers"),
+    ("harness", "target", "expected_glob"),
     (
-        (
-            "disjoint-three-tasks",
-            [
-                ("t01-a.md", "pending", ["src/a.py"], ["tests/test_a.py"], []),
-                ("t02-b.md", "pending", ["src/b.py"], ["tests/test_b.py"], []),
-                ("t03-c.md", "pending", ["src/c.py"], ["tests/test_c.py"], []),
-            ],
-            "agy",
-            77.0,
-            "small_swarm",
-            3,
-        ),
-        (
-            "disjoint-four-tasks-packed-to-three-writers",
-            [
-                ("t01-a.md", "pending", ["src/a.py"], ["tests/test_a.py"], []),
-                ("t02-b.md", "pending", ["src/b.py"], ["tests/test_b.py"], []),
-                ("t03-c.md", "pending", ["src/c.py"], ["tests/test_c.py"], []),
-                ("t04-d.md", "pending", ["src/d.py"], ["tests/test_d.py"], []),
-            ],
-            "agy",
-            77.0,
-            "small_swarm",
-            3,
-        ),
-        (
-            "overlapping-shared-file-falls-back",
-            [
-                ("t01-a.md", "pending", ["src/shared.py"], ["tests/test_a.py"], []),
-                ("t02-b.md", "pending", ["src/shared.py"], ["tests/test_b.py"], []),
-            ],
-            "agy",
-            77.0,
-            "chapter_batch",
-            0,
-        ),
-        (
-            "flash-quota-at-25-floor-falls-back",
-            [
-                ("t01-a.md", "pending", ["src/a.py"], ["tests/test_a.py"], []),
-                ("t02-b.md", "pending", ["src/b.py"], ["tests/test_b.py"], []),
-            ],
-            "agy",
-            25.0,
-            "chapter_batch",
-            0,
-        ),
-        (
-            "subagent-harness-claude-parallel-subagents",
-            [
-                ("t01-a.md", "pending", ["src/a.py"], ["tests/test_a.py"], []),
-                ("t02-b.md", "pending", ["src/b.py"], ["tests/test_b.py"], []),
-            ],
-            "claude",
-            90.0,
-            "parallel_subagents",
-            2,
-        ),
-        (
-            "single-runner-vscode-falls-back",
-            [
-                ("t01-a.md", "pending", ["src/a.py"], ["tests/test_a.py"], []),
-                ("t02-b.md", "pending", ["src/b.py"], ["tests/test_b.py"], []),
-            ],
-            "vscode",
-            90.0,
-            "chapter_batch",
-            0,
-        ),
-        (
-            "single-task-chapter-falls-back",
-            [
-                ("t01-a.md", "pending", ["src/a.py"], ["tests/test_a.py"], []),
-            ],
-            "agy",
-            80.0,
-            "chapter_batch",
-            0,
-        ),
-        (
-            "six-disjoint-tasks-no-cap-small-swarm",
-            [(f"t0{i}-m{i}.md", "pending", [f"src/m{i}.py"], [f"tests/test_m{i}.py"], []) for i in range(1, 7)],
-            "agy",
-            80.0,
-            "small_swarm",
-            3,
-        ),
-        (
-            "six-conflicting-tasks-chunked-chapter-batch",
-            [(f"t0{i}-m{i}.md", "pending", ["src/shared.py"], [f"tests/test_m{i}.py"], []) for i in range(1, 7)],
-            "agy",
-            80.0,
-            "chapter_batch",
-            0,
-        ),
+        ("claude", "ide", ".claude/agents/flow-tier-*.md"),
+        ("codex", "ide", ".codex/agents/flow-tier-*.toml"),
+        ("cursor", "ide", ".cursor/agents/flow-tier-*.md"),
+        ("vscode", "ide", ".github/agents/flow-tier-*.agent.md"),
+        ("vscode", "copilot-cli", ".github/agents/flow-tier-*.agent.md"),
     ),
 )
-def test_check_chapter_disjoint_gates_small_swarm_vs_chapter_batch(
+def test_harness_profile_materializer_generates_native_tier_files(
     tmp_path: Path,
-    case_id: str,
-    task_specs: list[tuple[str, str, list[str], list[str], list[str]]],
     harness: str,
-    flash_quota: float,
-    expected_mode: str,
-    expected_writers: int,
+    target: str,
+    expected_glob: str,
 ) -> None:
-    """Verify check_chapter_disjoint enforces disjointness, <=4 workers, host harness, and >25% Flash quota."""
-    bundle = tmp_path / ".agents" / "bundles"
-    tasks_dir = bundle / "specs" / "demo" / "chapters" / "ch01-core" / "tasks"
-    for filename, state, files, tests, deps in task_specs:
-        _write_task(tasks_dir, filename, state=state, files=files, tests=tests, deps=deps)
-
-    plan = check_chapter_disjoint(
-        bundle,
-        "demo",
-        "ch01-core",
-        harness=harness,
-        flash_quota=flash_quota,
+    """Verify HarnessProfileMaterializer emits valid native tier profiles and gitexclude rules across harnesses."""
+    (tmp_path / ".git" / "info").mkdir(parents=True)
+    inventory = [
+        {
+            "model": "tier-pro",
+            "vendor": "anthropic",
+            "tiered_role": "pro",
+            "reasoning": True,
+            "supported_efforts": ["high", "xhigh"],
+        },
+        {
+            "model": "tier-flash",
+            "vendor": "anthropic",
+            "tiered_role": "flash",
+            "reasoning": True,
+            "supported_efforts": ["medium", "high"],
+        },
+        {
+            "model": "tier-lite",
+            "vendor": "anthropic",
+            "tiered_role": "light",
+            "reasoning": False,
+            "supported_efforts": ["default"],
+        },
+    ]
+    js = (
+        f"import {{ DynamicModelCatalog }} from {json.dumps(INVENTORY_MOD)};"
+        f"import {{ HarnessProfileMaterializer }} from {json.dumps(PROFILES_MOD)};"
+        f"const cat = new DynamicModelCatalog({{ projectRoot: {json.dumps(str(tmp_path))} }});"
+        f"const cands = await cat.discoverHarnessCatalog("
+        f"{{ harness: {json.dumps(harness)}, customInventory: {json.dumps(inventory)} }});"
+        f"const written = HarnessProfileMaterializer.materialize("
+        f"{json.dumps(str(tmp_path))}, cands, "
+        f"{{ harness: {json.dumps(harness)}, target: {json.dumps(target)} }});"
+        "process.stdout.write(JSON.stringify({ written }) + '\\n');"
     )
-    assert plan.mode == expected_mode, f"[{case_id}] {plan.reason}"
-    assert plan.writer_count == expected_writers
-    assert plan.batch_size == 5
-    if expected_mode == "small_swarm":
-        assert plan.total_workers <= 4
-        assert plan.verifier_count == 1
-        assert plan.conflicts == ()
-    elif expected_mode == "parallel_subagents":
-        assert plan.total_workers == expected_writers
-        assert plan.verifier_count == 0
-        assert plan.conflicts == ()
+    out = _run_node(js, env={"FLOW_RUNTIME_DIR": str(tmp_path / "rt")})
+
+    assert set(out["written"].keys()) == {"frontier", "balanced", "fast", "light"}
+    files = sorted(tmp_path.glob(expected_glob))
+    assert len(files) == 4
+    exclude_text = (tmp_path / ".git" / "info" / "exclude").read_text(encoding="utf-8")
+    assert ".claude/agents/flow-tier-*" in exclude_text
+
+    frontier_text = Path(out["written"]["frontier"]).read_text(encoding="utf-8")
+    assert "tier-pro" in frontier_text
+    if harness == "vscode" and target == "copilot-cli":
+        assert "model: tier-pro" in frontier_text
+    elif harness == "vscode":
+        assert 'model: ["tier-pro"' in frontier_text
 
 
-def test_check_chapter_disjoint_waves_large_disjoint_chapters(tmp_path: Path) -> None:
-    """Verify chapters with >15 disjoint tasks bound each wave to <=5 tasks/worker across <=3 writers."""
-    bundle = tmp_path / ".agents" / "bundles"
-    tasks_dir = bundle / "specs" / "demo" / "chapters" / "ch01-large" / "tasks"
-    for idx in range(1, 19):
-        stem = f"t{idx:02d}-item.md"
-        _write_task(
-            tasks_dir,
-            stem,
-            state="pending",
-            files=[f"src/m{idx}.py"],
-            tests=[f"tests/test_m{idx}.py"],
-            deps=[],
-        )
-
-    plan = check_chapter_disjoint(bundle, "demo", "ch01-large", harness="agy", flash_quota=80.0)
-    assert plan.mode == "small_swarm"
-    assert plan.writer_count == 3
-    assert plan.total_workers == 4
-    assert plan.batch_size == 5
-    assert plan.waves == 2
-    assert sum(len(a.task_ids) for a in plan.assignments) == 15
-
-
-def test_check_chapter_disjoint_supports_single_chapter_root_tasks(tmp_path: Path) -> None:
-    """Verify check_chapter_disjoint inspects single-chapter specs/<flow>/tasks/ when chapter_id is empty."""
-    bundle = tmp_path / ".agents" / "bundles"
-    tasks_dir = bundle / "specs" / "single-flow" / "tasks"
-    _write_task(tasks_dir, "t01-a.md", state="pending", files=["src/a.py"], tests=["tests/test_a.py"], deps=[])
-    _write_task(tasks_dir, "t02-b.md", state="pending", files=["src/b.py"], tests=["tests/test_b.py"], deps=[])
-
-    plan = check_chapter_disjoint(bundle, "single-flow", "", harness="codex")
-    assert plan.mode == "parallel_subagents"
-    assert plan.writer_count == 2
-    assert plan.verifier_count == 0
-
-
-def test_cli_check_disjoint_and_resolve_roundtrip(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    """Verify model_router CLI subcommands execute cleanly and emit valid JSON."""
-    models_file = tmp_path / "models.json"
-    models_file.write_text(
-        json.dumps([{"model": "pro-main", "quota": 54}, {"model": "flash-high", "quota": 77}]),
+@pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
+def test_flow_cli_models_inspect_route_and_materialize(tmp_path: Path) -> None:
+    """Verify sidecars/studio/flow-cli.mjs models inspect/route/materialize return valid JSON end-to-end."""
+    assert NODE_BIN is not None
+    inv_file = tmp_path / "inv.json"
+    inv_file.write_text(
+        json.dumps(
+            [
+                {
+                    "model": "opus-model",
+                    "vendor": "anthropic",
+                    "tiered_role": "frontier",
+                    "reasoning": True,
+                    "supported_efforts": ["xhigh"],
+                },
+                {
+                    "model": "sonnet-model",
+                    "vendor": "anthropic",
+                    "tiered_role": "flash",
+                    "reasoning": True,
+                    "supported_efforts": ["medium"],
+                },
+            ]
+        ),
         encoding="utf-8",
     )
-    assert main(["resolve", "--models-json", str(models_file), "--project", str(tmp_path)]) == 0
-    resolved = json.loads(capsys.readouterr().out)
-    assert resolved["roles"]["coordinator"]["model"] == "pro-main"
-    assert resolved["roles"]["executor"]["model"] == "flash-high"
-    assert resolved["small_swarm_quota_ok"] is True
+    env = {**os.environ, "FLOW_RUNTIME_DIR": str(tmp_path / "rt")}
+
+    inspect_proc = subprocess.run(
+        [
+            NODE_BIN,
+            str(FLOW_CLI),
+            "models",
+            "inspect",
+            "--harness",
+            "claude",
+            "--models-file",
+            str(inv_file),
+            "--ws",
+            str(tmp_path),
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    )
+    inspected = json.loads(inspect_proc.stdout)
+    assert inspected["harness"] == "claude"
+    assert inspected["candidate_count"] >= 2
+
+    route_proc = subprocess.run(
+        [
+            NODE_BIN,
+            str(FLOW_CLI),
+            "models",
+            "route",
+            "--harness",
+            "claude",
+            "--kind",
+            "semantic_validation",
+            "--risk",
+            "high",
+            "--models-file",
+            str(inv_file),
+            "--ws",
+            str(tmp_path),
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    )
+    routed = json.loads(route_proc.stdout)
+    assert routed["runtime_target"] == "opus-model"
+    assert routed["decision"]["needs_frontier_validation"] is True
+
+    mat_proc = subprocess.run(
+        [
+            NODE_BIN,
+            str(FLOW_CLI),
+            "models",
+            "materialize",
+            "--harness",
+            "codex",
+            "--models-file",
+            str(inv_file),
+            "--ws",
+            str(tmp_path),
+        ],
+        env=env,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    )
+    materialized = json.loads(mat_proc.stdout)
+    assert "frontier" in materialized["written"]
+    assert Path(materialized["written"]["frontier"]).is_file()

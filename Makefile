@@ -86,10 +86,11 @@ clean:                                              ## Cleanup temporary build a
 	@echo "${OK} Working directory cleaned"
 
 .PHONY: lint
-lint:                                               ## Check Markdown and Python sources without changing them
+lint:                                               ## Check Markdown, Python, and JavaScript sources without changing them
 	@npx --yes markdownlint-cli2 $(MARKDOWN_GLOBS)
-	@uv run ruff check tools/ tests/
-	@uv run ruff format --check tools/ tests/
+	@for f in sidecars/studio/*.mjs sidecars/studio/*/*.mjs sidecars/studio/web/*.js .opencode/plugins/flow.js mods/claude-flow/hooks/*.mjs vscode-extension/*.mjs; do [ -f "$$f" ] && node --check "$$f"; done
+	@uv run ruff check tools/ tests/ workflows/flow_common/
+	@uv run ruff format --check tools/ tests/ workflows/flow_common/
 	@uv run mypy tools/ tests/
 	@uv run pyright tools/ tests/
 	@echo "${OK} Lint passed"

@@ -1,9 +1,5 @@
 /**
  * Local Agent-to-Agent (A2A v1) JSON-RPC 2.0 + Agent Card facade over CrossHarnessRunner.
- *
- * Exposes `GET /.well-known/agent-card.json` and `POST /a2a` (`message/send`,
- * `tasks/get`, `tasks/cancel`) on loopback so external A2A-capable orchestrators
- * can delegate Flow specs, reviews, and tasks across installed CLI harnesses.
  */
 
 import crypto from "node:crypto";
@@ -16,25 +12,20 @@ const PLUGIN_PACKAGE_JSON = path.resolve(path.dirname(fileURLToPath(import.meta.
 function readPluginVersion() {
   try {
     const parsed = JSON.parse(fs.readFileSync(PLUGIN_PACKAGE_JSON, "utf8"));
-    return typeof parsed.version === "string" && parsed.version ? parsed.version : "0.28.0";
+    return typeof parsed.version === "string" && parsed.version ? parsed.version : "0.30.1";
   } catch {
-    return "0.28.0";
+    return "0.30.1";
   }
 }
 
 export class A2AFacade {
   /**
-   * @param {import("./harness-runner.mjs").CrossHarnessRunner} runner
+   * @param {import("./bridges/cli.mjs").CrossHarnessRunner} runner
    */
   constructor(runner) {
     this.runner = runner;
   }
 
-  /**
-   * Build the A2A v1 Agent Card discovery payload.
-   *
-   * @param {string} baseUrl
-   */
   buildAgentCard(baseUrl) {
     const installed = this.runner.detectHarnesses().filter((h) => h.installed);
     return {
@@ -61,7 +52,7 @@ export class A2AFacade {
         {
           id: "flow-implement",
           name: "Flow Vertical-Slice Execution",
-          description: "Execute approved chapter tasks in direct-workspace or worktree-isolated mode.",
+          description: "Execute approved slices in direct-workspace or worktree-isolated mode.",
           tags: ["tdd", "implementation"],
         },
         {
@@ -78,11 +69,6 @@ export class A2AFacade {
     };
   }
 
-  /**
-   * Handle a JSON-RPC 2.0 request sent to `POST /a2a`.
-   *
-   * @param {Record<string, any>} payload
-   */
   async handleJsonRpc(payload) {
     const id = payload?.id ?? null;
     const method = String(payload?.method || "");
@@ -102,32 +88,25 @@ export class A2AFacade {
           executionMode,
           prompt: text,
           model: meta.model,
+          effort: meta.effort,
           allowConcurrentWrite: meta.allowConcurrentWrite !== false,
           wait,
         });
 
-        return {
-          jsonrpc: "2.0",
-          id,
-          result: this.#toA2ATask(run),
-        };
+        return { jsonrpc: "2.0", id, result: this.#toA2ATask(run) };
       }
 
       if (method === "tasks/get") {
         const taskId = String(params.id || params.taskId || "");
         const run = this.runner.getRun(taskId);
-        if (!run) {
-          return this.#rpcError(id, -32001, `Task not found: ${taskId}`);
-        }
+        if (!run) return this.#rpcError(id, -32001, `Task not found: ${taskId}`);
         return { jsonrpc: "2.0", id, result: this.#toA2ATask(run) };
       }
 
       if (method === "tasks/cancel") {
         const taskId = String(params.id || params.taskId || "");
         const run = this.runner.cancelRun(taskId);
-        if (!run) {
-          return this.#rpcError(id, -32001, `Task not found: ${taskId}`);
-        }
+        if (!run) return this.#rpcError(id, -32001, `Task not found: ${taskId}`);
         return { jsonrpc: "2.0", id, result: this.#toA2ATask(run) };
       }
 
@@ -138,17 +117,11 @@ export class A2AFacade {
   }
 
   #selectDefaultHarness() {
-    const detected = this.runner.detectHarnesses();
-    const first = detected.find((h) => h.installed);
-    if (!first) {
-      throw new Error("No supported external harness CLI found on PATH.");
-    }
+    const first = this.runner.detectHarnesses().find((h) => h.installed);
+    if (!first) throw new Error("No supported external harness CLI found on PATH.");
     return first.id;
   }
 
-  /**
-   * @param {any} run
-   */
   #toA2ATask(run) {
     const stateMap = {
       running: "working",
@@ -163,12 +136,7 @@ export class A2AFacade {
       status: {
         state: stateMap[run.status] || "unknown",
         timestamp: run.completedAt || run.startedAt || new Date().toISOString(),
-        message: run.outputText
-          ? {
-              role: "agent",
-              parts: [{ kind: "text", text: run.outputText }],
-            }
-          : undefined,
+        message: run.outputText ? { role: "agent", parts: [{ kind: "text", text: run.outputText }] } : undefined,
       },
       metadata: {
         harness: run.harness,
@@ -179,32 +147,16 @@ export class A2AFacade {
     };
   }
 
-  /**
-   * @param {any} id
-   * @param {number} code
-   * @param {string} message
-   */
   #rpcError(id, code, message) {
-    return {
-      jsonrpc: "2.0",
-      id,
-      error: { code, message },
-    };
+    return { jsonrpc: "2.0", id, error: { code, message } };
   }
 }
 
-/**
- * @param {any} message
- * @returns {string}
- */
 function extractMessageText(message) {
   if (!message) return "";
   if (typeof message === "string") return message;
   if (Array.isArray(message.parts)) {
-    return message.parts
-      .map((p) => (typeof p?.text === "string" ? p.text : ""))
-      .filter(Boolean)
-      .join("\n");
+    return message.parts.map((p) => (typeof p?.text === "string" ? p.text : "")).filter(Boolean).join("\n");
   }
   return String(message.text || "");
 }

@@ -1,6 +1,6 @@
 /**
- * Persistent stdio bridge to the Python SQLSpec + DuckDB `flow-catalog` worker,
- * paired with a zero-dependency Node Okapi BM25 fallback when Python/DuckDB is absent.
+ * Knowledge catalog bridge with zero-Python weighted BM25 + sibling-workspace federation
+ * and optional SQLSpec/DuckDB hybrid ONNX semantic worker.
  */
 
 import { spawn } from "node:child_process";
@@ -9,48 +9,40 @@ import path from "node:path";
 import readline from "node:readline";
 import { fileURLToPath } from "node:url";
 
-import { resolveCatalogWorkerCommand } from "./python-runner.mjs";
-import { deriveWorkspaceId, extractTruthBlock, parseFrontmatter } from "./snapshot.mjs";
+import { resolveCatalogWorkerCommand } from "../bridges/python.mjs";
+import { parseFrontmatter, extractTruthBlock, scanWikilinks, wrapUntrustedSnippet } from "../core/frontmatter.mjs";
+import {
+  deriveWorkspaceId,
+  isExistingDir,
+  StudioStateStore,
+  toPosixRelative,
+  uriToWorkspacePath,
+  walkMarkdownFiles,
+} from "../core/fs-io.mjs";
 
-const STUDIO_DIR = path.dirname(fileURLToPath(import.meta.url));
-export const DEFAULT_PLUGIN_ROOT = path.resolve(STUDIO_DIR, "..", "..");
+const KNOWLEDGE_DIR = path.dirname(fileURLToPath(import.meta.url));
+export const DEFAULT_PLUGIN_ROOT = path.resolve(KNOWLEDGE_DIR, "..", "..", "..");
 
 const TOKEN_RE = /[a-z0-9_]{2,}/g;
 const STOPWORDS = new Set([
-  "all",
-  "and",
-  "are",
-  "for",
-  "from",
-  "has",
-  "into",
-  "not",
-  "only",
-  "that",
-  "the",
-  "their",
-  "then",
-  "this",
-  "use",
-  "uses",
-  "via",
-  "when",
-  "with",
+  "all", "and", "are", "for", "from", "has", "into", "not", "only", "that",
+  "the", "their", "then", "this", "use", "uses", "via", "when", "with",
 ]);
 
 /**
- * Tokenize text into normalized lexical terms.
- *
  * @param {string} text
  * @returns {string[]}
  */
 function tokenize(text) {
-  const matches = String(text || "").toLowerCase().match(TOKEN_RE) || [];
+  const expanded = String(text || "")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/([A-Za-z])(\d)/g, "$1 $2");
+  const matches = expanded.toLowerCase().match(TOKEN_RE) || [];
   return matches.filter((t) => !STOPWORDS.has(t));
 }
 
 /**
- * Pure-JS in-memory Okapi BM25 + provenance + drift fallback used when DuckDB is disabled or absent.
+ * Weighted BM25 lexical index supporting single or federated sibling workspaces and `wiki/` links.
  */
 export class NodeBm25FallbackCatalog {
   constructor() {
@@ -58,6 +50,41 @@ export class NodeBm25FallbackCatalog {
     this.entries = new Map();
     /** @type {Set<string>} */
     this.workspaces = new Set();
+  }
+
+  /**
+   * Discover up to 8 sibling workspaces from recent Studio history.
+   *
+   * @param {string} currentWorkspace
+   * @param {NodeJS.ProcessEnv} [env]
+   */
+  static discoverSiblingWorkspaces(currentWorkspace, env = process.env) {
+    const cur = path.resolve(currentWorkspace);
+    const cfgDir = StudioStateStore.resolveConfigDir(env);
+    const tsvPath = env.FLOW_RECENT_WORKSPACES_FILE
+      ? path.resolve(env.FLOW_RECENT_WORKSPACES_FILE)
+      : path.join(cfgDir, "recent-workspaces.tsv");
+    const siblings = [];
+    if (!fs.existsSync(tsvPath)) return siblings;
+    try {
+      const lines = fs.readFileSync(tsvPath, "utf8").split(/\r?\n/).filter(Boolean).reverse();
+      for (const line of lines) {
+        const raw = line.includes("\t") ? line.split("\t")[1] : line;
+        const resolved = uriToWorkspacePath(raw);
+        if (
+          resolved &&
+          resolved !== cur &&
+          !siblings.includes(resolved) &&
+          isExistingDir(path.join(resolved, ".agents", "bundles"))
+        ) {
+          siblings.push(resolved);
+          if (siblings.length >= 8) break;
+        }
+      }
+    } catch {
+      // Ignore unreadable history files.
+    }
+    return siblings;
   }
 
   /**
@@ -72,16 +99,16 @@ export class NodeBm25FallbackCatalog {
       const workspaceId = deriveWorkspaceId(wsRoot);
       this.workspaces.add(workspaceId);
 
-      for (const mdFile of walkMd(bundleRoot)) {
-        const relToBundle = path.relative(bundleRoot, mdFile).split(path.sep).join("/");
-        if (relToBundle === "index.md" || relToBundle === "log.md") continue;
+      for (const mdFile of walkMarkdownFiles(bundleRoot)) {
+        const relToBundle = toPosixRelative(bundleRoot, mdFile);
+        if (relToBundle === "index.md" || relToBundle === "log.md" || relToBundle.includes("/feedback/")) continue;
         const raw = fs.readFileSync(mdFile, "utf8");
         const { frontmatter, body } = parseFrontmatter(raw);
         if (path.basename(mdFile, ".md") === "index" && !frontmatter.type) continue;
 
         const conceptId = relToBundle.replace(/\.md$/i, "");
         const entryId = `${workspaceId}:${conceptId}`;
-        const relPath = path.relative(wsRoot, mdFile).split(path.sep).join("/");
+        const relPath = toPosixRelative(wsRoot, mdFile);
         const title = String(frontmatter.title || body.match(/^#\s+(.+?)\s*$/m)?.[1] || path.basename(mdFile, ".md"));
         const description = String(frontmatter.description || "");
         const status = String(frontmatter.status || "draft");
@@ -91,17 +118,22 @@ export class NodeBm25FallbackCatalog {
         const conceptType = String(frontmatter.type || inferConceptType(relToBundle));
         const tags = Array.isArray(frontmatter.tags) ? frontmatter.tags.map(String) : [];
 
-        const terms = tokenize(`${title} ${description} ${tags.join(" ")} ${truthBlock || ""} ${body}`);
+        const fieldTerms = [
+          ...tokenize(title),
+          ...tokenize(title),
+          ...tokenize(description),
+          ...tokenize(tags.join(" ")),
+          ...tokenize(truthBlock || ""),
+          ...tokenize(body),
+        ];
         /** @type {Record<string, number>} */
         const tf = {};
-        for (const t of terms) tf[t] = (tf[t] || 0) + 1;
-
-        const sources = extractSources(entryId, wsRoot, frontmatter);
-        const links = extractLinks(entryId, workspaceId, bundleRoot, mdFile, body);
+        for (const t of fieldTerms) tf[t] = (tf[t] || 0) + 1;
 
         this.entries.set(entryId, {
           entry_id: entryId,
           workspace_id: workspaceId,
+          workspace_root: wsRoot,
           rel_path: relPath,
           concept_id: conceptId,
           concept_type: conceptType,
@@ -114,10 +146,10 @@ export class NodeBm25FallbackCatalog {
           truth_block: truthBlock,
           body_markdown: body.trim(),
           frontmatter_json: JSON.stringify(frontmatter),
-          docLen: Math.max(terms.length, 1),
+          docLen: Math.max(fieldTerms.length, 1),
           tf,
-          sources,
-          links,
+          sources: extractSources(entryId, wsRoot, frontmatter),
+          links: extractLinks(entryId, workspaceId, bundleRoot, mdFile, body),
         });
         indexed += 1;
       }
@@ -137,6 +169,8 @@ export class NodeBm25FallbackCatalog {
   }
 
   /**
+   * Search across indexed local and sibling entries, optionally fencing cross-workspace snippets.
+   *
    * @param {Record<string, any>} params
    */
   search(params) {
@@ -145,14 +179,13 @@ export class NodeBm25FallbackCatalog {
     const docs = Array.from(this.entries.values());
     const docCount = Math.max(docs.length, 1);
     const avgDocLen = docs.reduce((s, d) => s + d.docLen, 0) / docCount || 1;
+    const primaryWsId = params.primary_workspace ? deriveWorkspaceId(params.primary_workspace) : null;
 
     /** @type {Record<string, number>} */
     const df = {};
     for (const term of queryTerms) {
       let c = 0;
-      for (const d of docs) {
-        if (d.tf[term]) c += 1;
-      }
+      for (const d of docs) if (d.tf[term]) c += 1;
       df[term] = c;
     }
 
@@ -163,12 +196,14 @@ export class NodeBm25FallbackCatalog {
       if (params.trust_tier && d.trust_tier !== params.trust_tier) continue;
       let score = 0;
       for (const term of queryTerms) {
-        const termFreq = d.tf[term] || 0;
-        if (!termFreq || !df[term]) continue;
+        const tfVal = d.tf[term] || 0;
+        if (!tfVal || !df[term]) continue;
         const idf = Math.log(1 + Math.max(docCount - df[term] + 0.5, 0.5) / (df[term] + 0.5));
-        score += idf * ((termFreq * 2.2) / (termFreq + 1.2 * (0.25 + 0.75 * (d.docLen / avgDocLen))));
+        score += idf * ((tfVal * 2.2) / (tfVal + 1.2 * (0.25 + 0.75 * (d.docLen / avgDocLen))));
       }
       if (score > 0) {
+        const isExternal = Boolean(primaryWsId && d.workspace_id !== primaryWsId);
+        const snippetRaw = d.truth_block || d.description || d.body_markdown.slice(0, 240);
         hits.push({
           entry_id: d.entry_id,
           workspace_id: d.workspace_id,
@@ -177,6 +212,8 @@ export class NodeBm25FallbackCatalog {
           concept_type: d.concept_type,
           title: d.title,
           description: d.description,
+          snippet: isExternal ? wrapUntrustedSnippet(snippetRaw, `${d.workspace_id}:${d.rel_path}`) : snippetRaw,
+          plane: isExternal ? "siblings" : "local",
           trust_tier: d.trust_tier,
           truth_block: d.truth_block,
           status: d.status,
@@ -191,9 +228,6 @@ export class NodeBm25FallbackCatalog {
     return hits.slice(0, Number(params.limit) || 20);
   }
 
-  /**
-   * @param {Record<string, any>} params
-   */
   provenance(params) {
     const target = String(params.file_path || "").replace(/^\.\//, "");
     if (!target) return [];
@@ -205,7 +239,7 @@ export class NodeBm25FallbackCatalog {
           s.file_path === target ||
           (s.file_path && s.file_path.endsWith(`/${target}`)) ||
           s.resource === target ||
-          s.resource.startsWith(`${target}::`)
+          s.resource.startsWith(`${target}::`),
       );
       if (matches.length > 0) {
         out.push({
@@ -229,9 +263,6 @@ export class NodeBm25FallbackCatalog {
     return out.slice(0, Number(params.limit) || 20);
   }
 
-  /**
-   * @param {string} entryId
-   */
   entry(entryId) {
     const d = this.entries.get(entryId);
     if (!d) return null;
@@ -241,20 +272,12 @@ export class NodeBm25FallbackCatalog {
         if (edge.to_entry_id === entryId) referencedBy.push(edge);
       }
     }
-    return {
-      entry: d,
-      sources: d.sources,
-      outbound_links: d.links,
-      referenced_by: referencedBy,
-    };
+    return { entry: d, sources: d.sources, outbound_links: d.links, referenced_by: referencedBy };
   }
 
   facets() {
-    /** @type {Record<string, number>} */
     const ws = {};
-    /** @type {Record<string, number>} */
     const types = {};
-    /** @type {Record<string, number>} */
     const trust = {};
     for (const d of this.entries.values()) {
       ws[d.workspace_id] = (ws[d.workspace_id] || 0) + 1;
@@ -265,16 +288,9 @@ export class NodeBm25FallbackCatalog {
       Object.entries(obj)
         .map(([value, count]) => ({ value, count }))
         .sort((a, b) => b.count - a.count);
-    return {
-      workspaces: toBuckets(ws),
-      concept_types: toBuckets(types),
-      trust_tiers: toBuckets(trust),
-    };
+    return { workspaces: toBuckets(ws), concept_types: toBuckets(types), trust_tiers: toBuckets(trust) };
   }
 
-  /**
-   * @param {string | null} [workspaceId]
-   */
   drift(workspaceId = null) {
     const broken_links = [];
     const missing_sources = [];
@@ -323,13 +339,7 @@ export class NodeBm25FallbackCatalog {
   }
 }
 
-/**
- * Bridge managing persistent stdio JSON-RPC calls to `flow-catalog` with automatic fallback.
- */
 export class CatalogBridge {
-  /**
-   * @param {{ pluginRoot?: string, workspaceRoot?: string, dbPath?: string, embedder?: string }} [options]
-   */
   constructor(options = {}) {
     this.pluginRoot = path.resolve(options.pluginRoot || DEFAULT_PLUGIN_ROOT);
     this.workspaceRoot = path.resolve(options.workspaceRoot || process.cwd());
@@ -338,37 +348,32 @@ export class CatalogBridge {
     this.fallback = new NodeBm25FallbackCatalog();
     this.child = null;
     this.nextId = 1;
-    /** @type {Map<number, { resolve: Function, reject: Function, timer: NodeJS.Timeout }>} */
     this.pending = new Map();
     this.workerStrategy = "uninitialized";
     this.useFallbackOnly = false;
   }
 
-  /**
-   * @param {string[]} workspaceRoots
-   */
   async index(workspaceRoots) {
-    const res = await this.#call("index", { workspaces: workspaceRoots });
-    return res;
+    return this.#call("index", { workspaces: workspaceRoots });
   }
 
-  /**
-   * @param {Record<string, any>} params
-   */
   async search(params) {
     return this.#call("search", params);
   }
 
-  /**
-   * @param {Record<string, any>} params
-   */
+  async federatedSearch({ query, planes = ["local", "siblings"], limit = 12 } = {}) {
+    const targets = [this.workspaceRoot];
+    if (planes.includes("siblings")) {
+      targets.push(...NodeBm25FallbackCatalog.discoverSiblingWorkspaces(this.workspaceRoot));
+    }
+    this.fallback.indexWorkspaces(targets);
+    return this.fallback.search({ query, primary_workspace: this.workspaceRoot, limit });
+  }
+
   async provenance(params) {
     return this.#call("provenance", params);
   }
 
-  /**
-   * @param {string} entryId
-   */
   async entry(entryId) {
     return this.#call("entry", { entry_id: entryId });
   }
@@ -377,9 +382,6 @@ export class CatalogBridge {
     return this.#call("facets", {});
   }
 
-  /**
-   * @param {string | null} [workspaceId]
-   */
   async drift(workspaceId = null) {
     return this.#call("drift", { workspace_id: workspaceId });
   }
@@ -402,17 +404,11 @@ export class CatalogBridge {
     this.pending.clear();
   }
 
-  /**
-   * @param {string} method
-   * @param {Record<string, any>} params
-   */
   async #call(method, params) {
     if (!this.useFallbackOnly) {
       try {
         await this.#ensureWorker();
-        if (this.child) {
-          return await this.#sendRpc(method, params);
-        }
+        if (this.child) return await this.#sendRpc(method, params);
       } catch {
         this.useFallbackOnly = true;
         this.workerStrategy = "node-bm25-fallback";
@@ -429,22 +425,18 @@ export class CatalogBridge {
       this.useFallbackOnly = true;
       return;
     }
-
     const args = [...spec.args];
     const serveIdx = args.indexOf("serve-stdio");
     const globalFlags = [];
     if (this.dbPath) globalFlags.push("--db", this.dbPath);
     if (this.embedder) globalFlags.push("--embedder", this.embedder);
-    if (serveIdx >= 0 && globalFlags.length > 0) {
-      args.splice(serveIdx, 0, ...globalFlags);
-    }
+    if (serveIdx >= 0 && globalFlags.length > 0) args.splice(serveIdx, 0, ...globalFlags);
 
     const child = spawn(spec.command, args, {
       cwd: spec.cwd,
       env: { ...process.env, ...spec.env },
       stdio: ["pipe", "pipe", "pipe"],
     });
-
     const rl = readline.createInterface({ input: child.stdout });
     rl.on("line", (line) => {
       const trimmed = line.trim();
@@ -455,34 +447,25 @@ export class CatalogBridge {
       } catch {
         return;
       }
-      const pendingReq = this.pending.get(msg.id);
-      if (!pendingReq) return;
+      const req = this.pending.get(msg.id);
+      if (!req) return;
       this.pending.delete(msg.id);
-      clearTimeout(pendingReq.timer);
-      if (msg.error) {
-        pendingReq.reject(new Error(msg.error.message || "Catalog worker error"));
-      } else {
-        pendingReq.resolve(msg.result);
-      }
+      clearTimeout(req.timer);
+      if (msg.error) req.reject(new Error(msg.error.message || "Catalog worker error"));
+      else req.resolve(msg.result);
     });
-
     child.on("exit", () => {
       this.child = null;
       for (const [, p] of this.pending) {
         clearTimeout(p.timer);
-        p.reject(new Error("Catalog worker exited unexpectedly"));
+        p.reject(new Error("Catalog worker exited"));
       }
       this.pending.clear();
     });
-
     this.child = child;
     await this.#sendRpc("ping", {});
   }
 
-  /**
-   * @param {string} method
-   * @param {Record<string, any>} params
-   */
   #sendRpc(method, params) {
     return new Promise((resolve, reject) => {
       if (!this.child || !this.child.stdin.writable) {
@@ -499,10 +482,6 @@ export class CatalogBridge {
     });
   }
 
-  /**
-   * @param {string} method
-   * @param {Record<string, any>} params
-   */
   #callFallback(method, params) {
     if (method === "index") return this.fallback.indexWorkspaces(params.workspaces || [this.workspaceRoot]);
     if (method === "search") return this.fallback.search(params);
@@ -515,26 +494,6 @@ export class CatalogBridge {
   }
 }
 
-/**
- * @param {string} dir
- * @returns {string[]}
- */
-function walkMd(dir) {
-  if (!fs.existsSync(dir)) return [];
-  /** @type {string[]} */
-  const out = [];
-  for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
-    const full = path.join(dir, ent.name);
-    if (ent.isDirectory()) out.push(...walkMd(full));
-    else if (ent.isFile() && ent.name.endsWith(".md")) out.push(full);
-  }
-  return out;
-}
-
-/**
- * @param {Record<string, any>} fm
- * @param {string} status
- */
 function resolveTrustTier(fm, status) {
   if (Array.isArray(fm.verified)) {
     for (const v of fm.verified) {
@@ -548,9 +507,6 @@ function resolveTrustTier(fm, status) {
   return "draft";
 }
 
-/**
- * @param {string} relToBundle
- */
 function inferConceptType(relToBundle) {
   if (relToBundle.startsWith("specs/")) return "Spec";
   if (relToBundle.includes("decisions/")) return "Decision";
@@ -559,11 +515,6 @@ function inferConceptType(relToBundle) {
   return "Concept";
 }
 
-/**
- * @param {string} entryId
- * @param {string} wsRoot
- * @param {Record<string, any>} fm
- */
 function extractSources(entryId, wsRoot, fm) {
   if (!Array.isArray(fm.sources)) return [];
   return fm.sources
@@ -585,13 +536,6 @@ function extractSources(entryId, wsRoot, fm) {
     });
 }
 
-/**
- * @param {string} entryId
- * @param {string} workspaceId
- * @param {string} bundleRoot
- * @param {string} mdFile
- * @param {string} body
- */
 function extractLinks(entryId, workspaceId, bundleRoot, mdFile, body) {
   const linkRe = /(?<!!)\[[^\]]+\]\(([^)]+)\)/g;
   const seen = new Set();
@@ -610,16 +554,22 @@ function extractLinks(entryId, workspaceId, bundleRoot, mdFile, body) {
       const rel = path.relative(bundleRoot, resolved);
       if (!rel.startsWith("..") && !path.isAbsolute(rel)) {
         const concept = rel.replace(/\.md$/i, "").split(path.sep).join("/");
-        if (concept !== "index" && concept !== "log") {
-          toEntryId = `${workspaceId}:${concept}`;
-        }
+        if (concept !== "index" && concept !== "log") toEntryId = `${workspaceId}:${concept}`;
       }
     }
+    out.push({ from_entry_id: entryId, to_target: cleanRel, to_entry_id: toEntryId, edge_kind: "reference", target_exists: exists });
+  }
+  for (const wl of scanWikilinks(body)) {
+    const slug = `${wl.target.replace(/\.md$/i, "")}.md`;
+    if (seen.has(slug)) continue;
+    seen.add(slug);
+    const cand = path.resolve(bundleRoot, slug);
+    const exists = fs.existsSync(cand) || fs.existsSync(path.resolve(path.dirname(mdFile), slug));
     out.push({
       from_entry_id: entryId,
-      to_target: cleanRel,
-      to_entry_id: toEntryId,
-      edge_kind: "reference",
+      to_target: wl.target,
+      to_entry_id: `${workspaceId}:${wl.target.replace(/\.md$/i, "")}`,
+      edge_kind: "wikilink",
       target_exists: exists,
     });
   }

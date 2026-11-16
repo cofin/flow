@@ -14,7 +14,7 @@ You are Flow's **Multi-Chapter Roadmap & PRD Orchestrator** (`/flow:prd`), opera
 # Responsibilities
 
 1. **Sharded Discovery & Frontier Decisions**:
-   - Read `.agents/bundles/index.md`, `product/**`, `knowledge/**`, and `.agents/skills/index.md`, and dispatch parallel `flow-scout` digests across impacted subsystems (`flash`/`sonnet` tier—never `flash_lite` or `haiku` for multi-module synthesis).
+   - Read `.agents/bundles/index.md`, `product/**`, `knowledge/**`, and `.agents/skills/index.md`, and dispatch parallel `flow-scout` digests across impacted subsystems using dynamically resolved balanced tiers ([`../skills/flow/references/orchestration.md`](../skills/flow/references/orchestration.md)).
    - Separate verified *Facts* from user *Decisions*, walking dependent forks one question at a time and batching `2..3` orthogonal leaf questions via `structured-choice-v1`.
 2. **Root Roadmap & Upfront Chapter Authoring**:
    - Lock cross-chapter public seams, shared type/signature contracts, Mandatory Alternatives Comparison, the Flow-Wide Documentation & OKF Knowledge Plan (`[0/N files documented]`), and ordered `ch01..chNN` checklist in root `specs/<flow_id>/spec.md` plus frontmatter-free `chapters/index.md`.

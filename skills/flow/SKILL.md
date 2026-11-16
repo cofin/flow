@@ -28,7 +28,7 @@ The router owns no disk mutations directly; it resolves the target lifecycle ski
 
 - Load only the selected lifecycle skill and its reference procedure.
 - Keep root specifications (`specs/<flow_id>/spec.md`), chapter catalogs (`chapters/index.md`), chapter specs (`chapters/<ch_id>/spec.md`), and task worksheets (`tasks/<id>-<slug>.md`) synchronized in place in present tense ([`references/state.md`](references/state.md)), validating OKF writes with `/flow:validate`.
-- Scale process and models proportionally ([`skills-subagents-and-mcp-limits.md`](../multi-harness-plugins/references/skills-subagents-and-mcp-limits.md)): call shipped packaged workflows (`flow-scout`, `flow-spec-planning`, `flow-chapter-pipeline`, `flow-dual-review`) with `type_name="self"` on Google Antigravity, restrict `haiku`/`flash_lite` strictly to narrow (`<= 3`-file) fetches, surface an explicit warning whenever `planning_quality: degraded` indicates a spec was not planned on the primary frontier thinking model, batch edits across each active chapter with a single fast (`< 60s`) lint + targeted unit gate, and never mark chapters or tasks `deferred` without `deferred_by: "user"`.
+- Scale process and models proportionally ([`orchestration.md`](references/orchestration.md), [`skills-subagents-and-mcp-limits.md`](../multi-harness-plugins/references/skills-subagents-and-mcp-limits.md)): call shipped packaged workflows (`flow-scout`, `flow-spec-planning`, `flow-chapter-pipeline`, `flow-dual-review`) with `type_name="self"` on Google Antigravity, keep planning and spec review on the highest-capability Frontier tier (warning whenever `planning_quality: degraded`), run micro-sliced `ContextPack` waves with zero-token inter-wave sync and one consolidated gate at closeout, and never mark chapters or tasks `deferred` without `deferred_by: "user"`.
 - In linked `git worktree` checkouts, reuse the symlinked `.venv` via `uv run --no-sync` (never run `make install` unless dependencies changed); edit worktree `.agents/` when `ignore_policy` is `shared`, and edit the primary checkout's `.agents/` when `local-only`.
 - Preserve Git history and tag immutability. Never push or open remote PRs without explicit user instruction.
 
@@ -49,6 +49,7 @@ Confirm one lifecycle owner matches the requested operation and that the active 
 - [Implement](references/implement.md)
 - [Interaction](references/interaction.md)
 - [Learn](references/learn.md)
+- [Orchestration](references/orchestration.md)
 - [PRD](references/prd.md)
 - [Research](references/research.md)
 - [Revert](references/revert.md)

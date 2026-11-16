@@ -3,31 +3,11 @@
 # Requires zero Python, Node.js, or external modules on Windows/Linux/macOS.
 $ErrorActionPreference = "Stop"
 
-$Harness = "claude"
-$ProjectDir = ""
+. (Join-Path $PSScriptRoot "lib/common.ps1")
 
-for ($i = 0; $i -lt $args.Count; $i++) {
-    $arg = [string]$args[$i]
-    if ($arg -eq "--harness" -or $arg -eq "-Harness") {
-        if ($i + 1 -lt $args.Count) {
-            $Harness = [string]$args[$i + 1]
-            $i++
-        }
-    } elseif ($arg -like "--harness=*") {
-        $Harness = $arg.Substring(10)
-    } elseif ($arg -like "-Harness=*") {
-        $Harness = $arg.Substring(9)
-    } elseif ($arg -eq "--project" -or $arg -eq "-Project") {
-        if ($i + 1 -lt $args.Count) {
-            $ProjectDir = [string]$args[$i + 1]
-            $i++
-        }
-    } elseif ($arg -like "--project=*") {
-        $ProjectDir = $arg.Substring(10)
-    } elseif ($arg -like "-Project=*") {
-        $ProjectDir = $arg.Substring(9)
-    }
-}
+$parsedArgs = Parse-FlowHookArgs -RawArgs $args -DefaultHarness "claude"
+$Harness = $parsedArgs.Harness
+$ProjectDir = $parsedArgs.ProjectDir
 
 function Emit-Allow {
     if ($Harness -eq "json") {
@@ -39,8 +19,7 @@ function Emit-Allow {
 }
 
 function ConvertTo-JsonEscaped([string]$Text) {
-    if ($null -eq $Text) { return "" }
-    return $Text.Replace('\', '\\').Replace('"', '\"').Replace("`r", "").Replace("`t", " ").Replace("`n", "\n")
+    return Escape-FlowJsonString -Value (Strip-FlowXmlTags -Text $Text)
 }
 
 if ($Harness -eq "claude" -and -not [string]::IsNullOrEmpty($env:CURSOR_VERSION)) {
@@ -52,16 +31,9 @@ if ($StopGateEnv -in @("off", "0", "false", "no", "advisory", "warn")) {
     Emit-Allow
 }
 
-$StdinPayload = ""
-try {
-    if ([Console]::IsInputRedirected) {
-        $StdinPayload = [Console]::In.ReadToEnd()
-    }
-} catch {
-    $StdinPayload = ""
-}
+$StdinPayload = Read-FlowStdinPayload
 
-$IsLeafSubagent = ($env:FLOW_SWARM_WORKER -eq "1")
+$IsLeafSubagent = ($env:FLOW_SWARM_WORKER -eq "1" -or $env:BB_SWARM_WORKER -eq "1")
 $ConvId = ""
 if (-not [string]::IsNullOrWhiteSpace($StdinPayload)) {
     if ([string]::IsNullOrEmpty($ProjectDir)) {
@@ -115,45 +87,14 @@ if (-not [string]::IsNullOrWhiteSpace($StdinPayload)) {
         }
     }
 
-    if ([regex]::IsMatch($StdinPayload, '"parentConversationId"\s*:\s*"[^"]+"') -or
-        [regex]::IsMatch($StdinPayload, '"agentName"\s*:\s*"runtime-[^"]+"') -or
-        [regex]::IsMatch($StdinPayload, '"lastUserInput"\s*:\s*"[^"]*(agents/(executor|researcher|code-reviewer|quality-reviewer|plan-generator)\.md|templates/agent/(plan|executor)-schema-card\.md|\.agents/agents/|\[Flow Swarm Worker\]|swarm-worker)')) {
-        $IsLeafSubagent = $true
-    }
 }
 
-if ([string]::IsNullOrEmpty($ProjectDir)) {
-    if (-not [string]::IsNullOrEmpty($env:CURSOR_PROJECT_DIR)) {
-        $ProjectDir = $env:CURSOR_PROJECT_DIR
-    } elseif (-not [string]::IsNullOrEmpty($env:CLAUDE_PROJECT_DIR)) {
-        $ProjectDir = $env:CLAUDE_PROJECT_DIR
-    } else {
-        $ProjectDir = (Get-Location).Path
-    }
-}
-
-$EffectiveRoot = $ProjectDir
-if ((-not (Test-Path -LiteralPath (Join-Path $ProjectDir ".agents") -PathType Container)) -and
-    (Test-Path -LiteralPath (Join-Path $ProjectDir ".git") -PathType Leaf) -and
-    (Get-Command git -ErrorAction SilentlyContinue)) {
-    try {
-        $commonDir = (& git -C $ProjectDir rev-parse --path-format=absolute --git-common-dir 2>$null | Select-Object -First 1)
-        if (-not [string]::IsNullOrWhiteSpace($commonDir)) {
-            $candMain = Split-Path -Parent $commonDir.Trim()
-            if (-not [string]::IsNullOrWhiteSpace($candMain) -and (Test-Path -LiteralPath (Join-Path $candMain ".agents") -PathType Container)) {
-                $EffectiveRoot = $candMain
-            }
-        }
-    } catch {}
-}
-
-$tmpRaw = if (-not [string]::IsNullOrEmpty($env:TMPDIR)) { $env:TMPDIR.TrimEnd('/', '\') } else { [IO.Path]::GetTempPath().TrimEnd('/', '\') }
-$rtBase = if (-not [string]::IsNullOrEmpty($env:FLOW_RUNTIME_DIR)) { $env:FLOW_RUNTIME_DIR.TrimEnd('/', '\') } else { Join-Path $tmpRaw "flow-runtime" }
-$normRoot = ($EffectiveRoot -replace '\\', '/').TrimEnd('/')
-$wsId = [regex]::Replace($normRoot, '[^A-Za-z0-9._-]', '_')
-if ($wsId.Length -gt 120) { $wsId = $wsId.Substring($wsId.Length - 120) }
-if ([string]::IsNullOrEmpty($wsId)) { $wsId = "default" }
-$SubagentLeaseDir = Join-Path (Join-Path $rtBase $wsId) "subagents"
+$ProjectDir = Resolve-FlowProjectDir -ExplicitProjectDir $ProjectDir -StdinPayload $StdinPayload
+$IsLeafSubagent = $IsLeafSubagent -or (Test-FlowWorkerInvocation -StdinPayload $StdinPayload)
+$wtCtx = Resolve-FlowWorktreeContext -ProjectDir $ProjectDir
+$EffectiveRoot = $wtCtx.EffectiveRoot
+$rtPaths = Get-FlowRuntimePaths -EffectiveRoot $EffectiveRoot -ProjectDir $ProjectDir
+$SubagentLeaseDir = Join-Path $rtPaths.RuntimeWsDir "subagents"
 $SafeConv = if (-not [string]::IsNullOrEmpty($ConvId)) { [regex]::Replace($ConvId, '[^A-Za-z0-9._-]', '_') } else { "" }
 
 if ($IsLeafSubagent) {

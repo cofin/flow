@@ -6,6 +6,7 @@ import ast
 import asyncio
 import json
 import os
+import shutil
 import subprocess
 from collections.abc import Callable
 from pathlib import Path
@@ -13,15 +14,31 @@ from typing import Any
 
 import pytest
 
-from tools.optimize_specs import audit_specs, compact_specs
-from tools.validate import COMPACT_TASK_HEADINGS, REPO_ROOT, REQUIRED_TASK_HEADINGS, validate_okf_bundle
-from tools.worktree_env import (
-    bootstrap_worktree,
-    inspect_worktree,
+from tools.validate import (
+    COMPACT_TASK_HEADINGS,
+    REPO_ROOT,
+    REQUIRED_TASK_HEADINGS,
     is_link_or_junction,
-    sync_main_bundle_to_worktree,
-    sync_worktree_bundle_to_main,
+    validate_okf_bundle,
 )
+
+NODE_BIN = shutil.which("node")
+FLOW_CLI = REPO_ROOT / "sidecars" / "studio" / "flow-cli.mjs"
+
+
+def _run_flow_cli(*cli_args: str, cwd: Path | None = None) -> dict[str, Any]:
+    """Run sidecars/studio/flow-cli.mjs and return decoded JSON."""
+    assert NODE_BIN is not None
+    proc = subprocess.run(
+        [NODE_BIN, str(FLOW_CLI), *cli_args],
+        cwd=str(cwd or REPO_ROOT),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    )
+    return json.loads(proc.stdout)
+
 
 SIX_CHAPTER_IDS: tuple[str, ...] = (
     "ch01-tokens",
@@ -712,6 +729,7 @@ def test_state_contract_and_lifecycle_references_stay_lean() -> None:
         "implement.md",
         "interaction.md",
         "learn.md",
+        "orchestration.md",
         "prd.md",
         "research.md",
         "revert.md",
@@ -911,9 +929,10 @@ def test_validate_okf_bundle_verifies_git_commit_file_ownership(tmp_path: Path) 
     assert any("modified none of the task's declared files/tests" in err for err in ownership_errors)
 
 
+@pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
 @pytest.mark.parametrize("ignore_policy", ("shared", "local-only"))
 def test_worktree_env_routing_symlinking_and_fallback_sync(tmp_path: Path, ignore_policy: str) -> None:
-    """Verify tools/worktree_env.py routes shared vs local-only Git worktrees and symlinks .venv and .agents."""
+    """Verify flow-cli worktree routes shared vs local-only Git worktrees and symlinks .venv and .agents."""
     git_env = {
         **os.environ,
         "GIT_AUTHOR_NAME": "Flow Test",
@@ -956,34 +975,34 @@ def test_worktree_env_routing_symlinking_and_fallback_sync(tmp_path: Path, ignor
         ["git", "worktree", "add", "-q", "-b", "feat/wt", str(wt_repo)], cwd=main_repo, env=git_env, check=True
     )
 
-    inspected = inspect_worktree(wt_repo)
-    assert inspected.is_linked_worktree is True
-    assert inspected.ignore_policy == ignore_policy
+    inspected = _run_flow_cli("worktree", "inspect", "--ws", str(wt_repo))
+    assert inspected["is_linked_worktree"] is True
+    assert inspected["ignore_policy"] == ignore_policy
 
-    bootstrapped = bootstrap_worktree(wt_repo)
+    bootstrapped = _run_flow_cli("worktree", "bootstrap", "--ws", str(wt_repo))
     assert is_link_or_junction(wt_repo / ".venv")
     assert is_link_or_junction(wt_repo / "uv.toml")
 
     if ignore_policy == "shared":
-        assert bootstrapped.routing_mode == "shared-worktree"
-        assert Path(bootstrapped.target_agents_dir or "") == (wt_repo / ".agents").resolve()
+        assert bootstrapped["routing_mode"] == "shared"
+        assert Path(bootstrapped["target_agents_dir"] or "") == (wt_repo / ".agents").resolve()
         assert not is_link_or_junction(wt_repo / ".agents")
     else:
-        assert bootstrapped.routing_mode == "local-only-main"
-        assert Path(bootstrapped.target_agents_dir or "") == (main_repo / ".agents").resolve()
+        assert bootstrapped["routing_mode"] == "symlink"
+        assert Path(bootstrapped["target_agents_dir"] or "") == (main_repo / ".agents").resolve()
         assert is_link_or_junction(wt_repo / ".agents")
         assert (wt_repo / ".agents").resolve() == (main_repo / ".agents").resolve()
 
         (wt_repo / ".agents").unlink()
-        seeded = sync_main_bundle_to_worktree(wt_repo)
-        assert seeded["status"] == "synced"
+        seeded = _run_flow_cli("worktree", "sync-from-main", "--ws", str(wt_repo))
+        assert seeded["ok"] is True
         assert (wt_repo / ".agents" / "bundles" / "index.md").is_file()
         fallback_spec = wt_repo / ".agents" / "bundles" / "specs" / "wt-flow"
         fallback_spec.mkdir(parents=True)
         (fallback_spec / "spec.md").write_text("---\ntype: Spec\n---\n", encoding="utf-8")
         (wt_repo / ".agents" / "bundles" / "log.md").write_text("# Log\n\n- 2026-11-12 wt entry\n", encoding="utf-8")
-        synced = sync_worktree_bundle_to_main(wt_repo)
-        assert synced["status"] == "synced"
+        synced = _run_flow_cli("worktree", "sync-to-main", "--ws", str(wt_repo))
+        assert synced["ok"] is True
         assert (main_repo / ".agents" / "bundles" / "specs" / "wt-flow" / "spec.md").is_file()
         assert "2026-11-12 wt entry" in (main_repo / ".agents" / "bundles" / "log.md").read_text(encoding="utf-8")
 
@@ -1053,7 +1072,7 @@ def test_flow_spec_planning_workflow_quota_fallback_and_disk_idle_recovery(tmp_p
         assert type_name == "self"
         assert schema
         call_models.append(model)
-        if "Planner" in role and model == "inherit":
+        if "Planner" in role and model != "flash":
             raise RuntimeError("429 RESOURCE_EXHAUSTED: primary model quota exceeded")
         if "Planner" in role:
             (ch_dir / "spec.md").write_text(
@@ -1228,8 +1247,9 @@ def test_validate_okf_bundle_respects_gitignore_and_sha_tracking_modes(
         assert errors
 
 
+@pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
 def test_bootstrap_worktree_links_python_version_from_main_checkout(tmp_path: Path) -> None:
-    """Verify bootstrap_worktree links .python-version alongside .venv into linked Git worktrees."""
+    """Verify flow-cli worktree bootstrap links .python-version alongside .venv into linked Git worktrees."""
     git_env = {
         **os.environ,
         "GIT_AUTHOR_NAME": "Flow Test",
@@ -1254,7 +1274,7 @@ def test_bootstrap_worktree_links_python_version_from_main_checkout(tmp_path: Pa
         check=True,
     )
 
-    bootstrap_worktree(wt_repo)
+    _run_flow_cli("worktree", "bootstrap", "--ws", str(wt_repo))
     assert is_link_or_junction(wt_repo / ".python-version")
     assert (wt_repo / ".python-version").read_text(encoding="utf-8") == "3.14+gil\n"
 
@@ -1272,9 +1292,9 @@ def test_validate_okf_bundle_checks_knowledge_catalog_schema_stale_after_and_byt
                 "okf_version": "0.2",
                 "knowledge_catalog": {
                     "enabled": True,
-                    "project_id": "db-black-belts-beekeeper-01",
+                    "project_id": "demo-project-01",
                     "location": "us-central1",
-                    "entry_group": "beekeeper-context",
+                    "entry_group": "flow-context",
                     "content_layout": "okf",
                     "last_synced_sha256": "abc123",
                 },
@@ -1283,7 +1303,7 @@ def test_validate_okf_bundle_checks_knowledge_catalog_schema_stale_after_and_byt
         encoding="utf-8",
     )
     (tmp_path / "catalog.yaml").write_text(
-        "scope: kb.db-black-belts-beekeeper-01.us-central1.beekeeper-context\nlayout: okf\n",
+        "scope: kb.demo-project-01.us-central1.flow-context\nlayout: okf\n",
         encoding="utf-8",
     )
     (bundle / "index.md").write_text("---\nokf_version: '0.2'\n---\n\n# Root\n", encoding="utf-8")
@@ -1377,14 +1397,17 @@ def test_validate_okf_bundle_allows_uncapped_tasks_read_set_loc_and_compact_form
     ch_pipe = (REPO_ROOT / "workflows" / "flow-chapter-pipeline" / "workflow.py").read_text(encoding="utf-8")
     dual_rev = (REPO_ROOT / "workflows" / "flow-dual-review" / "workflow.py").read_text(encoding="utf-8")
     spec_plan = (REPO_ROOT / "workflows" / "flow-spec-planning" / "workflow.py").read_text(encoding="utf-8")
-    assert 'or "flash"' in ch_pipe
-    assert 'or "flash"' in dual_rev
+    assert "resolve_dynamic_route" in ch_pipe
+    assert "fallback_model" in ch_pipe
+    assert "resolve_dynamic_route" in dual_rev
+    assert "fallback_model" in dual_rev
     assert "len(chapters) <= 1" in spec_plan
 
 
 def test_flow_chapter_pipeline_workflow_executes_bounded_batches_and_lease(tmp_path: Path, monkeypatch: Any) -> None:
-    """Verify flow-chapter-pipeline acquires runtime leases cleanly, defaults to flash, and chunks batches."""
+    """Verify flow-chapter-pipeline acquires runtime leases cleanly, defaults to dynamic flash, and chunks batches."""
     monkeypatch.setenv("FLOW_RUNTIME_DIR", str(tmp_path / "runtime"))
+    monkeypatch.chdir(tmp_path)
     bundle_dir = _seed_valid_multichapter_bundle(tmp_path)
     script_path = REPO_ROOT / "workflows" / "flow-chapter-pipeline" / "workflow.py"
     source = script_path.read_text(encoding="utf-8")
@@ -1406,7 +1429,7 @@ def test_flow_chapter_pipeline_workflow_executes_bounded_batches_and_lease(tmp_p
     ) -> dict[str, Any]:
         assert type_name == "self"
         assert schema
-        if "Batch Execute" in role:
+        if "Batch " in role:
             exec_models.append(model)
             return {
                 "status": "completed",
@@ -1431,6 +1454,10 @@ def test_flow_chapter_pipeline_workflow_executes_bounded_batches_and_lease(tmp_p
             "flow_id": "auth-refactor",
             "chapter_id": "ch02-middleware",
             "tasks": [f"tasks/t0{i}-slice.md" for i in range(1, 8)],
+            "execution_mode": "chapter_batch",
+            "batch_size": 5,
+            "executor_model": "flash",
+            "reviewer_model": "flash",
             "bundle_root": str(bundle_dir),
             "plugin_root": str(REPO_ROOT),
         },
@@ -1459,45 +1486,34 @@ def test_flow_chapter_pipeline_workflow_executes_bounded_batches_and_lease(tmp_p
     assert list((tmp_path / "runtime").rglob("*.lease")) == []
 
 
-def test_optimize_specs_compacts_fragmented_chapters_and_preserves_shas_and_deps(tmp_path: Path) -> None:
-    """Verify tools.optimize_specs collapses over-fragmented specs cleanly while keeping valid OKF state."""
+@pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
+def test_slice_compiler_builds_disjoint_context_packs_within_token_cap(tmp_path: Path) -> None:
+    """Verify flow-cli slices compile produces disjoint wave schedules and pre-extracted <4k-token Context Packs."""
     bundle_dir = _seed_valid_multichapter_bundle(tmp_path)
-    audit_before = audit_specs(bundle_dir)
-    assert any(
-        p.flow_id == "auth-refactor" and ("ch02-middleware", "ch03-sessions") in p.merge_runs for p in audit_before
+    (tmp_path / "src" / "auth").mkdir(parents=True, exist_ok=True)
+    (tmp_path / "src" / "auth" / "tokens.py").write_text(
+        "class TokenService:\n    def verify(self, tok: str) -> bool:\n        return bool(tok)\n",
+        encoding="utf-8",
     )
-
+    ch2_tasks = bundle_dir / "specs" / "auth-refactor" / "chapters" / "ch02-middleware" / "tasks"
+    (ch2_tasks / "t02-slice.md").write_text(
+        (ch2_tasks / "t02-slice.md")
+        .read_text(encoding="utf-8")
+        .replace("read_set: [src/app.py]", "read_set: [src/auth/tokens.py::TokenService]"),
+        encoding="utf-8",
+    )
     t3 = bundle_dir / "specs" / "auth-refactor" / "chapters" / "ch03-sessions" / "tasks" / "t03-slice.md"
-    t3_text = t3.read_text(encoding="utf-8").replace(
-        "depends_on: []",
-        "depends_on: [auth-refactor:ch02-middleware:t02]",
+    t3.write_text(
+        t3.read_text(encoding="utf-8").replace("depends_on: []", "depends_on: [auth-refactor:ch02-middleware:t02]"),
+        encoding="utf-8",
     )
-    t3.write_text(t3_text, encoding="utf-8")
 
-    results = compact_specs(bundle_dir, flow_id="auth-refactor")
-    assert len(results) == 1
-    assert results[0].before_chapters == 6
-    assert results[0].after_chapters == 5
-    assert results[0].removed_chapters == ("ch03-sessions",)
+    compiled = _run_flow_cli("slices", "compile", "--flow", "auth-refactor", "--packs", "--ws", str(tmp_path))
+    assert compiled["ready_task_count"] >= 1
+    assert compiled["waves"]
+    for wave in compiled["waves"]:
+        assert len(wave["slices"]) <= 4
+        for sl in wave["slices"]:
+            pack = sl["context_pack"]
+            assert pack["approx_tokens"] <= 4000
     assert validate_okf_bundle(bundle_dir) == []
-
-    all_open_bundle = tmp_path / "open_only" / ".agents" / "bundles"
-    all_open_seed = _seed_valid_multichapter_bundle(tmp_path / "open_only")
-    for cid in SIX_CHAPTER_IDS:
-        cspec = all_open_seed / "specs" / "auth-refactor" / "chapters" / cid / "spec.md"
-        cspec.write_text(
-            cspec.read_text(encoding="utf-8")
-            .replace("state: completed", "state: planned")
-            .replace("planning_status: empirical_dependent", "planning_status: complete")
-            .replace('replan_trigger: "Latency p99 baseline from ch04-audit"', "replan_trigger: null")
-            .replace("depends_on_chapters: [ch04-audit]", "depends_on_chapters: []")
-            .replace("last_reviewed_commit: 1111111", "last_reviewed_commit: null"),
-            encoding="utf-8",
-        )
-    rspec = all_open_seed / "specs" / "auth-refactor" / "spec.md"
-    rspec.write_text(rspec.read_text(encoding="utf-8").replace("- [x] [1111111]", "- [ ]"), encoding="utf-8")
-    collapsed = compact_specs(all_open_bundle, flow_id="auth-refactor")
-    assert len(collapsed) == 1
-    assert collapsed[0].collapsed_to_single_chapter is True
-    assert not (all_open_bundle / "specs" / "auth-refactor" / "chapters").exists()
-    assert validate_okf_bundle(all_open_bundle) == []

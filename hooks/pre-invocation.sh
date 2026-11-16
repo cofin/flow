@@ -1,39 +1,13 @@
 #!/usr/bin/env sh
 # Portable POSIX sh + awk PreInvocation refresh hook for Flow Studio.
-# Emits {} unless an active spec.md or studio-comments.json changed on disk since last turn.
+# Emits {} unless an active spec.md/feedback changed on disk or a Turn-0 /plan or /learn handoff is detected.
 set -eu
 
-HARNESS="agy"
-PROJECT_DIR=""
+HOOK_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" 2>/dev/null && pwd || dirname -- "$0")"
+. "$HOOK_DIR/lib/common.sh"
 
-while [ "$#" -gt 0 ]; do
-  case "$1" in
-    --harness)
-      HARNESS="${2:-agy}"
-      shift 2
-      ;;
-    --harness=*)
-      HARNESS="${1#*=}"
-      shift 1
-      ;;
-    --project)
-      PROJECT_DIR="${2:-}"
-      shift 2
-      ;;
-    --project=*)
-      PROJECT_DIR="${1#*=}"
-      shift 1
-      ;;
-    *)
-      shift 1
-      ;;
-  esac
-done
-
-STDIN_PAYLOAD=""
-if [ ! -t 0 ]; then
-  STDIN_PAYLOAD="$(cat || true)"
-fi
+flow_parse_args "agy" "$@"
+flow_read_stdin
 
 if [ -n "$STDIN_PAYLOAD" ] && printf '%s\n' "$STDIN_PAYLOAD" | awk '
   { buf = buf " " $0 }
@@ -50,95 +24,26 @@ if [ -n "$STDIN_PAYLOAD" ] && printf '%s\n' "$STDIN_PAYLOAD" | awk '
   exit 0
 fi
 
-if [ -z "$PROJECT_DIR" ] && [ -n "$STDIN_PAYLOAD" ]; then
-  PROJECT_DIR="$(printf '%s\n' "$STDIN_PAYLOAD" | awk '
-    { buf = buf " " $0 }
-    END {
-      if (match(buf, /"workspacePaths"[[:space:]]*:[[:space:]]*\[[[:space:]]*"[^"]+"/)) {
-        s = substr(buf, RSTART, RLENGTH)
-        sub(/^.*"workspacePaths"[[:space:]]*:[[:space:]]*\[[[:space:]]*"/, "", s)
-        sub(/"$/, "", s)
-        gsub(/\\\\/, "/", s)
-        print s
-        exit
-      }
-      if (match(buf, /"cwd"[[:space:]]*:[[:space:]]*"[^"]+"/)) {
-        s = substr(buf, RSTART, RLENGTH)
-        sub(/^.*"cwd"[[:space:]]*:[[:space:]]*"/, "", s)
-        sub(/"$/, "", s)
-        gsub(/\\\\/, "/", s)
-        print s
-        exit
-      }
-      if (match(buf, /"workspace_roots"[[:space:]]*:[[:space:]]*\[[[:space:]]*"[^"]+"/)) {
-        s = substr(buf, RSTART, RLENGTH)
-        sub(/^.*"workspace_roots"[[:space:]]*:[[:space:]]*\[[[:space:]]*"/, "", s)
-        sub(/"$/, "", s)
-        gsub(/\\\\/, "/", s)
-        print s
-        exit
-      }
-    }
-  ')"
-fi
-
-if [ -z "$PROJECT_DIR" ]; then
-  PROJECT_DIR="$(pwd)"
-fi
+flow_resolve_project_dir
 
 if [ ! -d "$PROJECT_DIR/.agents" ] && [ ! -L "$PROJECT_DIR/.agents" ]; then
   printf '{}\n'
   exit 0
 fi
 
-read_setup_field() {
-  json_file="$1"
-  field_name="$2"
-  [ -f "$json_file" ] || return 0
-  awk -v key="$field_name" '
-    { buf = buf " " $0 }
-    END {
-      pat = "\"" key "\"[[:space:]]*:[[:space:]]*\"[^\"]+\""
-      if (match(buf, pat)) {
-        s = substr(buf, RSTART, RLENGTH)
-        sub("^.*\"" key "\"[[:space:]]*:[[:space:]]*\"", "", s)
-        sub(/"$/, "", s)
-        print s
-      }
-    }
-  ' "$json_file"
-}
-
-EFFECTIVE_ROOT="$PROJECT_DIR"
-if [ -f "$PROJECT_DIR/.git" ] && command -v git >/dev/null 2>&1; then
-  GIT_COMMON="$(git -C "$PROJECT_DIR" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || git -C "$PROJECT_DIR" rev-parse --git-common-dir 2>/dev/null || true)"
-  if [ -n "$GIT_COMMON" ]; then
-    case "$GIT_COMMON" in
-      /*) COMMON_ABS="$GIT_COMMON" ;;
-      *) COMMON_ABS="$(CDPATH= cd -- "$PROJECT_DIR" && CDPATH= cd -- "$GIT_COMMON" 2>/dev/null && pwd || true)" ;;
-    esac
-    if [ -n "$COMMON_ABS" ]; then
-      CAND_MAIN="$(CDPATH= cd -- "$COMMON_ABS/.." 2>/dev/null && pwd || true)"
-      if [ -n "$CAND_MAIN" ] && [ -d "$CAND_MAIN/.agents" ]; then
-        IGNORE_POLICY="$(read_setup_field "$PROJECT_DIR/.agents/setup-state.json" "ignore_policy")"
-        [ -n "$IGNORE_POLICY" ] || IGNORE_POLICY="$(read_setup_field "$CAND_MAIN/.agents/setup-state.json" "ignore_policy")"
-        if [ "$IGNORE_POLICY" != "shared" ]; then
-          EFFECTIVE_ROOT="$CAND_MAIN"
-        fi
-      fi
-    fi
-  fi
+flow_resolve_worktree_context
+flow_detect_worker_invocation
+if [ "$IS_WORKER_AGENT" = "1" ]; then
+  printf '{}\n'
+  exit 0
 fi
 
-BUNDLE_REL=".agents/bundles"
-DETECTED_ROOT="$(read_setup_field "$EFFECTIVE_ROOT/.agents/setup-state.json" "bundle_root")"
-if [ -n "$DETECTED_ROOT" ]; then
-  BUNDLE_REL="$DETECTED_ROOT"
-fi
+flow_runtime_paths
+mkdir -p "$RUNTIME_WS_DIR" 2>/dev/null || true
 
 DIGEST_ACC=""
 if [ -d "$EFFECTIVE_ROOT/$BUNDLE_REL/specs" ]; then
-  for spec_file in "$EFFECTIVE_ROOT/$BUNDLE_REL/specs"/*/spec.md; do
+  for spec_file in "$EFFECTIVE_ROOT/$BUNDLE_REL/specs"/*/spec.md "$EFFECTIVE_ROOT/$BUNDLE_REL/specs"/*/feedback/*.json; do
     [ -f "$spec_file" ] || continue
     ck_val="$(cksum "$spec_file" | awk '{ printf "%s:%s", $1, $2 }')"
     DIGEST_ACC="${DIGEST_ACC}${spec_file}=${ck_val};"
@@ -147,27 +52,6 @@ fi
 if [ -f "$EFFECTIVE_ROOT/.agents/studio-comments.json" ]; then
   ck_comments="$(cksum "$EFFECTIVE_ROOT/.agents/studio-comments.json" | awk '{ printf "%s:%s", $1, $2 }')"
   DIGEST_ACC="${DIGEST_ACC}comments=${ck_comments};"
-fi
-
-if [ -z "$DIGEST_ACC" ]; then
-  printf '{}\n'
-  exit 0
-fi
-
-FINAL_DIGEST="$(printf '%s' "$DIGEST_ACC" | cksum | awk '{ printf "%s-%s", $1, $2 }')"
-raw_tmp="${TMPDIR:-/tmp}"
-raw_tmp="${raw_tmp%/}"
-[ -n "$raw_tmp" ] || raw_tmp="/tmp"
-rt_base="${FLOW_RUNTIME_DIR:-$raw_tmp/flow-runtime}"
-rt_base="${rt_base%/}"
-ws_id="$(printf '%s' "$EFFECTIVE_ROOT" | tr '\\' '/' | sed 's:/*$::; s/[^A-Za-z0-9._-]/_/g' | awk '{ n = length($0); print (n > 120 ? substr($0, n - 119) : $0) }')"
-[ -n "$ws_id" ] || ws_id="default"
-RUNTIME_WS_DIR="$rt_base/$ws_id"
-mkdir -p "$RUNTIME_WS_DIR" 2>/dev/null || true
-STATE_FILE="$RUNTIME_WS_DIR/studio-live-state.json"
-READ_STATE_FILE="$STATE_FILE"
-if [ ! -f "$READ_STATE_FILE" ] && [ -f "$PROJECT_DIR/.agents/studio-live-state.json" ]; then
-  READ_STATE_FILE="$PROJECT_DIR/.agents/studio-live-state.json"
 fi
 
 PREV_DIGEST=""
@@ -189,9 +73,7 @@ if [ -f "$READ_STATE_FILE" ]; then
       if (match(buf, /"specDigest"[[:space:]]*:[[:space:]]*"[^"]*"/)) {
         s = substr(buf, RSTART, RLENGTH); sub(/^.*"specDigest"[[:space:]]*:[[:space:]]*"/, "", s); sub(/"$/, "", s); pd = s
       }
-      if (match(buf, /"activeTurn"[[:space:]]*:[[:space:]]*true/)) {
-        at = "true"
-      }
+      if (match(buf, /"activeTurn"[[:space:]]*:[[:space:]]*true/)) { at = "true" }
       if (match(buf, /"conversationId"[[:space:]]*:[[:space:]]*"[^"]*"/)) {
         s = substr(buf, RSTART, RLENGTH); sub(/^.*"conversationId"[[:space:]]*:[[:space:]]*"/, "", s); sub(/"$/, "", s); cv = s
       }
@@ -230,97 +112,106 @@ if [ -f "$READ_STATE_FILE" ]; then
   PREV_TOOL="${R8%%|*}"; PREV_FILE="${R8#*|}"
 fi
 
+S_CONV=""
+LAST_USER_TEXT=""
 if [ -n "$STDIN_PAYLOAD" ]; then
-  STDIN_META="$(printf '%s\n' "$STDIN_PAYLOAD" | awk '
-    { buf = buf " " $0 }
-    END {
-      cv = ""; pc = ""
-      if (match(buf, /"conversationId"[[:space:]]*:[[:space:]]*"[^"]+"/)) {
-        s = substr(buf, RSTART, RLENGTH); sub(/^.*"conversationId"[[:space:]]*:[[:space:]]*"/, "", s); sub(/"$/, "", s); cv = s
-      } else if (match(buf, /"session_id"[[:space:]]*:[[:space:]]*"[^"]+"/)) {
-        s = substr(buf, RSTART, RLENGTH); sub(/^.*"session_id"[[:space:]]*:[[:space:]]*"/, "", s); sub(/"$/, "", s); cv = s
-      }
-      if (match(buf, /"parentConversationId"[[:space:]]*:[[:space:]]*"[^"]+"/)) {
-        s = substr(buf, RSTART, RLENGTH); sub(/^.*"parentConversationId"[[:space:]]*:[[:space:]]*"/, "", s); sub(/"$/, "", s); pc = s
-      }
-      printf "%s|%s\n", cv, pc
-    }
-  ')"
-  S_CONV="${STDIN_META%%|*}"
-  S_PARENT="${STDIN_META#*|}"
+  S_CONV="$(flow_extract_payload_field "$STDIN_PAYLOAD" "conversationId")"
+  [ -n "$S_CONV" ] || S_CONV="$(flow_extract_payload_field "$STDIN_PAYLOAD" "session_id")"
   [ -n "$S_CONV" ] && PREV_CONV="$S_CONV"
-  [ -n "$S_PARENT" ] && PREV_ROLE="flow-subagent"
+  LAST_USER_TEXT="$(flow_extract_payload_field "$STDIN_PAYLOAD" "lastUserInput")"
+  if [ -z "$LAST_USER_TEXT" ]; then
+    TRANSCRIPT_P="$(flow_extract_payload_field "$STDIN_PAYLOAD" "transcriptPath")"
+    if [ -n "$TRANSCRIPT_P" ] && [ -f "$TRANSCRIPT_P" ]; then
+      LAST_USER_TEXT="$(awk '
+        /"type"[[:space:]]*:[[:space:]]*"USER_INPUT"/ { last = $0 }
+        END { print last }
+      ' "$TRANSCRIPT_P" 2>/dev/null || true)"
+    fi
+  fi
 fi
 
-json_escape_str() {
-  printf '%s' "$1" | awk '
-    BEGIN { ORS = "" }
-    {
-      gsub(/\\/, "\\\\")
-      gsub(/"/, "\\\"")
-      gsub(/\t/, "\\t")
-      gsub(/\r/, "")
-      gsub(/[\001-\010\013\014\016-\037]/, "")
-      if (NR > 1) printf "\\n"
-      printf "%s", $0
-    }
-  '
-}
+TURN0_NOTICE=""
+if ! flow_sibling_plugin_present && [ -n "$LAST_USER_TEXT" ]; then
+  case "$LAST_USER_TEXT" in
+    *"/plan"*|*"/Plan"*)
+      TURN0_NOTICE="Flow Turn-0 handoff: Keep plans outside the repository tree during /plan so Review remains active. Include concrete file path:line hints; after approval run node sidecars/studio/flow-cli.mjs spec import --from PLAN_PATH to materialize micro-slices."
+      ;;
+    *"/learn"*)
+      TURN0_NOTICE="Flow Turn-0 handoff: Route durable repository conventions to .agents/bundles/knowledge/ and keep user personal preferences outside repository files."
+      ;;
+  esac
+fi
+
+FINAL_DIGEST=""
+if [ -n "$DIGEST_ACC" ]; then
+  FINAL_DIGEST="$(printf '%s' "$DIGEST_ACC" | cksum | awk '{ printf "%s-%s", $1, $2 }')"
+fi
 
 WORKTREE_NORM="$(printf '%s' "$PROJECT_DIR" | tr '\\' '/' | sed 's:/*$::')"
 NOW_ISO="$(date -u +"%Y-%m-%dT%H:%M:%SZ" 2>/dev/null || echo "unknown")"
 
 write_state_digest() {
   FLOW_JSON="null"
-  [ -n "$PREV_FLOW" ] && FLOW_JSON="\"$(json_escape_str "$PREV_FLOW")\""
+  [ -n "$PREV_FLOW" ] && FLOW_JSON="\"$(flow_json_escape "$PREV_FLOW")\""
   CH_JSON="null"
-  [ -n "$PREV_CHAPTER" ] && CH_JSON="\"$(json_escape_str "$PREV_CHAPTER")\""
+  [ -n "$PREV_CHAPTER" ] && CH_JSON="\"$(flow_json_escape "$PREV_CHAPTER")\""
   cat > "$STATE_FILE" <<EOF
 {
   "v": 1,
   "updatedAt": "$NOW_ISO",
-  "harness": "$(json_escape_str "$HARNESS")",
-  "conversationId": "$(json_escape_str "$PREV_CONV")",
-  "role": "$(json_escape_str "${PREV_ROLE:-coordinator}")",
+  "harness": "$(flow_json_escape "$HARNESS")",
+  "conversationId": "$(flow_json_escape "$PREV_CONV")",
+  "role": "$(flow_json_escape "${PREV_ROLE:-coordinator}")",
   "flowId": $FLOW_JSON,
   "chapterId": $CH_JSON,
   "taskIds": ${PREV_TASKS:-[]},
-  "worktree": "$(json_escape_str "$WORKTREE_NORM")",
-  "activity": "$(json_escape_str "$PREV_ACTIVITY")",
+  "worktree": "$(flow_json_escape "$WORKTREE_NORM")",
+  "activity": "$(flow_json_escape "$PREV_ACTIVITY")",
   "activeTurn": $ACTIVE_TURN,
-  "lastTool": "$(json_escape_str "$PREV_TOOL")",
-  "lastFilePath": "$(json_escape_str "$PREV_FILE")",
-  "specDigest": "$(json_escape_str "$FINAL_DIGEST")"
+  "lastTool": "$(flow_json_escape "$PREV_TOOL")",
+  "lastFilePath": "$(flow_json_escape "$PREV_FILE")",
+  "specDigest": "$(flow_json_escape "$FINAL_DIGEST")"
 }
 EOF
 }
 
-if [ -z "$PREV_DIGEST" ]; then
-  write_state_digest
-  printf '{}\n'
-  exit 0
-fi
-
-if [ "$PREV_DIGEST" = "$FINAL_DIGEST" ] || [ "$ACTIVE_TURN" = "true" ]; then
-  if [ "$PREV_DIGEST" != "$FINAL_DIGEST" ]; then
+DIGEST_NOTICE=""
+if [ -n "$FINAL_DIGEST" ]; then
+  if [ -z "$PREV_DIGEST" ]; then
+    write_state_digest
+  elif [ "$PREV_DIGEST" != "$FINAL_DIGEST" ] && [ "$ACTIVE_TURN" != "true" ]; then
+    write_state_digest
+    DIGEST_NOTICE="Flow Studio notice: Active spec.md or Studio review feedback changed on disk since the previous turn. Re-read the active spec.md and feedback files before mutating code."
+  elif [ "$PREV_DIGEST" != "$FINAL_DIGEST" ]; then
     write_state_digest
   fi
+fi
+
+COMBINED_NOTICE="$DIGEST_NOTICE"
+if [ -n "$TURN0_NOTICE" ]; then
+  if [ -n "$COMBINED_NOTICE" ]; then
+    COMBINED_NOTICE="$COMBINED_NOTICE $TURN0_NOTICE"
+  else
+    COMBINED_NOTICE="$TURN0_NOTICE"
+  fi
+fi
+
+if [ -z "$COMBINED_NOTICE" ]; then
   printf '{}\n'
   exit 0
 fi
 
-write_state_digest
-
-NOTICE_MSG="Flow Studio notice: Active spec.md or Studio review comments changed on disk since the previous turn. Re-read the active spec.md and .agents/studio-comments.json before mutating code."
+CLEAN_NOTICE="$(flow_strip_xml_tags "$COMBINED_NOTICE")"
+ESCAPED_NOTICE="$(flow_json_escape "$CLEAN_NOTICE")"
 
 case "$HARNESS" in
   agy|antigravity)
-    printf '{"injectSteps":[{"systemMessage":{"systemMessage":"%s"}}]}\n' "$NOTICE_MSG"
+    printf '{"injectSteps":[{"systemMessage":{"systemMessage":"%s"}}]}\n' "$ESCAPED_NOTICE"
     ;;
   cursor)
-    printf '{"continue":true,"additional_context":"%s"}\n' "$NOTICE_MSG"
+    printf '{"continue":true,"additional_context":"%s"}\n' "$ESCAPED_NOTICE"
     ;;
   claude|vscode|*)
-    printf '{"continue":true,"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"%s"}}\n' "$NOTICE_MSG"
+    printf '{"continue":true,"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"%s"}}\n' "$ESCAPED_NOTICE"
     ;;
 esac
