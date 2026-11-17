@@ -1,22 +1,24 @@
-# Flow Direct Markdown & Git State Contract
+# Flow Markdown & Git State Contract
 
-Specifications (`.agents/bundles/specs/<flow_id>/spec.md`), chapter specifications (`.agents/bundles/specs/<flow_id>/chapters/<ch_id>/spec.md`), and task worksheets (`tasks/<id>-<slug>.md`) are the sole authority for Flow state and continuity. Agents read and update these Markdown files directly in present tense and verify continuity against Git commit history (`HEAD`, task `commit` SHAs, and `last_reviewed_commit`).
+Specs (`.agents/bundles/specs/<flow_id>/spec.md`), chapter specs (`.agents/bundles/specs/<flow_id>/chapters/<ch_id>/spec.md`), and task worksheets (`tasks/<id>-<slug>.md`) are the sole authority for Flow state.
+Agents read and update these Markdown files in present tense and verify continuity against Git history (`HEAD`, task `commit` SHAs, and `last_reviewed_commit`).
 
-## Root Resolution, Worktree Routing, & Bundle Layout
+## Root Resolution, Worktrees & Bundle Layout
 
 - `<configured-root>` is `root_directory` from `.agents/setup-state.json` (default `.agents`).
 - `<bundle-root>` is `bundle_root` from `.agents/setup-state.json` (default `.agents/bundles`).
-- `<flow-root>` is `<bundle-root>/specs/<flow_id>`. Resolved paths stay inside the repository root or, inside a linked `git worktree` (`git rev-parse --git-common-dir`), a symlink targeting the primary checkout's `.agents` / `.venv` directory:
+- `<flow-root>` is `<bundle-root>/specs/<flow_id>`.
+- Resolved paths stay inside the repository root or, in a linked `git worktree` (`git rev-parse --git-common-dir`), a symlink to the primary checkout's `.agents` or `.venv`:
   - **`ignore_policy: shared`**: `.agents/` is tracked in Git; work directly in the worktree's `.agents/bundles/` Markdown.
-  - **`ignore_policy: local-only`**: `.agents/` lives in the primary checkout (`$MAIN_WORKTREE/.agents`, symlinked at `$WORKTREE/.agents`); read and write all Flow Markdown in the primary checkout so zero diverging copies exist.
-- **Single-Chapter Flow (Default for Cohesive Deliverables)**:
+  - **`ignore_policy: local-only`**: `.agents/` lives in the primary checkout (`$MAIN_WORKTREE/.agents`, symlinked at `$WORKTREE/.agents`); read and write Flow Markdown in the primary checkout.
+- **Single-Chapter Flow (Default for Cohesive Features)**:
   - `<flow-root>/spec.md` (`has_chapters: false`) + `<flow-root>/tasks/tNN-<slug>.md` (`worksheet_format: compact` or `full`).
-- **Multi-Chapter Flow (`Medium` & `Large` Tiers — Staged Checkpoints, Parallel Subsystems, `empirical_dependent` Gates, or `/flow:prd`)**:
-  - `<flow-root>/spec.md` — Full-plan roadmap (`has_chapters: true`, `current_chapter`, `chapters: [ch01-<slug>, ...]`, cross-chapter public seams and shared types, Flow-Wide Documentation & OKF Knowledge Plan, full chapter checklist, and present-tense state snapshot).
-  - `<flow-root>/chapters/index.md` — Frontmatter-free OKF v0.2 directory catalog (`# Chapters: <Title>` + `* [ch01 — <Title>](ch01-<slug>/spec.md) — [<state>] <one-sentence present-tense scope>`).
+- **Multi-Chapter Flow (Staged Checkpoints, Parallel Subsystems, `empirical_dependent` Checks, or `/flow:prd`)**:
+  - `<flow-root>/spec.md` — Full roadmap (`has_chapters: true`, `current_chapter`, `chapters: [ch01-<slug>, ...]`, shared module interfaces and types, `Documentation & OKF Knowledge Plan`, chapter checklist, and `Current State & Remaining Plan Snapshot`).
+  - `<flow-root>/chapters/index.md` — Frontmatter-free OKF v0.2 catalog (`# Chapters: <Title>` + `* [ch01 — <Title>](ch01-<slug>/spec.md) — [<state>] <one-sentence scope>`).
   - `<flow-root>/chapters/chNN-<slug>/{spec.md,planner-notes.md,tasks/tNN-<slug>.md}` (never mix root `specs/<flow_id>/tasks/` with `chapters/`).
 
-## Lifecycle Enums, OKF v0.2 Status, & Anti-Skip Rules
+## Lifecycle Enums, OKF Status & Completion Rules
 
 ```yaml
 spec_states: [draft, planned, active, paused, completed]
@@ -32,19 +34,23 @@ verification_strategies: [behavior_tdd, regression_tdd, characterization, static
 | Chapter / Task `state` | `spec.md` Checklist Marker | Meaning |
 | --- | --- | --- |
 | `pending`, `open`, or `planned` | `- [ ] <id> — <summary> (<rel-path>)` | Ready once `depends_on` / `depends_on_chapters` are `completed` and `planning_status: complete`. |
-| `in_progress` or `active` | `- [~] <id> — <summary> (<rel-path>)` | Claimed by the active chapter or executor turn. |
-| `completed` or `closed` | `- [x] [<sha>] <id> — <summary> (<rel-path>)` | Verified (`exit 0`), backed by Git diff ownership on declared `files:`/`tests:`, and chapter-reviewed at `<sha>`. |
+| `in_progress` or `active` | `- [~] <id> — <summary> (<rel-path>)` | Claimed by the active chapter or worker turn. |
+| `completed` or `closed` | `- [x] [<sha>] <id> — <summary> (<rel-path>)` | Verified (`exit 0`), backed by Git diff ownership on declared `files:`/`tests:`, and reviewed at `<sha>`. |
 | `blocked` | `- [!] <id> — <summary> (<rel-path>)` | Halted on a documented mismatch (`blocked_reason` + `unblock_condition`). |
 | `deferred` or `skipped` | `- [-] <id> — <summary> (<rel-path>)` | User-authorized deferral only (`deferred_by: "user"` + non-empty `deferred_reason`). |
 
-- **State vs. Status & Plan Quality**: Workflow state belongs strictly in `state:`; OKF v0.2 maturity (`draft | stable | deprecated`) belongs strictly in `status:`. Set `planning_quality: degraded` + non-empty `planning_degraded_reason` whenever quota fallback or timeout recovery prevented planning on the primary frontier thinking model.
-- **Mechanical Anti-Skip Invariants**: Root `spec.md` cannot be `state: completed` while any chapter is open; a chapter `spec.md` cannot be `state: completed` with `0` tasks or open tasks; `deferred`/`skipped` requires `deferred_by: "user"` + `deferred_reason`; and every `completed` task commit SHA must touch at least one non-ignored declared path in `files:` or `tests:`.
-- **Pause, Handoff, & Gate Overrides**: Set `state: paused` (or `paused: true` / `handoff: true`) on a root or chapter `spec.md` when deliberately pausing work for human handoff, or set `gate: advisory | off` in spec frontmatter to bypass Stop-gate blocking for that specification. Configure project-wide Stop-gate behavior via `.agents/setup-state.json` (`stop_gate: "enforce" | "advisory" | "off"`, `workflow_preferences.sha_tracking: "strict" | "advisory" | "off"`) or `FLOW_STOP_GATE=off|advisory`. Under default `strict` SHA tracking, `patch-id` equivalence and rewritten-`HEAD` detection tolerate rebased, amended, cherry-picked, and squash-merged commits without disabling stale-review checks on linear history.
-- **Present-Tense Living Markdown Rule**: Root `spec.md`, `chapters/index.md`, `chapters/<ch_id>/spec.md`, `tasks/*.md`, `knowledge/**`, and `docs/**` state current verified reality, remaining work, and the full plan in present tense—zero `Revision History` / `Changelog` headings, zero struck-through `~~` items, and zero standalone `---` body rules.
+- **State vs. Status & Plan Quality**: Workflow state belongs in `state:`; OKF v0.2 maturity (`draft | stable | deprecated`) belongs in `status:`.
+- **Degraded Plan Quality**: Set `planning_quality: degraded` and a non-empty `planning_degraded_reason` whenever quota fallback or timeout recovery prevented planning on the strongest model.
+- **Completion Check Rules**: Root `spec.md` cannot be `state: completed` while any chapter is open, and a chapter `spec.md` cannot be `state: completed` with `0` or open tasks.
+- **Deferral & Commit Rules**: `deferred` or `skipped` requires `deferred_by: "user"` and `deferred_reason`, and every `completed` task commit SHA must touch at least one non-ignored path in `files:` or `tests:`.
+- **Pause, Handoff & Stop-Check Overrides**: Set `state: paused` (or `paused: true` / `handoff: true`) on a spec when pausing for human handoff, or set `stop_check: advisory | off` in frontmatter.
+- **Project Stop-Check Config**: Configure project-wide stop checks via `.agents/setup-state.json` (`stop_check: "enforce" | "advisory" | "off"`, `workflow_preferences.sha_tracking: "strict" | "advisory" | "off"`) or `FLOW_STOP_CHECK=off|advisory`.
+- **SHA Tracking**: Under default `strict` SHA tracking, `patch-id` equivalence and rewritten-`HEAD` detection tolerate rebased, amended, cherry-picked, and squash-merged commits while preserving stale-review checks on linear history.
+- **Current-State Markdown Rule**: Root `spec.md`, `chapters/index.md`, `chapters/<ch_id>/spec.md`, `tasks/*.md`, `knowledge/**`, and `docs/**` state current reality and remaining work in present tense—no `Revision History` / `Changelog` headings, no `~~` items, and no standalone `---` rules.
 
 ## Normative Document Schemas
 
-### 1. Root or Nested Chapter Specification (`spec.md`)
+### 1. Root or Chapter Spec (`spec.md`)
 
 ```yaml
 ---
@@ -75,12 +81,12 @@ verified: [{ by: agent:code-reviewer, at: 2026-11-12T01:00:00Z, commit: 4f91c2a 
 sources:
   - id: auth-entry
     resource: src/auth/middleware.py::AuthMiddleware
-    title: Existing HTTP authentication middleware seam
+    title: Existing HTTP authentication middleware interface
 tags: [feature, auth, security]
 ---
 ```
 
-Open every `spec.md` body with a `<= 40`-line `<!-- truth: start --> ... <!-- truth: end -->` block followed by six sections:
+Open every `spec.md` body with a `<= 40`-line `<!-- truth: start --> ... <!-- truth: end -->` truth block followed by six sections:
 
 1. `## 1. Specification, Context & Provenance`
 2. `## 2. Requirements, Concrete Contracts & Architecture`
@@ -89,14 +95,14 @@ Open every `spec.md` body with a `<= 40`-line `<!-- truth: start --> ... <!-- tr
 5. `## 5. Implementation Plan` (checklist + fast `< 60s` **Chapter / Phase Recovery Checkpoint**)
 6. `## 6. Current State & Remaining Plan Snapshot`
 
-### 2. Task Worksheet (`tasks/<id>-<slug>.md` — `full` & `compact`)
+### 2. Task Worksheet (`tasks/<id>-<slug>.md`)
 
 ```yaml
 ---
 type: Task
 id: user-auth:ch02:t01
 chapter_id: ch02-session-middleware
-title: Implement ASGI session middleware and canonical public-seam tests
+title: Implement ASGI session middleware and public interface tests
 description: Validate bearer tokens via TokenSigner and attach Principal to request scope.
 status: stable
 state: pending
@@ -118,9 +124,8 @@ tags: [feature, auth, tdd]
 ---
 ```
 
-- **Structured Task Claim Identity**: When claiming a task (`state: in_progress`), stamp `claimed_by: <harness>:<session_id>[:<role_or_worktree>]` (`<harness> ∈ {agy, claude, codex, cursor, opencode, vscode, cli}`) and `claimed_at: <ISO-8601 UTC>`. Reset both `claimed_by` and `claimed_at` to `null` when releasing a claim back to `pending` or completing the task.
-
-- **Full Task Blueprint Headings (`worksheet_format: full` — Complex Contracts & Multi-Seam Slices)**:
+- **Task Claim Identity**: When claiming a task (`state: in_progress`), set `claimed_by: <harness>:<session_id>[:<role_or_worktree>]` (`<harness> ∈ {agy, claude, codex, cursor, opencode, vscode, cli}`) and `claimed_at: <ISO-8601 UTC>`. Reset both to `null` when releasing or completing the task.
+- **Full Worksheet Headings (`worksheet_format: full` — Complex Contracts)**:
   1. `## Objective & Scope Boundary`
   2. `## Bounded Read Manifest`
   3. `## Symbol & Signature Contracts`
@@ -129,7 +134,7 @@ tags: [feature, auth, tdd]
   6. `## Verification`
   7. `## Acceptance Criteria`
   8. `## Notes & Discoveries`
-- **Compact Task Worksheet Headings (`worksheet_format: compact` — Default for Cohesive Slices Across All Tiers)**:
+- **Compact Worksheet Headings (`worksheet_format: compact` — Default)**:
   1. `## Objective & Scope Boundary`
   2. `## Bounded Read Manifest`
   3. `## Contracts & Edge Cases`
@@ -138,7 +143,8 @@ tags: [feature, auth, tdd]
   6. `## Acceptance Criteria`
   *(Add `## Notes & Discoveries` during implementation when needed.)*
 
-## Direct State Mutations & Commit Sequencing
+## State Mutations & Commit Sequencing
 
-1. **Plan & Validate**: Author specs, task worksheets, and `chapters/<ch_id>/planner-notes.md`, run `/flow:validate` (`exit 0`), pass Zero-Context Review, and stamp `status: stable` + `plan_commit: <HEAD_SHA>`.
-2. **Execute Micro-Sliced Worker Waves & Zero-Token Sync**: Compile disjoint `ContextPack` waves (`flow-cli.mjs slices compile --packs`), execute slices (`<= 4` workers/wave), run deterministic `flow-cli.mjs spec sync` between waves, validate once at closeout, commit owned `files:`/`tests:` first to obtain `<CODE_SHA>`, and stamp `commit: <CODE_SHA>` + `[x] [<CODE_SHA>]` + present-tense Markdown/OKF updates in the pre-review sync commit (never `git commit --amend`) before stamping `last_reviewed_commit`.
+1. **Plan & Validate**: Write specs, task worksheets, and `chapters/<ch_id>/planner-notes.md`, run `/flow:validate` (`exit 0`), pass independent review, and stamp `status: stable` plus `plan_commit: <HEAD_SHA>`.
+2. **Run Parallel Steps & CLI Sync**: Build task briefs with `flow-cli.mjs tasks plan --briefs`, run up to `4` workers per step editing separate files, and sync checklists between steps with `flow-cli.mjs spec sync`.
+3. **Commit Code First**: Validate at closeout, commit owned `files:`/`tests:` first to obtain `<CODE_SHA>`, and stamp `commit: <CODE_SHA>`, `[x] [<CODE_SHA>]`, and present-tense Markdown/OKF updates in the pre-review sync commit (never `git commit --amend`) before stamping `last_reviewed_commit`.

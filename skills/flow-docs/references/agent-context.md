@@ -1,6 +1,6 @@
-# Agent Context, `.agents/` Layout, & Cross-Harness Configuration
+# Agent Context & Cross-Harness Configuration
 
-Standards for authoring high-leverage, low-token agent instructions (`AGENTS.md`, `.agents/skills/*/SKILL.md`, `.agents/agents/*.md`, `.codex/agents/*.toml`, `.agents/rules/*.md`, `.agents/bundles/knowledge/**/*.md`, and project-local MCP configurations) across **Google Antigravity**, **Claude Code**, **Codex CLI**, **Cursor**, **OpenCode V2**, and **VS Code / Copilot**.
+Standards for authoring low-token agent instructions (`AGENTS.md`, `.agents/skills/*/SKILL.md`, `.agents/agents/*.md`, `.codex/agents/*.toml`, `.agents/rules/*.md`, `.agents/bundles/knowledge/**/*.md`, and local MCP configs) across Google Antigravity, Claude Code, Codex CLI, Cursor, OpenCode V2, and VS Code.
 
 ## Project-Local Discovery Matrix (`.agents/` & Repo Configs)
 
@@ -28,7 +28,7 @@ Every line in an agent instruction system trades off two costs:
 
 ### Budgeting Rules
 
-1. **`AGENTS.md` (`<= 100` lines)**: Treat `AGENTS.md` strictly as a map of **context pointers** plus canonical developer commands (build, lint, typecheck, and test gates). Never paste full styleguides or multi-page architecture manuals into `AGENTS.md`.
+1. **`AGENTS.md` (`<= 100` lines)**: Treat `AGENTS.md` as a map of **context pointers** plus canonical developer commands (build, lint, typecheck, and test checks). Never paste full styleguides or multi-page architecture manuals into `AGENTS.md`.
 2. **`<!-- truth: start -->` Blocks (`<= 40` lines)**: Session-start priming extracts only bounded truth blocks from `product/product.md`, `product/product-guidelines.md`, `product/tech-stack.md`, `knowledge/workflow.md`, and `knowledge/patterns/*.md`. Keep truth blocks tight (`<= 40` lines of non-negotiable invariants) and place detailed examples below `<!-- truth: end -->`.
 3. **`SKILL.md` (`<= 200` lines, `< 24,000` bytes)**: Google Antigravity truncates `SKILL.md` files past `24,000` bytes, silently dropping `Guardrails` and `Validation` sections at the bottom of oversized files. Inline only the universal backbone in `SKILL.md` and disclose branch-specific procedures into `references/*.md`.
 
@@ -42,7 +42,7 @@ Organize every skill and knowledge bundle across three disclosure levels:
 | **In-File Reference** | `SKILL.md` tables & `## Guardrails` | Shared schemas, invariants, or decision tables that every branch in `SKILL.md` consults. |
 | **Disclosed Reference** | `references/<branch>.md` or `knowledge/<area>/<topic>.md` | Branch-specific procedures, checklists, or deep domain catalogs loaded only when the agent takes that branch. |
 
-- **Progressive Disclosure by Branching**: If a skill has distinct operational modes (such as schema migrations, query builders, and connection pooling in a database skill), put each branch's detailed procedure in its own `references/<branch>.md` file and link to it from the branch step.
+- **Progressive Disclosure by Branching**: When a skill has distinct modes (such as migrations, query builders, and pooling in a database skill), place each branch's procedure in `references/<branch>.md`. Link to it from the branch step.
 - **Co-Location**: Keep a concept's definition, rules, and edge cases together under a single heading. Never scatter caveats for a step into a miscellaneous `"Notes"` or `"Tips"` section at the bottom of the file.
 
 ## Context Pointers (`description:` & Index Tables)
@@ -63,7 +63,7 @@ Format project-local Markdown subagents so they parse cleanly across all support
 ```yaml
 ---
 name: api-reviewer
-description: "Review API routes, DTO schemas, and public-seam tests for contract compliance."
+description: "Review API routes, DTO schemas, and public-interface tests for contract compliance."
 model: inherit
 mainAgent: false
 subagent: true
@@ -83,26 +83,26 @@ disallowedTools:
 ```
 
 - **Top-Level H1 (`# `) Headings**: Google Antigravity splits subagent Markdown bodies into system-prompt sections only on top-level H1 (`# Header`) lines (`##` headings collapse into a single fallback section). Use `# Role & Identity`, `# Responsibilities`, `# Verification & Constraints`, and `# Output Contract`, with `###` for subsections.
-- **`mainAgent: false` + `subagent: true` & Sandboxed Read-Only Verification**: Keeps specialized reviewers and domain specialists out of the primary top-level agent dropdown while keeping them invokable via subagent tools and `run_workflow`. Setting `commandExecutionPolicy: sandbox` alongside `readonly: true` and `disallowedTools` lets read-only reviewers run `git diff` and read-only checks. On Google Antigravity, invoke subagents with `type_name="self"` (`model="inherit"`) pointing at the on-disk `agents/<role>.md` or `.agents/agents/<name>.md` contract so full read, shell, search, and MCP capabilities are inherited cleanly.
-- **Cross-Harness `Stop` Gates**: Pair `SessionStart` priming with zero-dependency `Stop` hooks (`hooks/stop-check.{sh,ps1}` and OpenCode `ctx.session.hook("context", ...)`) that verify task-to-checklist parity, `last_reviewed_commit` chapter review stamps, and history-free present-tense roadmap synchronization before ending a turn.
+- **`mainAgent: false` + `subagent: true` & Sandboxed Verification**: Keeps specialized reviewers out of the primary agent dropdown while keeping them invokable via subagent tools and `run_workflow`. Pair `commandExecutionPolicy: sandbox` with `readonly: true` and `disallowedTools` so read-only reviewers can run `git diff`. On Google Antigravity, invoke subagents with `type_name="self"` pointing at `agents/<role>.md` or `.agents/agents/<name>.md` so read, shell, search, and MCP tools stay available.
+- **Cross-Harness `Stop` Checks**: Pair `SessionStart` priming with `Stop` hooks (`hooks/stop-check.{sh,ps1}` and OpenCode `ctx.session.hook("context", ...)`). They verify checklist parity, `last_reviewed_commit` stamps, and present-tense roadmap sync before ending a turn.
 - **YAML List `tools` / `disallowedTools`**: Always format tool lists as YAML arrays (`- Edit`). Never use comma-separated strings (`tools: Read, Grep`), which fail YAML list unmarshaling and silently drop the subagent.
 - **Inherit Model**: Always set `model: inherit` for cross-harness compatibility.
 
-## Completion Criteria, Leading Words, & Positive Framing
+## Completion Criteria & Positive Framing
 
 - **Completion Criteria Drive Legwork**:
   - Weak completion criteria (`"Review the module and update docs as needed"`) invite premature completion.
-  - Strong completion criteria combine **Clarity** (an explicit checklist of postconditions) and **Demand** (requiring concrete outputs such as `[N/N files documented]`, an `ADOPT` / `CONTEST` / `ESCALATE` Adjudication Ledger, or exit code `0` from the verification gate).
-- **Use Pretrained Leading Words**:
-  - Prefer compact, high-leverage engineering terms that carry dense pretrained meaning—`seam`, `deep module`, `adapter`, `idempotent`, `vertical slice`, `red`, `tight`, `sediment`, `tautological`—over multi-sentence explanations.
+  - Strong completion criteria combine **Clarity** (an explicit checklist of postconditions) and **Demand** (concrete outputs like `[N/N files documented]`, an `ADOPT` / `CONTEST` / `ESCALATE` review summary, or exit code `0` from the check).
+- **Use Plain Technical Terms**:
+  - Prefer direct engineering terms—`deep module`, `adapter`, `idempotent`, `public interface`, `fast failing test`—over long explanations or coined jargon.
 - **Frame Instructions Positively**:
   - Negation (`"Don't write tests in separate remediation files"`) forces the model to activate the forbidden pattern first. Lead with the positive target (`"Place all new unit tests inside the canonical module test file tests/<module>/test_<unit>.py"`), then state the boundary concisely.
 
 ## Pruning Discipline
 
-Whenever authoring or resynthesizing `AGENTS.md`, `SKILL.md`, or `.agents/bundles/knowledge/**/*.md`, prune four classes of waste:
+Whenever authoring or refreshing `AGENTS.md`, `SKILL.md`, or `.agents/bundles/knowledge/**/*.md`, prune four classes of waste:
 
 1. **Duplicate Truth**: If an invariant or schema is defined in a canonical architecture or pattern chapter, link to that chapter instead of copying the schema into multiple files.
-2. **Stale Environment Cache**: Do not copy full `Makefile` targets, dependency versions, or directory trees into prose unless documenting a non-obvious constraint, unwritten convention, or reason behind a choice. The repository's manifest files are the source of truth for what exists; documentation caches *why* and *how seams fit together*.
-3. **Chronological Sediment**: Delete historical migration notes, struck-through requirements, and `"formerly"` callouts from active specs, skills, and knowledge chapters.
+2. **Stale Environment Cache**: Do not copy full `Makefile` targets, dependency versions, or directory trees into prose unless documenting a non-obvious constraint or reason behind a choice. Manifest files are the source of truth; docs explain *why* and how modules connect.
+3. **Stale History**: Delete historical migration notes, struck-through requirements, and `"formerly"` callouts from active specs, skills, and knowledge chapters.
 4. **Model-Relative No-Ops**: Delete instructions that tell the agent to do what it already does by default (such as `"Use valid syntax"` or `"Be helpful and thorough"`). Every remaining line must steer behavior on a real failure mode.

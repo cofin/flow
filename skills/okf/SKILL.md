@@ -56,11 +56,11 @@ archive:
 │   └── tech-stack.md
 ├── knowledge/                      # Hierarchical OKF v0.2 knowledge base
 │   ├── index.md
-│   ├── workflow.md                 # Canonical build, lint, typecheck, test, and release gates
+│   ├── workflow.md                 # Canonical build, lint, typecheck, test, and release checks
 │   ├── architecture/<area>.md      # Subsystem boundaries, dataflow, concurrency, IPC/RPC contracts
 │   ├── patterns/<topic>.md         # Language/framework idioms, class layout, serialization conventions
 │   ├── domains/<domain>.md         # Domain vocabulary, invariants, adapters, and business rules
-│   ├── testing/<topic>.md          # Test matrix, fixture patterns, SUT integrity rules
+│   ├── testing/<topic>.md          # Test cases, fixture patterns, and test boundary rules
 │   ├── gotchas/<area>.md           # Non-obvious footguns, runtime traps, platform quirks
 │   └── decisions/adr-NNN-<slug>.md # Architectural Decision Records (context, decision, rejected alternatives)
 ├── research/                       # Project-wide promoted primary-source research notes
@@ -126,14 +126,14 @@ Place a bounded (`<= 40` lines) machine-checkable invariant block at the top of 
    - Place each concept in its domain directory (`product/`, `knowledge/{architecture,patterns,domains,testing,gotchas,decisions}/`, `research/`, or `specs/<flow_id>/`) with YAML frontmatter (`type`, `title`, `description`, `status`, `tags`, `generated`, `verified`, `sources`).
    - Add a bounded `<= 40`-line `<!-- truth: start -->` block at the top of the body and cite every `sources[].id` entry via a matching `[^id]` footnote.
 3. **Validate Bundle Integrity**:
-   - Verify all relative links in `index.md` files resolve on disk, reserved files (`index.md`, `log.md`) omit concept-only keys (`type`, `status`, `sources`), and completed specs are contracted into `knowledge/**` upon `/flow:archive`.
+   - Verify all relative links in `index.md` files resolve on disk, reserved files (`index.md`, `log.md`) omit concept-only keys (`type`, `status`, `sources`), and completed specs are captured in `knowledge/**` upon `/flow:archive`.
 
 ## Guardrails
 
 - **State vs. Status Invariant**: Workflow state (`draft`, `planned`, `active`, `completed` on `Spec`; `pending`, `in_progress`, `completed`, `blocked`, `deferred` on `Task`) lives strictly in `state:`. Document maturity (`draft`, `stable`, `deprecated`) lives strictly in `status:`. Never mix them.
 - **Reserved Files & Body Delimiters**: Root `bundles/index.md` carries `okf_version: "0.2"` and `bundle: <repo-slug>` (unless `catalog.yaml` supplies scope), whereas every subdirectory `index.md` (`product/index.md`, `knowledge/index.md`, `specs/index.md`, `specs/<flow_id>/chapters/index.md`) and `log.md` carry **zero YAML frontmatter**. Never place standalone `---` horizontal rules inside `.agents/bundles/**/*.md` bodies so strict OKF YAML frontmatter splitters parse cleanly.
 - **Knowledge Catalog Exclusions & Size Budget**: Set `catalog_publish: false` in frontmatter, add globs to `catalog.yaml` (`catalog_exclude:` / `exclude:`), or place a `.kc-no-export` marker file to omit private files/subtrees from catalog ingestion; keep non-excluded overviews at or below `120,832` HTML-safe JSON-escaped bytes (`<`, `>`, `&` expanded) when `knowledge_catalog.enabled` is true.
-- **Zero Chronological Sediment**: Keep concept chapters, root `specs/<flow_id>/spec.md`, `chapters/index.md`, and `chapters/<ch_id>/spec.md` synchronized in place in present tense (current verified state, remaining chapters, and full plan) as chapters finish or revise; record chronological history exclusively in `log.md` and Git commits.
+- **Current State Only**: Keep concept chapters, root `specs/<flow_id>/spec.md`, `chapters/index.md`, and `chapters/<ch_id>/spec.md` updated in place in present tense as chapters finish or change. Record chronological history in `log.md` and Git commits.
 - **Single-Sentence Chapter Scope**: Whenever a knowledge chapter requires more than one crisp sentence in `description:` or exceeds `~200` lines, split it into focused nested chapters and link them from the parent `index.md`.
 
 ## Validation

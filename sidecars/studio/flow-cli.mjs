@@ -4,7 +4,7 @@
  *
  * Subcommands:
  *   flow-cli.mjs spec <status|preflight|sync|import|dag|closeout> [...]
- *   flow-cli.mjs slices compile --flow <id> [--chapter <ch>] [--packs] [--ws <dir>]
+ *   flow-cli.mjs tasks plan --flow <id> [--chapter <ch>] [--briefs] [--ws <dir>]
  *   flow-cli.mjs models <inspect|route|materialize> [...]
  *   flow-cli.mjs review plan [--range <r>] [--spec <p>] [--mode auto|single|dual|committee]
  *   flow-cli.mjs catalog <search|index|drift|status> [...]
@@ -23,8 +23,8 @@ import { DynamicModelCatalog, loadModelCalibrationConfig } from "./models/invent
 import { HarnessProfileMaterializer } from "./models/profiles.mjs";
 import { AdaptiveModelRouter, DecisionEngine } from "./models/routing.mjs";
 import { ReviewRoster } from "./spec/review-roster.mjs";
-import { SliceCompiler } from "./spec/slice-compiler.mjs";
 import { SpecEngine } from "./spec/spec-engine.mjs";
+import { TaskPlanner } from "./spec/task-planner.mjs";
 
 function parseFlags(args) {
   /** @type {Record<string, any>} */
@@ -126,13 +126,13 @@ export async function runFlowCli(argv = process.argv.slice(2)) {
     throw new Error(`Unknown spec action: ${action}`);
   }
 
-  if (group === "slices") {
-    const compiler = new SliceCompiler(ws, {
-      ...(opts["max-loc"] ? { maxSliceLoc: Number(opts["max-loc"]) } : {}),
-      ...(opts["max-files"] ? { maxSliceFiles: Number(opts["max-files"]) } : {}),
-      ...(opts["max-workers"] ? { maxWaveWorkers: Number(opts["max-workers"]) } : {}),
+  if (group === "tasks") {
+    const planner = new TaskPlanner(ws, {
+      ...(opts["max-loc"] ? { maxTaskLoc: Number(opts["max-loc"]) } : {}),
+      ...(opts["max-files"] ? { maxTaskFiles: Number(opts["max-files"]) } : {}),
+      ...(opts.workers ? { workers: Number(opts.workers) } : {}),
     });
-    if (action === "compile") {
+    if (action === "plan") {
       const excludeTaskIds = String(opts["exclude-tasks"] || "")
         .split(",")
         .map((s) => s.trim())
@@ -141,16 +141,16 @@ export async function runFlowCli(argv = process.argv.slice(2)) {
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean);
-      return compiler.compile({
+      return planner.plan({
         flowId: opts.flow || opts._[0],
         chapterId: opts.chapter || null,
         allReadyChapters: Boolean(opts["all-ready-chapters"]),
-        includeContextPacks: Boolean(opts.packs),
+        includeBriefs: Boolean(opts.briefs),
         excludeTaskIds,
         excludePaths,
       });
     }
-    throw new Error(`Unknown slices action: ${action}`);
+    throw new Error(`Unknown tasks action: ${action}`);
   }
 
   if (group === "models") {
@@ -277,7 +277,7 @@ export async function runFlowCli(argv = process.argv.slice(2)) {
     throw new Error(`Unknown worktree action: ${action}`);
   }
 
-  throw new Error(`Unknown flow-cli group '${group}'. Expected spec, slices, models, review, catalog, harness, or worktree.`);
+  throw new Error(`Unknown flow-cli group '${group}'. Expected spec, tasks, models, review, catalog, harness, or worktree.`);
 }
 
 const isEntrypoint = (() => {

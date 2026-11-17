@@ -2,7 +2,7 @@
  * Canonical OKF v0.2 Specification Engine for Flow.
  *
  * Owns spec status, scaffolding, markdown document reading, plan import,
- * dependency DAG calculation, preflight checks, zero-token checklist/frontmatter sync,
+ * dependency ordering, preflight checks, direct checklist and frontmatter sync,
  * claim release, and spec closeout across CLI, workflows, MCP, and Studio UI.
  */
 
@@ -238,6 +238,7 @@ function readTaskWorksheet(taskFile, agentsBaseRoot, { flowId, chapterId = null 
     read_set: doc.textList("read_set"),
     files: doc.textList("files"),
     tests: doc.textList("tests"),
+    lock_scopes: doc.textList("lock_scopes"),
     estimated_loc: doc.integer("estimated_loc"),
     plan_revision: doc.integer("plan_revision"),
     commit: doc.text("commit_sha") || doc.text("commit") || null,
@@ -295,6 +296,7 @@ function reconcileChecklistWithTasks(body, tasks, { flowId, chapterId = null, sp
         read_set: [],
         files: [],
         tests: [],
+        lock_scopes: [],
         estimated_loc: null,
         plan_revision: null,
         commit: item.commit,
@@ -613,8 +615,8 @@ export class SpecEngine {
       "## 4. Roadmap Checklist",
       "",
       hasChapters
-        ? "- [ ] `ch01-foundation` — Initial vertical-slice foundation"
-        : "- [ ] `t01` — Initial vertical-slice implementation",
+        ? "- [ ] `ch01-foundation` — Initial foundation chapter"
+        : "- [ ] `t01` — Initial implementation task",
       "",
     ];
     writeTextAtomic(specFile, `${fmLines.join("\n")}${bodyLines.join("\n")}`);
@@ -624,7 +626,7 @@ export class SpecEngine {
       fs.mkdirSync(path.join(ch01, "tasks"), { recursive: true });
       writeTextAtomic(
         path.join(specDir, "chapters", "index.md"),
-        `# ${title} — Chapter Catalog\n\n- [ ] [ch01-foundation](ch01-foundation/spec.md) — Initial vertical-slice foundation\n`,
+        `# ${title} — Chapter Catalog\n\n- [ ] [ch01-foundation](ch01-foundation/spec.md) — Initial foundation chapter\n`,
       );
       writeTextAtomic(
         path.join(ch01, "spec.md"),
@@ -641,7 +643,7 @@ export class SpecEngine {
           "",
           "# Chapter 01 — Foundation",
           "",
-          "- [ ] `t01` — Define public seam and vertical-slice tests",
+          "- [ ] `t01` — Define public interface and tests",
           "",
         ].join("\n"),
       );
@@ -753,7 +755,7 @@ export class SpecEngine {
       const short = `t${String(parsedTasks.length + 1).padStart(2, "0")}`;
       parsedTasks.push({
         short,
-        slug: `${short}-${slugBase || "slice"}`,
+        slug: `${short}-${slugBase || "task"}`,
         taskId: `${cleanId}:${short}`,
         title: sec.title,
         description: sec.lines.find((l) => l.trim().startsWith("- "))?.trim().slice(2) || sec.title,
@@ -1040,6 +1042,7 @@ export class SpecEngine {
         depends_on: [...t.depends_on],
         files: [...t.files],
         tests: [...t.tests],
+        lock_scopes: [...(t.lock_scopes || [])],
         estimated_loc: t.estimated_loc ?? null,
         rel_path: t.rel_path,
         layer: taskLayers.get(t.id) ?? 0,
@@ -1357,7 +1360,7 @@ export class SpecEngine {
   }
 
   /**
-   * Deterministically claim active tasks before dispatching parallel worker slots.
+   * Claim active tasks consistently before dispatching parallel workers.
    *
    * @param {{ flowId: string, taskIds: string[], chapterId?: string | null, claimedBy?: string, claimedAt?: string | null, sync?: boolean, releaseStaleClaims?: boolean }} params
    */

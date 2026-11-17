@@ -92,6 +92,7 @@ lint:                                               ## Check Markdown, Python, a
 	@uv run ruff check tools/ tests/ workflows/flow_common/
 	@uv run ruff format --check tools/ tests/ workflows/flow_common/
 	@uv run mypy tools/ tests/
+	@uv run mypy workflows/flow_common/
 	@uv run pyright tools/ tests/
 	@echo "${OK} Lint passed"
 

@@ -1,36 +1,29 @@
-# Flow Revise (`/flow:revise`, alias `/flow:refine`)
+# Flow Revise (`/flow:revise`, `/flow:refine`)
 
-Update, split, or deepen a root specification (`specs/<flow_id>/spec.md`), nested chapter specification (`specs/<flow_id>/chapters/<ch_id>/spec.md`), and task blueprints (`tasks/<id>-<slug>.md`) **in place in present tense**—before execution (`/flow:refine`), when promoting an `empirical_dependent` chapter, when upgrading a `planning_quality: degraded` fallback plan on the primary frontier thinking model, or mid-execution when a chapter/task hits code drift (`/flow:revise`).
-
-<!-- flow-execution-policy: start -->
-```yaml
-contract: worksheet-execution-v1
-invariants:
-  - worksheet-first
-  - zero-decision-implementation-readiness
-  - anti-truncation-chapter-expansion
-  - present-tense-full-plan-sync
-  - write-time-okf-validation
-  - fail-closed-no-production-mutation
-  - fresh-validated-plan-resume
-authority: skills/flow/references/revise.md
-```
-<!-- flow-execution-policy: end -->
+Update, split, or deepen a root spec (`specs/<flow_id>/spec.md`), chapter spec (`specs/<flow_id>/chapters/<ch_id>/spec.md`), and task worksheets (`tasks/<id>-<slug>.md`) **in place in present tense**.
+Use this before execution (`/flow:refine`), when promoting an `empirical_dependent` chapter, when upgrading a `planning_quality: degraded` plan on the strongest model, or mid-execution after code drift (`/flow:revise`).
 
 ## Workflow
 
-### Phase 1: Scoped Inspection, Gap Scan, & Chapter Expansion Check
+### Phase 1: Scoped Inspection & Scope Check
 
 1. Read root `.agents/bundles/specs/<flow_id>/spec.md`, `chapters/index.md` (when `has_chapters: true`), [`../../../templates/agent/plan-schema-card.md`](../../../templates/agent/plan-schema-card.md), and only the target `chapters/<ch_id>/spec.md`, `planner-notes.md`, and `tasks/*.md`.
-2. Inspect `blocked_reason`/`unblock_condition` (when `state: blocked`), upstream empirical measurements in `replan_trigger` (when `planning_status: empirical_dependent`, promoting to `planning_status: complete` and `replan_trigger: null`), or `planning_degraded_reason` (upgrading to `planning_quality: standard` + `planning_degraded_reason: null` once re-verified on the primary frontier thinking model).
-3. **Anti-Truncation & Deliverable-Sizing Check**: Never compress capabilities or omit docs/edge cases, and never split one cohesive deliverable into unnecessary tiny chapters. Keep tasks cohesive around vertical slices (zero artificial caps on chapter task count, `read_set`, or `estimated_loc`; `compact` worksheets allowed across all tiers), and ensure checkpoints use fast (`< 60s`) lint + targeted unit test commands.
+2. Inspect `blocked_reason` and `unblock_condition` when `state: blocked`, or upstream measurements in `replan_trigger` when `planning_status: empirical_dependent` (promoting to `planning_status: complete` and `replan_trigger: null`).
+3. When `planning_quality: degraded`, re-verify the plan on the strongest model and upgrade to `planning_quality: standard` with `planning_degraded_reason: null`.
+4. **Plan the Whole Scope**: Never drop capabilities, docs, or edge cases, and never split one cohesive feature into unnecessary tiny chapters.
+5. Keep tasks sized to the feature with their own tests (no artificial caps on chapter task count, `read_set`, or `estimated_loc`; `compact` worksheets are allowed everywhere), and keep checkpoints under `< 60s`.
 
-### Phase 2: Present-Tense Rewrite & Mandatory Root Roadmap Sync (Zero History)
+### Phase 2: Present-Tense Rewrite & Roadmap Sync
 
-1. Rewrite affected `chapters/<ch_id>/spec.md` and `tasks/<id>-<slug>.md` (`compact` or `full` per [`plan-schema-card.md`](../../../templates/agent/plan-schema-card.md)) in place in present tense with OKF v0.2 `sources:` + `[^id]:` footnotes, `<= 40`-line `<!-- truth: start -->` blocks, and zero standalone `---` body rules. If a `completed` chapter is reopened, reset `state: planned | active` and clear `last_reviewed_commit: null`.
-2. Simultaneously rewrite root `specs/<flow_id>/spec.md` and `specs/<flow_id>/chapters/index.md` in place in present tense (`chapters:`, `current_chapter`, shared contracts, `[k/N files documented]`, checklist, and `## 6. Current State & Remaining Plan Snapshot`), reconciling any impacted downstream chapters `chK..chNN` without leaving `Revision History` sections or struck-through `~~` items. Never mark any chapter or task `deferred`/`skipped` without `deferred_by: "user"` and `deferred_reason`.
+1. Rewrite affected `chapters/<ch_id>/spec.md` and `tasks/<id>-<slug>.md` (`compact` or `full` per [`plan-schema-card.md`](../../../templates/agent/plan-schema-card.md)) in place in present tense.
+2. Include OKF v0.2 `sources:` + `[^id]:` footnotes, `<= 40`-line `<!-- truth: start -->` truth blocks, and zero standalone `---` body rules.
+3. If a `completed` chapter is reopened, reset `state: planned | active` and clear `last_reviewed_commit: null`.
+4. Rewrite root `specs/<flow_id>/spec.md` and `specs/<flow_id>/chapters/index.md` in place in present tense (`chapters:`, `current_chapter`, shared contracts, `[k/N files documented]`, checklist, and `## 6. Current State & Remaining Plan Snapshot`).
+5. Sync any impacted downstream chapters `chK..chNN` without leaving `Revision History` sections or struck-through `~~` items.
+6. Never mark any chapter or task `deferred` or `skipped` without `deferred_by: "user"` and `deferred_reason`.
 
-### Phase 3: Deterministic OKF Validation, Scoped Review, & Re-Anchor `plan_commit`
+### Phase 3: Validation, Independent Review & Anchor
 
 1. Increment `plan_revision` once across root `spec.md`, revised `chapters/<ch_id>/spec.md`, and their `tasks/*.md`, reset unblocked tasks to `state: pending`, and run `/flow:validate` (`exit 0`).
-2. Dispatch `1` combined Zero-Context Reviewer (`type_name="self"` on Google Antigravity) scoped strictly to root `spec.md`, `chapters/index.md`, and the revised chapter(s), adjudicate findings (`ADOPT` / `CONTEST` / `ESCALATE`), surface any `planning_quality: degraded` warning, and stamp `status: stable` + `plan_commit: <HEAD_SHA>` upon `Approve`.
+2. Dispatch `1` combined Independent Reviewer (`type_name="self"` on Google Antigravity) scoped to root `spec.md`, `chapters/index.md`, and the revised chapter(s).
+3. Decide on each finding (`ADOPT` / `CONTEST` / `ESCALATE`), surface any `planning_quality: degraded` warning, and stamp `status: stable` plus `plan_commit: <HEAD_SHA>` upon `Approve`.

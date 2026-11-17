@@ -1,6 +1,6 @@
 ---
 name: flow
-description: "Use when a repository has .agents, when the user asks for Flow lifecycle routing, OKF v0.2 bundle task tracking, spec-driven planning, TDD implementation, status, learn/resynthesize, review, finish, archive, or /flow:* help."
+description: "Use when a repository has .agents, when the user asks for Flow lifecycle routing, OKF v0.2 bundle task tracking, spec-driven planning, TDD implementation, status, learn/refresh, review, finish, archive, or /flow:* help."
 ---
 
 # Flow Router
@@ -18,7 +18,7 @@ Route the requested operation directly to its owning lifecycle skill:
 - `setup` &rarr; [`flow-setup`](../flow-setup/SKILL.md) ([`references/setup.md`](references/setup.md), [`multi-harness-plugins`](../multi-harness-plugins/SKILL.md))
 - `prd` | `spec` (alias `plan`) | `revise` (alias `refine`) | `research` (alias `task`) &rarr; [`flow-planning`](../flow-planning/SKILL.md) ([`references/prd.md`](references/prd.md), [`references/spec.md`](references/spec.md), [`references/revise.md`](references/revise.md), [`references/research.md`](references/research.md))
 - `implement` | `status` &rarr; [`flow-execution`](../flow-execution/SKILL.md) ([`references/implement.md`](references/implement.md), [`references/status.md`](references/status.md))
-- `learn` (aliases `resynthesize`, `refresh`, `sync`) &rarr; [`flow-learn`](../flow-learn/SKILL.md) ([`references/learn.md`](references/learn.md), [`multi-harness-plugins`](../multi-harness-plugins/SKILL.md))
+- `learn` (aliases `refresh`, `sync`) &rarr; [`flow-learn`](../flow-learn/SKILL.md) ([`references/learn.md`](references/learn.md), [`multi-harness-plugins`](../multi-harness-plugins/SKILL.md))
 - `docs` | `pr` &rarr; [`flow-docs`](../flow-docs/SKILL.md) ([`prose-and-documentation.md`](../flow-docs/references/prose-and-documentation.md), [`agent-context.md`](../flow-docs/references/agent-context.md), [`prs-commits-and-changelogs.md`](../flow-docs/references/prs-commits-and-changelogs.md))
 - `review` | `finish` | `archive` | `cleanup` | `revert` | `validate` &rarr; [`flow-completion`](../flow-completion/SKILL.md) ([`references/review.md`](references/review.md), [`references/finish.md`](references/finish.md), [`references/archive.md`](references/archive.md), [`references/cleanup.md`](references/cleanup.md), [`references/revert.md`](references/revert.md), [`references/validate.md`](references/validate.md))
 
@@ -28,8 +28,9 @@ The router owns no disk mutations directly; it resolves the target lifecycle ski
 
 - Load only the selected lifecycle skill and its reference procedure.
 - Keep root specifications (`specs/<flow_id>/spec.md`), chapter catalogs (`chapters/index.md`), chapter specs (`chapters/<ch_id>/spec.md`), and task worksheets (`tasks/<id>-<slug>.md`) synchronized in place in present tense ([`references/state.md`](references/state.md)), validating OKF writes with `/flow:validate`.
-- Scale process and models proportionally ([`orchestration.md`](references/orchestration.md), [`skills-subagents-and-mcp-limits.md`](../multi-harness-plugins/references/skills-subagents-and-mcp-limits.md)): call shipped packaged workflows (`flow-scout`, `flow-spec-planning`, `flow-chapter-pipeline`, `flow-dual-review`) with `type_name="self"` on Google Antigravity, keep planning and spec review on the highest-capability Frontier tier (warning whenever `planning_quality: degraded`), run micro-sliced `ContextPack` waves with zero-token inter-wave sync and one consolidated gate at closeout, and never mark chapters or tasks `deferred` without `deferred_by: "user"`.
-- In linked `git worktree` checkouts, reuse the symlinked `.venv` via `uv run --no-sync` (never run `make install` unless dependencies changed); edit worktree `.agents/` when `ignore_policy` is `shared`, and edit the primary checkout's `.agents/` when `local-only`.
+- Scale process and models proportionally ([`orchestration.md`](references/orchestration.md), [`skills-subagents-and-mcp-limits.md`](../multi-harness-plugins/references/skills-subagents-and-mcp-limits.md)). Call shipped workflows (`flow-scout`, `flow-spec-planning`, `flow-chapter-pipeline`, `flow-dual-review`) with `type_name="self"` on Google Antigravity.
+- Keep planning and spec review on the `strong` model role and warn when `planning_quality: degraded`. Run tasks with briefs, let `flow-cli.mjs` sync state between steps, run one full check at closeout, and never mark chapters or tasks `deferred` without `deferred_by: "user"`.
+- In linked `git worktree` checkouts, reuse the symlinked `.venv` via `uv run --no-sync`. Edit worktree `.agents/` when `ignore_policy` is `shared`, and edit the primary checkout's `.agents/` when `local-only`.
 - Preserve Git history and tag immutability. Never push or open remote PRs without explicit user instruction.
 
 ## Output
@@ -61,3 +62,4 @@ Confirm one lifecycle owner matches the requested operation and that the active 
 - [Status](references/status.md)
 - [Studio](references/studio.md)
 - [Validate](references/validate.md)
+- [Vocabulary](references/vocabulary.md)

@@ -189,11 +189,11 @@ export class AntigravityBridge {
     const tiered = modelsPayload?.tieredModelIds || {};
     const catalog = new DynamicModelCatalog({ env: this.env });
     const normalized = catalog.normalizeCandidates("agy", models.map((m) => {
-      let tier = null;
-      if (Array.isArray(tiered.pro) && tiered.pro.includes(m.model_id)) tier = "pro";
-      else if (Array.isArray(tiered.flash) && tiered.flash.includes(m.model_id)) tier = "flash";
-      else if (Array.isArray(tiered.flashLite) && tiered.flashLite.includes(m.model_id)) tier = "flash_lite";
-      return { ...m, tiered_role: tier };
+      let role = null;
+      if (Array.isArray(tiered.pro) && tiered.pro.includes(m.model_id)) role = "pro";
+      else if (Array.isArray(tiered.flash) && tiered.flash.includes(m.model_id)) role = "flash";
+      else if (Array.isArray(tiered.flashLite) && tiered.flashLite.includes(m.model_id)) role = "flash_lite";
+      return { ...m, model_role: role };
     }));
 
     return {

@@ -1,6 +1,6 @@
 {
   "name": "flow-scout",
-  "description": "Run parallel read-only SubsystemDigest reconnaissance scouts with federated local+sibling search and worker-slice boundary hints.",
+  "description": "Run parallel read-only subsystem research with local and sibling search plus task boundary hints.",
   "entry": "workflow.py",
   "args": {
     "type": "object",
@@ -22,11 +22,11 @@
       "query": {"type": "string", "description": "Optional federated knowledge search query."},
       "planes": {"type": "array", "items": {"type": "string"}, "description": "Search planes (local, siblings)."},
       "harness": {"type": "string", "description": "Active harness identifier."},
-      "scout_model": {"type": "string", "description": "Explicit scout model override."},
+      "scout_model": {"type": "string", "description": "Explicit researcher model override."},
       "narrow_model": {"type": "string", "description": "Explicit narrow-fetch model override."},
-      "scout_agent": {"type": "string", "description": "Custom agent profile for heavy scouts."},
-      "narrow_agent": {"type": "string", "description": "Custom agent profile for narrow scouts."},
-      "timeout_seconds": {"type": "integer", "description": "Per-scout timeout in seconds."}
+      "scout_agent": {"type": "string", "description": "Custom agent profile for heavy researchers."},
+      "narrow_agent": {"type": "string", "description": "Custom agent profile for narrow researchers."},
+      "timeout_seconds": {"type": "integer", "description": "Per-worker timeout in seconds."}
     },
     "required": ["subsystems"]
   }

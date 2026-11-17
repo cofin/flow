@@ -134,7 +134,7 @@ TURN0_NOTICE=""
 if ! flow_sibling_plugin_present && [ -n "$LAST_USER_TEXT" ]; then
   case "$LAST_USER_TEXT" in
     *"/plan"*|*"/Plan"*)
-      TURN0_NOTICE="Flow Turn-0 handoff: Keep plans outside the repository tree during /plan so Review remains active. Include concrete file path:line hints; after approval run node sidecars/studio/flow-cli.mjs spec import --from PLAN_PATH to materialize micro-slices."
+      TURN0_NOTICE="Flow Turn-0 handoff: Keep plans outside the repository tree during /plan so Review remains active. Include concrete file path:line hints; after approval run node sidecars/studio/flow-cli.mjs spec import --from PLAN_PATH to create task worksheets."
       ;;
     *"/learn"*)
       TURN0_NOTICE="Flow Turn-0 handoff: Route durable repository conventions to .agents/bundles/knowledge/ and keep user personal preferences outside repository files."

@@ -28,7 +28,7 @@ OKF is an open, human- and agent-friendly format for representing knowledge: the
 - **Provenance**: The set of sources a concept derives from.
 - **Credibility signal**: Objective facts (`author`, `usage_count`, `last_modified`) on a source.
 - **Actor**: String identifying who/what acted (`<producer>/<version>`, `human:<id>`, `process:<id>`).
-- **Trust tier**: Level inferred from verification (`unverified`, `machine-confirmed`, `human-reviewed`).
+- **Trust level**: Level inferred from verification (`unverified`, `machine-confirmed`, `human-reviewed`).
 - **Attested Computation**: A concept (`type: Attested Computation`) with a sanctioned execution contract.
 
 ---
@@ -117,7 +117,7 @@ verified:
   method: manual_inspection
 ```
 
-Trust tiers are inferred from signals:
+Trust levels are inferred from signals:
 
 - **Unverified**: No `verified` block.
 - **Machine-confirmed**: `verified.by` is an agent/tool.

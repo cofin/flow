@@ -22,7 +22,7 @@ from tools.validate import (
     validate_okf_bundle,
 )
 from workflows.flow_common import (
-    ExecutionSlotScheduler,
+    WorkerPool,
     resolve_workspace_commands,
     run_parallel_bounded,
 )
@@ -746,6 +746,7 @@ def test_state_contract_and_lifecycle_references_stay_lean() -> None:
         "status.md",
         "studio.md",
         "validate.md",
+        "vocabulary.md",
     }
     found_refs = {p.name for p in refs_dir.glob("*.md")}
     assert found_refs == expected_refs
@@ -787,24 +788,10 @@ def test_flow_docs_remains_tool_agnostic(forbidden_lockin: str) -> None:
 @pytest.mark.parametrize(
     ("rel_path", "expected_phrase"),
     (
-        ("skills/flow/references/interaction.md", "Orthogonal Frontier Batch"),
-        ("skills/flow/references/interaction.md", "Pre-Draft Question Coverage Gate"),
-        ("skills/flow/references/spec.md", "Problem Statement & Objectives"),
-        ("skills/flow/references/spec.md", "Zero-Context Isolation Rules"),
-        ("skills/flow/references/spec.md", "Compare Interface Alternatives"),
-        ("skills/flow/references/spec.md", "Anti-Truncation Rule"),
         ("skills/flow/references/spec.md", 'type_name="self"'),
-        ("skills/flow/references/prd.md", "North Star Goal & Problem Framing"),
         ("skills/flow/references/prd.md", "chapters/index.md"),
-        ("skills/flow/references/implement.md", "Public-Seam TDD"),
-        ("skills/flow/references/implement.md", "Hypothesis-Driven Bug Diagnosis Loop"),
-        ("skills/flow/references/implement.md", "pre-review present-tense Markdown/OKF synchronization"),
         ("skills/flow/references/implement.md", "last_reviewed_commit"),
-        ("skills/flow/references/revise.md", "anti-truncation-chapter-expansion"),
-        ("skills/flow/references/revise.md", "present-tense-full-plan-sync"),
-        ("skills/flow/references/review.md", "Baseline Structural Code Smells"),
-        ("skills/flow/references/review.md", "quality-review-v1"),
-        ("skills/flow/references/review.md", "Present-Tense Markdown, Full-Plan Roadmap, & Doc-Sync Conformance"),
+        ("skills/flow/references/vocabulary.md", "stealth mode"),
         ("rules/flow-antigravity.md", 'type_name="self"'),
         ("rules/flow-antigravity.md", "chapters/index.md"),
     ),
@@ -813,7 +800,7 @@ def test_lifecycle_references_encode_chaptered_planning_and_sync_contracts(
     rel_path: str,
     expected_phrase: str,
 ) -> None:
-    """Verify core Flow references and rules encode anti-truncation chaptered planning and pre-review sync."""
+    """Verify core Flow references and rules encode key tool-read contracts."""
     content = (REPO_ROOT / rel_path).read_text(encoding="utf-8")
     assert expected_phrase in content
 
@@ -1474,7 +1461,7 @@ def test_flow_chapter_pipeline_workflow_executes_bounded_batches_and_lease(tmp_p
             "chapter_id": "ch02-middleware",
             "tasks": [f"tasks/t0{i}-slice.md" for i in range(1, 8)],
             "execution_mode": "chapter_batch",
-            "batch_size": 5,
+            "tasks_per_worker": 5,
             "executor_model": "flash",
             "reviewer_model": "flash",
             "bundle_root": str(bundle_dir),
@@ -1506,8 +1493,8 @@ def test_flow_chapter_pipeline_workflow_executes_bounded_batches_and_lease(tmp_p
 
 
 @pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
-def test_slice_compiler_builds_disjoint_context_packs_within_token_cap(tmp_path: Path) -> None:
-    """Verify flow-cli slices compile produces disjoint wave schedules and pre-extracted <4k-token Context Packs."""
+def test_task_planner_builds_separate_file_briefs_within_token_cap(tmp_path: Path) -> None:
+    """Verify flow-cli tasks plan produces separate-file steps and <4k-token briefs."""
     bundle_dir = _seed_valid_multichapter_bundle(tmp_path)
     (tmp_path / "src" / "auth").mkdir(parents=True, exist_ok=True)
     (tmp_path / "src" / "auth" / "tokens.py").write_text(
@@ -1527,14 +1514,14 @@ def test_slice_compiler_builds_disjoint_context_packs_within_token_cap(tmp_path:
         encoding="utf-8",
     )
 
-    compiled = _run_flow_cli("slices", "compile", "--flow", "auth-refactor", "--packs", "--ws", str(tmp_path))
-    assert compiled["ready_task_count"] >= 1
-    assert compiled["waves"]
-    for wave in compiled["waves"]:
-        assert len(wave["slices"]) <= 4
-        for sl in wave["slices"]:
-            pack = sl["context_pack"]
-            assert pack["approx_tokens"] <= 4000
+    planned = _run_flow_cli("tasks", "plan", "--flow", "auth-refactor", "--briefs", "--ws", str(tmp_path))
+    assert planned["ready_task_count"] >= 1
+    assert planned["steps"]
+    for step in planned["steps"]:
+        assert len(step["tasks"]) <= 4
+        for task_group in step["tasks"]:
+            brief = task_group["brief"]
+            assert brief["approx_tokens"] <= 4000
     assert validate_okf_bundle(bundle_dir) == []
 
 
@@ -1668,35 +1655,35 @@ def test_work_conserving_slot_scheduler_cross_chapter_backfill_and_isolation(
     events: list[tuple[str, str, int]] = []
     slow_done = False
 
-    async def _run_slice(sl: dict[str, Any], slot_id: int) -> dict[str, Any]:
+    async def _run_group(group: dict[str, Any], worker_id: int) -> dict[str, Any]:
         nonlocal slow_done
-        tids = list(sl.get("task_ids") or [])
+        tids = list(group.get("task_ids") or [])
         tid = tids[0]
-        events.append(("start", tid, slot_id))
+        events.append(("start", tid, worker_id))
         if tid == "sched:ch01-alpha:t01":
             await asyncio.sleep(0.8)
             slow_done = True
         elif tid == "sched:ch01-alpha:t02":
             await asyncio.sleep(0.01)
-            events.append(("crash", tid, slot_id))
+            events.append(("crash", tid, worker_id))
             raise RuntimeError("worker transient error")
         else:
-            events.append(("ch02_while_ch01_slow", str(not slow_done), slot_id))
+            events.append(("ch02_while_ch01_slow", str(not slow_done), worker_id))
             await asyncio.sleep(0.01)
-        events.append(("done", tid, slot_id))
+        events.append(("done", tid, worker_id))
         return {
             "status": "completed",
             "commit_deferred_to_coordinator": True,
         }
 
-    scheduler = ExecutionSlotScheduler(
+    pool = WorkerPool(
         plugin_root=REPO_ROOT,
         flow_id="sched",
         workspace=ws,
-        max_workers=2,
+        workers=2,
         all_ready_chapters=True,
     )
-    summary = asyncio.run(scheduler.run(_run_slice))
+    summary = asyncio.run(pool.run(_run_group))
     assert ("ch02_while_ch01_slow", "True", 1) in events or ("ch02_while_ch01_slow", "True", 0) in events
     assert summary["failed_tasks"] == ["sched:ch01-alpha:t02"]
     assert "sched:ch02-beta:t01" in summary["dispatched_tasks"]

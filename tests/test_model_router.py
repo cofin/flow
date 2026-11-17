@@ -61,14 +61,14 @@ def test_normalize_quota_fraction_formats(raw_val: Any, expected: float | None) 
 
 
 @pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
-def test_adaptive_model_router_enforces_frontier_floor_cost_efficiency_and_vendor_diversity(tmp_path: Path) -> None:
-    """Verify continuous utility scoring, Frontier degradation flagging, and orthogonal adversarial routing."""
+def test_adaptive_model_router_enforces_strong_floor_cost_efficiency_and_vendor_diversity(tmp_path: Path) -> None:
+    """Verify continuous utility scoring, strong-model degradation flagging, and second-vendor review routing."""
     inventory = [
         {
             "model": "gemini-pro-primary",
             "displayName": "Gemini Pro Coordinator",
             "vendor": "google",
-            "tiered_role": "pro",
+            "model_role": "pro",
             "quota_remaining": "80%",
             "reasoning": True,
             "supported_efforts": ["high", "xhigh"],
@@ -79,7 +79,7 @@ def test_adaptive_model_router_enforces_frontier_floor_cost_efficiency_and_vendo
             "model": "claude-opus-adv",
             "displayName": "Claude Opus",
             "vendor": "anthropic",
-            "tiered_role": "frontier",
+            "model_role": "strong",
             "quota_remaining": "75%",
             "reasoning": True,
             "supported_efforts": ["high", "xhigh"],
@@ -90,7 +90,7 @@ def test_adaptive_model_router_enforces_frontier_floor_cost_efficiency_and_vendo
             "model": "gemini-flash-worker",
             "displayName": "Gemini Flash Thinking",
             "vendor": "google",
-            "tiered_role": "thinking_flash",
+            "model_role": "flash",
             "quota_remaining": "85%",
             "reasoning": True,
             "supported_efforts": ["medium", "high"],
@@ -101,7 +101,7 @@ def test_adaptive_model_router_enforces_frontier_floor_cost_efficiency_and_vendo
             "model": "gemini-flash-lite",
             "displayName": "Gemini Flash Lite",
             "vendor": "google",
-            "tiered_role": "light",
+            "model_role": "light",
             "quota_remaining": "99%",
             "reasoning": False,
             "supported_efforts": ["default"],
@@ -109,11 +109,11 @@ def test_adaptive_model_router_enforces_frontier_floor_cost_efficiency_and_vendo
             "cost_output": 0.2,
         },
     ]
-    exhausted_frontier = [
+    exhausted_strong = [
         {
             "model": "gemini-pro-primary",
             "vendor": "google",
-            "tiered_role": "pro",
+            "model_role": "pro",
             "quota_remaining": "0%",
             "reasoning": True,
             "supported_efforts": ["xhigh"],
@@ -121,7 +121,7 @@ def test_adaptive_model_router_enforces_frontier_floor_cost_efficiency_and_vendo
         {
             "model": "gemini-flash-lite",
             "vendor": "google",
-            "tiered_role": "light",
+            "model_role": "light",
             "quota_remaining": "95%",
             "reasoning": False,
             "supported_efforts": ["default"],
@@ -135,7 +135,7 @@ def test_adaptive_model_router_enforces_frontier_floor_cost_efficiency_and_vendo
         f"const cands = await catalog.discoverHarnessCatalog("
         f"{{ harness: 'agy', customInventory: {json.dumps(inventory)} }});"
         f"const lowCands = await catalog.discoverHarnessCatalog("
-        f"{{ harness: 'agy', customInventory: {json.dumps(exhausted_frontier)} }});"
+        f"{{ harness: 'agy', customInventory: {json.dumps(exhausted_strong)} }});"
         "const router = new AdaptiveModelRouter();"
         "const plan = router.select(cands, { taskKind: 'planning', risk: 'high' });"
         "const adv = router.select(cands, {"
@@ -149,17 +149,17 @@ def test_adaptive_model_router_enforces_frontier_floor_cost_efficiency_and_vendo
 
     assert out["plan"]["degraded"] is False
     assert out["plan"]["capability_index"] >= 0.8
-    assert out["plan"]["tier"] == "frontier"
+    assert out["plan"]["role"] == "strong"
     assert len(out["plan"]["fallback_chain"]) >= 2
 
     assert out["adv"]["model"] == "claude-opus-adv"
     assert out["adv"]["vendor"] == "anthropic"
 
     assert out["syncRoute"]["model"] == "gemini-flash-lite"
-    assert out["syncRoute"]["tier"] == "light"
+    assert out["syncRoute"]["role"] == "light"
 
     assert out["degradedPlan"]["degraded"] is True
-    assert "frontier floor" in out["degradedPlan"]["degraded_reason"]
+    assert "strong-model floor" in out["degradedPlan"]["degraded_reason"]
     assert out["degradedPlan"]["model"] == "gemini-flash-lite"
 
 
@@ -174,13 +174,13 @@ def test_decision_engine_escalates_on_retries_and_handles_http_confidence(tmp_pa
         "const escalated = await builtin.evaluate("
         "{ taskKind: 'implementation', filesCount: 3, estimatedLoc: 150, failedAttempts: 3 });"
         "const httpEngine = new DecisionEngine({"
-        "  provider: 'systemone-http',"
-        "  endpoint: 'http://127.0.0.1:9999/v1/systemone',"
+        "  provider: 'remote-http',"
+        "  endpoint: 'http://127.0.0.1:9999/v1/decide',"
         "  fetchImpl: async () => ({"
         "    ok: true,"
         "    json: async () => ({ answers: {"
         "      execution_lane: 'small_swarm', complexity_rubric: 2.0, confidence: 0.4,"
-        "      should_replan: true, needs_adversarial: true, needs_frontier_validation: true"
+        "      should_replan: true, needs_adversarial: true, needs_strong_review: true"
         "    } })"
         "  })"
         "});"
@@ -192,9 +192,9 @@ def test_decision_engine_escalates_on_retries_and_handles_http_confidence(tmp_pa
     assert out["fast"]["execution_lane"] == "inline_fast_path"
     assert out["fast"]["should_replan"] is False
     assert out["escalated"]["should_replan"] is True
-    assert out["escalated"]["needs_frontier_validation"] is True
+    assert out["escalated"]["needs_strong_review"] is True
     assert out["escalated"]["complexity_rubric"] > out["fast"]["complexity_rubric"]
-    assert out["remote"]["provider"] == "systemone-http"
+    assert out["remote"]["provider"] == "remote-http"
     assert out["remote"]["complexity_rubric"] == pytest.approx(2.75)
     assert out["remote"]["needs_adversarial"] is True
 
@@ -203,11 +203,11 @@ def test_decision_engine_escalates_on_retries_and_handles_http_confidence(tmp_pa
 @pytest.mark.parametrize(
     ("harness", "target", "expected_glob"),
     (
-        ("claude", "ide", ".claude/agents/flow-tier-*.md"),
-        ("codex", "ide", ".codex/agents/flow-tier-*.toml"),
-        ("cursor", "ide", ".cursor/agents/flow-tier-*.md"),
-        ("vscode", "ide", ".github/agents/flow-tier-*.agent.md"),
-        ("vscode", "copilot-cli", ".github/agents/flow-tier-*.agent.md"),
+        ("claude", "ide", ".claude/agents/flow-model-*.md"),
+        ("codex", "ide", ".codex/agents/flow-model-*.toml"),
+        ("cursor", "ide", ".cursor/agents/flow-model-*.md"),
+        ("vscode", "ide", ".github/agents/flow-model-*.agent.md"),
+        ("vscode", "copilot-cli", ".github/agents/flow-model-*.agent.md"),
     ),
 )
 def test_harness_profile_materializer_generates_native_tier_files(
@@ -222,21 +222,21 @@ def test_harness_profile_materializer_generates_native_tier_files(
         {
             "model": "tier-pro",
             "vendor": "anthropic",
-            "tiered_role": "pro",
+            "model_role": "pro",
             "reasoning": True,
             "supported_efforts": ["high", "xhigh"],
         },
         {
             "model": "tier-flash",
             "vendor": "anthropic",
-            "tiered_role": "flash",
+            "model_role": "flash",
             "reasoning": True,
             "supported_efforts": ["medium", "high"],
         },
         {
             "model": "tier-lite",
             "vendor": "anthropic",
-            "tiered_role": "light",
+            "model_role": "light",
             "reasoning": False,
             "supported_efforts": ["default"],
         },
@@ -254,18 +254,18 @@ def test_harness_profile_materializer_generates_native_tier_files(
     )
     out = _run_node(js, env={"FLOW_RUNTIME_DIR": str(tmp_path / "rt")})
 
-    assert set(out["written"].keys()) == {"frontier", "balanced", "fast", "light"}
+    assert set(out["written"].keys()) == {"strong", "standard", "fast", "light"}
     files = sorted(tmp_path.glob(expected_glob))
     assert len(files) == 4
     exclude_text = (tmp_path / ".git" / "info" / "exclude").read_text(encoding="utf-8")
-    assert ".claude/agents/flow-tier-*" in exclude_text
+    assert ".claude/agents/flow-model-*" in exclude_text
 
-    frontier_text = Path(out["written"]["frontier"]).read_text(encoding="utf-8")
-    assert "tier-pro" in frontier_text
+    strong_text = Path(out["written"]["strong"]).read_text(encoding="utf-8")
+    assert "tier-pro" in strong_text
     if harness == "vscode" and target == "copilot-cli":
-        assert "model: tier-pro" in frontier_text
+        assert "model: tier-pro" in strong_text
     elif harness == "vscode":
-        assert 'model: ["tier-pro"' in frontier_text
+        assert 'model: ["tier-pro"' in strong_text
 
 
 @pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
@@ -279,14 +279,14 @@ def test_flow_cli_models_inspect_route_and_materialize(tmp_path: Path) -> None:
                 {
                     "model": "opus-model",
                     "vendor": "anthropic",
-                    "tiered_role": "frontier",
+                    "model_role": "strong",
                     "reasoning": True,
                     "supported_efforts": ["xhigh"],
                 },
                 {
                     "model": "sonnet-model",
                     "vendor": "anthropic",
-                    "tiered_role": "flash",
+                    "model_role": "flash",
                     "reasoning": True,
                     "supported_efforts": ["medium"],
                 },
@@ -344,7 +344,7 @@ def test_flow_cli_models_inspect_route_and_materialize(tmp_path: Path) -> None:
     )
     routed = json.loads(route_proc.stdout)
     assert routed["runtime_target"] == "opus-model"
-    assert routed["decision"]["needs_frontier_validation"] is True
+    assert routed["decision"]["needs_strong_review"] is True
 
     mat_proc = subprocess.run(
         [
@@ -366,5 +366,5 @@ def test_flow_cli_models_inspect_route_and_materialize(tmp_path: Path) -> None:
         check=True,
     )
     materialized = json.loads(mat_proc.stdout)
-    assert "frontier" in materialized["written"]
-    assert Path(materialized["written"]["frontier"]).is_file()
+    assert "strong" in materialized["written"]
+    assert Path(materialized["written"]["strong"]).is_file()

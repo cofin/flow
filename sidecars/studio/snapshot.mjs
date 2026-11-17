@@ -225,14 +225,14 @@ function formatSnapshotTask(t) {
 
 function buildRecommendedAction(flowId, docKind, state, chapters, nextChapter, allTasks) {
   if (docKind.toUpperCase() === "PRD") {
-    return { label: "Spec Next Child Flow", command: `/flow:spec --parent ${flowId}` };
+    return { label: "Spec Next Flow", command: `/flow:spec --parent ${flowId}` };
   }
   if (allTasks.length === 0 && chapters.length === 0) {
-    return { label: "Generate Spec Blueprint", command: `/flow:spec ${flowId}` };
+    return { label: "Write Spec", command: `/flow:spec ${flowId}` };
   }
   const completed = allTasks.filter((t) => t.state === "completed").length;
   if (allTasks.length > 0 && completed === allTasks.length && state !== "completed") {
-    return { label: "Run Zero-Context Review", command: `/flow:review ${flowId}` };
+    return { label: "Review Flow", command: `/flow:review ${flowId}` };
   }
   if (nextChapter) {
     return {
@@ -242,7 +242,7 @@ function buildRecommendedAction(flowId, docKind, state, chapters, nextChapter, a
     };
   }
   if (state === "completed") {
-    return { label: "Finish & Resynthesize", command: `/flow:finish ${flowId}` };
+    return { label: "Finish Flow", command: `/flow:finish ${flowId}` };
   }
-  return { label: "Implement Next Slice", command: `/flow:implement ${flowId}` };
+  return { label: "Implement Flow", command: `/flow:implement ${flowId}` };
 }

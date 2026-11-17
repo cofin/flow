@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 # Portable POSIX sh + awk PreToolUse safety guard for Flow.
 # Enforces Git tag non-mutation, prompts on force-push/hard-reset, guards read-only agents,
-# and applies Claude-only (CLAUDECODE=1, non-Codex) Agent tier fallback when the Claude Mod is unloaded.
+# and applies Claude-only (CLAUDECODE=1, non-Codex) Agent model-role fallback when the Claude Mod is unloaded.
 set -eu
 
 HOOK_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" 2>/dev/null && pwd || dirname -- "$0")"
@@ -681,20 +681,20 @@ fi
 
 if [ "$DECISION" = "allow" ] && [ "$HARNESS" = "claude" ] && [ "${CLAUDECODE:-}" = "1" ] && [ -z "${CODEX_THREAD_ID:-}" ] && [ -z "${CODEX_CI:-}" ] && [ "${FLOW_MOD_LOADED:-}" != "1" ] && [ "$TOOL_NAME" = "Agent" ]; then
   if ! printf '%s' "$STDIN_PAYLOAD" | grep -q '"model"[[:space:]]*:[[:space:]]*"[^"]\+"'; then
-    TIER="balanced"
+    ROLE="standard"
     case "$AGENT_ID" in
-      *plan-generator*|*prd-orchestrator*) TIER="frontier" ;;
-      *researcher*) TIER="light" ;;
+      *plan-generator*|*prd-orchestrator*) ROLE="strong" ;;
+      *researcher*) ROLE="light" ;;
     esac
-    TIER_FILE="$PROJECT_DIR/.claude/agents/flow-tier-${TIER}.md"
-    if [ -f "$TIER_FILE" ]; then
-      TIER_MODEL="$(awk '
+    ROLE_FILE="$PROJECT_DIR/.claude/agents/flow-model-${ROLE}.md"
+    if [ -f "$ROLE_FILE" ]; then
+      ROLE_MODEL="$(awk '
         NR == 1 && /^---[[:space:]]*$/ { in_fm = 1; next }
         in_fm && /^---[[:space:]]*$/ { exit }
         in_fm && /^model:[[:space:]]*/ { v = $0; sub(/^model:[[:space:]]*/, "", v); gsub(/^["'\'']|["'\'']$/, "", v); gsub(/[[:space:]]+$/, "", v); print v; exit }
-      ' "$TIER_FILE")"
-      if [ -n "$TIER_MODEL" ] && [ "$TIER_MODEL" != "inherit" ]; then
-        printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","updatedInput":{"model":"%s"}}}\n' "$(flow_json_escape "$TIER_MODEL")"
+      ' "$ROLE_FILE")"
+      if [ -n "$ROLE_MODEL" ] && [ "$ROLE_MODEL" != "inherit" ]; then
+        printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","updatedInput":{"model":"%s"}}}\n' "$(flow_json_escape "$ROLE_MODEL")"
         exit 0
       fi
     fi

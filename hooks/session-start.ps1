@@ -324,7 +324,7 @@ if ($IsSubagent) {
             $BaseMsg = "$BaseMsg Active specs: $ActiveSpecs."
         }
         if (-not [string]::IsNullOrEmpty($DegradedPlans)) {
-            $BaseMsg = "$BaseMsg Degraded planning quality warning (planning_quality=degraded — not planned with optimal primary frontier thinking model): $DegradedPlans."
+            $BaseMsg = "$BaseMsg Degraded planning quality warning (planning_quality=degraded — not planned with the strongest model): $DegradedPlans."
         }
         if (-not [string]::IsNullOrEmpty($PendingSync)) {
             $BaseMsg = "$BaseMsg Pending chapter review/Markdown sync: $PendingSync."

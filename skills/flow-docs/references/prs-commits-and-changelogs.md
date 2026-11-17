@@ -34,7 +34,7 @@ Add OAuth2 PKCE token exchange to `AuthService`, enforce state-parameter expirat
 - **Changed**: Updated `SessionStore.consume_oauth_state()` to reject expired or replayed state tokens.
 
 ### HTTP Routes & Tests (`src/api/`, `tests/auth/`)
-- **Added**: Callback route handler in `src/api/auth_routes.py` and public-seam behavioral tests in `tests/auth/test_service.py`.
+- **Added**: Callback route handler in `src/api/auth_routes.py` and public-interface behavioral tests in `tests/auth/test_service.py`.
 ```
 
 ### 3. What Never Belongs in a PR Body

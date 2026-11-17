@@ -1,38 +1,46 @@
 # Flow PRD (`/flow:prd`)
 
-Co-design a **Master PRD & Multi-Chapter Flow Roadmap** (`.agents/bundles/specs/<flow_id>/spec.md`), frontmatter-free chapter catalog (`specs/<flow_id>/chapters/index.md`), and upfront detailed chapter specifications and task blueprints (`specs/<flow_id>/chapters/ch01-<slug>/..chNN-<slug>/{spec.md,planner-notes.md,tasks/*.md}`) across `2..N` chapters (zero upper cap on chapter count).
+Design a **Master PRD & Multi-Chapter Roadmap** (`.agents/bundles/specs/<flow_id>/spec.md`), frontmatter-free chapter catalog (`specs/<flow_id>/chapters/index.md`), and chapter specs plus task worksheets (`specs/<flow_id>/chapters/ch01-<slug>/..chNN-<slug>/{spec.md,planner-notes.md,tasks/*.md}`) across `2..N` chapters.
 
-Use [`interaction.md`](interaction.md) (`structured-choice-v1`), [`state.md`](state.md), and [`../../../templates/agent/plan-schema-card.md`](../../../templates/agent/plan-schema-card.md). **No Production Code Rule**: Planning writes exclusively under `.agents/bundles/` (or the primary checkout's `.agents/bundles/` inside `local-only` git worktrees); never modify application source code during `/flow:prd`.
+Use [`interaction.md`](interaction.md), [`state.md`](state.md), and [`../../../templates/agent/plan-schema-card.md`](../../../templates/agent/plan-schema-card.md).
+**No Production Code Rule**: Planning writes only under `.agents/bundles/` (or the primary checkout's `.agents/bundles/` in `local-only` git worktrees); never edit application source code during `/flow:prd`.
 
 ## Workflow
 
-### Phase 1: Bundle Intelligence & Sharded `flow-scout` Reconnaissance (`Facts First`)
+### Phase 1: Bundle Review & Parallel Research
 
 1. Read `.agents/bundles/index.md`, `product/**`, `knowledge/**`, `research/**`, and `.agents/skills/index.md`.
-2. **Sharded Read-Only Scouts (`SubsystemDigest`)**:
+2. **Parallel Read-Only Research**:
    - Keep coordinator exploration small by dispatching `flow-scout` (`run_workflow(ScriptPath="<plugin_root>/workflows/flow-scout/workflow.py", Args={"subsystems": [...], "query": "..."})`) on Google Antigravity or parallel `@researcher` subagents elsewhere ([`orchestration.md`](orchestration.md)).
-   - Promote external SDK/protocol audits into OKF v0.2 `.agents/bundles/specs/<flow_id>/research/<topic>_<YYYYMMDD>.md` notes ([`research.md`](research.md)).
+   - Promote external SDK or protocol audits into OKF v0.2 `.agents/bundles/specs/<flow_id>/research/<topic>_<YYYYMMDD>.md` notes ([`research.md`](research.md)).
 
-### Phase 2: Design-Tree Frontier Discovery & Coverage Gate (`structured-choice-v1`)
+### Phase 2: Open Decisions & Pre-Draft Check
 
-1. Skip questioning for already-clear areas; ask `1` question at unresolved dependent architectural forks and batch `2–3` unresolved orthogonal leaf questions once on a settled frontier ([`interaction.md`](interaction.md)), placing `<Label> (Recommended)` first.
-2. Ensure seam selection + alternatives, shared types & edge cases, public-seam tests, fast (`< 60s`) lint/test checkpoints, `docs/**` + OKF targets, and deliverable `ch01..chNN` chapters (with any `empirical_dependent` triggers and zero artificial task/read_set/LOC caps; allowing `compact` worksheets for straightforward slices) are settled before drafting.
+1. Skip questioning for already-clear areas.
+2. Ask `1` question at unresolved dependent architectural forks, and batch `2–3` independent leaf questions once on settled choices ([`interaction.md`](interaction.md)), putting `<Label> (Recommended)` first.
+3. Settle interface selection and alternatives, shared types and edge cases, public interface tests, fast (`< 60s`) lint/test checkpoints, `docs/**` and OKF targets, and `ch01..chNN` chapters (including any `empirical_dependent` triggers) before drafting.
+4. Keep no artificial caps on task count, `read_set`, or `estimated_loc`, and allow `compact` worksheets for straightforward tasks.
 
-### Phase 3: Lock Root Roadmap & Invoke `flow-spec-planning`
+### Phase 3: Lock Roadmap & Run `flow-spec-planning`
 
-1. Write `.agents/bundles/specs/<flow_id>/spec.md` (`type: Spec`, `flow_id: <flow_id>`, `status: draft`, `state: planned`, `planning_quality: standard`, `has_chapters: true`, `chapters: [ch01-<slug>, ...]`, `current_chapter: ch01-<slug>`, `sources:` + `[^id]:` footnotes, `<= 40`-line `<!-- truth: start -->` block, zero standalone `---` body rules) covering all 6 normative sections from [`state.md`](state.md), including **North Star Goal & Problem Framing** in plain English, shared contracts, Flow-Wide Documentation & OKF Knowledge Plan (`[0/N files documented]`), and fast (`< 60s`) Chapter Recovery Checkpoints.
-2. Write frontmatter-free `.agents/bundles/specs/<flow_id>/chapters/index.md` cataloging `ch01-<slug>..chNN-<slug>`.
-3. **Upfront Chapter Blueprint Generation & Deterministic OKF Gate**:
-   - On Google Antigravity, invoke `run_workflow(ScriptPath="<plugin_root>/workflows/flow-spec-planning/workflow.py", Args={"flow_id": "<flow_id>", "chapters": [...], "seed_files": [...], "planner_mode": "per_chapter", "review": "per_chapter"})` (keeping Planner and Spec Review on the highest-capability Frontier tier via dynamic routing in [`orchestration.md`](orchestration.md)), and declare non-overlapping `<= 250`-LOC, `<= 3`-file tasks so `/flow:implement` executes in parallel waves.
-   - On other harnesses, fan out parallel `@plan-generator` subagents using resolved Frontier tier profiles, passing root `spec.md`, [`plan-schema-card.md`](../../../templates/agent/plan-schema-card.md), and scoped subsystem digests. Each planner writes `chapters/<ch_id>/planner-notes.md` on disk before returning.
+1. Write `.agents/bundles/specs/<flow_id>/spec.md` (`type: Spec`, `flow_id: <flow_id>`, `status: draft`, `state: planned`, `planning_quality: standard`, `has_chapters: true`, `chapters: [ch01-<slug>, ...]`, `current_chapter: ch01-<slug>`).
+2. Include `sources:` + `[^id]:` footnotes, a `<= 40`-line `<!-- truth: start -->` truth block, zero standalone `---` body rules, and all six sections from [`state.md`](state.md).
+3. Include plain-English goal and problem framing, shared contracts, `## 3. Documentation & OKF Knowledge Plan` (`[0/N files documented]`), and fast (`< 60s`) Chapter Recovery Checkpoints.
+4. Write frontmatter-free `.agents/bundles/specs/<flow_id>/chapters/index.md` cataloging `ch01-<slug>..chNN-<slug>`.
+5. **Upfront Chapter Worksheet Generation & Validation**:
+   - On Google Antigravity, invoke `run_workflow(ScriptPath="<plugin_root>/workflows/flow-spec-planning/workflow.py", Args={"flow_id": "<flow_id>", "chapters": [...], "seed_files": [...], "planner_mode": "per_chapter", "review": "per_chapter"})` with Planner and Spec Review on the `strong` model role ([`orchestration.md`](orchestration.md)).
+   - Declare separate-file tasks around `<= 250` LOC and `<= 3` files so `/flow:implement` can run workers in parallel steps.
+   - On other harnesses, fan out parallel `@plan-generator` subagents using resolved `strong` profiles, passing root `spec.md`, [`plan-schema-card.md`](../../../templates/agent/plan-schema-card.md), and scoped subsystem summaries. Each planner writes `chapters/<ch_id>/planner-notes.md` on disk before returning.
    - Fold any `Root Spec Issues` from `planner-notes.md` into root `spec.md` and run `/flow:validate` (`exit 0`).
 
-### Phase 4: Zero-Context Review & Adjudication (`ADOPT` / `CONTEST` / `ESCALATE`)
+### Phase 4: Independent Review & Decisions
 
-1. Run `1` combined reviewer for `<= 4` chapters (`review="single"`) or parallel per-chapter + cross-chapter reviewers for `> 4` chapters (`review="per_chapter"`), passing strictly on-disk paths ([`spec-reviewer-prompt.md`](../../../templates/agent/spec-reviewer-prompt.md)).
-2. Adjudicate findings (`ADOPT` / `CONTEST` / `ESCALATE`), rewriting affected chapter and root files in place in present tense, incrementing `plan_revision` once, re-validating OKF via `/flow:validate`, and running a second review round only on chapters modified by `ADOPT` fixes.
+1. Run `1` combined reviewer for `<= 4` chapters (`review="single"`) or parallel per-chapter and cross-chapter reviewers for `> 4` chapters (`review="per_chapter"`), passing only on-disk paths ([`spec-reviewer-prompt.md`](../../../templates/agent/spec-reviewer-prompt.md)).
+2. Decide on each finding (`ADOPT` / `CONTEST` / `ESCALATE`), rewriting affected chapter and root files in place in present tense.
+3. Increment `plan_revision` once, re-run `/flow:validate`, and run a second review round only on chapters modified by `ADOPT` fixes.
 
-### Phase 5: Degraded-Model Disclosure, Approval Gate, & Chapter 1 Handoff
+### Phase 5: Approval & Chapter 1 Handoff
 
-1. Whenever `planning_quality == "degraded"` (quota fallback or disk-timeout recovery prevented planning on the primary frontier thinking model), surface an explicit warning banner stating `planning_degraded_reason` before presenting `Approve | Revise | Refine`.
-2. Upon approval, stamp `status: stable`, `verified:`, and `plan_commit: <HEAD_SHA>` across root `spec.md`, `chapters/<ch_id>/spec.md`, and `tasks/*.md`, update `.agents/bundles/index.md`, `specs/index.md`, and `log.md`, and hand off `ch01-<slug>` to `/flow:implement <flow_id>`.
+1. Whenever `planning_quality == "degraded"`, display a warning banner stating `planning_degraded_reason` before presenting `Approve | Revise | Refine`.
+2. Upon approval, stamp `status: stable`, `verified:`, and `plan_commit: <HEAD_SHA>` across root `spec.md`, `chapters/<ch_id>/spec.md`, and `tasks/*.md`.
+3. Update `.agents/bundles/index.md`, `specs/index.md`, and `log.md`, and hand off `ch01-<slug>` to `/flow:implement <flow_id>`.

@@ -1,6 +1,6 @@
 name = "prd-orchestrator"
-description = "Decompose multi-chapter initiatives into a full-plan roadmap (specs/<flow_id>/spec.md), frontmatter-free chapter catalog (chapters/index.md), and upfront chapter/task blueprints (chapters/ch01..chNN/)."
+description = "Break multi-chapter initiatives into a root roadmap (specs/<flow_id>/spec.md), frontmatter-free chapter catalog (chapters/index.md), and upfront chapter and task worksheets (chapters/ch01..chNN/)."
 sandbox_mode = "workspace-write"
 model_reasoning_effort = "high"
 nickname_candidates = ["orchestrator", "prd orchestrator"]
-developer_instructions = "Read and follow agents/prd-orchestrator.md and templates/agent/plan-schema-card.md directly. Fan out read-only SubsystemDigest scouts, separate verified facts from user decisions via structured-choice-v1, lock cross-chapter contracts and the Documentation & OKF Knowledge Plan in root specs/<flow_id>/spec.md + chapters/index.md, author all ch01..chNN chapters and task blueprints upfront without editing production code, and surface an explicit degraded-planning warning whenever planning could not run on the primary frontier thinking model."
+developer_instructions = "Read and follow agents/prd-orchestrator.md and templates/agent/plan-schema-card.md directly. Run parallel read-only researchers to build subsystem summaries, separate verified facts from user decisions, lock cross-chapter contracts and the Documentation and OKF Knowledge Plan in root specs/<flow_id>/spec.md and chapters/index.md, author all ch01..chNN chapters and task worksheets upfront without editing production code, and surface an explicit degraded-planning warning whenever planning could not run on the `strong` model role (`flow_plan_strong`)."

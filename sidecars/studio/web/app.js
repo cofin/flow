@@ -814,7 +814,7 @@
                   render();
                 },
               },
-              "Waves & Graph"
+              "Flow Tasks"
             ),
             el(
               "button",
@@ -827,7 +827,7 @@
                   render();
                 },
               },
-              "Read & Review"
+              "Read Spec"
             ),
             spec.recommendedAction
               ? el(
@@ -979,16 +979,21 @@
       svg.appendChild(g);
     }
 
-    const lanes = el("div", { className: "wave-lanes" });
-    for (const w of dag.waves || []) {
-      const lane = el("div", { className: "wave-lane" }, el("strong", {}, `Wave ${w.wave_index}`), el("div", { className: "subtle-meta" }, `${w.slices.length} disjoint slices${w.has_shared_tests ? " · shared test barrier" : ""}`));
-      for (const s of w.slices || []) {
+    const lanes = el("div", { className: "task-steps" });
+    for (const step of dag.steps || []) {
+      const lane = el(
+        "div",
+        { className: "task-step" },
+        el("strong", {}, `Step ${step.step_index}`),
+        el("div", { className: "subtle-meta" }, `${step.tasks.length} tasks on separate files`)
+      );
+      for (const t of step.tasks || []) {
         lane.appendChild(
           el(
             "div",
-            { className: "wave-slice-card" },
-            el("div", {}, el("strong", {}, `${s.task_id}: `), el("span", {}, s.title || s.task_id)),
-            el("div", { className: "subtle-meta mono" }, `${s.file_count} files · est ${s.estimated_loc} LOC`)
+            { className: "task-card" },
+            el("div", {}, el("strong", {}, `${t.task_id}: `), el("span", {}, t.title || t.task_id)),
+            el("div", { className: "subtle-meta mono" }, `${(t.files || []).length} files · est ${t.estimated_loc} LOC`)
           )
         );
       }
@@ -1001,11 +1006,11 @@
       el(
         "div",
         { className: "card" },
-        el("h3", { className: "card-title" }, `Dependency Graph & Execution Waves (${dag.nodes.length} tasks)`),
+        el("h3", { className: "card-title" }, `Flow Tasks (${dag.nodes.length})`),
         el(
           "p",
           { className: "card-desc" },
-          `Inline fast-path eligible: ${dag.inline_fast_path_eligible ? "yes" : "no"} · Total waves: ${(dag.waves || []).length}`
+          `Inline fast-path eligible: ${dag.inline_fast_path_eligible ? "yes" : "no"} · Total steps: ${(dag.steps || []).length}`
         ),
         el("div", { className: "dag-viewport", style: "margin-top:12px" }, svg),
         lanes
@@ -1043,8 +1048,8 @@
       "div",
       { className: "segmented" },
       ...[
-        { id: "document", label: "Document & Feedback" },
-        { id: "dag", label: "Waves & Graph" },
+        { id: "document", label: "Spec" },
+        { id: "dag", label: "Flow Tasks" },
       ].map((v) =>
         el(
           "button",
@@ -1424,7 +1429,7 @@
   function renderModelsStratumCard() {
     const mq = state.modelsQuota;
     if (!mq || !mq.dynamicByHarness) {
-      return el("section", { className: "card" }, el("h3", { className: "card-title" }, "Dynamic Models & Token Stratum"), el("p", { className: "card-desc" }, "Loading live model catalog across harnesses..."));
+      return el("section", { className: "card" }, el("h3", { className: "card-title" }, "Model Routing"), el("p", { className: "card-desc" }, "Loading live model catalog across harnesses..."));
     }
 
     const grid = el("div", { className: "model-stratum-grid" });
@@ -1441,9 +1446,9 @@
             el("span", { className: "subtle-meta" }, `${entry.candidateCount || 0} live models`)
           ),
           ...[
-            { label: "Frontier Plan/Verify", val: rec.frontier },
-            { label: "Balanced Implement", val: rec.balanced },
-            { label: "Light Mechanical", val: rec.light },
+            { label: "Strongest model", val: rec.strong },
+            { label: "Standard worker", val: rec.standard },
+            { label: "Light helper", val: rec.light },
           ].map((row) =>
             el(
               "div",
@@ -1463,8 +1468,8 @@
     return el(
       "section",
       { className: "card" },
-      el("h3", { className: "card-title" }, `Dynamic Models & Token Stratum (Decision Engine: ${mq.decisionProvider || "builtin"})`),
-      el("p", { className: "card-desc" }, "Zero-regex continuous (model, effort) routing across installed harnesses with automatic Frontier fallback when workers are constrained."),
+      el("h3", { className: "card-title" }, `Model Routing (${mq.decisionProvider || "builtin"})`),
+      el("p", { className: "card-desc" }, "Continuous (model, effort) routing across installed harnesses with fallback to the strongest available model."),
       grid
     );
   }
@@ -1572,8 +1577,8 @@
     const bridgeCard = el(
       "section",
       { className: "card" },
-      el("h3", { className: "card-title" }, "Cross-Harness & Frontier Delegation Bridge"),
-      el("p", { className: "card-desc" }, "Dispatch slices or delegate heavy planning and verification upward to Frontier-capable harnesses while preserving worktree isolation."),
+      el("h3", { className: "card-title" }, "Run in another harness"),
+      el("p", { className: "card-desc" }, "Dispatch tasks or run planning and spec validation on the strongest available harness with worktree isolation."),
       state.writerGuard?.activeWriter
         ? el("div", { className: "truth-callout", style: "border-left-color:var(--flow-warn)" }, `Advisory: ${state.writerGuard.reason} Consider Isolated Worktree or Read-Only if running concurrently.`)
         : null,
@@ -1599,7 +1604,7 @@
           "button",
           {
             className: "btn",
-            title: "Delegate prompt upward for high-rigor Frontier planning or validation",
+            title: "Run prompt on the strongest model for planning or spec validation",
             onClick: async () => {
               const text = promptInput.value.trim();
               if (!text) return;
@@ -1609,13 +1614,13 @@
                 taskKind: "semantic_validation",
                 prompt: text,
               });
-              showToast(`Delegated via ${res.harness || "frontier"} (${res.model || "auto"})`);
+              showToast(`Dispatched via ${res.harness || "strong"} (${res.model || "auto"})`);
               promptInput.value = "";
               await refreshActivity();
               render();
             },
           },
-          "Delegate to Frontier"
+          "Run on strongest model"
         )
       )
     );

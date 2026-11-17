@@ -153,7 +153,7 @@ type: Task
 id: user-auth:ch01:t01
 chapter_id: ch01-token-signer
 title: Add JWT token signer and canonical unit tests
-description: Implement EdDSA JWT signing/verification with parameterized public-seam tests.
+description: Implement EdDSA JWT signing and verification with parameterized public-interface tests.
 status: stable
 state: pending
 priority: P1
@@ -202,7 +202,7 @@ Tags enable multi-dimensional discovery, faceted search, and cross-cutting categ
 | Category | Purpose | Examples |
 | --- | --- | --- |
 | **Domain** | Business or technical domain | `sales`, `finance`, `billing`, `identity`, `inventory` |
-| **Asset Kind** | Layer or architecture tier | `api`, `database`, `pipeline`, `service`, `ui` |
+| **Asset Kind** | Architectural layer or component kind | `api`, `database`, `pipeline`, `service`, `ui` |
 | **Operation** | Lifecycle or procedural role | `oncall`, `incident`, `triage`, `migration`, `deployment` |
 | **Compliance** | Security, privacy, governance | `pii`, `audit`, `sox`, `gdpr`, `security` |
 | **Work Kind** | Nature of the change (Flow specs/tasks) | `feature`, `bugfix`, `refactor`, `migration`, `performance`, `security`, `docs`, `test`, `chore` |

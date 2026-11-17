@@ -874,9 +874,9 @@ def test_mcp_server_and_claude_mod_hooks(tmp_path: Path) -> None:
         "const resRead = await handleMcpRequest({"
         "  jsonrpc: '2.0', id: 3, method: 'resources/read', params: { uri: 'ui://flow/studio' }"
         "}, { defaultWorkspace: ws });"
-        "const sliceRes = await handleMcpRequest({"
+        "const tasksRes = await handleMcpRequest({"
         "  jsonrpc: '2.0', id: 4, method: 'tools/call',"
-        "  params: { name: 'flow_slice_pack', arguments: { workspace: ws, flow_id: 'idempotent-webhooks' } }"
+        "  params: { name: 'flow_tasks', arguments: { workspace: ws, flow_id: 'idempotent-webhooks' } }"
         "}, { defaultWorkspace: ws });"
         "const handlers = [];"
         "const on = (evt, filter, fn) => handlers.push({ evt, filter, fn });"
@@ -889,7 +889,7 @@ def test_mcp_server_and_claude_mod_hooks(tmp_path: Path) -> None:
         "const banner = aboveFn("
         "  { ui: { resolve: () => ({ Box: (p, ...c) => ({ p, c }), Text: (p, t) => t }) } }, {});"
         "process.stdout.write(JSON.stringify({"
-        "  initRes, toolsRes, resRead, sliceRes, modInput: ev.input, banner"
+        "  initRes, toolsRes, resRead, tasksRes, modInput: ev.input, banner"
         "}) + '\\n');"
     )
     proc = subprocess.run(
@@ -905,12 +905,12 @@ def test_mcp_server_and_claude_mod_hooks(tmp_path: Path) -> None:
     assert out["initRes"]["result"]["serverInfo"]["name"] == "flow"
     tool_names = [t["name"] for t in out["toolsRes"]["result"]["tools"]]
     assert all(len(name) <= 20 for name in tool_names)
-    assert "flow_slice_pack" in tool_names
+    assert "flow_tasks" in tool_names
     assert "<!doctype html>" in out["resRead"]["result"]["contents"][0]["text"].lower()
-    assert out["sliceRes"]["result"]["structuredContent"]["waves"]
-    assert out["modInput"]["subagent_type"].startswith("flow-tier-")
-    assert "FLOW CONTEXT PACK" in out["modInput"]["prompt"]
-    assert (ws / ".claude" / "agents" / "flow-tier-frontier.md").is_file()
+    assert out["tasksRes"]["result"]["structuredContent"]["steps"]
+    assert out["modInput"]["subagent_type"].startswith("flow-model-")
+    assert "FLOW TASK BRIEF" in out["modInput"]["prompt"]
+    assert (ws / ".claude" / "agents" / "flow-model-strong.md").is_file()
     assert "idempotent-webhooks" in out["banner"]["c"][0]
 
 
@@ -1046,8 +1046,8 @@ def test_spec_engine_sync_transitions_custom_columns_and_list_item_text(tmp_path
 
 
 @pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
-def test_slice_compiler_and_spec_engine_cross_chapter_scheduling(tmp_path: Path) -> None:
-    """Verify maxWorkers > 4, overflow bin-packing, test overlap conflicts, allReadyChapters, and excludes."""
+def test_task_planner_and_spec_engine_cross_chapter_scheduling(tmp_path: Path) -> None:
+    """Verify workers > 4, task grouping, test overlap conflicts, allReadyChapters, and excludes."""
     assert NODE_BIN is not None
     ws = tmp_path / "pack-ws"
     ch1 = ws / ".agents" / "bundles" / "specs" / "multi-sched" / "chapters" / "ch01-fast" / "tasks"
@@ -1103,10 +1103,10 @@ def test_slice_compiler_and_spec_engine_cross_chapter_scheduling(tmp_path: Path)
         )
 
     engine_uri = (REPO_ROOT / "sidecars" / "studio" / "spec" / "spec-engine.mjs").as_uri()
-    compiler_uri = (REPO_ROOT / "sidecars" / "studio" / "spec" / "slice-compiler.mjs").as_uri()
+    planner_uri = (REPO_ROOT / "sidecars" / "studio" / "spec" / "task-planner.mjs").as_uri()
     js = (
         f"import {{ SpecEngine }} from {json.dumps(engine_uri)};"
-        f"import {{ SliceCompiler }} from {json.dumps(compiler_uri)};"
+        f"import {{ TaskPlanner }} from {json.dumps(planner_uri)};"
         f"const ws = {json.dumps(str(ws))};"
         "const engine = new SpecEngine(ws);"
         "const preAll = engine.preflight('multi-sched', { allReadyChapters: true });"
@@ -1116,20 +1116,20 @@ def test_slice_compiler_and_spec_engine_cross_chapter_scheduling(tmp_path: Path)
         "  flowId: 'auto-verify',"
         "  sourcePath: 'plan.md',"
         "});"
-        "const compiler = new SliceCompiler(ws);"
-        "const crossPack = compiler.compile({"
-        "  flowId: 'multi-sched', allReadyChapters: true, maxWorkers: 6,"
+        "const planner = new TaskPlanner(ws);"
+        "const crossPlan = planner.plan({"
+        "  flowId: 'multi-sched', allReadyChapters: true, workers: 6,"
         "});"
-        "const cappedPack = compiler.compile({"
-        "  flowId: 'multi-sched', allReadyChapters: true, maxWorkers: 1,"
+        "const cappedPlan = planner.plan({"
+        "  flowId: 'multi-sched', allReadyChapters: true, workers: 1,"
         "});"
-        "const exclPack = compiler.compile({"
-        "  flowId: 'multi-sched', allReadyChapters: true, maxWorkers: 6,"
+        "const exclPlan = planner.plan({"
+        "  flowId: 'multi-sched', allReadyChapters: true, workers: 6,"
         "  excludeTaskIds: ['multi-sched:ch01-fast:t01'],"
         "  excludePaths: ['tests/test_shared.py'],"
         "});"
         "process.stdout.write(JSON.stringify({"
-        "  preAll, statusRes, imp, crossPack, cappedPack, exclPack"
+        "  preAll, statusRes, imp, crossPlan, cappedPlan, exclPlan"
         "}) + '\\n');"
     )
     proc = subprocess.run(
@@ -1147,22 +1147,82 @@ def test_slice_compiler_and_spec_engine_cross_chapter_scheduling(tmp_path: Path)
     assert "multi-sched:ch03-emp:t01" not in ready_ids
     assert out["statusRes"]["next_runnable"]["chapter_id"] != "ch03-emp"
 
-    cross_waves = out["crossPack"]["waves"]
-    wave0_tests = [t for sl in cross_waves[0]["slices"] for t in sl.get("tests", [])]
-    assert wave0_tests.count("tests/test_shared.py") <= 1
-    slice_task_lists = [sl["task_ids"] for w in cross_waves for sl in w["slices"]]
+    cross_steps = out["crossPlan"]["steps"]
+    step0_tests = [t for grp in cross_steps[0]["tasks"] for t in grp.get("tests", [])]
+    assert step0_tests.count("tests/test_shared.py") <= 1
+    group_task_lists = [grp["task_ids"] for st in cross_steps for grp in st["tasks"]]
     expected_coalesced = {"multi-sched:ch01-fast:t01", "multi-sched:ch01-fast:t03"}
-    assert any(len(ts) >= 2 and expected_coalesced.issubset(set(ts)) for ts in slice_task_lists)
+    assert any(len(ts) >= 2 and expected_coalesced.issubset(set(ts)) for ts in group_task_lists)
 
-    assert len(out["cappedPack"]["waves"][0]["slices"]) == 1
-    assert any(len(sl["task_ids"]) >= 2 for sl in out["cappedPack"]["waves"][0]["slices"])
+    assert len(out["cappedPlan"]["steps"][0]["tasks"]) == 1
+    assert any(len(grp["task_ids"]) >= 2 for grp in out["cappedPlan"]["steps"][0]["tasks"])
 
-    disp_task_ids = {tid for sl in out["exclPack"]["dispatchable_slices"] for tid in sl["task_ids"]}
+    disp_task_ids = {tid for grp in out["exclPlan"]["ready_tasks"] for tid in grp["task_ids"]}
     assert "multi-sched:ch01-fast:t02" not in disp_task_ids
     assert "multi-sched:ch02-parallel:t01" in disp_task_ids
-    assert any("tests/test_shared.py" in sl.get("tests", []) for w in out["exclPack"]["waves"] for sl in w["slices"])
-    assert out["exclPack"]["waves"][-1]["slices"]
+    assert any("tests/test_shared.py" in grp.get("tests", []) for st in out["exclPlan"]["steps"] for grp in st["tasks"])
+    assert out["exclPlan"]["steps"][-1]["tasks"]
 
     imp_task_path = ws / next(p for p in out["imp"]["written_files"] if "/tasks/" in p)
     imp_text = imp_task_path.read_text(encoding="utf-8")
     assert "make lint" in imp_text or "make test" in imp_text
+
+
+@pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
+def test_task_planner_atomic_groups_and_lock_scopes(tmp_path: Path) -> None:
+    """Verify multi-file tasks stay indivisible and overlapping lock_scopes serialize across steps."""
+    assert NODE_BIN is not None
+    ws = tmp_path / "ws"
+    (ws / ".agents").mkdir(parents=True)
+    (ws / ".agents" / "setup-state.json").write_text(
+        json.dumps({"schema_version": 1, "ignore_policy": "tracked", "sha_tracking": True}),
+        encoding="utf-8",
+    )
+    flow_dir = ws / ".agents" / "bundles" / "specs" / "locks-demo"
+    tasks_dir = flow_dir / "tasks"
+    tasks_dir.mkdir(parents=True)
+    (flow_dir / "spec.md").write_text(
+        "---\nid: locks-demo\ntitle: Locks Demo\nstate: active\nplanning_status: complete\n---\n\n# Locks Demo\n",
+        encoding="utf-8",
+    )
+    (tasks_dir / "t01-wide.md").write_text(
+        "---\n"
+        "type: Task\nid: locks-demo:t01\ntitle: Wide Task\nstate: pending\n"
+        "files: [src/a.py, src/b.py, src/c.py, src/d.py]\ntests: [tests/test_wide.py]\n"
+        "lock_scopes: [db/migrations]\ndepends_on: []\nestimated_loc: 320\n"
+        "---\n\n## Objective & Scope Boundary\nWide change.\n## Verification\nmake test\n",
+        encoding="utf-8",
+    )
+    (tasks_dir / "t02-lock.md").write_text(
+        "---\n"
+        "type: Task\nid: locks-demo:t02\ntitle: Lock Peer\nstate: pending\n"
+        "files: [src/e.py]\ntests: [tests/test_e.py]\n"
+        "lock_scopes: [db/migrations]\ndepends_on: []\nestimated_loc: 40\n"
+        "---\n\n## Objective & Scope Boundary\nPeer change.\n## Verification\nmake test\n",
+        encoding="utf-8",
+    )
+
+    planner_uri = (REPO_ROOT / "sidecars" / "studio" / "spec" / "task-planner.mjs").as_uri()
+    js = (
+        f"import {{ TaskPlanner }} from {json.dumps(planner_uri)};"
+        f"const planner = new TaskPlanner({json.dumps(str(ws))});"
+        "process.stdout.write(JSON.stringify(planner.plan({ flowId: 'locks-demo', workers: 4 })) + '\\n');"
+    )
+    proc = subprocess.run(
+        [NODE_BIN, "--input-type=module", "-e", js],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    )
+    plan = json.loads(proc.stdout.strip().splitlines()[-1])
+
+    assert plan["group_count"] == 2
+    assert len(plan["steps"]) == 2
+    first_group = plan["steps"][0]["tasks"][0]
+    second_group = plan["steps"][1]["tasks"][0]
+    assert first_group["group_id"] == "locks-demo:t01"
+    assert len(first_group["files"]) == 4
+    assert first_group["lock_scopes"] == ["db/migrations"]
+    assert second_group["group_id"] == "locks-demo:t02"
+    assert second_group["lock_scopes"] == ["db/migrations"]

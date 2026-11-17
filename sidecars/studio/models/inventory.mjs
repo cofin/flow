@@ -236,7 +236,7 @@ export class DynamicModelCatalog {
           devMeta?.reasoning ??
           (Array.isArray(entry.supported_efforts) && entry.supported_efforts.length > 1),
       );
-      const tieredRole = String(entry.tiered_role || override.family || "").toLowerCase();
+      const modelRole = String(entry.model_role || override.family || "").toLowerCase();
 
       const efforts =
         Array.isArray(entry.supported_efforts) && entry.supported_efforts.length > 0
@@ -261,13 +261,13 @@ export class DynamicModelCatalog {
           effortRank,
           costOutput,
           maxOutput,
-          tieredRole,
+          modelRole,
           overrideCapability: override.capability_index,
           entryCapability: entry.capability_index,
           deprecated: Boolean(entry.deprecated),
         });
-        const priceIndex = this.#computePriceIndex({ costInput, costOutput, effortRank, tieredRole });
-        const latencyIndex = this.#computeLatencyIndex({ reasoningCapable, effortRank, priceIndex, tieredRole });
+        const priceIndex = this.#computePriceIndex({ costInput, costOutput, effortRank, modelRole });
+        const latencyIndex = this.#computeLatencyIndex({ reasoningCapable, effortRank, priceIndex, modelRole });
 
         out.push({
           harness: cleanHarness,
@@ -288,7 +288,7 @@ export class DynamicModelCatalog {
           price_index: priceIndex,
           latency_index: latencyIndex,
           deprecated: Boolean(entry.deprecated),
-          tiered_role: tieredRole || null,
+          model_role: modelRole || null,
           fallback_priority: Number(override.priority ?? entry.priority ?? 0),
         });
       }
@@ -301,7 +301,7 @@ export class DynamicModelCatalog {
     effortRank,
     costOutput,
     maxOutput,
-    tieredRole,
+    modelRole,
     overrideCapability,
     entryCapability,
     deprecated,
@@ -310,11 +310,11 @@ export class DynamicModelCatalog {
     if (Number.isFinite(Number(entryCapability))) return Math.max(0, Math.min(1, Number(entryCapability)));
 
     let base = reasoningCapable ? 0.52 + 0.36 * effortRank : 0.42;
-    if (tieredRole === "pro" || tieredRole === "frontier" || tieredRole === "thinking_frontier") {
+    if (modelRole === "pro" || modelRole === "strong") {
       base = Math.max(base, 0.78 + 0.2 * effortRank);
-    } else if (tieredRole === "flash" || tieredRole === "thinking_flash" || tieredRole === "fast") {
+    } else if (modelRole === "flash" || modelRole === "fast") {
       base = reasoningCapable ? Math.min(0.84, 0.56 + 0.24 * effortRank) : 0.54;
-    } else if (tieredRole === "flash_lite" || tieredRole === "light") {
+    } else if (modelRole === "flash_lite" || modelRole === "light") {
       base = Math.min(base, 0.32);
     } else if (Number.isFinite(costOutput) && costOutput > 0) {
       const priceSignal = Math.max(0, Math.min(0.22, Math.log10(1 + costOutput) * 0.14));
@@ -324,35 +324,35 @@ export class DynamicModelCatalog {
     return Math.max(0.05, Math.min(1.0, Number(base.toFixed(4))));
   }
 
-  #computePriceIndex({ costInput, costOutput, effortRank, tieredRole }) {
+  #computePriceIndex({ costInput, costOutput, effortRank, modelRole }) {
     if (Number.isFinite(costOutput) && costOutput >= 0) {
       const blended = (Number.isFinite(costInput) ? costInput * 0.25 : 0) + costOutput;
       const norm = Math.min(1, Math.log10(1 + blended) / Math.log10(1 + 75));
       return Number(Math.min(1, norm * (0.75 + 0.25 * effortRank)).toFixed(4));
     }
-    if (tieredRole === "flash_lite" || tieredRole === "light") return 0.08;
-    if (tieredRole.includes("flash") || tieredRole === "fast") return 0.25 * (0.7 + 0.3 * effortRank);
-    if (tieredRole === "pro" || tieredRole === "frontier") return 0.82 * (0.8 + 0.2 * effortRank);
+    if (modelRole === "flash_lite" || modelRole === "light") return 0.08;
+    if (modelRole.includes("flash") || modelRole === "fast") return 0.25 * (0.7 + 0.3 * effortRank);
+    if (modelRole === "pro" || modelRole === "strong") return 0.82 * (0.8 + 0.2 * effortRank);
     return Number((0.25 + 0.55 * effortRank).toFixed(4));
   }
 
-  #computeLatencyIndex({ reasoningCapable, effortRank, priceIndex, tieredRole }) {
-    if (tieredRole === "flash_lite" || tieredRole === "light") return 0.1;
+  #computeLatencyIndex({ reasoningCapable, effortRank, priceIndex, modelRole }) {
+    if (modelRole === "flash_lite" || modelRole === "light") return 0.1;
     const reasonLoad = reasoningCapable ? effortRank * 0.65 : 0.15;
     return Number(Math.min(1, 0.6 * reasonLoad + 0.4 * priceIndex).toFixed(4));
   }
 
   #probeAntigravityEntries(antigravityCatalog) {
     if (!antigravityCatalog || !Array.isArray(antigravityCatalog.models)) return [];
-    const tiered = antigravityCatalog.tiered_model_ids || {};
-    const tierLookup = new Map();
-    for (const [tierKey, ids] of Object.entries(tiered)) {
+    const roleGroups = antigravityCatalog.tiered_model_ids || {};
+    const roleLookup = new Map();
+    for (const [roleKey, ids] of Object.entries(roleGroups)) {
       if (!Array.isArray(ids)) continue;
-      for (const id of ids) tierLookup.set(String(id), tierKey);
+      for (const id of ids) roleLookup.set(String(id), roleKey);
     }
     return antigravityCatalog.models.map((m) => {
       const mId = String(m.model_id || m.model || "");
-      const mIdTier = tierLookup.get(mId) || tierLookup.get(String(m.model || ""));
+      const mIdRole = roleLookup.get(mId) || roleLookup.get(String(m.model || ""));
       return {
         model: m.model || m.model_id,
         model_id: m.model_id || m.model,
@@ -360,8 +360,8 @@ export class DynamicModelCatalog {
         quota_remaining: m.quota_remaining,
         disabled: m.disabled,
         deprecated: m.deprecated,
-        tiered_role: mIdTier || null,
-        reasoning: mIdTier === "pro" || String(m.tag || "").toLowerCase().includes("think"),
+        model_role: mIdRole || null,
+        reasoning: mIdRole === "pro" || String(m.tag || "").toLowerCase().includes("think"),
         supported_efforts: m.supported_efforts || ["default"],
       };
     });
@@ -419,9 +419,9 @@ export class DynamicModelCatalog {
       candidates.add("opus");
       candidates.add("sonnet");
       candidates.add("haiku");
-      roleByAlias.set("opus", { tiered_role: "frontier", cost_input: 5, cost_output: 25, priority: 30 });
-      roleByAlias.set("sonnet", { tiered_role: "flash", cost_input: 3, cost_output: 15, priority: 20 });
-      roleByAlias.set("haiku", { tiered_role: "light", cost_input: 1, cost_output: 5, priority: 10 });
+      roleByAlias.set("opus", { model_role: "strong", cost_input: 5, cost_output: 25, priority: 30 });
+      roleByAlias.set("sonnet", { model_role: "flash", cost_input: 3, cost_output: 15, priority: 20 });
+      roleByAlias.set("haiku", { model_role: "light", cost_input: 1, cost_output: 5, priority: 10 });
     }
     return Array.from(candidates).map((id) => ({
       model: id,
@@ -482,7 +482,7 @@ export class DynamicModelCatalog {
     }
     return [
       { model: "auto", vendor: "cursor", capability_index: 0.72 },
-      { model: "fast", vendor: "cursor", tiered_role: "fast", capability_index: 0.5 },
+      { model: "fast", vendor: "cursor", model_role: "fast", capability_index: 0.5 },
     ];
   }
 

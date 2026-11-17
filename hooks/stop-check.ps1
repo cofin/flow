@@ -26,7 +26,7 @@ if ($Harness -eq "claude" -and -not [string]::IsNullOrEmpty($env:CURSOR_VERSION)
     Emit-Allow
 }
 
-$StopGateEnv = if (-not [string]::IsNullOrEmpty($env:FLOW_STOP_GATE)) { $env:FLOW_STOP_GATE.Trim().ToLowerInvariant() } else { "" }
+$StopGateEnv = if (-not [string]::IsNullOrEmpty($env:FLOW_STOP_CHECK)) { $env:FLOW_STOP_CHECK.Trim().ToLowerInvariant() } else { "" }
 if ($StopGateEnv -in @("off", "0", "false", "no", "advisory", "warn")) {
     Emit-Allow
 }
@@ -118,7 +118,7 @@ if (Test-Path -LiteralPath $SetupStateFile -PathType Leaf) {
         if ($m.Success -and -not [string]::IsNullOrWhiteSpace($m.Groups[1].Value)) {
             $BundleRel = $m.Groups[1].Value.Trim()
         }
-        $gm = [regex]::Match($SetupRaw, '"stop_gate"\s*:\s*"([^"]+)"')
+        $gm = [regex]::Match($SetupRaw, '"stop_check"\s*:\s*"([^"]+)"')
         if ($gm.Success -and -not [string]::IsNullOrWhiteSpace($gm.Groups[1].Value)) {
             $StopGateCfg = $gm.Groups[1].Value.Trim().ToLowerInvariant()
         }
@@ -491,7 +491,7 @@ function Test-PatchInHistory([string]$NeedleSha, [string]$HaystackRev) {
 
 function Test-ReviewStamp([string]$RevSha, [System.Collections.Generic.List[string]]$TaskShas, [string]$Label) {
     if ([string]::IsNullOrEmpty($RevSha) -or $RevSha -eq "null" -or ($RevSha -notmatch '^[0-9a-fA-F]{7,40}$')) {
-        $Violations.Add("${Label}: missing hex last_reviewed_commit (sync present-tense docs and run Zero-Context Review before stopping)")
+        $Violations.Add("${Label}: missing hex last_reviewed_commit (sync spec docs and run chapter review before stopping)")
         return
     }
     if ($ShaTracking -eq "off") { return }
@@ -511,7 +511,7 @@ function Test-ReviewStamp([string]$RevSha, [System.Collections.Generic.List[stri
                 $null = & git -C $ProjectDir merge-base --is-ancestor $tSha $RevSha 2>$null
                 if ($LASTEXITCODE -ne 0) {
                     if (-not (Test-PatchInHistory $tSha $RevSha)) {
-                        $Violations.Add("${Label}: task commit $tSha is newer than last_reviewed_commit $RevSha; re-run Zero-Context Review")
+                        $Violations.Add("${Label}: task commit $tSha is newer than last_reviewed_commit $RevSha; re-run chapter review")
                         return
                     }
                 }
@@ -529,7 +529,7 @@ foreach ($fDir in $FlowDirs) {
     $rfm = Get-FrontmatterMap $rootLines
     $rType = if ($rfm.ContainsKey("type")) { $rfm["type"] } else { "" }
     $rState = if ($rfm.ContainsKey("state")) { $rfm["state"] } else { "" }
-    $rGate = if ($rfm.ContainsKey("gate")) { $rfm["gate"].ToLowerInvariant() } else { "" }
+    $rGate = if ($rfm.ContainsKey("stop_check")) { $rfm["stop_check"].ToLowerInvariant() } else { "" }
     $rPaused = if ($rfm.ContainsKey("paused")) { $rfm["paused"].ToLowerInvariant() } else { "" }
     $rHandoff = if ($rfm.ContainsKey("handoff")) { $rfm["handoff"].ToLowerInvariant() } else { "" }
     if ($rState -eq "archived" -or $rType -eq "flow") { continue }
@@ -636,7 +636,7 @@ foreach ($fDir in $FlowDirs) {
                 $needReview = $true
             } elseif ((-not $IsLeafSubagent) -and $taskCheck.Total -gt 0 -and $taskCheck.Done -eq $taskCheck.Total) {
                 if ($rState -in @("active", "completed") -or $cState -eq "active") {
-                    $Violations.Add("specs/$($fDir.Name)/chapters/${chId}: all $($taskCheck.Total) task(s) are done, but chapter is not closed (sync present-tense docs/roadmap, run Zero-Context Review, and set state: completed)")
+                    $Violations.Add("specs/$($fDir.Name)/chapters/${chId}: all $($taskCheck.Total) task(s) are done, but chapter is not closed (sync spec docs, run chapter review, and set state: completed)")
                     $needReview = $true
                 }
             }
@@ -653,7 +653,7 @@ foreach ($fDir in $FlowDirs) {
         }
 
         if ($rState -eq "completed" -and ($chTotal -eq 0 -or $chClosed -lt $chTotal)) {
-            $Violations.Add("specs/$($fDir.Name)/spec.md: flow cannot be marked completed while $($chTotal - $chClosed) of $chTotal chapter(s) remain open (anti-skip guard)")
+            $Violations.Add("specs/$($fDir.Name)/spec.md: flow cannot be marked completed while $($chTotal - $chClosed) of $chTotal chapter(s) remain open (chapters still open)")
         }
 
         if ((-not $IsLeafSubagent) -and $chTotal -gt 0) {
@@ -683,7 +683,7 @@ if ($Violations.Count -eq 0) {
     Emit-Allow
 }
 
-$Reason = "Flow Stop Gate blocked turn completion — synchronize present-tense Markdown and complete Zero-Context Chapter Review before stopping: " + ($Violations -join "; ")
+$Reason = "Flow stop check: update the spec files and run the chapter review before stopping: " + ($Violations -join "; ")
 $EscapedReason = ConvertTo-JsonEscaped $Reason
 
 switch -Regex ($Harness) {

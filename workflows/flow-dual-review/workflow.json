@@ -1,6 +1,6 @@
 {
   "name": "flow-dual-review",
-  "description": "Run ReviewRoster-planned zero-context reviews (single, dual, committee, and orthogonal-vendor adversarial) over a Git range or chapter.",
+  "description": "Run independent reviews (single, dual, committee, and second-vendor) over a Git range or chapter.",
   "entry": "workflow.py",
   "args": {
     "type": "object",
@@ -13,13 +13,13 @@
         "description": "Review mode (default auto)."
       },
       "harness": {"type": "string", "description": "Active harness identifier."},
-      "author_vendor": {"type": "string", "description": "Author vendor for orthogonal adversarial seat selection."},
+      "author_vendor": {"type": "string", "description": "Author vendor for second-vendor review selection."},
       "reviewer_model": {"type": "string", "description": "Explicit reviewer model override."},
       "code_reviewer_agent": {"type": "string", "description": "Custom agent profile for correctness seat."},
       "quality_reviewer_agent": {"type": "string", "description": "Custom agent profile for quality seat."},
-      "fallback_model": {"type": "string", "description": "Quota fallback model tier."},
+      "fallback_model": {"type": "string", "description": "Quota fallback model role."},
       "timeout_seconds": {"type": "integer", "description": "Per-reviewer timeout in seconds."},
-      "max_concurrency": {"type": "integer", "description": "Maximum concurrent review seats in flight (default 4)."}
+      "workers": {"type": "integer", "description": "Maximum concurrent reviewers (default 4)."}
     },
     "required": ["git_range"]
   }
