@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import json
 import shutil
 from pathlib import Path
@@ -16,6 +17,8 @@ from tools.validate import (
     MAX_SKILL_FILE_BYTES,
     READONLY_AGENTS,
     REPO_ROOT,
+    _collect_awaited_call_ids,
+    _lint_workflow_source,
     main,
     validate_agents,
     validate_anti_sprawl,
@@ -693,3 +696,90 @@ def test_validate_okf_bundle_checks_dangling_deps_and_duplicate_task_ids(tmp_pat
     errors = validate_okf_bundle(bundle)
     assert any("DANGLING_TASK_DEP:" in err and "missing-task" in err for err in errors), errors
     assert any("duplicate task id 'dep-check:t01' across chapters" in err for err in errors), errors
+
+
+def test_validate_okf_bundle_allow_uncommitted_and_workflow_ast_dotted_calls(tmp_path: Path) -> None:
+    """Verify --allow-uncommitted downgrades missing hex SHAs to warnings and AST lint unwraps dotted helpers."""
+    bundle = tmp_path / ".agents" / "bundles"
+    spec_dir = bundle / "specs" / "uncommitted-flow"
+    ch_tasks = spec_dir / "chapters" / "ch01-core" / "tasks"
+    ch_tasks.mkdir(parents=True)
+    (bundle / "index.md").write_text("---\nokf_version: '0.2'\nbundle: test\n---\n\n# Index\n", encoding="utf-8")
+    (spec_dir / "spec.md").write_text(
+        "---\ntype: Spec\nflow_id: uncommitted-flow\ntitle: Uncommitted\ndescription: Uncommitted spec.\n"
+        "status: stable\nstate: completed\nhas_chapters: true\ncurrent_chapter: null\n"
+        "last_reviewed_commit: null\nplan_revision: 1\nsources:\n  - id: src-1\n    resource: tools/validate.py::main\n"
+        "    title: Validator\ntags: [test]\n---\n\n<!-- truth: start -->\n- Check.[^src-1]\n<!-- truth: end -->\n\n"
+        "## 1. Specification, Context & Provenance\n\nContext[^src-1].\n\n"
+        "## 2. Requirements, Concrete Contracts & Architecture\n\nContracts.\n\n"
+        "## 3. Documentation & OKF Knowledge Plan\n\n[0/0 files documented]\n\n"
+        "## 4. Requirement-to-Task Traceability Matrix\n\nMatrix.\n\n"
+        "## 5. Implementation Plan\n\n- [x] ch01-core — Core\n\n"
+        "## 6. Current State & Remaining Plan Snapshot\n\nCompleted.\n\n[^src-1]: tools/validate.py::main\n",
+        encoding="utf-8",
+    )
+    (spec_dir / "chapters" / "index.md").write_text(
+        "# Chapters\n\n| Chapter | State |\n| --- | --- |\n| ch01-core | completed |\n",
+        encoding="utf-8",
+    )
+    (spec_dir / "chapters" / "ch01-core" / "spec.md").write_text(
+        "---\ntype: Spec\nflow_id: uncommitted-flow\nchapter_id: ch01-core\ntitle: Core\n"
+        "description: Core chapter.\nstatus: stable\nstate: completed\nlast_reviewed_commit: null\n"
+        "sources:\n  - id: src-1\n    resource: tools/validate.py::main\n    title: Validator\ntags: [test]\n---\n\n"
+        "<!-- truth: start -->\n- Chapter truth.[^src-1]\n<!-- truth: end -->\n\n"
+        "## 1. Specification, Context & Provenance\n\nContext[^src-1].\n\n"
+        "## 2. Requirements, Concrete Contracts & Architecture\n\nContracts.\n\n"
+        "## 3. Documentation & OKF Knowledge Plan\n\n[0/0 files documented]\n\n"
+        "## 4. Requirement-to-Task Traceability Matrix\n\nMatrix.\n\n"
+        "## 5. Implementation Plan\n\n- [x] [t01](tasks/t01-work.md) — Work\n\n"
+        "## 6. Current State & Remaining Plan Snapshot\n\nCompleted.\n\n[^src-1]: tools/validate.py::main\n",
+        encoding="utf-8",
+    )
+    (ch_tasks / "t01-work.md").write_text(
+        "---\ntype: Task\nid: uncommitted-flow:ch01-core:t01\ntitle: Work\ndescription: Task item.\n"
+        "status: stable\nstate: completed\ncommit: pending_coordinator\nfiles: [tools/validate.py]\n"
+        "tests: []\ndepends_on: []\nsources:\n  - id: src-1\n    resource: tools/validate.py::main\n"
+        "    title: Validator\ntags: [test]\n---\n\n"
+        "## Objective & Scope Boundary\n\nWork[^src-1].\n\n"
+        "## Bounded Read Manifest\n\n- tools/validate.py\n\n"
+        "## Symbol & Signature Contracts\n\nNone.\n\n"
+        "## Edge Cases & Error Semantics\n\nNone.\n\n"
+        "## Public-Seam Test Blueprint\n\nTests.\n\n"
+        "## Verification\n\npytest\n\n"
+        "## Acceptance Criteria\n\nDone.\n\n"
+        "## Notes & Discoveries\n\nNone.\n\n[^src-1]: tools/validate.py::main\n",
+        encoding="utf-8",
+    )
+
+    strict_errors = validate_okf_bundle(bundle, flow_id="uncommitted-flow", allow_uncommitted=False)
+    assert any("without valid hex" in err for err in strict_errors)
+
+    warnings: list[str] = []
+    soft_errors = validate_okf_bundle(
+        bundle,
+        flow_id="uncommitted-flow",
+        allow_uncommitted=True,
+        warnings_out=warnings,
+    )
+    assert soft_errors == []
+    assert len(warnings) >= 2
+    assert main(["--bundle", str(bundle), "--flow", "uncommitted-flow", "--allow-uncommitted"]) == 0
+    assert main(["--bundle", str(bundle), "--flow", "uncommitted-flow"]) == 1
+
+    workflow_src = (
+        "async def _run():\n"
+        "    res = await advanced.with_timeout(\n"
+        "        agent('Check', schema={'type': 'object'}, role='x', type_name='self', model='flash'), 30\n"
+        "    )\n"
+        "    return res\n"
+    )
+    assert len(_collect_awaited_call_ids(ast.parse(workflow_src))) >= 2
+    assert (
+        _lint_workflow_source(
+            workflow_src,
+            "synthetic/workflow.py",
+            required_args=(),
+            enforce_workflow_agent_type=False,
+        )
+        == []
+    )

@@ -90,6 +90,10 @@
       "reviewer_timeout_seconds": {
         "type": "integer",
         "description": "Per-reviewer wall-clock timeout in seconds (default 600)."
+      },
+      "max_concurrency": {
+        "type": "integer",
+        "description": "Maximum concurrent chapter planners or reviewers in flight (default 4)."
       }
     },
     "required": ["flow_id", "chapters"]

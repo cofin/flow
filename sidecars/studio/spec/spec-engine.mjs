@@ -72,6 +72,97 @@ function parseFileMemoized(absPath) {
 }
 
 /**
+ * Escape special regular expression characters in a literal string.
+ *
+ * @param {string} raw
+ * @returns {string}
+ */
+function escapeRegExp(raw) {
+  return String(raw || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Detect workspace-appropriate verification commands without hardcoding `make check`.
+ *
+ * @param {string} workspaceRoot
+ * @returns {{ primary: string, commands: string[] }}
+ */
+export function detectWorkspaceVerificationCommands(workspaceRoot) {
+  const root = path.resolve(workspaceRoot || process.cwd());
+  /** @type {string[]} */
+  const commands = [];
+  const pushCmd = (cmd) => {
+    const clean = String(cmd || "").trim();
+    if (clean && !commands.includes(clean)) commands.push(clean);
+  };
+
+  const setupState = readJsonSafe(path.join(root, ".agents", "setup-state.json"));
+  const configured = setupState?.workflow_preferences?.commands;
+  if (configured && typeof configured === "object" && !Array.isArray(configured)) {
+    for (const key of ["fast_gate", "check", "lint", "test", "validate"]) {
+      const val = configured[key];
+      if (typeof val === "string") pushCmd(val);
+      else if (Array.isArray(val)) for (const item of val) pushCmd(item);
+    }
+  } else if (Array.isArray(configured)) {
+    for (const item of configured) pushCmd(item);
+  }
+
+  const makefilePath = path.join(root, "Makefile");
+  if (fs.existsSync(makefilePath)) {
+    const mk = readTextSafe(makefilePath) || "";
+    for (const target of ["check", "test", "lint"]) {
+      if (new RegExp(`^${target}:`, "m").test(mk)) pushCmd(`make ${target}`);
+    }
+  }
+
+  if (fs.existsSync(path.join(root, "pyproject.toml"))) {
+    if (fs.existsSync(path.join(root, "uv.lock"))) {
+      pushCmd("uv run --no-sync pytest -q");
+    } else if (fs.existsSync(path.join(root, ".venv", "bin", "pytest"))) {
+      pushCmd(".venv/bin/pytest -q");
+    } else {
+      pushCmd("pytest -q");
+    }
+  }
+
+  const pkg = readJsonSafe(path.join(root, "package.json"));
+  if (pkg?.scripts && typeof pkg.scripts === "object") {
+    for (const name of ["check", "lint", "test"]) {
+      const script = String(pkg.scripts[name] || "").trim();
+      if (script && !script.includes("no test specified")) {
+        pushCmd(name === "test" ? "npm test" : `npm run ${name}`);
+      }
+    }
+  }
+
+  if (fs.existsSync(path.join(root, "Cargo.toml"))) pushCmd("cargo test");
+  if (fs.existsSync(path.join(root, "go.mod"))) pushCmd("go test ./...");
+
+  const primary = commands[0] || "Run the repository's targeted tests and linter for modified files.";
+  return { primary, commands };
+}
+
+/**
+ * Match a task record against an identifier, short ID, stem, or worksheet relative path.
+ *
+ * @param {any} task
+ * @param {string} targetRef
+ * @returns {boolean}
+ */
+function matchesTaskRef(task, targetRef) {
+  const ref = String(targetRef || "").trim();
+  if (!ref) return false;
+  return (
+    task.id === ref ||
+    task.short_id === ref ||
+    task.stem === ref ||
+    task.rel_path === ref ||
+    (task.filename && (ref === `tasks/${task.filename}` || ref.endsWith(`/${task.filename}`)))
+  );
+}
+
+/**
  * Read task worksheet Markdown into a normalized task object.
  *
  * @param {string} taskFile
@@ -95,6 +186,8 @@ function readTaskWorksheet(taskFile, agentsBaseRoot, { flowId, chapterId = null 
   let inFence = false;
   let inVerification = false;
   let verificationBody = "";
+  /** @type {string[]} */
+  const verificationCommands = [];
   const symbolRefs = [];
   for (const line of doc.body.split("\n")) {
     if (/^\s*(```|~~~)/.test(line)) {
@@ -102,14 +195,28 @@ function readTaskWorksheet(taskFile, agentsBaseRoot, { flowId, chapterId = null 
       continue;
     }
     if (inFence) {
-      if (inVerification) verificationBody += `${line}\n`;
+      if (inVerification) {
+        verificationBody += `${line}\n`;
+        const cleanCmd = line.trim();
+        if (cleanCmd && !cleanCmd.startsWith("#") && !verificationCommands.includes(cleanCmd)) {
+          verificationCommands.push(cleanCmd);
+        }
+      }
       continue;
     }
     if (line.trim().startsWith("## ")) {
       inVerification = line.trim().slice(3).trim() === "Verification";
       continue;
     }
-    if (inVerification && line.trim()) verificationBody += `${line}\n`;
+    if (inVerification && line.trim()) {
+      verificationBody += `${line}\n`;
+      for (const cm of line.matchAll(/`([^`\n]+)`/g)) {
+        const cand = cm[1].trim();
+        if (cand && /\s/.test(cand) && !verificationCommands.includes(cand)) {
+          verificationCommands.push(cand);
+        }
+      }
+    }
     for (const m of line.matchAll(/`([^`\s]+::[A-Za-z_][\w.]*)`/g)) {
       symbolRefs.push(m[1]);
     }
@@ -126,6 +233,7 @@ function readTaskWorksheet(taskFile, agentsBaseRoot, { flowId, chapterId = null 
     worksheet_format: (doc.text("worksheet_format") || "compact").toLowerCase(),
     verification_strategy: doc.text("verification_strategy") || doc.text("verification") || null,
     has_verification_body: Boolean(verificationBody.trim()),
+    verification_commands: verificationCommands,
     depends_on: doc.textList("depends_on"),
     read_set: doc.textList("read_set"),
     files: doc.textList("files"),
@@ -182,6 +290,7 @@ function reconcileChecklistWithTasks(body, tasks, { flowId, chapterId = null, sp
         worksheet_format: "checklist",
         verification_strategy: null,
         has_verification_body: false,
+        verification_commands: [],
         depends_on: [],
         read_set: [],
         files: [],
@@ -672,6 +781,7 @@ export class SpecEngine {
     const written = [];
     const nowIso = new Date().toISOString();
     const headSha = this.#headSha() || "0000000";
+    const detectedVerify = detectWorkspaceVerificationCommands(this.workspace).primary;
     const sourceRel = sourcePath && !path.isAbsolute(sourcePath) ? sourcePath : "implementation_plan.md";
     const checklist = parsedTasks.map((t) => `- [ ] ${t.short} — ${t.title} (tasks/${t.slug}.md)`).join("\n");
 
@@ -718,7 +828,7 @@ export class SpecEngine {
       "",
       "| Requirement | Task | Verification |",
       "| --- | --- | --- |",
-      ...parsedTasks.map((t) => `| R1 | ${t.taskId} | \`make check\` |`),
+      ...parsedTasks.map((t) => `| R1 | ${t.taskId} | \`${detectedVerify}\` |`),
       "",
       "## 5. Implementation Plan",
       "",
@@ -785,7 +895,7 @@ export class SpecEngine {
         "## Verification",
         "",
         "```bash",
-        "make check",
+        detectedVerify,
         "```",
         "",
         "## Acceptance Criteria",
@@ -946,41 +1056,97 @@ export class SpecEngine {
    * upstream `depends_on` creation closure for `read_set`, and `DANGLING_TASK_DEP` detection.
    *
    * @param {string} flowId
-   * @param {{ chapterId?: string | null }} [options]
+   * @param {{ chapterId?: string | null, allReadyChapters?: boolean }} [options]
    */
-  preflight(flowId, { chapterId = null } = {}) {
+  preflight(flowId, { chapterId = null, allReadyChapters = false } = {}) {
     const { spec } = this.status(flowId);
     const findings = [];
     const add = (code, severity, relPath, message) => findings.push({ code, severity, path: relPath, message });
 
     const allTasks = spec.has_chapters ? spec.chapters.flatMap((c) => c.tasks) : spec.tasks;
     let targetChapter = null;
-    let tasks = spec.tasks;
-    let ownerPlanRevision = spec.plan_revision;
-    let scopeRel = spec.rel_path;
+    let runnableChapters = [];
+    let deferredChapters = [];
+    let scopedScopes = [];
 
     if (spec.has_chapters) {
-      const requestedId = chapterId || spec.current_chapter || spec.chapters.find((c) => !isClosedState(c.state))?.chapter_id;
-      if (!requestedId) {
-        add("NO_OPEN_CHAPTER", "error", spec.rel_path, `Spec '${spec.flow_id}' has no open chapter to run.`);
-      } else {
-        targetChapter = spec.chapters.find((c) => c.chapter_id === requestedId) || null;
-        if (!targetChapter) add("CHAPTER_MISSING", "error", spec.rel_path, `Chapter '${requestedId}' does not exist on disk.`);
-      }
-      if (targetChapter) {
-        scopeRel = targetChapter.rel_path;
-        ownerPlanRevision = targetChapter.plan_revision ?? spec.plan_revision;
-        tasks = targetChapter.tasks;
-        const closedCh = new Set(spec.chapters.filter((c) => isClosedState(c.state)).map((c) => c.chapter_id));
-        for (const depCh of targetChapter.depends_on_chapters) {
-          if (!closedCh.has(depCh)) {
-            add("CHAPTER_DEPENDENCY_OPEN", "error", scopeRel, `Chapter '${targetChapter.chapter_id}' depends on open chapter '${depCh}'.`);
+      const closedCh = new Set(spec.chapters.filter((c) => isClosedState(c.state)).map((c) => c.chapter_id));
+      if (allReadyChapters && !chapterId) {
+        const openReady = spec.chapters.filter(
+          (c) => !isClosedState(c.state) && c.depends_on_chapters.every((depCh) => closedCh.has(depCh)),
+        );
+        runnableChapters = openReady.filter((c) => c.planning_status !== "empirical_dependent");
+        deferredChapters = openReady
+          .filter((c) => c.planning_status === "empirical_dependent")
+          .map((c) => ({ chapter_id: c.chapter_id, reason: c.replan_trigger || "upstream baseline" }));
+
+        if (runnableChapters.length === 0) {
+          if (deferredChapters.length > 0) {
+            const firstEmp = openReady.find((c) => c.planning_status === "empirical_dependent");
+            add(
+              "EMPIRICAL_REPLAN_REQUIRED",
+              "error",
+              firstEmp.rel_path,
+              `Chapter '${firstEmp.chapter_id}' requires empirical replan (${firstEmp.replan_trigger || "upstream baseline"}).`,
+            );
+          } else if (spec.chapters.every((c) => isClosedState(c.state))) {
+            add("NO_OPEN_CHAPTER", "error", spec.rel_path, `Spec '${spec.flow_id}' has no open chapter to run.`);
+          } else {
+            const blockedCh = spec.chapters.find((c) => !isClosedState(c.state));
+            if (blockedCh) {
+              for (const depCh of blockedCh.depends_on_chapters) {
+                if (!closedCh.has(depCh)) {
+                  add(
+                    "CHAPTER_DEPENDENCY_OPEN",
+                    "error",
+                    blockedCh.rel_path,
+                    `Chapter '${blockedCh.chapter_id}' depends on open chapter '${depCh}'.`,
+                  );
+                }
+              }
+            }
           }
+        } else {
+          targetChapter = runnableChapters[0];
+          scopedScopes = runnableChapters.map((c) => ({
+            tasks: c.tasks,
+            ownerPlanRevision: c.plan_revision ?? spec.plan_revision,
+          }));
         }
-        if (targetChapter.planning_status === "empirical_dependent") {
-          add("EMPIRICAL_REPLAN_REQUIRED", "error", scopeRel, `Chapter '${targetChapter.chapter_id}' requires empirical replan (${targetChapter.replan_trigger || "upstream baseline"}).`);
+      } else {
+        const requestedId =
+          chapterId || spec.current_chapter || spec.chapters.find((c) => !isClosedState(c.state))?.chapter_id;
+        if (!requestedId) {
+          add("NO_OPEN_CHAPTER", "error", spec.rel_path, `Spec '${spec.flow_id}' has no open chapter to run.`);
+        } else {
+          targetChapter = spec.chapters.find((c) => c.chapter_id === requestedId) || null;
+          if (!targetChapter) add("CHAPTER_MISSING", "error", spec.rel_path, `Chapter '${requestedId}' does not exist on disk.`);
+        }
+        if (targetChapter) {
+          const scopeRel = targetChapter.rel_path;
+          for (const depCh of targetChapter.depends_on_chapters) {
+            if (!closedCh.has(depCh)) {
+              add(
+                "CHAPTER_DEPENDENCY_OPEN",
+                "error",
+                scopeRel,
+                `Chapter '${targetChapter.chapter_id}' depends on open chapter '${depCh}'.`,
+              );
+            }
+          }
+          if (targetChapter.planning_status === "empirical_dependent") {
+            add(
+              "EMPIRICAL_REPLAN_REQUIRED",
+              "error",
+              scopeRel,
+              `Chapter '${targetChapter.chapter_id}' requires empirical replan (${targetChapter.replan_trigger || "upstream baseline"}).`,
+            );
+          }
+          scopedScopes = [{ tasks: targetChapter.tasks, ownerPlanRevision: targetChapter.plan_revision ?? spec.plan_revision }];
         }
       }
+    } else {
+      scopedScopes = [{ tasks: spec.tasks, ownerPlanRevision: spec.plan_revision }];
     }
 
     const upstreamCreatedPaths = (startTask) => {
@@ -1000,6 +1166,54 @@ export class SpecEngine {
       return created;
     };
 
+    const readyTasks = [];
+    for (const scope of scopedScopes) {
+      readyTasks.push(...this.#evaluatePreflightTasks(spec, scope.tasks, scope.ownerPlanRevision, allTasks, add, upstreamCreatedPaths));
+    }
+
+    const sourceOwners = new Map();
+    const overlappingPaths = [];
+    const testOwners = new Map();
+    const sharedTestFiles = [];
+    for (const t of readyTasks) {
+      for (const rawFile of t.files) {
+        const clean = String(rawFile).split("::")[0].trim().replace(/^\.\//, "");
+        if (!clean) continue;
+        const prev = sourceOwners.get(clean);
+        if (prev && prev !== t.id && !overlappingPaths.includes(clean)) overlappingPaths.push(clean);
+        else sourceOwners.set(clean, t.id);
+      }
+      for (const rawTest of t.tests) {
+        const clean = String(rawTest).split("::")[0].trim().replace(/^\.\//, "");
+        if (!clean) continue;
+        const prev = testOwners.get(clean);
+        if (prev && prev !== t.id && !sharedTestFiles.includes(clean)) sharedTestFiles.push(clean);
+        else testOwners.set(clean, t.id);
+      }
+    }
+
+    return {
+      ok: !findings.some((f) => f.severity === "error"),
+      flow_id: spec.flow_id,
+      chapter_id: targetChapter?.chapter_id || null,
+      runnable_chapter_ids: spec.has_chapters
+        ? allReadyChapters && !chapterId
+          ? runnableChapters.map((c) => c.chapter_id)
+          : targetChapter
+            ? [targetChapter.chapter_id]
+            : []
+        : [],
+      deferred_chapters: deferredChapters,
+      all_ready_chapters: Boolean(allReadyChapters),
+      ready_tasks: readyTasks.map((t) => ({ id: t.id, title: t.title, chapter_id: t.chapter_id || null, rel_path: t.rel_path })),
+      disjoint_write_sets: overlappingPaths.length === 0,
+      overlapping_paths: overlappingPaths,
+      shared_test_files: sharedTestFiles,
+      findings,
+    };
+  }
+
+  #evaluatePreflightTasks(spec, tasks, ownerPlanRevision, allTasks, add, upstreamCreatedPaths) {
     const readyTasks = [];
     for (const task of tasks.filter((t) => !isClosedState(t.state))) {
       if (!["compact", "full", "quick"].includes(task.worksheet_format)) {
@@ -1062,61 +1276,68 @@ export class SpecEngine {
       }
       if (allDepsResolvedAndClosed && task.state !== "blocked") readyTasks.push(task);
     }
-
-    const sourceOwners = new Map();
-    const overlappingPaths = [];
-    const testOwners = new Map();
-    const sharedTestFiles = [];
-    for (const t of readyTasks) {
-      for (const rawFile of t.files) {
-        const clean = String(rawFile).split("::")[0].trim().replace(/^\.\//, "");
-        if (!clean) continue;
-        const prev = sourceOwners.get(clean);
-        if (prev && prev !== t.id && !overlappingPaths.includes(clean)) overlappingPaths.push(clean);
-        else sourceOwners.set(clean, t.id);
-      }
-      for (const rawTest of t.tests) {
-        const clean = String(rawTest).split("::")[0].trim().replace(/^\.\//, "");
-        if (!clean) continue;
-        const prev = testOwners.get(clean);
-        if (prev && prev !== t.id && !sharedTestFiles.includes(clean)) sharedTestFiles.push(clean);
-        else testOwners.set(clean, t.id);
-      }
-    }
-
-    return {
-      ok: !findings.some((f) => f.severity === "error"),
-      flow_id: spec.flow_id,
-      chapter_id: targetChapter?.chapter_id || null,
-      ready_tasks: readyTasks.map((t) => ({ id: t.id, title: t.title, rel_path: t.rel_path })),
-      disjoint_write_sets: overlappingPaths.length === 0,
-      overlapping_paths: overlappingPaths,
-      shared_test_files: sharedTestFiles,
-      findings,
-    };
+    return readyTasks;
   }
 
   /**
    * Synchronize checklist markers, SHAs, and `current_task` / `current_chapter` / `state` in code (`0` LLM tokens).
    *
-   * @param {{ flowId: string, chapterId?: string | null, dryRun?: boolean }} params
+   * @param {{ flowId: string, chapterId?: string | null, dryRun?: boolean, releaseStaleClaims?: boolean, staleAfterSeconds?: number }} params
    */
-  syncChecklists({ flowId, chapterId = null, dryRun = false }) {
-    const { spec } = this.status(flowId);
+  syncChecklists({ flowId, chapterId = null, dryRun = false, releaseStaleClaims = true, staleAfterSeconds = 900 }) {
+    const initial = this.status(flowId);
+    let spec = initial.spec;
     const updatedFiles = [];
+    const releasedClaims = [];
+
+    if (releaseStaleClaims) {
+      const nowMs = Date.now();
+      const staleMs = Math.max(60, Number(staleAfterSeconds) || 900) * 1000;
+      const candidateTasks = spec.has_chapters
+        ? spec.chapters.filter((c) => !chapterId || c.chapter_id === chapterId).flatMap((c) => c.tasks)
+        : spec.tasks;
+      for (const task of candidateTasks) {
+        if (task.state !== "in_progress" || (task.commit && HEX_SHA_RE.test(task.commit))) continue;
+        if (!task.claimed_at) continue;
+        const parsedMs = Date.parse(task.claimed_at);
+        if (!Number.isFinite(parsedMs) || nowMs - parsedMs < staleMs) continue;
+        releasedClaims.push(task.id);
+        if (!dryRun) {
+          const raw = readTextSafe(task.abs_path) || "";
+          writeTextAtomic(
+            task.abs_path,
+            FrontmatterCodec.updateKeys(raw, { state: "pending", claimed_by: null, claimed_at: null }),
+          );
+          updatedFiles.push(task.rel_path);
+        }
+      }
+      if (releasedClaims.length > 0 && !dryRun) {
+        sharedParseMemo.invalidate(this.effectiveRoot);
+        spec = this.status(flowId).spec;
+      }
+    }
 
     if (spec.has_chapters) {
+      let anyChapterChanged = false;
       for (const ch of spec.chapters) {
         if (chapterId && ch.chapter_id !== chapterId) continue;
         const chSpecPath = path.join(spec.spec_dir, "chapters", ch.chapter_id, "spec.md");
         const { changed } = this.#syncOwnerSpecTasks(chSpecPath, ch.tasks, { dryRun });
-        if (changed) updatedFiles.push(toPosixRelative(this.effectiveRoot, chSpecPath));
+        if (changed) {
+          anyChapterChanged = true;
+          updatedFiles.push(toPosixRelative(this.effectiveRoot, chSpecPath));
+        }
       }
+      if (anyChapterChanged && !dryRun) {
+        sharedParseMemo.invalidate(this.effectiveRoot);
+        spec = this.status(flowId).spec;
+      }
+      const allTasks = spec.chapters.flatMap((c) => c.tasks);
       const rootChanged = this.#syncMultiChapterRoot(
         spec.spec_path,
         path.join(spec.spec_dir, "chapters", "index.md"),
         spec.chapters,
-        { dryRun },
+        { dryRun, allTasks },
       );
       if (rootChanged) updatedFiles.push(spec.rel_path);
     } else {
@@ -1125,7 +1346,141 @@ export class SpecEngine {
     }
 
     sharedParseMemo.invalidate(this.effectiveRoot);
-    return { ok: true, flow_id: spec.flow_id, dry_run: dryRun, updated_files: updatedFiles };
+    return {
+      ok: true,
+      flow_id: spec.flow_id,
+      dry_run: dryRun,
+      release_stale_claims: Boolean(releaseStaleClaims),
+      released_claims: releasedClaims,
+      updated_files: Array.from(new Set(updatedFiles)),
+    };
+  }
+
+  /**
+   * Deterministically claim active tasks before dispatching parallel worker slots.
+   *
+   * @param {{ flowId: string, taskIds: string[], chapterId?: string | null, claimedBy?: string, claimedAt?: string | null, sync?: boolean, releaseStaleClaims?: boolean }} params
+   */
+  claimTasks({
+    flowId,
+    taskIds = [],
+    chapterId = null,
+    claimedBy = "coordinator:scheduler",
+    claimedAt = null,
+    sync = true,
+    releaseStaleClaims = false,
+  }) {
+    const { spec } = this.status(flowId);
+    const pool = spec.has_chapters
+      ? spec.chapters.filter((c) => !chapterId || c.chapter_id === chapterId).flatMap((c) => c.tasks)
+      : spec.tasks;
+    const timestamp = claimedAt || new Date().toISOString();
+    const claimed = [];
+    const skipped = [];
+
+    for (const ref of taskIds) {
+      const task = pool.find((t) => matchesTaskRef(t, ref));
+      if (!task) {
+        skipped.push({ ref, reason: "not_found" });
+        continue;
+      }
+      if (isClosedState(task.state)) {
+        skipped.push({ ref: task.id, reason: `already_${task.state}` });
+        continue;
+      }
+      const raw = readTextSafe(task.abs_path) || "";
+      writeTextAtomic(
+        task.abs_path,
+        FrontmatterCodec.updateKeys(raw, {
+          state: "in_progress",
+          claimed_by: claimedBy,
+          claimed_at: timestamp,
+        }),
+      );
+      claimed.push(task.id);
+    }
+
+    sharedParseMemo.invalidate(this.effectiveRoot);
+    if (sync && claimed.length > 0) {
+      this.syncChecklists({ flowId: spec.flow_id, chapterId, releaseStaleClaims });
+    }
+    return { ok: true, flow_id: spec.flow_id, claimed, skipped };
+  }
+
+  /**
+   * Deterministically complete or block tasks from coordinator receipts without releasing sibling claims.
+   *
+   * @param {{ flowId: string, completions: Array<string | Record<string, any>>, sync?: boolean, releaseStaleClaims?: boolean, dryRun?: boolean }} params
+   */
+  completeTasks({ flowId, completions = [], sync = true, releaseStaleClaims = false, dryRun = false }) {
+    const { spec } = this.status(flowId);
+    const allTasks = spec.has_chapters ? spec.chapters.flatMap((c) => c.tasks) : spec.tasks;
+    const completed = [];
+    const blocked = [];
+    const missing = [];
+    const verifiedAt = new Date().toISOString();
+
+    for (const entry of completions) {
+      const item = typeof entry === "string" ? { taskId: entry } : entry || {};
+      const ref = String(item.taskId || item.task_id || item.id || item.task_rel_path || "").trim();
+      const task = allTasks.find((t) => matchesTaskRef(t, ref));
+      if (!task) {
+        if (ref) missing.push(ref);
+        continue;
+      }
+      const nextStatus = String(item.status || "completed").trim().toLowerCase();
+      if (nextStatus === "blocked") {
+        blocked.push(task.id);
+        if (!dryRun) {
+          const raw = readTextSafe(task.abs_path) || "";
+          writeTextAtomic(
+            task.abs_path,
+            FrontmatterCodec.updateKeys(raw, {
+              state: "blocked",
+              claimed_by: null,
+              claimed_at: null,
+              ...(item.blocked_reason ? { blocked_reason: String(item.blocked_reason) } : {}),
+            }),
+          );
+        }
+        continue;
+      }
+
+      const rawSha = String(item.commit || item.code_commit || "").trim();
+      const validSha = HEX_SHA_RE.test(rawSha) ? rawSha : task.commit && HEX_SHA_RE.test(task.commit) ? task.commit : null;
+      const deferredCommit = Boolean(item.commit_deferred_to_coordinator);
+      const nextCommit = validSha || (deferredCommit ? "pending_coordinator" : task.commit || null);
+
+      completed.push(task.id);
+      if (!dryRun) {
+        const raw = readTextSafe(task.abs_path) || "";
+        const updates = {
+          state: "completed",
+          claimed_by: null,
+          claimed_at: null,
+          commit: nextCommit,
+          last_verified_at: String(item.verified_at || verifiedAt),
+        };
+        if (validSha) updates.last_verified_commit = validSha;
+        if (item.verification_evidence) updates.verification_evidence = String(item.verification_evidence);
+        writeTextAtomic(task.abs_path, FrontmatterCodec.updateKeys(raw, updates));
+      }
+    }
+
+    sharedParseMemo.invalidate(this.effectiveRoot);
+    const syncResult = sync
+      ? this.syncChecklists({ flowId: spec.flow_id, releaseStaleClaims, dryRun })
+      : null;
+
+    return {
+      ok: true,
+      flow_id: spec.flow_id,
+      dry_run: dryRun,
+      completed,
+      blocked,
+      missing,
+      sync: syncResult,
+    };
   }
 
   /**
@@ -1352,26 +1707,61 @@ export class SpecEngine {
     return counts;
   }
 
-  #computeNextForSpec(spec) {
+  #computeNextForSpec(spec, { allReadyChapters = false } = {}) {
     if (spec.has_chapters) {
+      const allTasks = spec.chapters.flatMap((c) => c.tasks);
       const closedCh = new Set(spec.chapters.filter((c) => isClosedState(c.state)).map((c) => c.chapter_id));
-      for (const ch of spec.chapters) {
-        if (isClosedState(ch.state)) continue;
-        if (!ch.depends_on_chapters.every((d) => closedCh.has(d))) continue;
-        const ready = ch.tasks.filter(
+      const openReady = spec.chapters.filter(
+        (ch) => !isClosedState(ch.state) && ch.depends_on_chapters.every((d) => closedCh.has(d)),
+      );
+      const runnable = openReady.filter((ch) => ch.planning_status !== "empirical_dependent");
+      const deferred = openReady.filter((ch) => ch.planning_status === "empirical_dependent");
+
+      const pickReady = (tasks) =>
+        tasks.filter(
           (t) =>
             !isClosedState(t.state) &&
             t.state !== "blocked" &&
             t.depends_on.every((d) => {
-              const dep = resolveTaskDependency(t, d, ch.tasks, spec.flow_id);
+              const dep = resolveTaskDependency(t, d, allTasks, spec.flow_id);
               return dep && isClosedState(dep.state);
             }),
         );
+
+      if (allReadyChapters && runnable.length > 0) {
+        const readyAcross = runnable.flatMap((ch) => pickReady(ch.tasks));
+        return {
+          flow_id: spec.flow_id,
+          chapter_id: runnable[0].chapter_id,
+          chapter_ids: runnable.map((ch) => ch.chapter_id),
+          deferred_chapters: deferred.map((ch) => ch.chapter_id),
+          planning_status: "complete",
+          ready_tasks: readyAcross.map((t) => ({ id: t.id, title: t.title, chapter_id: t.chapter_id, rel_path: t.rel_path })),
+        };
+      }
+
+      if (runnable.length > 0) {
+        const ch = runnable[0];
+        const ready = pickReady(ch.tasks);
         return {
           flow_id: spec.flow_id,
           chapter_id: ch.chapter_id,
+          chapter_ids: [ch.chapter_id],
+          deferred_chapters: deferred.map((dch) => dch.chapter_id),
           planning_status: ch.planning_status,
-          ready_tasks: ready.map((t) => ({ id: t.id, title: t.title, rel_path: t.rel_path })),
+          ready_tasks: ready.map((t) => ({ id: t.id, title: t.title, chapter_id: t.chapter_id, rel_path: t.rel_path })),
+        };
+      }
+
+      if (deferred.length > 0) {
+        const ch = deferred[0];
+        return {
+          flow_id: spec.flow_id,
+          chapter_id: ch.chapter_id,
+          chapter_ids: [],
+          deferred_chapters: deferred.map((dch) => dch.chapter_id),
+          planning_status: ch.planning_status,
+          ready_tasks: [],
         };
       }
       return null;
@@ -1389,8 +1779,10 @@ export class SpecEngine {
     return {
       flow_id: spec.flow_id,
       chapter_id: null,
+      chapter_ids: [],
+      deferred_chapters: [],
       planning_status: "complete",
-      ready_tasks: ready.map((t) => ({ id: t.id, title: t.title, rel_path: t.rel_path })),
+      ready_tasks: ready.map((t) => ({ id: t.id, title: t.title, chapter_id: null, rel_path: t.rel_path })),
     };
   }
 
@@ -1455,9 +1847,17 @@ export class SpecEngine {
     }
 
     const openTask = tasks.find((t) => t.state === "in_progress") || tasks.find((t) => !isClosedState(t.state)) || null;
+    const allClosed = tasks.length > 0 && tasks.every((t) => isClosedState(t.state));
     const anyStarted = tasks.some((t) => t.state === "in_progress" || isClosedState(t.state));
     const curState = (doc.text("state") || "planned").toLowerCase();
-    const nextState = curState === "planned" && anyStarted ? "active" : curState;
+    let nextState = curState;
+    if (allClosed) {
+      nextState = curState === "closed" ? "closed" : "completed";
+    } else if (isClosedState(curState)) {
+      nextState = anyStarted ? "active" : "planned";
+    } else if ((curState === "planned" || curState === "pending" || curState === "ready") && anyStarted) {
+      nextState = "active";
+    }
 
     const updated = FrontmatterCodec.updateKeys(rewritten.join("\n"), {
       current_task: openTask ? openTask.id : null,
@@ -1468,12 +1868,23 @@ export class SpecEngine {
     return { changed };
   }
 
-  #syncMultiChapterRoot(rootSpecPath, chIndexPath, chStatuses, { dryRun = false } = {}) {
+  #syncMultiChapterRoot(rootSpecPath, chIndexPath, chStatuses, { dryRun = false, allTasks = [] } = {}) {
     if (!fs.existsSync(rootSpecPath)) return false;
     const original = readTextSafe(rootSpecPath) || "";
     const doc = FrontmatterDocument.parse(original);
     let inFm = false;
     let inFence = false;
+
+    const matchChapterChecklist = (restText, chId) => {
+      const escaped = escapeRegExp(chId);
+      return (
+        restText.includes(`chapters/${chId}/spec.md`) ||
+        restText.includes(`(${chId}/spec.md)`) ||
+        restText.includes(`[${chId}]`) ||
+        new RegExp(`^${escaped}(?:[\\s:—–-]|$)`).test(restText.trim())
+      );
+    };
+
     const rewritten = original.split("\n").map((line, idx) => {
       if (idx === 0 && line.trim() === "---") {
         inFm = true;
@@ -1491,18 +1902,35 @@ export class SpecEngine {
       const m = line.match(CHECKLIST_LINE_RE);
       if (!m) return line;
       const [, prefix, , spacing, , rest] = m;
-      const ch = chStatuses.find((c) => rest.includes(c.chapter_id));
+      const ch = chStatuses.find((c) => matchChapterChecklist(rest, c.chapter_id));
       if (!ch) return line;
       const mark = expectedMarkerForState(ch.state);
       const sha = mark === "x" && ch.last_reviewed_commit && HEX_SHA_RE.test(ch.last_reviewed_commit) ? `[${ch.last_reviewed_commit.slice(0, 7)}] ` : "";
       return `${prefix}[${mark}]${spacing}${sha}${rest}`;
     });
+
     const openCh = chStatuses.find((c) => !isClosedState(c.state)) || null;
+    const activeCh = chStatuses.find((c) => c.state === "active") || openCh;
+    const allClosed = chStatuses.length > 0 && chStatuses.every((c) => isClosedState(c.state));
     const anyActive = chStatuses.some((c) => c.state === "active" || isClosedState(c.state));
     const curState = (doc.text("state") || "planned").toLowerCase();
-    const nextState = curState === "planned" && anyActive ? "active" : curState;
+    let nextState = curState;
+    if (allClosed) {
+      nextState = curState === "closed" ? "closed" : "completed";
+    } else if (isClosedState(curState)) {
+      nextState = anyActive ? "active" : "planned";
+    } else if ((curState === "planned" || curState === "pending" || curState === "ready") && anyActive) {
+      nextState = "active";
+    }
+
+    const activeTask =
+      allTasks.find((t) => t.state === "in_progress") ||
+      (activeCh?.tasks || []).find((t) => !isClosedState(t.state)) ||
+      null;
+
     const updated = FrontmatterCodec.updateKeys(rewritten.join("\n"), {
-      current_chapter: openCh ? openCh.chapter_id : null,
+      current_chapter: activeCh ? activeCh.chapter_id : null,
+      current_task: activeTask ? activeTask.id : null,
       state: nextState,
     });
     const changed = updated !== original;
@@ -1510,18 +1938,35 @@ export class SpecEngine {
 
     if (fs.existsSync(chIndexPath)) {
       const idxOrig = readTextSafe(chIndexPath) || "";
-      const idxNext = idxOrig
-        .split("\n")
-        .map((line) => {
-          if (!line.trim().startsWith("|")) return line;
-          const ch = chStatuses.find((c) => line.includes(c.chapter_id));
-          if (!ch) return line;
-          const cells = line.split("|");
-          if (cells.length >= 6) {
-            cells[4] = ` ${ch.state} `;
-            return cells.join("|");
+      const idxLines = idxOrig.split("\n");
+      let stateColIdx = -1;
+      const isSeparatorRow = (ln) => /^\s*\|(?:\s*:?-+:?\s*\|)+\s*$/.test(ln);
+      const idxNext = idxLines
+        .map((line, i) => {
+          const trimmed = line.trim();
+          if (!trimmed.startsWith("|")) {
+            stateColIdx = -1;
+            return line;
           }
-          return line;
+          if (isSeparatorRow(trimmed)) return line;
+          const cells = line.split("|");
+          if (i + 1 < idxLines.length && isSeparatorRow(idxLines[i + 1].trim())) {
+            stateColIdx = cells.findIndex((c) => /^(?:state|status)$/i.test(c.trim()));
+            return line;
+          }
+          if (stateColIdx <= 0 || stateColIdx >= cells.length - 1) return line;
+          const cell1 = cells[1] || "";
+          const ch = chStatuses.find((c) => {
+            const escaped = escapeRegExp(c.chapter_id);
+            return (
+              cell1.includes(`${c.chapter_id}/spec.md`) ||
+              cell1.includes(`[${c.chapter_id}]`) ||
+              new RegExp(`\\b${escaped}\\b`).test(cell1)
+            );
+          });
+          if (!ch) return line;
+          cells[stateColIdx] = ` ${ch.state} `;
+          return cells.join("|");
         })
         .join("\n");
       if (idxNext !== idxOrig && !dryRun) writeTextAtomic(chIndexPath, idxNext);

@@ -21,6 +21,11 @@ from tools.validate import (
     is_link_or_junction,
     validate_okf_bundle,
 )
+from workflows.flow_common import (
+    ExecutionSlotScheduler,
+    resolve_workspace_commands,
+    run_parallel_bounded,
+)
 
 NODE_BIN = shutil.which("node")
 FLOW_CLI = REPO_ROOT / "sidecars" / "studio" / "flow-cli.mjs"
@@ -1531,3 +1536,298 @@ def test_slice_compiler_builds_disjoint_context_packs_within_token_cap(tmp_path:
             pack = sl["context_pack"]
             assert pack["approx_tokens"] <= 4000
     assert validate_okf_bundle(bundle_dir) == []
+
+
+@pytest.mark.parametrize(
+    ("files", "expected_snippet"),
+    [
+        ({"Makefile": "lint:\n\techo ok\ntest:\n\techo ok\n"}, "make test"),
+        ({"pyproject.toml": "[tool.ruff]\n[tool.pytest.ini_options]\n"}, "pytest"),
+        ({"package.json": json.dumps({"scripts": {"lint": "eslint .", "test": "vitest run"}})}, "npm run test"),
+        ({"Cargo.toml": '[package]\nname = "demo"\n'}, "cargo test"),
+        ({"go.mod": "module example.com/demo\n"}, "go test ./..."),
+        (
+            {
+                ".agents/setup-state.json": json.dumps(
+                    {"workflow_preferences": {"commands": {"lint": "custom-lint", "test": "custom-test"}}}
+                )
+            },
+            "custom-test",
+        ),
+    ],
+)
+def test_flow_common_resolve_workspace_commands(
+    tmp_path: Path,
+    files: dict[str, str],
+    expected_snippet: str,
+) -> None:
+    """Verify resolve_workspace_commands discovers lint and test commands across ecosystems cleanly."""
+    for rel_path, content in files.items():
+        target = tmp_path / rel_path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+    task_md = tmp_path / "task.md"
+    task_md.write_text("## Verification\n```bash\ncustom-task-check\n```\n", encoding="utf-8")
+
+    resolved = resolve_workspace_commands(tmp_path, [{"path": "task.md"}])
+    assert "custom-task-check" in resolved["task_verification"]
+    assert any(expected_snippet in cmd for cmd in resolved["recommended"]), resolved
+
+
+def test_flow_common_run_parallel_bounded_caps_concurrency_and_isolates_errors() -> None:
+    """Verify run_parallel_bounded limits active coroutines and returns per-item exceptions cleanly."""
+    active = 0
+    peak = 0
+
+    async def _worker(idx: int) -> str:
+        nonlocal active, peak
+        active += 1
+        peak = max(peak, active)
+        await asyncio.sleep(0.02)
+        active -= 1
+        if idx == 2:
+            raise RuntimeError("boom-2")
+        return f"ok-{idx}"
+
+    async def _drive() -> list[Any]:
+        return await run_parallel_bounded([0, 1, 2, 3, 4], _worker, max_concurrency=2, return_exceptions=True)
+
+    results = asyncio.run(_drive())
+    assert peak <= 2
+    assert results[0] == "ok-0"
+    assert results[1] == "ok-1"
+    assert isinstance(results[2], RuntimeError)
+    assert results[3] == "ok-3"
+    assert results[4] == "ok-4"
+
+
+@pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
+def test_work_conserving_slot_scheduler_cross_chapter_backfill_and_isolation(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    """Verify ExecutionSlotScheduler backfills idle slots across chapters and isolates worker crashes."""
+    monkeypatch.setenv("FLOW_RUNTIME_DIR", str(tmp_path / "rt"))
+    ws = tmp_path / "sched-ws"
+    ch1 = ws / ".agents" / "bundles" / "specs" / "sched" / "chapters" / "ch01-alpha" / "tasks"
+    ch2 = ws / ".agents" / "bundles" / "specs" / "sched" / "chapters" / "ch02-beta" / "tasks"
+    ch3 = ws / ".agents" / "bundles" / "specs" / "sched" / "chapters" / "ch03-other" / "tasks"
+    for folder in (ch1, ch2, ch3):
+        folder.mkdir(parents=True)
+    (ws / "src").mkdir()
+    for fname in ("s1.py", "s2.py", "s3.py", "s4.py"):
+        (ws / "src" / fname).write_text("X = 1\n", encoding="utf-8")
+    (ws / ".agents" / "setup-state.json").write_text(
+        '{"setup_status":"complete","bundle_root":".agents/bundles","okf_version":"0.2"}\n',
+        encoding="utf-8",
+    )
+    (ws / ".agents" / "bundles" / "index.md").write_text("---\nokf_version: '0.2'\n---\n\n# Index\n", encoding="utf-8")
+    (ws / ".agents" / "bundles" / "specs" / "sched" / "spec.md").write_text(
+        "---\ntype: Spec\nflow_id: sched\ntitle: Sched\nstate: active\nhas_chapters: true\n"
+        "current_chapter: ch01-alpha\nchapters: [ch01-alpha, ch02-beta, ch03-other]\n---\n\n"
+        "- [ ] ch01-alpha\n- [ ] ch02-beta\n- [ ] ch03-other\n",
+        encoding="utf-8",
+    )
+    (ws / ".agents" / "bundles" / "specs" / "sched" / "chapters" / "ch01-alpha" / "spec.md").write_text(
+        "---\ntype: Spec\nflow_id: sched\nchapter_id: ch01-alpha\nstate: active\nplanning_status: complete\n---\n\n"
+        "- [ ] t01\n- [ ] t02\n",
+        encoding="utf-8",
+    )
+    (ws / ".agents" / "bundles" / "specs" / "sched" / "chapters" / "ch02-beta" / "spec.md").write_text(
+        "---\ntype: Spec\nflow_id: sched\nchapter_id: ch02-beta\nstate: pending\nplanning_status: complete\n---\n\n"
+        "- [ ] t01\n",
+        encoding="utf-8",
+    )
+    (ws / ".agents" / "bundles" / "specs" / "sched" / "chapters" / "ch03-other" / "spec.md").write_text(
+        "---\ntype: Spec\nflow_id: sched\nchapter_id: ch03-other\nstate: active\nplanning_status: complete\n---\n\n"
+        "- [-] t01\n",
+        encoding="utf-8",
+    )
+    (ch1 / "t01-slow.md").write_text(
+        "---\ntype: Task\nid: sched:ch01-alpha:t01\ntitle: Slow ch1\nstate: pending\n"
+        "files: [src/s1.py]\ntests: [tests/test_s1.py]\ndepends_on: []\nestimated_loc: 150\n---\n\nWork.\n",
+        encoding="utf-8",
+    )
+    (ch1 / "t02-crash.md").write_text(
+        "---\ntype: Task\nid: sched:ch01-alpha:t02\ntitle: Crash ch1\nstate: pending\n"
+        "files: [src/s2.py]\ntests: [tests/test_s2.py]\ndepends_on: []\nestimated_loc: 150\n---\n\nWork.\n",
+        encoding="utf-8",
+    )
+    (ch2 / "t01-fast.md").write_text(
+        "---\ntype: Task\nid: sched:ch02-beta:t01\ntitle: Fast ch2\nstate: pending\n"
+        "files: [src/s3.py]\ntests: [tests/test_s3.py]\ndepends_on: []\nestimated_loc: 150\n---\n\nWork.\n",
+        encoding="utf-8",
+    )
+    (ch3 / "t01-sibling.md").write_text(
+        "---\ntype: Task\nid: sched:ch03-other:t01\ntitle: Sibling\nstate: in_progress\n"
+        "claimed_by: ext-worker\nclaimed_at: 2020-01-01T00:00:00.000Z\n"
+        "files: [src/s4.py]\ntests: [tests/test_s4.py]\ndepends_on: []\nestimated_loc: 150\n---\n\nWork.\n",
+        encoding="utf-8",
+    )
+
+    events: list[tuple[str, str, int]] = []
+    slow_done = False
+
+    async def _run_slice(sl: dict[str, Any], slot_id: int) -> dict[str, Any]:
+        nonlocal slow_done
+        tids = list(sl.get("task_ids") or [])
+        tid = tids[0]
+        events.append(("start", tid, slot_id))
+        if tid == "sched:ch01-alpha:t01":
+            await asyncio.sleep(0.8)
+            slow_done = True
+        elif tid == "sched:ch01-alpha:t02":
+            await asyncio.sleep(0.01)
+            events.append(("crash", tid, slot_id))
+            raise RuntimeError("worker transient error")
+        else:
+            events.append(("ch02_while_ch01_slow", str(not slow_done), slot_id))
+            await asyncio.sleep(0.01)
+        events.append(("done", tid, slot_id))
+        return {
+            "status": "completed",
+            "commit_deferred_to_coordinator": True,
+        }
+
+    scheduler = ExecutionSlotScheduler(
+        plugin_root=REPO_ROOT,
+        flow_id="sched",
+        workspace=ws,
+        max_workers=2,
+        all_ready_chapters=True,
+    )
+    summary = asyncio.run(scheduler.run(_run_slice))
+    assert ("ch02_while_ch01_slow", "True", 1) in events or ("ch02_while_ch01_slow", "True", 0) in events
+    assert summary["failed_tasks"] == ["sched:ch01-alpha:t02"]
+    assert "sched:ch02-beta:t01" in summary["dispatched_tasks"]
+
+    assert "state: blocked" in (ch1 / "t02-crash.md").read_text(encoding="utf-8")
+    assert "state: completed" in (ch1 / "t01-slow.md").read_text(encoding="utf-8")
+    assert "state: completed" in (ch2 / "t01-fast.md").read_text(encoding="utf-8")
+    ch3_text = (ch3 / "t01-sibling.md").read_text(encoding="utf-8")
+    assert "state: in_progress" in ch3_text
+    assert "claimed_by: ext-worker" in ch3_text
+
+
+def test_flow_dual_review_and_spec_planning_crash_isolation_and_quota_fallback(
+    tmp_path: Path,
+    monkeypatch: Any,
+) -> None:
+    """Verify dual-review quota fallback + seat isolation and per-chapter planner isolation."""
+    monkeypatch.setenv("FLOW_RUNTIME_DIR", str(tmp_path / "rt"))
+    ws = _seed_valid_multichapter_bundle(tmp_path).parent.parent
+    monkeypatch.chdir(ws)
+
+    rev_script = REPO_ROOT / "workflows" / "flow-dual-review" / "workflow.py"
+    rev_tree = ast.parse(rev_script.read_text(encoding="utf-8"), str(rev_script))
+    rev_code = compile(rev_tree, str(rev_script), "exec", flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
+    rev_printed: list[str] = []
+    seat_calls: list[tuple[str, str]] = []
+
+    async def rev_agent(
+        prompt: str,
+        *,
+        schema: dict[str, Any],
+        role: str = "",
+        type_name: str = "self",
+        workspace: str = "inherit",
+        model: str = "inherit",
+    ) -> dict[str, Any]:
+        seat_calls.append((role, model))
+        low_role = role.lower()
+        if ("conformance" in low_role or "correctness" in low_role or "code" in low_role) and model != "flash":
+            raise RuntimeError("HTTP 429 rate_limit exhausted")
+        if "quality" in low_role or "debloat" in low_role:
+            raise RuntimeError("quality reviewer internal crash")
+        return {"verdict": "PASS", "findings": []}
+
+    async def fake_with_budget(coro: Any, **_kwargs: Any) -> Any:
+        return await coro
+
+    async def fake_parallel(items: list[Any], fn: Callable[[Any], Any]) -> list[Any]:
+        return list(await asyncio.gather(*(fn(item) for item in items)))
+
+    rev_ns: dict[str, Any] = {
+        "__builtins__": __builtins__,
+        "__file__": str(rev_script),
+        "args": {
+            "git_range": "HEAD~1..HEAD",
+            "review_mode": "dual",
+            "reviewer_model": "pro",
+            "fallback_model": "flash",
+            "max_concurrency": 2,
+            "plugin_root": str(REPO_ROOT),
+        },
+        "agent": rev_agent,
+        "with_budget": fake_with_budget,
+        "parallel": fake_parallel,
+        "phase": lambda _n: None,
+        "log": lambda _m: None,
+        "tokens_used": lambda: 100,
+        "print": lambda t: rev_printed.append(str(t)),
+    }
+
+    async def _drive_rev() -> None:
+        coro = eval(rev_code, rev_ns, rev_ns)
+        if asyncio.iscoroutine(coro):
+            await coro
+
+    asyncio.run(_drive_rev())
+    rev_out = json.loads(rev_printed[-1])
+    assert rev_out["quota_degraded"] is True
+    assert len(rev_out["reports"]) == 2
+    assert any(r["verdict"] == "PASS" and r["model_used"] == "flash" for r in rev_out["reports"])
+    assert any(r["verdict"] == "NEEDS_WORK" and r["findings"] for r in rev_out["reports"])
+
+    plan_script = REPO_ROOT / "workflows" / "flow-spec-planning" / "workflow.py"
+    plan_tree = ast.parse(plan_script.read_text(encoding="utf-8"), str(plan_script))
+    plan_code = compile(plan_tree, str(plan_script), "exec", flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
+    plan_printed: list[str] = []
+
+    async def plan_agent(
+        prompt: str,
+        *,
+        schema: dict[str, Any],
+        role: str = "",
+        type_name: str = "self",
+        workspace: str = "inherit",
+        model: str = "inherit",
+    ) -> dict[str, Any]:
+        if "ch03-sessions" in role:
+            raise RuntimeError("planner ch03 crash")
+        return {"files_written": [], "task_summaries": ["ok"], "root_spec_issues": []}
+
+    plan_ns: dict[str, Any] = {
+        "__builtins__": __builtins__,
+        "__file__": str(plan_script),
+        "args": {
+            "flow_id": "auth-refactor",
+            "chapters": [
+                {"id": "ch02-middleware", "title": "Middleware", "brief": "Auth"},
+                {"id": "ch03-sessions", "title": "Sessions", "brief": "Sessions"},
+            ],
+            "planner_mode": "per_chapter",
+            "mode": "plan_only",
+            "planner_model": "pro",
+            "max_concurrency": 2,
+            "plugin_root": str(REPO_ROOT),
+        },
+        "agent": plan_agent,
+        "with_budget": fake_with_budget,
+        "parallel": fake_parallel,
+        "phase": lambda _n: None,
+        "log": lambda _m: None,
+        "tokens_used": lambda: 100,
+        "print": lambda t: plan_printed.append(str(t)),
+    }
+
+    async def _drive_plan() -> None:
+        coro = eval(plan_code, plan_ns, plan_ns)
+        if asyncio.iscoroutine(coro):
+            await coro
+
+    asyncio.run(_drive_plan())
+    plan_out = json.loads(plan_printed[-1])
+    by_ch = {c["chapter_id"]: c for c in plan_out["chapters"]}
+    assert by_ch["ch02-middleware"]["degraded_reason"] is None
+    assert "planner failed" in (by_ch["ch03-sessions"]["degraded_reason"] or "")

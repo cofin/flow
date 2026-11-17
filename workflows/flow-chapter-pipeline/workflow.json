@@ -6,14 +6,19 @@
     "type": "object",
     "properties": {
       "flow_id": {"type": "string", "description": "Flow identifier under .agents/bundles/specs/<flow_id>."},
-      "chapter_id": {"type": "string", "description": "Chapter directory slug."},
-      "tasks": {"type": "array", "items": {"type": "string"}, "description": "Ordered task worksheet relative paths."},
-      "base_commit": {"type": "string", "description": "Base Git commit SHA prior to chapter execution."},
+      "chapter_id": {"type": "string", "description": "Optional chapter directory slug to pin execution."},
+      "tasks": {"type": "array", "items": {"type": "string"}, "description": "Optional ordered task worksheet relative paths."},
+      "single_chapter": {"type": "boolean", "description": "Pin execution to chapter_id instead of filling idle slots across all ready chapters."},
+      "all_ready_chapters": {"type": "boolean", "description": "Allow work-conserving execution across all ready unblocked chapters."},
+      "max_workers": {"type": "integer", "description": "Maximum concurrent execution worker slots (default 4; clamped 1..12)."},
+      "max_concurrency": {"type": "integer", "description": "Maximum concurrent review seats or workers (default 4)."},
+      "allow_uncommitted": {"type": "boolean", "description": "Allow uncommitted deferred-commit receipts in post-execution OKF validation."},
+      "base_commit": {"type": "string", "description": "Base Git commit SHA prior to execution."},
       "bundle_root": {"type": "string", "description": "Bundle root path (default .agents/bundles)."},
       "execution_mode": {
         "type": "string",
         "enum": ["wave_slices", "chapter_batch", "per_task"],
-        "description": "Execute via micro-sliced Context Pack waves (default), warm batch, or per-task."
+        "description": "Execute via work-conserving slot scheduler (default), warm batch, or per-task."
       },
       "review_mode": {
         "type": "string",
@@ -28,6 +33,6 @@
       "reviewer_agent": {"type": "string", "description": "Optional custom agent profile for review."},
       "fallback_model": {"type": "string", "description": "Optional quota fallback model tier."}
     },
-    "required": ["flow_id", "chapter_id", "tasks"]
+    "required": ["flow_id"]
   }
 }

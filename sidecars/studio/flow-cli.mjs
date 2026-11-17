@@ -60,11 +60,48 @@ export async function runFlowCli(argv = process.argv.slice(2)) {
   if (group === "spec") {
     const engine = new SpecEngine(ws);
     if (action === "status") return engine.status(opts.flow || opts._[0] || null);
-    if (action === "preflight") return engine.preflight(opts.flow || opts._[0], { chapterId: opts.chapter || null });
+    if (action === "preflight") {
+      return engine.preflight(opts.flow || opts._[0], {
+        chapterId: opts.chapter || null,
+        allReadyChapters: Boolean(opts["all-ready-chapters"]),
+      });
+    }
     if (action === "sync") {
       return engine.syncChecklists({
         flowId: opts.flow || opts._[0],
         chapterId: opts.chapter || null,
+        dryRun: Boolean(opts["dry-run"]),
+        releaseStaleClaims: !opts["no-release-stale"],
+      });
+    }
+    if (action === "claim") {
+      const rawTasks = String(opts.tasks || opts._[1] || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      return engine.claimTasks({
+        flowId: opts.flow || opts._[0],
+        taskIds: rawTasks,
+        chapterId: opts.chapter || null,
+        claimedBy: String(opts.by || opts["claimed-by"] || "coordinator:scheduler"),
+        releaseStaleClaims: !opts["no-release-stale"],
+      });
+    }
+    if (action === "complete") {
+      let completions = [];
+      if (opts.payload) {
+        const parsed = JSON.parse(String(opts.payload));
+        completions = Array.isArray(parsed) ? parsed : [parsed];
+      } else if (opts.tasks) {
+        completions = String(opts.tasks)
+          .split(",")
+          .map((s) => ({ taskId: s.trim(), commit: opts.commit || null }))
+          .filter((item) => item.taskId);
+      }
+      return engine.completeTasks({
+        flowId: opts.flow || opts._[0],
+        completions,
+        releaseStaleClaims: !opts["no-release-stale"],
         dryRun: Boolean(opts["dry-run"]),
       });
     }
@@ -90,12 +127,27 @@ export async function runFlowCli(argv = process.argv.slice(2)) {
   }
 
   if (group === "slices") {
-    const compiler = new SliceCompiler(ws);
+    const compiler = new SliceCompiler(ws, {
+      ...(opts["max-loc"] ? { maxSliceLoc: Number(opts["max-loc"]) } : {}),
+      ...(opts["max-files"] ? { maxSliceFiles: Number(opts["max-files"]) } : {}),
+      ...(opts["max-workers"] ? { maxWaveWorkers: Number(opts["max-workers"]) } : {}),
+    });
     if (action === "compile") {
+      const excludeTaskIds = String(opts["exclude-tasks"] || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const excludePaths = String(opts["exclude-paths"] || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
       return compiler.compile({
         flowId: opts.flow || opts._[0],
         chapterId: opts.chapter || null,
+        allReadyChapters: Boolean(opts["all-ready-chapters"]),
         includeContextPacks: Boolean(opts.packs),
+        excludeTaskIds,
+        excludePaths,
       });
     }
     throw new Error(`Unknown slices action: ${action}`);
