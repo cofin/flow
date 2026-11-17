@@ -258,7 +258,6 @@ ALLOWED_TOP_LEVEL_ENTRIES: frozenset[str] = frozenset(
         ".python-version",
         ".ruff_cache",
         ".venv",
-        "AGENTS.md",
         "CHANGELOG.md",
         "CONTRIBUTING.md",
         "LICENSE",
@@ -926,11 +925,11 @@ def validate_markdown_links(repo_root: Path = REPO_ROOT) -> list[str]:
     """Verify that relative Markdown file links across shipped files resolve on disk."""
     errors: list[str] = []
     md_files: list[Path] = []
-    for sub in ("skills", "agents", "rules"):
+    for sub in ("skills", "agents", "rules", ".agents/rules"):
         sub_dir = repo_root / sub
         if sub_dir.is_dir():
             md_files.extend(sorted(sub_dir.rglob("*.md")))
-    for root_doc in ("AGENTS.md", "README.md"):
+    for root_doc in ("CONTRIBUTING.md", "README.md"):
         doc_path = repo_root / root_doc
         if doc_path.is_file():
             md_files.append(doc_path)
@@ -1036,9 +1035,19 @@ def validate_content_hygiene(repo_root: Path = REPO_ROOT) -> list[str]:
             if term and not term.startswith("#"):
                 extra_terms.append(term.lower())
 
-    scan_dirs = ("skills", "agents", "rules", "templates", "workflows", "sidecars", "mods", "vscode-extension")
+    scan_dirs = (
+        "skills",
+        "agents",
+        "rules",
+        ".agents/rules",
+        "templates",
+        "workflows",
+        "sidecars",
+        "mods",
+        "vscode-extension",
+    )
     scan_files: list[Path] = []
-    for doc_name in ("AGENTS.md", "README.md"):
+    for doc_name in ("CONTRIBUTING.md", "README.md"):
         doc_path = repo_root / doc_name
         if doc_path.is_file():
             scan_files.append(doc_path)
@@ -2493,7 +2502,8 @@ def _parse_scalar(val: str) -> Any:
                 k, v = pair.split(":", 1)
                 result[k.strip()] = _parse_scalar(v)
         return result
-    if stripped.isdigit() or (stripped.startswith("-") and stripped[1:].isdigit()):
+    unsigned = stripped[1:] if stripped.startswith("-") else stripped
+    if unsigned == "0" or (unsigned.isdigit() and not unsigned.startswith("0")):
         return int(stripped)
     return stripped
 

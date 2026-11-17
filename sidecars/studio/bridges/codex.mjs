@@ -106,6 +106,14 @@ export class CodexAppServerBridge {
         req.reject(new Error("codex app-server exited"));
       }
       this.pending.clear();
+      for (const [, state] of this.threads) {
+        if (typeof state._rejectWait === "function") {
+          const abort = state._rejectWait;
+          delete state._resolveWait;
+          delete state._rejectWait;
+          abort(new Error("codex app-server exited"));
+        }
+      }
     });
 
     this.child = child;
@@ -170,26 +178,53 @@ export class CodexAppServerBridge {
     const tState = this.threads.get(threadId) || { id: threadId, lastOutput: "" };
     tState.status = "running";
     tState.lastOutput = "";
+    tState._turnId = null;
     this.threads.set(threadId, tState);
 
-    const startRes = await this.request("turn/start", turnParams, timeoutMs);
-    const turnId = startRes?.turn?.id || startRes?.turnId || null;
-    if (startRes?.turn?.status === "completed") {
-      tState.status = "completed";
-      return { threadId, turnId, output: tState.lastOutput, status: "completed" };
-    }
-
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        this.threads.delete(`${threadId}::wait`);
-        reject(new Error(`Codex turn timed out after ${timeoutMs}ms`));
-      }, timeoutMs);
-      tState._resolveWait = (payload) => {
-        clearTimeout(timer);
-        resolve(payload);
-      };
-      tState._turnId = turnId;
+    /** @type {(payload: any) => void} */
+    let resolveCompletion = () => {};
+    /** @type {(err: Error) => void} */
+    let rejectCompletion = () => {};
+    const completionPromise = new Promise((resolve, reject) => {
+      resolveCompletion = resolve;
+      rejectCompletion = reject;
     });
+    completionPromise.catch(() => {});
+
+    const timer = setTimeout(() => {
+      delete tState._resolveWait;
+      delete tState._rejectWait;
+      rejectCompletion(new Error(`Codex turn timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+
+    tState._resolveWait = (payload) => {
+      clearTimeout(timer);
+      delete tState._resolveWait;
+      delete tState._rejectWait;
+      resolveCompletion(payload);
+    };
+    tState._rejectWait = (err) => {
+      clearTimeout(timer);
+      delete tState._resolveWait;
+      delete tState._rejectWait;
+      rejectCompletion(err);
+    };
+
+    try {
+      const startRes = await this.request("turn/start", turnParams, timeoutMs);
+      const turnId = startRes?.turn?.id || startRes?.turnId || null;
+      if (turnId) tState._turnId = turnId;
+      if (startRes?.turn?.status === "completed") {
+        tState.status = "completed";
+        tState._resolveWait?.({ threadId, turnId, output: tState.lastOutput, status: "completed" });
+      }
+      return await completionPromise;
+    } catch (err) {
+      clearTimeout(timer);
+      delete tState._resolveWait;
+      delete tState._rejectWait;
+      throw err;
+    }
   }
 
   async steerTurn(threadId, expectedTurnId, prompt) {

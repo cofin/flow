@@ -821,8 +821,9 @@ def test_shipped_files_omit_forbidden_external_and_project_terms(forbidden_term:
         *REPO_ROOT.glob("agents/*.md"),
         *REPO_ROOT.glob(".codex/agents/*.toml"),
         *REPO_ROOT.glob("rules/*.md"),
+        *REPO_ROOT.glob(".agents/rules/*.md"),
         *REPO_ROOT.glob("templates/**/*.md"),
-        REPO_ROOT / "AGENTS.md",
+        REPO_ROOT / "CONTRIBUTING.md",
         REPO_ROOT / "README.md",
     )
     offenders = [
@@ -1245,6 +1246,19 @@ def test_validate_okf_bundle_respects_gitignore_and_sha_tracking_modes(
         assert errors == []
     else:
         assert errors
+
+
+def test_validate_okf_bundle_preserves_leading_zero_all_digit_commit_sha(tmp_path: Path) -> None:
+    """Verify leading-zero all-digit short commit SHAs (for example 0123456) are not truncated to 6-digit ints."""
+    bundle_dir = _seed_valid_multichapter_bundle(tmp_path)
+    flow_dir = bundle_dir / "specs" / "auth-refactor"
+    ch_spec = flow_dir / "chapters" / "ch01-tokens" / "spec.md"
+    task_file = flow_dir / "chapters" / "ch01-tokens" / "tasks" / "t01-slice.md"
+
+    ch_spec.write_text(ch_spec.read_text(encoding="utf-8").replace("1111111", "0123456"), encoding="utf-8")
+    task_file.write_text(task_file.read_text(encoding="utf-8").replace("1111111", "0123456"), encoding="utf-8")
+
+    assert validate_okf_bundle(bundle_dir, flow_id="auth-refactor") == []
 
 
 @pytest.mark.skipif(NODE_BIN is None, reason="node binary required")

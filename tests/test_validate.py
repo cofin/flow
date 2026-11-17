@@ -268,9 +268,11 @@ def test_validate_anti_sprawl_and_lockfile(tmp_path: Path) -> None:
     (tmp_path / "skills").mkdir()
     assert validate_anti_sprawl(tmp_path) == []
 
+    (tmp_path / "AGENTS.md").write_text("# Wrong root location\n", encoding="utf-8")
     (tmp_path / "CLAUDE.md").write_text("# Obsolete\n", encoding="utf-8")
     (tmp_path / "plugins" / "flow").mkdir(parents=True)
     sprawl_errors = validate_anti_sprawl(tmp_path)
+    assert "Unexpected top-level path violates layout allowlist: AGENTS.md" in sprawl_errors
     assert "Unexpected top-level path violates layout allowlist: CLAUDE.md" in sprawl_errors
     assert "Unexpected top-level path violates layout allowlist: plugins" in sprawl_errors
 

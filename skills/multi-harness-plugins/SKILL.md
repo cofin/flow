@@ -40,7 +40,7 @@ How each harness discovers project-local instructions, skills, subagents, hooks,
 
 ## Guardrails
 
-- **No Duplicate Surface Mirrors**: Never maintain `plugins/<name>/` mirrors, root `CLAUDE.md` files alongside `AGENTS.md` (breaks `claude plugin validate --strict` and double-loads with `AGENTS.md` in Cursor), `.github/agents/*.agent.md` copies, `.opencode/agents/*.md` copies, or `commands/` wrappers.
+- **No Duplicate Surface Mirrors**: Never maintain `plugins/<name>/` mirrors, plugin-root `AGENTS.md` or `CLAUDE.md` files (keep repo contributor context in `CONTRIBUTING.md` + optional `.agents/rules/*.md` so both `agy plugin validate --strict` and `claude plugin validate --strict` pass without warnings or errors), `.github/agents/*.agent.md` copies, `.opencode/agents/*.md` copies, or `commands/` wrappers.
 - **Strict `24 KB` `SKILL.md` Cap**: Never exceed `24,000` bytes in any `SKILL.md` file.
 - **YAML List Tool Restrictions**: Always format `tools` and `disallowedTools` as YAML lists (`- Edit`), never comma-separated strings (`tools: Read, Grep` fails YAML unmarshaling in Antigravity and silently drops the subagent).
 - **Short MCP Server & Tool Names**: Keep combined MCP tool names under `60` characters (`^[a-zA-Z0-9_-]+$`) so Cursor (`59`-char cap) and Antigravity (`64`-char cap on `mcp_<plugin>_<server>_<tool>`) never drop or truncate tools.

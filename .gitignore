@@ -226,6 +226,8 @@ opencode.json
 .agents/*
 !.agents/plugins/
 !.agents/plugins/marketplace.json
+!.agents/rules/
+!.agents/rules/flow-project.md
 
 # Local-only environment bridge notes (never committed)
 docs/*-bridge.md
