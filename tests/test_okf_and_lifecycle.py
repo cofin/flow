@@ -821,8 +821,9 @@ def test_shipped_files_omit_forbidden_external_and_project_terms(forbidden_term:
         *REPO_ROOT.glob("agents/*.md"),
         *REPO_ROOT.glob(".codex/agents/*.toml"),
         *REPO_ROOT.glob("rules/*.md"),
+        *REPO_ROOT.glob(".agents/rules/*.md"),
         *REPO_ROOT.glob("templates/**/*.md"),
-        REPO_ROOT / "AGENTS.md",
+        REPO_ROOT / "CONTRIBUTING.md",
         REPO_ROOT / "README.md",
     )
     offenders = [

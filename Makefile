@@ -41,7 +41,7 @@ OK := $(shell printf "$(GREEN)✓$(NC)")
 WARN := $(shell printf "$(YELLOW)⚠$(NC)")
 ERROR := $(shell printf "$(RED)✖$(NC)")
 
-MARKDOWN_GLOBS := "skills/**/*.md" "agents/*.md" "rules/*.md" "templates/**/*.md" "AGENTS.md" "README.md"
+MARKDOWN_GLOBS := "skills/**/*.md" "agents/*.md" "rules/*.md" ".agents/rules/*.md" "templates/**/*.md" "CONTRIBUTING.md" "README.md"
 
 .PHONY: help
 help:                                               ## Display this help text for Makefile

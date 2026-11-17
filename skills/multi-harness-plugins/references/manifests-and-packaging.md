@@ -6,13 +6,14 @@ Package multi-harness agent plugins from a single repository root without duplic
 
 ```text
 <plugin-root>/
-├── AGENTS.md
+├── CONTRIBUTING.md                        # Repo contributor docs (keep root free of AGENTS.md / CLAUDE.md)
 ├── README.md
 ├── hooks.json                             # Google Antigravity SessionStart hook manifest (must stay at root)
 ├── package.json                           # OpenCode V2 package entry ("main": ".opencode/plugins/<name>.js")
 ├── plugin.json                            # Google Antigravity plugin manifest
 ├── .agents/
-│   └── plugins/marketplace.json           # Codex CLI marketplace ("source": {"source": "local", "path": "./"})
+│   ├── plugins/marketplace.json           # Codex CLI marketplace ("source": {"source": "local", "path": "./"})
+│   └── rules/*.md                         # Optional workspace-only rules when developing the plugin repo itself
 ├── .claude-plugin/
 │   ├── marketplace.json                   # Claude Code marketplace catalog ("source": "./")
 │   └── plugin.json                        # Claude Code & VS Code Agent Plugins manifest
@@ -62,7 +63,7 @@ Claude Code and VS Code Agent Plugins (`chat.plugins.enabled`) read `.claude-plu
 }
 ```
 
-> **Important**: Never ship a root `CLAUDE.md` in a plugin repository—`claude plugin validate --strict` rejects root `CLAUDE.md`, and Cursor double-loads both `AGENTS.md` and `CLAUDE.md`. Use `AGENTS.md` at the repository root.
+> **Important**: Never ship a plugin-root `CLAUDE.md` (`claude plugin validate --strict` rejects it) or a plugin-root `AGENTS.md` (Antigravity `plugin validate --strict` warns `"never loaded: plugins load rules only from rules/. Move it to rules/AGENTS.md"`, while moving repo-contributor instructions into `rules/` would load them globally across unrelated user workspaces). Keep plugin contributor guidance in `CONTRIBUTING.md` and optional workspace-scoped `.agents/rules/*.md`. (Standard consumer project repositories still use root `AGENTS.md` without `CLAUDE.md`.)
 
 ### 3. Codex CLI (`.codex-plugin/plugin.json` & `.agents/plugins/marketplace.json`)
 
