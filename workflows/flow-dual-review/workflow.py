@@ -19,6 +19,7 @@ from flow_common import (
     resolve_dynamic_route,
     resolve_plugin_root,
     run_node_cli,
+    run_parallel_bounded,
 )
 
 REVIEW_SCHEMA = {
@@ -51,6 +52,7 @@ review_mode = str(args.get("review_mode", "auto"))
 harness = str(args.get("harness") or os.environ.get("FLOW_HARNESS") or "agy")
 author_vendor = str(args.get("author_vendor") or "")
 timeout_seconds = int(args.get("timeout_seconds", 600))
+max_concurrency = max(1, min(12, int(args.get("max_concurrency") or 4)))
 plugin_root = resolve_plugin_root(args.get("plugin_root"), marker="agents/code-reviewer.md")
 
 route = resolve_dynamic_route(plugin_root, "spec_review", harness=harness, author_vendor=author_vendor or None)
@@ -78,6 +80,46 @@ before_status = git_porcelain()
 phase("Zero-Context Review")
 log(f"Running {effective_mode} review on {git_range}{spec_clause} (preferred_model={preferred_review_model})")
 
+
+async def _run_seat_with_fallback(prompt: str, role: str, agent_type: str, chosen_model: str) -> tuple[dict, str]:
+    """Execute one read-only review seat with automatic quota fallback."""
+    active_model = fallback_model if (quota_state["degraded"] and chosen_model != fallback_model) else chosen_model
+    active_agent = "self" if quota_state["degraded"] else agent_type
+    try:
+        out = await with_budget(
+            agent(
+                prompt,
+                schema=REVIEW_SCHEMA,
+                role=role,
+                type_name=active_agent,
+                workspace="inherit",
+                model=active_model,
+            ),
+            max_tokens=200000,
+            timeout=timeout_seconds,
+        )
+        return out, active_model
+    except Exception as exc:
+        msg = str(exc).lower()
+        if active_model != fallback_model and any(m in msg for m in QUOTA_MARKERS):
+            quota_state["degraded"] = True
+            log(f"Quota hit on {active_model} for {role}; retrying on '{fallback_model}'")
+            out = await with_budget(
+                agent(
+                    prompt,
+                    schema=REVIEW_SCHEMA,
+                    role=f"{role} ({fallback_model} fallback)",
+                    type_name="self",
+                    workspace="inherit",
+                    model=fallback_model,
+                ),
+                max_tokens=200000,
+                timeout=timeout_seconds,
+            )
+            return out, fallback_model
+        raise
+
+
 reports: list[dict] = []
 _wf_lease = acquire_runtime_lease()
 try:
@@ -88,51 +130,68 @@ try:
             {"id": "quality-reviewer", "title": "Quality & Debloat Review", "card": str(qual_card), "model": preferred_review_model},
         ]
     if effective_mode == "single":
-        out = await with_budget(
-            agent(
-                f"Follow `{code_card}` and `{qual_card}` in strictly read-only mode across `{git_range}`{spec_clause}.{suppression_clause}",
-                schema=REVIEW_SCHEMA,
-                role="Combined Correctness & Quality Review",
-                type_name=code_reviewer_agent,
-                workspace="inherit",
-                model=preferred_review_model,
-            ),
-            max_tokens=200000,
-            timeout=timeout_seconds,
+        out, model_used = await _run_seat_with_fallback(
+            f"Follow `{code_card}` and `{qual_card}` in strictly read-only mode across `{git_range}`{spec_clause}.{suppression_clause}",
+            "Combined Correctness & Quality Review",
+            code_reviewer_agent,
+            preferred_review_model,
         )
-        reports = [{"reviewer": "combined", "model_used": preferred_review_model, **out}]
+        reports = [{"reviewer": "combined", "model_used": model_used, **out}]
     else:
-        raw_reports = await parallel(
-            seats,
-            lambda seat: with_budget(
-                agent(
-                    (
-                        f"Follow `{seat.get('card') or code_card}` in strictly read-only mode as seat `{seat['id']}` "
-                        f"({seat.get('reason') or seat.get('title', seat['id'])}) across `{git_range}`{spec_clause}.{suppression_clause}"
-                    ),
-                    schema=REVIEW_SCHEMA,
-                    role=str(seat.get("title") or seat.get("agent") or seat["id"]),
-                    type_name=quality_reviewer_agent if "quality" in str(seat["id"]) or seat.get("agent") == "quality-reviewer" else code_reviewer_agent,
-                    workspace="inherit",
-                    model=str(
-                        args.get("review_model")
-                        or seat.get("model")
-                        or (seat.get("model_route") or {}).get("runtime_target")
-                        or preferred_review_model
-                    ),
-                ),
-                max_tokens=200000,
-                timeout=timeout_seconds,
-            ),
-        )
-        for seat, out in zip(seats, raw_reports):
-            used_model = (
-                args.get("review_model")
+
+        async def _drive_seat(seat: dict) -> dict:
+            used_model = str(
+                args.get("reviewer_model")
+                or args.get("review_model")
                 or seat.get("model")
                 or (seat.get("model_route") or {}).get("runtime_target")
                 or preferred_review_model
             )
-            reports.append({"reviewer": seat["id"], "model_used": used_model, **out})
+            seat_agent = (
+                quality_reviewer_agent
+                if "quality" in str(seat["id"]) or seat.get("agent") == "quality-reviewer"
+                else code_reviewer_agent
+            )
+            out, model_used = await _run_seat_with_fallback(
+                (
+                    f"Follow `{seat.get('card') or code_card}` in strictly read-only mode as seat `{seat['id']}` "
+                    f"({seat.get('reason') or seat.get('title', seat['id'])}) across `{git_range}`{spec_clause}.{suppression_clause}"
+                ),
+                str(seat.get("title") or seat.get("agent") or seat["id"]),
+                seat_agent,
+                used_model,
+            )
+            return {"reviewer": seat["id"], "model_used": model_used, **out}
+
+        raw_reports = await run_parallel_bounded(
+            seats,
+            _drive_seat,
+            parallel_fn=parallel,
+            max_concurrency=max_concurrency,
+            return_exceptions=True,
+        )
+        for seat, item in zip(seats, raw_reports):
+            if isinstance(item, Exception):
+                reports.append(
+                    {
+                        "reviewer": seat.get("id", "reviewer"),
+                        "model_used": preferred_review_model,
+                        "verdict": "NEEDS_WORK",
+                        "findings": [
+                            {
+                                "id": f"REV-ERR-{seat.get('id', 'seat')}",
+                                "severity": "Important",
+                                "category": "reviewer_error",
+                                "file": spec_path or "git-diff",
+                                "location": str(seat.get("id", "seat")),
+                                "problem": f"Review seat crashed ({type(item).__name__}): {item}",
+                                "fix": "Re-run failed review seat or verify diff manually.",
+                            }
+                        ],
+                    }
+                )
+            else:
+                reports.append(item)
 finally:
     release_runtime_lease(_wf_lease)
 

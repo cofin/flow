@@ -18,7 +18,8 @@
       "code_reviewer_agent": {"type": "string", "description": "Custom agent profile for correctness seat."},
       "quality_reviewer_agent": {"type": "string", "description": "Custom agent profile for quality seat."},
       "fallback_model": {"type": "string", "description": "Quota fallback model tier."},
-      "timeout_seconds": {"type": "integer", "description": "Per-reviewer timeout in seconds."}
+      "timeout_seconds": {"type": "integer", "description": "Per-reviewer timeout in seconds."},
+      "max_concurrency": {"type": "integer", "description": "Maximum concurrent review seats in flight (default 4)."}
     },
     "required": ["git_range"]
   }

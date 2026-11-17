@@ -22,6 +22,7 @@ from flow_common import (
     release_runtime_lease,
     resolve_dynamic_route,
     resolve_plugin_root,
+    run_parallel_bounded,
 )
 
 PLANNER_SCHEMA = {
@@ -82,6 +83,7 @@ planner_degraded_flag = bool(args.get("planner_degraded", False))
 planner_timeout_s = int(args.get("planner_timeout_seconds", 900))
 disk_idle_grace_s = int(args.get("disk_idle_grace_seconds", 45))
 reviewer_timeout_s = int(args.get("reviewer_timeout_seconds", 600))
+max_concurrency = max(1, min(12, int(args.get("max_concurrency") or 4)))
 
 schema_card_path = plugin_root / "templates" / "agent" / "plan-schema-card.md"
 reviewer_card_path = plugin_root / "templates" / "agent" / "spec-reviewer-prompt.md"
@@ -361,16 +363,35 @@ try:
                     }
                 )
         else:
-            raw_parallel = await parallel(
+            raw_parallel = await run_parallel_bounded(
                 chapters,
                 lambda ch: _invoke_planner(
                     _build_chapter_prompt([ch]),
                     f"Chapter Planner {ch['id']}",
                     [str(ch["id"])],
                 ),
+                parallel_fn=parallel,
+                max_concurrency=max_concurrency,
+                return_exceptions=True,
             )
             for ch, item_out in zip(chapters, raw_parallel):
                 cid = str(ch["id"])
+                if isinstance(item_out, Exception):
+                    ok_disk, disk_files, _ = _chapter_disk_status(cid)
+                    disk_summaries, disk_issues = _parse_planner_notes(cid)
+                    chapter_reports.append(
+                        {
+                            "chapter_id": cid,
+                            "complete_on_disk": ok_disk,
+                            "completed_from_disk": False,
+                            "model_used": preferred_planner_model,
+                            "degraded_reason": f"planner failed ({type(item_out).__name__}): {item_out}",
+                            "files_written": disk_files,
+                            "task_summaries": disk_summaries,
+                            "root_spec_issues": disk_issues or [f"Planner crashed ({type(item_out).__name__}): {item_out}"],
+                        }
+                    )
+                    continue
                 raw_res = item_out.get("result") or {}
                 ok_disk, disk_files, _ = _chapter_disk_status(cid)
                 disk_summaries, disk_issues = _parse_planner_notes(cid)
@@ -502,7 +523,7 @@ try:
             review_reports.append(await _run_spec_reviewer("combined", rev_prompt))
         else:
             targets = [*[str(c["id"]) for c in chapters], "cross_chapter"]
-            review_reports = await parallel(
+            raw_reviews = await run_parallel_bounded(
                 targets,
                 lambda target: _run_spec_reviewer(
                     target,
@@ -511,7 +532,32 @@ try:
                         f"Review `{flow_dir / 'spec.md'}` and scope `{target}` under `{chapters_dir}`."
                     ),
                 ),
+                parallel_fn=parallel,
+                max_concurrency=max_concurrency,
+                return_exceptions=True,
             )
+            for target, rev_out in zip(targets, raw_reviews):
+                if isinstance(rev_out, Exception):
+                    review_reports.append(
+                        {
+                            "target": target,
+                            "model_used": preferred_reviewer_model,
+                            "verdict": "ISSUES_FOUND",
+                            "findings": [
+                                {
+                                    "id": f"REV-ERR-{target}",
+                                    "severity": "Important",
+                                    "category": "reviewer_error",
+                                    "file": str(flow_dir / "spec.md"),
+                                    "location": target,
+                                    "problem": f"Spec reviewer crashed ({type(rev_out).__name__}): {rev_out}",
+                                    "fix": f"Re-run zero-context spec review for scope `{target}`.",
+                                }
+                            ],
+                        }
+                    )
+                else:
+                    review_reports.append(rev_out)
 finally:
     release_runtime_lease(_wf_lease)
 

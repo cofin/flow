@@ -1093,6 +1093,8 @@ def validate_okf_bundle(
     flow_id: str | None = None,
     require_completed_flow: str | None = None,
     project_root: Path | None = None,
+    allow_uncommitted: bool = False,
+    warnings_out: list[str] | None = None,
 ) -> list[str]:
     """Validate an Open Knowledge Format (OKF v0.2) bundle directory, nested chapters, and task blueprints."""
     errors: list[str] = []
@@ -1197,6 +1199,8 @@ def validate_okf_bundle(
                     require_completed=(require_completed_flow == flow_dir.name),
                     sha_tracking=sha_tracking,
                     child_specs=child_specs_by_prd.get(flow_dir.name, ()),
+                    allow_uncommitted=allow_uncommitted,
+                    warnings_out=warnings_out,
                 )
             )
 
@@ -1230,9 +1234,15 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Optional project root used to resolve cited local source paths and Git history.",
     )
+    parser.add_argument(
+        "--allow-uncommitted",
+        action="store_true",
+        help="Downgrade missing hex SHAs on completed specs/tasks to warnings during uncommitted batch validation.",
+    )
     args = parser.parse_args(argv)
 
     errors: list[str] = []
+    warnings: list[str] = []
     if args.bundle is None:
         errors.extend(validate_repository(REPO_ROOT))
     else:
@@ -1242,8 +1252,13 @@ def main(argv: list[str] | None = None) -> int:
                 flow_id=args.flow,
                 require_completed_flow=args.require_completed,
                 project_root=args.project_root,
+                allow_uncommitted=args.allow_uncommitted,
+                warnings_out=warnings,
             )
         )
+
+    for warn in warnings:
+        sys.stderr.write(f"WARNING: {warn}\n")
 
     if errors:
         for err in errors:
@@ -1326,13 +1341,14 @@ def _walk_excluding_nested_functions(node: ast.AST) -> list[ast.AST]:
 
 
 def _collect_awaited_call_ids(tree: ast.AST) -> set[int]:
-    """Return object IDs of Call nodes that are awaited, wrapped in ``with_budget``, or returned by a helper."""
+    """Return object IDs of Call nodes that are awaited, wrapped in budget/timeout helpers, or returned."""
     awaited: set[int] = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Await):
             if isinstance(node.value, ast.Call):
                 awaited.add(id(node.value))
-                if _call_func_name(node.value.func) == "with_budget" and node.value.args:
+                wrapper_name = _call_func_name(node.value.func)
+                if wrapper_name in ("with_budget", "with_timeout", "advanced.with_timeout") and node.value.args:
                     first_arg = node.value.args[0]
                     if isinstance(first_arg, ast.Call):
                         awaited.add(id(first_arg))
@@ -1367,9 +1383,11 @@ def _collect_args_keys(tree: ast.AST) -> set[str]:
 
 
 def _call_func_name(func: ast.expr) -> str | None:
-    """Return simple function name for ``ast.Name`` call targets."""
+    """Return dotted or simple function name for ``ast.Name`` or ``module.attr`` call targets."""
     if isinstance(func, ast.Name):
         return func.id
+    if isinstance(func, ast.Attribute) and isinstance(func.value, ast.Name):
+        return f"{func.value.id}.{func.attr}"
     return None
 
 
@@ -1876,6 +1894,21 @@ def _validate_user_deferral(rel: str, fm: dict[str, Any], state_val: str) -> lis
     return errors
 
 
+def _record_uncommitted_or_error(
+    errors: list[str],
+    warnings_out: list[str] | None,
+    message: str,
+    *,
+    allow_uncommitted: bool,
+) -> None:
+    """Record a missing hex SHA as an error or, under ``--allow-uncommitted``, as a warning."""
+    if allow_uncommitted:
+        if warnings_out is not None:
+            warnings_out.append(f"{message} (allowed under --allow-uncommitted)")
+        return
+    errors.append(message)
+
+
 def _validate_flow_spec_directory(
     bundle_dir: Path,
     flow_dir: Path,
@@ -1884,6 +1917,8 @@ def _validate_flow_spec_directory(
     require_completed: bool = False,
     sha_tracking: str = "strict",
     child_specs: tuple[tuple[str, str, dict[str, Any]], ...] | list[tuple[str, str, dict[str, Any]]] = (),
+    allow_uncommitted: bool = False,
+    warnings_out: list[str] | None = None,
 ) -> list[str]:
     """Validate a single-chapter or multi-chapter specs/<flow_id>/ directory for anti-skip and review-stamp parity."""
     errors: list[str] = []
@@ -1931,6 +1966,8 @@ def _validate_flow_spec_directory(
                 default_plan_commit=plan_commit,
                 sha_tracking=sha_tracking,
                 require_completed=require_completed,
+                allow_uncommitted=allow_uncommitted,
+                warnings_out=warnings_out,
             )
         )
         return errors
@@ -1944,6 +1981,8 @@ def _validate_flow_spec_directory(
         git_root=git_root,
         plan_commit=plan_commit,
         sha_tracking=sha_tracking,
+        allow_uncommitted=allow_uncommitted,
+        warnings_out=warnings_out,
     )
     errors.extend(task_errors)
 
@@ -1953,7 +1992,12 @@ def _validate_flow_spec_directory(
         elif open_task_ids:
             errors.append(f"{rel_flow}/spec.md: state is 'completed' while tasks remain incomplete: {open_task_ids}")
         if not _HEX_SHA_PATTERN.match(root_rev_sha):
-            errors.append(f"{rel_flow}/spec.md: state is 'completed' without valid hex last_reviewed_commit")
+            _record_uncommitted_or_error(
+                errors,
+                warnings_out,
+                f"{rel_flow}/spec.md: state is 'completed' without valid hex last_reviewed_commit",
+                allow_uncommitted=allow_uncommitted,
+            )
     return errors
 
 
@@ -1970,6 +2014,8 @@ def _validate_multi_chapter_flow(
     default_plan_commit: str = "",
     sha_tracking: str = "strict",
     require_completed: bool = False,
+    allow_uncommitted: bool = False,
+    warnings_out: list[str] | None = None,
 ) -> list[str]:
     """Validate nested chapters/<ch_id>/ layout, 1:1 roadmap parity, anti-skip invariants, and review stamps."""
     errors: list[str] = []
@@ -2045,6 +2091,8 @@ def _validate_multi_chapter_flow(
             plan_commit=ch_plan_commit,
             sha_tracking=sha_tracking,
             all_flow_task_ids=_collect_flow_task_refs(flow_dir),
+            allow_uncommitted=allow_uncommitted,
+            warnings_out=warnings_out,
         )
         errors.extend(task_errors)
 
@@ -2056,7 +2104,12 @@ def _validate_multi_chapter_flow(
             elif open_tasks:
                 errors.append(f"{rel_ch}/spec.md: chapter is marked 'completed' while tasks remain open: {open_tasks}")
             if not _HEX_SHA_PATTERN.match(ch_rev):
-                errors.append(f"{rel_ch}/spec.md: state is 'completed' without valid hex last_reviewed_commit")
+                _record_uncommitted_or_error(
+                    errors,
+                    warnings_out,
+                    f"{rel_ch}/spec.md: state is 'completed' without valid hex last_reviewed_commit",
+                    allow_uncommitted=allow_uncommitted,
+                )
             if not re.search(rf"^[ \t]*-[ \t]*\[[xX]\].*{re.escape(ch_id)}", root_unfenced, re.MULTILINE):
                 errors.append(f"{rel_flow}/spec.md: completed chapter {ch_id!r} must be marked [x] in checklist")
         else:
@@ -2091,7 +2144,12 @@ def _validate_multi_chapter_flow(
                 f"{open_chapters}"
             )
         if not _HEX_SHA_PATTERN.match(root_rev_sha):
-            errors.append(f"{rel_flow}/spec.md: state is 'completed' without valid hex last_reviewed_commit")
+            _record_uncommitted_or_error(
+                errors,
+                warnings_out,
+                f"{rel_flow}/spec.md: state is 'completed' without valid hex last_reviewed_commit",
+                allow_uncommitted=allow_uncommitted,
+            )
     elif open_chapters and curr_ch not in open_chapters:
         errors.append(
             f"{rel_flow}/spec.md: current_chapter {curr_ch!r} must reference an open chapter in {open_chapters}"
@@ -2132,6 +2190,8 @@ def _validate_tasks_for_owner_spec(
     plan_commit: str = "",
     sha_tracking: str = "strict",
     all_flow_task_ids: set[str] | None = None,
+    allow_uncommitted: bool = False,
+    warnings_out: list[str] | None = None,
 ) -> tuple[list[str], int, list[str]]:
     """Verify chapter/spec task checklists, dependency targets, and Git file-ownership proofs."""
     errors: list[str] = []
@@ -2182,7 +2242,12 @@ def _validate_tasks_for_owner_spec(
         expected_mark = _expected_checklist_marker(t_state)
         if t_state in ("completed", "closed"):
             if not _HEX_SHA_PATTERN.match(t_commit):
-                errors.append(f"{rel_tf}: state is {t_state!r} without valid hex commit SHA")
+                _record_uncommitted_or_error(
+                    errors,
+                    warnings_out,
+                    f"{rel_tf}: state is {t_state!r} without valid hex commit SHA",
+                    allow_uncommitted=allow_uncommitted,
+                )
             elif git_root is not None and sha_tracking != "off":
                 errors.extend(
                     _verify_task_git_ownership(

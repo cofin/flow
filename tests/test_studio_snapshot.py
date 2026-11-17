@@ -912,3 +912,257 @@ def test_mcp_server_and_claude_mod_hooks(tmp_path: Path) -> None:
     assert "FLOW CONTEXT PACK" in out["modInput"]["prompt"]
     assert (ws / ".claude" / "agents" / "flow-tier-frontier.md").is_file()
     assert "idempotent-webhooks" in out["banner"]["c"][0]
+
+
+@pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
+def test_spec_engine_sync_transitions_custom_columns_and_list_item_text(tmp_path: Path) -> None:
+    """Verify colon YAML list items, completed transitions, header column lookup, and no-release-stale."""
+    assert NODE_BIN is not None
+    ws = tmp_path / "sync-ws"
+    ch1 = ws / ".agents" / "bundles" / "specs" / "sync-flow" / "chapters" / "ch01-core" / "tasks"
+    ch2 = ws / ".agents" / "bundles" / "specs" / "sync-flow" / "chapters" / "ch02-next" / "tasks"
+    ch1.mkdir(parents=True)
+    ch2.mkdir(parents=True)
+    (ws / "src").mkdir()
+    (ws / "src" / "mod.py").write_text("VALUE = 1\n", encoding="utf-8")
+    (ws / ".agents" / "setup-state.json").write_text(
+        '{"setup_status":"complete","bundle_root":".agents/bundles","okf_version":"0.2"}\n',
+        encoding="utf-8",
+    )
+    (ws / ".agents" / "bundles" / "index.md").write_text("---\nokf_version: '0.2'\n---\n\n# Index\n", encoding="utf-8")
+    (ws / ".agents" / "bundles" / "specs" / "sync-flow" / "spec.md").write_text(
+        "---\ntype: Spec\nflow_id: sync-flow\ntitle: Sync Flow\nstate: active\nhas_chapters: true\n"
+        "current_chapter: ch01-core\ncurrent_task: null\nchapters: [ch01-core, ch02-next]\nplan_revision: 1\n---\n\n"
+        "- [ ] ch01-core — Core work\n- [ ] ch02-next — Followup work\n",
+        encoding="utf-8",
+    )
+    (ws / ".agents" / "bundles" / "specs" / "sync-flow" / "chapters" / "index.md").write_text(
+        "# Chapters\n\n"
+        "| Chapter | Depends on | State | Notes |\n"
+        "| --- | --- | --- | --- |\n"
+        "| ch01-core | none | active | core |\n"
+        "| ch02-next | ch01-core | pending | followup ch01-core |\n",
+        encoding="utf-8",
+    )
+    (ws / ".agents" / "bundles" / "specs" / "sync-flow" / "chapters" / "ch01-core" / "spec.md").write_text(
+        "---\ntype: Spec\nflow_id: sync-flow\nchapter_id: ch01-core\nstate: active\nplan_revision: 1\n---\n\n"
+        "- [ ] [t01](tasks/t01-base.md) — Base slice\n"
+        "- [ ] [t02](tasks/t02-dep.md) — Downstream slice (depends on t01)\n",
+        encoding="utf-8",
+    )
+    (ch1 / "t01-base.md").write_text(
+        "---\ntype: Task\nid: sync-flow:ch01-core:t01\ntitle: Base\nstate: completed\ncommit: abc1234\n"
+        "files: [src/mod.py]\ntests: []\ndepends_on: []\nplan_revision: 1\n---\n\n"
+        "## Objective & Scope Boundary\nBase.\n",
+        encoding="utf-8",
+    )
+    (ch1 / "t02-dep.md").write_text(
+        "---\ntype: Task\nid: sync-flow:ch01-core:t02\ntitle: Downstream\nstate: pending\n"
+        "files: [src/mod2.py]\ntests: []\ndepends_on:\n  - ch01-core: t01\nplan_revision: 1\n---\n\n"
+        "## Objective & Scope Boundary\nDep.\n",
+        encoding="utf-8",
+    )
+    (ws / ".agents" / "bundles" / "specs" / "sync-flow" / "chapters" / "ch02-next" / "spec.md").write_text(
+        "---\ntype: Spec\nflow_id: sync-flow\nchapter_id: ch02-next\nstate: pending\nplan_revision: 1\n---\n\n"
+        "- [ ] [t01](tasks/t01-sib.md) — Sibling slice\n",
+        encoding="utf-8",
+    )
+    (ch2 / "t01-sib.md").write_text(
+        "---\ntype: Task\nid: sync-flow:ch02-next:t01\ntitle: Sibling\nstate: in_progress\n"
+        "claimed_by: slot-1\nclaimed_at: 2020-01-01T00:00:00.000Z\n"
+        "files: [src/sib.py]\ntests: []\ndepends_on: []\nplan_revision: 1\n---\n\n"
+        "## Objective & Scope Boundary\nSib.\n",
+        encoding="utf-8",
+    )
+
+    fm_uri = (REPO_ROOT / "sidecars" / "studio" / "core" / "frontmatter.mjs").as_uri()
+    engine_uri = (REPO_ROOT / "sidecars" / "studio" / "spec" / "spec-engine.mjs").as_uri()
+    js = (
+        f"import {{ FrontmatterDocument }} from {json.dumps(fm_uri)};"
+        f"import {{ SpecEngine }} from {json.dumps(engine_uri)};"
+        f"const engine = new SpecEngine({json.dumps(str(ws))});"
+        "const parsedDepList = FrontmatterDocument.parse("
+        "  '---\\ndepends_on:\\n  - ch01-core: t01\\n---\\n\\nBody\\n'"
+        ").textList('depends_on');"
+        "const firstSync = engine.syncChecklists({ flowId: 'sync-flow', releaseStaleClaims: false });"
+        f"const ch1SpecPath = {json.dumps(str(ws / '.agents/bundles/specs/sync-flow/chapters/ch01-core/spec.md'))};"
+        "const ch1AfterFirstSync = fs.readFileSync(ch1SpecPath, 'utf8');"
+        "const sibAfterSync1 = engine.status('sync-flow').spec.chapters"
+        "  .flatMap((c) => c.tasks).find((t) => t.id === 'sync-flow:ch02-next:t01');"
+        "const compRes = engine.completeTasks({"
+        "  flowId: 'sync-flow',"
+        "  completions: [{"
+        "    taskId: 'sync-flow:ch01-core:t02',"
+        "    status: 'completed',"
+        "    commit_deferred_to_coordinator: true,"
+        "  }],"
+        "  releaseStaleClaims: false,"
+        "});"
+        "const statusDoneCh1 = engine.status('sync-flow');"
+        "const ch1TextAfter = fs.readFileSync(ch1SpecPath, 'utf8');"
+        "const rootTextAfter = fs.readFileSync("
+        f"  {json.dumps(str(ws / '.agents' / 'bundles' / 'specs' / 'sync-flow' / 'spec.md'))}, 'utf8'"
+        ");"
+        "const idxTextAfter = fs.readFileSync("
+        f"  {json.dumps(str(ws / '.agents' / 'bundles' / 'specs' / 'sync-flow' / 'chapters' / 'index.md'))}, 'utf8'"
+        ");"
+        "const claimReopen = engine.claimTasks({"
+        "  flowId: 'sync-flow',"
+        "  taskIds: ['sync-flow:ch01-core:t02'],"
+        "  claimedBy: 'slot-2',"
+        "});"
+        "const rootAfterReopen = fs.readFileSync("
+        f"  {json.dumps(str(ws / '.agents' / 'bundles' / 'specs' / 'sync-flow' / 'spec.md'))}, 'utf8'"
+        ");"
+        "process.stdout.write(JSON.stringify({"
+        "  parsedDepList, firstSync, ch1AfterFirstSync,"
+        "  sibState: sibAfterSync1.state, sibClaim: sibAfterSync1.claimed_by,"
+        "  compRes, ch1State: statusDoneCh1.spec.chapters[0].state, rootState: statusDoneCh1.spec.state,"
+        "  ch1TextAfter, rootTextAfter, idxTextAfter, claimReopen, rootAfterReopen"
+        "}) + '\\n');"
+    )
+    js_with_fs = "import fs from 'node:fs';\n" + js
+    proc = subprocess.run(
+        [NODE_BIN, "--input-type=module", "-e", js_with_fs],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    )
+    out = json.loads(proc.stdout.strip().splitlines()[-1])
+
+    assert out["parsedDepList"] == ["ch01-core:t01"]
+    assert out["sibState"] == "in_progress"
+    assert out["sibClaim"] == "slot-1"
+    assert "- [x] [abc1234] [t01](tasks/t01-base.md)" in out["ch1AfterFirstSync"]
+    assert "- [ ] [t02](tasks/t02-dep.md)" in out["ch1AfterFirstSync"]
+    assert "- [x] [t02](tasks/t02-dep.md)" in out["ch1TextAfter"]
+    assert out["ch1State"] == "completed"
+    assert "- [x] ch01-core" in out["rootTextAfter"]
+    assert "ch01-core | none | completed | core" in out["idxTextAfter"]
+    assert "ch02-next | ch01-core | active | followup ch01-core" in out["idxTextAfter"]
+    assert out["compRes"]["completed"] == ["sync-flow:ch01-core:t02"]
+    assert out["claimReopen"]["skipped"][0]["reason"] == "already_completed"
+
+
+@pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
+def test_slice_compiler_and_spec_engine_cross_chapter_scheduling(tmp_path: Path) -> None:
+    """Verify maxWorkers > 4, overflow bin-packing, test overlap conflicts, allReadyChapters, and excludes."""
+    assert NODE_BIN is not None
+    ws = tmp_path / "pack-ws"
+    ch1 = ws / ".agents" / "bundles" / "specs" / "multi-sched" / "chapters" / "ch01-fast" / "tasks"
+    ch2 = ws / ".agents" / "bundles" / "specs" / "multi-sched" / "chapters" / "ch02-parallel" / "tasks"
+    ch3 = ws / ".agents" / "bundles" / "specs" / "multi-sched" / "chapters" / "ch03-emp" / "tasks"
+    ch1.mkdir(parents=True)
+    ch2.mkdir(parents=True)
+    ch3.mkdir(parents=True)
+    (ws / "Makefile").write_text("lint:\n\techo lint\ntest:\n\techo test\n", encoding="utf-8")
+    (ws / "src").mkdir()
+    for fname in ("a.py", "b.py", "c.py", "d.py", "e.py", "f.py"):
+        (ws / "src" / fname).write_text("X = 1\n", encoding="utf-8")
+    (ws / ".agents" / "setup-state.json").write_text(
+        '{"setup_status":"complete","bundle_root":".agents/bundles","okf_version":"0.2"}\n',
+        encoding="utf-8",
+    )
+    (ws / ".agents" / "bundles" / "index.md").write_text("---\nokf_version: '0.2'\n---\n\n# Index\n", encoding="utf-8")
+    (ws / ".agents" / "bundles" / "specs" / "multi-sched" / "spec.md").write_text(
+        "---\ntype: Spec\nflow_id: multi-sched\ntitle: Multi Scheduler\nstate: active\nhas_chapters: true\n"
+        "current_chapter: ch01-fast\nchapters: [ch01-fast, ch02-parallel, ch03-emp]\nplan_revision: 1\n---\n\n"
+        "- [ ] ch01-fast\n- [ ] ch02-parallel\n- [ ] ch03-emp\n",
+        encoding="utf-8",
+    )
+    (ws / ".agents" / "bundles" / "specs" / "multi-sched" / "chapters" / "ch01-fast" / "spec.md").write_text(
+        "---\ntype: Spec\nflow_id: multi-sched\nchapter_id: ch01-fast\nstate: active\n"
+        "planning_status: complete\n---\n\n- [ ] t01\n- [ ] t02\n- [ ] t03\n",
+        encoding="utf-8",
+    )
+    (ws / ".agents" / "bundles" / "specs" / "multi-sched" / "chapters" / "ch02-parallel" / "spec.md").write_text(
+        "---\ntype: Spec\nflow_id: multi-sched\nchapter_id: ch02-parallel\nstate: pending\n"
+        "planning_status: complete\n---\n\n- [ ] t01\n- [ ] t02\n",
+        encoding="utf-8",
+    )
+    (ws / ".agents" / "bundles" / "specs" / "multi-sched" / "chapters" / "ch03-emp" / "spec.md").write_text(
+        "---\ntype: Spec\nflow_id: multi-sched\nchapter_id: ch03-emp\nstate: pending\n"
+        "planning_status: empirical_dependent\nreplan_trigger: after ch01 benchmarks\n---\n\n- [ ] t01\n",
+        encoding="utf-8",
+    )
+    tasks_spec = [
+        (ch1, "t01-a.md", "multi-sched:ch01-fast:t01", "src/a.py", "tests/test_shared.py", 30),
+        (ch1, "t02-b.md", "multi-sched:ch01-fast:t02", "src/b.py", "tests/test_shared.py", 30),
+        (ch1, "t03-a2.md", "multi-sched:ch01-fast:t03", "src/a.py", "tests/test_a2.py", 30),
+        (ch2, "t01-c.md", "multi-sched:ch02-parallel:t01", "src/c.py", "tests/test_c.py", 20),
+        (ch2, "t02-d.md", "multi-sched:ch02-parallel:t02", "src/d.py", "tests/test_d.py", 20),
+        (ch3, "t01-e.md", "multi-sched:ch03-emp:t01", "src/e.py", "tests/test_e.py", 20),
+    ]
+    for folder, fname, tid, code_f, test_f, loc in tasks_spec:
+        (folder / fname).write_text(
+            f"---\ntype: Task\nid: {tid}\ntitle: {fname}\nstate: pending\n"
+            f"files: [{code_f}]\ntests: [{test_f}]\nread_set: [{code_f}]\ndepends_on: []\n"
+            f"estimated_loc: {loc}\n---\n\n## Objective & Scope Boundary\nWork.\n## Verification\nmake test\n",
+            encoding="utf-8",
+        )
+
+    engine_uri = (REPO_ROOT / "sidecars" / "studio" / "spec" / "spec-engine.mjs").as_uri()
+    compiler_uri = (REPO_ROOT / "sidecars" / "studio" / "spec" / "slice-compiler.mjs").as_uri()
+    js = (
+        f"import {{ SpecEngine }} from {json.dumps(engine_uri)};"
+        f"import {{ SliceCompiler }} from {json.dumps(compiler_uri)};"
+        f"const ws = {json.dumps(str(ws))};"
+        "const engine = new SpecEngine(ws);"
+        "const preAll = engine.preflight('multi-sched', { allReadyChapters: true });"
+        "const statusRes = engine.status('multi-sched');"
+        "const imp = engine.importPlan({"
+        "  markdownText: '# Demo Plan\\n\\n## 1. Item\\n\\n- Update src/a.py\\n',"
+        "  flowId: 'auto-verify',"
+        "  sourcePath: 'plan.md',"
+        "});"
+        "const compiler = new SliceCompiler(ws);"
+        "const crossPack = compiler.compile({"
+        "  flowId: 'multi-sched', allReadyChapters: true, maxWorkers: 6,"
+        "});"
+        "const cappedPack = compiler.compile({"
+        "  flowId: 'multi-sched', allReadyChapters: true, maxWorkers: 1,"
+        "});"
+        "const exclPack = compiler.compile({"
+        "  flowId: 'multi-sched', allReadyChapters: true, maxWorkers: 6,"
+        "  excludeTaskIds: ['multi-sched:ch01-fast:t01'],"
+        "  excludePaths: ['tests/test_shared.py'],"
+        "});"
+        "process.stdout.write(JSON.stringify({"
+        "  preAll, statusRes, imp, crossPack, cappedPack, exclPack"
+        "}) + '\\n');"
+    )
+    proc = subprocess.run(
+        [NODE_BIN, "--input-type=module", "-e", js],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    )
+    out = json.loads(proc.stdout.strip().splitlines()[-1])
+
+    ready_ids = {t["id"] for t in out["preAll"]["ready_tasks"]}
+    assert "multi-sched:ch01-fast:t01" in ready_ids
+    assert "multi-sched:ch02-parallel:t01" in ready_ids
+    assert "multi-sched:ch03-emp:t01" not in ready_ids
+    assert out["statusRes"]["next_runnable"]["chapter_id"] != "ch03-emp"
+
+    cross_waves = out["crossPack"]["waves"]
+    wave0_tests = [t for sl in cross_waves[0]["slices"] for t in sl.get("tests", [])]
+    assert wave0_tests.count("tests/test_shared.py") <= 1
+    slice_task_lists = [sl["task_ids"] for w in cross_waves for sl in w["slices"]]
+    expected_coalesced = {"multi-sched:ch01-fast:t01", "multi-sched:ch01-fast:t03"}
+    assert any(len(ts) >= 2 and expected_coalesced.issubset(set(ts)) for ts in slice_task_lists)
+
+    assert len(out["cappedPack"]["waves"][0]["slices"]) == 1
+    assert any(len(sl["task_ids"]) >= 2 for sl in out["cappedPack"]["waves"][0]["slices"])
+
+    disp_task_ids = {tid for sl in out["exclPack"]["dispatchable_slices"] for tid in sl["task_ids"]}
+    assert "multi-sched:ch01-fast:t02" not in disp_task_ids
+    assert "multi-sched:ch02-parallel:t01" in disp_task_ids
+    assert any("tests/test_shared.py" in sl.get("tests", []) for w in out["exclPack"]["waves"] for sl in w["slices"])
+    assert out["exclPack"]["waves"][-1]["slices"]
+
+    imp_task_path = ws / next(p for p in out["imp"]["written_files"] if "/tasks/" in p)
+    imp_text = imp_task_path.read_text(encoding="utf-8")
+    assert "make lint" in imp_text or "make test" in imp_text

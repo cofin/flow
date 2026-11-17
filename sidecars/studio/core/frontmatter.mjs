@@ -197,13 +197,33 @@ export class FrontmatterDocument {
   }
 
   /**
+   * Extract plain text from one parsed YAML list entry, preserving `key: value` pairs as `"key:value"`.
+   *
+   * @param {unknown} item
+   * @returns {string}
+   */
+  static listItemText(item) {
+    if (item === null || item === undefined) return "";
+    if (typeof item === "object" && !Array.isArray(item)) {
+      const entries = Object.entries(item);
+      if (entries.length === 1) {
+        const [k, v] = entries[0];
+        const cleanV = v === null || v === undefined ? "" : String(v).trim();
+        return cleanV ? `${String(k).trim()}:${cleanV}` : String(k).trim();
+      }
+      return "";
+    }
+    return String(item).trim();
+  }
+
+  /**
    * @param {string} key
    * @returns {string[]}
    */
   textList(key) {
     const v = this.data?.[key];
     if (!Array.isArray(v)) return [];
-    return v.map((item) => String(item || "").trim()).filter(Boolean);
+    return v.map((item) => FrontmatterDocument.listItemText(item)).filter(Boolean);
   }
 }
 

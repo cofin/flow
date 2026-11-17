@@ -11,9 +11,9 @@ Self-contained execution and present-tense synchronization contract for `/flow:i
 
 ## 2. Fast Verification Cadence & Sandbox-Safe Permissions
 
-- **Validate Once per Chapter (`< 60s` Fast Gate)**: After applying the chapter's code and unit test edits, run the repository's fast static check (`make lint` or offline `uv run --no-sync ruff check` + `mypy`/`pyright`) plus **only** the targeted unit test file(s) declared in the chapter's `tests:` (`uv run --no-sync pytest <target_test_file> -q`).
+- **Validate Once per Slice/Chapter (`< 60s` Fast Gate)**: Run the verification command(s) declared in the task's `## Verification` block and workspace-resolved lint/test commands from `.agents/setup-state.json` or the active project's build/package configuration (`Makefile`, `pyproject.toml`, `package.json`, `Cargo.toml`, `go.mod`) rather than assuming hardcoded defaults.
 - **Minimize Full Test Suite Runs**: Never run slow (`> 60s` or container-backed) full test suites between tasks or at intermediate chapter boundaries; reserve full test suites for `/flow:finish` or CI.
-- **Worktree `.venv` Usage**: When `.venv` is symlinked from the primary checkout, run `uv run --no-sync ...` or `.venv/bin/...` directly—never run `make install` or `uv sync` unless `pyproject.toml` changed.
+- **Configured Python/Node Environment Usage**: When a project `.venv` or virtual environment exists alongside `uv`, prefer offline `uv run --no-sync ...` or direct `.venv/bin/...` executables rather than re-syncing environments unless lockfiles changed.
 - **Prefix-Matchable Offline Commands**: Inside background workflows, never pass `BypassSandbox: true`, never invoke network-fetching wrappers (`npx --yes`), and avoid command substitutions (`$(...)`) or `env` prefixes so granted permissions inherit cleanly.
 
 ## 3. Commit-SHA Sequencing & Pre-Review Present-Tense Sync

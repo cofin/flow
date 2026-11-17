@@ -39,6 +39,7 @@ export const FLOW_MCP_TOOLS = Object.freeze([
         workspace: { type: "string" },
         flow_id: { type: "string" },
         chapter_id: { type: "string" },
+        all_ready_chapters: { type: "boolean" },
       },
       required: ["flow_id"],
     },
@@ -52,6 +53,8 @@ export const FLOW_MCP_TOOLS = Object.freeze([
         workspace: { type: "string" },
         flow_id: { type: "string" },
         chapter_id: { type: "string" },
+        all_ready_chapters: { type: "boolean" },
+        max_workers: { type: "integer" },
       },
       required: ["flow_id"],
     },
@@ -167,11 +170,17 @@ export async function handleMcpRequest(req, { defaultWorkspace = process.cwd(), 
       if (name === "flow_status") {
         payload = engine.status(args.flow_id || null);
       } else if (name === "flow_preflight") {
-        payload = engine.preflight(args.flow_id, { chapterId: args.chapter_id || null });
+        payload = engine.preflight(args.flow_id, {
+          chapterId: args.chapter_id || null,
+          allReadyChapters: Boolean(args.all_ready_chapters),
+        });
       } else if (name === "flow_slice_pack") {
-        payload = new SliceCompiler(ws).compile({
+        payload = new SliceCompiler(ws, {
+          ...(args.max_workers ? { maxWaveWorkers: Number(args.max_workers) } : {}),
+        }).compile({
           flowId: args.flow_id,
           chapterId: args.chapter_id || null,
+          allReadyChapters: Boolean(args.all_ready_chapters),
           includeContextPacks: true,
         });
       } else if (name === "flow_sync") {
