@@ -1,4 +1,4 @@
-"""Run parallel read-only SubsystemDigest scouts with federated knowledge search and slice hints."""
+"""Run parallel read-only subsystem research with federated knowledge search and task boundary hints."""
 
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ DIGEST_SCHEMA = {
         "canonical_tests_and_fixtures": {"type": "array", "items": {"type": "string"}},
         "edge_cases_and_gotchas": {"type": "array", "items": {"type": "string"}},
         "affected_docs_and_okf_chapters": {"type": "array", "items": {"type": "string"}},
-        "recommended_worker_slices": {"type": "array", "items": {"type": "string"}},
+        "recommended_tasks": {"type": "array", "items": {"type": "string"}},
         "open_design_forks": {"type": "array", "items": {"type": "string"}},
     },
     "required": [
@@ -40,7 +40,7 @@ DIGEST_SCHEMA = {
         "canonical_tests_and_fixtures",
         "edge_cases_and_gotchas",
         "affected_docs_and_okf_chapters",
-        "recommended_worker_slices",
+        "recommended_tasks",
         "open_design_forks",
     ],
 }
@@ -70,7 +70,7 @@ if federated_query:
 
 
 async def _run_scout(item: dict) -> dict:
-    """Execute one bounded subsystem scout with prefetched seeds and slice boundary hints."""
+    """Run one read-only subsystem researcher with prefetched seeds and task boundary hints."""
     name = str(item.get("name", "subsystem"))
     paths = [str(p) for p in item.get("paths", [])]
     focus = str(item.get("focus", "")).strip()
@@ -81,15 +81,15 @@ async def _run_scout(item: dict) -> dict:
     seed_block = f"\nPre-read seed excerpts:\n{json.dumps(seeds, ensure_ascii=False)}" if seeds else ""
     fed_block = f"\nFederated catalog matches:\n{json.dumps(federated_hits[:5], ensure_ascii=False)}" if federated_hits else ""
     prompt = (
-        f"Scout subsystem `{name}` across paths {paths}. Focus: {focus or 'contracts, tests, and slice seams'}.\n"
-        "Stay strictly read-only. Recommend disjoint `<=250` LOC worker slices in `recommended_worker_slices`."
+        f"Research subsystem `{name}` across paths {paths}. Focus: {focus or 'contracts, tests, and task boundaries'}.\n"
+        "Stay read-only. Recommend separate-file `<=250` LOC tasks in `recommended_tasks`."
         f"{seed_block}{fed_block}"
     )
     digest = await with_budget(
         agent(
             prompt,
             schema=DIGEST_SCHEMA,
-            role=f"Scout {name}",
+            role=f"Researcher {name}",
             type_name=selected_agent,
             workspace="inherit",
             model=active_model,
@@ -101,8 +101,8 @@ async def _run_scout(item: dict) -> dict:
 
 
 before_status = git_porcelain()
-phase("Parallel Subsystem Reconnaissance")
-log(f"Dispatching {len(subsystems)} read-only scout(s) across planes {planes}")
+phase("Parallel Subsystem Research")
+log(f"Dispatching {len(subsystems)} read-only researcher(s) across planes {planes}")
 _wf_lease = acquire_runtime_lease()
 try:
     results = await parallel(subsystems, _run_scout) if subsystems else []

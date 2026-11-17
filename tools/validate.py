@@ -5,6 +5,8 @@ from __future__ import annotations
 import argparse
 import ast
 import fnmatch
+import importlib
+import importlib.util
 import json
 import os
 import re
@@ -17,7 +19,30 @@ import textwrap
 import tomllib
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from types import ModuleType
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from tools.prose import ProseLinter, validate_prose
+else:
+
+    def _load_prose_module() -> ModuleType:
+        """Load ``tools.prose`` whether run as a module or as a standalone script."""
+        try:
+            return importlib.import_module("tools.prose")
+        except ModuleNotFoundError:
+            prose_path = Path(__file__).resolve().with_name("prose.py")
+            spec = importlib.util.spec_from_file_location("tools.prose", prose_path)
+            if spec is None or spec.loader is None:
+                raise
+            module = importlib.util.module_from_spec(spec)
+            sys.modules["tools.prose"] = module
+            spec.loader.exec_module(module)
+            return module
+
+    _prose_module = _load_prose_module()
+    ProseLinter = _prose_module.ProseLinter
+    validate_prose = _prose_module.validate_prose
 
 __all__ = (
     "ALLOWED_TOP_LEVEL_ENTRIES",
@@ -30,6 +55,7 @@ __all__ = (
     "MAX_SKILL_DESCRIPTION_CHARS",
     "MAX_TRUTH_BLOCK_LINES",
     "PLANNING_QUALITY_VALUES",
+    "ProseLinter",
     "READONLY_AGENTS",
     "REPO_ROOT",
     "REQUIRED_SPEC_HEADINGS",
@@ -44,6 +70,7 @@ __all__ = (
     "validate_manifests",
     "validate_markdown_links",
     "validate_okf_bundle",
+    "validate_prose",
     "validate_repository",
     "validate_schema_cards",
     "validate_skills",
@@ -324,6 +351,7 @@ def validate_repository(repo_root: Path = REPO_ROOT) -> list[str]:
     errors.extend(validate_markdown_links(repo_root))
     errors.extend(validate_anti_sprawl(repo_root))
     errors.extend(validate_content_hygiene(repo_root))
+    errors.extend(validate_prose(repo_root))
     errors.extend(validate_lockfile(repo_root))
     return errors
 

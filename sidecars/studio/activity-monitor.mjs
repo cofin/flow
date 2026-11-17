@@ -84,8 +84,8 @@ export class ActivityMonitor {
           kind: "degraded_plan",
           severity: "warning",
           flowId: spec.flow_id,
-          title: `${spec.title} planned on degraded fallback tier`,
-          actionLabel: "Re-plan on Frontier",
+          title: `${spec.title} planned on fallback model`,
+          actionLabel: "Re-plan on strongest model",
           command: `/flow:revise ${spec.flow_id}`,
         });
       }
@@ -115,7 +115,7 @@ export class ActivityMonitor {
             flowId: spec.flow_id,
             taskId: task.id,
             title: `Blocked task: ${task.id} — ${task.title}`,
-            actionLabel: "Revise Blocked Slice",
+            actionLabel: "Revise Blocked Task",
             command: `/flow:revise ${spec.flow_id}`,
           });
         }

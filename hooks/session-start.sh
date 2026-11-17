@@ -72,7 +72,7 @@ if [ "$IS_LINKED_WORKTREE" = "1" ] && [ -n "$MAIN_WORKTREE" ]; then
     if [ -w "$MAIN_WORKTREE/.agents" ]; then
       WORKTREE_NOTE="Linked Git worktree (local-only .agents): .agents is shared from primary checkout $MAIN_WORKTREE/.agents — edit Flow Markdown in $MAIN_WORKTREE/.agents (or via symlinked .agents/), and reuse symlinked .venv with uv run --no-sync (do not run make install)."
     else
-      WORKTREE_NOTE="Linked Git worktree (local-only .agents): primary checkout $MAIN_WORKTREE/.agents is read-only in this sandbox; sync local .agents changes via sidecars/studio/flow-cli.mjs worktree --sync-to-main, and reuse symlinked .venv with uv run --no-sync."
+      WORKTREE_NOTE="Linked Git worktree (local-only .agents): primary checkout $MAIN_WORKTREE/.agents is read-only in this sandbox; sync local .agents changes via sidecars/studio/flow-cli.mjs worktree sync-to-main, and reuse symlinked .venv with uv run --no-sync."
     fi
   else
     WORKTREE_NOTE="Linked Git worktree (shared .agents): edit worktree .agents/ directly, and reuse symlinked .venv with uv run --no-sync (do not run make install)."
@@ -312,7 +312,7 @@ else
       BASE_MSG="$BASE_MSG Active specs: $ACTIVE_SPECS."
     fi
     if [ -n "$DEGRADED_PLANS" ]; then
-      BASE_MSG="$BASE_MSG Degraded planning quality warning (planning_quality=degraded — not planned with optimal primary frontier thinking model): $DEGRADED_PLANS."
+      BASE_MSG="$BASE_MSG Degraded planning quality warning (planning_quality=degraded — not planned with the strongest model): $DEGRADED_PLANS."
     fi
     if [ -n "$PENDING_SYNC" ]; then
       BASE_MSG="$BASE_MSG Pending chapter review/Markdown sync: $PENDING_SYNC."

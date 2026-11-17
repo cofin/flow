@@ -1,12 +1,11 @@
 # Flow Discipline Rules
 
-Normative rules for change-appropriate verification, Public-Seam TDD, Hypothesis-Driven Bug Diagnosis, critical reassessment, and subagent/`run_workflow` orchestration.
+Core rules for change-appropriate verification, public interface TDD, bug diagnosis, evidence-based review, and subagent or `run_workflow` execution.
 
-## 1. Verification Strategy Contract & Public-Seam TDD
+## 1. Verification Strategy & Public Interface TDD
 
 <!-- verification-strategy-contract: start -->
 ```yaml
-contract: verification-strategy-v1
 required_task_field: verification_strategy
 strategies:
   behavior_tdd:
@@ -21,91 +20,93 @@ strategies:
   static_validation:
     change_class: manifest_config_generated_or_tooling
     initial_evidence: native_parser_lint_type_or_build_baseline
-    gate_proof: isolated_representative_violation_fails_with_expected_diagnostic
+    check_proof: isolated_representative_violation_fails_with_expected_diagnostic
   documentation_validation:
     change_class: links_examples_or_document_structure
     initial_evidence: docs_native_baseline
   integration_acceptance:
     change_class: composition_of_existing_contracts
     initial_evidence: focused_integration_baseline_passes
-    gate_proof: injected_negative_states_prove_refusal_paths
+    check_proof: injected_negative_states_prove_refusal_paths
 low_signal_tests:
   reject:
-    - mocking_the_system_under_test_or_internal_collaborators
-    - tautological_expected_value_recomputation
-    - horizontal_bulk_test_slicing
+    - mocking_the_module_under_test_or_internal_collaborators
+    - mock_only_expected_value_recomputation
+    - bulk_tests_written_before_any_code
     - standalone_remediation_or_audit_test_files
     - incidental_prompt_phrase
     - private_implementation_shape
     - duplicate_snapshot
     - file_existence_without_operational_contract
   retain:
-    - observable_behavior_at_public_seam
+    - observable_behavior_at_public_interface
     - public_contract
     - proven_regression
     - operationally_meaningful_structure
 ```
 <!-- verification-strategy-contract: end -->
 
-### Public-Seam & Test-Strength Rules
+### Public Interface & Test-Strength Rules
 
-- **The Interface Is the Test Surface**: Tests verify observable behavior through confirmed public seams, never private methods or internal wiring. A good test survives internal refactors unchanged.
-- **Reject Test Anti-Patterns**:
-  1. **Implementation-Coupled**: Mocks the System Under Test or internal collaborators, asserts internal call counts/order, or bypasses the public retrieval seam to inspect internal storage directly.
-  2. **Tautological**: Recomputes the expected value using the same formula as the production code (`expect(total(items)).toBe(items.reduce(...))`) so it passes by construction. Expected values must come from an independent known literal or worked example in `spec.md`.
-  3. **Horizontal Slicing**: Writing all tests in bulk before any implementation. Work in **vertical slices**: one public seam, one test, one minimal implementation per cycle.
-- **Canonical Test Modules Only**: Always add tests to the existing canonical test file for the module under test; never create standalone `test_*remediation*.py` or `test_*audit*.py` files.
-- **Fast Chapter Gate (`< 60s`) vs. Full Release Gate (`> 60s`)**: Batch edits across the active chapter task group (`<= 5` tasks per worker batch) in one warm pass so shared files are edited once, then validate **once per chapter** with the **Fast Chapter Gate** (`make lint` / offline static checks + targeted unit test file(s) completing in `< 60s`). Never invoke slow (`> 60s`) full repository test suites between individual tasks or intermediate chapters; run the Full Release Gate once at `/flow:finish` (or CI).
+- **The Interface Is the Test Surface**: Tests verify observable behavior through confirmed public interfaces, never private methods or internal wiring. A good test survives internal refactors unchanged.
+- **Reject Weak Tests**:
+  1. **Private-Detail Tests**: Mocks the module under test or internal collaborators, asserts internal call counts, or inspects internal storage instead of the public interface.
+  2. **Mock-Only Tests**: Recomputes the expected value with the same formula as production code (`expect(total(items)).toBe(items.reduce(...))`). Expected values come from an independent known literal or worked example in `spec.md`.
+  3. **Bulk Layer Tests**: Writing all tests before any implementation. Work one task at a time: one public interface, one test, one minimal implementation per cycle.
+- **Canonical Test Modules Only**: Add tests to the existing test file for the module under test; never create standalone `test_*remediation*.py` or `test_*audit*.py` files.
+- **Fast Chapter Check (`< 60s`) vs. Full Release Check (`> 60s`)**: Group edits across the active chapter (`<= 4` tasks per worker) so shared files are edited once.
+- **Chapter Check Cadence**: Run the fast chapter check (`make lint` plus targeted unit tests in `< 60s`) once per chapter; run the full suite (`> 60s`) once at `/flow:finish` or CI.
 
-## 2. Hypothesis-Driven Bug Diagnosis Loop
+## 2. Bug Diagnosis Loop
 
 ```text
-NO FIXES OR THEORIES WITHOUT A TIGHT RED-CAPABLE FEEDBACK LOOP FIRST
+NO FIXES OR THEORIES WITHOUT A FAST FAILING TEST FIRST
 ```
 
-When diagnosing a hard bug, test failure, or performance regression, execute these stages in order:
+When diagnosing a hard bug, test failure, or performance regression, run these stages in order:
 
-1. **Stage 1 — Build a Tight Red-Capable Feedback Loop**:
-   - Construct **one fast, deterministic, agent-runnable command** (focused unit/integration test, CLI invocation with fixture input, trace replay, or minimal harness) that drives the bug code path and goes **Red** on the exact user symptom.
-   - Tighten the loop (cache setup, narrow scope, pin time/RNG). For flaky bugs, loop the trigger or narrow timing windows until the reproduction rate is deterministic enough to debug.
-   - **Stop Condition**: Do not read code to invent theories before this red-capable command has been run and observed failing.
-2. **Stage 2 — Reproduce & Minimise**:
-   - Watch the command go red on the exact reported symptom.
-   - Strip inputs, callers, config, and steps **one at a time**, re-running the loop after each cut, until **every remaining element is load-bearing** (removing any one makes the loop go green).
-3. **Stage 3 — Generate Ranked Falsifiable Hypotheses**:
-   - Avoid anchoring on a single guess. State `3–5` ranked hypotheses, each with a falsifiable prediction:
-     > *"If `<X>` is the cause, then `<changing Y>` will make the symptom disappear / `<changing Z>` will make it worse."*
-   - Record the ranked hypotheses and root-cause notes with a timestamp under `## Notes & Discoveries` in `tasks/<id>-<slug>.md`.
-4. **Stage 4 — Targeted Single-Variable Instrumentation**:
-   - Map each probe to a specific prediction from Stage 3 and **change one variable at a time**.
-   - Tag every temporary debug log with a unique prefix (`[DEBUG-a4f2]`) so cleanup is a single grep.
-   - For performance regressions, establish a baseline measurement (profiler, timing harness, query plan) first before bisecting.
-5. **Stage 5 — Public-Seam Regression Test & Narrow Fix**:
-   - Turn the minimized repro into a failing regression test at the appropriate **public seam** (if no public seam can exercise the real call-site bug pattern, record that architectural seam gap in `## Notes & Discoveries` and route via `/flow:revise`).
-   - Watch the regression test fail, apply the minimal fix, watch it pass, and re-run the Stage 1 feedback loop against the original un-minimized scenario.
-6. **Stage 6 — Cleanup**:
-   - Remove all `[DEBUG-...]` instrumentation (`grep` the prefix), delete any throwaway harness in `.agents/scratch/`, and state the confirmed root cause in the commit message and `## Notes & Discoveries`.
-   - **Escalation Rule**: If 3 fixes fail in a row, **STOP**—mark the task `state: blocked` and route to `/flow:revise` to question the architecture with the user.
+1. **Build a Fast Failing Test**:
+   - Build one fast, repeatable, agent-runnable command (focused unit/integration test, CLI run with fixture input, or trace replay) that hits the bug path and fails on the reported symptom.
+   - Tighten the loop by caching setup, narrowing scope, and pinning time or RNG. For flaky bugs, repeat the trigger until reproduction is reliable.
+   - **Stop Condition**: Do not read code to invent theories before this failing command has been run and observed failing.
+2. **Reproduce & Minimize**:
+   - Watch the command fail on the reported symptom.
+   - Strip inputs, callers, config, and steps one at a time, re-running after each cut until removing any remaining element makes the test pass.
+3. **List Ranked Falsifiable Hypotheses**:
+   - State `3–5` ranked hypotheses, each with a falsifiable prediction:
+     > *"If `<X>` is the cause, then `<changing Y>` will make the symptom disappear or `<changing Z>` will make it worse."*
+   - Record the hypotheses and root-cause notes with a timestamp under `## Notes & Discoveries` in `tasks/<id>-<slug>.md`.
+4. **Targeted Single-Variable Probes**:
+   - Map each probe to a prediction from Stage 3 and change one variable at a time.
+   - Tag temporary debug logs with a unique prefix (`[DEBUG-a4f2]`) for easy cleanup.
+   - For performance regressions, measure a baseline (profiler, timing harness, query plan) before bisecting.
+5. **Public Interface Regression Test & Narrow Fix**:
+   - Turn the minimized repro into a failing regression test at the public interface (if none can exercise the bug, note the gap in `## Notes & Discoveries` and route to `/flow:revise`).
+   - Watch the regression test fail, apply the minimal fix, watch it pass, and re-run the Stage 1 command against the original scenario.
+6. **Cleanup**:
+   - Remove all `[DEBUG-...]` logs, delete throwaway files in `.agents/scratch/`, and state the confirmed root cause in the commit message and `## Notes & Discoveries`.
+   - **Stop-Loop Limit**: If 3 fixes fail in a row, stop, mark the task `state: blocked`, and route to `/flow:revise`.
 
-## 3. Critical Thinking, Verification, & Finding Adjudication (`ADOPT` / `CONTEST` / `ESCALATE`)
+## 3. Verification & Finding Decisions
 
-- **Verification Iron Law**: Never claim a test, build, or lint gate passes without running the exact command freshly in the current turn, reading its full output, and confirming exit code `0`. Never use hedging (`"should pass"`, `"probably fixed"`).
-- **Zero Performative Agreement**: Never reflexively agree with a subagent reviewer or user assertion, and never use flattery (`"Great point"`, `"Brilliant"`, `"You're absolutely right"`) or polite apologies. Lead directly with technical evidence and trade-offs.
-- **Evidence-Backed Adjudication**: Verify every review finding against the live codebase (`path/to/file::Symbol`) and `.agents/skills/review-*/references/false-positive-suppressions.md`:
+- **Run the Check Before Claiming It Passed**: Never claim a test, build, or lint check passes without running the exact command in the current turn, reading its full output, and confirming exit code `0`. Never hedge (`"should pass"`, `"probably fixed"`).
+- **Direct Technical Evidence**: Never reflexively agree with a reviewer or user claim, and skip flattery or apologies. Lead with technical evidence and trade-offs.
+- **Decide on Each Finding**: Verify every review finding against live code (`path/to/file::Symbol`) and `.agents/skills/review-*/references/false-positive-suppressions.md`:
   - **`ADOPT`**: Valid finding — apply the fix in present tense and re-verify.
-  - **`CONTEST`**: False positive, misread of existing code, or YAGNI scope creep — refute by citing the exact `path/to/file::Symbol` or `FP-*` suppression rule.
-  - **`ESCALATE`**: Genuine product/architectural trade-off — present a `structured-choice-v1` decision to the user.
+  - **`CONTEST`**: False positive, misread of code, or out-of-scope creep — refute with `path/to/file::Symbol` or the matching `FP-*` rule.
+  - **`ESCALATE`**: Genuine product or architecture trade-off — present options to the user via [`interaction.md`](interaction.md).
 
-## 4. Thin Coordinator, Horizontal Subagent Scaling, & Present-Tense Sync
+## 4. Thin Coordinator, Parallel Workers & Sync
 
-- **Thin Coordinator Budget (`< 25k` Exploration Tokens) & Anti-Truncation**:
-  - Keep the top-level coordinator focused on user co-design, locking cross-chapter contracts in root `specs/<flow_id>/spec.md` + `chapters/index.md`, orchestrating subagents, and enforcing chapter boundaries so sessions never run for hours or compact repeatedly.
-  - Scale detail **horizontally across isolated subagents** when genuine parallel subsystems or checkpoints exist, never by fracturing cohesive slices to satisfy artificial limits: default single cohesive deliverables to `has_chapters: false`, organize multi-chapter work into deliverable chapters (`ch01..chNN`) with zero artificial caps on task count, `read_set`, `files`, or `estimated_loc` (`compact` worksheets allowed across all tiers), and author multi-chapter specs in parallel Chapter Planner subagents.
-- **Present-Tense Living Markdown Sync (Zero History Inside Docs)**:
-  - Whenever a chapter completes (`/flow:implement`) or a plan changes (`/flow:revise`), rewrite `chapters/<ch_id>/spec.md`, `chapters/index.md`, root `specs/<flow_id>/spec.md` (`## 6. Current State & Remaining Plan Snapshot`), `.agents/bundles/knowledge/**`, and `docs/**` **in place in present tense** *before* chapter code review so reviewers verify both code and Markdown fidelity.
-  - Living Markdown states only current verified reality, remaining chapters/tasks, and the full plan; chronological history belongs exclusively in `.agents/bundles/log.md` and signed Git commits.
-- **Dynamic Cross-Harness Model Routing & Packaged Workflows ([`orchestration.md`](orchestration.md))**:
-  - Resolve `(model, effort)` dynamically via `sidecars/studio/flow-cli.mjs models route` (never hardcoded model family lists or regex aliases). Reserve Frontier thinking models for planning, cold-read spec review, semantic validation, and adversarial review; stamp `planning_quality: degraded` + `planning_degraded_reason` (`planned_with_model`) whenever quota fallback prevents Frontier planning.
-  - Execute disjoint micro-slices (`<= 250` LOC, `<= 3` files, `< 4k`-token pre-extracted `ContextPack`s) across bounded worker waves with zero-token inter-wave `flow-cli.mjs spec sync`, delegating upward to Frontier harnesses whenever verification or diagnosis stalls.
-  - **Google Antigravity (`run_workflow` & `invoke_subagent`)**: Prefer packaged workflow scripts (`workflows/flow-scout/workflow.py`, `workflows/flow-spec-planning/workflow.py`, `workflows/flow-chapter-pipeline/workflow.py`, `workflows/flow-dual-review/workflow.py`), always dispatching subagents with `type_name="self"`, compact schema cards (`templates/agent/plan-schema-card.md` or `templates/agent/executor-schema-card.md`), and `with_budget(...)` guards. After read-only scout or review phases, assert `git status --porcelain` matches the pre-dispatch working tree.
-- **Zero-Context Isolation**: Pass **only disk paths** (`spec.md`, `chapters/`, `tasks/*.md`, `.agents/skills/`, `knowledge/` chapters, and `docs/`) and exact `base_commit..head_commit` ranges to reviewers—never pass conversational planning transcripts.
+- **Thin Coordinator Budget (`< 25k` Exploration Tokens) & Plan the Whole Scope**:
+  - Keep the top-level coordinator focused on user planning, locking shared contracts in root `specs/<flow_id>/spec.md` + `chapters/index.md`, running workers, and checking chapter boundaries.
+  - Default cohesive single features to `has_chapters: false`. Split into `chapters/` (`ch01..chNN`) only for staged checkpoints, parallel subsystems, or `empirical_dependent` triggers, with no artificial caps on task count, `read_set`, `files`, or `estimated_loc`.
+  - Allow `compact` worksheets for straightforward tasks, and author multi-chapter specs in parallel Chapter Planner subagents.
+- **Current-State Markdown Sync**:
+  - When a chapter completes (`/flow:implement`) or a plan changes (`/flow:revise`), rewrite `chapters/<ch_id>/spec.md`, `chapters/index.md`, root `specs/<flow_id>/spec.md` (`## 6. Current State & Remaining Plan Snapshot`), `.agents/bundles/knowledge/**`, and `docs/**` in place in present tense *before* review.
+  - Living Markdown states current reality, remaining work, and the full plan; chronological history belongs in `.agents/bundles/log.md` and signed Git commits.
+- **Model Routing & Packaged Workflows ([`orchestration.md`](orchestration.md))**:
+  - Resolve `(model, effort)` via `sidecars/studio/flow-cli.mjs models route`. Planning, independent spec review, semantic validation, and adversarial review use the strongest model (`strong`); stamp `planning_quality: degraded` and `planning_degraded_reason` (`planned_with_model`) whenever quota fallback prevents it.
+  - Run tasks (`<= 250` LOC, `<= 3` files, `< 4k`-token pre-extracted briefs) in parallel steps (`<= 4` workers editing separate files) with `flow-cli.mjs spec sync` between steps.
+  - **Google Antigravity (`run_workflow` & `invoke_subagent`)**: Prefer packaged workflows (`workflows/flow-scout/workflow.py`, `workflows/flow-spec-planning/workflow.py`, `workflows/flow-chapter-pipeline/workflow.py`, `workflows/flow-dual-review/workflow.py`) using `type_name="self"`, compact schema cards, and `with_budget(...)`. Check `git status --porcelain` after read-only phases.
+- **Independent Review Isolation**: Pass only disk paths (`spec.md`, `chapters/`, `tasks/*.md`, `.agents/skills/`, `knowledge/`, `docs/`) and exact `base_commit..head_commit` ranges to reviewers—never pass planning transcripts.

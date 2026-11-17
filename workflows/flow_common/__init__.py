@@ -162,7 +162,8 @@ def resolve_dynamic_route(
         cmd.extend(["--author-vendor", author_vendor])
     rc, parsed, _, _ = run_node_cli(plugin_root, cmd, cwd=cwd)
     if rc == 0 and isinstance(parsed, dict):
-        route = parsed.get("route") if isinstance(parsed.get("route"), dict) else parsed
+        nested_route = parsed.get("route")
+        route = nested_route if isinstance(nested_route, dict) else parsed
         if "runtime_target" in route:
             return route
     upward_kinds = ("planning", "semantic_validation", "spec_review", "committee", "adversarial")
@@ -233,7 +234,7 @@ def _extract_markdown_verification_commands(text: str) -> list[str]:
 
 def resolve_workspace_commands(
     workspace: Path | str,
-    slice_tasks: list[dict[str, Any]] | None = None,
+    tasks: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """Resolve authoritative lint, test, and task verification commands for a workspace."""
     root = Path(workspace)
@@ -241,7 +242,7 @@ def resolve_workspace_commands(
     test_cmds: list[str] = []
     task_cmds: list[str] = []
 
-    for task in slice_tasks or []:
+    for task in tasks or []:
         if not isinstance(task, dict):
             continue
         raw_cmds = task.get("verification_commands")
@@ -366,6 +367,7 @@ async def run_parallel_bounded(
     semaphore = asyncio.Semaphore(limit) if limit is not None else None
 
     async def _invoke(item: Any) -> Any:
+        """Invoke ``fn`` for one item under the bounded semaphore."""
         try:
             if semaphore is None:
                 res = fn(item)
@@ -384,8 +386,8 @@ async def run_parallel_bounded(
     return list(await asyncio.gather(*(_invoke(item) for item in items)))
 
 
-class ExecutionSlotScheduler:
-    """Work-conserving slot scheduler dispatching ready slices across chapters."""
+class WorkerPool:
+    """Worker pool dispatching ready task groups across chapters."""
 
     def __init__(
         self,
@@ -393,7 +395,7 @@ class ExecutionSlotScheduler:
         plugin_root: Path,
         flow_id: str,
         workspace: Path | str,
-        max_workers: int = 4,
+        workers: int = 4,
         chapter_id: str | None = None,
         all_ready_chapters: bool = False,
         max_loc: int = 300,
@@ -403,28 +405,27 @@ class ExecutionSlotScheduler:
         self.plugin_root = Path(plugin_root)
         self.flow_id = str(flow_id)
         self.workspace = Path(workspace)
-        self.max_workers = max(1, min(12, int(max_workers)))
+        self.workers = max(1, min(12, int(workers)))
         self.chapter_id = str(chapter_id) if chapter_id else None
         self.all_ready_chapters = bool(all_ready_chapters)
         self.max_loc = max(50, int(max_loc))
         self.max_files = max(1, int(max_files))
         self._cli_runner = cli_runner or (lambda root, argv: run_node_cli(root, argv, cwd=self.workspace))
 
-    def _compile_slices(self, exclude_task_ids: set[str], exclude_paths: set[str]) -> dict[str, Any]:
-        """Compile ready slices while excluding in-flight or failed tasks and paths."""
+    def _plan_tasks(self, exclude_task_ids: set[str], exclude_paths: set[str]) -> dict[str, Any]:
+        """Plan ready task groups while excluding active or failed tasks and paths."""
         argv = [
-            "slices",
-            "compile",
+            "tasks",
+            "plan",
             "--flow",
             self.flow_id,
-            "--max-workers",
-            str(self.max_workers),
+            "--workers",
+            str(self.workers),
             "--max-loc",
             str(self.max_loc),
             "--max-files",
             str(self.max_files),
-            "--packs",
-            "3",
+            "--briefs",
             "--root",
             str(self.workspace),
         ]
@@ -438,12 +439,12 @@ class ExecutionSlotScheduler:
             argv.extend(["--exclude-paths", ",".join(sorted(exclude_paths))])
         rc, parsed, stdout, stderr = self._cli_runner(self.plugin_root, argv)
         if rc != 0 or not isinstance(parsed, dict):
-            raise RuntimeError(f"slices compile failed (rc={rc}): {stderr or stdout}")
+            raise RuntimeError(f"tasks plan failed (rc={rc}): {stderr or stdout}")
         return parsed
 
-    def _claim_slice(self, slice_obj: dict[str, Any], slot_id: int) -> None:
-        """Persist task claim state for a chosen slice before worker execution."""
-        task_ids = self._slice_task_ids(slice_obj)
+    def _claim_tasks(self, task_group: dict[str, Any], worker_id: int) -> None:
+        """Persist task claim state for a chosen task group before worker execution."""
+        task_ids = self._group_task_ids(task_group)
         if not task_ids:
             return
         argv = [
@@ -454,16 +455,16 @@ class ExecutionSlotScheduler:
             "--tasks",
             ",".join(task_ids),
             "--by",
-            f"slot-{slot_id}",
+            f"worker-{worker_id}",
             "--no-release-stale",
             "--root",
             str(self.workspace),
         ]
         self._cli_runner(self.plugin_root, argv)
 
-    def _complete_slice(self, slice_obj: dict[str, Any], receipt: dict[str, Any]) -> None:
-        """Persist deterministic task completion or blocked state without releasing sibling claims."""
-        task_ids = self._slice_task_ids(slice_obj)
+    def _complete_tasks(self, task_group: dict[str, Any], receipt: dict[str, Any]) -> None:
+        """Persist task completion or blocked state without releasing sibling claims."""
+        task_ids = self._group_task_ids(task_group)
         if not task_ids:
             return
         raw_status = str(receipt.get("status") or "completed").strip().lower()
@@ -495,38 +496,38 @@ class ExecutionSlotScheduler:
         self._cli_runner(self.plugin_root, argv)
 
     @staticmethod
-    def _slice_task_ids(slice_obj: dict[str, Any]) -> list[str]:
-        """Extract unique task IDs from a compiled slice payload."""
+    def _group_task_ids(task_group: dict[str, Any]) -> list[str]:
+        """Extract unique task IDs from a planned task group payload."""
         seen: set[str] = set()
         task_ids: list[str] = []
-        for raw_tid in slice_obj.get("task_ids") or []:
+        for raw_tid in task_group.get("task_ids") or []:
             tid = str(raw_tid).strip()
             if tid and tid not in seen:
                 seen.add(tid)
                 task_ids.append(tid)
-        for task in slice_obj.get("tasks") or []:
+        for task in task_group.get("tasks") or []:
             if not isinstance(task, dict):
                 continue
             tid = str(task.get("task_id") or task.get("id") or "").strip()
             if tid and tid not in seen:
                 seen.add(tid)
                 task_ids.append(tid)
-        if not task_ids and slice_obj.get("task_id"):
-            tid = str(slice_obj["task_id"]).strip()
+        if not task_ids and task_group.get("task_id"):
+            tid = str(task_group["task_id"]).strip()
             if tid:
                 task_ids.append(tid)
         return task_ids
 
     @staticmethod
-    def _slice_paths(slice_obj: dict[str, Any]) -> set[str]:
-        """Collect normalized code, test, and lock scope paths owned by a slice."""
+    def _group_paths(task_group: dict[str, Any]) -> set[str]:
+        """Collect normalized code, test, and lock scope paths owned by a task group."""
         paths: set[str] = set()
         for key in ("files", "tests", "lock_scopes"):
-            for entry in slice_obj.get(key) or []:
+            for entry in task_group.get(key) or []:
                 norm = str(entry).strip().lstrip("./")
                 if norm:
                     paths.add(norm)
-        for task in slice_obj.get("tasks") or []:
+        for task in task_group.get("tasks") or []:
             if not isinstance(task, dict):
                 continue
             for key in ("files", "tests", "lock_scopes"):
@@ -538,52 +539,53 @@ class ExecutionSlotScheduler:
 
     async def run(
         self,
-        execute_slice: Callable[[dict[str, Any], int], Awaitable[dict[str, Any]] | dict[str, Any]],
+        execute_group: Callable[[dict[str, Any], int], Awaitable[dict[str, Any]] | dict[str, Any]],
     ) -> dict[str, Any]:
-        """Execute ready slices across up to ``max_workers`` persistent work-conserving slots."""
+        """Run ready task groups across up to ``workers`` concurrent workers."""
         cond = asyncio.Condition()
         io_lock = asyncio.Lock()
-        active_slices: dict[int, dict[str, Any]] = {}
+        active_tasks: dict[int, dict[str, Any]] = {}
         failed_task_ids: set[str] = set()
         dispatched_task_ids: set[str] = set()
         receipts: list[dict[str, Any]] = []
-        last_compile_summary: dict[str, Any] = {}
-        compile_error: str | None = None
+        last_plan_summary: dict[str, Any] = {}
+        plan_error: str | None = None
 
-        async def _worker(slot_id: int) -> None:
-            nonlocal last_compile_summary, compile_error
+        async def _worker(worker_id: int) -> None:
+            """Claim, run, and record ready task groups until none remain."""
+            nonlocal last_plan_summary, plan_error
             while True:
                 chosen: dict[str, Any] | None = None
                 async with cond:
                     while True:
                         inflight_tasks: set[str] = set(failed_task_ids)
                         inflight_paths: set[str] = set()
-                        for active in active_slices.values():
-                            inflight_tasks.update(self._slice_task_ids(active))
-                            inflight_paths.update(self._slice_paths(active))
+                        for active in active_tasks.values():
+                            inflight_tasks.update(self._group_task_ids(active))
+                            inflight_paths.update(self._group_paths(active))
                         try:
                             async with io_lock:
-                                compiled = self._compile_slices(inflight_tasks, inflight_paths)
+                                planned = self._plan_tasks(inflight_tasks, inflight_paths)
                         except Exception as exc:
-                            compile_error = str(exc)
+                            plan_error = str(exc)
                             cond.notify_all()
                             return
-                        last_compile_summary = compiled
-                        candidates = list(compiled.get("dispatchable_slices") or [])
+                        last_plan_summary = planned
+                        candidates = list(planned.get("ready_tasks") or [])
                         if not candidates:
                             candidates = [
                                 item
-                                for item in list(compiled.get("slices") or [])
+                                for item in list(planned.get("tasks") or [])
                                 if isinstance(item, dict) and not item.get("waits_for_inflight")
                             ]
                         if candidates:
                             chosen = candidates[0]
-                            active_slices[slot_id] = chosen
-                            dispatched_task_ids.update(self._slice_task_ids(chosen))
+                            active_tasks[worker_id] = chosen
+                            dispatched_task_ids.update(self._group_task_ids(chosen))
                             async with io_lock:
-                                self._claim_slice(chosen, slot_id)
+                                self._claim_tasks(chosen, worker_id)
                             break
-                        if not active_slices:
+                        if not active_tasks:
                             cond.notify_all()
                             return
                         await cond.wait()
@@ -593,49 +595,49 @@ class ExecutionSlotScheduler:
 
                 receipt: dict[str, Any]
                 try:
-                    out = execute_slice(chosen, slot_id)
+                    out = execute_group(chosen, worker_id)
                     raw_receipt = await out if inspect.isawaitable(out) else out
                     if isinstance(raw_receipt, dict):
                         receipt = dict(raw_receipt)
                     else:
                         receipt = {
-                            "slice_id": chosen.get("slice_id"),
+                            "group_id": chosen.get("group_id"),
                             "status": "blocked",
                             "notes": f"Executor returned non-dict receipt: {type(raw_receipt).__name__}",
                         }
                 except Exception as exc:
                     receipt = {
-                        "slice_id": chosen.get("slice_id"),
-                        "task_ids": self._slice_task_ids(chosen),
+                        "group_id": chosen.get("group_id"),
+                        "task_ids": self._group_task_ids(chosen),
                         "chapter_ids": list(chosen.get("chapter_ids") or []),
                         "status": "blocked",
                         "error_type": type(exc).__name__,
                         "error": str(exc),
-                        "notes": f"Slot {slot_id} raised {type(exc).__name__}: {exc}",
+                        "notes": f"Worker {worker_id} raised {type(exc).__name__}: {exc}",
                     }
 
-                receipt.setdefault("slice_id", chosen.get("slice_id"))
-                receipt.setdefault("slot_id", slot_id)
-                receipt.setdefault("task_ids", self._slice_task_ids(chosen))
+                receipt.setdefault("group_id", chosen.get("group_id"))
+                receipt.setdefault("worker_id", worker_id)
+                receipt.setdefault("task_ids", self._group_task_ids(chosen))
                 receipt.setdefault("chapter_ids", list(chosen.get("chapter_ids") or []))
 
                 async with cond:
                     try:
                         if str(receipt.get("status") or "").lower() != "completed":
-                            failed_task_ids.update(self._slice_task_ids(chosen))
+                            failed_task_ids.update(self._group_task_ids(chosen))
                         async with io_lock:
-                            self._complete_slice(chosen, receipt)
+                            self._complete_tasks(chosen, receipt)
                         receipts.append(receipt)
                     finally:
-                        active_slices.pop(slot_id, None)
+                        active_tasks.pop(worker_id, None)
                         cond.notify_all()
 
-        await asyncio.gather(*(_worker(slot_id) for slot_id in range(self.max_workers)))
+        await asyncio.gather(*(_worker(worker_id) for worker_id in range(self.workers)))
         return {
             "receipts": receipts,
             "dispatched_tasks": sorted(dispatched_task_ids),
             "failed_tasks": sorted(failed_task_ids),
-            "blocked": list(last_compile_summary.get("blocked") or []),
-            "deferred": list(last_compile_summary.get("deferred") or []),
-            "compile_error": compile_error,
+            "blocked": list(last_plan_summary.get("blocked") or []),
+            "deferred": list(last_plan_summary.get("deferred") or []),
+            "plan_error": plan_error,
         }

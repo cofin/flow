@@ -15,7 +15,7 @@ Design runtime hooks that execute reliably across Linux, macOS, and Windows with
 
 ## Harness Hook Configurations (Plugin & Project-Local)
 
-### 1. Google Antigravity (`hooks.json` at Plugin Root or `.agents/hooks.json` in Project)
+### 1. Google Antigravity (`hooks.json` or `.agents/hooks.json`)
 
 Antigravity requires **flat** handler arrays for lifecycle events (`SessionStart`, `PreInvocation`, `PostInvocation`, `Stop`) and **nested** `matcher` arrays only for tool events (`PreToolUse`, `PostToolUse`). Nesting `SessionStart` under `{ "matcher": "*", "hooks": [...] }` causes `ParseHooks` to fail and drop the entire `hooks.json` file.
 
@@ -44,9 +44,9 @@ Also note that for global plugins, Antigravity sets `cmd.Dir` to the **installed
 }
 ```
 
-### 2. Claude Code, Codex CLI, & VS Code (`.claude/settings.json` / `.codex/hooks.json` or Plugin Hook Config)
+### 2. Claude Code, Codex CLI, & VS Code
 
-Claude Code and Codex CLI require the **nested** `matcher` structure for all events (`SessionStart` and `Stop`). Provide `"commandWindows"` invoking native PowerShell (`hooks/on-session-start.ps1`, `hooks/on-stop.ps1`) equivalents so Windows hosts executing via `%COMSPEC% /C` (`cmd.exe /c`) do not require `sh` on `PATH`:
+Claude Code and Codex CLI require the **nested** `matcher` structure for all events (`SessionStart` and `Stop`). Provide `"commandWindows"` invoking native PowerShell (`hooks/on-session-start.ps1`, `hooks/on-stop.ps1`) so Windows hosts running `%COMSPEC% /C` do not need `sh` on `PATH`:
 
 ```json
 {
@@ -108,7 +108,7 @@ Cursor uses `version: 1` and camelCase event names (`sessionStart`, `stop`) with
 
 ### 4. OpenCode V2 (`.opencode/plugins/<name>.js`)
 
-In OpenCode V2, `ctx.session.hook("context", (event) => { event.system.push({ type: "text", text: readSummary(workspaceDir) }); })` runs on **every model request** in the agent loop, including tool continuations. The callback mutates `event.system` in place; return values are ignored, and V1 hooks such as `"experimental.chat.system.transform"` never run. Resolve the workspace from `ctx.location.directory`, and re-evaluate bundle state inside the hook callback (never cache once at `setup(ctx)`) so mid-session chapter progress and pending review/sync warnings surface on the next turn.
+In OpenCode V2, `ctx.session.hook("context", (event) => { event.system.push({ type: "text", text: readSummary(workspaceDir) }); })` runs on every model request in the agent loop. The callback mutates `event.system` in place; return values are ignored, and V1 hooks such as `"experimental.chat.system.transform"` never run. Resolve the workspace from `ctx.location.directory` and re-read bundle state on every turn rather than caching at `setup(ctx)`.
 
 ## Harness Stdout JSON Schemas for `SessionStart`
 
@@ -134,13 +134,13 @@ A single POSIX `sh` script can adapt its stdout payload to each harness:
    {"continue":true,"additional_context":"..."}
    ```
 
-## Harness Stdout JSON Schemas & Circuit Breakers for `Stop`
+## Stop Hook Output & Loop Limits
 
 `Stop` hooks prevent premature coordinator turn completion when checklists drift, completed chapters lack review stamps, or living Markdown specs are out of sync. Always emit `{}` and exit `0` when clean or when a safety guard fires:
 
 1. **Google Antigravity (`--harness agy`)**:
    - **Stdin (`StopHookArgs`)**: `executionNum`, `terminationReason` (`"model_stop"`, `"max_steps_exceeded"`, `"error"`), `error`, `fullyIdle`, `workspacePaths`, `lastUserInput`, `parentConversationId`.
-   - **Circuit Breaker & Subagent Guard**: Allow stop (`{}`) if `terminationReason != "model_stop"`, `error` is non-empty, `executionNum >= 2`, or `parentConversationId` / leaf `agents/*.md` indicates a leaf subagent turn without checklist corruption.
+   - **Stop-Loop Limit & Subagent Guard**: Allow stop (`{}`) if `terminationReason != "model_stop"`, `error` is non-empty, `executionNum >= 2`, or `parentConversationId` indicates a leaf subagent turn without checklist drift.
    - **Block Stop (`StopHookResult` — `"block"` is deprecated; always use `"continue"`)**:
 
      ```json
@@ -148,7 +148,7 @@ A single POSIX `sh` script can adapt its stdout payload to each harness:
      ```
 
 2. **Claude Code, Codex CLI, & VS Code (`--harness claude`)**:
-   - **Circuit Breaker & Cursor Dedupe**: Allow stop (`{}`) when `CURSOR_VERSION` is set or stdin contains `"stop_hook_active": true`.
+   - **Stop-Loop Limit & Cursor Dedupe**: Allow stop (`{}`) when `CURSOR_VERSION` is set or stdin contains `"stop_hook_active": true`.
    - **Block Stop**:
 
      ```json
@@ -156,7 +156,7 @@ A single POSIX `sh` script can adapt its stdout payload to each harness:
      ```
 
 3. **Cursor (`--harness cursor`)**:
-   - **Circuit Breaker**: Allow stop (`{}`) when stdin `"status"` is non-empty and `!= "completed"` or `"loop_count"` `>= 1`.
+   - **Stop-Loop Limit**: Allow stop (`{}`) when stdin `"status"` is non-empty and `!= "completed"` or `"loop_count"` `>= 1`.
    - **Block Stop**:
 
      ```json

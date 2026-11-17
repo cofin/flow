@@ -1,7 +1,7 @@
 {
   "name": "flow-mod",
-  "description": "In-process Claude Code Mod companion for Flow providing live AbovePrompt/SidePane UI and zero-latency Agent tier & Context-Pack routing.",
-  "version": "0.30.1",
+  "description": "In-process Claude Code Mod companion for Flow providing live AbovePrompt/SidePane UI and direct model-role and brief routing.",
+  "version": "0.31.0",
   "author": {
     "name": "cofin"
   },

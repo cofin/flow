@@ -5,7 +5,7 @@ description: Use when creating, structuring, or validating multi-harness plugins
 
 # Multi-Harness Plugins & Project-Local `.agents/` Architecture
 
-Build and maintain skills, subagents, hooks, rules, and MCP configurations that work cleanly across **Google Antigravity (IDE & CLI)**, **Claude Code**, **Codex CLI**, **Cursor**, **OpenCode V2**, and **VS Code / GitHub Copilot**—both for **project-local `.agents/` folders** and **extension-wide plugins**.
+Build and maintain skills, subagents, hooks, rules, and MCP configs across **Google Antigravity**, **Claude Code**, **Codex CLI**, **Cursor**, **OpenCode V2**, and **VS Code / Copilot**. Applies to both project-local `.agents/` folders and extension-wide plugins.
 
 ## Project-Local Discovery Matrix (`.agents/` & Repo-Local Configs)
 
@@ -22,7 +22,7 @@ How each harness discovers project-local instructions, skills, subagents, hooks,
 ## Workflow
 
 1. **Choose the Target Scope**:
-   - **Project-Local (`.agents/` inside a repository)**: Used by `/flow:setup`, `/flow:learn`, and repository maintainers to store `.agents/bundles/` knowledge, `.agents/skills/<domain>/` domain and review skills, `.agents/agents/<name>.md` subagents, `.codex/agents/<name>.toml` agents, and `.agents/mcp_config.json` / `.mcp.json` server definitions.
+   - **Project-Local (`.agents/` inside a repository)**: Used by `/flow:setup`, `/flow:learn`, and repository maintainers to store `.agents/bundles/` knowledge, `.agents/skills/<domain>/` skills, `.agents/agents/<name>.md` subagents, `.codex/agents/<name>.toml` agents, and MCP configs.
    - **Extension-Wide Plugin (Plugin Repository Root)**: Used when packaging reusable skills, subagents, hooks, rules, and MCP servers as an installable plugin across all six harnesses.
 2. **Author Progressive-Disclosure Skills**:
    - Keep every `SKILL.md` concise (`<= 200` lines and strictly `< 24,000` bytes so Google Antigravity never truncates the bottom of the file).
@@ -40,7 +40,7 @@ How each harness discovers project-local instructions, skills, subagents, hooks,
 
 ## Guardrails
 
-- **No Duplicate Surface Mirrors**: Never maintain `plugins/<name>/` mirrors, plugin-root `AGENTS.md` or `CLAUDE.md` files (keep repo contributor context in `CONTRIBUTING.md` + optional `.agents/rules/*.md` so both `agy plugin validate --strict` and `claude plugin validate --strict` pass without warnings or errors), `.github/agents/*.agent.md` copies, `.opencode/agents/*.md` copies, or `commands/` wrappers.
+- **No Duplicate Surface Mirrors**: Never maintain `plugins/<name>/` mirrors, plugin-root `AGENTS.md` or `CLAUDE.md` files, `.github/agents/*.agent.md` copies, `.opencode/agents/*.md` copies, or `commands/` wrappers. Keep repo contributor context in `CONTRIBUTING.md` and `.agents/rules/*.md` so plugin validation passes.
 - **Strict `24 KB` `SKILL.md` Cap**: Never exceed `24,000` bytes in any `SKILL.md` file.
 - **YAML List Tool Restrictions**: Always format `tools` and `disallowedTools` as YAML lists (`- Edit`), never comma-separated strings (`tools: Read, Grep` fails YAML unmarshaling in Antigravity and silently drops the subagent).
 - **Short MCP Server & Tool Names**: Keep combined MCP tool names under `60` characters (`^[a-zA-Z0-9_-]+$`) so Cursor (`59`-char cap) and Antigravity (`64`-char cap on `mcp_<plugin>_<server>_<tool>`) never drop or truncate tools.

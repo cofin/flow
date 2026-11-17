@@ -1,6 +1,6 @@
 {
   "name": "flow-chapter-pipeline",
-  "description": "Execute a Flow chapter using micro-sliced Context Packs, zero-token checklist synchronization, dynamic (model, effort) routing, and consolidated closeout review.",
+  "description": "Run a Flow chapter in parallel using task briefs, CLI checklist sync, model routing, and chapter review.",
   "entry": "workflow.py",
   "args": {
     "type": "object",
@@ -8,30 +8,29 @@
       "flow_id": {"type": "string", "description": "Flow identifier under .agents/bundles/specs/<flow_id>."},
       "chapter_id": {"type": "string", "description": "Optional chapter directory slug to pin execution."},
       "tasks": {"type": "array", "items": {"type": "string"}, "description": "Optional ordered task worksheet relative paths."},
-      "single_chapter": {"type": "boolean", "description": "Pin execution to chapter_id instead of filling idle slots across all ready chapters."},
-      "all_ready_chapters": {"type": "boolean", "description": "Allow work-conserving execution across all ready unblocked chapters."},
-      "max_workers": {"type": "integer", "description": "Maximum concurrent execution worker slots (default 4; clamped 1..12)."},
-      "max_concurrency": {"type": "integer", "description": "Maximum concurrent review seats or workers (default 4)."},
+      "single_chapter": {"type": "boolean", "description": "Pin execution to chapter_id instead of running ready tasks across all ready chapters."},
+      "all_ready_chapters": {"type": "boolean", "description": "Run ready tasks across all unblocked chapters."},
+      "workers": {"type": "integer", "description": "Maximum concurrent workers (default 4; clamped 1..12)."},
       "allow_uncommitted": {"type": "boolean", "description": "Allow uncommitted deferred-commit receipts in post-execution OKF validation."},
       "base_commit": {"type": "string", "description": "Base Git commit SHA prior to execution."},
       "bundle_root": {"type": "string", "description": "Bundle root path (default .agents/bundles)."},
       "execution_mode": {
         "type": "string",
-        "enum": ["wave_slices", "chapter_batch", "per_task"],
-        "description": "Execute via work-conserving slot scheduler (default), warm batch, or per-task."
+        "enum": ["parallel_tasks", "chapter_batch", "per_task"],
+        "description": "Run via parallel worker pool (default), chapter batch, or one task at a time."
       },
       "review_mode": {
         "type": "string",
         "enum": ["auto", "dual", "single", "committee"],
         "description": "Review mode (default auto via ReviewRoster)."
       },
-      "harness": {"type": "string", "description": "Active harness identifier for dynamic routing."},
-      "batch_size": {"type": "integer", "description": "Maximum tasks per batch (default 4; clamped 1..20)."},
+      "harness": {"type": "string", "description": "Active harness identifier for model routing."},
+      "tasks_per_worker": {"type": "integer", "description": "Maximum tasks per worker batch (default 4; clamped 1..20)."},
       "executor_model": {"type": "string", "description": "Optional explicit executor model override."},
       "reviewer_model": {"type": "string", "description": "Optional explicit reviewer model override."},
       "executor_agent": {"type": "string", "description": "Optional custom agent profile for execution."},
       "reviewer_agent": {"type": "string", "description": "Optional custom agent profile for review."},
-      "fallback_model": {"type": "string", "description": "Optional quota fallback model tier."}
+      "fallback_model": {"type": "string", "description": "Optional quota fallback model."}
     },
     "required": ["flow_id"]
   }

@@ -231,7 +231,7 @@ class SpecCodeLensProvider {
         arguments: [{ prompt: implCmd, workspacePath: docWorkspace }],
       }),
       new this.vscode.CodeLens(topRange, {
-        title: "Zero-Context Review",
+        title: "Review Flow",
         command: "flow.dispatchTask",
         arguments: [{ prompt: `/flow:review ${flowId}`, workspacePath: docWorkspace }],
       }),

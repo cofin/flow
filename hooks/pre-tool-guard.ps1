@@ -508,15 +508,15 @@ if ($Decision -eq "allow" -and -not [string]::IsNullOrWhiteSpace($CmdLine)) {
 
 if ($Decision -eq "allow" -and $Harness -eq "claude" -and $env:CLAUDECODE -eq "1" -and [string]::IsNullOrEmpty($env:CODEX_THREAD_ID) -and [string]::IsNullOrEmpty($env:CODEX_CI) -and $env:FLOW_MOD_LOADED -ne "1" -and $ToolName -eq "Agent") {
     if ($StdinPayload -notmatch '"model"\s*:\s*"[^"]+"') {
-        $Tier = if ($AgentId -match 'plan-generator|prd-orchestrator') { "frontier" } elseif ($AgentId -match 'researcher') { "light" } else { "balanced" }
-        $TierFile = Join-Path $ProjectDir ".claude/agents/flow-tier-${Tier}.md"
-        if (Test-Path -LiteralPath $TierFile -PathType Leaf) {
-            $tfRaw = Get-Content -LiteralPath $TierFile -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
-            $mm = [regex]::Match($tfRaw, '(?m)^model:\s*["'']?([^"''\r\n]+)')
+        $Role = if ($AgentId -match 'plan-generator|prd-orchestrator') { "strong" } elseif ($AgentId -match 'researcher') { "light" } else { "standard" }
+        $RoleFile = Join-Path $ProjectDir ".claude/agents/flow-model-${Role}.md"
+        if (Test-Path -LiteralPath $RoleFile -PathType Leaf) {
+            $rfRaw = Get-Content -LiteralPath $RoleFile -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
+            $mm = [regex]::Match($rfRaw, '(?m)^model:\s*["'']?([^"''\r\n]+)')
             if ($mm.Success) {
-                $tierModel = $mm.Groups[1].Value.Trim()
-                if ($tierModel -and $tierModel -ne "inherit") {
-                    $escModel = Escape-FlowJsonString -Value $tierModel
+                $roleModel = $mm.Groups[1].Value.Trim()
+                if ($roleModel -and $roleModel -ne "inherit") {
+                    $escModel = Escape-FlowJsonString -Value $roleModel
                     [Console]::Out.WriteLine("{`"hookSpecificOutput`":{`"hookEventName`":`"PreToolUse`",`"permissionDecision`":`"allow`",`"updatedInput`":{`"model`":`"$escModel`"}}}")
                     exit 0
                 }

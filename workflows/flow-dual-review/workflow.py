@@ -1,4 +1,4 @@
-"""Orchestrate ReviewRoster-planned zero-context reviews with cross-vendor adversarial seats."""
+"""Run independent reviews with optional second-vendor checks."""
 
 from __future__ import annotations
 
@@ -52,7 +52,7 @@ review_mode = str(args.get("review_mode", "auto"))
 harness = str(args.get("harness") or os.environ.get("FLOW_HARNESS") or "agy")
 author_vendor = str(args.get("author_vendor") or "")
 timeout_seconds = int(args.get("timeout_seconds", 600))
-max_concurrency = max(1, min(12, int(args.get("max_concurrency") or 4)))
+workers = max(1, min(12, int(args.get("workers") or 4)))
 plugin_root = resolve_plugin_root(args.get("plugin_root"), marker="agents/code-reviewer.md")
 
 route = resolve_dynamic_route(plugin_root, "spec_review", harness=harness, author_vendor=author_vendor or None)
@@ -77,7 +77,7 @@ suppressions = list(roster_plan.get("suppressions", [])) if isinstance(roster_pl
 suppression_clause = f" Respect verified false-positive suppressions: {suppressions}." if suppressions else ""
 
 before_status = git_porcelain()
-phase("Zero-Context Review")
+phase("Independent Review")
 log(f"Running {effective_mode} review on {git_range}{spec_clause} (preferred_model={preferred_review_model})")
 
 
@@ -140,9 +140,9 @@ try:
     else:
 
         async def _drive_seat(seat: dict) -> dict:
+            """Run one independent review seat and normalize its fallback report."""
             used_model = str(
                 args.get("reviewer_model")
-                or args.get("review_model")
                 or seat.get("model")
                 or (seat.get("model_route") or {}).get("runtime_target")
                 or preferred_review_model
@@ -167,7 +167,7 @@ try:
             seats,
             _drive_seat,
             parallel_fn=parallel,
-            max_concurrency=max_concurrency,
+            max_concurrency=workers,
             return_exceptions=True,
         )
         for seat, item in zip(seats, raw_reports):

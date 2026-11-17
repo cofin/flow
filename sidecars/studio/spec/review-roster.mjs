@@ -93,12 +93,12 @@ export class ReviewRoster {
             authorVendor,
             ...extra,
           })
-        : { model: null, effort: isHighRisk ? "high" : "medium", tier: isHighRisk ? "frontier" : "balanced" };
+        : { model: null, effort: isHighRisk ? "high" : "medium", role: isHighRisk ? "strong" : "standard" };
 
     const reviewers = [];
     if (mode === "committee") {
       for (const [seat, agentName, desc] of [
-        ["architecture", "code-reviewer", "Long-term architectural boundaries and public seams"],
+        ["architecture", "code-reviewer", "Long-term architectural boundaries and public interfaces"],
         ["correctness", "quality-reviewer", "Failure modes, test strength, and edge cases"],
         ["operations", "quality-reviewer", "Simplicity, runtime ergonomics, and reversible maintenance"],
       ]) {
@@ -106,7 +106,7 @@ export class ReviewRoster {
         reviewers.push({
           id: `committee-${seat}`,
           agent: agentName,
-          tier: r.tier,
+          role: r.role,
           model: r.model,
           effort: r.effort,
           paths: diffInfo.files,
@@ -121,7 +121,7 @@ export class ReviewRoster {
       reviewers.push({
         id: "combined",
         agent: combinedAgent,
-        tier: r.tier,
+        role: r.role,
         model: r.model,
         effort: r.effort,
         paths: diffInfo.files,
@@ -136,7 +136,7 @@ export class ReviewRoster {
       reviewers.push({
         id: "conformance",
         agent: "code-reviewer",
-        tier: confRoute.tier,
+        role: confRoute.role,
         model: confRoute.model,
         effort: confRoute.effort,
         paths: diffInfo.files,
@@ -147,12 +147,12 @@ export class ReviewRoster {
       reviewers.push({
         id: "quality",
         agent: "quality-reviewer",
-        tier: qualRoute.tier,
+        role: qualRoute.role,
         model: qualRoute.model,
         effort: qualRoute.effort,
         paths: diffInfo.files,
         suppressions,
-        reason: "Dead code, prose hygiene, and public-seam test strength",
+        reason: "Dead code, prose hygiene, and public-interface test strength",
       });
       for (const lens of repoLenses) {
         const lr = routeFor("code_review", lens.matched_high_risk || specDegraded ? "high" : "normal");
@@ -163,7 +163,7 @@ export class ReviewRoster {
           ...(lens.checklist ? { checklist: lens.checklist } : {}),
           ...(lens.suppressions ? { suppressions: [lens.suppressions] } : {}),
           ...(lens.custom_agent ? { custom_agent: lens.custom_agent } : {}),
-          tier: lr.tier,
+          role: lr.role,
           model: lr.model,
           effort: lr.effort,
           paths: lens.paths.length > 0 ? lens.paths : diffInfo.files,
@@ -183,7 +183,7 @@ export class ReviewRoster {
       spec_path: resolvedSpecRel,
       escalation_reasons: escalationReasons,
       suppressions,
-      needs_frontier_recheck_on_fast_findings: reviewers.some((r) => r.tier !== "frontier"),
+      needs_strong_recheck: reviewers.some((r) => r.role !== "strong"),
       adversarial_review: {
         recommended: Boolean(isHighComplexity || resolvedSpecRel),
         model: advRoute.model,
@@ -192,7 +192,7 @@ export class ReviewRoster {
         cross_vendor: Boolean(authorVendor && advRoute.vendor && advRoute.vendor !== authorVendor),
         reason: isHighRisk
           ? `High-risk surfaces changed (${escalationReasons.join("; ")})`
-          : "Complex diff or spec review; orthogonal-vendor pass when quota allows",
+          : "Complex diff or spec review; second-vendor pass when quota allows",
       },
       stats: {
         files_changed: diffInfo.files.length,
@@ -206,14 +206,14 @@ export class ReviewRoster {
   }
 
   /**
-   * Determine whether fast-tier Critical/Important findings require a targeted Frontier verification pass.
+   * Determine whether Critical/Important findings require verification on the strongest model.
    *
    * @param {any[]} findings
    */
-  static needsFrontierRecheck(findings) {
+  static needsStrongRecheck(findings) {
     return (findings || []).some((f) => {
       const sev = String(f?.severity || "").toLowerCase();
-      return (sev === "critical" || sev === "important") && f?.verified_by_frontier !== true;
+      return (sev === "critical" || sev === "important") && f?.verified_by_strong !== true;
     });
   }
 

@@ -1,5 +1,5 @@
 {
-  "description": "Flow session priming, Turn-0 handoffs, pre-tool safety guards, and chapter Stop gates for Claude Code, Codex CLI, and VS Code Agent Plugins.",
+  "description": "Flow session priming, Turn-0 handoffs, pre-tool safety guards, and chapter stop checks for Claude Code, Codex CLI, and VS Code Agent Plugins.",
   "hooks": {
     "SessionStart": [
       {

@@ -807,7 +807,7 @@ def test_pre_invocation_turn0_plan_handoff_transcript_fallback_and_sibling_suppr
     ("case_id", "extra_env", "agent_id", "expect_updated_model"),
     (
         (
-            "claude-unloaded-mod-rewrites-frontier",
+            "claude-unloaded-mod-rewrites-strong",
             {"CLAUDECODE": "1", "FLOW_MOD_LOADED": "0"},
             "flow:plan-generator",
             "claude-opus-4-6",
@@ -837,8 +837,8 @@ def test_pre_tool_guard_claude_agent_updated_input_vs_codex_omission(
     _seed_flow_workspace(tmp_path)
     tier_dir = tmp_path / ".claude" / "agents"
     tier_dir.mkdir(parents=True)
-    (tier_dir / "flow-tier-frontier.md").write_text(
-        "---\nname: flow-tier-frontier\nmodel: claude-opus-4-6\n---\n\nFrontier tier.\n",
+    (tier_dir / "flow-model-strong.md").write_text(
+        "---\nname: flow-model-strong\nmodel: claude-opus-4-6\n---\n\nStrong model.\n",
         encoding="utf-8",
     )
     payload = {
@@ -933,7 +933,7 @@ def test_stop_check_worker_detection_and_system_message_only_transcript(
     elif worker_mode == "system-transcript":
         transcript = tmp_path / "worker-transcript.jsonl"
         transcript.write_text(
-            json.dumps({"step_index": 0, "type": "SYSTEM_MESSAGE", "content": "Assigned slice"}) + "\n",
+            json.dumps({"step_index": 0, "type": "SYSTEM_MESSAGE", "content": "Assigned task"}) + "\n",
             encoding="utf-8",
         )
         payload["transcriptPath"] = str(transcript)
@@ -942,7 +942,7 @@ def test_stop_check_worker_detection_and_system_message_only_transcript(
         STOP_CHECK_SH,
         "agy",
         payload,
-        extra_env={"FLOW_RUNTIME_DIR": str(tmp_path / "rt"), "FLOW_STOP_GATE": "enforce"},
+        extra_env={"FLOW_RUNTIME_DIR": str(tmp_path / "rt"), "FLOW_STOP_CHECK": "enforce"},
     )
     if worker_mode == "coordinator":
         assert out.get("decision") == "deny" or out.get("blocked") is True or "reason" in out, f"[{case_id}] {out}"

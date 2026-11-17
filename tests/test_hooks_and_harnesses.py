@@ -438,7 +438,7 @@ STOP_VIOLATION_CASES: tuple[tuple[str, Callable[[Path, str, str], None], str], .
     (
         "anti-skip-completed-root-open-chapter",
         _mutate_stop_completed_root_open_chapter,
-        "anti-skip guard",
+        "chapters still open",
     ),
     (
         "anti-skip-completed-chapter-open-task",
@@ -656,9 +656,9 @@ def test_stop_check_emits_harness_specific_block_schema(
     assert expected_key in payload
     if expected_val is not None:
         assert payload[expected_key] == expected_val
-        assert "Flow Stop Gate blocked turn completion" in payload["reason"]
+        assert "Flow stop check: update the spec files" in payload["reason"]
     else:
-        assert "Flow Stop Gate blocked turn completion" in payload[expected_key]
+        assert "Flow stop check: update the spec files" in payload[expected_key]
 
     if POWERSHELL_BIN is not None:
         ps_payload = _run_ps1_hook(POWERSHELL_STOP_HOOK_SCRIPT, harness, {}, project_dir=tmp_path)
@@ -1335,9 +1335,9 @@ def test_stop_hook_bypass_and_pause_states_allow_clean_exit(tmp_path: Path, case
     extra_env: dict[str, str] | None = None
 
     if case_id == "env-off":
-        extra_env = {"FLOW_STOP_GATE": "off"}
+        extra_env = {"FLOW_STOP_CHECK": "off"}
     elif case_id == "env-advisory":
-        extra_env = {"FLOW_STOP_GATE": "advisory"}
+        extra_env = {"FLOW_STOP_CHECK": "advisory"}
     elif case_id in ("setup-stop-gate-off", "setup-stop-gate-advisory"):
         gate_val = "off" if case_id == "setup-stop-gate-off" else "advisory"
         (tmp_path / ".agents" / "setup-state.json").write_text(
@@ -1346,7 +1346,7 @@ def test_stop_hook_bypass_and_pause_states_allow_clean_exit(tmp_path: Path, case
                     "setup_status": "complete",
                     "bundle_root": ".agents/bundles",
                     "okf_version": "0.2",
-                    "stop_gate": gate_val,
+                    "stop_check": gate_val,
                 }
             ),
             encoding="utf-8",
@@ -1355,7 +1355,7 @@ def test_stop_hook_bypass_and_pause_states_allow_clean_exit(tmp_path: Path, case
         gate_val = "advisory" if case_id == "spec-gate-advisory" else "off"
         root_spec = flow_dir / "spec.md"
         root_spec.write_text(
-            root_spec.read_text(encoding="utf-8").replace("state: active", f"state: active\ngate: {gate_val}"),
+            root_spec.read_text(encoding="utf-8").replace("state: active", f"state: active\nstop_check: {gate_val}"),
             encoding="utf-8",
         )
     elif case_id == "root-state-paused":

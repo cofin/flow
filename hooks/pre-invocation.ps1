@@ -122,7 +122,7 @@ if (-not [string]::IsNullOrWhiteSpace($StdinPayload)) {
 $Turn0Notice = ""
 if (-not (Test-FlowSiblingPluginPresent -EffectiveRoot $EffectiveRoot) -and -not [string]::IsNullOrWhiteSpace($LastUserText)) {
     if ($LastUserText -match '/plan\b') {
-        $Turn0Notice = "Flow Turn-0 handoff: Keep plans outside the repository tree during /plan so Review remains active. Include concrete file path:line hints; after approval run node sidecars/studio/flow-cli.mjs spec import --from PLAN_PATH to materialize micro-slices."
+        $Turn0Notice = "Flow Turn-0 handoff: Keep plans outside the repository tree during /plan so Review remains active. Include concrete file path:line hints; after approval run node sidecars/studio/flow-cli.mjs spec import --from PLAN_PATH to create task worksheets."
     } elseif ($LastUserText -match '/learn\b') {
         $Turn0Notice = "Flow Turn-0 handoff: Route durable repository conventions to .agents/bundles/knowledge/ and keep user personal preferences outside repository files."
     }

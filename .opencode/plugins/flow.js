@@ -20,7 +20,7 @@ const _fmMod = await loadOptionalStudioModule("core/frontmatter.mjs");
 const _wtMod = await loadOptionalStudioModule("core/worktree.mjs");
 const _invMod = await loadOptionalStudioModule("models/inventory.mjs");
 const _routeMod = await loadOptionalStudioModule("models/routing.mjs");
-const _sliceMod = await loadOptionalStudioModule("spec/slice-compiler.mjs");
+const _plannerMod = await loadOptionalStudioModule("spec/task-planner.mjs");
 
 /**
  * Minimal standalone YAML frontmatter parser fallback when loaded without `sidecars/studio/`.
@@ -68,7 +68,7 @@ const parseFrontmatter = _fmMod?.parseFrontmatter || fallbackParseFrontmatter;
 const resolveWorktreeContext = _wtMod?.resolveWorktreeContext || fallbackResolveWorktreeContext;
 const DynamicModelCatalog = _invMod?.DynamicModelCatalog || null;
 const AdaptiveModelRouter = _routeMod?.AdaptiveModelRouter || null;
-const SliceCompiler = _sliceMod?.SliceCompiler || null;
+const TaskPlanner = _plannerMod?.TaskPlanner || null;
 
 /**
  * Load Flow skills from `<plugin root>/skills/<name>/SKILL.md` as OpenCode V2 `Skill.Info` records.
@@ -133,7 +133,7 @@ function loadSubagents(pluginRoot = PLUGIN_ROOT) {
 }
 
 /**
- * Build concise OKF v0.2 bundle summary and active slice digest for the OpenCode session context hook.
+ * Build concise OKF v0.2 bundle summary and active task digest for the OpenCode session context hook.
  *
  * @param {string} workspaceDir
  * @returns {string}
@@ -154,7 +154,7 @@ function readBundleSummary(workspaceDir) {
   const activeSpecs = [];
   const pendingSync = [];
   const degradedPlans = [];
-  const nextWaveHints = [];
+  const nextStepHints = [];
   const specsDir = path.join(effectiveRoot, bundleRel, "specs");
 
   if (fs.existsSync(specsDir)) {
@@ -225,13 +225,15 @@ function readBundleSummary(workspaceDir) {
 
           if (planningQuality === "degraded") degradedPlans.push(flowId);
           try {
-            const compiled = new SliceCompiler(effectiveRoot).compile({ flowId, chapterId: hasCh ? currentChapter : null });
-            if (compiled.waves?.length > 0) {
-              const w0 = compiled.waves[0];
-              nextWaveHints.push(`${flowId} wave-0: ${w0.slices.map((s) => s.task_id).join(",")}`);
+            if (TaskPlanner) {
+              const planned = new TaskPlanner(effectiveRoot).plan({ flowId, chapterId: hasCh ? currentChapter : null });
+              if (planned.steps?.length > 0) {
+                const s0 = planned.steps[0];
+                nextStepHints.push(`${flowId} step-1: ${s0.tasks.map((t) => t.task_id).join(",")}`);
+              }
             }
           } catch {
-            // Optional slice summary fallback when spec has no tasks.
+            // Optional task summary fallback when spec has no tasks.
           }
         }
       }
@@ -252,10 +254,10 @@ function readBundleSummary(workspaceDir) {
     parts.push("Project-local domain and review skills index: .agents/skills/index.md.");
   }
   if (activeSpecs.length > 0) parts.push(`Active specs: ${activeSpecs.join(", ")}.`);
-  if (nextWaveHints.length > 0) parts.push(`Ready micro-slices: ${nextWaveHints.join("; ")}.`);
+  if (nextStepHints.length > 0) parts.push(`Ready tasks: ${nextStepHints.join("; ")}.`);
   if (degradedPlans.length > 0) {
     parts.push(
-      `Degraded planning quality warning (planning_quality=degraded — not planned with optimal primary frontier thinking model): ${degradedPlans.join(", ")}.`
+      `Degraded planning quality warning (planning_quality=degraded — not planned with the strongest model): ${degradedPlans.join(", ")}.`
     );
   }
   if (pendingSync.length > 0) parts.push(`Pending chapter review/Markdown sync: ${pendingSync.join(", ")}.`);

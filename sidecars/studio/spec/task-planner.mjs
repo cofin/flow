@@ -1,9 +1,9 @@
 /**
- * Micro-slice compiler and deterministic Context-Pack builder.
+ * Task planner and brief builder for parallel Flow execution.
  *
- * Replaces coarse fixed batch chunks with size-bounded (`<= 250` LOC, `<= 3` files,
- * `<= 4` disjoint parallel slices per wave) execution waves paired with pre-extracted
- * `< 4k`-token symbol/line windows and compact upstream delta receipts.
+ * Groups ready tasks into steps on separate files (up to 4 workers by default,
+ * capped at 12) and builds short file-excerpt briefs so workers can start
+ * editing without broad repository searches.
  */
 
 import { execFileSync } from "node:child_process";
@@ -13,47 +13,48 @@ import path from "node:path";
 import { isClosedState, readTextSafe, resolveConfinedPath } from "../core/fs-io.mjs";
 import { SpecEngine, resolveTaskDependency } from "./spec-engine.mjs";
 
-export const DEFAULT_MAX_SLICE_LOC = 250;
-export const DEFAULT_MAX_SLICE_FILES = 3;
-export const DEFAULT_MAX_WAVE_WORKERS = 4;
+export const DEFAULT_MAX_TASK_LOC = 250;
+export const DEFAULT_MAX_TASK_FILES = 3;
+export const DEFAULT_MAX_WORKERS = 4;
 export const MAX_WORKERS_CAP = 12;
-export const DEFAULT_MAX_TASKS_PER_SLICE = 4;
+export const DEFAULT_MAX_TASKS_PER_WORKER = 4;
 export const DEFAULT_WINDOW_LINES = 120;
-export const DEFAULT_CONTEXT_PACK_CHARS = 14000;
+export const DEFAULT_BRIEF_CHARS = 14000;
 
 const SYMBOL_DEF_RE = /(?:^|\s)(?:async\s+)?(?:def|class|function|export\s+(?:async\s+)?(?:function|class|const))\s+([A-Za-z_][A-Za-z0-9_]*)/;
 
 /**
- * Extract bounded line windows and delta receipts deterministically (`0` LLM tokens).
+ * Extract line windows and recent upstream commit summaries for a task group.
  */
-export class ContextPackBuilder {
+export class TaskBriefBuilder {
   /**
    * @param {string} workspaceRoot
    * @param {{ windowLines?: number, maxChars?: number }} [options]
    */
-  constructor(workspaceRoot, { windowLines = DEFAULT_WINDOW_LINES, maxChars = DEFAULT_CONTEXT_PACK_CHARS } = {}) {
+  constructor(workspaceRoot, { windowLines = DEFAULT_WINDOW_LINES, maxChars = DEFAULT_BRIEF_CHARS } = {}) {
     this.workspaceRoot = path.resolve(workspaceRoot);
     this.windowLines = windowLines;
     this.maxChars = maxChars;
   }
 
   /**
-   * Build a bounded Context Pack for one slice without reading whole files unnecessarily.
+   * Build a brief for one task group without reading whole files unnecessarily.
    *
    * @param {{
    *   flow_id: string,
-   *   slice_id: string,
+   *   group_id: string,
    *   title: string,
    *   files: string[],
    *   tests: string[],
    *   read_set: string[],
    *   symbol_refs?: string[],
    *   depends_on?: string[],
+   *   verification_commands?: string[],
    *   verification_hint?: string | null,
    *   upstream_commits?: string[],
-   * }} slice
+   * }} taskGroup
    */
-  build(slice) {
+  build(taskGroup) {
     const snippets = [];
     const seenKeys = new Set();
     let totalChars = 0;
@@ -74,7 +75,14 @@ export class ContextPackBuilder {
       });
     };
 
-    const targets = [...new Set([...(slice.read_set || []), ...(slice.files || []), ...(slice.tests || []), ...(slice.symbol_refs || [])])];
+    const targets = [
+      ...new Set([
+        ...(taskGroup.read_set || []),
+        ...(taskGroup.files || []),
+        ...(taskGroup.tests || []),
+        ...(taskGroup.symbol_refs || []),
+      ]),
+    ];
     for (const ref of targets) {
       if (totalChars >= this.maxChars) break;
       const [rawPathPart, symName] = String(ref).split("::");
@@ -112,25 +120,25 @@ export class ContextPackBuilder {
         }
       }
 
-      const sliceText = lines
+      const excerptText = lines
         .slice(startIdx, endIdx)
         .map((l, idx) => `${startIdx + idx + 1}: ${l}`)
         .join("\n");
-      addSnippet(cleanRel, startIdx + 1, endIdx, sliceText, symName || null);
+      addSnippet(cleanRel, startIdx + 1, endIdx, excerptText, symName || null);
     }
 
-    const upstreamDeltaReceipt = this.#buildUpstreamDelta(slice.upstream_commits || []);
+    const upstreamChanges = this.#buildUpstreamChanges(taskGroup.upstream_commits || []);
     return {
-      flow_id: slice.flow_id,
-      slice_id: slice.slice_id,
-      title: slice.title,
-      files: slice.files || [],
-      tests: slice.tests || [],
-      verification_commands: slice.verification_commands || [],
-      verification_hint: slice.verification_hint || null,
-      upstream_delta_receipt: upstreamDeltaReceipt,
+      flow_id: taskGroup.flow_id,
+      group_id: taskGroup.group_id,
+      title: taskGroup.title,
+      files: taskGroup.files || [],
+      tests: taskGroup.tests || [],
+      verification_commands: taskGroup.verification_commands || [],
+      verification_hint: taskGroup.verification_hint || null,
+      upstream_changes: upstreamChanges,
       snippets,
-      approx_tokens: Math.ceil((totalChars + upstreamDeltaReceipt.join("\n").length) / 4),
+      approx_tokens: Math.ceil((totalChars + upstreamChanges.join("\n").length) / 4),
     };
   }
 
@@ -140,7 +148,7 @@ export class ContextPackBuilder {
    * @param {string[]} commits
    * @returns {string[]}
    */
-  #buildUpstreamDelta(commits) {
+  #buildUpstreamChanges(commits) {
     const out = [];
     for (const sha of (commits || []).slice(-3)) {
       if (!/^[0-9a-fA-F]{7,40}$/.test(String(sha || ""))) continue;
@@ -163,33 +171,33 @@ export class ContextPackBuilder {
 }
 
 /**
- * Compile ready chapter/spec tasks into disjoint size-bounded execution waves paired with Context Packs.
+ * Plan ready chapter or spec tasks into parallel steps on separate files with optional briefs.
  */
-export class SliceCompiler {
+export class TaskPlanner {
   /**
    * @param {string} workspaceRoot
-   * @param {{ maxSliceLoc?: number, maxSliceFiles?: number, maxWaveWorkers?: number, maxTasksPerSlice?: number }} [options]
+   * @param {{ maxTaskLoc?: number, maxTaskFiles?: number, workers?: number, maxTasksPerWorker?: number }} [options]
    */
   constructor(
     workspaceRoot,
     {
-      maxSliceLoc = DEFAULT_MAX_SLICE_LOC,
-      maxSliceFiles = DEFAULT_MAX_SLICE_FILES,
-      maxWaveWorkers = DEFAULT_MAX_WAVE_WORKERS,
-      maxTasksPerSlice = DEFAULT_MAX_TASKS_PER_SLICE,
+      maxTaskLoc = DEFAULT_MAX_TASK_LOC,
+      maxTaskFiles = DEFAULT_MAX_TASK_FILES,
+      workers = DEFAULT_MAX_WORKERS,
+      maxTasksPerWorker = DEFAULT_MAX_TASKS_PER_WORKER,
     } = {},
   ) {
     this.workspaceRoot = path.resolve(workspaceRoot);
-    this.maxSliceLoc = Math.max(40, Number(maxSliceLoc) || DEFAULT_MAX_SLICE_LOC);
-    this.maxSliceFiles = Math.max(1, Number(maxSliceFiles) || DEFAULT_MAX_SLICE_FILES);
-    this.maxWaveWorkers = Math.max(1, Math.min(MAX_WORKERS_CAP, Number(maxWaveWorkers) || DEFAULT_MAX_WAVE_WORKERS));
-    this.maxTasksPerSlice = Math.max(1, Number(maxTasksPerSlice) || DEFAULT_MAX_TASKS_PER_SLICE);
+    this.maxTaskLoc = Math.max(40, Number(maxTaskLoc) || DEFAULT_MAX_TASK_LOC);
+    this.maxTaskFiles = Math.max(1, Number(maxTaskFiles) || DEFAULT_MAX_TASK_FILES);
+    this.workers = Math.max(1, Math.min(MAX_WORKERS_CAP, Number(workers) || DEFAULT_MAX_WORKERS));
+    this.maxTasksPerWorker = Math.max(1, Number(maxTasksPerWorker) || DEFAULT_MAX_TASKS_PER_WORKER);
     this.engine = new SpecEngine(this.workspaceRoot);
-    this.packBuilder = new ContextPackBuilder(this.workspaceRoot);
+    this.briefBuilder = new TaskBriefBuilder(this.workspaceRoot);
   }
 
   /**
-   * Normalize a relative file/test path for disjointness comparison.
+   * Normalize a relative file or test path for file-conflict checks.
    *
    * @param {string} raw
    * @returns {string}
@@ -202,33 +210,36 @@ export class SliceCompiler {
   }
 
   /**
-   * Compile ready tasks for `flowId` into micro-slices and disjoint parallel waves.
+   * Plan ready tasks for `flowId` into parallel steps on separate files.
    *
    * @param {{
    *   flowId: string,
    *   chapterId?: string | null,
    *   allReadyChapters?: boolean,
-   *   includeContextPacks?: boolean,
+   *   includeBriefs?: boolean,
    *   excludeTaskIds?: string[],
    *   excludePaths?: string[],
+   *   workers?: number | null,
+   *   maxTaskLoc?: number | null,
+   *   maxTaskFiles?: number | null,
    * }} params
    */
-  compile({
+  plan({
     flowId,
     chapterId = null,
     allReadyChapters = false,
-    includeContextPacks = false,
+    includeBriefs = false,
     excludeTaskIds = [],
     excludePaths = [],
-    maxWorkers = null,
-    maxSliceLoc = null,
-    maxSliceFiles = null,
+    workers = null,
+    maxTaskLoc = null,
+    maxTaskFiles = null,
   }) {
-    const effectiveMaxLoc = maxSliceLoc ? Math.max(40, Number(maxSliceLoc) || this.maxSliceLoc) : this.maxSliceLoc;
-    const effectiveMaxFiles = maxSliceFiles ? Math.max(1, Number(maxSliceFiles) || this.maxSliceFiles) : this.maxSliceFiles;
-    const effectiveMaxWorkers = maxWorkers
-      ? Math.max(1, Math.min(MAX_WORKERS_CAP, Number(maxWorkers) || this.maxWaveWorkers))
-      : this.maxWaveWorkers;
+    const effectiveMaxLoc = maxTaskLoc ? Math.max(40, Number(maxTaskLoc) || this.maxTaskLoc) : this.maxTaskLoc;
+    const effectiveMaxFiles = maxTaskFiles ? Math.max(1, Number(maxTaskFiles) || this.maxTaskFiles) : this.maxTaskFiles;
+    const effectiveWorkers = workers
+      ? Math.max(1, Math.min(MAX_WORKERS_CAP, Number(workers) || this.workers))
+      : this.workers;
     const { spec } = this.engine.status(flowId);
     const allTasks = spec.has_chapters ? spec.chapters.flatMap((c) => c.tasks) : spec.tasks;
     const closedChapters = new Set(spec.chapters.filter((c) => isClosedState(c.state)).map((c) => c.chapter_id));
@@ -258,11 +269,11 @@ export class SliceCompiler {
     }
 
     const excludedIds = new Set((excludeTaskIds || []).map((id) => String(id || "").trim()).filter(Boolean));
-    const excludedPaths = new Set((excludePaths || []).map((p) => SliceCompiler.#cleanPath(p)).filter(Boolean));
+    const excludedPaths = new Set((excludePaths || []).map((p) => TaskPlanner.#cleanPath(p)).filter(Boolean));
     for (const t of scopeTasks) {
       if (t.state === "in_progress" && t.claimed_by) {
         for (const p of [...(t.files || []), ...(t.tests || []), ...(t.lock_scopes || [])]) {
-          const clean = SliceCompiler.#cleanPath(p);
+          const clean = TaskPlanner.#cleanPath(p);
           if (clean) excludedPaths.add(clean);
         }
       }
@@ -282,36 +293,33 @@ export class SliceCompiler {
         }),
     );
 
-    const atomicSlices = [];
-    for (const task of readyTasks) {
-      atomicSlices.push(...this.#splitTaskIntoMicroSlices(spec.flow_id, task, allTasks, effectiveMaxLoc, effectiveMaxFiles));
-    }
+    const atomicGroups = readyTasks.map((task) => this.#toTaskGroup(spec.flow_id, task, allTasks));
 
-    const coalesced = this.#coalesceSmallSameFileSlices(atomicSlices, effectiveMaxLoc);
-    const waves = this.#packWaves(coalesced, excludedPaths, {
-      maxWaveWorkers: effectiveMaxWorkers,
-      maxSliceLoc: effectiveMaxLoc,
-      maxSliceFiles: effectiveMaxFiles,
+    const grouped = this.#groupSameFileTasks(atomicGroups, effectiveMaxLoc);
+    const steps = this.#planSteps(grouped, excludedPaths, {
+      workers: effectiveWorkers,
+      maxTaskLoc: effectiveMaxLoc,
+      maxTaskFiles: effectiveMaxFiles,
     });
 
-    if (includeContextPacks) {
-      for (const wave of waves) {
-        for (const slice of wave.slices) {
-          slice.context_pack = this.packBuilder.build(slice);
+    if (includeBriefs) {
+      for (const step of steps) {
+        for (const group of step.tasks) {
+          group.brief = this.briefBuilder.build(group);
         }
       }
     }
 
-    const totalFiles = new Set(coalesced.flatMap((s) => [...s.files, ...s.tests])).size;
-    const totalLoc = coalesced.reduce((sum, s) => sum + (s.estimated_loc || 0), 0);
+    const totalFiles = new Set(grouped.flatMap((g) => [...g.files, ...g.tests])).size;
+    const totalLoc = grouped.reduce((sum, g) => sum + (g.estimated_loc || 0), 0);
     const chapterIds = Array.from(
       new Set(
         (spec.has_chapters ? scopeChapters.map((c) => c.chapter_id) : []).concat(
-          coalesced.flatMap((s) => s.chapter_ids || (s.chapter_id ? [s.chapter_id] : [])),
+          grouped.flatMap((g) => g.chapter_ids || (g.chapter_id ? [g.chapter_id] : [])),
         ),
       ),
     );
-    const dispatchableSlices = waves.length > 0 && !waves[0].waits_for_inflight ? waves[0].slices : [];
+    const readyNow = steps.length > 0 && !steps[0].waits_for_inflight ? steps[0].tasks : [];
 
     return {
       ok: true,
@@ -320,18 +328,19 @@ export class SliceCompiler {
       chapter_ids: chapterIds,
       all_ready_chapters: Boolean(allReadyChapters),
       ready_task_count: readyTasks.length,
-      slice_count: coalesced.length,
+      group_count: grouped.length,
       total_files: totalFiles,
       total_estimated_loc: totalLoc,
       inline_fast_path_eligible: totalFiles <= 5 && totalLoc <= 300,
-      dispatchable_slices: dispatchableSlices,
-      waves,
+      ready_tasks: readyNow,
+      steps,
     };
   }
 
-  #splitTaskIntoMicroSlices(flowId, task, allTasks, maxSliceLoc = this.maxSliceLoc, maxSliceFiles = this.maxSliceFiles) {
-    const files = (task.files || []).map((f) => SliceCompiler.#cleanPath(f)).filter(Boolean);
-    const tests = (task.tests || []).map((f) => SliceCompiler.#cleanPath(f)).filter(Boolean);
+  #toTaskGroup(flowId, task, allTasks) {
+    const files = (task.files || []).map((f) => TaskPlanner.#cleanPath(f)).filter(Boolean);
+    const tests = (task.tests || []).map((f) => TaskPlanner.#cleanPath(f)).filter(Boolean);
+    const lockScopes = (task.lock_scopes || []).map((f) => TaskPlanner.#cleanPath(f)).filter(Boolean);
     const estLoc = Math.max(10, Number(task.estimated_loc) || files.length * 60 || 80);
     const upstreamCommits = task.depends_on
       .map((d) => resolveTaskDependency(task, d, allTasks, flowId)?.commit)
@@ -340,54 +349,28 @@ export class SliceCompiler {
     const verificationHint = verificationCommands[0] || null;
     const chapterIds = task.chapter_id ? [task.chapter_id] : [];
 
-    const needsSplit = files.length > maxSliceFiles || (estLoc > maxSliceLoc && files.length > 1);
-    if (!needsSplit) {
-      return [
-        {
-          slice_id: task.id,
-          task_ids: [task.id],
-          task_paths: [task.rel_path],
-          flow_id: flowId,
-          chapter_id: task.chapter_id,
-          chapter_ids: chapterIds,
-          title: task.title,
-          files,
-          tests,
-          read_set: task.read_set || [],
-          symbol_refs: task.symbol_refs || [],
-          estimated_loc: estLoc,
-          upstream_commits: upstreamCommits,
-          verification_commands: verificationCommands,
-          verification_hint: verificationHint,
-        },
-      ];
-    }
-
-    const chunks = [];
-    for (let i = 0; i < files.length; i += maxSliceFiles) {
-      chunks.push(files.slice(i, i + maxSliceFiles));
-    }
-    const locPerChunk = Math.max(20, Math.round(estLoc / Math.max(1, chunks.length)));
-    return chunks.map((chunkFiles, idx) => ({
-      slice_id: `${task.id}#s${idx + 1}`,
+    return {
+      group_id: task.id,
+      task_id: task.id,
       task_ids: [task.id],
       task_paths: [task.rel_path],
       flow_id: flowId,
       chapter_id: task.chapter_id,
       chapter_ids: chapterIds,
-      title: `${task.title} (part ${idx + 1}/${chunks.length})`,
-      files: chunkFiles,
-      tests: idx === 0 ? tests : [],
-      read_set: [...chunkFiles, ...(task.read_set || []).slice(0, 2)],
+      title: task.title,
+      files,
+      tests,
+      lock_scopes: lockScopes,
+      read_set: task.read_set || [],
       symbol_refs: task.symbol_refs || [],
-      estimated_loc: locPerChunk,
+      estimated_loc: estLoc,
       upstream_commits: upstreamCommits,
-      verification_commands: idx === 0 ? verificationCommands : [],
-      verification_hint: idx === 0 ? verificationHint : null,
-    }));
+      verification_commands: verificationCommands,
+      verification_hint: verificationHint,
+    };
   }
 
-  #mergeSlicesInto(target, src) {
+  #mergeGroupsInto(target, src) {
     target.task_ids = Array.from(new Set([...target.task_ids, ...src.task_ids]));
     target.task_paths = Array.from(new Set([...target.task_paths, ...src.task_paths]));
     target.chapter_ids = Array.from(
@@ -395,6 +378,7 @@ export class SliceCompiler {
     );
     target.files = Array.from(new Set([...target.files, ...src.files]));
     target.tests = Array.from(new Set([...target.tests, ...src.tests]));
+    target.lock_scopes = Array.from(new Set([...(target.lock_scopes || []), ...(src.lock_scopes || [])]));
     target.read_set = Array.from(new Set([...target.read_set, ...src.read_set]));
     target.symbol_refs = Array.from(new Set([...(target.symbol_refs || []), ...(src.symbol_refs || [])]));
     target.upstream_commits = Array.from(new Set([...(target.upstream_commits || []), ...(src.upstream_commits || [])]));
@@ -406,83 +390,88 @@ export class SliceCompiler {
     target.title = `${target.title} + ${src.title}`;
   }
 
-  #coalesceSmallSameFileSlices(slices, maxSliceLoc = this.maxSliceLoc) {
+  #groupSameFileTasks(groups, maxTaskLoc = this.maxTaskLoc) {
     const out = [];
-    for (const slice of slices) {
+    for (const group of groups) {
       const target =
-        slice.files.length === 1
+        group.files.length === 1
           ? out.find(
               (cand) =>
                 cand.files.length === 1 &&
-                cand.files[0] === slice.files[0] &&
-                (!cand.chapter_id || !slice.chapter_id || cand.chapter_id === slice.chapter_id) &&
-                cand.task_ids.length + slice.task_ids.length <= this.maxTasksPerSlice &&
-                cand.estimated_loc + slice.estimated_loc <= maxSliceLoc,
+                cand.files[0] === group.files[0] &&
+                (!cand.chapter_id || !group.chapter_id || cand.chapter_id === group.chapter_id) &&
+                cand.task_ids.length + group.task_ids.length <= this.maxTasksPerWorker &&
+                cand.estimated_loc + group.estimated_loc <= maxTaskLoc,
             )
           : null;
       if (target) {
-        this.#mergeSlicesInto(target, slice);
+        this.#mergeGroupsInto(target, group);
       } else {
-        out.push({ ...slice, chapter_ids: [...(slice.chapter_ids || (slice.chapter_id ? [slice.chapter_id] : []))] });
+        out.push({ ...group, chapter_ids: [...(group.chapter_ids || (group.chapter_id ? [group.chapter_id] : []))] });
       }
     }
     return out;
   }
 
-  #packWaves(
-    slices,
+  #planSteps(
+    groups,
     excludedPaths = new Set(),
-    { maxWaveWorkers = this.maxWaveWorkers, maxSliceLoc = this.maxSliceLoc, maxSliceFiles = this.maxSliceFiles } = {},
+    { workers = this.workers, maxTaskLoc = this.maxTaskLoc, maxTaskFiles = this.maxTaskFiles } = {},
   ) {
-    const waves = [];
-    const remaining = slices.map((s) => ({ ...s }));
+    const steps = [];
+    const remaining = groups.map((g) => ({ ...g }));
     let activeExcludedPaths = new Set(excludedPaths);
     let carryWaitForInflight = false;
 
     while (remaining.length > 0) {
-      const waveSlices = [];
+      const stepTasks = [];
       const usedOwnedPaths = new Set();
       const waitsForInflight = carryWaitForInflight;
       carryWaitForInflight = false;
 
       let idx = 0;
-      while (idx < remaining.length && waveSlices.length < maxWaveWorkers) {
+      while (idx < remaining.length && stepTasks.length < workers) {
         const cand = remaining[idx];
-        const owned = [...cand.files, ...cand.tests];
+        const owned = [...cand.files, ...cand.tests, ...(cand.lock_scopes || [])];
         const conflict = owned.some((p) => usedOwnedPaths.has(p) || activeExcludedPaths.has(p));
         if (conflict) {
           idx += 1;
           continue;
         }
         for (const p of owned) usedOwnedPaths.add(p);
-        waveSlices.push(cand);
+        stepTasks.push(cand);
         remaining.splice(idx, 1);
       }
 
-      if (waveSlices.length > 0 && remaining.length > 0) {
+      if (stepTasks.length > 0 && remaining.length > 0) {
         let remIdx = 0;
         while (remIdx < remaining.length) {
           const cand = remaining[remIdx];
-          const owned = [...cand.files, ...cand.tests];
+          const owned = [...cand.files, ...cand.tests, ...(cand.lock_scopes || [])];
           if (owned.some((p) => activeExcludedPaths.has(p))) {
             remIdx += 1;
             continue;
           }
-          const eligibleTargets = waveSlices
+          const eligibleTargets = stepTasks
             .filter((target) => {
               if (cand.chapter_id && target.chapter_id && cand.chapter_id !== target.chapter_id) return false;
               const mergedFiles = new Set([...target.files, ...cand.files]);
               const mergedTasks = target.task_ids.length + cand.task_ids.length;
-              if (mergedFiles.size > maxSliceFiles) return false;
-              if (mergedTasks > this.maxTasksPerSlice) return false;
-              if (target.estimated_loc + cand.estimated_loc > maxSliceLoc) return false;
-              return !waveSlices.some(
-                (other) => other !== target && owned.some((p) => other.files.includes(p) || other.tests.includes(p)),
+              if (mergedFiles.size > maxTaskFiles) return false;
+              if (mergedTasks > this.maxTasksPerWorker) return false;
+              if (target.estimated_loc + cand.estimated_loc > maxTaskLoc) return false;
+              return !stepTasks.some(
+                (other) =>
+                  other !== target &&
+                  owned.some(
+                    (p) =>
+                      other.files.includes(p) || other.tests.includes(p) || (other.lock_scopes || []).includes(p),
+                  ),
               );
             })
             .sort((a, b) => a.estimated_loc - b.estimated_loc || a.task_ids.length - b.task_ids.length);
           if (eligibleTargets.length > 0) {
-            this.#mergeSlicesInto(eligibleTargets[0], cand);
+            this.#mergeGroupsInto(eligibleTargets[0], cand);
             for (const p of owned) usedOwnedPaths.add(p);
             remaining.splice(remIdx, 1);
           } else {
@@ -491,26 +480,26 @@ export class SliceCompiler {
         }
       }
 
-      if (waveSlices.length === 0 && remaining.length > 0) {
+      if (stepTasks.length === 0 && remaining.length > 0) {
         if (activeExcludedPaths.size > 0) {
           carryWaitForInflight = true;
           activeExcludedPaths = new Set();
           continue;
         }
-        waveSlices.push(remaining.shift());
+        stepTasks.push(remaining.shift());
       }
 
-      const waveChapterIds = Array.from(new Set(waveSlices.flatMap((s) => s.chapter_ids || [])));
-      waves.push({
-        wave: waves.length + 1,
-        parallel_count: waveSlices.length,
-        chapter_ids: waveChapterIds,
+      const stepChapterIds = Array.from(new Set(stepTasks.flatMap((g) => g.chapter_ids || [])));
+      steps.push({
+        step_index: steps.length + 1,
+        parallel_count: stepTasks.length,
+        chapter_ids: stepChapterIds,
         shared_test_files: [],
         waits_for_inflight: waitsForInflight,
-        slices: waveSlices,
+        tasks: stepTasks,
       });
       activeExcludedPaths = new Set();
     }
-    return waves;
+    return steps;
   }
 }

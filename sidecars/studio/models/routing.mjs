@@ -1,10 +1,9 @@
 /**
- * System-One Decision Engine (`builtin`, `/v1/systemone`, `gemini-decision-1`, `onnx`)
- * paired with continuous multi-objective `(model, effort)` utility scoring and
- * Upward Frontier Delegation floor enforcement.
+ * Model picker (`builtin`, remote HTTP, or local evaluator) paired with
+ * continuous `(model, effort)` scoring and strong-model floor enforcement.
  */
 
-const DELEGATED_UPWARD_KINDS = new Set([
+const STRONG_MODEL_KINDS = new Set([
   "planning",
   "semantic_validation",
   "spec_review",
@@ -13,11 +12,10 @@ const DELEGATED_UPWARD_KINDS = new Set([
   "diagnosis",
 ]);
 
-const FRONTIER_CAPABILITY_FLOOR = 0.8;
+const STRONG_CAPABILITY_FLOOR = 0.8;
 
 /**
- * Evaluate execution lane, complexity rubric, validation need, and replan signals
- * without generating chat prose (`0` output tokens).
+ * Evaluate execution lane, complexity rubric, validation need, and replan signals.
  */
 export class DecisionEngine {
   /**
@@ -31,7 +29,7 @@ export class DecisionEngine {
   }
 
   /**
-   * Evaluate routing signals for a slice or workflow task.
+   * Evaluate routing signals for a workflow task.
    *
    * @param {{
    *   taskKind?: string,
@@ -50,7 +48,7 @@ export class DecisionEngine {
     const failedAttempts = Number(input.failedAttempts ?? 0);
     const isHighRisk = input.risk === "high" || Boolean(input.hasHighRiskSurface);
 
-    if (this.provider === "systemone-http" && this.endpoint && this.fetchImpl) {
+    if (this.provider === "remote-http" && this.endpoint && this.fetchImpl) {
       try {
         const res = await this.fetchImpl(this.endpoint, {
           method: "POST",
@@ -60,13 +58,13 @@ export class DecisionEngine {
               {
                 name: "execution_lane",
                 kind: "choice",
-                options: ["inline_fast_path", "single_worker", "wave_pipeline", "small_swarm"],
+                options: ["inline_fast_path", "single_worker", "parallel_tasks", "small_swarm"],
                 context: { taskKind, filesCount, estLoc, failedAttempts, isHighRisk },
               },
               { name: "complexity_rubric", kind: "score", min: 0, max: 4 },
               { name: "should_replan", kind: "noul" },
               { name: "needs_adversarial", kind: "noul" },
-              { name: "needs_frontier_validation", kind: "noul" },
+              { name: "needs_strong_review", kind: "noul" },
             ],
           }),
           signal: AbortSignal.timeout(2500),
@@ -79,23 +77,23 @@ export class DecisionEngine {
             const rawScore = Number(ans.complexity_rubric);
             const effectiveScore = conf < 0.65 ? Math.min(4, rawScore + 0.75) : rawScore;
             return {
-              provider: "systemone-http",
+              provider: "remote-http",
               confidence: conf,
               execution_lane: String(ans.execution_lane),
               complexity_rubric: effectiveScore,
               demand: Number((0.25 + 0.18 * effectiveScore).toFixed(4)),
               should_replan: Boolean(ans.should_replan),
               needs_adversarial: Boolean(ans.needs_adversarial),
-              needs_frontier_validation: Boolean(ans.needs_frontier_validation),
+              needs_strong_review: Boolean(ans.needs_strong_review),
             };
           }
         }
       } catch {
-        // Fall back seamlessly to builtin evaluator on network or endpoint failure.
+        // Fall back to builtin evaluator on network or endpoint failure.
       }
     }
 
-    let executionLane = "wave_pipeline";
+    let executionLane = "parallel_tasks";
     if (filesCount <= 5 && estLoc <= 300 && !isHighRisk && taskKind === "implementation") {
       executionLane = filesCount <= 2 && estLoc <= 120 ? "inline_fast_path" : "single_worker";
     } else if (filesCount > 3 && !isHighRisk) {
@@ -104,14 +102,14 @@ export class DecisionEngine {
 
     let complexityScore = Number.isFinite(Number(input.complexity)) ? Number(input.complexity) : 1.6;
     if (!Number.isFinite(Number(input.complexity))) {
-      if (DELEGATED_UPWARD_KINDS.has(taskKind)) complexityScore = 3.5;
+      if (STRONG_MODEL_KINDS.has(taskKind)) complexityScore = 3.5;
       else if (taskKind === "narrow_fetch" || taskKind === "sync") complexityScore = 0.4;
       else if (taskKind === "research") complexityScore = 2.4;
       else complexityScore = Math.min(4, 1.0 + (estLoc / 250) * 1.4 + (isHighRisk ? 1.2 : 0));
     }
     if (failedAttempts >= 1) complexityScore = Math.min(4, complexityScore + failedAttempts * 0.6);
 
-    const demand = DELEGATED_UPWARD_KINDS.has(taskKind)
+    const demand = STRONG_MODEL_KINDS.has(taskKind)
       ? Math.max(0.86, Math.min(1, 0.25 + 0.18 * complexityScore))
       : Math.max(0.15, Math.min(1, 0.22 + 0.19 * complexityScore));
 
@@ -123,7 +121,7 @@ export class DecisionEngine {
       demand: Number(demand.toFixed(4)),
       should_replan: failedAttempts >= 3,
       needs_adversarial: isHighRisk || complexityScore >= 3.0,
-      needs_frontier_validation: isHighRisk || DELEGATED_UPWARD_KINDS.has(taskKind) || failedAttempts >= 2 || complexityScore >= 3.0,
+      needs_strong_review: isHighRisk || STRONG_MODEL_KINDS.has(taskKind) || failedAttempts >= 2 || complexityScore >= 3.0,
     };
   }
 }
@@ -140,8 +138,8 @@ export class AdaptiveModelRouter {
   }
 
   /**
-   * Rank all eligible `(model, effort)` candidates for a task descriptor and enforce
-   * upward capability floors for delegated deep-reasoning kinds.
+   * Rank eligible `(model, effort)` candidates for a task and enforce the
+   * strong-model capability floor for planning and high-risk review.
    *
    * @param {any[]} candidates
    * @param {{
@@ -157,13 +155,13 @@ export class AdaptiveModelRouter {
    */
   select(candidates, task = {}) {
     const taskKind = String(task.taskKind || "implementation").toLowerCase();
-    const isUpwardDelegated = DELEGATED_UPWARD_KINDS.has(taskKind) || task.risk === "high";
+    const needsStrongModel = STRONG_MODEL_KINDS.has(taskKind) || task.risk === "high";
     const requiredContext = Math.max(4000, Math.round((Number(task.compiledPromptTokens) || 4000) * 2.5));
     const quotaFloor = Number(task.quotaFloorFraction ?? (taskKind === "adversarial" ? 0.2 : 0.25));
 
     let demand = Number.isFinite(Number(task.demandOverride))
       ? Number(task.demandOverride)
-      : isUpwardDelegated
+      : needsStrongModel
         ? 0.92
         : taskKind === "sync" || taskKind === "narrow_fetch"
           ? 0.25
@@ -180,8 +178,8 @@ export class AdaptiveModelRouter {
     if (eligible.length === 0) {
       return {
         model: null,
-        effort: isUpwardDelegated ? "xhigh" : taskKind === "sync" ? "low" : "medium",
-        tier: isUpwardDelegated ? "frontier" : taskKind === "sync" ? "light" : "balanced",
+        effort: needsStrongModel ? "xhigh" : taskKind === "sync" ? "low" : "medium",
+        role: needsStrongModel ? "strong" : taskKind === "sync" ? "light" : "standard",
         degraded: true,
         degraded_reason: "No eligible tool-calling models found in harness inventory.",
         fallback_chain: [],
@@ -192,8 +190,8 @@ export class AdaptiveModelRouter {
     const activePool = healthyPool.length > 0 ? healthyPool : eligible;
 
     const minAvail = activePool.reduce((m, c) => Math.min(m, Number(c.live_availability)), 1);
-    const costWeight = minAvail < 0.35 ? 0.45 : isUpwardDelegated ? 0.05 : 0.22;
-    const speedWeight = isUpwardDelegated ? 0.05 : taskKind === "sync" || taskKind === "narrow_fetch" ? 0.4 : 0.18;
+    const costWeight = minAvail < 0.35 ? 0.45 : needsStrongModel ? 0.05 : 0.22;
+    const speedWeight = needsStrongModel ? 0.05 : taskKind === "sync" || taskKind === "narrow_fetch" ? 0.4 : 0.18;
     const diversityBonus = task.requireVendorDiversity || taskKind === "adversarial" ? 0.35 : 0;
 
     const scored = activePool.map((c) => {
@@ -212,7 +210,7 @@ export class AdaptiveModelRouter {
 
     scored.sort((a, b) => b.utility - a.utility || b.candidate.capability_index - a.candidate.capability_index);
     const winner = scored[0].candidate;
-    const degraded = isUpwardDelegated && Number(winner.capability_index) < FRONTIER_CAPABILITY_FLOOR;
+    const degraded = needsStrongModel && Number(winner.capability_index) < STRONG_CAPABILITY_FLOOR;
 
     const fallbackChain = [];
     const seenPairs = new Set();
@@ -230,11 +228,11 @@ export class AdaptiveModelRouter {
       });
     }
 
-    const tier =
+    const role =
       Number(winner.capability_index) >= 0.8
-        ? "frontier"
+        ? "strong"
         : Number(winner.capability_index) >= 0.58
-          ? "balanced"
+          ? "standard"
           : Number(winner.capability_index) >= 0.36
             ? "fast"
             : "light";
@@ -246,13 +244,13 @@ export class AdaptiveModelRouter {
       display_name: winner.display_name,
       effort: winner.effort,
       vendor: winner.vendor,
-      tier,
+      role,
       utility: Number(scored[0].utility.toFixed(4)),
       capability_index: winner.capability_index,
       quota_fraction: winner.quota_fraction,
       degraded,
       degraded_reason: degraded
-        ? `Selected model capability (${winner.capability_index}) is below frontier floor (${FRONTIER_CAPABILITY_FLOOR}).`
+        ? `Selected model capability (${winner.capability_index}) is below strong-model floor (${STRONG_CAPABILITY_FLOOR}).`
         : null,
       fallback_chain: fallbackChain.slice(0, 6),
     };

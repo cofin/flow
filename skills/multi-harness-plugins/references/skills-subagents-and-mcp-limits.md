@@ -1,8 +1,8 @@
-# Skills, Subagents, Local `.agents/`, & MCP Limits
+# Skills, Subagents, `.agents/`, & MCP Limits
 
-Author skills, subagents, local `.agents/` directories, and MCP configurations that satisfy the strictest parser constraints across Google Antigravity, Claude Code, Codex CLI, Cursor, OpenCode V2, and VS Code.
+Author skills, subagents, local `.agents/` directories, and MCP configurations for Google Antigravity, Claude Code, Codex CLI, Cursor, OpenCode V2, and VS Code.
 
-## How Each Harness Uses Local `.agents/` & Project Config Folders
+## How Harnesses Use Local `.agents/` Folders
 
 ### 1. Project-Local Skills (`.agents/skills/`)
 
@@ -21,7 +21,7 @@ Author skills, subagents, local `.agents/` directories, and MCP configurations t
   │       ├── checklist.md                         # High-signal engineering checklist
   │       └── false-positive-suppressions.md       # Known safe patterns reviewers must not flag
   └── review-<domain>/
-      ├── SKILL.md                                 # Zero-context review lens for specs & diffs (< 24 KB)
+      ├── SKILL.md                                 # Independent review lens for specs & diffs (< 24 KB)
       └── references/
           ├── checklist.md
           └── false-positive-suppressions.md
@@ -39,7 +39,7 @@ Author skills, subagents, local `.agents/` directories, and MCP configurations t
 
 - **Universal Baseline (`AGENTS.md`)**:
   All six harnesses natively read `AGENTS.md` at the repository root (and nested directory `AGENTS.md` files).
-  - Never place a `CLAUDE.md` file alongside `AGENTS.md` unless `CLAUDE.md` explicitly imports `@AGENTS.md`: Claude Code's `claude-md-or-agents-md` mode suppresses `AGENTS.md` when `CLAUDE.md` is present, while Cursor's third-party import loads both and duplicates prompt tokens.
+  - Never place a `CLAUDE.md` file alongside `AGENTS.md` unless `CLAUDE.md` imports `@AGENTS.md`. Claude Code suppresses `AGENTS.md` when `CLAUDE.md` exists, while Cursor loads both and duplicates prompt tokens.
 - **Scoped Rules (`.agents/rules/*.md` & `.cursor/rules/*.mdc`)**:
   - In Google Antigravity, `.agents/rules/*.md` supports YAML frontmatter `trigger: always_on | model_decision | glob | manual` (with `globs:` and `description:`).
   - In Cursor, `.cursor/rules/*.mdc` (or `.md`) supports `alwaysApply: true|false`, `globs:`, and `description:`.
@@ -91,17 +91,17 @@ disallowedTools:
 ---
 ```
 
-- **Top-Level H1 (`# `) Headings**: Antigravity's `splitMarkdownSections` splits subagent Markdown bodies only on H1 (`# Header`) lines (`##` headings collapse into a single fallback section). Use `# Role & Identity`, `# Responsibilities`, `# Verification & Constraints`, and `# Output Contract`, with `###` for subsections.
+- **Top-Level H1 (`# `) Headings**: Antigravity splits subagent bodies only on H1 (`# Header`) lines, while `##` headings collapse into one fallback block. Use `# Role & Identity`, `# Responsibilities`, `# Verification & Constraints`, and `# Output Contract`, with `###` subsections.
 - **`mainAgent: false` + `subagent: true`**: Keeps specialized reviewers and executors out of the primary top-level agent dropdown while keeping them invokable via `invoke_subagent` and `run_workflow`.
-- **Lean Subagent Prompt & Preload Budgets**: Omit multi-skill `skills:` arrays on leaf subagents unless a single focused policy is required: Claude Code eagerly injects every listed `SKILL.md` into the subagent's Turn-1 system prompt, inflating context and triggering recursive reference reads. Pass a single compact schema card on disk instead.
-- **YAML List `tools` / `disallowedTools`**: Never use comma-separated strings (`tools: Read, Grep`), which fail YAML `[]string` unmarshaling in Antigravity. Universal `agents/*.md` files omit `tools:` so Claude Code and Cursor inherit parent tools; on Google Antigravity, omitted `tools:` resolves to read-only default tools, so Antigravity workflows and subagent dispatches always pass `type_name="self"` alongside the on-disk `agents/<role>.md` or schema-card path.
-- **Valid `model` Values & Dynamic Call-Site Routing**: Keep `model: inherit` in universal `agents/*.md` frontmatter (harnesses reject mismatched provider aliases in universal frontmatter) and resolve live `(model, effort)` routes and materialized profiles via `node <plugin_root>/sidecars/studio/flow-cli.mjs models` ([`orchestration.md`](../../flow/references/orchestration.md)):
-  - **Frontier Floor vs. Execution Throughput**: Cognitive tasks (`planning`, `semantic_validation`, `spec_review`, `committee`, `adversarial`, `diagnosis`) enforce Frontier capability floors (stamping `planning_quality: degraded` whenever fallback occurs during planning). Implementation micro-slices (`< 4k`-token `ContextPack`s) route to balanced high-throughput tiers; narrow `<= 3`-file fetches route to lightweight tiers or zero-token `flow-cli.mjs` commands.
-  - **Ephemeral Profile Materialization**: `flow-cli.mjs models materialize --root <ws> --harness <h>` writes gitignored native tier profiles (`.claude/agents/flow-tier-*`, `.codex/agents/flow-tier-*.toml`, `.cursor/agents/flow-tier-*.md`, `.github/agents/flow-tier-*.agent.md`, and scratch `runtime-<tier>/agent.json` for Antigravity `run_workflow`). Keep `<= 4` workers per disjoint wave when dispatching from the Coordinator.
+- **Lean Subagent Prompt & Preload Budgets**: Omit multi-skill `skills:` arrays on leaf subagents unless one focused policy is required. Claude Code eagerly injects every listed `SKILL.md` into Turn 1, inflating context; pass a single compact schema card on disk instead.
+- **YAML List `tools` / `disallowedTools`**: Never use comma-separated strings (`tools: Read, Grep`), which fail YAML list parsing in Antigravity. Omit `tools:` in universal `agents/*.md` files so Claude Code and Cursor inherit parent tools. On Google Antigravity, pass `type_name="self"` with the on-disk `agents/<role>.md` path so write and shell tools stay available.
+- **Valid `model` Values & Dynamic Call-Site Routing**: Keep `model: inherit` in universal `agents/*.md` frontmatter. Resolve live `(model, effort)` routes and materialized profiles via `node <plugin_root>/sidecars/studio/flow-cli.mjs models` ([`orchestration.md`](../../flow/references/orchestration.md)).
+  - **Strongest Model vs. Execution Workers**: Planning, spec review, trade-off committees, and bug diagnosis require the `strong` model role (stamping `planning_quality: degraded` on fallback). Implementation tasks with compact briefs route to `standard` or `fast`, while narrow reads route to `light` or `flow-cli.mjs`.
+  - **Ephemeral Profile Materialization**: `flow-cli.mjs models materialize --root <ws> --harness <h>` writes gitignored native role profiles (`.claude/agents/flow-model-*`, `.codex/agents/flow-model-*.toml`, `.cursor/agents/flow-model-*.md`, `.github/agents/flow-model-*.agent.md`, and `.agents/runtime-profiles/flow-model-<role>/agent.json`). Keep `<= 4` workers per parallel step when dispatching from the Coordinator.
 
 ## Google Antigravity `run_workflow` Script Rules
 
-Prefer invoking shipped packaged workflows (`workflows/flow-spec-planning/workflow.py`, `workflows/flow-scout/workflow.py`, `workflows/flow-chapter-pipeline/workflow.py`, `workflows/flow-dual-review/workflow.py`) via `run_workflow(ScriptPath=..., Args={...})`. Whenever authoring a custom `run_workflow` script:
+Prefer invoking shipped workflows (`workflows/flow-spec-planning/workflow.py`, `workflows/flow-scout/workflow.py`, `workflows/flow-chapter-pipeline/workflow.py`, `workflows/flow-dual-review/workflow.py`) via `run_workflow(ScriptPath=..., Args={...})`. Whenever authoring a custom `run_workflow` script:
 
 1. **Top-Level `await`, Zero Bare `return`**: Scripts compile with `PyCF_ALLOW_TOP_LEVEL_AWAIT` at module scope; a top-level `return` raises `SyntaxError`. Emit structured JSON output with `print(json.dumps(report))`.
 2. **Mandatory `schema=` and `type_name="self"`**: Every `agent(...)` call requires a JSON `schema` (`ValueError: agent: schema is required` when omitted) and `type_name="self"` so write and shell tools are inherited.
@@ -129,4 +129,4 @@ Prefer invoking shipped packaged workflows (`workflows/flow-spec-planning/workfl
    print(json.dumps(results))
    ```
 
-4. **Zero Interactive Prompts Inside Workflows**: Background workflow agents cannot prompt the user; instruct workflow agents never to set `BypassSandbox: true`, never to run network-fetching `npx --yes` wrappers, and to defer `git commit` to the coordinator (`commit_deferred_to_coordinator: true`) if `.git/` is read-only inside the terminal sandbox.
+4. **Zero Interactive Prompts Inside Workflows**: Background workflow agents cannot prompt the user. Instruct them never to set `BypassSandbox: true`, never to run network-fetching `npx --yes` wrappers, and to defer `git commit` to the coordinator (`commit_deferred_to_coordinator: true`) if `.git/` is read-only.

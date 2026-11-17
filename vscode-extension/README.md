@@ -1,19 +1,19 @@
 # Flow Studio for VS Code & Cursor
 
-**Flow Studio** brings multi-harness Spec-Driven Development (`OKF v0.2`), active-workspace spec planning (`/flow:spec`, `/flow:prd`, `/flow:revise`, `/flow:implement`), line-anchored specification review comments, and the local **DuckDB + EmbeddingGemma** hybrid Knowledge Catalog directly into **VS Code**, **Cursor**, **Windsurf**, and **Positron**.
+**Flow Studio** brings multi-harness Spec-Driven Development (`OKF v0.2`) directly into **VS Code**, **Cursor**, **Windsurf**, and **Positron**. It includes active-workspace spec planning (`/flow:spec`, `/flow:prd`, `/flow:revise`, `/flow:implement`), line-anchored review comments, and a local **DuckDB + EmbeddingGemma** hybrid Knowledge Catalog.
 
 ## Features
 
-- **Active-Workspace Tracking**: Automatically follows the workspace folder of the active editor (and multi-root workspace changes), keeping the Activity Bar trees (`Specs & Chapters`, `Knowledge Catalog`) and Studio webview synchronized with your active project.
-- **Direct Spec & PRD Authoring (`/flow:spec` & `/flow:prd`)**: Scaffold `.agents/bundles/specs/<flow_id>/spec.md` blueprints or dispatch `/flow:spec` and `/flow:prd` directly into your configured AI harness (`copilot`, `cursor`, `claude`, `codex`, `opencode`, or `agy`).
+- **Active-Workspace Tracking**: Automatically follows the workspace folder of the active editor and multi-root workspace changes. Keeps the Activity Bar trees (`Specs & Chapters`, `Knowledge Catalog`) and Studio webview synchronized with your active project.
+- **Direct Spec & PRD Authoring (`/flow:spec` & `/flow:prd`)**: Scaffold `.agents/bundles/specs/<flow_id>/spec.md` specs or dispatch `/flow:spec` and `/flow:prd` directly into your configured AI harness (`copilot`, `cursor`, `claude`, `codex`, `opencode`, or `agy`).
 - **Line-Anchored Spec Review (`/flow:revise`)**: Attach review comments to exact line numbers on any `spec.md` or OKF knowledge document and send structured batch revisions to `/flow:revise`.
-- **Quiet `spec.md` CodeLenses**: Inline `Open in Flow Studio`, `Implement <chapter>`, and `Run Zero-Context Review` actions at the top of `.agents/bundles/specs/**/spec.md`.
+- **Quiet `spec.md` CodeLenses**: Inline `Open in Flow Studio`, `Implement <chapter>`, and `Run Independent Review` actions at the top of `.agents/bundles/specs/**/spec.md`.
 
 ## Installation
 
 ### End Users (No Repository Clone Required)
 
-1. **Automatic via Flow Agent Plugin (`SessionStart` Hook)**: When you install the Flow plugin in Cursor, Claude Code, OpenCode, or Google Antigravity, Flow's `SessionStart` hook (`hooks/session-start.{sh,ps1}`) automatically installs and registers `cofin.flow-studio` into any detected `~/.vscode/extensions`, `~/.cursor/extensions`, `~/.windsurf/extensions`, or `~/.positron/extensions` directory on your machine.
+1. **Automatic via Flow Agent Plugin (`SessionStart` Hook)**: Installing the Flow plugin in Cursor, Claude Code, OpenCode, or Google Antigravity runs `hooks/session-start.{sh,ps1}`. The hook installs and registers `cofin.flow-studio` into any detected `~/.vscode/extensions`, `~/.cursor/extensions`, `~/.windsurf/extensions`, or `~/.positron/extensions` directory.
 2. **One-Command Remote Install via `npx`**: Install or update `cofin.flow-studio` directly from GitHub without cloning the repository:
 
 ```bash

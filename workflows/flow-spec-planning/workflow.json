@@ -1,6 +1,6 @@
 {
   "name": "flow-spec-planning",
-  "description": "Author Flow chapter specifications and task worksheets, verify completion from disk, run write-time OKF validation, flag degraded-model plans, and run zero-context spec review.",
+  "description": "Write Flow chapter specs and task worksheets, check completion on disk, validate OKF, flag fallback-model plans, and run independent spec review.",
   "entry": "workflow.py",
   "args": {
     "type": "object",
@@ -16,7 +16,7 @@
       },
       "harness": {
         "type": "string",
-        "description": "Active harness identifier for dynamic Frontier model selection."
+        "description": "Active harness identifier for dynamic strong model selection."
       },
       "chapters": {
         "type": "array",
@@ -48,16 +48,16 @@
       "review": {
         "type": "string",
         "enum": ["single", "per_chapter", "none"],
-        "description": "Zero-context spec review mode (default single)."
+        "description": "Independent spec review mode (default single)."
       },
       "mode": {
         "type": "string",
         "enum": ["plan_and_review", "plan_only", "review_only"],
-        "description": "Execution slice to run (default plan_and_review)."
+        "description": "Execution mode to run (default plan_and_review)."
       },
       "max_review_rounds": {
         "type": "integer",
-        "description": "Maximum zero-context review rounds (default 1)."
+        "description": "Maximum independent review rounds (default 1)."
       },
       "planner_model": {
         "type": "string",
@@ -73,11 +73,11 @@
       },
       "reviewer_agent": {
         "type": "string",
-        "description": "Optional custom agent profile for zero-context spec review (default self)."
+        "description": "Optional custom agent profile for independent spec review (default self)."
       },
       "planner_degraded": {
         "type": "boolean",
-        "description": "Flag whether coordinator quota routing forced planner onto a non-frontier model."
+        "description": "Flag whether coordinator quota routing moved planning off the strong model."
       },
       "planner_timeout_seconds": {
         "type": "integer",
@@ -91,9 +91,9 @@
         "type": "integer",
         "description": "Per-reviewer wall-clock timeout in seconds (default 600)."
       },
-      "max_concurrency": {
+      "workers": {
         "type": "integer",
-        "description": "Maximum concurrent chapter planners or reviewers in flight (default 4)."
+        "description": "Maximum concurrent chapter planners or reviewers (default 4)."
       }
     },
     "required": ["flow_id", "chapters"]

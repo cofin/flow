@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /**
- * Zero-dependency Flow MCP server & `ui://flow/studio` MCP App provider over stdio JSON-RPC.
+ * Flow MCP server and `ui://flow/studio` MCP App provider over stdio JSON-RPC.
  *
- * Keeps all tool names `<= 20` characters (`flow_status`, `flow_preflight`, `flow_slice_pack`,
- * `flow_sync`, `flow_plan_frontier`, `flow_verify_frontier`) so fully prefixed tool names stay well
- * below every harness limit (`<= 59` in Cursor, `<= 64` in Antigravity, `<= 128` in Claude/Codex).
+ * Keeps all tool names `<= 20` characters (`flow_status`, `flow_preflight`, `flow_tasks`,
+ * `flow_sync`, `flow_plan_strong`, `flow_verify_strong`) so prefixed names stay within
+ * every harness limit.
  */
 
 import fs from "node:fs";
@@ -13,15 +13,15 @@ import readline from "node:readline";
 import { fileURLToPath } from "node:url";
 
 import { CrossHarnessRunner } from "./bridges/cli.mjs";
-import { SliceCompiler } from "./spec/slice-compiler.mjs";
 import { SpecEngine } from "./spec/spec-engine.mjs";
+import { TaskPlanner } from "./spec/task-planner.mjs";
 
 const STUDIO_DIR = path.dirname(fileURLToPath(import.meta.url));
 
 export const FLOW_MCP_TOOLS = Object.freeze([
   {
     name: "flow_status",
-    description: "Inspect Flow spec status and next runnable slice deterministically (0 LLM tokens).",
+    description: "Inspect Flow spec status and next ready task.",
     inputSchema: {
       type: "object",
       properties: {
@@ -32,7 +32,7 @@ export const FLOW_MCP_TOOLS = Object.freeze([
   },
   {
     name: "flow_preflight",
-    description: "Run deterministic Flow dispatch preflight and dependency checks (0 LLM tokens).",
+    description: "Run Flow preflight and dependency checks.",
     inputSchema: {
       type: "object",
       properties: {
@@ -45,8 +45,8 @@ export const FLOW_MCP_TOOLS = Object.freeze([
     },
   },
   {
-    name: "flow_slice_pack",
-    description: "Compile <=250-LOC disjoint waves and pre-extracted <4k-token Context Packs (0 LLM tokens).",
+    name: "flow_tasks",
+    description: "Plan ready tasks into parallel steps on separate files and build each worker's brief.",
     inputSchema: {
       type: "object",
       properties: {
@@ -54,14 +54,14 @@ export const FLOW_MCP_TOOLS = Object.freeze([
         flow_id: { type: "string" },
         chapter_id: { type: "string" },
         all_ready_chapters: { type: "boolean" },
-        max_workers: { type: "integer" },
+        workers: { type: "integer" },
       },
       required: ["flow_id"],
     },
   },
   {
     name: "flow_sync",
-    description: "Synchronize checklist markers, SHAs, and spec frontmatter deterministically (0 LLM tokens).",
+    description: "Sync checklist markers, commit SHAs, and spec frontmatter.",
     inputSchema: {
       type: "object",
       properties: {
@@ -73,8 +73,8 @@ export const FLOW_MCP_TOOLS = Object.freeze([
     },
   },
   {
-    name: "flow_plan_frontier",
-    description: "Delegate deep planning upward to the strongest healthy Thinking / Frontier model.",
+    name: "flow_plan_strong",
+    description: "Run planning on the strongest available model.",
     inputSchema: {
       type: "object",
       properties: {
@@ -86,8 +86,8 @@ export const FLOW_MCP_TOOLS = Object.freeze([
     },
   },
   {
-    name: "flow_verify_frontier",
-    description: "Delegate semantic contract validation or high-risk review upward to a Frontier model.",
+    name: "flow_verify_strong",
+    description: "Run spec validation or high-risk review on the strongest available model.",
     inputSchema: {
       type: "object",
       properties: {
@@ -139,7 +139,7 @@ export async function handleMcpRequest(req, { defaultWorkspace = process.cwd(), 
               uri: "ui://flow/studio",
               name: "Flow Studio Companion",
               mimeType: "text/html;profile=mcp-app",
-              description: "Interactive Flow spec DAG, wave progress, and review view.",
+              description: "Interactive Flow Studio view for specs, tasks, and review notes.",
             },
           ],
         },
@@ -174,23 +174,23 @@ export async function handleMcpRequest(req, { defaultWorkspace = process.cwd(), 
           chapterId: args.chapter_id || null,
           allReadyChapters: Boolean(args.all_ready_chapters),
         });
-      } else if (name === "flow_slice_pack") {
-        payload = new SliceCompiler(ws, {
-          ...(args.max_workers ? { maxWaveWorkers: Number(args.max_workers) } : {}),
-        }).compile({
+      } else if (name === "flow_tasks") {
+        payload = new TaskPlanner(ws, {
+          ...(args.workers ? { workers: Number(args.workers) } : {}),
+        }).plan({
           flowId: args.flow_id,
           chapterId: args.chapter_id || null,
           allReadyChapters: Boolean(args.all_ready_chapters),
-          includeContextPacks: true,
+          includeBriefs: true,
         });
       } else if (name === "flow_sync") {
         payload = engine.syncChecklists({ flowId: args.flow_id, chapterId: args.chapter_id || null });
-      } else if (name === "flow_plan_frontier" || name === "flow_verify_frontier") {
+      } else if (name === "flow_plan_strong" || name === "flow_verify_strong") {
         const activeRunner = runner || new CrossHarnessRunner({ defaultWorkspace: ws });
         payload = await activeRunner.delegate({
           workspacePath: ws,
           harness: args.harness || null,
-          taskKind: name === "flow_plan_frontier" ? "planning" : "semantic_validation",
+          taskKind: name === "flow_plan_strong" ? "planning" : "semantic_validation",
           prompt: String(args.prompt || ""),
         });
       } else {

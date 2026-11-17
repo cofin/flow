@@ -19,7 +19,7 @@ import { DynamicModelCatalog } from "./models/inventory.mjs";
 import { AdaptiveModelRouter, DecisionEngine } from "./models/routing.mjs";
 import { BundleSnapshotBuilder } from "./snapshot.mjs";
 import { ReviewRoster } from "./spec/review-roster.mjs";
-import { SliceCompiler } from "./spec/slice-compiler.mjs";
+import { TaskPlanner } from "./spec/task-planner.mjs";
 import { SpecEngine } from "./spec/spec-engine.mjs";
 import { WorkspacePermissionAdvisor, WorkspaceRegistry } from "./workspaces.mjs";
 
@@ -185,8 +185,8 @@ export class StudioApiService {
       if (!data.flowId) throw new StudioRequestError("flowId is required");
       const engine = new SpecEngine(ws);
       const dag = engine.buildDag(String(data.flowId));
-      const waves = new SliceCompiler(ws).compile({ flowId: String(data.flowId), chapterId: data.chapterId || null });
-      return { ...dag, waves: waves.waves, inline_fast_path_eligible: waves.inline_fast_path_eligible };
+      const plan = new TaskPlanner(ws).plan({ flowId: String(data.flowId), chapterId: data.chapterId || null });
+      return { ...dag, steps: plan.steps, inline_fast_path_eligible: plan.inline_fast_path_eligible };
     }
 
     if (routePath === "/api/spec-review") {
@@ -349,8 +349,8 @@ export class StudioApiService {
           candidateCount: candidates.length,
           candidates: candidates.slice(0, 12),
           recommendations: {
-            frontier: router.select(candidates, { taskKind: "planning", risk: "high" }),
-            balanced: router.select(candidates, { taskKind: "implementation", risk: "normal" }),
+            strong: router.select(candidates, { taskKind: "planning", risk: "high" }),
+            standard: router.select(candidates, { taskKind: "implementation", risk: "normal" }),
             light: router.select(candidates, { taskKind: "sync", risk: "low" }),
           },
         };

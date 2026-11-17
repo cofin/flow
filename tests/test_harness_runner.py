@@ -295,7 +295,7 @@ def test_codex_app_server_bridge_jsonrpc_and_isolated_codex_home(tmp_path: Path)
 
 
 @pytest.mark.skipif(NODE_BIN is None or sys.platform == "win32", reason="node and POSIX sh required")
-def test_cross_harness_runner_upward_delegate_selects_frontier_tier(tmp_path: Path) -> None:
+def test_cross_harness_runner_strong_delegate_selects_strong_model(tmp_path: Path) -> None:
     """Verify CrossHarnessRunner.delegate routes semantic_validation upward with effort flags."""
     assert NODE_BIN is not None
     ws, mock_bin = _seed_git_repo_with_mock_harnesses(tmp_path)

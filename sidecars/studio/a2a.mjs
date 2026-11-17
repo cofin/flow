@@ -32,7 +32,7 @@ export class A2AFacade {
       protocolVersion: "1.0",
       name: "Flow Studio Cross-Harness Bridge",
       description:
-        "Local multi-harness Spec-Driven Development coordinator routing Flow planning, execution, and zero-context reviews across installed agent CLIs.",
+        "Local multi-harness Spec-Driven Development coordinator routing Flow planning, execution, and independent reviews across installed agent CLIs.",
       url: `${String(baseUrl || "").replace(/\/+$/, "")}/a2a`,
       version: readPluginVersion(),
       capabilities: {
@@ -46,13 +46,13 @@ export class A2AFacade {
         {
           id: "flow-plan",
           name: "Flow Spec Planning",
-          description: "Author or revise OKF v0.2 specs and vertical-slice task plans.",
+          description: "Author or revise OKF v0.2 specs and task plans.",
           tags: ["spec", "planning", "okf"],
         },
         {
           id: "flow-implement",
-          name: "Flow Vertical-Slice Execution",
-          description: "Execute approved slices in direct-workspace or worktree-isolated mode.",
+          name: "Flow Task Execution",
+          description: "Execute approved tasks in direct-workspace or worktree-isolated mode.",
           tags: ["tdd", "implementation"],
         },
         {

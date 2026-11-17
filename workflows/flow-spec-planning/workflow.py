@@ -83,7 +83,7 @@ planner_degraded_flag = bool(args.get("planner_degraded", False))
 planner_timeout_s = int(args.get("planner_timeout_seconds", 900))
 disk_idle_grace_s = int(args.get("disk_idle_grace_seconds", 45))
 reviewer_timeout_s = int(args.get("reviewer_timeout_seconds", 600))
-max_concurrency = max(1, min(12, int(args.get("max_concurrency") or 4)))
+workers = max(1, min(12, int(args.get("workers") or 4)))
 
 schema_card_path = plugin_root / "templates" / "agent" / "plan-schema-card.md"
 reviewer_card_path = plugin_root / "templates" / "agent" / "spec-reviewer-prompt.md"
@@ -91,11 +91,11 @@ validator_script = plugin_root / "tools" / "validate.py"
 flow_dir = bundle_root / "specs" / flow_id
 chapters_dir = flow_dir / "chapters"
 
-_is_non_frontier = bool(plan_route.get("degraded")) or preferred_planner_model in ("flash", "flash_lite", "sonnet", "haiku") or planner_degraded_flag
-quota_state = {"degraded": _is_non_frontier}
+_is_fallback_model = bool(plan_route.get("degraded")) or preferred_planner_model in ("flash", "flash_lite", "sonnet", "haiku") or planner_degraded_flag
+quota_state = {"degraded": _is_fallback_model}
 degraded_reasons: list[str] = []
-if _is_non_frontier:
-    degraded_reasons.append(f"configured planner_model={preferred_planner_model!r} instead of primary frontier model")
+if _is_fallback_model:
+    degraded_reasons.append(f"configured planner_model={preferred_planner_model!r} instead of the strongest model")
 
 
 def _chapter_disk_status(ch_id: str) -> tuple[bool, list[str], float]:
@@ -213,6 +213,7 @@ async def _invoke_planner(prompt: str, role: str, ch_ids: list[str]) -> dict:
     fallback_model = "flash" if active_model != "flash" else None
 
     async def _call_model(target_model: str, target_agent: str) -> dict:
+        """Invoke the planner model and wait for agent completion or idle disk files."""
         agent_fut = asyncio.ensure_future(
             with_budget(
                 agent(
@@ -299,7 +300,7 @@ def _build_chapter_prompt(ch_list: list[dict]) -> str:
         f"Author Flow chapter specification(s) and `{worksheet_format}` task worksheet(s) for flow `{flow_id}`.\n"
         f"1. Read ONLY `{flow_dir / 'spec.md'}`, `{schema_card_path}`, and the scoped chapter source files below.\n"
         "2. Do NOT read Flow plugin `skills/*/references/*.md`, do NOT edit production code, and do NOT pass BypassSandbox=true.\n"
-        "3. Design disjoint `<=250`-LOC micro-slice tasks (`<=3` files per task) so parallel worker waves execute cleanly.\n"
+        "3. Design small tasks (`<=250` LOC, `<=3` files per task) on separate files so parallel workers can run together.\n"
         "4. Follow OKF v0.2 strictly: `status: draft`, workflow `state: planned`, `<= 40`-line `<!-- truth: start -->` "
         "block, `sources:` with matching `[^id]:` body footnotes, and all required headings.\n"
         "5. Write `chapters/<id>/planner-notes.md` BEFORE calling finish.\n"
@@ -337,7 +338,7 @@ effective_planner_mode = (
 _wf_lease = acquire_runtime_lease()
 try:
     if run_mode in ("plan_and_review", "plan_only"):
-        phase("Chapter Blueprint Authoring")
+        phase("Chapter Planning")
         log(f"Planning {len(chapters)} chapter(s) for {flow_id} in {effective_planner_mode} mode")
         if effective_planner_mode == "single_batch":
             batch_out = await _invoke_planner(
@@ -371,7 +372,7 @@ try:
                     [str(ch["id"])],
                 ),
                 parallel_fn=parallel,
-                max_concurrency=max_concurrency,
+                max_concurrency=workers,
                 return_exceptions=True,
             )
             for ch, item_out in zip(chapters, raw_parallel):
@@ -425,7 +426,7 @@ try:
                 }
             )
 
-    phase("Completion & Deterministic OKF Gate")
+    phase("Completion & Spec Validation")
     if degraded_reasons:
         combined_reason = "; ".join(dict.fromkeys(degraded_reasons))
         _stamp_degraded_frontmatter(
@@ -441,7 +442,7 @@ try:
 
     okf_errors = _run_okf_validator()
     if okf_errors and run_mode != "review_only":
-        log(f"Deterministic OKF gate caught {len(okf_errors)} issue(s); running targeted repair turn")
+        log(f"Spec validation caught {len(okf_errors)} issue(s); running targeted repair turn")
         repair_prompt = (
             f"Fix these exact OKF v0.2 validation errors under `{flow_dir}` without truncating contracts or "
             f"editing production code (follow `{schema_card_path}`):\n" + "\n".join(okf_errors)
@@ -472,12 +473,13 @@ try:
     elif all_root_issues and run_mode != "review_only":
         review_skipped_reason = "root_spec_issues_pending"
     else:
-        phase("Zero-Context Spec Review")
+        phase("Independent Spec Review")
         rev_model = (
             "flash" if (quota_state["degraded"] and preferred_reviewer_model != "flash") else preferred_reviewer_model
         )
 
         async def _run_spec_reviewer(scope_name: str, prompt_text: str) -> dict:
+            """Run one independent spec review pass."""
             active_rev = "flash" if (quota_state["degraded"] and rev_model != "flash") else rev_model
             active_rev_agent = "self" if quota_state["degraded"] else reviewer_agent
             try:
@@ -533,7 +535,7 @@ try:
                     ),
                 ),
                 parallel_fn=parallel,
-                max_concurrency=max_concurrency,
+                max_concurrency=workers,
                 return_exceptions=True,
             )
             for target, rev_out in zip(targets, raw_reviews):
@@ -551,7 +553,7 @@ try:
                                     "file": str(flow_dir / "spec.md"),
                                     "location": target,
                                     "problem": f"Spec reviewer crashed ({type(rev_out).__name__}): {rev_out}",
-                                    "fix": f"Re-run zero-context spec review for scope `{target}`.",
+                                    "fix": f"Re-run independent spec review for scope `{target}`.",
                                 }
                             ],
                         }
@@ -563,7 +565,7 @@ finally:
 
 planning_quality = "degraded" if degraded_reasons else "standard"
 planning_warning = (
-    "WARNING: Specification was NOT planned to standard with the primary frontier thinking model ("
+    "WARNING: Specification was NOT planned with the strongest model ("
     + "; ".join(dict.fromkeys(degraded_reasons))
     + "). Surface this warning to the user before approval."
     if planning_quality == "degraded"
@@ -577,7 +579,7 @@ report = {
     "planning_warning": planning_warning,
     "degraded_reasons": list(dict.fromkeys(degraded_reasons)),
     "all_chapters_complete": all_complete,
-    "needs_root_reconcile": bool(all_root_issues),
+    "needs_root_sync": bool(all_root_issues),
     "root_spec_issues": all_root_issues,
     "okf_validation_errors": okf_errors,
     "chapters": chapter_reports,

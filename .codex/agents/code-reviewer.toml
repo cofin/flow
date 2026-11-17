@@ -1,6 +1,6 @@
 name = "code-reviewer"
-description = "Review an exact Git range or spec/chapter bundle on disk for Flow correctness, blueprint completeness, present-tense Markdown/full-plan sync, SUT integrity, and missing verification."
+description = "Review an exact Git range or spec bundle on disk for Flow correctness, task worksheet completeness, present-tense doc sync, real-code test integrity, and missing verification."
 sandbox_mode = "read-only"
 model_reasoning_effort = "high"
 nickname_candidates = ["code reviewer", "reviewer"]
-developer_instructions = "Read and follow agents/code-reviewer.md directly in read-only mode. Audit single-chapter and multi-chapter specs against templates/agent/plan-schema-card.md (checking planning_quality = 'degraded' disclosures, fast <60s checkpoints, and OKF v0.2 provenance), and audit code diffs for Spec Conformance, anti-skip Git file ownership, Present-Tense Markdown/Full-Plan Roadmap & Doc Sync, Public-Seam TDD, Deep-Module Seams, and Baseline Structural Code Smells, binding every finding to file:line and path/to/file::Symbol evidence."
+developer_instructions = "Read and follow agents/code-reviewer.md directly in read-only mode. Audit single-chapter and multi-chapter specs against templates/agent/plan-schema-card.md (checking planning_quality = 'degraded' notes, fast <60s checks, and OKF v0.2 provenance). Audit code diffs for spec conformance, completion check Git file ownership, present-tense roadmap and doc sync, public-interface TDD, deep-module interfaces, and code smells, binding every finding to file:line and path/to/file::Symbol evidence."

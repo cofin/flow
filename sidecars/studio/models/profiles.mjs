@@ -1,12 +1,12 @@
 /**
- * Ephemeral harness-native tier profile generator (`frontier`, `balanced`, `fast`, `light`).
+ * Ephemeral harness-native model profile generator (`strong`, `standard`, `fast`, `light`).
  *
  * Writes gitignored local profiles tailored to each harness's native subagent model/effort rules:
- *   - Claude Code: `.claude/agents/flow-tier-*.md` (`model:` + `effort:`)
- *   - Codex CLI: `.codex/agents/flow-tier-*.toml` (`model` + `model_reasoning_effort`)
- *   - Cursor: `.cursor/agents/flow-tier-*.md` (`model`, `readonly`, `is_background`)
- *   - VS Code Copilot: `.github/agents/flow-tier-*.agent.md` (`model: [...]` fallback array or scalar for CLI)
- *   - Google Antigravity: scratch `runtime-<role>/agent.json` (`disable_model_selection: true`)
+ *   - Claude Code: `.claude/agents/flow-model-*.md` (`model:` + `effort:`)
+ *   - Codex CLI: `.codex/agents/flow-model-*.toml` (`model` + `model_reasoning_effort`)
+ *   - Cursor: `.cursor/agents/flow-model-*.md` (`model`, `readonly`, `is_background`)
+ *   - VS Code Copilot: `.github/agents/flow-model-*.agent.md` (`model: [...]` fallback array or scalar for CLI)
+ *   - Google Antigravity: scratch `flow-model-<role>/agent.json` (`disable_model_selection: true`)
  */
 
 import fs from "node:fs";
@@ -15,39 +15,39 @@ import path from "node:path";
 import { readTextSafe, writeJsonAtomic, writeTextAtomic } from "../core/fs-io.mjs";
 import { AdaptiveModelRouter } from "./routing.mjs";
 
-const TIER_SPECS = Object.freeze([
+const ROLE_SPECS = Object.freeze([
   {
-    tier: "frontier",
+    role: "strong",
     taskKind: "planning",
     readonly: false,
-    description: "Deep thinking planner, contract architect, and upward semantic validator.",
-    instructions: "Perform deep architecture planning, semantic contract verification, and root-cause analysis within bounded scope.",
+    description: "Strongest model for planning, spec review, and complex diagnosis.",
+    instructions: "Handle architecture planning, spec validation, and root-cause analysis within the assigned scope.",
   },
   {
-    tier: "balanced",
+    role: "standard",
     taskKind: "implementation",
     readonly: false,
-    description: "Balanced TDD slice executor implementing bounded code and test slices.",
-    instructions: "Implement the assigned Context Pack slice directly, run the targeted verification command once, and report exact outcomes.",
+    description: "Standard task worker for code and tests.",
+    instructions: "Implement the assigned task brief directly, run its verification command once, and report exact outcomes.",
   },
   {
-    tier: "fast",
+    role: "fast",
     taskKind: "implementation",
     readonly: false,
-    description: "Fast micro-slice executor for well-specified small edits.",
-    instructions: "Apply the specified micro-slice edit directly without exploratory search and exit cleanly.",
+    description: "Fast worker for small, well-specified tasks.",
+    instructions: "Apply the specified task edit directly without broad search and stop when done.",
   },
   {
-    tier: "light",
+    role: "light",
     taskKind: "narrow_fetch",
     readonly: true,
-    description: "Read-only narrow file inspector and mechanical status helper.",
-    instructions: "Summarize only explicitly listed files or lines in read-only mode without modifying files.",
+    description: "Read-only file inspector and status helper.",
+    instructions: "Summarize only explicitly listed files or lines in read-only mode without editing files.",
   },
 ]);
 
 /**
- * Ensure local gitexclude hides dynamically generated ephemeral agent tier profiles.
+ * Ensure local gitexclude hides dynamically generated ephemeral agent model profiles.
  *
  * @param {string} workspaceRoot
  */
@@ -57,10 +57,10 @@ function ensureLocalProfileExcludes(workspaceRoot) {
   const cur = readTextSafe(gitExclude) || "";
   const lines = new Set(cur.split("\n").map((l) => l.trim()));
   const wanted = [
-    ".claude/agents/flow-tier-*",
-    ".codex/agents/flow-tier-*",
-    ".cursor/agents/flow-tier-*",
-    ".github/agents/flow-tier-*",
+    ".claude/agents/flow-model-*",
+    ".codex/agents/flow-model-*",
+    ".cursor/agents/flow-model-*",
+    ".github/agents/flow-model-*",
   ];
   const missing = wanted.filter((w) => !lines.has(w));
   if (missing.length > 0) {
@@ -82,47 +82,47 @@ export class HarnessProfileMaterializer {
 
     /** @type {Record<string, string>} */
     const written = {};
-    for (const spec of TIER_SPECS) {
+    for (const spec of ROLE_SPECS) {
       const route = router.select(candidates, {
         taskKind: spec.taskKind,
-        risk: spec.tier === "frontier" ? "high" : "normal",
-        complexity: spec.tier === "frontier" ? 3.8 : spec.tier === "balanced" ? 2.2 : spec.tier === "fast" ? 1.2 : 0.4,
+        risk: spec.role === "strong" ? "high" : "normal",
+        complexity: spec.role === "strong" ? 3.8 : spec.role === "standard" ? 2.2 : spec.role === "fast" ? 1.2 : 0.4,
       });
 
       const modelName = route.model || "inherit";
-      const effortName = route.effort || (spec.tier === "frontier" ? "xhigh" : spec.tier === "light" ? "low" : "medium");
+      const effortName = route.effort || (spec.role === "strong" ? "xhigh" : spec.role === "light" ? "low" : "medium");
 
       if (cleanHarness === "claude") {
         const dir = outDir ? path.resolve(outDir) : path.join(root, ".claude", "agents");
-        const file = path.join(dir, `flow-tier-${spec.tier}.md`);
+        const file = path.join(dir, `flow-model-${spec.role}.md`);
         const roBlock = spec.readonly ? "disallowedTools:\n  - Write\n  - Edit\n  - NotebookEdit\n  - Bash\n" : "";
         const effortLine = effortName !== "default" ? `effort: ${effortName}\n` : "";
         writeTextAtomic(
           file,
-          `---\nname: flow-tier-${spec.tier}\ndescription: ${spec.description}\nmodel: ${modelName}\n${effortLine}${roBlock}---\n\n${spec.instructions}\n`,
+          `---\nname: flow-model-${spec.role}\ndescription: ${spec.description}\nmodel: ${modelName}\n${effortLine}${roBlock}---\n\n${spec.instructions}\n`,
         );
-        written[spec.tier] = file;
+        written[spec.role] = file;
       } else if (cleanHarness === "codex") {
         const dir = outDir ? path.resolve(outDir) : path.join(root, ".codex", "agents");
-        const file = path.join(dir, `flow-tier-${spec.tier}.toml`);
+        const file = path.join(dir, `flow-model-${spec.role}.toml`);
         const sb = spec.readonly ? "read-only" : "workspace-write";
         const effortLine = effortName !== "default" ? `model_reasoning_effort = ${JSON.stringify(effortName)}\n` : "";
         writeTextAtomic(
           file,
-          `name = ${JSON.stringify(`flow-tier-${spec.tier}`)}\ndescription = ${JSON.stringify(spec.description)}\nmodel = ${JSON.stringify(modelName)}\n${effortLine}sandbox_mode = ${JSON.stringify(sb)}\ndeveloper_instructions = ${JSON.stringify(spec.instructions)}\n`,
+          `name = ${JSON.stringify(`flow-model-${spec.role}`)}\ndescription = ${JSON.stringify(spec.description)}\nmodel = ${JSON.stringify(modelName)}\n${effortLine}sandbox_mode = ${JSON.stringify(sb)}\ndeveloper_instructions = ${JSON.stringify(spec.instructions)}\n`,
         );
-        written[spec.tier] = file;
+        written[spec.role] = file;
       } else if (cleanHarness === "cursor" || cleanHarness === "cursor-agent") {
         const dir = outDir ? path.resolve(outDir) : path.join(root, ".cursor", "agents");
-        const file = path.join(dir, `flow-tier-${spec.tier}.md`);
+        const file = path.join(dir, `flow-model-${spec.role}.md`);
         writeTextAtomic(
           file,
-          `---\nname: flow-tier-${spec.tier}\ndescription: ${spec.description}\nmodel: ${modelName}\nreadonly: ${spec.readonly ? "true" : "false"}\nis_background: false\n---\n\n${spec.instructions}\n`,
+          `---\nname: flow-model-${spec.role}\ndescription: ${spec.description}\nmodel: ${modelName}\nreadonly: ${spec.readonly ? "true" : "false"}\nis_background: false\n---\n\n${spec.instructions}\n`,
         );
-        written[spec.tier] = file;
+        written[spec.role] = file;
       } else if (cleanHarness === "vscode" || cleanHarness === "copilot") {
         const dir = outDir ? path.resolve(outDir) : path.join(root, ".github", "agents");
-        const file = path.join(dir, `flow-tier-${spec.tier}.agent.md`);
+        const file = path.join(dir, `flow-model-${spec.role}.agent.md`);
         const chainModels = Array.from(new Set([modelName, ...(route.fallback_chain || []).map((f) => f.model)].filter(Boolean)));
         const modelYaml =
           target === "copilot-cli"
@@ -130,21 +130,21 @@ export class HarnessProfileMaterializer {
             : `model: [${chainModels.slice(0, 4).map((m) => JSON.stringify(m)).join(", ")}]\nmodel-policy: preferred`;
         writeTextAtomic(
           file,
-          `---\nname: flow-tier-${spec.tier}\ndescription: ${spec.description}\n${modelYaml}\n---\n\n${spec.instructions}\n`,
+          `---\nname: flow-model-${spec.role}\ndescription: ${spec.description}\n${modelYaml}\n---\n\n${spec.instructions}\n`,
         );
-        written[spec.tier] = file;
+        written[spec.role] = file;
       } else {
         const dir = outDir ? path.resolve(outDir) : path.join(root, ".agents", "runtime-profiles");
-        const file = path.join(dir, `runtime-${spec.tier}`, "agent.json");
+        const file = path.join(dir, `flow-model-${spec.role}`, "agent.json");
         writeJsonAtomic(file, {
-          name: `runtime-${spec.tier}`,
-          role: spec.tier,
+          name: `flow-model-${spec.role}`,
+          role: spec.role,
           model: route.runtime_target || modelName,
           requested_model: modelName,
           effort: effortName,
           disable_model_selection: true,
         });
-        written[spec.tier] = file;
+        written[spec.role] = file;
       }
     }
 

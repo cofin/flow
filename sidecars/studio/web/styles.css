@@ -641,21 +641,21 @@ body {
   height: auto;
 }
 
-.wave-lanes {
+.task-steps {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 12px;
   margin-top: 14px;
 }
 
-.wave-lane {
+.task-step {
   border: 1px solid var(--flow-line);
   border-radius: 8px;
   padding: 10px 12px;
   background: var(--flow-surface-subtle);
 }
 
-.wave-slice-card {
+.task-card {
   margin-top: 8px;
   padding: 8px 10px;
   border-radius: 6px;

@@ -22,8 +22,8 @@ if [ "$HARNESS" = "claude" ] && [ -n "${CURSOR_VERSION:-}" ]; then
   emit_allow
 fi
 
-STOP_GATE_ENV="$(printf '%s' "${FLOW_STOP_GATE:-}" | tr '[:upper:]' '[:lower:]')"
-case "$STOP_GATE_ENV" in
+STOP_CHECK_ENV="$(printf '%s' "${FLOW_STOP_CHECK:-}" | tr '[:upper:]' '[:lower:]')"
+case "$STOP_CHECK_ENV" in
   off|0|false|no|advisory|warn)
     emit_allow
     ;;
@@ -99,7 +99,7 @@ if [ "$IS_LEAF_SUBAGENT" = "1" ]; then
 fi
 
 BUNDLE_REL=".agents/bundles"
-STOP_GATE_CFG="enforce"
+STOP_CHECK_CFG="enforce"
 SHA_TRACKING="strict"
 if [ -f "$EFFECTIVE_ROOT/.agents/setup-state.json" ]; then
   SETUP_PARSED="$(awk '
@@ -112,9 +112,9 @@ if [ -f "$EFFECTIVE_ROOT/.agents/setup-state.json" ]; then
         sub(/"$/, "", s)
         br = s
       }
-      if (match(buf, /"stop_gate"[[:space:]]*:[[:space:]]*"[^"]+"/)) {
+      if (match(buf, /"stop_check"[[:space:]]*:[[:space:]]*"[^"]+"/)) {
         s = substr(buf, RSTART, RLENGTH)
-        sub(/^.*"stop_gate"[[:space:]]*:[[:space:]]*"/, "", s)
+        sub(/^.*"stop_check"[[:space:]]*:[[:space:]]*"/, "", s)
         sub(/"$/, "", s)
         sg = tolower(s)
       }
@@ -130,11 +130,11 @@ if [ -f "$EFFECTIVE_ROOT/.agents/setup-state.json" ]; then
   DETECTED_ROOT="${SETUP_PARSED%%|*}"; s_rest="${SETUP_PARSED#*|}"
   DETECTED_GATE="${s_rest%%|*}"; DETECTED_SHA="${s_rest#*|}"
   [ -n "$DETECTED_ROOT" ] && BUNDLE_REL="$DETECTED_ROOT"
-  [ -n "$DETECTED_GATE" ] && STOP_GATE_CFG="$DETECTED_GATE"
+  [ -n "$DETECTED_GATE" ] && STOP_CHECK_CFG="$DETECTED_GATE"
   [ -n "$DETECTED_SHA" ] && SHA_TRACKING="$DETECTED_SHA"
 fi
 
-case "$STOP_GATE_CFG" in
+case "$STOP_CHECK_CFG" in
   off|0|false|no|advisory|warn)
     emit_allow
     ;;
@@ -543,7 +543,7 @@ verify_review_stamp() {
   label="$3"
 
   if [ -z "$rev_sha" ] || [ "$rev_sha" = "null" ] || ! printf '%s\n' "$rev_sha" | grep -Eq '^[0-9a-fA-F]{7,40}$'; then
-    append_violation "$label: missing hex last_reviewed_commit (sync present-tense docs and run Zero-Context Review before stopping)"
+    append_violation "$label: missing hex last_reviewed_commit (sync spec docs and run chapter review before stopping)"
     return 0
   fi
 
@@ -563,7 +563,7 @@ verify_review_stamp() {
       if git -C "$PROJECT_DIR" cat-file -e "${t_sha}^{commit}" 2>/dev/null; then
         if ! git -C "$PROJECT_DIR" merge-base --is-ancestor "$t_sha" "$rev_sha" 2>/dev/null; then
           if ! commit_patch_in_history "$t_sha" "$rev_sha"; then
-            append_violation "$label: task commit $t_sha is newer than last_reviewed_commit $rev_sha; re-run Zero-Context Review"
+            append_violation "$label: task commit $t_sha is newer than last_reviewed_commit $rev_sha; re-run chapter review"
             return 0
           fi
         fi
@@ -598,8 +598,8 @@ for root_spec in "$SPECS_DIR"/*/spec.md; do
     in_fm && /^last_reviewed_commit:[[:space:]]*/ {
       v = $0; sub(/^last_reviewed_commit:[[:space:]]*/, "", v); sub(/[[:space:]]+#.*$/, "", v); gsub(/^["'\'']|["'\'']$/, "", v); gsub(/[[:space:]]+$/, "", v); lrc = v
     }
-    in_fm && /^gate:[[:space:]]*/ {
-      v = $0; sub(/^gate:[[:space:]]*/, "", v); sub(/[[:space:]]+#.*$/, "", v); gsub(/^["'\'']|["'\'']$/, "", v); gsub(/[[:space:]]+$/, "", v); gt = tolower(v)
+    in_fm && /^stop_check:[[:space:]]*/ {
+      v = $0; sub(/^stop_check:[[:space:]]*/, "", v); sub(/[[:space:]]+#.*$/, "", v); gsub(/^["'\'']|["'\'']$/, "", v); gsub(/[[:space:]]+$/, "", v); gt = tolower(v)
     }
     in_fm && /^paused:[[:space:]]*/ {
       v = $0; sub(/^paused:[[:space:]]*/, "", v); sub(/[[:space:]]+#.*$/, "", v); gsub(/^["'\'']|["'\'']$/, "", v); gsub(/[[:space:]]+$/, "", v); psd = tolower(v)
@@ -745,7 +745,7 @@ for root_spec in "$SPECS_DIR"/*/spec.md; do
         NEED_CH_REVIEW=1
       elif [ "$IS_LEAF_SUBAGENT" = "0" ] && [ "$TASK_TOTAL" -gt 0 ] && [ "$TASK_DONE" -eq "$TASK_TOTAL" ]; then
         if [ "$r_state" = "active" ] || [ "$r_state" = "completed" ] || [ "$c_state" = "active" ]; then
-          append_violation "specs/$flow_dir_name/chapters/$ch_id: all $TASK_TOTAL task(s) are done, but chapter is not closed (sync present-tense docs/roadmap, run Zero-Context Review, and set state: completed)"
+          append_violation "specs/$flow_dir_name/chapters/$ch_id: all $TASK_TOTAL task(s) are done, but chapter is not closed (sync spec docs, run chapter review, and set state: completed)"
           NEED_CH_REVIEW=1
         fi
       fi
@@ -770,7 +770,7 @@ for root_spec in "$SPECS_DIR"/*/spec.md; do
     done
 
     if [ "$r_state" = "completed" ] && { [ "$CH_TOTAL" -eq 0 ] || [ "$CH_CLOSED" -lt "$CH_TOTAL" ]; }; then
-      append_violation "specs/$flow_dir_name/spec.md: flow cannot be marked completed while $((CH_TOTAL - CH_CLOSED)) of $CH_TOTAL chapter(s) remain open (anti-skip guard)"
+      append_violation "specs/$flow_dir_name/spec.md: flow cannot be marked completed while $((CH_TOTAL - CH_CLOSED)) of $CH_TOTAL chapter(s) remain open (chapters still open)"
     fi
 
     if [ "$IS_LEAF_SUBAGENT" = "0" ] && [ "$CH_TOTAL" -gt 0 ]; then
@@ -799,7 +799,7 @@ if [ -z "$VIOLATIONS" ]; then
   emit_allow
 fi
 
-REASON="$(flow_strip_xml_tags "Flow Stop Gate blocked turn completion — synchronize present-tense Markdown and complete Zero-Context Chapter Review before stopping: $VIOLATIONS")"
+REASON="$(flow_strip_xml_tags "Flow stop check: update the spec files and run the chapter review before stopping: $VIOLATIONS")"
 ESCAPED_REASON="$(flow_json_escape "$REASON")"
 
 case "$HARNESS" in

@@ -2,12 +2,10 @@
  * In-process Claude Code Mod (`v2.1.287+`) for Flow.
  *
  * Registers:
- *   1. `AbovePrompt` compact wave & tier-allocation band (`0` LLM context tokens)
- *   2. `SidePane` Studio companion view (DAG, active slices, open feedback)
- *   3. `tool.call` (`Agent`) interceptor that dynamically materializes
- *      `.claude/agents/flow-tier-*.md`, rewrites `subagent_type` upward (for planning,
- *      validation, review, and failure diagnosis) or downward (for narrow reads and
- *      micro-slices), and injects pre-extracted `< 4k`-token Context Packs.
+ *   1. `AbovePrompt` compact task progress band
+ *   2. `SidePane` Studio companion view (active tasks and open review notes)
+ *   3. `tool.call` (`Agent`) interceptor that materializes `.claude/agents/flow-model-*.md`,
+ *      routes `subagent_type` to the matching model role, and attaches task briefs.
  */
 
 import path from "node:path";
@@ -15,8 +13,8 @@ import path from "node:path";
 import { DynamicModelCatalog } from "../../../sidecars/studio/models/inventory.mjs";
 import { HarnessProfileMaterializer } from "../../../sidecars/studio/models/profiles.mjs";
 import { AdaptiveModelRouter, DecisionEngine } from "../../../sidecars/studio/models/routing.mjs";
-import { SliceCompiler } from "../../../sidecars/studio/spec/slice-compiler.mjs";
 import { SpecEngine } from "../../../sidecars/studio/spec/spec-engine.mjs";
+import { TaskPlanner } from "../../../sidecars/studio/spec/task-planner.mjs";
 
 const UPWARD_PROMPT_RE = /\b(plan|spec|architecture|validat|verify|semantic|review|audit|committee|adversarial|diagnos)\b/i;
 const LIGHT_PROMPT_RE = /\b(summarize|fetch|lookup|list|sync|status|grep|inspect)\b/i;
@@ -91,26 +89,26 @@ export const register = (on, options = {}) => {
       const evalRes = await decisionEngine.evaluate({ taskKind, risk });
       const route = router.select(candidates, { taskKind, risk, complexity: evalRes.complexity_rubric });
 
-      if (route.tier && !origType.includes(":")) {
-        input.subagent_type = `flow-tier-${route.tier}`;
+      if (route.role && !origType.includes(":")) {
+        input.subagent_type = `flow-model-${route.role}`;
       }
 
-      if (!prompt.includes("CONTEXT PACK") && (taskKind === "implementation" || taskKind === "semantic_validation")) {
+      if (!prompt.includes("TASK BRIEF") && (taskKind === "implementation" || taskKind === "semantic_validation")) {
         const engine = new SpecEngine(workspace);
         const { next_runnable } = engine.status();
         if (next_runnable?.flow_id) {
-          const compiled = new SliceCompiler(workspace).compile({
+          const planned = new TaskPlanner(workspace).plan({
             flowId: next_runnable.flow_id,
             chapterId: next_runnable.chapter_id || null,
-            includeContextPacks: true,
+            includeBriefs: true,
           });
-          const firstPack = compiled.waves?.[0]?.slices?.[0]?.context_pack;
-          if (firstPack) {
-            input.prompt = `${prompt}\n\n[FLOW CONTEXT PACK ~${firstPack.approx_tokens} tokens]\n${JSON.stringify({
-              slice: firstPack.slice_id,
-              files: firstPack.files,
-              tests: firstPack.tests,
-              upstream: firstPack.upstream_delta_receipt,
+          const firstBrief = planned.steps?.[0]?.tasks?.[0]?.brief;
+          if (firstBrief) {
+            input.prompt = `${prompt}\n\n[FLOW TASK BRIEF ~${firstBrief.approx_tokens} tokens]\n${JSON.stringify({
+              group: firstBrief.group_id,
+              files: firstBrief.files,
+              tests: firstBrief.tests,
+              upstream: firstBrief.upstream_changes,
             })}`;
           }
         }

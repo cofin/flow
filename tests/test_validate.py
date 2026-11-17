@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+from tools.prose import ProseLinter
 from tools.validate import (
     EXPECTED_AGENTS,
     EXPECTED_SKILLS,
@@ -783,3 +784,158 @@ def test_validate_okf_bundle_allow_uncommitted_and_workflow_ast_dotted_calls(tmp
         )
         == []
     )
+
+
+@pytest.mark.parametrize(
+    ("label", "sample"),
+    (
+        ("wave", "Run each wave in parallel."),
+        ("slice", "Split the feature into a micro-slice."),
+        ("context pack", "Send the context pack to the worker."),
+        ("slot", "Each slot runs one task."),
+        ("batch size", "Set batch size to four."),
+        ("disjoint", "Run tasks with disjoint file sets."),
+        ("reconcile", "Reconcile the spec with Git."),
+        ("gate", "Pass the chapter gate before stopping."),
+        ("cold-read", "Run a cold-read review."),
+        ("zero-context", "Use a zero-context reviewer."),
+        ("zero-LLM", "Run zero-token sync."),
+        ("deterministic", "Run deterministic checks."),
+        ("frontier", "Use a frontier model for planning."),
+        ("tier", "Pick the right model tier."),
+        ("compaction", "Avoid context compaction."),
+        ("cold start", "Avoid a cold start."),
+        ("bin-packed", "Tasks are bin-packed."),
+        ("work-conserving", "Use a work-conserving pool."),
+        ("semaphore", "Use semaphore-bounded concurrency."),
+        ("true-up", "Run a true-up before starting."),
+        ("reorient", "Reorient across machines."),
+        ("resynthesize", "Resynthesize knowledge chapters."),
+        ("contraction", "Follow the strict contraction order."),
+        ("adjudicate", "Adjudicate every review finding."),
+        ("adjudication ledger", "Print the review ledger."),
+        ("blueprint", "Author each task blueprint."),
+        ("bounded read manifest", "Stay inside the bounded read manifest."),
+        ("read fence", "Respect the read fence."),
+        ("public-seam", "Write public-seam tests."),
+        ("iron law", "Follow the iron law."),
+        ("north star", "Define the north star goal."),
+        ("altitude control", "Apply altitude control."),
+        ("red-capable", "Build a red-capable loop."),
+        ("worked test matrix", "Add a worked test matrix."),
+        ("circuit breaker", "Trip the circuit breaker."),
+        ("hypothesis-driven bug diagnosis", "Run hypothesis-driven diagnosis."),
+        ("System Under Test", "Do not mock the System Under Test."),
+        ("SUT", "Do not mock the SUT."),
+        ("mock-echo", "Reject mock-echo tests."),
+        ("tautological", "Reject tautological tests."),
+        ("implementation-coupled", "Avoid implementation-coupled tests."),
+        ("anti-skip", "Enforce the anti-skip check."),
+        ("anti-truncation", "Apply the anti-truncation rule."),
+        ("anti-sprawl", "Run the anti-sprawl check."),
+        ("chronological sediment", "Avoid chronological sediment."),
+        ("co-designer", "Act as a co-designer."),
+        ("stateful planner", "Use a stateful planner."),
+        ("orthogonal", "Batch orthogonal questions."),
+        ("sharded", "Run sharded research."),
+        ("reconnaissance", "Run reconnaissance first."),
+        ("scout", "Dispatch a read-only scout."),
+        ("upward delegation", "Use upward delegation for specs."),
+        ("fail-closed", "Fail closed before editing."),
+        ("manifest-driven", "Use manifest-driven coverage."),
+        ("deliverable-sized", "Keep chapters deliverable-sized."),
+        ("write-time", "Run write-time validation."),
+        ("commit-first", "Use commit-first sequencing."),
+        ("local-substitutable", "Classify local-substitutable dependencies."),
+        ("SubsystemDigest", "Return a SubsystemDigest payload."),
+        ("Token Stratum", "Open the Token Stratum view."),
+        ("System-One", "Evaluate with System-One."),
+        ("structured-choice-v1", "Ask via structured-choice-v1."),
+        ("flow-memory-keeper", "Remove flow-memory-keeper."),
+    ),
+)
+def test_prose_linter_rejects_retired_terms(label: str, sample: str) -> None:
+    """Verify ProseLinter flags every retired term outside backticks."""
+    errors = ProseLinter().lint_text(sample, "skills/example/SKILL.md")
+    assert any("PROSE_RETIRED_TERM" in err for err in errors), f"Expected {label!r} to be flagged in {sample!r}"
+
+
+def test_prose_linter_exemptions_and_length_limits() -> None:
+    """Verify ProseLinter ignores code spans/fences and enforces puffery, count labels, and length limits."""
+    linter = ProseLinter()
+
+    safe_doc = (
+        "# Short Heading\n\n"
+        "Quote on-disk keys like `## Bounded Read Manifest`, `wave`, `frontier`, and `slice` in backticks.\n\n"
+        "```python\n"
+        "wave = 'context pack for zero-context frontier slice'\n"
+        "```\n"
+    )
+    assert linter.lint_text(safe_doc, "skills/example/SKILL.md") == []
+
+    puff_errors = linter.lint_text("This seamless workflow is robust.", "skills/example/SKILL.md")
+    assert any("PROSE_PUFFERY" in err for err in puff_errors)
+
+    count_errors = linter.lint_text("## 3-Layer Validation", "skills/example/SKILL.md")
+    assert any("PROSE_COUNT_LABEL" in err for err in count_errors)
+
+    long_sentence = " ".join(["word"] * 36) + "."
+    sent_errors = linter.lint_text(long_sentence, "skills/example/SKILL.md")
+    assert any("PROSE_LONG_SENTENCE" in err for err in sent_errors)
+
+    long_heading = "# One Two Three Four Five Six Seven Eight Nine"
+    head_errors = linter.lint_text(long_heading, "skills/example/SKILL.md")
+    assert any("PROSE_LONG_HEADING" in err for err in head_errors)
+
+
+def test_prose_linter_terms_documented_in_vocabulary() -> None:
+    """Verify every retired term checked by ProseLinter is documented in vocabulary.md."""
+    vocab_path = REPO_ROOT / "skills" / "flow" / "references" / "vocabulary.md"
+    vocab_text = vocab_path.read_text(encoding="utf-8").lower()
+    missing = [key for key, _pat, _adv in ProseLinter.RETIRED_TERMS if key.lower() not in vocab_text]
+    assert missing == []
+
+
+def test_prose_linter_multiline_comments_fences_yaml_and_nested_json(tmp_path: Path) -> None:
+    """Verify CRLF normalization, multi-line comments, 4-backtick fences, folded YAML, and nested JSON linting."""
+    linter = ProseLinter()
+
+    md = (
+        "---\r\n"
+        "description: >-\r\n"
+        "  Use a frontier model here.\r\n"
+        "---\r\n\r\n"
+        "<!-- multi-line comment\r\n"
+        "wave slice zero-context\r\n"
+        "-->\r\n\r\n"
+        "````markdown\r\n"
+        "```bash\r\n"
+        "echo wave slice\r\n"
+        "```\r\n"
+        "Still inside 4-backtick fence with frontier.\r\n"
+        "````\r\n"
+    )
+    errors = linter.lint_text(md, "skills/example/SKILL.md")
+    assert len(errors) == 1
+    assert "PROSE_RETIRED_TERM: skills/example/SKILL.md:1:" in errors[0]
+
+    wf_json = tmp_path / "workflows" / "demo" / "workflow.json"
+    wf_json.parent.mkdir(parents=True)
+    wf_json.write_text(
+        json.dumps(
+            {
+                "description": "Plain workflow description.",
+                "args": {
+                    "type": "object",
+                    "properties": {
+                        "mode": {"type": "string", "description": "Use a frontier execution slice."},
+                    },
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    json_errors = linter._lint_json_descriptions(wf_json, tmp_path)
+    assert len(json_errors) == 2
+    assert any("frontier" in err for err in json_errors)
+    assert any("slice" in err for err in json_errors)

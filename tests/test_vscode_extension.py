@@ -491,7 +491,7 @@ process.stdout.write(JSON.stringify({
     vs_candidates = models_resp["result"].get("dynamicByHarness", {}).get("vscode", {}).get("candidates", [])
     discovered_ids = {c["model"] for c in vs_candidates}
     assert "gpt-5.4" in discovered_ids
-    assert (ws_beta / ".github" / "agents" / "flow-tier-frontier.agent.md").is_file()
+    assert (ws_beta / ".github" / "agents" / "flow-model-strong.agent.md").is_file()
     ws_events = [
         m["event"]
         for m in out["postedWebviewMessages"]
