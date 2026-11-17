@@ -1,44 +1,20 @@
 #!/usr/bin/env sh
 # Portable POSIX sh + awk PreToolUse safety guard for Flow.
-# Enforces Git tag non-mutation, prompts on force-push/hard-reset, and guards read-only agents.
+# Enforces Git tag non-mutation, prompts on force-push/hard-reset, guards read-only agents,
+# and applies Claude-only (CLAUDECODE=1, non-Codex) Agent tier fallback when the Claude Mod is unloaded.
 set -eu
 
-HARNESS="claude"
-PROJECT_DIR=""
+HOOK_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" 2>/dev/null && pwd || dirname -- "$0")"
+. "$HOOK_DIR/lib/common.sh"
 
-while [ "$#" -gt 0 ]; do
-  case "$1" in
-    --harness)
-      HARNESS="${2:-claude}"
-      shift 2
-      ;;
-    --harness=*)
-      HARNESS="${1#*=}"
-      shift 1
-      ;;
-    --project)
-      PROJECT_DIR="${2:-}"
-      shift 2
-      ;;
-    --project=*)
-      PROJECT_DIR="${1#*=}"
-      shift 1
-      ;;
-    *)
-      shift 1
-      ;;
-  esac
-done
+flow_parse_args "claude" "$@"
 
 if [ "$HARNESS" = "claude" ] && [ -n "${CURSOR_VERSION:-}" ]; then
   printf '{}\n'
   exit 0
 fi
 
-STDIN_PAYLOAD=""
-if [ ! -t 0 ]; then
-  STDIN_PAYLOAD="$(cat || true)"
-fi
+flow_read_stdin
 
 PARSED="$(printf '%s\n' "$STDIN_PAYLOAD" | awk '
   function unescape_json(raw,   i, n, ch, nxt, out) {
@@ -703,16 +679,30 @@ if [ "$DECISION" = "allow" ] && [ -n "$CMD_LINE" ]; then
   fi
 fi
 
-ESCAPED_REASON="$(printf '%s' "$REASON" | awk '
-  BEGIN { ORS = "" }
-  {
-    gsub(/\\/, "\\\\")
-    gsub(/"/, "\\\"")
-    gsub(/\r/, "")
-    gsub(/\t/, " ")
-    printf "%s", $0
-  }
-')"
+if [ "$DECISION" = "allow" ] && [ "$HARNESS" = "claude" ] && [ "${CLAUDECODE:-}" = "1" ] && [ -z "${CODEX_THREAD_ID:-}" ] && [ -z "${CODEX_CI:-}" ] && [ "${FLOW_MOD_LOADED:-}" != "1" ] && [ "$TOOL_NAME" = "Agent" ]; then
+  if ! printf '%s' "$STDIN_PAYLOAD" | grep -q '"model"[[:space:]]*:[[:space:]]*"[^"]\+"'; then
+    TIER="balanced"
+    case "$AGENT_ID" in
+      *plan-generator*|*prd-orchestrator*) TIER="frontier" ;;
+      *researcher*) TIER="light" ;;
+    esac
+    TIER_FILE="$PROJECT_DIR/.claude/agents/flow-tier-${TIER}.md"
+    if [ -f "$TIER_FILE" ]; then
+      TIER_MODEL="$(awk '
+        NR == 1 && /^---[[:space:]]*$/ { in_fm = 1; next }
+        in_fm && /^---[[:space:]]*$/ { exit }
+        in_fm && /^model:[[:space:]]*/ { v = $0; sub(/^model:[[:space:]]*/, "", v); gsub(/^["'\'']|["'\'']$/, "", v); gsub(/[[:space:]]+$/, "", v); print v; exit }
+      ' "$TIER_FILE")"
+      if [ -n "$TIER_MODEL" ] && [ "$TIER_MODEL" != "inherit" ]; then
+        printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"allow","updatedInput":{"model":"%s"}}}\n' "$(flow_json_escape "$TIER_MODEL")"
+        exit 0
+      fi
+    fi
+  fi
+fi
+
+CLEAN_REASON="$(flow_strip_xml_tags "$REASON")"
+ESCAPED_REASON="$(flow_json_escape "$CLEAN_REASON")"
 
 case "$HARNESS" in
   agy|antigravity)

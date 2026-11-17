@@ -3,32 +3,10 @@
 # Requires zero python3, node, or jq on the host system.
 set -eu
 
-HARNESS="claude"
-PROJECT_DIR=""
+HOOK_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" 2>/dev/null && pwd || dirname -- "$0")"
+. "$HOOK_DIR/lib/common.sh"
 
-while [ "$#" -gt 0 ]; do
-  case "$1" in
-    --harness)
-      HARNESS="${2:-claude}"
-      shift 2
-      ;;
-    --harness=*)
-      HARNESS="${1#*=}"
-      shift 1
-      ;;
-    --project)
-      PROJECT_DIR="${2:-}"
-      shift 2
-      ;;
-    --project=*)
-      PROJECT_DIR="${1#*=}"
-      shift 1
-      ;;
-    *)
-      shift 1
-      ;;
-  esac
-done
+flow_parse_args "claude" "$@"
 
 emit_allow() {
   if [ "$HARNESS" = "json" ]; then
@@ -51,172 +29,63 @@ case "$STOP_GATE_ENV" in
     ;;
 esac
 
-STDIN_PAYLOAD=""
-if [ ! -t 0 ]; then
-  STDIN_PAYLOAD="$(cat || true)"
-fi
+flow_read_stdin
+flow_resolve_project_dir
 
-IS_LEAF_SUBAGENT=0
 CONV_ID=""
 BYPASS_FLAG=0
 if [ -n "$STDIN_PAYLOAD" ]; then
   PARSED_STDIN="$(printf '%s\n' "$STDIN_PAYLOAD" | awk -v harness="$HARNESS" '
     { buf = buf " " $0 }
     END {
-      proj = ""
-      if (match(buf, /"workspacePaths"[[:space:]]*:[[:space:]]*\[[[:space:]]*"[^"]+"/)) {
-        s = substr(buf, RSTART, RLENGTH)
-        sub(/^.*"workspacePaths"[[:space:]]*:[[:space:]]*\[[[:space:]]*"/, "", s)
-        sub(/"$/, "", s)
-        gsub(/\\\\/, "/", s)
-        proj = s
-      } else if (match(buf, /"workspace_roots"[[:space:]]*:[[:space:]]*\[[[:space:]]*"[^"]+"/)) {
-        s = substr(buf, RSTART, RLENGTH)
-        sub(/^.*"workspace_roots"[[:space:]]*:[[:space:]]*\[[[:space:]]*"/, "", s)
-        sub(/"$/, "", s)
-        gsub(/\\\\/, "/", s)
-        proj = s
-      } else if (match(buf, /"cwd"[[:space:]]*:[[:space:]]*"[^"]+"/)) {
-        s = substr(buf, RSTART, RLENGTH)
-        sub(/^.*"cwd"[[:space:]]*:[[:space:]]*"/, "", s)
-        sub(/"$/, "", s)
-        gsub(/\\\\/, "/", s)
-        proj = s
-      } else if (match(buf, /"workspaceRoot"[[:space:]]*:[[:space:]]*"[^"]+"/)) {
-        s = substr(buf, RSTART, RLENGTH)
-        sub(/^.*"workspaceRoot"[[:space:]]*:[[:space:]]*"/, "", s)
-        sub(/"$/, "", s)
-        gsub(/\\\\/, "/", s)
-        proj = s
-      }
-
       conv = ""
       if (match(buf, /"conversationId"[[:space:]]*:[[:space:]]*"[^"]+"/)) {
-        s = substr(buf, RSTART, RLENGTH)
-        sub(/^.*"conversationId"[[:space:]]*:[[:space:]]*"/, "", s)
-        sub(/"$/, "", s)
-        conv = s
+        s = substr(buf, RSTART, RLENGTH); sub(/^.*"conversationId"[[:space:]]*:[[:space:]]*"/, "", s); sub(/"$/, "", s); conv = s
       } else if (match(buf, /"session_id"[[:space:]]*:[[:space:]]*"[^"]+"/)) {
-        s = substr(buf, RSTART, RLENGTH)
-        sub(/^.*"session_id"[[:space:]]*:[[:space:]]*"/, "", s)
-        sub(/"$/, "", s)
-        conv = s
+        s = substr(buf, RSTART, RLENGTH); sub(/^.*"session_id"[[:space:]]*:[[:space:]]*"/, "", s); sub(/"$/, "", s); conv = s
       } else if (match(buf, /"conversation_id"[[:space:]]*:[[:space:]]*"[^"]+"/)) {
-        s = substr(buf, RSTART, RLENGTH)
-        sub(/^.*"conversation_id"[[:space:]]*:[[:space:]]*"/, "", s)
-        sub(/"$/, "", s)
-        conv = s
+        s = substr(buf, RSTART, RLENGTH); sub(/^.*"conversation_id"[[:space:]]*:[[:space:]]*"/, "", s); sub(/"$/, "", s); conv = s
       }
-
       bypass = 0
       if (harness == "agy" || harness == "antigravity") {
         if (match(buf, /"terminationReason"[[:space:]]*:[[:space:]]*"[^"]*"/)) {
-          tr = substr(buf, RSTART, RLENGTH)
-          sub(/^.*"terminationReason"[[:space:]]*:[[:space:]]*"/, "", tr)
-          sub(/"$/, "", tr)
+          tr = substr(buf, RSTART, RLENGTH); sub(/^.*"terminationReason"[[:space:]]*:[[:space:]]*"/, "", tr); sub(/"$/, "", tr)
           if (tr != "" && tr != "model_stop") bypass = 1
         }
-        if (match(buf, /"error"[[:space:]]*:[[:space:]]*"[^"]+"/)) {
-          bypass = 1
-        }
+        if (match(buf, /"error"[[:space:]]*:[[:space:]]*"[^"]+"/)) bypass = 1
         if (match(buf, /"executionNum"[[:space:]]*:[[:space:]]*[0-9]+/)) {
-          en = substr(buf, RSTART, RLENGTH)
-          sub(/^.*"executionNum"[[:space:]]*:[[:space:]]*/, "", en)
+          en = substr(buf, RSTART, RLENGTH); sub(/^.*"executionNum"[[:space:]]*:[[:space:]]*/, "", en)
           if ((en + 0) >= 2) bypass = 1
         }
       } else if (harness == "cursor") {
         if (match(buf, /"status"[[:space:]]*:[[:space:]]*"[^"]*"/)) {
-          st = substr(buf, RSTART, RLENGTH)
-          sub(/^.*"status"[[:space:]]*:[[:space:]]*"/, "", st)
-          sub(/"$/, "", st)
+          st = substr(buf, RSTART, RLENGTH); sub(/^.*"status"[[:space:]]*:[[:space:]]*"/, "", st); sub(/"$/, "", st)
           if (st != "" && st != "completed") bypass = 1
         }
         if (match(buf, /"loop_count"[[:space:]]*:[[:space:]]*[0-9]+/)) {
-          lc = substr(buf, RSTART, RLENGTH)
-          sub(/^.*"loop_count"[[:space:]]*:[[:space:]]*/, "", lc)
+          lc = substr(buf, RSTART, RLENGTH); sub(/^.*"loop_count"[[:space:]]*:[[:space:]]*/, "", lc)
           if ((lc + 0) >= 1) bypass = 1
         }
       } else {
-        if (match(buf, /"stop_hook_active"[[:space:]]*:[[:space:]]*true/)) {
-          bypass = 1
-        }
+        if (match(buf, /"stop_hook_active"[[:space:]]*:[[:space:]]*true/)) bypass = 1
       }
-
-      leaf = 0
-      if (match(buf, /"parentConversationId"[[:space:]]*:[[:space:]]*"[^"]+"/)) {
-        leaf = 1
-      }
-      if (match(buf, /"agentName"[[:space:]]*:[[:space:]]*"runtime-[^"]+"/)) {
-        leaf = 1
-      }
-      if (match(buf, /"lastUserInput"[[:space:]]*:[[:space:]]*"[^"]*(agents\/(executor|researcher|code-reviewer|quality-reviewer|plan-generator)\.md|templates\/agent\/(plan|executor)-schema-card\.md|\.agents\/agents\/|\[Flow Swarm Worker\]|swarm-worker)/)) {
-        leaf = 1
-      }
-
-      gsub(/\|/, "_", proj)
       gsub(/\|/, "_", conv)
-      printf "%d|%d|%s|%s\n", bypass, leaf, proj, conv
+      printf "%d|%s\n", bypass, conv
     }
   ')"
-
   BYPASS_FLAG="${PARSED_STDIN%%|*}"
-  REST_STDIN="${PARSED_STDIN#*|}"
-  IS_LEAF_SUBAGENT="${REST_STDIN%%|*}"
-  REST_STDIN2="${REST_STDIN#*|}"
-  DETECTED_PROJ="${REST_STDIN2%%|*}"
-  CONV_ID="${REST_STDIN2#*|}"
-
+  CONV_ID="${PARSED_STDIN#*|}"
   if [ "$BYPASS_FLAG" = "1" ]; then
     emit_allow
   fi
-  if [ -z "$PROJECT_DIR" ] && [ -n "$DETECTED_PROJ" ]; then
-    PROJECT_DIR="$DETECTED_PROJ"
-  fi
 fi
 
-if [ "${FLOW_SWARM_WORKER:-0}" = "1" ]; then
-  IS_LEAF_SUBAGENT=1
-fi
+flow_detect_worker_invocation
+IS_LEAF_SUBAGENT="$IS_WORKER_AGENT"
+flow_resolve_worktree_context
+flow_runtime_paths
 
-if [ -z "$PROJECT_DIR" ]; then
-  if [ -n "${CURSOR_PROJECT_DIR:-}" ]; then
-    PROJECT_DIR="$CURSOR_PROJECT_DIR"
-  elif [ -n "${CLAUDE_PROJECT_DIR:-}" ]; then
-    PROJECT_DIR="$CLAUDE_PROJECT_DIR"
-  else
-    PROJECT_DIR="$(pwd)"
-  fi
-fi
-
-EFFECTIVE_ROOT="$PROJECT_DIR"
-if [ ! -d "$PROJECT_DIR/.agents" ] && [ -f "$PROJECT_DIR/.git" ] && command -v git >/dev/null 2>&1; then
-  GIT_COMMON="$(git -C "$PROJECT_DIR" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || git -C "$PROJECT_DIR" rev-parse --git-common-dir 2>/dev/null || true)"
-  if [ -n "$GIT_COMMON" ]; then
-    case "$GIT_COMMON" in
-      /*) COMMON_ABS="$GIT_COMMON" ;;
-      *) COMMON_ABS="$(CDPATH= cd -- "$PROJECT_DIR" && CDPATH= cd -- "$GIT_COMMON" 2>/dev/null && pwd || true)" ;;
-    esac
-    if [ -n "$COMMON_ABS" ]; then
-      CAND_MAIN="$(CDPATH= cd -- "$COMMON_ABS/.." 2>/dev/null && pwd || true)"
-      if [ -n "$CAND_MAIN" ] && [ -d "$CAND_MAIN/.agents" ]; then
-        EFFECTIVE_ROOT="$CAND_MAIN"
-      fi
-    fi
-  fi
-fi
-
-get_runtime_lease_dir() {
-  raw_tmp="${TMPDIR:-/tmp}"
-  raw_tmp="${raw_tmp%/}"
-  [ -n "$raw_tmp" ] || raw_tmp="/tmp"
-  rt_base="${FLOW_RUNTIME_DIR:-$raw_tmp/flow-runtime}"
-  rt_base="${rt_base%/}"
-  ws_id="$(printf '%s' "$EFFECTIVE_ROOT" | tr '\\' '/' | sed 's:/*$::; s/[^A-Za-z0-9._-]/_/g' | awk '{ n = length($0); print (n > 120 ? substr($0, n - 119) : $0) }')"
-  [ -n "$ws_id" ] || ws_id="default"
-  printf '%s/%s/subagents\n' "$rt_base" "$ws_id"
-}
-
-SUBAGENT_LEASE_DIR="$(get_runtime_lease_dir)"
+SUBAGENT_LEASE_DIR="$RUNTIME_WS_DIR/subagents"
 SAFE_CONV=""
 if [ -n "$CONV_ID" ]; then
   SAFE_CONV="$(printf '%s' "$CONV_ID" | sed 's/[^A-Za-z0-9._-]/_/g')"
@@ -930,18 +799,8 @@ if [ -z "$VIOLATIONS" ]; then
   emit_allow
 fi
 
-REASON="Flow Stop Gate blocked turn completion — synchronize present-tense Markdown and complete Zero-Context Chapter Review before stopping: $VIOLATIONS"
-ESCAPED_REASON="$(printf '%s' "$REASON" | awk '
-  BEGIN { ORS = "" }
-  {
-    gsub(/\\/, "\\\\")
-    gsub(/"/, "\\\"")
-    gsub(/\r/, "")
-    gsub(/\t/, " ")
-    if (NR > 1) printf "\\n"
-    printf "%s", $0
-  }
-')"
+REASON="$(flow_strip_xml_tags "Flow Stop Gate blocked turn completion — synchronize present-tense Markdown and complete Zero-Context Chapter Review before stopping: $VIOLATIONS")"
+ESCAPED_REASON="$(flow_json_escape "$REASON")"
 
 case "$HARNESS" in
   agy|antigravity)

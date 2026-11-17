@@ -18,7 +18,7 @@ NODE_BIN = shutil.which("node")
 def _detect_via_node(workspace_dir: Path, plugin_root: Path | None = None) -> dict[str, Any]:
     """Invoke sidecars/studio/python-runner.mjs to inspect ``workspace_dir`` and return parsed JSON."""
     assert NODE_BIN is not None
-    runner_module = (REPO_ROOT / "sidecars" / "studio" / "python-runner.mjs").as_uri()
+    runner_module = (REPO_ROOT / "sidecars" / "studio" / "bridges" / "python.mjs").as_uri()
     plug = str(plugin_root or REPO_ROOT)
     script = (
         f"import {{ detectWorkspacePython, resolveCatalogWorkerCommand }} from {json.dumps(runner_module)};"

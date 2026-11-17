@@ -2,40 +2,18 @@
 # Portable PowerShell PreToolUse safety guard for Flow.
 $ErrorActionPreference = "Stop"
 
-$Harness = "claude"
-$ProjectDir = ""
-for ($i = 0; $i -lt $args.Count; $i++) {
-    $arg = [string]$args[$i]
-    if ($arg -eq "--harness" -or $arg -eq "-Harness") {
-        if ($i + 1 -lt $args.Count) {
-            $Harness = [string]$args[$i + 1]
-            $i++
-        }
-    } elseif ($arg -like "--harness=*") {
-        $Harness = $arg.Substring(10)
-    } elseif ($arg -eq "--project" -or $arg -eq "-Project") {
-        if ($i + 1 -lt $args.Count) {
-            $ProjectDir = [string]$args[$i + 1]
-            $i++
-        }
-    } elseif ($arg -like "--project=*") {
-        $ProjectDir = $arg.Substring(10)
-    }
-}
+. (Join-Path $PSScriptRoot "lib/common.ps1")
+
+$parsedArgs = Parse-FlowHookArgs -RawArgs $args -DefaultHarness "claude"
+$Harness = $parsedArgs.Harness
+$ProjectDir = $parsedArgs.ProjectDir
 
 if ($Harness -eq "claude" -and -not [string]::IsNullOrEmpty($env:CURSOR_VERSION)) {
     [Console]::Out.WriteLine('{}')
     exit 0
 }
 
-$StdinPayload = ""
-try {
-    if ([Console]::IsInputRedirected) {
-        $StdinPayload = [Console]::In.ReadToEnd()
-    }
-} catch {
-    $StdinPayload = ""
-}
+$StdinPayload = Read-FlowStdinPayload
 
 $PayloadCwd = ""
 $ToolName = ""
@@ -528,7 +506,26 @@ if ($Decision -eq "allow" -and -not [string]::IsNullOrWhiteSpace($CmdLine)) {
     }
 }
 
-$EscReason = $Reason.Replace('\', '\\').Replace('"', '\"').Replace("`r", "").Replace("`n", " ")
+if ($Decision -eq "allow" -and $Harness -eq "claude" -and $env:CLAUDECODE -eq "1" -and [string]::IsNullOrEmpty($env:CODEX_THREAD_ID) -and [string]::IsNullOrEmpty($env:CODEX_CI) -and $env:FLOW_MOD_LOADED -ne "1" -and $ToolName -eq "Agent") {
+    if ($StdinPayload -notmatch '"model"\s*:\s*"[^"]+"') {
+        $Tier = if ($AgentId -match 'plan-generator|prd-orchestrator') { "frontier" } elseif ($AgentId -match 'researcher') { "light" } else { "balanced" }
+        $TierFile = Join-Path $ProjectDir ".claude/agents/flow-tier-${Tier}.md"
+        if (Test-Path -LiteralPath $TierFile -PathType Leaf) {
+            $tfRaw = Get-Content -LiteralPath $TierFile -Raw -Encoding UTF8 -ErrorAction SilentlyContinue
+            $mm = [regex]::Match($tfRaw, '(?m)^model:\s*["'']?([^"''\r\n]+)')
+            if ($mm.Success) {
+                $tierModel = $mm.Groups[1].Value.Trim()
+                if ($tierModel -and $tierModel -ne "inherit") {
+                    $escModel = Escape-FlowJsonString -Value $tierModel
+                    [Console]::Out.WriteLine("{`"hookSpecificOutput`":{`"hookEventName`":`"PreToolUse`",`"permissionDecision`":`"allow`",`"updatedInput`":{`"model`":`"$escModel`"}}}")
+                    exit 0
+                }
+            }
+        }
+    }
+}
+
+$EscReason = Escape-FlowJsonString -Value (Strip-FlowXmlTags -Text $Reason)
 
 switch -Regex ($Harness) {
     '^(agy|antigravity)$' {

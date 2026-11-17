@@ -1,12 +1,25 @@
-"""Run parallel read-only SubsystemDigest reconnaissance scouts with quota-aware budgets."""
+"""Run parallel read-only SubsystemDigest scouts with federated knowledge search and slice hints."""
+
+from __future__ import annotations
 
 import json
 import os
 from pathlib import Path
-import re
-import subprocess
-import tempfile
-import time
+import sys
+
+_WF_PARENT = Path(__file__).resolve().parent.parent if "__file__" in globals() else Path.cwd() / "workflows"
+if str(_WF_PARENT) not in sys.path:
+    sys.path.insert(0, str(_WF_PARENT))
+
+from flow_common import (
+    acquire_runtime_lease,
+    git_porcelain,
+    prefetch_seeds,
+    release_runtime_lease,
+    resolve_dynamic_route,
+    resolve_plugin_root,
+    run_node_cli,
+)
 
 DIGEST_SCHEMA = {
     "type": "object",
@@ -17,6 +30,7 @@ DIGEST_SCHEMA = {
         "canonical_tests_and_fixtures": {"type": "array", "items": {"type": "string"}},
         "edge_cases_and_gotchas": {"type": "array", "items": {"type": "string"}},
         "affected_docs_and_okf_chapters": {"type": "array", "items": {"type": "string"}},
+        "recommended_worker_slices": {"type": "array", "items": {"type": "string"}},
         "open_design_forks": {"type": "array", "items": {"type": "string"}},
     },
     "required": [
@@ -26,162 +40,83 @@ DIGEST_SCHEMA = {
         "canonical_tests_and_fixtures",
         "edge_cases_and_gotchas",
         "affected_docs_and_okf_chapters",
+        "recommended_worker_slices",
         "open_design_forks",
     ],
 }
 
-QUOTA_MARKERS = (
-    "429",
-    "resource_exhausted",
-    "quota",
-    "rate limit",
-    "rate_limit",
-    "capacity",
-    "overloaded",
-    "exhausted",
-)
-
 subsystems = list(args.get("subsystems", []))
-preferred_model = str(args.get("scout_model") or os.environ.get("FLOW_SCOUT_MODEL") or "flash")
-narrow_model_arg = str(args.get("narrow_model") or "").strip()
+federated_query = str(args.get("query") or "").strip()
+planes = list(args.get("planes") or ["local", "siblings"])
+harness = str(args.get("harness") or os.environ.get("FLOW_HARNESS") or "agy")
+plugin_root = resolve_plugin_root(args.get("plugin_root"))
+
+balanced_route = resolve_dynamic_route(plugin_root, "implementation", harness=harness)
+light_route = resolve_dynamic_route(plugin_root, "narrow_fetch", harness=harness)
+preferred_model = str(args.get("scout_model") or os.environ.get("FLOW_SCOUT_MODEL") or balanced_route["runtime_target"])
+narrow_model_arg = str(args.get("narrow_model") or light_route["runtime_target"]).strip()
 scout_agent = str(args.get("scout_agent") or os.environ.get("FLOW_SCOUT_AGENT") or "self")
 narrow_agent = str(args.get("narrow_agent") or os.environ.get("FLOW_SCOUT_NARROW_AGENT") or scout_agent)
 timeout_seconds = int(args.get("timeout_seconds", 300))
-quota_state = {"degraded": False}
 
-
-def _git_porcelain() -> str:
-    """Capture working-tree status to confirm read-only scouts leave zero mutations."""
-    proc = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True, check=False)
-    return proc.stdout if proc.returncode == 0 else ""
-
-
-def _acquire_runtime_lease() -> Path | None:
-    """Register an active workflow runtime lease for Stop-gate subagent coordination."""
-    raw_tmp = os.environ.get("TMPDIR", "").rstrip("/\\") or tempfile.gettempdir().rstrip("/\\")
-    rt_base = (os.environ.get("FLOW_RUNTIME_DIR", "").rstrip("/\\")) or f"{raw_tmp}/flow-runtime"
-    norm_root = str(Path.cwd()).replace("\\", "/").rstrip("/")
-    ws_id = re.sub(r"[^A-Za-z0-9._-]", "_", norm_root)[-120:] or "default"
-    lease_dir = Path(rt_base) / ws_id / "subagents"
-    try:
-        lease_dir.mkdir(parents=True, exist_ok=True)
-        lease_path = lease_dir / f"workflow-{os.getpid()}.lease"
-        lease_path.write_text(f"{int(time.time())}\n", encoding="utf-8")
-        return lease_path
-    except OSError:
-        return None
-
-
-def _release_runtime_lease(lease_path: Path | None) -> None:
-    """Remove a previously registered workflow runtime lease."""
-    if lease_path is None:
-        return
-    try:
-        lease_path.unlink(missing_ok=True)
-    except OSError:
-        pass
+federated_hits: list[dict] = []
+if federated_query:
+    _, fed_out, _, _ = run_node_cli(
+        plugin_root,
+        ["catalog", "search", "--query", federated_query, "--mode", "federated", "--planes", ",".join(planes), "--root", str(Path.cwd())],
+    )
+    if isinstance(fed_out, dict):
+        federated_hits = list(fed_out.get("hits", []))[:12]
 
 
 async def _run_scout(item: dict) -> dict:
-    """Execute one bounded subsystem scout with quota fallback only on narrow <=3-file fetches."""
+    """Execute one bounded subsystem scout with prefetched seeds and slice boundary hints."""
     name = str(item.get("name", "subsystem"))
     paths = [str(p) for p in item.get("paths", [])]
     focus = str(item.get("focus", "")).strip()
     allow_lite = bool(item.get("narrow_fetch", False)) and len(paths) <= 3
     selected_agent = narrow_agent if allow_lite else scout_agent
-    initial_model = narrow_model_arg if (allow_lite and narrow_model_arg) else preferred_model
-    fallback_model = (
-        narrow_model_arg
-        if (allow_lite and narrow_model_arg and initial_model != narrow_model_arg)
-        else ("flash_lite" if allow_lite and initial_model == "flash" else None)
-    )
-    active_model = fallback_model if (quota_state["degraded"] and fallback_model) else initial_model
-    focus_clause = f" Focus: {focus}" if focus else ""
+    active_model = narrow_model_arg if allow_lite else preferred_model
+    seeds = prefetch_seeds(paths, globals().get("call_tool"), max_files=4, end_line=100)
+    seed_block = f"\nPre-read seed excerpts:\n{json.dumps(seeds, ensure_ascii=False)}" if seeds else ""
+    fed_block = f"\nFederated catalog matches:\n{json.dumps(federated_hits[:5], ensure_ascii=False)}" if federated_hits else ""
     prompt = (
-        f"Scout subsystem `{name}` across exact paths {paths}.{focus_clause}\n"
-        "Stay strictly read-only: read only these scoped repository files, canonical tests, and referenced "
-        ".agents/bundles/knowledge/ chapters. Never edit files, never browse plugin reference docs, and never "
-        "pass BypassSandbox=true. Return a concise SubsystemDigest."
+        f"Scout subsystem `{name}` across paths {paths}. Focus: {focus or 'contracts, tests, and slice seams'}.\n"
+        "Stay strictly read-only. Recommend disjoint `<=250` LOC worker slices in `recommended_worker_slices`."
+        f"{seed_block}{fed_block}"
     )
-    try:
-        digest = await with_budget(
-            agent(
-                prompt,
-                schema=DIGEST_SCHEMA,
-                role=f"Scout {name}",
-                type_name=selected_agent,
-                workspace="inherit",
-                model=active_model,
-            ),
-            max_tokens=120000,
-            timeout=timeout_seconds,
-        )
-        return {
-            "subsystem": name,
-            "status": "completed",
-            "agent_used": selected_agent,
-            "model_used": active_model,
-            "digest": digest,
-        }
-    except BudgetExceeded as exc:
-        log(f"Scout {name} hit budget limit: {exc}")
-        return {
-            "subsystem": name,
-            "status": "timed_out",
-            "agent_used": selected_agent,
-            "model_used": active_model,
-            "error": str(exc),
-            "digest": None,
-        }
-    except Exception as exc:
-        msg = str(exc).lower()
-        if fallback_model and active_model != fallback_model and any(m in msg for m in QUOTA_MARKERS):
-            quota_state["degraded"] = True
-            log(f"Quota hit for narrow scout {name} on {active_model}; retrying on {fallback_model}")
-            digest = await with_budget(
-                agent(
-                    prompt,
-                    schema=DIGEST_SCHEMA,
-                    role=f"Scout {name} ({fallback_model})",
-                    type_name="self",
-                    workspace="inherit",
-                    model=fallback_model,
-                ),
-                max_tokens=80000,
-                timeout=timeout_seconds,
-            )
-            return {
-                "subsystem": name,
-                "status": "completed",
-                "agent_used": "self",
-                "model_used": fallback_model,
-                "digest": digest,
-            }
-        return {
-            "subsystem": name,
-            "status": "failed",
-            "agent_used": selected_agent,
-            "model_used": active_model,
-            "error": str(exc),
-            "digest": None,
-        }
+    digest = await with_budget(
+        agent(
+            prompt,
+            schema=DIGEST_SCHEMA,
+            role=f"Scout {name}",
+            type_name=selected_agent,
+            workspace="inherit",
+            model=active_model,
+        ),
+        max_tokens=260000,
+        timeout=timeout_seconds,
+    )
+    return {"subsystem": name, "status": "completed", "agent_used": selected_agent, "model_used": active_model, "digest": digest}
 
 
-before_status = _git_porcelain()
-phase("Sharded Subsystem Reconnaissance")
-log(f"Dispatching {len(subsystems)} read-only scout(s) on model={preferred_model}")
-results: list[dict] = []
-_wf_lease = _acquire_runtime_lease()
+before_status = git_porcelain()
+phase("Parallel Subsystem Reconnaissance")
+log(f"Dispatching {len(subsystems)} read-only scout(s) across planes {planes}")
+_wf_lease = acquire_runtime_lease()
 try:
-    results = await parallel(subsystems, _run_scout)
+    results = await parallel(subsystems, _run_scout) if subsystems else []
 finally:
-    _release_runtime_lease(_wf_lease)
-after_status = _git_porcelain()
+    release_runtime_lease(_wf_lease)
 
-summary = {
-    "subsystems_count": len(subsystems),
-    "results": results,
-    "worktree_clean": before_status == after_status,
-    "tokens": tokens_used(),
-}
-print(json.dumps(summary))
+after_status = git_porcelain()
+print(
+    json.dumps(
+        {
+            "git_status_unchanged": before_status == after_status,
+            "federated_hits": federated_hits,
+            "subsystems": results,
+            "tokens": tokens_used(),
+        }
+    )
+)

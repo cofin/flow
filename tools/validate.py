@@ -6,8 +6,10 @@ import argparse
 import ast
 import fnmatch
 import json
+import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -17,24 +19,26 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from tools.worktree_env import is_link_or_junction
-
 __all__ = (
+    "ALLOWED_TOP_LEVEL_ENTRIES",
     "COMPACT_TASK_HEADINGS",
     "EXPECTED_AGENTS",
     "EXPECTED_SKILLS",
-    "MAX_SKILL_DESCRIPTION_CHARS",
+    "MAX_EXECUTOR_SCHEMA_CARD_LINES",
+    "MAX_PLAN_SCHEMA_CARD_LINES",
     "MAX_SKILL_FILE_BYTES",
+    "MAX_SKILL_DESCRIPTION_CHARS",
     "MAX_TRUTH_BLOCK_LINES",
     "PLANNING_QUALITY_VALUES",
     "READONLY_AGENTS",
     "REPO_ROOT",
     "REQUIRED_SPEC_HEADINGS",
     "REQUIRED_TASK_HEADINGS",
-    "RETIRED_PATHS",
+    "is_link_or_junction",
     "main",
     "validate_agents",
     "validate_anti_sprawl",
+    "validate_content_hygiene",
     "validate_hooks",
     "validate_lockfile",
     "validate_manifests",
@@ -45,6 +49,28 @@ __all__ = (
     "validate_skills",
     "validate_workflows",
 )
+
+
+def is_link_or_junction(target: Path) -> bool:
+    """Return True when ``target`` is a POSIX symlink or Windows symlink/NTFS junction."""
+    if target.is_symlink():
+        return True
+    try:
+        st = target.lstat()
+    except OSError:
+        return False
+    if stat.S_ISLNK(st.st_mode):
+        return True
+    reparse_attr = getattr(st, "st_reparse_point", 0)
+    if reparse_attr:
+        return True
+    if sys.platform == "win32" and target.exists():
+        try:
+            return os.path.realpath(target) != os.path.abspath(target)
+        except OSError:
+            return False
+    return False
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SKILLS_DIR = REPO_ROOT / "skills"
@@ -213,52 +239,51 @@ ALLOWED_ANTIGRAVITY_PLUGIN_KEYS: frozenset[str] = frozenset(
     }
 )
 
-RETIRED_PATHS: tuple[str, ...] = (
-    ".codex/INSTALL.md",
-    ".codex/hooks.json",
-    ".cursor/hooks.json",
-    ".cursor/rules/flow.mdc",
-    ".github/agents",
-    ".github/copilot-instructions.md",
-    ".githooks/pre-commit",
-    ".opencode/INSTALL.md",
-    ".opencode/agents",
-    "CLAUDE.md",
-    "commands",
-    "contracts",
-    "docs",
-    "hooks/agy-pre-invocation.ps1",
-    "hooks/agy-pre-invocation.sh",
-    "hooks/block-dangerous-git.sh",
-    "hooks/cursor-session-start.sh",
-    "hooks/detect-env.ps1",
-    "hooks/detect-env.sh",
-    "hooks/hooks-agy.json",
-    "hooks/hooks-codex.json",
-    "hooks/primer.txt",
-    "hooks/session-start.cmd",
-    "hooks/session-start.js",
-    "plugins/flow",
-    "rules/flow-core.md",
-    "skills/apilookup",
-    "skills/architecture-critic",
-    "skills/challenge",
-    "skills/consensus",
-    "skills/deepthink",
-    "skills/devils-advocate",
-    "skills/docgen",
-    "skills/flow-state",
-    "skills/flow-sync-status",
-    "skills/performance-analyst",
-    "skills/perspectives",
-    "skills/security-auditor",
-    "skills/tracer",
-    "templates/agent/flow-instructions.md",
-    "templates/agent/skills",
-    "templates/antigravity",
-    "templates/blueprints",
-    "templates/opencode",
-    "templates/styleguides",
+ALLOWED_TOP_LEVEL_ENTRIES: frozenset[str] = frozenset(
+    {
+        ".agents",
+        ".claude-plugin",
+        ".codex",
+        ".codex-plugin",
+        ".cursor-plugin",
+        ".git",
+        ".gitattributes",
+        ".github",
+        ".gitignore",
+        ".markdownlint.json",
+        ".mypy_cache",
+        ".npmrc",
+        ".opencode",
+        ".pytest_cache",
+        ".python-version",
+        ".ruff_cache",
+        ".venv",
+        "AGENTS.md",
+        "CHANGELOG.md",
+        "CONTRIBUTING.md",
+        "LICENSE",
+        "Makefile",
+        "README.md",
+        "agents",
+        "assets",
+        "dist",
+        "hooks",
+        "hooks.json",
+        "mods",
+        "package.json",
+        "plugin.json",
+        "pyproject.toml",
+        "rules",
+        "sidecars",
+        "skills",
+        "templates",
+        "tests",
+        "tools",
+        "uv.lock",
+        "uv.toml",
+        "vscode-extension",
+        "workflows",
+    }
 )
 
 PUBLIC_LOCK_SOURCE_HOSTS: frozenset[str] = frozenset({"pypi.org", "files.pythonhosted.org"})
@@ -299,6 +324,7 @@ def validate_repository(repo_root: Path = REPO_ROOT) -> list[str]:
     errors.extend(validate_schema_cards(repo_root))
     errors.extend(validate_markdown_links(repo_root))
     errors.extend(validate_anti_sprawl(repo_root))
+    errors.extend(validate_content_hygiene(repo_root))
     errors.extend(validate_lockfile(repo_root))
     return errors
 
@@ -459,6 +485,48 @@ def validate_manifests(repo_root: Path = REPO_ROOT) -> list[str]:
                 errors.append(f"sidecars/studio/sidecar.json: invalid JSON ({exc})")
         if not (sidecar_dir / "main.mjs").is_file():
             errors.append("Missing sidecars/studio/main.mjs")
+        css_candidate = sidecar_dir / "web" / "styles.css"
+        if not css_candidate.is_file():
+            css_candidate = sidecar_dir / "styles.css"
+        if css_candidate.is_file():
+            css_err = _validate_css_brace_balance(css_candidate, repo_root)
+            if css_err:
+                errors.append(css_err)
+
+    claude_mod_dir = repo_root / "mods" / "claude-flow"
+    if claude_mod_dir.is_dir():
+        mod_manifest = claude_mod_dir / ".claude-plugin" / "plugin.json"
+        if not mod_manifest.is_file():
+            errors.append("Missing mods/claude-flow/.claude-plugin/plugin.json")
+        else:
+            try:
+                mod_data = json.loads(mod_manifest.read_text(encoding="utf-8"))
+                if not str(mod_data.get("name", "")).strip():
+                    errors.append("mods/claude-flow/.claude-plugin/plugin.json: missing name")
+            except json.JSONDecodeError as exc:
+                errors.append(f"mods/claude-flow/.claude-plugin/plugin.json: invalid JSON ({exc})")
+        mod_hooks = claude_mod_dir / "hooks" / "hooks.json"
+        if not mod_hooks.is_file():
+            errors.append("Missing mods/claude-flow/hooks/hooks.json")
+        else:
+            try:
+                json.loads(mod_hooks.read_text(encoding="utf-8"))
+            except json.JSONDecodeError as exc:
+                errors.append(f"mods/claude-flow/hooks/hooks.json: invalid JSON ({exc})")
+        mod_register = claude_mod_dir / "hooks" / "register.mjs"
+        if not mod_register.is_file():
+            errors.append("Missing mods/claude-flow/hooks/register.mjs")
+        else:
+            node_bin = shutil.which("node")
+            if node_bin:
+                proc = subprocess.run(
+                    [node_bin, "--check", str(mod_register)],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                if proc.returncode != 0:
+                    errors.append(f"mods/claude-flow/hooks/register.mjs: JS syntax error: {proc.stderr.strip()}")
 
     workflows_dir = repo_root / "workflows"
     if workflows_dir.is_dir():
@@ -595,6 +663,31 @@ def validate_hooks(repo_root: Path = REPO_ROOT) -> list[str]:
                 ".opencode/plugins/flow.js: must not use V1 hooks; push context with event.system.push in"
                 " ctx.session.hook('context')"
             )
+
+    hooks_dir = repo_root / "hooks"
+    for sh_file in sorted(hooks_dir.glob("*.sh")):
+        ps_twin = sh_file.with_suffix(".ps1")
+        if not ps_twin.is_file():
+            errors.append(f"Missing PowerShell twin for {sh_file.relative_to(repo_root).as_posix()}")
+    lib_dir = hooks_dir / "lib"
+    if lib_dir.is_dir():
+        for sh_lib in sorted(lib_dir.glob("*.sh")):
+            if not sh_lib.with_suffix(".ps1").is_file():
+                errors.append(f"Missing PowerShell twin for {sh_lib.relative_to(repo_root).as_posix()}")
+
+    if agy_hooks_path.is_file() and (hooks_dir / "pre-invocation.sh").is_file():
+        agy_loaded = json.loads(agy_hooks_path.read_text(encoding="utf-8"))
+        required_agy_events = {
+            "SessionStart": "flow-session-start",
+            "PreInvocation": "flow-pre-invocation",
+            "PreToolUse": "flow-pre-tool-guard",
+            "PostToolUse": "flow-post-tool-telemetry",
+            "PostInvocation": "flow-post-invocation",
+            "Stop": "flow-stop-check",
+        }
+        for ev_name, group_key in required_agy_events.items():
+            if ev_name not in agy_loaded.get(group_key, {}):
+                errors.append(f"hooks.json: missing {group_key}.{ev_name} registration")
 
     errors.extend(_run_session_start_smoke_checks(hook_script, ps1_script))
     if stop_sh_script.is_file():
@@ -867,15 +960,108 @@ def validate_markdown_links(repo_root: Path = REPO_ROOT) -> list[str]:
     return errors
 
 
+def _validate_css_brace_balance(css_path: Path, repo_root: Path) -> str | None:
+    """Return SIDECAR_CSS_SYNTAX error string if CSS braces or strings are unbalanced."""
+    rel = css_path.relative_to(repo_root).as_posix()
+    text = css_path.read_text(encoding="utf-8")
+    depth = 0
+    in_comment = False
+    quote_char = ""
+    i = 0
+    n = len(text)
+    while i < n:
+        ch = text[i]
+        nxt = text[i + 1] if i + 1 < n else ""
+        if in_comment:
+            if ch == "*" and nxt == "/":
+                in_comment = False
+                i += 2
+                continue
+            i += 1
+            continue
+        if quote_char:
+            if ch == "\\" and i + 1 < n:
+                i += 2
+                continue
+            if ch == quote_char:
+                quote_char = ""
+            i += 1
+            continue
+        if ch == "/" and nxt == "*":
+            in_comment = True
+            i += 2
+            continue
+        if ch in ('"', "'"):
+            quote_char = ch
+            i += 1
+            continue
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth < 0:
+                return f"SIDECAR_CSS_SYNTAX: unexpected closing brace in {rel}"
+        i += 1
+    if in_comment or quote_char or depth != 0:
+        return f"SIDECAR_CSS_SYNTAX: unclosed comment, string, or brace (depth={depth}) in {rel}"
+    return None
+
+
 def validate_anti_sprawl(repo_root: Path = REPO_ROOT) -> list[str]:
-    """Verify that retired duplicate harness mirrors, shims, and obsolete skills do not exist."""
+    """Verify present-tense top-level layout allowlist and ensure legacy shims stay deleted."""
     errors: list[str] = []
-    for rel_path in RETIRED_PATHS:
-        candidate = repo_root / rel_path
-        if candidate.exists():
-            errors.append(f"Retired path must not exist: {rel_path}")
+    for entry in sorted(repo_root.iterdir(), key=lambda p: p.name):
+        if entry.name not in ALLOWED_TOP_LEVEL_ENTRIES:
+            errors.append(f"Unexpected top-level path violates layout allowlist: {entry.name}")
+    for legacy_tool in ("tools/model_router.py", "tools/optimize_specs.py", "tools/worktree_env.py"):
+        if (repo_root / legacy_tool).exists():
+            errors.append(f"Legacy deleted module must not exist: {legacy_tool}")
     for openai_yaml in (repo_root / "skills").glob("*/agents/openai.yaml"):
         errors.append(f"Retired openai.yaml must not exist: {openai_yaml.relative_to(repo_root).as_posix()}")
+    return errors
+
+
+_WORKSTATION_PATH_RE = re.compile(r"/(?:usr/local/google|home/[a-zA-Z0-9._-]+/code|Users/[a-zA-Z0-9._-]+)/")
+_XML_TAG_RE = re.compile(r"<[A-Za-z/][^>\n]{0,80}>")
+
+
+def validate_content_hygiene(repo_root: Path = REPO_ROOT) -> list[str]:
+    """Scan shipped Flow files for workstation paths and optional local hygiene denylist leaks."""
+    errors: list[str] = []
+    denylist_path = Path.home() / ".config" / "flow" / "hygiene-denylist.txt"
+    extra_terms: list[str] = []
+    if denylist_path.is_file():
+        for raw_ln in denylist_path.read_text(encoding="utf-8", errors="ignore").splitlines():
+            term = raw_ln.strip()
+            if term and not term.startswith("#"):
+                extra_terms.append(term.lower())
+
+    scan_dirs = ("skills", "agents", "rules", "templates", "workflows", "sidecars", "mods", "vscode-extension")
+    scan_files: list[Path] = []
+    for doc_name in ("AGENTS.md", "README.md"):
+        doc_path = repo_root / doc_name
+        if doc_path.is_file():
+            scan_files.append(doc_path)
+    for sub in scan_dirs:
+        sub_dir = repo_root / sub
+        if not sub_dir.is_dir():
+            continue
+        for fpath in sorted(sub_dir.rglob("*")):
+            if not fpath.is_file():
+                continue
+            if fpath.suffix not in (".md", ".py", ".mjs", ".js", ".json", ".toml", ".sh", ".ps1", ".css", ".html"):
+                continue
+            scan_files.append(fpath)
+
+    for fpath in scan_files:
+        rel = fpath.relative_to(repo_root).as_posix()
+        text = fpath.read_text(encoding="utf-8", errors="ignore")
+        if _WORKSTATION_PATH_RE.search(text):
+            errors.append(f"CONTENT_HYGIENE: workstation path leaked in {rel}")
+        lowered = text.lower()
+        for term in extra_terms:
+            if term in lowered:
+                errors.append(f"CONTENT_HYGIENE: forbidden denylist term {term!r} leaked in {rel}")
     return errors
 
 
@@ -1253,6 +1439,8 @@ def _run_session_start_smoke_checks(sh_script: Path, ps1_script: Path) -> list[s
                 continue
             if required_key not in payload:
                 errors.append(f"hooks/session-start.sh --harness {harness} missing top-level key {required_key!r}")
+            if _contains_xml_tag_in_strings(payload):
+                errors.append(f"hooks/session-start.sh --harness {harness} emitted raw XML/HTML tag in JSON output")
 
         pwsh_bin = shutil.which("pwsh") or shutil.which("powershell")
         if pwsh_bin and ps1_script.is_file():
@@ -1491,8 +1679,22 @@ def _is_catalog_excluded(
             break
         cur = cur.parent
     rel_bundle = md_path.relative_to(bundle_dir).as_posix()
+    rel_parts = md_path.relative_to(bundle_dir).parts
+    if len(rel_parts) >= 3 and rel_parts[0] == "specs" and "feedback" in rel_parts:
+        return True
     rel_proj = md_path.relative_to(project_root).as_posix() if md_path.is_relative_to(project_root) else rel_bundle
     return any(fnmatch.fnmatch(rel_bundle, pat) or fnmatch.fnmatch(rel_proj, pat) for pat in excludes)
+
+
+def _contains_xml_tag_in_strings(obj: Any) -> bool:
+    """Return True if any string inside ``obj`` contains raw XML/HTML angle-bracket tags."""
+    if isinstance(obj, str):
+        return bool(_XML_TAG_RE.search(obj))
+    if isinstance(obj, list):
+        return any(_contains_xml_tag_in_strings(item) for item in obj)
+    if isinstance(obj, dict):
+        return any(_contains_xml_tag_in_strings(val) for val in obj.values())
+    return False
 
 
 def _validate_concept_frontmatter_and_truth(
@@ -1526,6 +1728,15 @@ def _validate_concept_frontmatter_and_truth(
                 f"{rel}: stale_after {stale_val!r} must use full ISO-8601 timestamp with UTC offset "
                 "(YYYY-MM-DDTHH:MM:SSZ or ±HH:MM)"
             )
+
+    if "contributors" in fm and isinstance(fm["contributors"], list):
+        for entry in fm["contributors"]:
+            if isinstance(entry, dict):
+                if not str(entry.get("by", "")).strip():
+                    errors.append(f"{rel}: contributor object must declare non-empty 'by' handle")
+                at_val = str(entry.get("at", "")).strip()
+                if at_val and not _ISO_UTC_OFFSET_PATTERN.match(at_val):
+                    errors.append(f"{rel}: contributor.at {at_val!r} must use full ISO-8601 UTC timestamp")
 
     if check_overview_budget:
         byte_len = _html_safe_json_byte_len(body.strip())
@@ -1824,6 +2035,7 @@ def _validate_multi_chapter_flow(
             git_root=git_root,
             plan_commit=ch_plan_commit,
             sha_tracking=sha_tracking,
+            all_flow_task_ids=_collect_flow_task_refs(flow_dir),
         )
         errors.extend(task_errors)
 
@@ -1840,6 +2052,25 @@ def _validate_multi_chapter_flow(
                 errors.append(f"{rel_flow}/spec.md: completed chapter {ch_id!r} must be marked [x] in checklist")
         else:
             open_chapters.append(ch_id)
+
+    seen_full_ids: dict[str, str] = {}
+    for ch_dir in ch_dirs:
+        tasks_sub = ch_dir / "tasks"
+        if not tasks_sub.is_dir():
+            continue
+        for tf in sorted(p for p in tasks_sub.glob("*.md") if p.name != "index.md"):
+            tfm, _ = _split_frontmatter(tf.read_text(encoding="utf-8"))
+            if tfm is None:
+                continue
+            tid = str(tfm.get("id") or "").strip()
+            if not tid:
+                continue
+            if tid in seen_full_ids:
+                errors.append(
+                    f"{rel_flow}: duplicate task id {tid!r} across chapters "
+                    f"({seen_full_ids[tid]} and {ch_dir.name}/{tf.name})"
+                )
+            seen_full_ids[tid] = f"{ch_dir.name}/{tf.name}"
 
     curr_ch = str(root_fm.get("current_chapter") or "").strip()
     if root_state in ("completed", "closed") or require_completed:
@@ -1860,6 +2091,28 @@ def _validate_multi_chapter_flow(
     return errors
 
 
+def _collect_flow_task_refs(flow_dir: Path) -> set[str]:
+    """Collect all valid task identifiers and path aliases across a flow directory."""
+    refs: set[str] = set()
+    for tf in sorted(flow_dir.rglob("*.md")):
+        if tf.parent.name != "tasks" or tf.name == "index.md":
+            continue
+        stem = tf.name.split("-", 1)[0]
+        refs.add(stem)
+        refs.add(tf.stem)
+        refs.add(tf.name)
+        tfm, _ = _split_frontmatter(tf.read_text(encoding="utf-8"))
+        if tfm and tfm.get("id"):
+            tid = str(tfm["id"]).strip()
+            refs.add(tid)
+            if ":" in tid:
+                refs.add(tid.rsplit(":", 1)[-1])
+        ch_parent = tf.parent.parent
+        if ch_parent.parent.name == "chapters":
+            refs.add(f"{ch_parent.name}:{stem}")
+    return refs
+
+
 def _validate_tasks_for_owner_spec(
     bundle_dir: Path,
     owner_rel: str,
@@ -1869,14 +2122,25 @@ def _validate_tasks_for_owner_spec(
     git_root: Path | None = None,
     plan_commit: str = "",
     sha_tracking: str = "strict",
+    all_flow_task_ids: set[str] | None = None,
 ) -> tuple[list[str], int, list[str]]:
-    """Verify chapter/spec task checklists and Git file-ownership proofs."""
+    """Verify chapter/spec task checklists, dependency targets, and Git file-ownership proofs."""
     errors: list[str] = []
     open_tasks: list[str] = []
     if not tasks_dir.is_dir():
         return errors, 0, open_tasks
 
     task_files = sorted(p for p in tasks_dir.glob("*.md") if p.name != "index.md")
+    local_refs: set[str] = set(all_flow_task_ids or ())
+    for tf in task_files:
+        stem = tf.name.split("-", 1)[0]
+        local_refs.update({stem, tf.stem, tf.name})
+        tfm_peek, _ = _split_frontmatter(tf.read_text(encoding="utf-8"))
+        if tfm_peek and tfm_peek.get("id"):
+            tid_peek = str(tfm_peek["id"]).strip()
+            local_refs.add(tid_peek)
+            if ":" in tid_peek:
+                local_refs.add(tid_peek.rsplit(":", 1)[-1])
 
     unfenced_owner = _MULTILINE_FENCE_PATTERN.sub("", owner_body)
     checklist_rows = [
@@ -1893,6 +2157,13 @@ def _validate_tasks_for_owner_spec(
         t_id = str(tfm.get("id") or t_stem).strip()
         t_state = str(tfm.get("state") or "pending").strip()
         t_commit = str(tfm.get("commit") or "").strip()
+
+        deps = tfm.get("depends_on")
+        if isinstance(deps, list):
+            for raw_dep in deps:
+                dep_str = str(raw_dep).strip()
+                if dep_str and dep_str not in local_refs:
+                    errors.append(f"DANGLING_TASK_DEP: {rel_tf} depends_on unknown target {dep_str!r}")
 
         errors.extend(_validate_task_claim_fields(rel_tf, tfm))
 

@@ -1,4 +1,6 @@
-"""Orchestrate Flow chapter planning, disk-idle completion recovery, OKF validation, and spec review."""
+"""Orchestrate Flow chapter planning, seed prefetching, disk-idle completion recovery, OKF validation, and spec review."""
+
+from __future__ import annotations
 
 import asyncio
 import json
@@ -7,8 +9,20 @@ from pathlib import Path
 import re
 import subprocess
 import sys
-import tempfile
 import time
+
+_WF_PARENT = Path(__file__).resolve().parent.parent if "__file__" in globals() else Path.cwd() / "workflows"
+if str(_WF_PARENT) not in sys.path:
+    sys.path.insert(0, str(_WF_PARENT))
+
+from flow_common import (
+    QUOTA_MARKERS,
+    acquire_runtime_lease,
+    prefetch_seeds,
+    release_runtime_lease,
+    resolve_dynamic_route,
+    resolve_plugin_root,
+)
 
 PLANNER_SCHEMA = {
     "type": "object",
@@ -44,29 +58,24 @@ REVIEW_SCHEMA = {
     "required": ["verdict", "findings"],
 }
 
-QUOTA_MARKERS = (
-    "429",
-    "resource_exhausted",
-    "quota",
-    "rate limit",
-    "rate_limit",
-    "capacity",
-    "overloaded",
-    "exhausted",
-)
-
 TASK_LINK_RE = re.compile(r"\((tasks/[^)\s]+\.md)\)")
 
 flow_id = str(args["flow_id"])
 chapters = list(args["chapters"])
+seed_files = list(args.get("seed_files", []))
 bundle_root = Path(str(args.get("bundle_root", ".agents/bundles")))
 planner_mode_arg = str(args.get("planner_mode", "auto"))
-worksheet_format = str(args.get("worksheet_format", "full"))
+worksheet_format = str(args.get("worksheet_format", "compact"))
 review_mode = str(args.get("review", "single"))
 run_mode = str(args.get("mode", "plan_and_review"))
 max_review_rounds = int(args.get("max_review_rounds", 1))
-preferred_planner_model = str(args.get("planner_model") or os.environ.get("FLOW_PLANNER_MODEL") or "inherit")
-preferred_reviewer_model = str(args.get("reviewer_model") or os.environ.get("FLOW_REVIEWER_MODEL") or "inherit")
+harness = str(args.get("harness") or os.environ.get("FLOW_HARNESS") or "agy")
+plugin_root = resolve_plugin_root(args.get("plugin_root"), marker="templates/agent/plan-schema-card.md")
+
+plan_route = resolve_dynamic_route(plugin_root, "planning", harness=harness, risk="high")
+rev_route = resolve_dynamic_route(plugin_root, "spec_review", harness=harness, risk="high")
+preferred_planner_model = str(args.get("planner_model") or os.environ.get("FLOW_PLANNER_MODEL") or plan_route["runtime_target"] or "inherit")
+preferred_reviewer_model = str(args.get("reviewer_model") or os.environ.get("FLOW_REVIEWER_MODEL") or rev_route["runtime_target"] or "inherit")
 planner_agent = str(args.get("planner_agent") or os.environ.get("FLOW_PLANNER_AGENT") or "self")
 reviewer_agent = str(args.get("reviewer_agent") or os.environ.get("FLOW_REVIEWER_AGENT") or "self")
 planner_degraded_flag = bool(args.get("planner_degraded", False))
@@ -74,19 +83,13 @@ planner_timeout_s = int(args.get("planner_timeout_seconds", 900))
 disk_idle_grace_s = int(args.get("disk_idle_grace_seconds", 45))
 reviewer_timeout_s = int(args.get("reviewer_timeout_seconds", 600))
 
-plugin_root = Path(str(args.get("plugin_root") or os.environ.get("FLOW_PLUGIN_ROOT") or Path.cwd()))
-if not (plugin_root / "templates" / "agent" / "plan-schema-card.md").is_file():
-    candidate = Path.home() / ".gemini" / "config" / "plugins" / "flow"
-    if (candidate / "templates" / "agent" / "plan-schema-card.md").is_file():
-        plugin_root = candidate
-
 schema_card_path = plugin_root / "templates" / "agent" / "plan-schema-card.md"
 reviewer_card_path = plugin_root / "templates" / "agent" / "spec-reviewer-prompt.md"
 validator_script = plugin_root / "tools" / "validate.py"
 flow_dir = bundle_root / "specs" / flow_id
 chapters_dir = flow_dir / "chapters"
 
-_is_non_frontier = preferred_planner_model in ("flash", "flash_lite", "sonnet", "haiku") or planner_degraded_flag
+_is_non_frontier = bool(plan_route.get("degraded")) or preferred_planner_model in ("flash", "flash_lite", "sonnet", "haiku") or planner_degraded_flag
 quota_state = {"degraded": _is_non_frontier}
 degraded_reasons: list[str] = []
 if _is_non_frontier:
@@ -279,25 +282,26 @@ async def _invoke_planner(prompt: str, role: str, ch_ids: list[str]) -> dict:
 
 
 def _build_chapter_prompt(ch_list: list[dict]) -> str:
-    """Construct a compact planner prompt referencing only root spec, plan-schema-card.md, and chapter files."""
+    """Construct a compact planner prompt referencing only root spec, plan-schema-card.md, prefetched seeds, and chapter files."""
     blocks = []
+    all_seed_paths: list[str] = [str(p) for p in seed_files]
     for ch in ch_list:
-        reads = ch.get("read_files") or []
+        reads = [str(p) for p in (ch.get("read_files") or [])]
+        all_seed_paths.extend(reads)
         reads_line = f"Scoped source files: {reads}\n" if reads else ""
         blocks.append(f"Chapter `{ch['id']}` (`{chapters_dir / ch['id']}`):\n{reads_line}Brief: {ch['brief']}")
+    prefetched = prefetch_seeds(all_seed_paths, globals().get("call_tool"), max_files=6, end_line=100)
+    seed_section = f"\nPrefetched seed excerpts:\n{json.dumps(prefetched, ensure_ascii=False)}\n" if prefetched else ""
     joined_blocks = "\n\n".join(blocks)
     return (
         f"Author Flow chapter specification(s) and `{worksheet_format}` task worksheet(s) for flow `{flow_id}`.\n"
         f"1. Read ONLY `{flow_dir / 'spec.md'}`, `{schema_card_path}`, and the scoped chapter source files below.\n"
-        "2. Do NOT read Flow plugin `skills/*/references/*.md`, do NOT edit production code, and do NOT pass "
-        "BypassSandbox=true.\n"
-        "3. Follow OKF v0.2 strictly: `status: draft`, workflow `state: planned`, `<= 40`-line `<!-- truth: start -->` "
-        "block, `sources:` with matching `[^id]:` body footnotes, all 6 Spec headings, concise deliverable-sized "
-        "chapters with zero artificial task-count, read_set, or LOC caps (`compact` worksheets allowed for "
-        "straightforward tasks, `full` for complex public seams), fast (`< 60s`) lint + targeted unit file "
-        "checkpoints, and zero standalone `---` rules.\n"
-        "4. Write `chapters/<id>/planner-notes.md` (`## Files Written`, `## Task Summaries`, `## Root Spec Issues`, "
-        "`## Open Questions`) BEFORE calling finish.\n\n"
+        "2. Do NOT read Flow plugin `skills/*/references/*.md`, do NOT edit production code, and do NOT pass BypassSandbox=true.\n"
+        "3. Design disjoint `<=250`-LOC micro-slice tasks (`<=3` files per task) so parallel worker waves execute cleanly.\n"
+        "4. Follow OKF v0.2 strictly: `status: draft`, workflow `state: planned`, `<= 40`-line `<!-- truth: start -->` "
+        "block, `sources:` with matching `[^id]:` body footnotes, and all required headings.\n"
+        "5. Write `chapters/<id>/planner-notes.md` BEFORE calling finish.\n"
+        f"{seed_section}\n"
         f"{joined_blocks}"
     )
 
@@ -310,37 +314,12 @@ def _run_okf_validator() -> list[str]:
         [sys.executable, str(validator_script), "--bundle", str(bundle_root), "--flow", flow_id],
         capture_output=True,
         text=True,
+        encoding="utf-8",
         check=False,
     )
     if proc.returncode == 0:
         return []
     return [ln.strip() for ln in (proc.stderr + "\n" + proc.stdout).splitlines() if ln.strip().startswith("ERROR:")]
-
-
-def _acquire_runtime_lease() -> Path | None:
-    """Register an active workflow runtime lease for Stop-gate subagent coordination."""
-    raw_tmp = os.environ.get("TMPDIR", "").rstrip("/\\") or tempfile.gettempdir().rstrip("/\\")
-    rt_base = (os.environ.get("FLOW_RUNTIME_DIR", "").rstrip("/\\")) or f"{raw_tmp}/flow-runtime"
-    norm_root = str(Path.cwd()).replace("\\", "/").rstrip("/")
-    ws_id = re.sub(r"[^A-Za-z0-9._-]", "_", norm_root)[-120:] or "default"
-    lease_dir = Path(rt_base) / ws_id / "subagents"
-    try:
-        lease_dir.mkdir(parents=True, exist_ok=True)
-        lease_path = lease_dir / f"workflow-{os.getpid()}.lease"
-        lease_path.write_text(f"{int(time.time())}\n", encoding="utf-8")
-        return lease_path
-    except OSError:
-        return None
-
-
-def _release_runtime_lease(lease_path: Path | None) -> None:
-    """Remove a previously registered workflow runtime lease."""
-    if lease_path is None:
-        return
-    try:
-        lease_path.unlink(missing_ok=True)
-    except OSError:
-        pass
 
 
 chapter_reports: list[dict] = []
@@ -353,7 +332,7 @@ effective_planner_mode = (
     ("single_batch" if len(chapters) <= 1 else "per_chapter") if planner_mode_arg == "auto" else planner_mode_arg
 )
 
-_wf_lease = _acquire_runtime_lease()
+_wf_lease = acquire_runtime_lease()
 try:
     if run_mode in ("plan_and_review", "plan_only"):
         phase("Chapter Blueprint Authoring")
@@ -534,7 +513,7 @@ try:
                 ),
             )
 finally:
-    _release_runtime_lease(_wf_lease)
+    release_runtime_lease(_wf_lease)
 
 planning_quality = "degraded" if degraded_reasons else "standard"
 planning_warning = (

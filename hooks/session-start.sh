@@ -3,32 +3,10 @@
 # Requires zero python3, node, or jq on the host system.
 set -eu
 
-HARNESS="claude"
-PROJECT_DIR=""
+HOOK_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" 2>/dev/null && pwd || dirname -- "$0")"
+. "$HOOK_DIR/lib/common.sh"
 
-while [ "$#" -gt 0 ]; do
-  case "$1" in
-    --harness)
-      HARNESS="${2:-claude}"
-      shift 2
-      ;;
-    --harness=*)
-      HARNESS="${1#*=}"
-      shift 1
-      ;;
-    --project)
-      PROJECT_DIR="${2:-}"
-      shift 2
-      ;;
-    --project=*)
-      PROJECT_DIR="${1#*=}"
-      shift 1
-      ;;
-    *)
-      shift 1
-      ;;
-  esac
-done
+flow_parse_args "claude" "$@"
 
 # Suppress third-party Claude hook double-firing inside Cursor when native Cursor hook is active.
 if [ "$HARNESS" = "claude" ] && [ -n "${CURSOR_VERSION:-}" ]; then
@@ -36,146 +14,25 @@ if [ "$HARNESS" = "claude" ] && [ -n "${CURSOR_VERSION:-}" ]; then
   exit 0
 fi
 
-STDIN_PAYLOAD=""
-if [ ! -t 0 ]; then
-  STDIN_PAYLOAD="$(cat || true)"
-fi
+flow_read_stdin
 
 IS_SUBAGENT=0
 CONV_ID=""
 PARENT_CONV_ID=""
 if [ -n "$STDIN_PAYLOAD" ]; then
-  PARSED_STDIN="$(printf '%s\n' "$STDIN_PAYLOAD" | awk '
-    {
-      buf = buf " " $0
-    }
-    END {
-      subag = 0
-      parent_conv = ""
-      if (match(buf, /"parentConversationId"[[:space:]]*:[[:space:]]*"[^"]+"/)) {
-        subag = 1
-        s = substr(buf, RSTART, RLENGTH)
-        sub(/^.*"parentConversationId"[[:space:]]*:[[:space:]]*"/, "", s)
-        sub(/"$/, "", s)
-        parent_conv = s
-      } else if (match(buf, /"parent_conversation_id"[[:space:]]*:[[:space:]]*"[^"]+"/)) {
-        subag = 1
-        s = substr(buf, RSTART, RLENGTH)
-        sub(/^.*"parent_conversation_id"[[:space:]]*:[[:space:]]*"/, "", s)
-        sub(/"$/, "", s)
-        parent_conv = s
-      }
-      proj = ""
-      if (match(buf, /"workspacePaths"[[:space:]]*:[[:space:]]*\[[[:space:]]*"[^"]+"/)) {
-        s = substr(buf, RSTART, RLENGTH)
-        sub(/^.*"workspacePaths"[[:space:]]*:[[:space:]]*\[[[:space:]]*"/, "", s)
-        sub(/"$/, "", s)
-        gsub(/\\\\/, "/", s)
-        proj = s
-      } else if (match(buf, /"workspace_roots"[[:space:]]*:[[:space:]]*\[[[:space:]]*"[^"]+"/)) {
-        s = substr(buf, RSTART, RLENGTH)
-        sub(/^.*"workspace_roots"[[:space:]]*:[[:space:]]*\[[[:space:]]*"/, "", s)
-        sub(/"$/, "", s)
-        gsub(/\\\\/, "/", s)
-        proj = s
-      } else if (match(buf, /"cwd"[[:space:]]*:[[:space:]]*"[^"]+"/)) {
-        s = substr(buf, RSTART, RLENGTH)
-        sub(/^.*"cwd"[[:space:]]*:[[:space:]]*"/, "", s)
-        sub(/"$/, "", s)
-        gsub(/\\\\/, "/", s)
-        proj = s
-      } else if (match(buf, /"workspaceRoot"[[:space:]]*:[[:space:]]*"[^"]+"/)) {
-        s = substr(buf, RSTART, RLENGTH)
-        sub(/^.*"workspaceRoot"[[:space:]]*:[[:space:]]*"/, "", s)
-        sub(/"$/, "", s)
-        gsub(/\\\\/, "/", s)
-        proj = s
-      }
-      conv = ""
-      if (match(buf, /"conversationId"[[:space:]]*:[[:space:]]*"[^"]+"/)) {
-        s = substr(buf, RSTART, RLENGTH)
-        sub(/^.*"conversationId"[[:space:]]*:[[:space:]]*"/, "", s)
-        sub(/"$/, "", s)
-        conv = s
-      } else if (match(buf, /"session_id"[[:space:]]*:[[:space:]]*"[^"]+"/)) {
-        s = substr(buf, RSTART, RLENGTH)
-        sub(/^.*"session_id"[[:space:]]*:[[:space:]]*"/, "", s)
-        sub(/"$/, "", s)
-        conv = s
-      } else if (match(buf, /"conversation_id"[[:space:]]*:[[:space:]]*"[^"]+"/)) {
-        s = substr(buf, RSTART, RLENGTH)
-        sub(/^.*"conversation_id"[[:space:]]*:[[:space:]]*"/, "", s)
-        sub(/"$/, "", s)
-        conv = s
-      }
-      gsub(/\|/, "_", proj)
-      gsub(/\|/, "_", conv)
-      gsub(/\|/, "_", parent_conv)
-      printf "%d|%s|%s|%s\n", subag, proj, conv, parent_conv
-    }
-  ')"
-  IS_SUBAGENT="${PARSED_STDIN%%|*}"
-  REST_STDIN="${PARSED_STDIN#*|}"
-  DETECTED_PROJ="${REST_STDIN%%|*}"
-  REST_STDIN2="${REST_STDIN#*|}"
-  CONV_ID="${REST_STDIN2%%|*}"
-  PARENT_CONV_ID="${REST_STDIN2#*|}"
-  if [ -z "$PROJECT_DIR" ] && [ -n "$DETECTED_PROJ" ]; then
-    PROJECT_DIR="$DETECTED_PROJ"
-  fi
+  CONV_ID="$(flow_extract_payload_field "$STDIN_PAYLOAD" "conversationId")"
+  [ -n "$CONV_ID" ] || CONV_ID="$(flow_extract_payload_field "$STDIN_PAYLOAD" "session_id")"
+  [ -n "$CONV_ID" ] || CONV_ID="$(flow_extract_payload_field "$STDIN_PAYLOAD" "conversation_id")"
+  PARENT_CONV_ID="$(flow_extract_payload_field "$STDIN_PAYLOAD" "parentConversationId")"
+  [ -n "$PARENT_CONV_ID" ] || PARENT_CONV_ID="$(flow_extract_payload_field "$STDIN_PAYLOAD" "parent_conversation_id")"
 fi
 
-if [ -z "$PROJECT_DIR" ]; then
-  if [ -n "${CURSOR_PROJECT_DIR:-}" ]; then
-    PROJECT_DIR="$CURSOR_PROJECT_DIR"
-  elif [ -n "${CLAUDE_PROJECT_DIR:-}" ]; then
-    PROJECT_DIR="$CLAUDE_PROJECT_DIR"
-  else
-    PROJECT_DIR="$(pwd)"
-  fi
-fi
-
-IS_LINKED_WORKTREE=0
-MAIN_WORKTREE=""
-if [ -f "$PROJECT_DIR/.git" ] && command -v git >/dev/null 2>&1; then
-  GIT_COMMON="$(git -C "$PROJECT_DIR" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || git -C "$PROJECT_DIR" rev-parse --git-common-dir 2>/dev/null || true)"
-  if [ -n "$GIT_COMMON" ]; then
-    case "$GIT_COMMON" in
-      /*) COMMON_ABS="$GIT_COMMON" ;;
-      *) COMMON_ABS="$(CDPATH= cd -- "$PROJECT_DIR" && CDPATH= cd -- "$GIT_COMMON" 2>/dev/null && pwd || true)" ;;
-    esac
-    if [ -n "$COMMON_ABS" ]; then
-      CAND_MAIN="$(CDPATH= cd -- "$COMMON_ABS/.." 2>/dev/null && pwd || true)"
-      PROJ_ABS="$(CDPATH= cd -- "$PROJECT_DIR" 2>/dev/null && pwd || printf '%s' "$PROJECT_DIR")"
-      if [ -n "$CAND_MAIN" ] && [ "$CAND_MAIN" != "$PROJ_ABS" ]; then
-        IS_LINKED_WORKTREE=1
-        MAIN_WORKTREE="$CAND_MAIN"
-      fi
-    fi
-  fi
-fi
+flow_resolve_project_dir
+flow_detect_worker_invocation
+IS_SUBAGENT="$IS_WORKER_AGENT"
+flow_resolve_worktree_context
 
 WORKTREE_NOTE=""
-EFFECTIVE_ROOT="$PROJECT_DIR"
-IGNORE_POLICY=""
-
-read_setup_field() {
-  json_file="$1"
-  field_name="$2"
-  [ -f "$json_file" ] || return 0
-  awk -v key="$field_name" '
-    { buf = buf " " $0 }
-    END {
-      pat = "\"" key "\"[[:space:]]*:[[:space:]]*\"[^\"]+\""
-      if (match(buf, pat)) {
-        s = substr(buf, RSTART, RLENGTH)
-        sub("^.*\"" key "\"[[:space:]]*:[[:space:]]*\"", "", s)
-        sub(/"$/, "", s)
-        print s
-      }
-    }
-  ' "$json_file"
-}
 
 create_worktree_link() {
   link_src="$1"
@@ -192,13 +49,9 @@ create_worktree_link() {
         win_src="$(cygpath -w "$link_src")"
         win_dst="$(cygpath -w "$link_dst")"
         if [ -d "$link_src" ]; then
-          if MSYS_NO_PATHCONV=1 cmd.exe /c mklink /J "$win_dst" "$win_src" >/dev/null 2>&1; then
-            return 0
-          fi
+          MSYS_NO_PATHCONV=1 cmd.exe /c mklink /J "$win_dst" "$win_src" >/dev/null 2>&1 && return 0
         else
-          if MSYS_NO_PATHCONV=1 cmd.exe /c mklink /H "$win_dst" "$win_src" >/dev/null 2>&1; then
-            return 0
-          fi
+          MSYS_NO_PATHCONV=1 cmd.exe /c mklink /H "$win_dst" "$win_src" >/dev/null 2>&1 && return 0
         fi
       fi
       MSYS=winsymlinks:nativestrict ln -s "$link_src" "$link_dst" 2>/dev/null || true
@@ -214,27 +67,12 @@ if [ "$IS_LINKED_WORKTREE" = "1" ] && [ -n "$MAIN_WORKTREE" ]; then
     create_worktree_link "$MAIN_WORKTREE/$shared_art" "$PROJECT_DIR/$shared_art"
   done
 
-  IGNORE_POLICY="$(read_setup_field "$PROJECT_DIR/.agents/setup-state.json" "ignore_policy")"
-  if [ -z "$IGNORE_POLICY" ]; then
-    IGNORE_POLICY="$(read_setup_field "$MAIN_WORKTREE/.agents/setup-state.json" "ignore_policy")"
-  fi
-  if [ -z "$IGNORE_POLICY" ]; then
-    if [ -d "$PROJECT_DIR/.agents" ] && [ ! -L "$PROJECT_DIR/.agents" ] && git -C "$PROJECT_DIR" ls-files --error-unmatch .agents/bundles/index.md >/dev/null 2>&1; then
-      IGNORE_POLICY="shared"
-    elif [ -d "$MAIN_WORKTREE/.agents" ]; then
-      IGNORE_POLICY="local-only"
-    else
-      IGNORE_POLICY="shared"
-    fi
-  fi
-
   if [ "$IGNORE_POLICY" = "local-only" ] && [ -d "$MAIN_WORKTREE/.agents" ]; then
     create_worktree_link "$MAIN_WORKTREE/.agents" "$PROJECT_DIR/.agents"
-    EFFECTIVE_ROOT="$MAIN_WORKTREE"
     if [ -w "$MAIN_WORKTREE/.agents" ]; then
       WORKTREE_NOTE="Linked Git worktree (local-only .agents): .agents is shared from primary checkout $MAIN_WORKTREE/.agents — edit Flow Markdown in $MAIN_WORKTREE/.agents (or via symlinked .agents/), and reuse symlinked .venv with uv run --no-sync (do not run make install)."
     else
-      WORKTREE_NOTE="Linked Git worktree (local-only .agents): primary checkout $MAIN_WORKTREE/.agents is read-only in this sandbox; sync local .agents changes via tools/worktree_env.py --sync-to-main, and reuse symlinked .venv with uv run --no-sync."
+      WORKTREE_NOTE="Linked Git worktree (local-only .agents): primary checkout $MAIN_WORKTREE/.agents is read-only in this sandbox; sync local .agents changes via sidecars/studio/flow-cli.mjs worktree --sync-to-main, and reuse symlinked .venv with uv run --no-sync."
     fi
   else
     WORKTREE_NOTE="Linked Git worktree (shared .agents): edit worktree .agents/ directly, and reuse symlinked .venv with uv run --no-sync (do not run make install)."
@@ -277,36 +115,10 @@ record_recent_workspace() {
   fi
 }
 
-BUNDLE_REL=".agents/bundles"
-DETECTED_ROOT="$(read_setup_field "$EFFECTIVE_ROOT/.agents/setup-state.json" "bundle_root")"
-if [ -n "$DETECTED_ROOT" ]; then
-  BUNDLE_REL="$DETECTED_ROOT"
-fi
-
-json_escape_str() {
-  printf '%s' "$1" | awk '
-    BEGIN { ORS = "" }
-    {
-      gsub(/\\/, "\\\\")
-      gsub(/"/, "\\\"")
-      gsub(/\t/, "\\t")
-      gsub(/\r/, "")
-      gsub(/[\001-\010\013\014\016-\037]/, "")
-      if (NR > 1) printf "\\n"
-      printf "%s", $0
-    }
-  '
-}
+flow_runtime_paths
 
 if [ "$IS_SUBAGENT" = "1" ]; then
-  raw_tmp="${TMPDIR:-/tmp}"
-  raw_tmp="${raw_tmp%/}"
-  [ -n "$raw_tmp" ] || raw_tmp="/tmp"
-  rt_base="${FLOW_RUNTIME_DIR:-$raw_tmp/flow-runtime}"
-  rt_base="${rt_base%/}"
-  ws_id="$(printf '%s' "$EFFECTIVE_ROOT" | tr '\\' '/' | sed 's:/*$::; s/[^A-Za-z0-9._-]/_/g' | awk '{ n = length($0); print (n > 120 ? substr($0, n - 119) : $0) }')"
-  [ -n "$ws_id" ] || ws_id="default"
-  lease_dir="$rt_base/$ws_id/subagents"
+  lease_dir="$RUNTIME_WS_DIR/subagents"
   if mkdir -p "$lease_dir" 2>/dev/null; then
     lease_name="$(printf '%s' "$CONV_ID" | sed 's/[^A-Za-z0-9._-]/_/g')"
     [ -n "$lease_name" ] || lease_name="pid-$$"
@@ -338,13 +150,13 @@ if [ "$IS_SUBAGENT" = "1" ]; then
     epoch_now="$(date -u +%s 2>/dev/null || echo 0)"
     printf '%s\n{"v":1,"harness":"%s","conversation_id":"%s","parent_conversation_id":"%s","workspace":"%s","worktree":"%s","role":"flow-subagent","flow_id":"%s","chapter_id":"%s","task_ids":[]}\n' \
       "$epoch_now" \
-      "$(json_escape_str "$HARNESS")" \
-      "$(json_escape_str "$lease_conv")" \
-      "$(json_escape_str "$PARENT_CONV_ID")" \
-      "$(json_escape_str "$norm_ws")" \
-      "$(json_escape_str "$norm_wt")" \
-      "$(json_escape_str "$lease_flow_id")" \
-      "$(json_escape_str "$lease_ch_id")" \
+      "$(flow_json_escape "$HARNESS")" \
+      "$(flow_json_escape "$lease_conv")" \
+      "$(flow_json_escape "$PARENT_CONV_ID")" \
+      "$(flow_json_escape "$norm_ws")" \
+      "$(flow_json_escape "$norm_wt")" \
+      "$(flow_json_escape "$lease_flow_id")" \
+      "$(flow_json_escape "$lease_ch_id")" \
       > "$lease_dir/$lease_name.lease" 2>/dev/null || true
   fi
   if [ -d "$EFFECTIVE_ROOT/.agents" ]; then
@@ -520,17 +332,8 @@ if [ -f "$OPENCODE_LEGACY_PLUGIN" ] && grep -q -e 'flow-rule-adapter:start' -e '
   BASE_MSG="$BASE_MSG Stale pre-0.26 OpenCode Flow plugin at $OPENCODE_LEGACY_PLUGIN: OpenCode V2 rejects it; delete it and run: opencode plugin add github:cofin/flow."
 fi
 
-ESCAPED_MSG="$(printf '%s' "$BASE_MSG" | awk '
-  BEGIN { ORS = "" }
-  {
-    gsub(/\\/, "\\\\")
-    gsub(/"/, "\\\"")
-    gsub(/\r/, "")
-    gsub(/\t/, " ")
-    if (NR > 1) printf "\\n"
-    printf "%s", $0
-  }
-')"
+BASE_MSG="$(flow_strip_xml_tags "$BASE_MSG")"
+ESCAPED_MSG="$(flow_json_escape "$BASE_MSG")"
 
 case "$HARNESS" in
   agy|antigravity)

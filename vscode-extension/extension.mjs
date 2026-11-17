@@ -9,7 +9,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { buildEntrypointCommand, detectWorkspacePython } from "../sidecars/studio/python-runner.mjs";
+import { buildEntrypointCommand, detectWorkspacePython } from "../sidecars/studio/bridges/python.mjs";
+import { HarnessProfileMaterializer } from "../sidecars/studio/models/profiles.mjs";
 import { StudioApiService } from "../sidecars/studio/router.mjs";
 import { BundleSnapshotBuilder } from "../sidecars/studio/snapshot.mjs";
 
@@ -19,6 +20,9 @@ const BUNDLED_STUDIO_DIR = path.join(EXT_DIR, "sidecars", "studio");
 const STUDIO_ASSETS_DIR = fs.existsSync(BUNDLED_STUDIO_DIR)
   ? BUNDLED_STUDIO_DIR
   : path.join(PLUGIN_ROOT, "sidecars", "studio");
+const STUDIO_WEB_DIR = fs.existsSync(path.join(STUDIO_ASSETS_DIR, "web"))
+  ? path.join(STUDIO_ASSETS_DIR, "web")
+  : STUDIO_ASSETS_DIR;
 
 /** @type {StudioApiService | null} */
 let activeApiService = null;
@@ -236,11 +240,11 @@ class SpecCodeLensProvider {
 }
 
 function buildWebviewHtml(vscode, webview, initialWorkspace = "") {
-  const stylesUri = webview.asWebviewUri(vscode.Uri.file(path.join(STUDIO_ASSETS_DIR, "styles.css")));
-  const bridgeUri = webview.asWebviewUri(vscode.Uri.file(path.join(STUDIO_ASSETS_DIR, "host-bridge.js")));
-  const appUri = webview.asWebviewUri(vscode.Uri.file(path.join(STUDIO_ASSETS_DIR, "app.js")));
-  const logoUri = webview.asWebviewUri(vscode.Uri.file(path.join(STUDIO_ASSETS_DIR, "logo.svg")));
-  const faviconUri = webview.asWebviewUri(vscode.Uri.file(path.join(STUDIO_ASSETS_DIR, "favicon.svg")));
+  const stylesUri = webview.asWebviewUri(vscode.Uri.file(path.join(STUDIO_WEB_DIR, "styles.css")));
+  const bridgeUri = webview.asWebviewUri(vscode.Uri.file(path.join(STUDIO_WEB_DIR, "host-bridge.js")));
+  const appUri = webview.asWebviewUri(vscode.Uri.file(path.join(STUDIO_WEB_DIR, "app.js")));
+  const logoUri = webview.asWebviewUri(vscode.Uri.file(path.join(STUDIO_WEB_DIR, "logo.svg")));
+  const faviconUri = webview.asWebviewUri(vscode.Uri.file(path.join(STUDIO_WEB_DIR, "favicon.svg")));
   const themeBridgeStyle = `<style id="flow-vscode-theme-bridge">
 :root,
 body.vscode-light,
@@ -264,7 +268,7 @@ body.vscode-high-contrast-light {
   --font-mono: var(--vscode-editor-font-family, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
 }
 </style>`;
-  const rawHtml = fs.readFileSync(path.join(STUDIO_ASSETS_DIR, "index.html"), "utf8");
+  const rawHtml = fs.readFileSync(path.join(STUDIO_WEB_DIR, "index.html"), "utf8");
   const initScript = `<script>window.__FLOW_LOGO_URI__ = "${logoUri}"; window.__FLOW_INITIAL_WORKSPACE__ = ${JSON.stringify(initialWorkspace || "")};</script>`;
   return rawHtml
     .replace('<script src="/preload.js"></script>', initScript)
@@ -336,6 +340,26 @@ export async function activateWithVscode(context, vscode) {
     }
   };
   registerOpenWorkspaceFolders();
+
+  const syncVsCodeModels = async () => {
+    if (!activeApiService || typeof vscode.lm?.selectChatModels !== "function") return;
+    try {
+      const models = await vscode.lm.selectChatModels({});
+      if (Array.isArray(models) && models.length > 0) {
+        const ingested = await activeApiService.ingestVsCodeChatModels(models);
+        const currentWs = selectedWorkspaceRoot || wsRoot;
+        if (currentWs && fs.existsSync(path.join(currentWs, ".agents"))) {
+          HarnessProfileMaterializer.materialize(currentWs, ingested, { harness: "vscode" });
+        }
+      }
+    } catch {
+      // Ignore unavailable Copilot LM providers in headless or restricted hosts.
+    }
+  };
+  await syncVsCodeModels();
+  if (typeof vscode.lm?.onDidChangeChatModels === "function") {
+    context.subscriptions.push(vscode.lm.onDidChangeChatModels(() => void syncVsCodeModels()));
+  }
 
   const specsTree = new SpecsTreeProvider(vscode);
   const catalogTree = new CatalogTreeProvider(vscode);

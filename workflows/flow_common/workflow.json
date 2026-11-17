@@ -1,0 +1,5 @@
+{
+  "name": "flow_common",
+  "library": true,
+  "description": "Shared runtime lease, Node CLI, dynamic routing, and bounded seed-prefetch helpers for Flow workflows."
+}

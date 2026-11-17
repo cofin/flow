@@ -1,8 +1,5 @@
 /**
  * Google Antigravity Sidecar SDK entrypoint for Flow Studio.
- *
- * Serves the compact pinned Flow Companion (`AuxPane` at `/`) and full-bleed
- * Flow Studio (`Sidebar` at `/dashboard`) alongside JSON API routes.
  */
 
 import fs from "node:fs";
@@ -13,6 +10,7 @@ import { Response, SidecarApp } from "sidecar_sdk";
 import { StudioApiService, StudioRequestError } from "./router.mjs";
 
 const STUDIO_DIR = path.dirname(fileURLToPath(import.meta.url));
+const WEB_DIR = path.join(STUDIO_DIR, "web");
 const PLUGIN_ROOT = path.resolve(STUDIO_DIR, "..", "..");
 
 const SEC_HEADERS = {
@@ -28,13 +26,13 @@ const HTML_HEADERS = {
     "connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'",
 };
 
-const INDEX_HTML = fs.readFileSync(path.join(STUDIO_DIR, "index.html"), "utf8");
-const STYLES_CSS = fs.readFileSync(path.join(STUDIO_DIR, "styles.css"), "utf8");
-const HOST_BRIDGE_JS = fs.readFileSync(path.join(STUDIO_DIR, "host-bridge.js"), "utf8");
-const APP_JS = fs.readFileSync(path.join(STUDIO_DIR, "app.js"), "utf8");
-const LOGO_SVG = fs.readFileSync(path.join(STUDIO_DIR, "logo.svg"), "utf8");
-const FAVICON_SVG = fs.readFileSync(path.join(STUDIO_DIR, "favicon.svg"), "utf8");
-const FAVICON_ICO = fs.readFileSync(path.join(STUDIO_DIR, "favicon.ico"));
+const INDEX_HTML = fs.readFileSync(path.join(WEB_DIR, "index.html"), "utf8");
+const STYLES_CSS = fs.readFileSync(path.join(WEB_DIR, "styles.css"), "utf8");
+const HOST_BRIDGE_JS = fs.readFileSync(path.join(WEB_DIR, "host-bridge.js"), "utf8");
+const APP_JS = fs.readFileSync(path.join(WEB_DIR, "app.js"), "utf8");
+const LOGO_SVG = fs.readFileSync(path.join(WEB_DIR, "logo.svg"), "utf8");
+const FAVICON_SVG = fs.readFileSync(path.join(WEB_DIR, "favicon.svg"), "utf8");
+const FAVICON_ICO = fs.readFileSync(path.join(WEB_DIR, "favicon.ico"));
 
 const service = new StudioApiService({ env: process.env, pluginRoot: PLUGIN_ROOT });
 const app = new SidecarApp();
@@ -53,11 +51,15 @@ app.page("/favicon.ico", staticAsset(FAVICON_ICO, "image/x-icon"));
 
 const API_ROUTES = [
   "/api/studio-context",
+  "/api/pin-workspace",
   "/api/bundle-snapshot",
   "/api/portfolio-snapshot",
   "/api/spec-document",
+  "/api/spec-dag",
+  "/api/spec-review",
   "/api/review-comments",
   "/api/create-spec",
+  "/api/import-plan",
   "/api/catalog-index",
   "/api/catalog-search",
   "/api/catalog-provenance",
@@ -66,9 +68,13 @@ const API_ROUTES = [
   "/api/catalog-status",
   "/api/start-workspace-conversation",
   "/api/models-and-quota",
+  "/api/review-plan",
   "/api/trajectories",
+  "/api/activity",
+  "/api/permissions",
   "/api/harnesses",
   "/api/harness-dispatch",
+  "/api/harness-delegate",
   "/api/harness-runs",
   "/api/run-entrypoint",
 ];
@@ -94,7 +100,7 @@ for (const routePath of API_ROUTES) {
         });
       }
     },
-    "POST"
+    "POST",
   );
 }
 
@@ -102,14 +108,13 @@ app.api(
   "/.well-known/agent-card.json",
   () => {
     const port = process.env.ANTIGRAVITY_SIDECAR_WEB_PORT || "0";
-    const card = service.a2a.buildAgentCard(`http://127.0.0.1:${port}`);
-    return new Response(JSON.stringify(card), {
+    return new Response(JSON.stringify(service.a2a.buildAgentCard(`http://127.0.0.1:${port}`)), {
       contentType: "application/json; charset=utf-8",
       status: 200,
       headers: SEC_HEADERS,
     });
   },
-  "GET"
+  "GET",
 );
 
 app.api(
@@ -122,7 +127,7 @@ app.api(
       headers: SEC_HEADERS,
     });
   },
-  "POST"
+  "POST",
 );
 
 await app.run();

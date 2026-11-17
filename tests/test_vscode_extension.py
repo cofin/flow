@@ -407,6 +407,25 @@ const vscodeMock = {
     },
     executeCommand: async () => {},
   },
+  lm: {
+    selectChatModels: async () => [
+      {
+        id: "gpt-5.4",
+        vendor: "openai",
+        family: "gpt-5",
+        maxInputTokens: 200000,
+        capabilities: { toolCalling: true, reasoning: true, efforts: ["medium", "high", "xhigh"] },
+      },
+      {
+        id: "claude-opus-4-6",
+        vendor: "anthropic",
+        family: "claude",
+        maxInputTokens: 200000,
+        capabilities: { toolCalling: true, reasoning: true, efforts: ["high", "xhigh"] },
+      },
+    ],
+    onDidChangeChatModels: () => ({ dispose() {} }),
+  },
 };
 
 const mod = await import(extUrl);
@@ -418,6 +437,12 @@ const specsTree = treeProviders.get("flowSpecsTree");
 const initialSpecs = await specsTree.getChildren();
 
 await registeredCommands.get("flow.openStudio")();
+await webviewMessageListener({
+  type: "apiRequest",
+  id: 3,
+  routePath: "/api/models-and-quota",
+  payload: { workspacePath: wsBeta, harness: "vscode" },
+});
 await webviewMessageListener({
   type: "apiRequest",
   id: 1,
@@ -462,6 +487,11 @@ process.stdout.write(JSON.stringify({
     ctx_resp = next(m for m in out["postedWebviewMessages"] if m.get("type") == "apiResponse" and m.get("id") == 1)
     assert ctx_resp["result"]["defaultWorkspace"] == str(ws_beta)
     assert str(ws_alpha) in ctx_resp["result"]["workspaces"]
+    models_resp = next(m for m in out["postedWebviewMessages"] if m.get("type") == "apiResponse" and m.get("id") == 3)
+    vs_candidates = models_resp["result"].get("dynamicByHarness", {}).get("vscode", {}).get("candidates", [])
+    discovered_ids = {c["model"] for c in vs_candidates}
+    assert "gpt-5.4" in discovered_ids
+    assert (ws_beta / ".github" / "agents" / "flow-tier-frontier.agent.md").is_file()
     ws_events = [
         m["event"]
         for m in out["postedWebviewMessages"]

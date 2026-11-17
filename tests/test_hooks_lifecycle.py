@@ -21,6 +21,7 @@ POST_TOOL_TELEMETRY_SH = REPO_ROOT / "hooks" / "post-tool-telemetry.sh"
 POST_TOOL_TELEMETRY_PS1 = REPO_ROOT / "hooks" / "post-tool-telemetry.ps1"
 POST_INVOCATION_SH = REPO_ROOT / "hooks" / "post-invocation.sh"
 POST_INVOCATION_PS1 = REPO_ROOT / "hooks" / "post-invocation.ps1"
+STOP_CHECK_SH = REPO_ROOT / "hooks" / "stop-check.sh"
 POWERSHELL_BIN = shutil.which("pwsh") or shutil.which("powershell")
 
 
@@ -344,7 +345,14 @@ def test_post_tool_telemetry_and_post_invocation_manage_live_state_cleanly(tmp_p
 def test_antigravity_hooks_and_workflows_manifests_are_valid() -> None:
     """Verify hooks.json declares flat lifecycle hooks, Claude omits wildcard PostToolUse, and workflows exist."""
     agy_hooks = json.loads((REPO_ROOT / "hooks.json").read_text(encoding="utf-8"))
-    assert set(agy_hooks) == {"flow-session-start", "flow-pre-tool-guard", "flow-stop-check"}
+    assert set(agy_hooks) == {
+        "flow-session-start",
+        "flow-pre-invocation",
+        "flow-pre-tool-guard",
+        "flow-post-tool-telemetry",
+        "flow-post-invocation",
+        "flow-stop-check",
+    }
     assert "matcher" not in agy_hooks["flow-session-start"]["SessionStart"][0]
     assert "matcher" not in agy_hooks["flow-stop-check"]["Stop"][0]
     pre_tool_group = agy_hooks["flow-pre-tool-guard"]["PreToolUse"][0]
@@ -354,7 +362,8 @@ def test_antigravity_hooks_and_workflows_manifests_are_valid() -> None:
     assert "write_file" in pre_tool_group["matcher"]
 
     claude_hooks = json.loads((REPO_ROOT / "hooks" / "hooks-claude.json").read_text(encoding="utf-8"))
-    assert "PostToolUse" not in claude_hooks["hooks"]
+    claude_post_tool = claude_hooks["hooks"].get("PostToolUse", [])
+    assert claude_post_tool and all(entry.get("matcher") != "*" for entry in claude_post_tool)
 
     for wf_name in ("flow-scout", "flow-spec-planning", "flow-dual-review", "flow-chapter-pipeline"):
         wf_dir = REPO_ROOT / "workflows" / wf_name
@@ -755,3 +764,187 @@ def test_pre_tool_guard_worktree_resolution_for_claude_and_cursor(
                 assert verdict["hookSpecificOutput"]["permissionDecision"] == "deny"
         else:
             assert verdict["permission"] == expected_decision
+
+
+@pytest.mark.parametrize(
+    ("sibling_present", "expect_handoff"),
+    (
+        ("0", True),
+        ("1", False),
+    ),
+)
+def test_pre_invocation_turn0_plan_handoff_transcript_fallback_and_sibling_suppression(
+    tmp_path: Path,
+    sibling_present: str,
+    expect_handoff: bool,
+) -> None:
+    """Verify PreInvocation resolves /plan from transcriptPath when empty and suppresses with sibling."""
+    _seed_flow_workspace(tmp_path)
+    transcript = tmp_path / "transcript.jsonl"
+    transcript.write_text(
+        json.dumps({"step_index": 1, "type": "USER_INPUT", "content": "Please create /plan for auth"}) + "\n",
+        encoding="utf-8",
+    )
+    out = _run_hook(
+        PRE_INVOCATION_SH,
+        "agy",
+        {"invocationNum": 0, "transcriptPath": str(transcript)},
+        project_dir=tmp_path,
+        extra_env={
+            "FLOW_RUNTIME_DIR": str(tmp_path / "rt"),
+            "FLOW_SIBLING_PLUGIN_PRESENT": sibling_present,
+        },
+    )
+    if expect_handoff:
+        msg = out["injectSteps"][0]["systemMessage"]["systemMessage"]
+        assert "Flow Turn-0 handoff:" in msg
+        assert "flow-cli.mjs spec import" in msg
+    else:
+        assert out == {}
+
+
+@pytest.mark.parametrize(
+    ("case_id", "extra_env", "agent_id", "expect_updated_model"),
+    (
+        (
+            "claude-unloaded-mod-rewrites-frontier",
+            {"CLAUDECODE": "1", "FLOW_MOD_LOADED": "0"},
+            "flow:plan-generator",
+            "claude-opus-4-6",
+        ),
+        (
+            "claude-mod-loaded-skips-fallback",
+            {"CLAUDECODE": "1", "FLOW_MOD_LOADED": "1"},
+            "flow:plan-generator",
+            None,
+        ),
+        (
+            "codex-session-ignores-claude-agent-fallback",
+            {"CLAUDECODE": "1", "CODEX_THREAD_ID": "thread-1", "FLOW_MOD_LOADED": "0"},
+            "flow:plan-generator",
+            None,
+        ),
+    ),
+)
+def test_pre_tool_guard_claude_agent_updated_input_vs_codex_omission(
+    tmp_path: Path,
+    case_id: str,
+    extra_env: dict[str, str],
+    agent_id: str,
+    expect_updated_model: str | None,
+) -> None:
+    """Verify PreToolUse emits Agent updatedInput only in native Claude sessions when the Claude Mod is unloaded."""
+    _seed_flow_workspace(tmp_path)
+    tier_dir = tmp_path / ".claude" / "agents"
+    tier_dir.mkdir(parents=True)
+    (tier_dir / "flow-tier-frontier.md").write_text(
+        "---\nname: flow-tier-frontier\nmodel: claude-opus-4-6\n---\n\nFrontier tier.\n",
+        encoding="utf-8",
+    )
+    payload = {
+        "tool_name": "Agent",
+        "tool_input": {"subagent_type": agent_id, "prompt": "Plan the implementation"},
+        "cwd": str(tmp_path),
+    }
+    clean_env = {"FLOW_RUNTIME_DIR": str(tmp_path / "rt"), **extra_env}
+    if "CODEX_THREAD_ID" not in clean_env:
+        clean_env["CODEX_THREAD_ID"] = ""
+    clean_env["CODEX_CI"] = ""
+    out = _run_hook(PRE_TOOL_GUARD_SH, "claude", payload, extra_env=clean_env)
+    if expect_updated_model:
+        assert out["hookSpecificOutput"]["permissionDecision"] == "allow", f"[{case_id}] {out}"
+        assert out["hookSpecificOutput"]["updatedInput"]["model"] == expect_updated_model
+    else:
+        assert out == {}, f"[{case_id}] {out}"
+
+
+def test_post_tool_telemetry_step_idx_fallback_and_proceed_metadata_guard(tmp_path: Path) -> None:
+    """Verify PostToolUse resolves missing tool/Path via transcriptPath stepIdx and flags missing artifact metadata."""
+    _seed_flow_workspace(tmp_path)
+    art_dir = tmp_path / "artifacts"
+    art_dir.mkdir()
+    plan_file = art_dir / "implementation_plan.md"
+    plan_file.write_text("# Plan\n", encoding="utf-8")
+
+    transcript = tmp_path / "transcript.jsonl"
+    transcript.write_text(
+        json.dumps({"step_index": 7, "name": "write_to_file", "Path": str(plan_file)}) + "\n",
+        encoding="utf-8",
+    )
+    rt_dir = tmp_path / "rt"
+    out = _run_hook(
+        POST_TOOL_TELEMETRY_SH,
+        "agy",
+        {
+            "workspacePaths": [str(tmp_path)],
+            "conversationId": "conv-telemetry-1",
+            "stepIdx": 7,
+            "transcriptPath": str(transcript),
+            "artifactDirectoryPath": str(art_dir),
+        },
+        extra_env={"FLOW_RUNTIME_DIR": str(rt_dir)},
+    )
+    assert out == {}
+    state_files = list(rt_dir.glob("*/studio-live-state.json"))
+    assert len(state_files) == 1
+    state = json.loads(state_files[0].read_text(encoding="utf-8"))
+    assert state["lastTool"] == "write_to_file"
+    assert state["lastFilePath"] == str(plan_file).replace("\\", "/")
+    assert state["proceedGuard"] == "missing_artifact_metadata"
+
+
+@pytest.mark.parametrize(
+    ("case_id", "worker_mode"),
+    (
+        ("sibling-bb-agent-name-bypasses-stop-gate", "bb-agent"),
+        ("system-message-only-transcript-bypasses-stop-gate", "system-transcript"),
+        ("coordinator-with-open-task-and-dirty-tree-blocks", "coordinator"),
+    ),
+)
+def test_stop_check_worker_detection_and_system_message_only_transcript(
+    tmp_path: Path,
+    case_id: str,
+    worker_mode: str,
+) -> None:
+    """Verify Stop gate bypasses ^(flow-|bb-|runtime-) and SYSTEM_MESSAGE-only workers."""
+    git_kw: dict[str, Any] = {"cwd": tmp_path, "check": True, "capture_output": True, "text": True, "encoding": "utf-8"}
+    subprocess.run(["git", "init"], **git_kw)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], **git_kw)
+    subprocess.run(["git", "config", "user.name", "Test"], **git_kw)
+    subprocess.run(["git", "config", "commit.gpgsign", "false"], **git_kw)
+    _seed_flow_workspace(tmp_path)
+    task_dir = tmp_path / ".agents" / "bundles" / "specs" / "catalog-ui" / "chapters" / "ch01-core" / "tasks"
+    task_dir.mkdir(parents=True)
+    (tmp_path / ".agents" / "bundles" / "specs" / "catalog-ui" / "chapters" / "ch01-core" / "spec.md").write_text(
+        "---\ntype: Spec\nflow_id: catalog-ui\nchapter_id: ch01-core\nstate: active\n---\n\n## Plan\n\n- [ ] t01\n",
+        encoding="utf-8",
+    )
+    (task_dir / "t01-open.md").write_text(
+        "---\ntype: Task\nid: catalog-ui:ch01:t01\nstate: pending\n---\n",
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "add", "-A"], **git_kw)
+    subprocess.run(["git", "commit", "-m", "seed"], **git_kw)
+    (tmp_path / "dirty.txt").write_text("uncommitted work\n", encoding="utf-8")
+
+    payload: dict[str, Any] = {"conversationId": "conv-stop-1", "workspacePaths": [str(tmp_path)]}
+    if worker_mode == "bb-agent":
+        payload["agentName"] = "bb-executor-1"
+    elif worker_mode == "system-transcript":
+        transcript = tmp_path / "worker-transcript.jsonl"
+        transcript.write_text(
+            json.dumps({"step_index": 0, "type": "SYSTEM_MESSAGE", "content": "Assigned slice"}) + "\n",
+            encoding="utf-8",
+        )
+        payload["transcriptPath"] = str(transcript)
+
+    out = _run_hook(
+        STOP_CHECK_SH,
+        "agy",
+        payload,
+        extra_env={"FLOW_RUNTIME_DIR": str(tmp_path / "rt"), "FLOW_STOP_GATE": "enforce"},
+    )
+    if worker_mode == "coordinator":
+        assert out.get("decision") == "deny" or out.get("blocked") is True or "reason" in out, f"[{case_id}] {out}"
+    else:
+        assert out == {}, f"[{case_id}] expected worker bypass, got {out}"

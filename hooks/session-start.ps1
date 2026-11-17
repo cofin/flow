@@ -3,31 +3,11 @@
 # Requires zero Python, Node.js, or external modules on Windows/Linux/macOS.
 $ErrorActionPreference = "Stop"
 
-$Harness = "claude"
-$ProjectDir = ""
+. (Join-Path $PSScriptRoot "lib/common.ps1")
 
-for ($i = 0; $i -lt $args.Count; $i++) {
-    $arg = [string]$args[$i]
-    if ($arg -eq "--harness" -or $arg -eq "-Harness") {
-        if ($i + 1 -lt $args.Count) {
-            $Harness = [string]$args[$i + 1]
-            $i++
-        }
-    } elseif ($arg -like "--harness=*") {
-        $Harness = $arg.Substring(10)
-    } elseif ($arg -like "-Harness=*") {
-        $Harness = $arg.Substring(9)
-    } elseif ($arg -eq "--project" -or $arg -eq "-Project") {
-        if ($i + 1 -lt $args.Count) {
-            $ProjectDir = [string]$args[$i + 1]
-            $i++
-        }
-    } elseif ($arg -like "--project=*") {
-        $ProjectDir = $arg.Substring(10)
-    } elseif ($arg -like "-Project=*") {
-        $ProjectDir = $arg.Substring(9)
-    }
-}
+$parsedArgs = Parse-FlowHookArgs -RawArgs $args -DefaultHarness "claude"
+$Harness = $parsedArgs.Harness
+$ProjectDir = $parsedArgs.ProjectDir
 
 # Suppress third-party Claude hook double-firing inside Cursor when native Cursor hook is active.
 if ($Harness -eq "claude" -and -not [string]::IsNullOrEmpty($env:CURSOR_VERSION)) {
@@ -35,14 +15,7 @@ if ($Harness -eq "claude" -and -not [string]::IsNullOrEmpty($env:CURSOR_VERSION)
     exit 0
 }
 
-$StdinPayload = ""
-try {
-    if ([Console]::IsInputRedirected) {
-        $StdinPayload = [Console]::In.ReadToEnd()
-    }
-} catch {
-    $StdinPayload = ""
-}
+$StdinPayload = Read-FlowStdinPayload
 
 $IsSubagent = $false
 $ConvId = ""
@@ -50,43 +23,17 @@ $ParentConvId = ""
 if (-not [string]::IsNullOrWhiteSpace($StdinPayload)) {
     foreach ($pPat in @('"parentConversationId"\s*:\s*"([^"]+)"', '"parent_conversation_id"\s*:\s*"([^"]+)"')) {
         $pm = [regex]::Match($StdinPayload, $pPat)
-        if ($pm.Success) {
-            $IsSubagent = $true
-            $ParentConvId = $pm.Groups[1].Value
-            break
-        }
+        if ($pm.Success) { $IsSubagent = $true; $ParentConvId = $pm.Groups[1].Value; break }
     }
     foreach ($convPat in @('"conversationId"\s*:\s*"([^"]+)"', '"session_id"\s*:\s*"([^"]+)"', '"conversation_id"\s*:\s*"([^"]+)"')) {
         $cm = [regex]::Match($StdinPayload, $convPat)
-        if ($cm.Success) {
-            $ConvId = $cm.Groups[1].Value
-            break
-        }
-    }
-    if ([string]::IsNullOrEmpty($ProjectDir)) {
-        foreach ($pattern in @(
-            '"workspacePaths"\s*:\s*\[\s*"([^"]+)"',
-            '"workspace_roots"\s*:\s*\[\s*"([^"]+)"',
-            '"cwd"\s*:\s*"([^"]+)"',
-            '"workspaceRoot"\s*:\s*"([^"]+)"'
-        )) {
-            $m = [regex]::Match($StdinPayload, $pattern)
-            if ($m.Success) {
-                $ProjectDir = $m.Groups[1].Value -replace '\\\\', '/'
-                break
-            }
-        }
+        if ($cm.Success) { $ConvId = $cm.Groups[1].Value; break }
     }
 }
 
-if ([string]::IsNullOrEmpty($ProjectDir)) {
-    if (-not [string]::IsNullOrEmpty($env:CURSOR_PROJECT_DIR)) {
-        $ProjectDir = $env:CURSOR_PROJECT_DIR
-    } elseif (-not [string]::IsNullOrEmpty($env:CLAUDE_PROJECT_DIR)) {
-        $ProjectDir = $env:CLAUDE_PROJECT_DIR
-    } else {
-        $ProjectDir = (Get-Location).Path
-    }
+$ProjectDir = Resolve-FlowProjectDir -ExplicitProjectDir $ProjectDir -StdinPayload $StdinPayload
+if (-not $IsSubagent) {
+    $IsSubagent = Test-FlowWorkerInvocation -StdinPayload $StdinPayload
 }
 
 function Get-SetupField([string]$FilePath, [string]$Key) {
@@ -412,9 +359,7 @@ try {
 }
 
 function ConvertTo-JsonEscaped([string]$Text) {
-    if ($null -eq $Text) { return "" }
-    $escaped = $Text.Replace('\', '\\').Replace('"', '\"').Replace("`r", "").Replace("`t", " ").Replace("`n", "\n")
-    return $escaped
+    return Escape-FlowJsonString -Value (Strip-FlowXmlTags -Text $Text)
 }
 
 $EscapedMsg = ConvertTo-JsonEscaped $BaseMsg

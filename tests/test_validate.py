@@ -19,6 +19,7 @@ from tools.validate import (
     main,
     validate_agents,
     validate_anti_sprawl,
+    validate_content_hygiene,
     validate_hooks,
     validate_lockfile,
     validate_manifests,
@@ -270,8 +271,8 @@ def test_validate_anti_sprawl_and_lockfile(tmp_path: Path) -> None:
     (tmp_path / "CLAUDE.md").write_text("# Obsolete\n", encoding="utf-8")
     (tmp_path / "plugins" / "flow").mkdir(parents=True)
     sprawl_errors = validate_anti_sprawl(tmp_path)
-    assert "Retired path must not exist: CLAUDE.md" in sprawl_errors
-    assert "Retired path must not exist: plugins/flow" in sprawl_errors
+    assert "Unexpected top-level path violates layout allowlist: CLAUDE.md" in sprawl_errors
+    assert "Unexpected top-level path violates layout allowlist: plugins" in sprawl_errors
 
     (tmp_path / "uv.lock").write_text(
         'registry = "https://pypi.org/simple"\nsdist = "https://files.pythonhosted.org/pkg.tar.gz"\n',
@@ -551,3 +552,142 @@ def test_validate_okf_bundle_checks_task_claim_identity_and_legacy_compat(
         assert any(expect_error_substring in err for err in errors), f"[{case_id}] unexpected errors: {errors}"
     else:
         assert errors == [], f"[{case_id}] unexpected errors: {errors}"
+
+
+def test_validate_hooks_checks_sidecar_css_balance(tmp_path: Path) -> None:
+    """Verify validate_manifests detects unbalanced CSS braces in sidecars/studio/web/styles.css."""
+    (tmp_path / "pyproject.toml").write_text('[project]\nname = "flow"\nversion = "0.1.0"\n', encoding="utf-8")
+    for src_rel in (
+        "package.json",
+        "sidecars/studio/sidecar.json",
+        "sidecars/studio/main.mjs",
+    ):
+        dst = tmp_path / src_rel
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(REPO_ROOT / src_rel, dst)
+
+    css_path = tmp_path / "sidecars" / "studio" / "web" / "styles.css"
+    css_path.parent.mkdir(parents=True, exist_ok=True)
+    css_path.write_text(".card { color: #111;\n", encoding="utf-8")
+
+    errors = validate_manifests(tmp_path)
+    assert any("SIDECAR_CSS_SYNTAX:" in err and "sidecars/studio/web/styles.css" in err for err in errors), errors
+
+
+def test_validate_content_hygiene_flags_workstation_paths(tmp_path: Path) -> None:
+    """Verify validate_content_hygiene catches leaked local workstation paths."""
+    skills_dir = tmp_path / "skills" / "flow"
+    skills_dir.mkdir(parents=True)
+    leaked = "/home/example" + "/code/private-repo/spec.md"
+    (skills_dir / "SKILL.md").write_text(f"Do not leak {leaked}.\n", encoding="utf-8")
+
+    errors = validate_content_hygiene(tmp_path)
+    assert errors == ["CONTENT_HYGIENE: workstation path leaked in skills/flow/SKILL.md"]
+
+
+def test_validate_okf_bundle_checks_dangling_deps_and_duplicate_task_ids(tmp_path: Path) -> None:
+    """Verify validate_okf_bundle flags dangling depends_on targets and cross-chapter duplicate task ids."""
+    bundle = tmp_path / "bundles"
+    spec_dir = bundle / "specs" / "dep-check"
+    ch1_tasks = spec_dir / "chapters" / "ch01-alpha" / "tasks"
+    ch2_tasks = spec_dir / "chapters" / "ch02-beta" / "tasks"
+    ch1_tasks.mkdir(parents=True)
+    ch2_tasks.mkdir(parents=True)
+
+    (bundle / "index.md").write_text("---\nokf_version: '0.2'\n---\n\n# Root\n", encoding="utf-8")
+
+    (spec_dir / "spec.md").write_text(
+        "---\n"
+        "type: Spec\n"
+        "flow_id: dep-check\n"
+        "title: Dependency Check\n"
+        "description: Verify dangling deps and duplicate task ids.\n"
+        "status: stable\n"
+        "state: active\n"
+        "planning_quality: standard\n"
+        "planning_degraded_reason: null\n"
+        "has_chapters: true\n"
+        "current_chapter: ch01-alpha\n"
+        "plan_revision: 1\n"
+        "plan_commit: abc1234\n"
+        "sources:\n"
+        "  - id: src-1\n"
+        "    resource: tools/validate.py::main\n"
+        "    title: Validator\n"
+        "tags: [validation]\n"
+        "---\n\n"
+        "<!-- truth: start -->\n- Check deps[^src-1].\n<!-- truth: end -->\n\n"
+        "## 1. Specification, Context & Provenance\n\nContext[^src-1].\n\n"
+        "## 2. Requirements, Concrete Contracts & Architecture\n\nContracts.\n\n"
+        "## 3. Documentation & OKF Knowledge Plan\n\n[0/0 files documented]\n\n"
+        "## 4. Requirement-to-Task Traceability Matrix\n\nMatrix.\n\n"
+        "## 5. Chapters & Rollout Plan\n\n- [ ] ch01-alpha — Alpha\n- [ ] ch02-beta — Beta\n\n"
+        "## 6. Current State & Remaining Plan Snapshot\n\nActive.\n\n"
+        "[^src-1]: tools/validate.py::main\n",
+        encoding="utf-8",
+    )
+
+    for ch_id in ("ch01-alpha", "ch02-beta"):
+        ch_spec = spec_dir / "chapters" / ch_id / "spec.md"
+        ch_spec.write_text(
+            "---\n"
+            "type: Spec\n"
+            f"flow_id: dep-check\n"
+            f"chapter_id: {ch_id}\n"
+            f"title: {ch_id}\n"
+            "description: Chapter spec.\n"
+            "status: stable\n"
+            "state: pending\n"
+            "sources:\n"
+            "  - id: src-1\n"
+            "    resource: tools/validate.py::main\n"
+            "    title: Validator\n"
+            "tags: [validation]\n"
+            "---\n\n"
+            "## 1. Chapter Goal & Context\n\nGoal[^src-1].\n\n"
+            "## 2. Implementation Plan\n\n- [ ] t01 — Task (tasks/t01-item.md)\n\n"
+            "[^src-1]: tools/validate.py::main\n",
+            encoding="utf-8",
+        )
+
+    for tasks_dir, deps_line in ((ch1_tasks, "depends_on: [missing-task]"), (ch2_tasks, "depends_on: []")):
+        (tasks_dir / "t01-item.md").write_text(
+            "---\n"
+            "type: Task\n"
+            "id: dep-check:t01\n"
+            "title: Task\n"
+            "description: Task worksheet.\n"
+            "status: stable\n"
+            "state: pending\n"
+            "priority: P1\n"
+            "verification_strategy: static_validation\n"
+            "worksheet_format: compact\n"
+            f"{deps_line}\n"
+            "read_set: [tools/validate.py]\n"
+            "files: [tools/validate.py]\n"
+            "tests: [tests/test_validate.py]\n"
+            "estimated_loc: 20\n"
+            "plan_revision: 1\n"
+            "plan_commit: abc1234\n"
+            "claimed_by: null\n"
+            "claimed_at: null\n"
+            "commit: null\n"
+            "sources:\n"
+            "  - id: src-1\n"
+            "    resource: tools/validate.py::main\n"
+            "    title: Validator\n"
+            "tags: [validation]\n"
+            "---\n\n"
+            "## Objective & Scope Boundary\n\nScope.\n\n"
+            "## Bounded Read Manifest\n\n- tools/validate.py\n\n"
+            "## Contracts & Edge Cases\n\nContracts.\n\n"
+            "## Test Matrix\n\nMatrix.\n\n"
+            "## Verification\n\nCommand.\n\n"
+            "## Acceptance Criteria\n\nDone.\n\n"
+            "[^src-1]: tools/validate.py::main\n",
+            encoding="utf-8",
+        )
+
+    errors = validate_okf_bundle(bundle)
+    assert any("DANGLING_TASK_DEP:" in err and "missing-task" in err for err in errors), errors
+    assert any("duplicate task id 'dep-check:t01' across chapters" in err for err in errors), errors

@@ -9,6 +9,15 @@
         "type": "string",
         "description": "Flow identifier under .agents/bundles/specs/<flow_id>."
       },
+      "seed_files": {
+        "type": "array",
+        "items": {"type": "string"},
+        "description": "Optional seed file paths to prefetch upfront before planner turns."
+      },
+      "harness": {
+        "type": "string",
+        "description": "Active harness identifier for dynamic Frontier model selection."
+      },
       "chapters": {
         "type": "array",
         "items": {

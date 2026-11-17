@@ -1,35 +1,74 @@
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const PLUGIN_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const INSTALL_HINT = "opencode plugin add github:cofin/flow";
+const STUDIO_ROOT = path.join(PLUGIN_ROOT, "sidecars", "studio");
+
+async function loadOptionalStudioModule(relPath) {
+  const full = path.join(STUDIO_ROOT, relPath);
+  if (!fs.existsSync(full)) return null;
+  try {
+    return await import(pathToFileURL(full).href);
+  } catch {
+    return null;
+  }
+}
+
+const _fmMod = await loadOptionalStudioModule("core/frontmatter.mjs");
+const _wtMod = await loadOptionalStudioModule("core/worktree.mjs");
+const _invMod = await loadOptionalStudioModule("models/inventory.mjs");
+const _routeMod = await loadOptionalStudioModule("models/routing.mjs");
+const _sliceMod = await loadOptionalStudioModule("spec/slice-compiler.mjs");
 
 /**
- * Parse the scalar `key: value` lines of a Markdown file's YAML frontmatter.
+ * Minimal standalone YAML frontmatter parser fallback when loaded without `sidecars/studio/`.
  *
- * Flow's agent and skill files only use single-line scalars for the keys the plugin reads,
- * so nested lists and block scalars are skipped rather than parsed.
- *
- * @param {string} content Markdown text.
- * @returns {{ data: Record<string, string>, body: string }}
+ * @param {string} markdown
+ * @returns {{ data: Record<string, any>, body: string }}
  */
-function parseFrontmatter(content) {
-  const normalized = content.replace(/\r\n/g, "\n");
-  const match = normalized.match(/^---\n([\s\S]*?)\n---\n?/);
+function fallbackParseFrontmatter(markdown) {
+  const normalized = String(markdown || "").replace(/\r\n/g, "\n");
+  const match = normalized.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
   if (!match) return { data: {}, body: normalized };
+  /** @type {Record<string, any>} */
   const data = {};
   for (const line of match[1].split("\n")) {
-    const kv = line.match(/^([A-Za-z_][\w-]*):\s*(.*)$/);
-    if (!kv || !kv[2]) continue;
-    let value = kv[2].trim();
-    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
-      value = value.slice(1, -1);
+    const kv = line.match(/^([A-Za-z0-9_]+):\s*(.*)$/);
+    if (!kv) continue;
+    let val = kv[2].replace(/\s+#.*$/, "").trim();
+    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+      val = val.slice(1, -1);
     }
-    data[kv[1]] = value;
+    if (val === "true") data[kv[1]] = true;
+    else if (val === "false") data[kv[1]] = false;
+    else if (val === "null") data[kv[1]] = null;
+    else data[kv[1]] = val;
   }
-  return { data, body: normalized.slice(match[0].length) };
+  return { data, body: match[2] };
 }
+
+function fallbackResolveWorktreeContext(workspaceDir) {
+  const root = path.resolve(workspaceDir || process.cwd());
+  let bundleRel = ".agents/bundles";
+  try {
+    const setupPath = path.join(root, ".agents", "setup-state.json");
+    if (fs.existsSync(setupPath)) {
+      const cfg = JSON.parse(fs.readFileSync(setupPath, "utf8"));
+      if (cfg?.bundle_root) bundleRel = String(cfg.bundle_root);
+    }
+  } catch {
+    // Keep default bundleRel on invalid JSON.
+  }
+  return { effectiveAgentsRoot: root, bundleRel, isLinkedWorktree: false, ignorePolicy: "shared", mainWorktree: null };
+}
+
+const parseFrontmatter = _fmMod?.parseFrontmatter || fallbackParseFrontmatter;
+const resolveWorktreeContext = _wtMod?.resolveWorktreeContext || fallbackResolveWorktreeContext;
+const DynamicModelCatalog = _invMod?.DynamicModelCatalog || null;
+const AdaptiveModelRouter = _routeMod?.AdaptiveModelRouter || null;
+const SliceCompiler = _sliceMod?.SliceCompiler || null;
 
 /**
  * Load Flow skills from `<plugin root>/skills/<name>/SKILL.md` as OpenCode V2 `Skill.Info` records.
@@ -63,7 +102,7 @@ function loadSkills(pluginRoot = PLUGIN_ROOT) {
  * Load Flow subagents from `<plugin root>/agents/*.md`.
  *
  * @param {string} [pluginRoot]
- * @returns {Array<{ id: string, name: string, description: string, system: string, readonly: boolean }>}
+ * @returns {Array<{ id: string, name: string, description: string, system: string, readonly: boolean, taskKind: string }>}
  */
 function loadSubagents(pluginRoot = PLUGIN_ROOT) {
   const agentsDir = path.join(pluginRoot, "agents");
@@ -72,125 +111,52 @@ function loadSubagents(pluginRoot = PLUGIN_ROOT) {
   for (const file of fs.readdirSync(agentsDir).filter((f) => f.endsWith(".md")).sort()) {
     const { data, body } = parseFrontmatter(fs.readFileSync(path.join(agentsDir, file), "utf8"));
     const id = data.name || path.basename(file, ".md");
+    const readonly = data.readonly === true || data.readonly === "true";
+    const taskKind =
+      id === "prd-orchestrator" || id === "plan-generator"
+        ? "planning"
+        : id === "code-reviewer" || id === "quality-reviewer"
+          ? "spec_review"
+          : id === "researcher"
+            ? "narrow_fetch"
+            : "implementation";
     agents.push({
       id,
       name: id,
-      description: data.description ?? "",
+      description: String(data.description ?? ""),
       system: body.trim(),
-      readonly: data.readonly === "true",
+      readonly,
+      taskKind,
     });
   }
   return agents;
 }
 
-function resolveWorktreeEnv(workspaceDir) {
-  const root = path.resolve(workspaceDir);
-  const gitMarker = path.join(root, ".git");
-  let mainWorktree = null;
-  try {
-    if (fs.existsSync(gitMarker) && fs.statSync(gitMarker).isFile()) {
-      const rawGit = fs.readFileSync(gitMarker, "utf8").trim();
-      const match = rawGit.match(/^gitdir:\s*(.+)$/m);
-      if (match) {
-        const gitDir = path.resolve(root, match[1].trim());
-        const commonFile = path.join(gitDir, "commondir");
-        const commonGitDir = fs.existsSync(commonFile)
-          ? path.resolve(gitDir, fs.readFileSync(commonFile, "utf8").trim())
-          : path.resolve(gitDir, "../..");
-        const candidateMain = path.dirname(commonGitDir);
-        if (candidateMain && path.resolve(candidateMain) !== root) {
-          mainWorktree = path.resolve(candidateMain);
-        }
-      }
-    }
-  } catch {
-    mainWorktree = null;
-  }
-
-  if (!mainWorktree) {
-    return { effectiveRoot: root, worktreeNote: "" };
-  }
-
-  const linkItem = (src, dst) => {
-    try {
-      fs.lstatSync(dst);
-      return;
-    } catch {
-      // Destination does not exist yet.
-    }
-    try {
-      if (!fs.existsSync(src)) return;
-      const isDir = fs.statSync(src).isDirectory();
-      fs.symlinkSync(src, dst, isDir ? (process.platform === "win32" ? "junction" : "dir") : "file");
-    } catch {
-      // Ignore read-only sandbox link errors.
-    }
-  };
-
-  for (const art of [".venv", "node_modules", "uv.toml", ".npmrc"]) {
-    linkItem(path.join(mainWorktree, art), path.join(root, art));
-  }
-
-  const readPolicy = (base) => {
-    try {
-      const parsed = JSON.parse(fs.readFileSync(path.join(base, ".agents", "setup-state.json"), "utf8"));
-      return parsed?.workflow_preferences?.ignore_policy || parsed?.ignore_policy || "";
-    } catch {
-      return "";
-    }
-  };
-
-  let ignorePolicy = readPolicy(root) || readPolicy(mainWorktree);
-  if (!ignorePolicy) {
-    const localAgents = path.join(root, ".agents");
-    const hasRealLocalAgents = fs.existsSync(localAgents) && !fs.lstatSync(localAgents).isSymbolicLink();
-    ignorePolicy = !hasRealLocalAgents && fs.existsSync(path.join(mainWorktree, ".agents")) ? "local-only" : "shared";
-  }
-
-  if (ignorePolicy === "local-only" && fs.existsSync(path.join(mainWorktree, ".agents"))) {
-    linkItem(path.join(mainWorktree, ".agents"), path.join(root, ".agents"));
-    return {
-      effectiveRoot: mainWorktree,
-      worktreeNote: `Linked Git worktree (local-only .agents): .agents is shared from primary checkout ${mainWorktree}/.agents — edit Flow Markdown there (or via symlinked .agents/), and reuse symlinked .venv with uv run --no-sync (do not run make install).`,
-    };
-  }
-  return {
-    effectiveRoot: root,
-    worktreeNote:
-      "Linked Git worktree (shared .agents): edit worktree .agents/ directly, and reuse symlinked .venv with uv run --no-sync (do not run make install).",
-  };
-}
-
+/**
+ * Build concise OKF v0.2 bundle summary and active slice digest for the OpenCode session context hook.
+ *
+ * @param {string} workspaceDir
+ * @returns {string}
+ */
 function readBundleSummary(workspaceDir) {
   const baseMsg =
     "Flow Spec-Driven Development is active. Resolve the bundle root from .agents/setup-state.json (default .agents/bundles/), read its index.md and applicable nested knowledge chapters, and follow skills/flow/references/state.md for direct Markdown + Git continuity.";
-  if (!workspaceDir) {
-    return baseMsg;
-  }
+  if (!workspaceDir) return baseMsg;
 
-  const { effectiveRoot, worktreeNote } = resolveWorktreeEnv(workspaceDir);
+  const wt = resolveWorktreeContext(workspaceDir);
+  const effectiveRoot = wt.effectiveAgentsRoot;
   const agentsDir = path.join(effectiveRoot, ".agents");
   if (!fs.existsSync(agentsDir)) {
     return "Flow plugin loaded (no .agents/ bundle in this workspace; run /flow:setup to initialize).";
   }
 
-  let bundleRel = ".agents/bundles";
-  const setupStatePath = path.join(agentsDir, "setup-state.json");
-  if (fs.existsSync(setupStatePath)) {
-    try {
-      const parsed = JSON.parse(fs.readFileSync(setupStatePath, "utf8"));
-      if (typeof parsed.bundle_root === "string" && parsed.bundle_root.trim()) {
-        bundleRel = parsed.bundle_root.trim();
-      }
-    } catch {
-      bundleRel = ".agents/bundles";
-    }
-  }
-
+  const bundleRel = wt.bundleRel || ".agents/bundles";
   const activeSpecs = [];
   const pendingSync = [];
   const degradedPlans = [];
+  const nextWaveHints = [];
   const specsDir = path.join(effectiveRoot, bundleRel, "specs");
+
   if (fs.existsSync(specsDir)) {
     try {
       const flowEntries = fs
@@ -201,15 +167,12 @@ function readBundleSummary(workspaceDir) {
         const flowDir = path.join(specsDir, entry.name);
         const specPath = path.join(flowDir, "spec.md");
         if (!fs.existsSync(specPath)) continue;
-        const content = fs.readFileSync(specPath, "utf8").replace(/\r\n/g, "\n");
-        const fmMatch = content.match(/^---\n([\s\S]*?)\n---/);
-        if (!fmMatch) continue;
-        const fm = fmMatch[1];
-        const flowId = fm.match(/^flow_id:\s*["']?([^#"'\n]+)["']?/m)?.[1]?.trim() ?? entry.name;
-        const state = fm.match(/^state:\s*["']?([^#"'\n]+)["']?/m)?.[1]?.trim() ?? "unknown";
-        let currentChapter = fm.match(/^current_chapter:\s*["']?([^#"'\n]+)["']?/m)?.[1]?.trim() ?? "";
-        const currentTask = fm.match(/^current_task:\s*["']?([^#"'\n]+)["']?/m)?.[1]?.trim() ?? "";
-        let planningQuality = fm.match(/^planning_quality:\s*["']?([^#"'\n]+)["']?/m)?.[1]?.trim() ?? "";
+        const { data } = parseFrontmatter(fs.readFileSync(specPath, "utf8"));
+        const flowId = String(data.flow_id || entry.name);
+        const state = String(data.state || "unknown");
+        let currentChapter = data.current_chapter ? String(data.current_chapter) : "";
+        const currentTask = data.current_task ? String(data.current_task) : "";
+        let planningQuality = data.planning_quality ? String(data.planning_quality) : "";
 
         const chaptersDir = path.join(flowDir, "chapters");
         if (fs.existsSync(chaptersDir)) {
@@ -220,12 +183,10 @@ function readBundleSummary(workspaceDir) {
           for (const ch of chEntries) {
             const chSpecPath = path.join(chaptersDir, ch.name, "spec.md");
             if (!fs.existsSync(chSpecPath)) continue;
-            const chContent = fs.readFileSync(chSpecPath, "utf8").replace(/\r\n/g, "\n");
-            const chFm = chContent.match(/^---\n([\s\S]*?)\n---/)?.[1] ?? "";
-            const chState = chFm.match(/^state:\s*["']?([^#"'\n]+)["']?/m)?.[1]?.trim() ?? "";
-            const chRev = chFm.match(/^last_reviewed_commit:\s*["']?([^#"'\n]+)["']?/m)?.[1]?.trim() ?? "";
-            const chPq = chFm.match(/^planning_quality:\s*["']?([^#"'\n]+)["']?/m)?.[1]?.trim() ?? "";
-            if (chPq === "degraded") planningQuality = "degraded";
+            const { data: chData } = parseFrontmatter(fs.readFileSync(chSpecPath, "utf8"));
+            const chState = String(chData.state || "");
+            const chRev = chData.last_reviewed_commit ? String(chData.last_reviewed_commit) : "";
+            if (chData.planning_quality === "degraded") planningQuality = "degraded";
             if ((!currentChapter || currentChapter === "null") && !["completed", "deferred", "skipped"].includes(chState)) {
               currentChapter = ch.name;
             }
@@ -237,10 +198,8 @@ function readBundleSummary(workspaceDir) {
                 .sort();
               let doneCount = 0;
               for (const tf of taskFiles) {
-                const tContent = fs.readFileSync(path.join(chTasksDir, tf), "utf8").replace(/\r\n/g, "\n");
-                const tFm = tContent.match(/^---\n([\s\S]*?)\n---/)?.[1] ?? "";
-                const tState = tFm.match(/^state:\s*["']?([^#"'\n]+)["']?/m)?.[1]?.trim() ?? "";
-                if (["completed", "closed", "deferred", "skipped"].includes(tState)) {
+                const { data: tData } = parseFrontmatter(fs.readFileSync(path.join(chTasksDir, tf), "utf8"));
+                if (["completed", "closed", "deferred", "skipped"].includes(String(tData.state || ""))) {
                   doneCount += 1;
                 }
               }
@@ -259,17 +218,20 @@ function readBundleSummary(workspaceDir) {
         if (state !== "completed" && state !== "archived") {
           const hasCh = Boolean(currentChapter && currentChapter !== "null");
           const hasTk = Boolean(currentTask && currentTask !== "null");
-          if (hasCh && hasTk) {
-            activeSpecs.push(`${flowId}(${state}, chapter=${currentChapter}, task=${currentTask})`);
-          } else if (hasCh) {
-            activeSpecs.push(`${flowId}(${state}, chapter=${currentChapter})`);
-          } else if (hasTk) {
-            activeSpecs.push(`${flowId}(${state}, task=${currentTask})`);
-          } else {
-            activeSpecs.push(`${flowId}(${state})`);
-          }
-          if (planningQuality === "degraded") {
-            degradedPlans.push(flowId);
+          if (hasCh && hasTk) activeSpecs.push(`${flowId}(${state}, chapter=${currentChapter}, task=${currentTask})`);
+          else if (hasCh) activeSpecs.push(`${flowId}(${state}, chapter=${currentChapter})`);
+          else if (hasTk) activeSpecs.push(`${flowId}(${state}, task=${currentTask})`);
+          else activeSpecs.push(`${flowId}(${state})`);
+
+          if (planningQuality === "degraded") degradedPlans.push(flowId);
+          try {
+            const compiled = new SliceCompiler(effectiveRoot).compile({ flowId, chapterId: hasCh ? currentChapter : null });
+            if (compiled.waves?.length > 0) {
+              const w0 = compiled.waves[0];
+              nextWaveHints.push(`${flowId} wave-0: ${w0.slices.map((s) => s.task_id).join(",")}`);
+            }
+          } catch {
+            // Optional slice summary fallback when spec has no tasks.
           }
         }
       }
@@ -279,34 +241,30 @@ function readBundleSummary(workspaceDir) {
   }
 
   const parts = [baseMsg, `Workspace bundle root: ${bundleRel}.`];
-  if (worktreeNote) {
-    parts.push(worktreeNote);
+  if (wt.isLinkedWorktree) {
+    parts.push(
+      wt.ignorePolicy === "local-only" && wt.mainWorktree
+        ? `Linked Git worktree (local-only .agents): .agents is shared from primary checkout ${wt.mainWorktree}/.agents.`
+        : "Linked Git worktree (shared .agents): edit worktree .agents/ directly and reuse linked environments."
+    );
   }
   if (fs.existsSync(path.join(agentsDir, "skills", "index.md"))) {
     parts.push("Project-local domain and review skills index: .agents/skills/index.md.");
   }
-  if (activeSpecs.length > 0) {
-    parts.push(`Active specs: ${activeSpecs.join(", ")}.`);
-  }
+  if (activeSpecs.length > 0) parts.push(`Active specs: ${activeSpecs.join(", ")}.`);
+  if (nextWaveHints.length > 0) parts.push(`Ready micro-slices: ${nextWaveHints.join("; ")}.`);
   if (degradedPlans.length > 0) {
     parts.push(
       `Degraded planning quality warning (planning_quality=degraded — not planned with optimal primary frontier thinking model): ${degradedPlans.join(", ")}.`
     );
   }
-  if (pendingSync.length > 0) {
-    parts.push(`Pending chapter review/Markdown sync: ${pendingSync.join(", ")}.`);
-  }
+  if (pendingSync.length > 0) parts.push(`Pending chapter review/Markdown sync: ${pendingSync.join(", ")}.`);
   parts.push("Flow Studio UI: npx --yes --package github:cofin/flow flow-studio.");
   return parts.join(" ");
 }
 
 /**
  * OpenCode V2 Promise plugin.
- *
- * Registers Flow skills and subagents through the domain editors and injects the live
- * bundle summary into every agent-loop model request through the session `context` hook.
- * A standalone copy outside the package (for example `~/.config/opencode/plugins/flow.js`)
- * still injects the summary but cannot find `skills/` or `agents/`, so it warns once.
  */
 const flowPlugin = {
   id: "flow",
@@ -329,14 +287,44 @@ const flowPlugin = {
       });
     }
 
+    if (typeof ctx.mcp?.transform === "function") {
+      const mcpEntry = path.join(PLUGIN_ROOT, "sidecars", "studio", "mcp-server.mjs");
+      if (fs.existsSync(mcpEntry)) {
+        await ctx.mcp.transform((editor) => {
+          if (!editor.get("flow-studio")) {
+            editor.set("flow-studio", {
+              type: "local",
+              command: ["node", mcpEntry],
+              cwd: workspaceDir,
+              codemode: true,
+            });
+          }
+        });
+      }
+    }
+
     if (agents.length > 0) {
+      let candidates = [];
+      if (DynamicModelCatalog) {
+        try {
+          const catalog = new DynamicModelCatalog({ projectRoot: workspaceDir });
+          candidates = await catalog.discoverHarnessCatalog({ harness: "opencode", allowNetwork: false });
+        } catch {
+          candidates = [];
+        }
+      }
+      const router = AdaptiveModelRouter ? new AdaptiveModelRouter() : null;
       await ctx.agent.transform((editor) => {
         for (const agent of agents) {
+          const decision =
+            router && candidates.length > 0 ? router.select(candidates, { taskKind: agent.taskKind }) : null;
           editor.update(agent.id, (item) => {
             item.name = agent.name;
             item.description = agent.description;
             item.system = agent.system;
             item.mode = "subagent";
+            if (decision?.model) item.model = decision.model;
+            if (decision?.effort && decision.effort !== "default") item.variant = decision.effort;
             if (agent.readonly) {
               item.permissions.push({ action: "edit", resource: "*", effect: "deny" });
             }

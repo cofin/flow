@@ -1,12 +1,9 @@
 #!/usr/bin/env node
 /**
  * Standalone loopback HTTP + SSE + A2A v1 server (`npx --yes --package github:cofin/flow flow-studio`).
- *
- * Serves the exact same calm Flow Studio UI and DuckDB catalog backend for
- * Claude Code, Codex CLI, OpenCode V2, Cursor, and browser workflows without
- * requiring an Antigravity host process.
  */
 
+import { spawn } from "node:child_process";
 import fs from "node:fs";
 import http from "node:http";
 import path from "node:path";
@@ -15,6 +12,7 @@ import { fileURLToPath } from "node:url";
 import { StudioApiService, StudioRequestError } from "./router.mjs";
 
 const STUDIO_DIR = path.dirname(fileURLToPath(import.meta.url));
+const WEB_DIR = path.join(STUDIO_DIR, "web");
 const PLUGIN_ROOT = path.resolve(STUDIO_DIR, "..", "..");
 
 const STATIC_FILES = new Map([
@@ -40,9 +38,7 @@ const defaultWorkspace =
     ? path.resolve(argv[wsArgIdx + 1])
     : path.resolve(process.env.FLOW_STUDIO_DEFAULT_WORKSPACE || process.cwd());
 
-/** @type {Set<http.ServerResponse>} */
 const sseClients = new Set();
-
 const service = new StudioApiService({
   env: { ...process.env, FLOW_STUDIO_DEFAULT_WORKSPACE: defaultWorkspace },
   pluginRoot: PLUGIN_ROOT,
@@ -61,13 +57,10 @@ if (fs.existsSync(agentsDir)) {
       }, 250);
     });
   } catch {
-    // Recursive fs.watch is best-effort across OS filesystems.
+    // Recursive fs.watch is best-effort.
   }
 }
 
-/**
- * @param {any} payload
- */
 function broadcastSse(payload) {
   const frame = `data: ${JSON.stringify(payload)}\n\n`;
   for (const res of sseClients) {
@@ -79,10 +72,6 @@ function broadcastSse(payload) {
   }
 }
 
-/**
- * @param {http.IncomingMessage} req
- * @returns {Promise<Record<string, any>>}
- */
 function readJsonBody(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
@@ -127,23 +116,31 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (req.method === "GET" && pathname === "/api/events") {
-    res.writeHead(200, {
-      "Content-Type": "text/event-stream",
-      "Connection": "keep-alive",
-      "Cache-Control": "no-cache",
-    });
-    res.write(`data: ${JSON.stringify({ type: "connected", workspacePath: defaultWorkspace })}\n\n`);
+    res.writeHead(200, { "Content-Type": "text/event-stream; charset=utf-8", Connection: "keep-alive" });
+    res.write(": connected\n\n");
     sseClients.add(res);
     req.on("close", () => sseClients.delete(res));
     return;
   }
 
   if (req.method === "GET" && pathname === "/.well-known/agent-card.json") {
-    const addr = server.address();
-    const port = typeof addr === "object" && addr ? addr.port : requestedPort;
-    const card = service.a2a.buildAgentCard(`http://127.0.0.1:${port}`);
     res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
-    res.end(JSON.stringify(card));
+    res.end(JSON.stringify(service.a2a.buildAgentCard(`http://127.0.0.1:${requestedPort}`)));
+    return;
+  }
+
+  if (req.method === "GET" && STATIC_FILES.has(pathname)) {
+    const asset = STATIC_FILES.get(pathname);
+    const fullPath = path.join(WEB_DIR, asset.file);
+    if (pathname === "/" || pathname === "/dashboard") {
+      res.setHeader(
+        "Content-Security-Policy",
+        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; " +
+          "connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'",
+      );
+    }
+    res.writeHead(200, { "Content-Type": asset.type });
+    res.end(asset.binary ? fs.readFileSync(fullPath) : fs.readFileSync(fullPath, "utf8"));
     return;
   }
 
@@ -155,50 +152,47 @@ const server = http.createServer(async (req, res) => {
       res.end(JSON.stringify(rpcRes));
     } catch (err) {
       res.writeHead(400, { "Content-Type": "application/json; charset=utf-8" });
-      res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }));
+      res.end(JSON.stringify({ error: err instanceof Error ? err.message : "Bad A2A request" }));
     }
-    return;
-  }
-
-  if (req.method === "GET" && STATIC_FILES.has(pathname)) {
-    const entry = STATIC_FILES.get(pathname);
-    const assetPath = path.join(STUDIO_DIR, entry.file);
-    const content = entry.binary ? fs.readFileSync(assetPath) : fs.readFileSync(assetPath, "utf8");
-    res.writeHead(200, { "Content-Type": entry.type });
-    res.end(content);
     return;
   }
 
   if (req.method === "POST" && pathname.startsWith("/api/")) {
     try {
-      const payload = await readJsonBody(req);
-      const output = await service.handleApi(pathname, payload);
+      const body = await readJsonBody(req);
+      const result = await service.handleApi(pathname, body);
       res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
-      res.end(JSON.stringify(output));
+      res.end(JSON.stringify(result));
     } catch (err) {
       const status = err instanceof StudioRequestError ? 400 : 500;
-      const msg = err instanceof Error ? err.message : "Internal Studio error";
       res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
-      res.end(JSON.stringify({ error: msg }));
+      res.end(JSON.stringify({ error: err instanceof Error ? err.message : "Studio error" }));
     }
     return;
   }
 
   res.writeHead(404, { "Content-Type": "application/json; charset=utf-8" });
-  res.end(JSON.stringify({ error: `Not found: ${pathname}` }));
+  res.end(JSON.stringify({ error: "Not found" }));
 });
 
 server.listen(requestedPort, "127.0.0.1", () => {
-  const addr = server.address();
-  const actualPort = typeof addr === "object" && addr ? addr.port : requestedPort;
-  process.stdout.write(
-    `Flow Studio listening on http://127.0.0.1:${actualPort}/dashboard (workspace: ${defaultWorkspace})\n`
-  );
+  const url = `http://127.0.0.1:${requestedPort}/dashboard`;
+  process.stdout.write(`Flow Studio running at ${url} (workspace: ${defaultWorkspace})\n`);
+  const shouldOpen = argv.includes("--open") && !argv.includes("--no-open");
+  if (shouldOpen) {
+    const opener = process.platform === "darwin" ? "open" : process.platform === "win32" ? "cmd" : "xdg-open";
+    const openArgs = process.platform === "win32" ? ["/c", "start", "", url] : [url];
+    try {
+      spawn(opener, openArgs, { detached: true, stdio: "ignore" }).unref();
+    } catch {
+      // Ignore headless browser open failures.
+    }
+  }
 });
 
-const shutdown = () => {
-  service.close();
-  server.close(() => process.exit(0));
-};
-process.on("SIGINT", shutdown);
-process.on("SIGTERM", shutdown);
+for (const sig of ["SIGINT", "SIGTERM"]) {
+  process.on(sig, () => {
+    service.close();
+    server.close(() => process.exit(0));
+  });
+}

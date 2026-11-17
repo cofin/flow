@@ -110,6 +110,8 @@ class OkfMarkdownParser:
         posix_rel = rel_to_bundle.as_posix()
         if posix_rel in {"index.md", "log.md"}:
             return False
+        if len(rel_to_bundle.parts) >= 3 and rel_to_bundle.parts[0] == "specs" and "feedback" in rel_to_bundle.parts:
+            return False
         frontmatter, _ = cls._split_frontmatter(raw_text)
         raw_publish = frontmatter.get("catalog_publish")
         if raw_publish is False or str(raw_publish).strip().lower() == "false":
