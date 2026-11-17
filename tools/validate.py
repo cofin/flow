@@ -2502,7 +2502,8 @@ def _parse_scalar(val: str) -> Any:
                 k, v = pair.split(":", 1)
                 result[k.strip()] = _parse_scalar(v)
         return result
-    if stripped.isdigit() or (stripped.startswith("-") and stripped[1:].isdigit()):
+    unsigned = stripped[1:] if stripped.startswith("-") else stripped
+    if unsigned == "0" or (unsigned.isdigit() and not unsigned.startswith("0")):
         return int(stripped)
     return stripped
 

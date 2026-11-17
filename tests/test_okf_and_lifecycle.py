@@ -1248,6 +1248,19 @@ def test_validate_okf_bundle_respects_gitignore_and_sha_tracking_modes(
         assert errors
 
 
+def test_validate_okf_bundle_preserves_leading_zero_all_digit_commit_sha(tmp_path: Path) -> None:
+    """Verify leading-zero all-digit short commit SHAs (for example 0123456) are not truncated to 6-digit ints."""
+    bundle_dir = _seed_valid_multichapter_bundle(tmp_path)
+    flow_dir = bundle_dir / "specs" / "auth-refactor"
+    ch_spec = flow_dir / "chapters" / "ch01-tokens" / "spec.md"
+    task_file = flow_dir / "chapters" / "ch01-tokens" / "tasks" / "t01-slice.md"
+
+    ch_spec.write_text(ch_spec.read_text(encoding="utf-8").replace("1111111", "0123456"), encoding="utf-8")
+    task_file.write_text(task_file.read_text(encoding="utf-8").replace("1111111", "0123456"), encoding="utf-8")
+
+    assert validate_okf_bundle(bundle_dir, flow_id="auth-refactor") == []
+
+
 @pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
 def test_bootstrap_worktree_links_python_version_from_main_checkout(tmp_path: Path) -> None:
     """Verify flow-cli worktree bootstrap links .python-version alongside .venv into linked Git worktrees."""
