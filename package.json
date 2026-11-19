@@ -1,6 +1,6 @@
 {
   "name": "flow",
-  "version": "0.31.0",
+  "version": "0.32.0",
   "description": "Unified toolkit for Context-Driven Development",
   "type": "module",
   "main": ".opencode/plugins/flow.js",
@@ -12,6 +12,7 @@
     ".opencode/plugins/",
     "agents/",
     "assets/",
+    "bin/",
     "hooks/",
     "hooks.json",
     "mods/",
@@ -30,6 +31,7 @@
     "!**/__pycache__/**"
   ],
   "bin": {
+    "flow": "./bin/flow.mjs",
     "flow-studio": "./sidecars/studio/server.mjs",
     "flow-studio-vscode": "./vscode-extension/install.mjs"
   },

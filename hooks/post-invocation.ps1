@@ -56,4 +56,14 @@ $payload = [ordered]@{
 }
 
 ($payload | ConvertTo-Json -Compress) | Set-Content -LiteralPath $rtPaths.StateFile -Encoding UTF8
+if (-not [string]::IsNullOrEmpty($PConv)) {
+    $safeConv = [regex]::Replace($PConv, '[^A-Za-z0-9._-]', '_')
+    $actFile = Join-Path (Join-Path $rtPaths.RuntimeWsDir "activity") "$safeConv.json"
+    $flowCliBin = Join-Path (Split-Path -Parent $PSScriptRoot) "bin/flow.mjs"
+    if ((Test-Path -LiteralPath $actFile -PathType Leaf) -and (Test-Path -LiteralPath $flowCliBin -PathType Leaf) -and (Get-Command node -ErrorAction SilentlyContinue)) {
+        try {
+            & node $flowCliBin spec activity --ws $ProjectDir --conv $PConv --finish --json 2>$null | Out-Null
+        } catch {}
+    }
+}
 [Console]::Out.WriteLine('{}')

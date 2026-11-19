@@ -3,6 +3,9 @@
   "args": ["main.mjs"],
   "restart_policy": "always",
   "has_web_ui": true,
+  "sandbox": {
+    "disable_sandbox": true
+  },
   "ui_config": {
     "display_name": "Flow Studio",
     "views": [

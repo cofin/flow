@@ -13,7 +13,7 @@ ready_order: [priority, created_at, id]
 
 ## Workflow
 
-1. **Resolve Bundle Root & Git State**: Read `.agents/setup-state.json` (default `.agents/bundles/`) and inspect `git status --short -b` and `git log -n 5 --oneline`.
+1. **Resolve Bundle Root & Git State**: Read `.agents/setup-state.json` (default `.agents/bundles/`) and run `flow status --branches` (or inspect `git status --short -b` and `git log -n 5 --oneline`) to surface active specs on the current branch and other branches.
 2. **Scan Root Specs, Chapters, & Task Worksheets**:
    - Read every `.agents/bundles/specs/<flow_id>/spec.md`.
    - When `has_chapters: true` (or `chapters/` exists), read `chapters/index.md`, each `chapters/<ch_id>/spec.md`, and the active chapter's `tasks/*.md` frontmatter.

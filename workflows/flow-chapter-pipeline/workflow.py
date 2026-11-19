@@ -190,6 +190,14 @@ def _sync_checklists_cli() -> None:
     run_node_cli(plugin_root, argv)
 
 
+def _emit_run_phase(phase_name: str, detail: str = "") -> None:
+    """Record live execution phase for Flow Studio telemetry overlays."""
+    argv = ["spec", "phase", "--flow", flow_id, "--phase", phase_name, "--root", str(Path.cwd())]
+    if detail:
+        argv.extend(["--detail", detail])
+    run_node_cli(plugin_root, argv)
+
+
 async def _execute_task_group(group: dict, worker_id: int) -> dict:
     """Run one planned task group inside worker ``worker_id``."""
     group_task_ids = [str(tid) for tid in (group.get("task_ids") or []) if str(tid).strip()]
@@ -251,6 +259,7 @@ okf_errors: list[str] = []
 reviews: list[dict] = []
 _wf_lease = acquire_runtime_lease()
 try:
+    _emit_run_phase("workers", scope_label)
     if execution_mode == "parallel_tasks":
         pool = WorkerPool(
             plugin_root=plugin_root,
@@ -290,6 +299,7 @@ try:
         _sync_checklists_cli()
 
     if validator_script.is_file():
+        _emit_run_phase("check", scope_label)
         defer_commits = allow_uncommitted_arg or any(bool(r.get("commit_deferred_to_coordinator")) for r in execution_receipts)
         val_argv = [sys.executable, str(validator_script), "--bundle", str(bundle_root), "--flow", flow_id]
         if defer_commits:
@@ -384,6 +394,7 @@ try:
                 else:
                     reviews.append(item)
 finally:
+    _emit_run_phase("idle", scope_label)
     release_runtime_lease(_wf_lease)
 
 executed_chapters = sorted({cid for r in execution_receipts for cid in (r.get("chapter_ids") or ([chapter_id] if chapter_id else [])) if cid})

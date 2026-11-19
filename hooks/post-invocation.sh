@@ -71,4 +71,14 @@ cat > "$STATE_FILE" <<EOF
 }
 EOF
 
+if [ -n "$P_CONV" ]; then
+  SAFE_CONV="$(printf '%s' "$P_CONV" | sed 's/[^A-Za-z0-9._-]/_/g')"
+  if [ -f "$RUNTIME_WS_DIR/activity/$SAFE_CONV.json" ] && command -v node >/dev/null 2>&1; then
+    FLOW_CLI_BIN="$HOOK_DIR/../bin/flow.mjs"
+    if [ -f "$FLOW_CLI_BIN" ]; then
+      node "$FLOW_CLI_BIN" spec activity --ws "$PROJECT_DIR" --conv "$P_CONV" --finish --json >/dev/null 2>&1 || true
+    fi
+  fi
+fi
+
 printf '{}\n'

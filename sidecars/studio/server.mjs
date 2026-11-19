@@ -129,13 +129,29 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (req.method === "GET" && pathname === "/api/workspace-asset") {
+    try {
+      const ws = service.resolveWorkspace({ workspacePath: urlObj.searchParams.get("workspacePath") || undefined });
+      const relPath = urlObj.searchParams.get("relPath") || "";
+      const asset = service.readWorkspaceAssetBytes(ws, relPath);
+      res.writeHead(200, { "Content-Type": asset.mimeType, "Content-Length": String(asset.bytes.length) });
+      res.end(asset.bytes);
+    } catch (err) {
+      const status = err instanceof StudioRequestError ? 400 : 404;
+      res.writeHead(status, { "Content-Type": "application/json; charset=utf-8" });
+      res.end(JSON.stringify({ error: err instanceof Error ? err.message : "Asset unavailable" }));
+    }
+    return;
+  }
+
   if (req.method === "GET" && STATIC_FILES.has(pathname)) {
     const asset = STATIC_FILES.get(pathname);
     const fullPath = path.join(WEB_DIR, asset.file);
     if (pathname === "/" || pathname === "/dashboard") {
       res.setHeader(
         "Content-Security-Policy",
-        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; " +
+        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
+          "img-src 'self' data: blob:; media-src 'self' data: blob:; " +
           "connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'",
       );
     }

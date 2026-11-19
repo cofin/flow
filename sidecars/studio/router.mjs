@@ -13,15 +13,45 @@ import { ActivityMonitor } from "./activity-monitor.mjs";
 import { AntigravityBridge } from "./bridges/antigravity.mjs";
 import { CrossHarnessRunner } from "./bridges/cli.mjs";
 import { buildEntrypointCommand, detectWorkspacePython } from "./bridges/python.mjs";
+import { StudioCacheStore } from "./core/cache-store.mjs";
 import { isInternalSidecarPath, sha1Hex, uriToWorkspacePath } from "./core/fs-io.mjs";
+import { GitRunner } from "./core/git.mjs";
 import { CatalogBridge, DEFAULT_PLUGIN_ROOT } from "./knowledge/catalog.mjs";
 import { DynamicModelCatalog } from "./models/inventory.mjs";
 import { AdaptiveModelRouter, DecisionEngine } from "./models/routing.mjs";
 import { BundleSnapshotBuilder } from "./snapshot.mjs";
+import { WorkspaceBundleMigrator } from "./spec/bundle-migrator.mjs";
+import { SpecFeedbackStore } from "./spec/feedback.mjs";
+import {
+  GitBranchSpecScanner,
+  OrphanSpecBranchSync,
+  RemoteRepoSpecClient,
+  SpecBranchPuller,
+  SpecPrPublisher,
+} from "./spec/git-spec-branch.mjs";
 import { ReviewRoster } from "./spec/review-roster.mjs";
-import { TaskPlanner } from "./spec/task-planner.mjs";
 import { SpecEngine } from "./spec/spec-engine.mjs";
+import { TaskPlanner } from "./spec/task-planner.mjs";
+import { WorkspaceSync } from "./spec/workspace-sync.mjs";
 import { WorkspacePermissionAdvisor, WorkspaceRegistry } from "./workspaces.mjs";
+
+const MAX_WORKSPACE_ASSET_BYTES = 32 * 1024 * 1024;
+const ASSET_MIME_MAP = new Map([
+  [".png", "image/png"],
+  [".jpg", "image/jpeg"],
+  [".jpeg", "image/jpeg"],
+  [".gif", "image/gif"],
+  [".webp", "image/webp"],
+  [".svg", "image/svg+xml"],
+  [".ico", "image/x-icon"],
+  [".mp4", "video/mp4"],
+  [".webm", "video/webm"],
+  [".mov", "video/quicktime"],
+  [".pdf", "application/pdf"],
+  [".json", "application/json; charset=utf-8"],
+  [".txt", "text/plain; charset=utf-8"],
+  [".md", "text/markdown; charset=utf-8"],
+]);
 
 export class StudioRequestError extends Error {}
 
@@ -68,6 +98,44 @@ export class StudioApiService {
     });
     /** @type {Set<string>} */
     this.indexedWorkspaces = new Set();
+    this.cache = StudioCacheStore.shared({ env: this.env });
+  }
+
+  /**
+   * Read a confined binary/text workspace asset after canonical realpath + size validation.
+   *
+   * @param {string} ws
+   * @param {string} relPath
+   */
+  readWorkspaceAssetBytes(ws, relPath) {
+    const clean = String(relPath || "").replace(/\\/g, "/").replace(/^\/+/, "").trim();
+    if (!clean || clean.split("/").includes("..")) {
+      throw new StudioRequestError("Invalid workspace asset path");
+    }
+    const realRoot = fs.realpathSync(ws);
+    const candidate = path.resolve(realRoot, clean);
+    if (!fs.existsSync(candidate)) {
+      throw new StudioRequestError(`Workspace asset not found: ${clean}`);
+    }
+    const realTarget = fs.realpathSync(candidate);
+    if (realTarget !== realRoot && !realTarget.startsWith(`${realRoot}${path.sep}`)) {
+      throw new StudioRequestError("Workspace asset path escapes workspace root");
+    }
+    const stat = fs.statSync(realTarget);
+    if (!stat.isFile()) {
+      throw new StudioRequestError(`Workspace asset is not a file: ${clean}`);
+    }
+    if (stat.size > MAX_WORKSPACE_ASSET_BYTES) {
+      throw new StudioRequestError(`Workspace asset exceeds 32 MiB limit (${stat.size} bytes)`);
+    }
+    const ext = path.extname(realTarget).toLowerCase();
+    const mimeType = ASSET_MIME_MAP.get(ext) || "application/octet-stream";
+    return {
+      relPath: clean,
+      mimeType,
+      sizeBytes: stat.size,
+      bytes: fs.readFileSync(realTarget),
+    };
   }
 
   /**
@@ -159,13 +227,56 @@ export class StudioApiService {
     }
 
     if (routePath === "/api/bundle-snapshot") {
+      if (data.remoteRepo || data.repoLocator) {
+        const remote = String(data.remoteRepo || data.repoLocator);
+        const wsHint = data.workspacePath ? this.resolveWorkspace(data) : this.defaultWorkspace;
+        const client = new RemoteRepoSpecClient(remote, { workspacePath: wsHint, env: this.env });
+        const remoteSpecs = await client.listSpecs();
+        return {
+          generatedAt: new Date().toISOString(),
+          workspaceId: `remote:${client.locator.host}/${client.locator.slug}`,
+          repoName: client.locator.slug,
+          workspaceRoot: wsHint,
+          remoteRepo: `${client.locator.host}/${client.locator.slug}`,
+          bundleInitialized: true,
+          specs: remoteSpecs,
+          knowledge: [],
+          live: {},
+          liveEtag: "",
+          otherBranchSpecs: remoteSpecs.filter((s) => !s.on_current_branch),
+          counts: {
+            specs: remoteSpecs.length,
+            activeSpecs: remoteSpecs.filter((s) => s.state === "active" || s.state === "in_progress").length,
+            degradedSpecs: 0,
+            knowledge: 0,
+            unresolvedComments: 0,
+          },
+          contentEtag: sha1Hex(JSON.stringify(remoteSpecs)),
+        };
+      }
       const ws = this.resolveWorkspace(data);
       if (data.registerWorkspace && fs.existsSync(ws)) {
         this.workspaceRegistry.addWorkspace(ws, { setActive: data.setActive !== false });
       }
       const snap = BundleSnapshotBuilder.build(ws);
-      const contentEtag = sha1Hex(JSON.stringify({ specs: snap.specs, knowledge: snap.knowledge, counts: snap.counts }));
-      return { ...snap, contentEtag };
+      let currentBranch = null;
+      let otherBranchSpecs = [];
+      if (data.includeBranches !== false) {
+        const scanner = new GitBranchSpecScanner(ws, { env: this.env });
+        const git = await GitRunner.forWorkspace(ws, { env: this.env });
+        if (git) {
+          currentBranch = await git.revParseVerify("HEAD", { abbrevRef: true });
+        }
+        const allBranchSpecs = await scanner.listAllBranchSpecs({
+          localSpecs: snap.specs,
+          includeArchived: Boolean(data.includeArchived),
+        });
+        otherBranchSpecs = allBranchSpecs.filter((s) => !s.on_current_branch);
+      }
+      const contentEtag = sha1Hex(
+        JSON.stringify({ specs: snap.specs, otherBranchSpecs, knowledge: snap.knowledge, counts: snap.counts }),
+      );
+      return { ...snap, currentBranch, otherBranchSpecs, contentEtag };
     }
 
     if (routePath === "/api/portfolio-snapshot") {
@@ -177,13 +288,38 @@ export class StudioApiService {
     if (routePath === "/api/spec-document") {
       const ws = this.resolveWorkspace(data);
       if (!data.relPath) throw new StudioRequestError("relPath is required");
-      return new SpecEngine(ws).readDocument(String(data.relPath));
+      if (data.repoLocator) {
+        const client = new RemoteRepoSpecClient(String(data.repoLocator), { workspacePath: ws, env: this.env });
+        return client.readDocument(String(data.relPath), { gitRef: data.gitRef || null });
+      }
+      if (data.gitRef) {
+        const doc = await new GitBranchSpecScanner(ws, { env: this.env }).readDocumentFromRef(
+          String(data.relPath),
+          String(data.gitRef),
+        );
+        if (!doc) throw new StudioRequestError(`Document '${data.relPath}' not found at ref '${data.gitRef}'`);
+        return doc;
+      }
+      return new SpecEngine({ workspacePath: ws, env: this.env }).readDocument(String(data.relPath));
     }
 
     if (routePath === "/api/spec-dag") {
       const ws = this.resolveWorkspace(data);
       if (!data.flowId) throw new StudioRequestError("flowId is required");
-      const engine = new SpecEngine(ws);
+      if (data.repoLocator) {
+        const client = new RemoteRepoSpecClient(String(data.repoLocator), { workspacePath: ws, env: this.env });
+        const review = await client.getSpecReview(String(data.flowId), { gitRef: data.gitRef || null });
+        return { ...review.dag, steps: [], inline_fast_path_eligible: false };
+      }
+      if (data.gitRef) {
+        const dag = await new GitBranchSpecScanner(ws, { env: this.env }).buildDagFromRef(
+          String(data.flowId),
+          String(data.gitRef),
+        );
+        if (!dag) throw new StudioRequestError(`Spec '${data.flowId}' not found at ref '${data.gitRef}'`);
+        return { ...dag, steps: [], inline_fast_path_eligible: false };
+      }
+      const engine = new SpecEngine({ workspacePath: ws, env: this.env });
       const dag = engine.buildDag(String(data.flowId));
       const plan = new TaskPlanner(ws).plan({ flowId: String(data.flowId), chapterId: data.chapterId || null });
       return { ...dag, steps: plan.steps, inline_fast_path_eligible: plan.inline_fast_path_eligible };
@@ -192,13 +328,48 @@ export class StudioApiService {
     if (routePath === "/api/spec-review") {
       const ws = this.resolveWorkspace(data);
       if (!data.flowId) throw new StudioRequestError("flowId is required");
-      return new SpecEngine(ws).getSpecReview(String(data.flowId));
+      if (data.repoLocator) {
+        const client = new RemoteRepoSpecClient(String(data.repoLocator), { workspacePath: ws, env: this.env });
+        return client.getSpecReview(String(data.flowId), { gitRef: data.gitRef || null });
+      }
+      if (data.gitRef) {
+        const scanner = new GitBranchSpecScanner(ws, { env: this.env });
+        const dag = await scanner.buildDagFromRef(String(data.flowId), String(data.gitRef));
+        const specDoc = await scanner.readDocumentFromRef(
+          `.agents/bundles/specs/${String(data.flowId)}/spec.md`,
+          String(data.gitRef),
+        );
+        if (!dag || !specDoc) {
+          throw new StudioRequestError(`Spec '${data.flowId}' not found at ref '${data.gitRef}'`);
+        }
+        const comments = new SpecFeedbackStore(ws, { env: this.env }).listForFlow(String(data.flowId), {
+          extraComments: specDoc.comments || [],
+        });
+        return {
+          ok: true,
+          flowId: String(data.flowId),
+          title: specDoc.title,
+          planRevision: Number(specDoc.frontmatter?.plan_revision || 1),
+          reviewState: "in_review",
+          specMarkdown: specDoc.raw,
+          dag,
+          comments,
+          revisePromptMarkdown: new SpecFeedbackStore(ws, { env: this.env }).buildRevisePrompt(
+            String(data.flowId),
+            String(data.flowId),
+            comments,
+          ),
+        };
+      }
+      return new SpecEngine({ workspacePath: ws, env: this.env }).getSpecReview(String(data.flowId));
     }
 
     if (routePath === "/api/review-comments") {
       const ws = this.resolveWorkspace(data);
-      const engine = new SpecEngine(ws);
-      const store = engine.feedback;
+      const store = new SpecFeedbackStore(ws, {
+        env: this.env,
+        repoLocator: data.repoLocator ? String(data.repoLocator) : null,
+      });
       const action = String(data.action || "list");
       const relPath = String(data.relPath || "");
       const flowId = data.flowId ? String(data.flowId) : store.inferFlowId(relPath);
@@ -219,11 +390,30 @@ export class StudioApiService {
           author: data.author,
           authorEmail: data.authorEmail,
           authorName: data.authorName,
+          gitBranch: data.gitBranch,
+          commitSha: data.commitSha,
+          parentCommentId: data.parentCommentId,
         });
         const list = relPath ? store.list(relPath) : store.listForFlow(flowId);
+        this.onEvent({ type: "feedback.changed", workspacePath: ws, flowId, relPath });
         return { comment, comments: list, revisePrompt: store.buildRevisePrompt(relPath || flowId, flowId) };
       }
-      if (action === "resolve" || action === "update") {
+      if (action === "reply") {
+        const comment = store.replyToComment(relPath || flowId, String(data.parentCommentId || data.commentId || ""), {
+          relPath: relPath || undefined,
+          body: String(data.body || ""),
+          commentKind: data.commentKind || "feedback",
+          author: data.author,
+          authorEmail: data.authorEmail,
+          authorName: data.authorName,
+          gitBranch: data.gitBranch,
+          commitSha: data.commitSha,
+        });
+        const list = relPath ? store.list(relPath) : store.listForFlow(flowId);
+        this.onEvent({ type: "feedback.changed", workspacePath: ws, flowId, relPath });
+        return { comment, comments: list, revisePrompt: store.buildRevisePrompt(relPath || flowId, flowId) };
+      }
+      if (action === "resolve" || action === "update" || action === "edit") {
         const comment = store.setResolvedOrUpdate(relPath || flowId, String(data.commentId || ""), {
           ...(data.resolved !== undefined ? { resolved: data.resolved !== false } : {}),
           ...(data.state !== undefined ? { state: data.state } : {}),
@@ -231,10 +421,140 @@ export class StudioApiService {
           ...(data.toggleUpvote !== undefined ? { toggleUpvote: Boolean(data.toggleUpvote) } : {}),
         });
         const list = relPath ? store.list(relPath) : store.listForFlow(flowId);
+        this.onEvent({ type: "feedback.changed", workspacePath: ws, flowId, relPath });
         return { comment, comments: list, revisePrompt: store.buildRevisePrompt(relPath || flowId, flowId) };
       }
       const list = relPath ? store.list(relPath) : store.listForFlow(flowId);
       return { comments: list, revisePrompt: store.buildRevisePrompt(relPath || flowId, flowId) };
+    }
+
+    if (routePath === "/api/sync") {
+      const ws = this.resolveWorkspace(data);
+      const result = await new WorkspaceSync(ws, { env: this.env }).run({
+        flowId: data.flowId || null,
+        chapterId: data.chapterId || null,
+        dryRun: Boolean(data.dryRun),
+        local: Boolean(data.local),
+        syncBranch: Boolean(data.syncBranch),
+        pushBranch: Boolean(data.pushBranch),
+      });
+      this.indexedWorkspaces.delete(ws);
+      this.onEvent({ type: "bundle.changed", workspacePath: ws, flowId: data.flowId || null });
+      return result;
+    }
+
+    if (routePath === "/api/spec-branches") {
+      const ws = this.resolveWorkspace(data);
+      const localSpecs = new SpecEngine({ workspacePath: ws, env: this.env }).listSpecs({
+        includeArchived: Boolean(data.includeArchived),
+      });
+      const specs = await new GitBranchSpecScanner(ws, { env: this.env }).listAllBranchSpecs({
+        localSpecs,
+        includeArchived: Boolean(data.includeArchived),
+      });
+      return { specs };
+    }
+
+    if (routePath === "/api/spec-pull") {
+      const ws = this.resolveWorkspace(data);
+      if (!data.flowId || !data.fromRef) {
+        throw new StudioRequestError("flowId and fromRef are required");
+      }
+      const result = await new SpecBranchPuller(ws, { env: this.env }).pullSpec(String(data.flowId), {
+        fromRef: String(data.fromRef),
+        force: Boolean(data.force),
+        dryRun: Boolean(data.dryRun),
+      });
+      this.indexedWorkspaces.delete(ws);
+      this.onEvent({ type: "bundle.changed", workspacePath: ws, flowId: String(data.flowId) });
+      return result;
+    }
+
+    if (routePath === "/api/spec-pr") {
+      const ws = this.resolveWorkspace(data);
+      if (!data.flowId) throw new StudioRequestError("flowId is required");
+      const publisher = new SpecPrPublisher(ws, { env: this.env });
+      if (data.action === "comments") {
+        return publisher.syncPullRequestComments(String(data.flowId), {
+          prNumber: data.prNumber ? Number(data.prNumber) : null,
+          branch: data.branch || null,
+        });
+      }
+      if (data.action === "review") {
+        return publisher.publishPullRequestReview(String(data.flowId), {
+          prNumber: data.prNumber ? Number(data.prNumber) : null,
+          branch: data.branch || null,
+          event: String(data.event || "COMMENT"),
+          commentIds: Array.isArray(data.commentIds) ? data.commentIds.map(String) : null,
+          confirmForeignPr: Boolean(data.confirmForeignPr),
+        });
+      }
+      return publisher.publishSpecToPr(String(data.flowId), {
+        branch: data.branch || null,
+        base: data.base || null,
+        draft: Boolean(data.draft),
+        title: data.title || null,
+        push: Boolean(data.push),
+      });
+    }
+
+    if (routePath === "/api/spec-share-branch") {
+      const ws = this.resolveWorkspace(data);
+      return new OrphanSpecBranchSync(ws, { env: this.env, specBranch: data.specBranch }).sync({
+        flowId: data.flowId || null,
+        push: Boolean(data.push),
+        localOnly: Boolean(data.localOnly),
+      });
+    }
+
+    if (routePath === "/api/remote-repo-specs") {
+      if (!data.repo && !data.repoLocator) {
+        throw new StudioRequestError("repo or repoLocator is required");
+      }
+      const wsHint = data.workspacePath ? this.resolveWorkspace(data) : this.defaultWorkspace;
+      const client = new RemoteRepoSpecClient(String(data.repo || data.repoLocator), {
+        workspacePath: wsHint,
+        env: this.env,
+        specBranch: data.specBranch,
+      });
+      return {
+        locator: client.locator,
+        specs: await client.listSpecs(),
+      };
+    }
+
+    if (routePath === "/api/workspace-setup") {
+      const ws = this.resolveWorkspace(data);
+      const migrator = new WorkspaceBundleMigrator(ws, { env: this.env });
+      const action = String(data.action || "audit");
+      if (action === "compact") {
+        if (!data.flowId) throw new StudioRequestError("flowId is required for compact");
+        return migrator.compactSpec(String(data.flowId), { dryRun: Boolean(data.dryRun) });
+      }
+      if (action === "apply" || action === "migrate") {
+        const res = migrator.apply({
+          migrateSpecs: action === "migrate" || Boolean(data.migrateSpecs),
+          compactSpecs: Boolean(data.compactSpecs),
+          policy: data.policy || null,
+          dryRun: Boolean(data.dryRun),
+        });
+        this.indexedWorkspaces.delete(ws);
+        this.onEvent({ type: "bundle.changed", workspacePath: ws });
+        return res;
+      }
+      return migrator.audit();
+    }
+
+    if (routePath === "/api/workspace-asset") {
+      const ws = this.resolveWorkspace(data);
+      if (!data.relPath) throw new StudioRequestError("relPath is required");
+      const asset = this.readWorkspaceAssetBytes(ws, String(data.relPath));
+      return {
+        relPath: asset.relPath,
+        mimeType: asset.mimeType,
+        sizeBytes: asset.sizeBytes,
+        dataBase64: asset.bytes.toString("base64"),
+      };
     }
 
     if (routePath === "/api/create-spec") {
@@ -454,6 +774,7 @@ export class StudioApiService {
   close() {
     this.catalog.close();
     this.harnessRunner.codexBridge?.close();
+    this.cache.close();
   }
 
   async #ensureWorkspaceIndexed(ws) {

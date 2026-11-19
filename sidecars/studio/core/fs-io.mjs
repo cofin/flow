@@ -91,6 +91,81 @@ export function sha1Hex(input) {
 }
 
 /**
+ * Compute lowercase hexadecimal SHA-1 digest across an array of string/Buffer chunks.
+ *
+ * @param {Array<string | Buffer>} parts
+ * @returns {string}
+ */
+export function sha1Parts(parts) {
+  const hash = crypto.createHash("sha1");
+  for (const part of parts || []) {
+    hash.update(part);
+  }
+  return hash.digest("hex");
+}
+
+/**
+ * Safely stat `targetPath` without throwing on missing or broken entries.
+ *
+ * @param {string} targetPath
+ * @returns {{ exists: boolean, isFile: boolean, isDirectory: boolean, mtimeMs: number, size: number }}
+ */
+export function safeStat(targetPath) {
+  try {
+    const st = fs.statSync(targetPath);
+    return {
+      exists: true,
+      isFile: st.isFile(),
+      isDirectory: st.isDirectory(),
+      mtimeMs: Number(st.mtimeMs) || 0,
+      size: Number(st.size) || 0,
+    };
+  } catch {
+    return { exists: false, isFile: false, isDirectory: false, mtimeMs: 0, size: 0 };
+  }
+}
+
+/**
+ * Recursively walk regular files inside `dir` in sorted POSIX order.
+ *
+ * @param {string} dir
+ * @param {{ extensions?: string[] | null, maxDepth?: number, excludeDirs?: Set<string> }} [options]
+ * @returns {string[]}
+ */
+export function walkFiles(
+  dir,
+  { extensions = null, maxDepth = 12, excludeDirs = new Set(["node_modules", ".git", ".venv", "__pycache__"]) } = {},
+) {
+  if (!isExistingDir(dir)) return [];
+  const extSet = Array.isArray(extensions) && extensions.length > 0
+    ? new Set(extensions.map((e) => String(e).toLowerCase()))
+    : null;
+  /** @type {string[]} */
+  const out = [];
+  const walk = (curDir, depth) => {
+    if (depth > maxDepth) return;
+    let entries;
+    try {
+      entries = fs.readdirSync(curDir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name));
+    } catch {
+      return;
+    }
+    for (const ent of entries) {
+      const full = path.join(curDir, ent.name);
+      if (ent.isDirectory()) {
+        if (excludeDirs.has(ent.name)) continue;
+        walk(full, depth + 1);
+      } else if (ent.isFile()) {
+        if (extSet && !extSet.has(path.extname(ent.name).toLowerCase())) continue;
+        out.push(full);
+      }
+    }
+  };
+  walk(path.resolve(dir), 0);
+  return out;
+}
+
+/**
  * Compute lowercase hexadecimal SHA-256 digest.
  *
  * @param {string | Buffer} input

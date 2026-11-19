@@ -1226,3 +1226,275 @@ def test_task_planner_atomic_groups_and_lock_scopes(tmp_path: Path) -> None:
     assert first_group["lock_scopes"] == ["db/migrations"]
     assert second_group["group_id"] == "locks-demo:t02"
     assert second_group["lock_scopes"] == ["db/migrations"]
+
+
+@pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
+def test_flow_cli_entrypoint_and_shim_installer(tmp_path: Path) -> None:
+    """Verify bin/flow.mjs, symlinked CliShimInstaller execution, and legacy wrapper delegation."""
+    assert NODE_BIN is not None
+    ws = _seed_studio_workspace(tmp_path)
+    bin_dir = tmp_path / "local-bin"
+    env = {**os.environ, "FLOW_CLI_BIN_DIR": str(bin_dir), "PATH": f"{bin_dir}:{os.environ.get('PATH', '')}"}
+
+    flow_bin = REPO_ROOT / "bin" / "flow.mjs"
+    install_proc = subprocess.run(
+        [NODE_BIN, str(flow_bin), "install-cli", "--json"],
+        cwd=str(REPO_ROOT),
+        env=env,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    )
+    install_out = json.loads(install_proc.stdout)
+    assert install_out["installed"] is True
+    shim_path = Path(install_out["shim_path"])
+    assert shim_path.exists()
+
+    symlink_status = subprocess.run(
+        [str(shim_path), "status", "--ws", str(ws), "--json"],
+        cwd=str(ws),
+        env=env,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    )
+    status_out = json.loads(symlink_status.stdout)
+    assert status_out["specs"][0]["flow_id"] == "idempotent-webhooks"
+
+    wrapper_proc = subprocess.run(
+        [NODE_BIN, str(REPO_ROOT / "sidecars" / "studio" / "flow-cli.mjs"), "spec", "status", "--ws", str(ws)],
+        cwd=str(REPO_ROOT),
+        env=env,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    )
+    wrapper_out = json.loads(wrapper_proc.stdout)
+    assert wrapper_out["specs"][0]["flow_id"] == "idempotent-webhooks"
+
+
+def _init_git_repo(repo_dir: Path) -> None:
+    """Initialize a local Git repository with signing disabled for fixture commits."""
+    git_kw: dict[str, Any] = {"cwd": repo_dir, "check": True, "capture_output": True, "text": True, "encoding": "utf-8"}
+    subprocess.run(["git", "init"], **git_kw)
+    subprocess.run(["git", "config", "user.email", "dev@example.com"], **git_kw)
+    subprocess.run(["git", "config", "user.name", "Dev User"], **git_kw)
+    subprocess.run(["git", "config", "commit.gpgsign", "false"], **git_kw)
+
+
+@pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
+@pytest.mark.parametrize(
+    ("sibling_dir_name", "expect_clean_tree"),
+    (
+        ("partner-feedback", True),
+        ("review-feedback", True),
+    ),
+)
+def test_out_of_tree_feedback_store_sibling_discovery_and_replies(
+    tmp_path: Path,
+    sibling_dir_name: str,
+    expect_clean_tree: bool,
+) -> None:
+    """Verify out-of-tree <git-common-dir>/spec-feedback/, sibling merges, replies, edits, and asset confinement."""
+    assert NODE_BIN is not None
+    ws = _seed_studio_workspace(tmp_path)
+    _init_git_repo(ws)
+    (ws / "assets").mkdir(parents=True, exist_ok=True)
+    (ws / "assets" / "sample.txt").write_text("asset payload\n", encoding="utf-8")
+    subprocess.run(["git", "add", "-A"], cwd=ws, check=True, capture_output=True)
+    subprocess.run(["git", "commit", "-m", "initial"], cwd=ws, check=True, capture_output=True)
+
+    sibling_file = ws / ".git" / sibling_dir_name / "idempotent-webhooks" / "peer-example-com.json"
+    sibling_file.parent.mkdir(parents=True, exist_ok=True)
+    sibling_file.write_text(
+        json.dumps(
+            [
+                {
+                    "id": "sibling-note-1",
+                    "flowId": "idempotent-webhooks",
+                    "relPath": ".agents/bundles/specs/idempotent-webhooks/spec.md",
+                    "startLine": 5,
+                    "endLine": 5,
+                    "body": "Imported from sibling store.",
+                    "commentKind": "question",
+                    "authorEmail": "peer@example.com",
+                    "authorName": "Peer",
+                    "state": "open",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    fb_uri = (REPO_ROOT / "sidecars" / "studio" / "spec" / "feedback.mjs").as_uri()
+    router_uri = (REPO_ROOT / "sidecars" / "studio" / "router.mjs").as_uri()
+    js = (
+        f"import {{ SpecFeedbackStore }} from {json.dumps(fb_uri)};"
+        f"import {{ StudioApiService }} from {json.dumps(router_uri)};"
+        f"const ws = {json.dumps(str(ws))};"
+        "const store = new SpecFeedbackStore(ws);"
+        "const rootNote = store.add({"
+        "  flowId: 'idempotent-webhooks', relPath: '.agents/bundles/specs/idempotent-webhooks/spec.md',"
+        "  startLine: 8, endLine: 9, commentKind: 'change_request', body: 'Need idempotency TTL',"
+        "  authorEmail: 'dev@example.com', authorName: 'Dev User'"
+        "});"
+        "const reply = store.replyToComment('idempotent-webhooks', rootNote.id, {"
+        "  body: 'Set 7d default', authorEmail: 'dev@example.com', authorName: 'Dev User'"
+        "});"
+        "const edited = store.setResolvedOrUpdate('idempotent-webhooks', rootNote.id, { body: 'Updated TTL note' });"
+        "const merged = store.listForFlow('idempotent-webhooks');"
+        "const svc = new StudioApiService({ env: process.env });"
+        "const asset = await svc.handleApi('/api/workspace-asset',"
+        " { workspacePath: ws, relPath: 'assets/sample.txt' });"
+        "let escaped = false;"
+        "try { await svc.handleApi('/api/workspace-asset',"
+        " { workspacePath: ws, relPath: '../escape.txt' }); } catch { escaped = true; }"
+        "svc.close();"
+        "process.stdout.write(JSON.stringify({ rootNote, reply, edited, merged, asset, escaped,"
+        " dir: store.feedbackDirForFlow('idempotent-webhooks') }) + '\\n');"
+    )
+    proc = subprocess.run(
+        [NODE_BIN, "--input-type=module", "-e", js],
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    )
+    out = json.loads(proc.stdout.strip().splitlines()[-1])
+
+    assert ".git/spec-feedback/idempotent-webhooks" in out["dir"].replace("\\", "/")
+    assert len(out["merged"]) == 3
+    assert any(c["id"] == "sibling-note-1" for c in out["merged"])
+    assert out["reply"]["parentCommentId"] == out["rootNote"]["id"]
+    assert out["edited"]["body"] == "Updated TTL note"
+    assert out["asset"]["sizeBytes"] == len("asset payload\n")
+    assert out["escaped"] is True
+    if expect_clean_tree:
+        st = subprocess.run(["git", "status", "--porcelain"], cwd=ws, capture_output=True, text=True, check=True)
+        assert st.stdout.strip() == ""
+
+
+@pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
+def test_multi_branch_spec_scanner_puller_orphan_and_index_free_writer(tmp_path: Path) -> None:
+    """Verify IndexFreeBranchWriter, GitBranchSpecScanner, OrphanSpecBranchSync, and SpecBranchPuller."""
+    assert NODE_BIN is not None
+    ws = _seed_studio_workspace(tmp_path)
+    _init_git_repo(ws)
+    subprocess.run(["git", "add", "-A"], cwd=ws, check=True, capture_output=True)
+    subprocess.run(["git", "commit", "-m", "main seed"], cwd=ws, check=True, capture_output=True)
+
+    feat_spec_dir = ws / ".agents" / "bundles" / "specs" / "branch-feature"
+    (feat_spec_dir / "tasks").mkdir(parents=True)
+    (feat_spec_dir / "spec.md").write_text(
+        "---\ntype: Spec\nflow_id: branch-feature\ntitle: Feature Side\nstate: active\n---\n\n# Branch Feature\n",
+        encoding="utf-8",
+    )
+    (feat_spec_dir / "tasks" / "t01-side.md").write_text(
+        "---\ntype: Task\nid: branch-feature:t01\ntitle: Side task\nstate: pending\n---\n",
+        encoding="utf-8",
+    )
+
+    git_uri = (REPO_ROOT / "sidecars" / "studio" / "core" / "git.mjs").as_uri()
+    branch_uri = (REPO_ROOT / "sidecars" / "studio" / "spec" / "git-spec-branch.mjs").as_uri()
+    js_commit = (
+        f"import {{ GitRunner, IndexFreeBranchWriter }} from {json.dumps(git_uri)};"
+        f"const ws = {json.dumps(str(ws))};"
+        "const git = await GitRunner.forWorkspace(ws);"
+        "const cur = await git.revParseVerify('HEAD', { abbrevRef: true });"
+        "const commitRes = await IndexFreeBranchWriter.commitWorkspacePaths({"
+        "  git, effectiveRoot: ws, targetBranch: 'feat/side-spec', baseBranch: cur,"
+        "  relPaths: ['.agents/bundles/specs/branch-feature/spec.md',"
+        " '.agents/bundles/specs/branch-feature/tasks/t01-side.md'],"
+        "  message: 'spec(branch-feature): add feature spec on side branch'"
+        "});"
+        "process.stdout.write(JSON.stringify(commitRes) + '\\n');"
+    )
+    commit_proc = subprocess.run(
+        [NODE_BIN, "--input-type=module", "-e", js_commit],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    )
+    commit_out = json.loads(commit_proc.stdout.strip().splitlines()[-1])
+    assert isinstance(commit_out, str) and len(commit_out) >= 7
+
+    shutil.rmtree(feat_spec_dir)
+    js_scan = (
+        f"import {{ GitBranchSpecScanner, OrphanSpecBranchSync, SpecBranchPuller }} from {json.dumps(branch_uri)};"
+        f"const ws = {json.dumps(str(ws))};"
+        "const scanner = new GitBranchSpecScanner(ws);"
+        "const list = await scanner.listAllBranchSpecs();"
+        "const doc = await scanner.readDocumentFromRef("
+        "'.agents/bundles/specs/branch-feature/spec.md', 'feat/side-spec');"
+        "const puller = new SpecBranchPuller(ws);"
+        "const pulled = await puller.pullSpec('branch-feature', { fromRef: 'feat/side-spec' });"
+        "const orphan = new OrphanSpecBranchSync(ws);"
+        "const shared = await orphan.sync({ push: false });"
+        "process.stdout.write(JSON.stringify({ list, doc, pulled, shared }) + '\\n');"
+    )
+    scan_proc = subprocess.run(
+        [NODE_BIN, "--input-type=module", "-e", js_scan],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    )
+    scan_out = json.loads(scan_proc.stdout.strip().splitlines()[-1])
+    assert any(s["flow_id"] == "branch-feature" and s["on_current_branch"] is False for s in scan_out["list"])
+    assert scan_out["doc"]["title"] == "Feature Side"
+    assert (ws / ".agents" / "bundles" / "specs" / "branch-feature" / "spec.md").is_file()
+    assert len(scan_out["pulled"]["written_files"]) >= 2
+    assert scan_out["shared"]["branch"] == "flow-specs"
+    assert len(scan_out["shared"]["synced_specs"]) >= 1
+
+
+@pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
+@pytest.mark.parametrize(
+    ("case_id", "force_json"),
+    (
+        ("sqlite-wal-or-json", "0"),
+        ("forced-json-fallback", "1"),
+    ),
+)
+def test_studio_cache_store_sqlite_and_json_fallback(tmp_path: Path, case_id: str, force_json: str) -> None:
+    """Verify StudioCacheStore computes, serves cache hits, and invalidates cleanly in both modes."""
+    assert NODE_BIN is not None
+    sample_file = tmp_path / "doc.md"
+    sample_file.write_text("# V1\n", encoding="utf-8")
+    cache_uri = (REPO_ROOT / "sidecars" / "studio" / "core" / "cache-store.mjs").as_uri()
+    cache_dir_json = json.dumps(str(tmp_path / "cache"))
+    sample_json = json.dumps(str(sample_file))
+    force_json_js = json.dumps(force_json)
+    js = (
+        f"import {{ StudioCacheStore }} from {json.dumps(cache_uri)};"
+        f"const store = new StudioCacheStore({{ dataDir: {cache_dir_json},"
+        f" env: {{ FLOW_FORCE_JSON_CACHE: {force_json_js} }} }});"
+        "store.setKv('ns', 'k1', { hello: 'world' });"
+        "const kv = store.getKv('ns', 'k1');"
+        "let computeCount = 0;"
+        "const computeFn = () => { computeCount += 1; return { rev: computeCount }; };"
+        f"const f1 = store.getOrComputeFile({sample_json}, 'doc', computeFn);"
+        f"const f2 = store.getOrComputeFile({sample_json}, 'doc', computeFn);"
+        "const diag = store.diagnostics();"
+        "store.close();"
+        "process.stdout.write(JSON.stringify({ kv, f1, f2, computeCount, diag }) + '\\n');"
+    )
+    proc = subprocess.run(
+        [NODE_BIN, "--input-type=module", "-e", js],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    )
+    out = json.loads(proc.stdout.strip().splitlines()[-1])
+    assert out["kv"] == {"hello": "world"}, f"[{case_id}]"
+    assert out["f1"]["rev"] == 1
+    assert out["f2"]["rev"] == 1
+    assert out["computeCount"] == 1
+    if force_json == "1":
+        assert out["diag"]["backend"] == "json"

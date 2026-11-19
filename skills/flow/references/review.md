@@ -40,7 +40,7 @@ When dispatching reviewers, enforce these isolation rules:
 ### Harness Dispatch Modes
 
 - **When `run_workflow` Is Available (Google Antigravity)**:
-  - Invoke [`workflows/flow-dual-review/workflow.py`](../../../workflows/flow-dual-review/workflow.py) (`run_workflow(ScriptPath="<plugin_root>/workflows/flow-dual-review/workflow.py", Args={"git_range": f"{base_commit}..{head_commit}", "spec_path": spec_path, "review_mode": review_mode})`), which plans review seats via `ReviewRoster` (`flow-cli.mjs review plan`) across routed models ([`orchestration.md`](orchestration.md)).
+  - Invoke [`workflows/flow-dual-review/workflow.py`](../../../workflows/flow-dual-review/workflow.py) (`run_workflow(ScriptPath="<plugin_root>/workflows/flow-dual-review/workflow.py", Args={"git_range": f"{base_commit}..{head_commit}", "spec_path": spec_path, "review_mode": review_mode})`), which plans review seats via `ReviewRoster` (`flow review plan --json`) and injects open out-of-tree review notes across routed models ([`orchestration.md`](orchestration.md)).
   - Verify `git status --porcelain` is unchanged right after reviewer completion.
 - **In All Other Harnesses**:
   - Dispatch `@code-reviewer` (plus any matching `.agents/agents/<domain>-reviewer`) and `@quality-reviewer` (or different-vendor `adversarial` seats planned via `ReviewRoster`) with the same disk-only brief and `base_commit..head_commit` range ([`orchestration.md`](orchestration.md)).

@@ -146,5 +146,5 @@ tags: [feature, auth, tdd]
 ## State Mutations & Commit Sequencing
 
 1. **Plan & Validate**: Write specs, task worksheets, and `chapters/<ch_id>/planner-notes.md`, run `/flow:validate` (`exit 0`), pass independent review, and stamp `status: stable` plus `plan_commit: <HEAD_SHA>`.
-2. **Run Parallel Steps & CLI Sync**: Build task briefs with `flow-cli.mjs tasks plan --briefs`, run up to `4` workers per step editing separate files, and sync checklists between steps with `flow-cli.mjs spec sync`.
+2. **Run Parallel Steps & CLI Sync**: Build task briefs with `flow tasks plan --briefs --json`, run up to `4` workers per step editing separate files, and sync checklists between steps with `flow sync` (or `flow spec sync`). Also track per-author out-of-tree review notes under `<git-common-dir>/spec-feedback/<flow_id>/<author_slug>.json` (merging sibling stores on read) and optional orphan collaboration snapshots on `flow-specs`.
 3. **Commit Code First**: Validate at closeout, commit owned `files:`/`tests:` first to obtain `<CODE_SHA>`, and stamp `commit: <CODE_SHA>`, `[x] [<CODE_SHA>]`, and present-tense Markdown/OKF updates in the pre-review sync commit (never `git commit --amend`) before stamping `last_reviewed_commit`.

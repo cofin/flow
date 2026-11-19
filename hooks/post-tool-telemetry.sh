@@ -216,4 +216,22 @@ cat > "$STATE_FILE" <<EOF
 }
 EOF
 
+if [ -n "$P_FILE" ] && [ -n "$P_CONV" ] && [ -d "$EFFECTIVE_ROOT/$BUNDLE_REL/specs" ] && command -v node >/dev/null 2>&1; then
+  FLOW_CLI_BIN="$HOOK_DIR/../bin/flow.mjs"
+  if [ -f "$FLOW_CLI_BIN" ]; then
+    WORKER_FLAG=""
+    if [ "$ROLE" = "flow-subagent" ]; then
+      WORKER_FLAG="--worker"
+    fi
+    node "$FLOW_CLI_BIN" spec activity \
+      --ws "$PROJECT_DIR" \
+      --conv "$P_CONV" \
+      --parent-conv "$P_PARENT" \
+      --file "$P_FILE" \
+      --tool "${P_TOOL:-edit_file}" \
+      ${WORKER_FLAG:+"$WORKER_FLAG"} \
+      --json >/dev/null 2>&1 || true
+  fi
+fi
+
 printf '{}\n'

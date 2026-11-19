@@ -5,8 +5,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+
 import { Response, SidecarApp } from "sidecar_sdk";
 
+import { LanguageServerDaemonLocator } from "./bridges/antigravity.mjs";
 import { StudioApiService, StudioRequestError } from "./router.mjs";
 
 const STUDIO_DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -22,32 +24,40 @@ const SEC_HEADERS = {
 const HTML_HEADERS = {
   ...SEC_HEADERS,
   "Content-Security-Policy":
-    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; " +
+    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
+    "img-src 'self' data: blob:; media-src 'self' data: blob:; " +
     "connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'",
 };
 
-const INDEX_HTML = fs.readFileSync(path.join(WEB_DIR, "index.html"), "utf8");
-const STYLES_CSS = fs.readFileSync(path.join(WEB_DIR, "styles.css"), "utf8");
-const HOST_BRIDGE_JS = fs.readFileSync(path.join(WEB_DIR, "host-bridge.js"), "utf8");
-const APP_JS = fs.readFileSync(path.join(WEB_DIR, "app.js"), "utf8");
-const LOGO_SVG = fs.readFileSync(path.join(WEB_DIR, "logo.svg"), "utf8");
-const FAVICON_SVG = fs.readFileSync(path.join(WEB_DIR, "favicon.svg"), "utf8");
-const FAVICON_ICO = fs.readFileSync(path.join(WEB_DIR, "favicon.ico"));
+/** @type {Map<string, { mtimeMs: number, data: Buffer | string }>} */
+const STATIC_ASSET_CACHE = new Map();
+
+function loadStaticAsset(fileName, binary = false) {
+  const fullPath = path.join(WEB_DIR, fileName);
+  const stat = fs.statSync(fullPath);
+  const cached = STATIC_ASSET_CACHE.get(fileName);
+  if (cached && cached.mtimeMs === stat.mtimeMs) {
+    return cached.data;
+  }
+  const data = binary ? fs.readFileSync(fullPath) : fs.readFileSync(fullPath, "utf8");
+  STATIC_ASSET_CACHE.set(fileName, { mtimeMs: stat.mtimeMs, data });
+  return data;
+}
 
 const service = new StudioApiService({ env: process.env, pluginRoot: PLUGIN_ROOT });
 const app = new SidecarApp();
 
-const staticAsset = (body, contentType, headers = SEC_HEADERS) => () =>
-  new Response(body, { contentType, status: 200, headers });
+const staticAsset = (fileName, contentType, { binary = false, headers = SEC_HEADERS } = {}) => () =>
+  new Response(loadStaticAsset(fileName, binary), { contentType, status: 200, headers });
 
-app.page("/", staticAsset(INDEX_HTML, "text/html; charset=utf-8", HTML_HEADERS));
-app.page("/dashboard", staticAsset(INDEX_HTML, "text/html; charset=utf-8", HTML_HEADERS));
-app.page("/styles.css", staticAsset(STYLES_CSS, "text/css; charset=utf-8"));
-app.page("/host-bridge.js", staticAsset(HOST_BRIDGE_JS, "application/javascript; charset=utf-8"));
-app.page("/app.js", staticAsset(APP_JS, "application/javascript; charset=utf-8"));
-app.page("/logo.svg", staticAsset(LOGO_SVG, "image/svg+xml"));
-app.page("/favicon.svg", staticAsset(FAVICON_SVG, "image/svg+xml"));
-app.page("/favicon.ico", staticAsset(FAVICON_ICO, "image/x-icon"));
+app.page("/", staticAsset("index.html", "text/html; charset=utf-8", { headers: HTML_HEADERS }));
+app.page("/dashboard", staticAsset("index.html", "text/html; charset=utf-8", { headers: HTML_HEADERS }));
+app.page("/styles.css", staticAsset("styles.css", "text/css; charset=utf-8"));
+app.page("/host-bridge.js", staticAsset("host-bridge.js", "application/javascript; charset=utf-8"));
+app.page("/app.js", staticAsset("app.js", "application/javascript; charset=utf-8"));
+app.page("/logo.svg", staticAsset("logo.svg", "image/svg+xml"));
+app.page("/favicon.svg", staticAsset("favicon.svg", "image/svg+xml"));
+app.page("/favicon.ico", staticAsset("favicon.ico", "image/x-icon", { binary: true }));
 
 const API_ROUTES = [
   "/api/studio-context",
@@ -60,6 +70,14 @@ const API_ROUTES = [
   "/api/review-comments",
   "/api/create-spec",
   "/api/import-plan",
+  "/api/sync",
+  "/api/spec-branches",
+  "/api/spec-pull",
+  "/api/spec-pr",
+  "/api/spec-share-branch",
+  "/api/remote-repo-specs",
+  "/api/workspace-setup",
+  "/api/workspace-asset",
   "/api/catalog-index",
   "/api/catalog-search",
   "/api/catalog-provenance",
@@ -130,4 +148,32 @@ app.api(
   "POST",
 );
 
+function scheduleGatewayHealthCheck() {
+  if (!process.env.ANTIGRAVITY_SIDECAR_WEB_PORT) return;
+  const delayMs = Math.max(250, Number(process.env.FLOW_SIDECAR_GATEWAY_CHECK_MS || 2000));
+  const timer = setTimeout(async () => {
+    try {
+      const conn = service.coordinator.resolveConnection() || LanguageServerDaemonLocator.findLatest(process.env);
+      if (!conn?.address || !conn?.csrfToken) return;
+      const baseUrl = /^https?:\/\//i.test(conn.address) ? conn.address : `http://${conn.address}`;
+      const res = await fetch(`${baseUrl.replace(/\/+$/, "")}/exa.language_server_pb.LanguageServerService/GetSidecars`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Codeium-Csrf-Token": conn.csrfToken,
+        },
+        body: "{}",
+        signal: AbortSignal.timeout(2500),
+      });
+      if (!res.ok) {
+        process.stderr.write(`flow-studio: sidecar gateway check returned HTTP ${res.status}\n`);
+      }
+    } catch {
+      // Gateway registration check is best-effort; never interrupt sidecar runtime.
+    }
+  }, delayMs);
+  if (typeof timer.unref === "function") timer.unref();
+}
+
+scheduleGatewayHealthCheck();
 await app.run();

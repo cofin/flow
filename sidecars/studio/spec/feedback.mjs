@@ -1,21 +1,23 @@
 /**
- * Per-author collaborative specification review feedback (`specs/<flow_id>/feedback/<author_slug>.json` + `_meta.json`)
- * with transparent read and migration fallback from legacy `.agents/studio-reviews/` and `.agents/studio-comments.json`.
+ * Per-author collaborative specification review feedback stored out-of-tree inside Git repositories
+ * (`<git-common-dir>/spec-feedback/<flow_id>/<author_slug>.json`), with transparent discovery
+ * across sibling `*-feedback/` stores, in-tree `<spec_dir>/feedback/` fallbacks for non-Git
+ * workspaces, remote zero-clone config storage, and legacy `.agents/studio-reviews/` files.
  */
 
-import { execFileSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import {
   normalizeRelPath,
   readJsonSafe,
   resolveConfinedPath,
+  StudioStateStore,
   writeJsonAtomic,
 } from "../core/fs-io.mjs";
-import { resolveWorktreeContext } from "../core/worktree.mjs";
+import { GitRunner, resolveGitIdentity } from "../core/git.mjs";
+import { DEFAULT_FEEDBACK_STORE_DIR, resolveWorktreeContext } from "../core/worktree.mjs";
 
 export const VALID_COMMENT_KINDS = new Set(["feedback", "change_request", "question", "approval"]);
 export const VALID_COMMENT_STATES = new Set(["open", "addressed", "dismissed"]);
@@ -43,11 +45,8 @@ export class SpecComment {
       ? Array.from(new Set(src.upvoterEmails.map((e) => String(e || "").trim()).filter(Boolean)))
       : [];
     const rawState = String(src.state || (src.resolved ? "addressed" : "open")).trim().toLowerCase();
-    const state = VALID_COMMENT_STATES.has(rawState === "resolved" ? "addressed" : rawState)
-      ? rawState === "resolved"
-        ? "addressed"
-        : rawState
-      : "open";
+    const mappedState = rawState === "resolved" ? "addressed" : rawState;
+    const state = VALID_COMMENT_STATES.has(mappedState) ? mappedState : "open";
     const rawKind = String(src.commentKind || "feedback").trim().toLowerCase();
     const commentKind = VALID_COMMENT_KINDS.has(rawKind) ? rawKind : "feedback";
     const lineStart = Number.isInteger(src.lineStart)
@@ -64,6 +63,23 @@ export class SpecComment {
       optStr(src.lineAnchor) ||
       (lineStart !== null ? (lineEnd && lineEnd !== lineStart ? `L${lineStart}-L${lineEnd}` : `L${lineStart}`) : null);
 
+    let externalSource = null;
+    if (src.externalSource && typeof src.externalSource === "object" && !Array.isArray(src.externalSource)) {
+      const extKind = optStr(src.externalSource.kind);
+      const extFileId = optStr(src.externalSource.fileId);
+      const extUrl = optStr(src.externalSource.url);
+      if (extKind || extFileId || extUrl) {
+        externalSource = {
+          kind: extKind,
+          label: optStr(src.externalSource.label),
+          fileId: extFileId,
+          url: extUrl,
+          title: optStr(src.externalSource.title),
+          threadId: optStr(src.externalSource.threadId),
+        };
+      }
+    }
+
     const viewerLower = viewerEmail ? String(viewerEmail).trim().toLowerCase() : null;
     return {
       id: optStr(src.id) || crypto.randomUUID(),
@@ -71,6 +87,13 @@ export class SpecComment {
       authorEmail: optStr(src.authorEmail) || `${optStr(src.author) || "reviewer"}@local`,
       authorName: optStr(src.authorName) || optStr(src.author) || "reviewer",
       relPath: optStr(src.relPath),
+      gitBranch: optStr(src.gitBranch),
+      commitSha: optStr(src.commitSha),
+      ghPrCommentId:
+        src.ghPrCommentId !== undefined && src.ghPrCommentId !== null && String(src.ghPrCommentId).trim()
+          ? String(src.ghPrCommentId).trim()
+          : null,
+      externalSource,
       chapterId: optStr(src.chapterId),
       taskId: optStr(src.taskId),
       anchorHeading: optStr(src.anchorHeading),
@@ -106,6 +129,10 @@ export class SpecComment {
       authorEmail: normalized.authorEmail,
       authorName: normalized.authorName,
       relPath: normalized.relPath,
+      gitBranch: normalized.gitBranch || null,
+      commitSha: normalized.commitSha || null,
+      ghPrCommentId: normalized.ghPrCommentId || null,
+      ...(normalized.externalSource ? { externalSource: normalized.externalSource } : {}),
       chapterId: normalized.chapterId,
       taskId: normalized.taskId,
       anchorHeading: normalized.anchorHeading,
@@ -190,44 +217,105 @@ export function authorSlug(emailOrName) {
  * @param {string} workspaceRoot
  */
 export function resolveAuthorIdentity(workspaceRoot) {
-  const safeGitCfg = (key) => {
-    try {
-      return execFileSync("git", ["-C", workspaceRoot, "config", "--get", key], {
-        encoding: "utf8",
-        timeout: 1500,
-        stdio: ["ignore", "pipe", "ignore"],
-      }).trim();
-    } catch {
-      return "";
-    }
-  };
-  let fallback = "author";
-  try {
-    const info = os.userInfo();
-    if (info?.username) fallback = info.username;
-  } catch {
-    fallback = process.env.USER || process.env.USERNAME || "author";
-  }
-  const email = safeGitCfg("user.email") || `${fallback}@local`;
-  const name = safeGitCfg("user.name") || (email.includes("@") ? email.split("@")[0] : fallback);
-  return { email, name, slug: authorSlug(email || name) };
+  return resolveGitIdentity(workspaceRoot);
 }
 
 /**
- * Read/write collaborative review comments across `.agents/bundles/specs/<flow_id>/feedback/<author_slug>.json`
- * with seamless read & migration support for legacy `.agents/studio-reviews/` and `.agents/studio-comments.json`.
+ * Parse raw feedback JSON string, automatically merging conflict blocks if present.
+ *
+ * @param {string} rawText
+ * @param {{ viewerEmail?: string | null }} [options]
+ * @returns {any[]}
+ */
+export function parseFeedbackJsonText(rawText, { viewerEmail = null } = {}) {
+  const text = String(rawText || "").trim();
+  if (!text) return [];
+  if (/^<{7}(?: .*)?$/m.test(text) && /^={7}$/m.test(text) && /^>{7}(?: .*)?$/m.test(text)) {
+    const oursLines = [];
+    const theirsLines = [];
+    let mode = "common";
+    for (const line of text.replace(/\r\n/g, "\n").split("\n")) {
+      if (line.startsWith("<<<<<<<")) {
+        mode = "ours";
+        continue;
+      }
+      if (mode === "ours" && line.startsWith("|||||||")) {
+        mode = "base";
+        continue;
+      }
+      if ((mode === "ours" || mode === "base") && line === "=======") {
+        mode = "theirs";
+        continue;
+      }
+      if (mode === "theirs" && line.startsWith(">>>>>>>")) {
+        mode = "common";
+        continue;
+      }
+      if (mode === "common") {
+        oursLines.push(line);
+        theirsLines.push(line);
+      } else if (mode === "ours") {
+        oursLines.push(line);
+      } else if (mode === "theirs") {
+        theirsLines.push(line);
+      }
+    }
+    return SpecComment.merge(
+      parseFeedbackJsonText(oursLines.join("\n"), { viewerEmail }),
+      parseFeedbackJsonText(theirsLines.join("\n"), { viewerEmail }),
+      { viewerEmail },
+    );
+  }
+  try {
+    const parsed = JSON.parse(text);
+    const list = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.comments) ? parsed.comments : [];
+    return SpecComment.merge([], list, { viewerEmail });
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Read and write collaborative review comments out-of-tree in `<git-common-dir>/spec-feedback/<flow_id>/`
+ * for Git repos, with automatic discovery of sibling `<git-common-dir>/*-feedback/<flow_id>/` stores,
+ * `<spec_dir>/feedback/` outside Git, and `<FLOW_CONFIG_DIR>/feedback/<repo>/<flow_id>/` for remote repos.
  */
 export class SpecFeedbackStore {
   /**
    * @param {string} workspaceRoot
+   * @param {{ env?: NodeJS.ProcessEnv, repoLocator?: string | null }} [options]
    */
-  constructor(workspaceRoot) {
-    this.workspaceRoot = path.resolve(workspaceRoot);
-    const wt = resolveWorktreeContext(this.workspaceRoot);
-    this.agentsBaseRoot = wt.effectiveAgentsRoot;
-    this.bundleRel = wt.bundleRel || ".agents/bundles";
-    this.legacyReviewsDir = path.join(this.agentsBaseRoot, ".agents", "studio-reviews");
-    this.legacyFlatCommentsFile = path.join(this.agentsBaseRoot, ".agents", "studio-comments.json");
+  constructor(workspaceRoot, { env = process.env, repoLocator = null } = {}) {
+    this.workspaceRoot = workspaceRoot ? path.resolve(workspaceRoot) : null;
+    this.env = env;
+    this.repoLocator = repoLocator || null;
+    if (this.workspaceRoot) {
+      const wt = resolveWorktreeContext(this.workspaceRoot);
+      this.agentsBaseRoot = wt.effectiveAgentsRoot;
+      this.bundleRel = wt.bundleRel || ".agents/bundles";
+      this.feedbackStoreDirName = wt.feedbackStoreDir || DEFAULT_FEEDBACK_STORE_DIR;
+      this.legacyReviewsDir = path.join(this.agentsBaseRoot, ".agents", "studio-reviews");
+      this.legacyFlatCommentsFile = path.join(this.agentsBaseRoot, ".agents", "studio-comments.json");
+    } else {
+      this.agentsBaseRoot = null;
+      this.bundleRel = ".agents/bundles";
+      this.feedbackStoreDirName = DEFAULT_FEEDBACK_STORE_DIR;
+      this.legacyReviewsDir = null;
+      this.legacyFlatCommentsFile = null;
+    }
+  }
+
+  /**
+   * Resolve `<git-common-dir>` if `workspaceRoot` is inside a Git repository.
+   *
+   * @returns {string | null}
+   */
+  resolveCommonGitDir() {
+    if (!this.workspaceRoot || !fs.existsSync(this.workspaceRoot)) return null;
+    const git = GitRunner.forWorkspace(this.workspaceRoot, { timeoutMs: 2500, env: this.env });
+    if (!git.isGitRepo()) return null;
+    const common = git.gitCommonDir();
+    return common.ok && common.value ? common.value : null;
   }
 
   /**
@@ -237,60 +325,129 @@ export class SpecFeedbackStore {
    * @returns {string | null}
    */
   inferFlowId(relPath) {
-    const m = String(relPath || "").replace(/\\/g, "/").match(/(?:^|\/)specs\/([^/]+)\//);
+    const m = String(relPath || "").replace(/\\/g, "/").match(/(?:^|\/)(?:specs|tracks)\/([^/]+)\//);
     return m ? m[1] : null;
   }
 
   /**
-   * Return the collaborative feedback directory for `flowId`.
+   * Primary writable feedback directory for `flowId`.
    *
    * @param {string} flowId
    */
   feedbackDirForFlow(flowId) {
-    return path.join(this.agentsBaseRoot, this.bundleRel, "specs", flowId, "feedback");
+    const cleanFlow = String(flowId || "").trim();
+    if (this.repoLocator && !this.workspaceRoot) {
+      const cfgDir = StudioStateStore.resolveConfigDir(this.env);
+      return path.join(cfgDir, "feedback", authorSlug(this.repoLocator), cleanFlow);
+    }
+    const commonDir = this.resolveCommonGitDir();
+    if (commonDir) {
+      return path.join(commonDir, this.feedbackStoreDirName, cleanFlow);
+    }
+    if (this.agentsBaseRoot) {
+      return path.join(this.agentsBaseRoot, this.bundleRel, "specs", cleanFlow, "feedback");
+    }
+    return path.join(StudioStateStore.resolveConfigDir(this.env), "feedback", "local", cleanFlow);
   }
 
   /**
-   * Load `_meta.json` for a spec directory.
+   * Return all candidate feedback directories for `flowId` across primary store, sibling `*-feedback/`
+   * stores in `<git-common-dir>`, and in-tree `<spec_dir>/feedback/`.
+   *
+   * @param {string} flowId
+   * @returns {string[]}
+   */
+  candidateDirsForFlow(flowId) {
+    const cleanFlow = String(flowId || "").trim();
+    const dirs = [];
+    const pushDir = (candidate) => {
+      if (!candidate) return;
+      const resolved = path.resolve(candidate);
+      if (!dirs.includes(resolved)) dirs.push(resolved);
+    };
+
+    pushDir(this.feedbackDirForFlow(cleanFlow));
+
+    const commonDir = this.resolveCommonGitDir();
+    if (commonDir && fs.existsSync(commonDir)) {
+      try {
+        for (const ent of fs.readdirSync(commonDir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+          if (ent.isDirectory() && ent.name.endsWith("-feedback")) {
+            pushDir(path.join(commonDir, ent.name, cleanFlow));
+          }
+        }
+      } catch {
+        // Ignore unreadable .git directories.
+      }
+    }
+
+    if (this.agentsBaseRoot) {
+      pushDir(path.join(this.agentsBaseRoot, this.bundleRel, "specs", cleanFlow, "feedback"));
+    }
+    return dirs;
+  }
+
+  /**
+   * Load `_meta.json` across candidate feedback directories for a flow.
    *
    * @param {string} flowId
    */
   readMeta(flowId) {
-    const metaPath = path.join(this.feedbackDirForFlow(flowId), "_meta.json");
-    const parsed = readJsonSafe(metaPath);
     const optStr = (v) => (typeof v === "string" && v.trim() ? v.trim() : null);
+    for (const dir of this.candidateDirsForFlow(flowId)) {
+      const metaPath = path.join(dir, "_meta.json");
+      const parsed = readJsonSafe(metaPath);
+      if (!parsed || typeof parsed !== "object") continue;
+      return {
+        id: optStr(parsed.id) || flowId,
+        reviewState: optStr(parsed.reviewState ?? parsed.review_state),
+        catalogEntryName: optStr(parsed.catalogEntryName ?? parsed.catalog_entry_name),
+        updatedAt: optStr(parsed.updatedAt),
+      };
+    }
     return {
-      id: optStr(parsed?.id) || flowId,
-      reviewState: optStr(parsed?.reviewState ?? parsed?.review_state),
-      catalogEntryName: optStr(parsed?.catalogEntryName ?? parsed?.catalog_entry_name),
-      hiveSlug: optStr(parsed?.hiveSlug ?? parsed?.hive_slug),
-      updatedAt: optStr(parsed?.updatedAt),
+      id: flowId,
+      reviewState: null,
+      catalogEntryName: null,
+      updatedAt: null,
     };
   }
 
   /**
-   * Load all comments for a given `flowId` across per-author files and legacy storage.
+   * Load all comments for a given `flowId` across primary store, sibling `*-feedback/`, in-tree files, and legacy storage.
    *
    * @param {string} flowId
-   * @param {{ viewerEmail?: string | null }} [options]
+   * @param {{ viewerEmail?: string | null, extraComments?: any[] }} [options]
    */
-  listForFlow(flowId, { viewerEmail = null } = {}) {
-    const dir = this.feedbackDirForFlow(flowId);
+  listForFlow(flowId, { viewerEmail = null, extraComments = [] } = {}) {
     /** @type {any[]} */
     let merged = [];
-    if (fs.existsSync(dir)) {
-      for (const name of fs
-        .readdirSync(dir)
-        .filter((n) => n.endsWith(".json") && !n.startsWith("_") && !n.startsWith("."))
-        .sort()) {
-        const parsed = readJsonSafe(path.join(dir, name));
-        const list = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.comments) ? parsed.comments : [];
-        merged = SpecComment.merge(merged, list, { viewerEmail });
+    for (const dir of this.candidateDirsForFlow(flowId)) {
+      if (!fs.existsSync(dir)) continue;
+      let files = [];
+      try {
+        files = fs
+          .readdirSync(dir)
+          .filter((n) => n.endsWith(".json") && !n.startsWith("_") && !n.startsWith("."))
+          .sort();
+      } catch {
+        continue;
+      }
+      for (const name of files) {
+        try {
+          const list = parseFeedbackJsonText(fs.readFileSync(path.join(dir, name), "utf8"), { viewerEmail });
+          merged = SpecComment.merge(merged, list, { viewerEmail });
+        } catch {
+          // Ignore malformed feedback snapshot.
+        }
       }
     }
     const legacy = this.#readLegacyForFlow(flowId, viewerEmail);
     if (legacy.length > 0) {
       merged = SpecComment.merge(merged, legacy, { viewerEmail });
+    }
+    if (Array.isArray(extraComments) && extraComments.length > 0) {
+      merged = SpecComment.merge(merged, extraComments, { viewerEmail });
     }
     return merged;
   }
@@ -299,23 +456,23 @@ export class SpecFeedbackStore {
    * List comments scoped to a specific document `relPath`.
    *
    * @param {string} relPath
-   * @param {{ viewerEmail?: string | null }} [options]
+   * @param {{ viewerEmail?: string | null, extraComments?: any[] }} [options]
    */
-  list(relPath, { viewerEmail = null } = {}) {
+  list(relPath, { viewerEmail = null, extraComments = [] } = {}) {
     const normRel = this.#normalizeRel(relPath);
     const flowId = this.inferFlowId(normRel);
     const results = [];
     if (flowId) {
-      for (const c of this.listForFlow(flowId, { viewerEmail })) {
+      for (const c of this.listForFlow(flowId, { viewerEmail, extraComments })) {
         if (!c.relPath || c.relPath === normRel) {
           results.push(c);
         }
       }
     }
     const legacyFile = this.#legacyStorageFileFor(normRel);
-    const legacyData = readJsonSafe(legacyFile);
+    const legacyData = legacyFile ? readJsonSafe(legacyFile) : null;
     const legacyList = Array.isArray(legacyData?.comments) ? legacyData.comments : [];
-    const flat = readJsonSafe(this.legacyFlatCommentsFile);
+    const flat = this.legacyFlatCommentsFile ? readJsonSafe(this.legacyFlatCommentsFile) : null;
     const flatList = flat && Array.isArray(flat[normRel]) ? flat[normRel] : [];
     return SpecComment.merge(results, [...legacyList, ...flatList].map((c) => ({ ...c, relPath: normRel })), {
       viewerEmail,
@@ -323,7 +480,7 @@ export class SpecFeedbackStore {
   }
 
   /**
-   * Add a comment, migrating legacy comments for the target flow into per-author feedback files on first write.
+   * Add a comment or reply to the active author's JSON file.
    *
    * @param {Record<string, any>} input
    */
@@ -349,12 +506,7 @@ export class SpecFeedbackStore {
 
     const feedbackDir = this.feedbackDirForFlow(flowId);
     const authorPath = path.join(feedbackDir, `${slug}.json`);
-    const existingData = readJsonSafe(authorPath);
-    const existingList = Array.isArray(existingData)
-      ? existingData
-      : Array.isArray(existingData?.comments)
-        ? existingData.comments
-        : [];
+    const existingList = this.#readAuthorRaw(flowId, slug);
 
     const nowIso = new Date().toISOString();
     const comment = SpecComment.normalize({
@@ -388,7 +540,63 @@ export class SpecFeedbackStore {
   }
 
   /**
-   * Update state, body, or upvote on an existing comment across per-author feedback files or legacy storage.
+   * Create a threaded reply linked to `parentCommentId`.
+   *
+   * @param {string} relPathOrFlowId
+   * @param {string} parentCommentId
+   * @param {Record<string, any>} input
+   */
+  replyToComment(relPathOrFlowId, parentCommentId, input = {}) {
+    const cleanParent = String(parentCommentId || "").trim();
+    if (!cleanParent) throw new Error("parentCommentId is required");
+    const flowId =
+      input.flowId ||
+      this.inferFlowId(relPathOrFlowId) ||
+      (!String(relPathOrFlowId).includes("/") ? String(relPathOrFlowId).trim() : null);
+    if (!flowId) throw new Error("flowId is required for comment replies");
+    const all = this.listForFlow(flowId);
+    const parent = all.find((c) => SpecComment.canonicalKey(c.id) === SpecComment.canonicalKey(cleanParent));
+    return this.add({
+      ...input,
+      flowId,
+      relPath: input.relPath || parent?.relPath || (String(relPathOrFlowId).includes("/") ? relPathOrFlowId : null),
+      parentCommentId: parent?.id || cleanParent,
+      chapterId: input.chapterId || parent?.chapterId || undefined,
+      taskId: input.taskId || parent?.taskId || undefined,
+      lineStart: input.lineStart ?? parent?.lineStart ?? undefined,
+      lineEnd: input.lineEnd ?? parent?.lineEnd ?? undefined,
+      anchorHeading: input.anchorHeading || parent?.anchorHeading || undefined,
+      anchorBlockId: input.anchorBlockId || parent?.anchorBlockId || undefined,
+    });
+  }
+
+  /**
+   * Merge an external batch of comments for one author (e.g. pulled from another branch or PR).
+   *
+   * @param {{ flowId: string, authorEmail: string, authorName: string, authorSlug?: string | null, comments: any[] }} params
+   */
+  writeMergedAuthorBatch({ flowId, authorEmail, authorName, authorSlug: explicitSlug = null, comments = [] }) {
+    const slug = authorSlug(explicitSlug || authorEmail || authorName);
+    const dir = this.feedbackDirForFlow(flowId);
+    const existing = this.#readAuthorRaw(flowId, slug);
+    const merged = SpecComment.merge(existing, comments).map((c) => SpecComment.stripDerived(c));
+    const authorPath = path.join(dir, `${slug}.json`);
+    writeJsonAtomic(
+      authorPath,
+      {
+        authorEmail: authorEmail || `${slug}@local`,
+        authorName: authorName || slug,
+        authorSlug: slug,
+        updatedAt: new Date().toISOString(),
+        comments: merged,
+      },
+      2,
+    );
+    return { path: authorPath, slug, comments: merged };
+  }
+
+  /**
+   * Update state, body, or upvote on an existing comment across primary, sibling, and legacy stores.
    *
    * @param {string} relPathOrFlowId
    * @param {string} commentId
@@ -413,61 +621,59 @@ export class SpecFeedbackStore {
 
     if (maybeFlowId) {
       this.#migrateLegacyIntoFeedback(maybeFlowId);
-      const dir = this.feedbackDirForFlow(maybeFlowId);
-      if (fs.existsSync(dir)) {
-        const cleanKey = SpecComment.canonicalKey(cleanId);
-        for (const name of fs
-          .readdirSync(dir)
-          .filter((n) => n.endsWith(".json") && !n.startsWith("_") && !n.startsWith("."))
-          .sort()) {
-          const full = path.join(dir, name);
-          const parsed = readJsonSafe(full);
-          const list = Array.isArray(parsed) ? parsed : Array.isArray(parsed?.comments) ? parsed.comments : null;
-          if (!list) continue;
-          const idx = list.findIndex((c) => c && SpecComment.canonicalKey(c.id) === cleanKey);
-          if (idx === -1) continue;
-
-          const target = SpecComment.stripDerived(SpecComment.normalize(list[idx]));
-          const nowIso = new Date().toISOString();
-          if (opts.state !== undefined && opts.state !== null) {
-            const norm = String(opts.state).trim().toLowerCase() === "resolved" ? "addressed" : String(opts.state).trim().toLowerCase();
-            if (!VALID_COMMENT_STATES.has(norm)) throw new Error(`Invalid comment state '${opts.state}'`);
-            target.state = norm;
-            if (norm === "open" && opts.resolvedInRevision === undefined) target.resolvedInRevision = null;
-          }
-          if (opts.body !== undefined && opts.body !== null) {
-            const cleanBody = String(opts.body).trim();
-            if (!cleanBody) throw new Error("Comment body cannot be empty");
-            target.body = cleanBody;
-          }
-          if (opts.resolvedInRevision !== undefined) target.resolvedInRevision = opts.resolvedInRevision;
-          if (opts.toggleUpvote === true) {
-            const actor = String(opts.actorEmail || "").trim() || resolveAuthorIdentity(this.workspaceRoot).email;
-            const actorLower = actor.toLowerCase();
-            if (target.upvoterEmails.some((e) => e.toLowerCase() === actorLower)) {
-              target.upvoterEmails = target.upvoterEmails.filter((e) => e.toLowerCase() !== actorLower);
-            } else {
-              target.upvoterEmails.push(actor);
-            }
-          }
-          target.updatedAt = nowIso;
-          list[idx] = target;
-          const out = Array.isArray(parsed) ? list : { ...parsed, updatedAt: nowIso, comments: list };
-          writeJsonAtomic(full, out, 2);
-          return SpecComment.normalize(target);
+      const all = this.listForFlow(maybeFlowId, { extraComments: opts.extraComments || [] });
+      const cleanKey = SpecComment.canonicalKey(cleanId);
+      const found = all.find((c) => SpecComment.canonicalKey(c.id) === cleanKey);
+      if (found) {
+        const target = SpecComment.stripDerived(SpecComment.normalize(found));
+        const nowIso = new Date().toISOString();
+        if (opts.state !== undefined && opts.state !== null) {
+          const norm =
+            String(opts.state).trim().toLowerCase() === "resolved" ? "addressed" : String(opts.state).trim().toLowerCase();
+          if (!VALID_COMMENT_STATES.has(norm)) throw new Error(`Invalid comment state '${opts.state}'`);
+          target.state = norm;
+          if (norm === "open" && opts.resolvedInRevision === undefined) target.resolvedInRevision = null;
         }
+        if (opts.body !== undefined && opts.body !== null) {
+          const cleanBody = String(opts.body).trim();
+          if (!cleanBody) throw new Error("Comment body cannot be empty");
+          target.body = cleanBody;
+        }
+        if (opts.resolvedInRevision !== undefined) target.resolvedInRevision = opts.resolvedInRevision;
+        if (opts.toggleUpvote === true) {
+          const actor = String(opts.actorEmail || "").trim() || resolveAuthorIdentity(this.workspaceRoot).email;
+          const actorLower = actor.toLowerCase();
+          if (target.upvoterEmails.some((e) => e.toLowerCase() === actorLower)) {
+            target.upvoterEmails = target.upvoterEmails.filter((e) => e.toLowerCase() !== actorLower);
+          } else {
+            target.upvoterEmails.push(actor);
+          }
+        }
+        target.updatedAt = nowIso;
+
+        const ownerSlug = authorSlug(target.authorEmail || target.authorName);
+        this.writeMergedAuthorBatch({
+          flowId: maybeFlowId,
+          authorEmail: target.authorEmail,
+          authorName: target.authorName,
+          authorSlug: ownerSlug,
+          comments: [target],
+        });
+        return SpecComment.normalize(target, { viewerEmail: opts.actorEmail || null });
       }
     }
 
-    const legacyTarget = this.#legacyStorageFileFor(this.#normalizeRel(relPathOrFlowId));
-    const data = readJsonSafe(legacyTarget);
-    if (Array.isArray(data?.comments)) {
-      const hit = data.comments.find((c) => c.id === cleanId);
-      if (hit) {
-        hit.resolved = opts.state ? opts.state !== "open" : true;
-        hit.state = hit.resolved ? "addressed" : "open";
-        writeJsonAtomic(legacyTarget, data, 2);
-        return SpecComment.normalize(hit);
+    if (this.workspaceRoot) {
+      const legacyTarget = this.#legacyStorageFileFor(this.#normalizeRel(relPathOrFlowId));
+      const data = legacyTarget ? readJsonSafe(legacyTarget) : null;
+      if (Array.isArray(data?.comments)) {
+        const hit = data.comments.find((c) => c.id === cleanId);
+        if (hit) {
+          hit.resolved = opts.state ? opts.state !== "open" : true;
+          hit.state = hit.resolved ? "addressed" : "open";
+          writeJsonAtomic(legacyTarget, data, 2);
+          return SpecComment.normalize(hit);
+        }
       }
     }
     throw new Error(`Review comment not found: ${commentId}`);
@@ -500,7 +706,6 @@ export class SpecFeedbackStore {
       ...(updates.reviewState !== undefined ? { reviewState: updates.reviewState } : {}),
       ...(updates.catalogEntryName !== undefined ? { catalogEntryName: updates.catalogEntryName } : {}),
       ...(updates.id !== undefined ? { id: updates.id } : {}),
-      ...(updates.hiveSlug !== undefined ? { hiveSlug: updates.hiveSlug } : {}),
       updatedAt: nowIso,
     };
     writeJsonAtomic(path.join(dir, "_meta.json"), nextMeta, 2);
@@ -508,26 +713,43 @@ export class SpecFeedbackStore {
   }
 
   /**
-   * Return map of `{ [relPath]: openCount }` across per-author feedback and legacy directories.
+   * Return map of `{ [relPath]: openCount }` across primary store, sibling stores, in-tree files, and legacy dirs.
    *
    * @returns {Record<string, number>}
    */
   countByRelPath() {
     /** @type {Record<string, number>} */
     const counts = {};
-    const specsDir = path.join(this.agentsBaseRoot, this.bundleRel, "specs");
-    if (fs.existsSync(specsDir)) {
-      for (const ent of fs.readdirSync(specsDir, { withFileTypes: true })) {
-        if (!ent.isDirectory()) continue;
-        const comments = this.listForFlow(ent.name);
-        for (const c of comments) {
-          if (c.state !== "open" || c.commentKind === "approval") continue;
-          const key = c.relPath || path.posix.join(this.bundleRel, "specs", ent.name, "spec.md");
-          counts[key] = (counts[key] || 0) + 1;
+    const flowIds = new Set();
+
+    if (this.agentsBaseRoot) {
+      const specsDir = path.join(this.agentsBaseRoot, this.bundleRel, "specs");
+      if (fs.existsSync(specsDir)) {
+        for (const ent of fs.readdirSync(specsDir, { withFileTypes: true })) {
+          if (ent.isDirectory()) flowIds.add(ent.name);
         }
       }
     }
-    if (fs.existsSync(this.legacyReviewsDir)) {
+    const commonDir = this.resolveCommonGitDir();
+    if (commonDir && fs.existsSync(commonDir)) {
+      const primaryStore = path.join(commonDir, this.feedbackStoreDirName);
+      if (fs.existsSync(primaryStore)) {
+        for (const ent of fs.readdirSync(primaryStore, { withFileTypes: true })) {
+          if (ent.isDirectory()) flowIds.add(ent.name);
+        }
+      }
+    }
+
+    for (const fid of flowIds) {
+      const comments = this.listForFlow(fid);
+      for (const c of comments) {
+        if (c.state !== "open" || c.commentKind === "approval") continue;
+        const key = c.relPath || path.posix.join(this.bundleRel, "specs", fid, "spec.md");
+        counts[key] = (counts[key] || 0) + 1;
+      }
+    }
+
+    if (this.legacyReviewsDir && fs.existsSync(this.legacyReviewsDir)) {
       for (const name of fs.readdirSync(this.legacyReviewsDir)) {
         if (!name.endsWith(".json")) continue;
         const data = readJsonSafe(path.join(this.legacyReviewsDir, name));
@@ -565,19 +787,37 @@ export class SpecFeedbackStore {
     for (const c of unresolved) {
       const range = c.lineAnchor || (c.startLine === c.endLine ? `L${c.startLine}` : `L${c.startLine}-L${c.endLine}`);
       const loc = c.relPath ? `${c.relPath}:${range}` : range;
-      lines.push(`- **${loc}** [${c.commentKind}] (${c.authorName || c.authorEmail}): ${c.body}`);
+      const extTag = c.externalSource?.label ? ` [${c.externalSource.label}]` : c.ghPrCommentId ? ` [PR comment]` : "";
+      lines.push(`- **${loc}** [${c.commentKind}]${extTag} (${c.authorName || c.authorEmail}): ${c.body}`);
       if (c.quote) lines.push(`  > ${c.quote.replace(/\n/g, " ")}`);
     }
     return lines.join("\n");
   }
 
+  #readAuthorRaw(flowId, slug) {
+    let merged = [];
+    for (const dir of this.candidateDirsForFlow(flowId)) {
+      const filePath = path.join(dir, `${slug}.json`);
+      if (!fs.existsSync(filePath)) continue;
+      try {
+        const list = parseFeedbackJsonText(fs.readFileSync(filePath, "utf8"));
+        merged = SpecComment.merge(merged, list);
+      } catch {
+        // Ignore unreadable author feedback file.
+      }
+    }
+    return merged.map((c) => SpecComment.stripDerived(c));
+  }
+
   #normalizeRel(relPath) {
     const clean = String(relPath || "").replace(/\\/g, "/");
-    const baseRoot = clean.startsWith(".agents/") ? this.agentsBaseRoot : this.workspaceRoot;
+    if (!this.workspaceRoot) return clean.replace(/^\/+/, "");
+    const baseRoot = clean.startsWith(".agents/") && this.agentsBaseRoot ? this.agentsBaseRoot : this.workspaceRoot;
     return normalizeRelPath(baseRoot, clean);
   }
 
   #legacyStorageFileFor(normRel) {
+    if (!this.legacyReviewsDir) return null;
     const hash = crypto.createHash("sha256").update(normRel).digest("hex").slice(0, 12);
     const safeSlug = normRel.replace(/[^a-zA-Z0-9_-]+/g, "_").slice(-48);
     return path.join(this.legacyReviewsDir, `${safeSlug}-${hash}.json`);
@@ -585,7 +825,7 @@ export class SpecFeedbackStore {
 
   #readLegacyForFlow(flowId, viewerEmail = null) {
     const collected = [];
-    if (fs.existsSync(this.legacyReviewsDir)) {
+    if (this.legacyReviewsDir && fs.existsSync(this.legacyReviewsDir)) {
       for (const name of fs.readdirSync(this.legacyReviewsDir)) {
         if (!name.endsWith(".json")) continue;
         const data = readJsonSafe(path.join(this.legacyReviewsDir, name));
@@ -594,7 +834,7 @@ export class SpecFeedbackStore {
         }
       }
     }
-    const flat = readJsonSafe(this.legacyFlatCommentsFile);
+    const flat = this.legacyFlatCommentsFile ? readJsonSafe(this.legacyFlatCommentsFile) : null;
     if (flat && typeof flat === "object") {
       for (const [rp, list] of Object.entries(flat)) {
         if (this.inferFlowId(rp) === flowId && Array.isArray(list)) {
@@ -641,6 +881,7 @@ export class SpecFeedbackStore {
 
   #addLegacy(normRel, input) {
     const file = this.#legacyStorageFileFor(normRel);
+    if (!file) throw new Error("Cannot write legacy feedback without workspaceRoot");
     const existing = readJsonSafe(file);
     const list = Array.isArray(existing?.comments) ? existing.comments : [];
     const comment = SpecComment.normalize({ ...input, relPath: normRel });

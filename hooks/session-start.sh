@@ -72,7 +72,7 @@ if [ "$IS_LINKED_WORKTREE" = "1" ] && [ -n "$MAIN_WORKTREE" ]; then
     if [ -w "$MAIN_WORKTREE/.agents" ]; then
       WORKTREE_NOTE="Linked Git worktree (local-only .agents): .agents is shared from primary checkout $MAIN_WORKTREE/.agents — edit Flow Markdown in $MAIN_WORKTREE/.agents (or via symlinked .agents/), and reuse symlinked .venv with uv run --no-sync (do not run make install)."
     else
-      WORKTREE_NOTE="Linked Git worktree (local-only .agents): primary checkout $MAIN_WORKTREE/.agents is read-only in this sandbox; sync local .agents changes via sidecars/studio/flow-cli.mjs worktree sync-to-main, and reuse symlinked .venv with uv run --no-sync."
+      WORKTREE_NOTE="Linked Git worktree (local-only .agents): primary checkout $MAIN_WORKTREE/.agents is read-only in this sandbox; sync local .agents changes via flow worktree sync-to-main, and reuse symlinked .venv with uv run --no-sync."
     fi
   else
     WORKTREE_NOTE="Linked Git worktree (shared .agents): edit worktree .agents/ directly, and reuse symlinked .venv with uv run --no-sync (do not run make install)."
@@ -321,6 +321,9 @@ else
       BASE_MSG="$BASE_MSG Flow Studio UI: [Open Flow Studio](sidecar://flow/studio/dashboard)."
     else
       BASE_MSG="$BASE_MSG Flow Studio UI: npx --yes --package github:cofin/flow flow-studio."
+    fi
+    if ! command -v flow >/dev/null 2>&1; then
+      BASE_MSG="$BASE_MSG CLI not on PATH: run node \"$HOOK_DIR/../bin/flow.mjs\" install-cli."
     fi
   else
     BASE_MSG="Flow plugin loaded (no .agents/ bundle in this workspace; run /flow:setup to initialize)."

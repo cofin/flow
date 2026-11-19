@@ -18,7 +18,7 @@ Flow Studio is a companion UI for managing specs, chapter progress, line-anchore
 ## Spec Review & Authoring Loop
 
 - **Create Spec / PRD (`+ New Spec`)**: Scaffolds `.agents/bundles/specs/<flow_id>/spec.md` (and optional `chapters/` directory) on disk and dispatches `/flow:spec` or `/flow:prd` to plan the full spec.
-- **Line-Anchored Review Comments**: Select any line or range in rendered `spec.md`, attach review notes in `.agents/studio-comments.json`, and click **Send Review to `/flow:revise`** to update the spec in place in present tense.
+- **Line-Anchored Review Comments & Multi-Branch Sync**: Select any block or range in `Reader` (or line in `Source`) to add review notes under `<git-common-dir>/spec-feedback/<flow_id>/<author_slug>.json`. Sibling feedback stores merge on read, with a `<spec_dir>/feedback/` fallback outside Git. Browse other branches, pull or publish spec PRs (`flow spec pr`, `flow spec share`), and dispatch `/flow:revise`.
 
 ## Derived Hybrid DuckDB Knowledge Catalog (`flow-catalog`)
 

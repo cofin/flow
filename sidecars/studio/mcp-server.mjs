@@ -13,8 +13,11 @@ import readline from "node:readline";
 import { fileURLToPath } from "node:url";
 
 import { CrossHarnessRunner } from "./bridges/cli.mjs";
+import { SpecFeedbackStore } from "./spec/feedback.mjs";
+import { GitBranchSpecScanner, SpecPrPublisher } from "./spec/git-spec-branch.mjs";
 import { SpecEngine } from "./spec/spec-engine.mjs";
 import { TaskPlanner } from "./spec/task-planner.mjs";
+import { WorkspaceSync } from "./spec/workspace-sync.mjs";
 
 const STUDIO_DIR = path.dirname(fileURLToPath(import.meta.url));
 
@@ -96,6 +99,55 @@ export const FLOW_MCP_TOOLS = Object.freeze([
         prompt: { type: "string" },
       },
       required: ["prompt"],
+    },
+  },
+  {
+    name: "flow_spec_branches",
+    description: "Discover specs across local branches and remote tracking refs.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        workspace: { type: "string" },
+        include_archived: { type: "boolean" },
+      },
+    },
+  },
+  {
+    name: "flow_spec_feedback",
+    description: "List, add, reply to, or resolve out-of-tree spec review notes.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        workspace: { type: "string" },
+        action: { type: "string" },
+        flow_id: { type: "string" },
+        rel_path: { type: "string" },
+        comment_id: { type: "string" },
+        parent_comment_id: { type: "string" },
+        body: { type: "string" },
+        comment_kind: { type: "string" },
+        start_line: { type: "integer" },
+        end_line: { type: "integer" },
+        quote: { type: "string" },
+      },
+    },
+  },
+  {
+    name: "flow_spec_pr",
+    description: "Publish a spec on a dedicated branch/PR or sync PR comments.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        workspace: { type: "string" },
+        flow_id: { type: "string" },
+        action: { type: "string" },
+        branch: { type: "string" },
+        base: { type: "string" },
+        pr_number: { type: "integer" },
+        push: { type: "boolean" },
+        draft: { type: "boolean" },
+      },
+      required: ["flow_id"],
     },
   },
 ]);
@@ -184,7 +236,68 @@ export async function handleMcpRequest(req, { defaultWorkspace = process.cwd(), 
           includeBriefs: true,
         });
       } else if (name === "flow_sync") {
-        payload = engine.syncChecklists({ flowId: args.flow_id, chapterId: args.chapter_id || null });
+        payload = await new WorkspaceSync(ws).run({
+          flowId: args.flow_id || null,
+          chapterId: args.chapter_id || null,
+        });
+      } else if (name === "flow_spec_branches") {
+        const localSpecs = engine.listSpecs({ includeArchived: Boolean(args.include_archived) });
+        payload = {
+          specs: await new GitBranchSpecScanner(ws).listAllBranchSpecs({
+            localSpecs,
+            includeArchived: Boolean(args.include_archived),
+          }),
+        };
+      } else if (name === "flow_spec_feedback") {
+        const store = new SpecFeedbackStore(ws);
+        const action = String(args.action || "list");
+        const target = args.rel_path || args.flow_id || "";
+        if (action === "add") {
+          payload = {
+            comment: store.add({
+              flowId: args.flow_id || undefined,
+              relPath: args.rel_path || undefined,
+              startLine: Number(args.start_line || 1),
+              endLine: Number(args.end_line || args.start_line || 1),
+              quote: args.quote || undefined,
+              commentKind: args.comment_kind || "feedback",
+              body: String(args.body || ""),
+            }),
+          };
+        } else if (action === "reply") {
+          payload = {
+            comment: store.replyToComment(target, String(args.parent_comment_id || args.comment_id || ""), {
+              body: String(args.body || ""),
+              commentKind: args.comment_kind || "feedback",
+            }),
+          };
+        } else if (action === "resolve" || action === "edit") {
+          payload = {
+            comment: store.setResolvedOrUpdate(target, String(args.comment_id || ""), {
+              ...(action === "resolve" ? { resolved: true } : {}),
+              ...(args.body !== undefined ? { body: String(args.body) } : {}),
+            }),
+          };
+        } else {
+          payload = {
+            comments: args.rel_path ? store.list(String(args.rel_path)) : store.listForFlow(String(args.flow_id || "")),
+          };
+        }
+      } else if (name === "flow_spec_pr") {
+        const publisher = new SpecPrPublisher(ws);
+        if (args.action === "comments") {
+          payload = await publisher.syncPullRequestComments(String(args.flow_id), {
+            prNumber: args.pr_number ? Number(args.pr_number) : null,
+            branch: args.branch || null,
+          });
+        } else {
+          payload = await publisher.publishSpecToPr(String(args.flow_id), {
+            branch: args.branch || null,
+            base: args.base || null,
+            draft: Boolean(args.draft),
+            push: Boolean(args.push),
+          });
+        }
       } else if (name === "flow_plan_strong" || name === "flow_verify_strong") {
         const activeRunner = runner || new CrossHarnessRunner({ defaultWorkspace: ws });
         payload = await activeRunner.delegate({

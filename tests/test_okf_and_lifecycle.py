@@ -1818,3 +1818,125 @@ def test_flow_dual_review_and_spec_planning_crash_isolation_and_quota_fallback(
     by_ch = {c["chapter_id"]: c for c in plan_out["chapters"]}
     assert by_ch["ch02-middleware"]["degraded_reason"] is None
     assert "planner failed" in (by_ch["ch03-sessions"]["degraded_reason"] or "")
+
+
+@pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
+def test_bundle_graph_linter_and_tristate_claim_corrector(tmp_path: Path) -> None:
+    """Verify BundleGraphLinter duplicate detection and ClaimConflictError enforcement."""
+    assert NODE_BIN is not None
+    bundle = tmp_path / ".agents" / "bundles"
+    (bundle / "knowledge" / "domains").mkdir(parents=True)
+    (bundle / "knowledge" / "patterns").mkdir(parents=True)
+    (bundle / "index.md").write_text("---\nokf_version: '0.2'\n---\n\n# Root\n", encoding="utf-8")
+    shared_claim = "The payment gateway retries failed webhooks every 30 seconds up to five times."
+    (bundle / "knowledge" / "domains" / "payments.md").write_text(
+        f"---\ntype: Domain\ntitle: Payments\n---\n\n<!-- truth: start -->\n{shared_claim}\n<!-- truth: end -->\n",
+        encoding="utf-8",
+    )
+    (bundle / "knowledge" / "patterns" / "webhooks.md").write_text(
+        f"---\ntype: Pattern\ntitle: Payments\n---\n\n{shared_claim}\n\nSee [[MissingConcept]] for details.\n",
+        encoding="utf-8",
+    )
+
+    graph_uri = (REPO_ROOT / "sidecars" / "studio" / "knowledge" / "bundle-graph.mjs").as_uri()
+    bundle_json = json.dumps(str(bundle))
+    root_json = json.dumps(str(tmp_path))
+    claim_json = json.dumps(shared_claim)
+    payments_json = json.dumps(str(bundle / "knowledge" / "domains" / "payments.md"))
+    js = (
+        "import fs from 'node:fs';"
+        "import { BundleGraph, BundleGraphLinter, TriStateClaimCorrector, ClaimConflictError }"
+        f" from {json.dumps(graph_uri)};"
+        f"const paymentsPath = {payments_json};"
+        f"const graph = BundleGraph.load({bundle_json}, {{ workspaceRoot: {root_json} }});"
+        "const lint = BundleGraphLinter.lint(graph);"
+        f"const stalePlan = TriStateClaimCorrector.plan(graph, {{ claim: {claim_json},"
+        " replacement: 'Webhooks retry every 45 seconds.', canonicalPath: 'knowledge/domains/payments.md' });"
+        "const originalPayments = fs.readFileSync(paymentsPath, 'utf8');"
+        "fs.writeFileSync(paymentsPath, originalPayments + '\\n<!-- concurrent edit -->\\n', 'utf8');"
+        "let threwConflict = false;"
+        "try { TriStateClaimCorrector.apply(stalePlan, { dryRun: false }); }"
+        " catch (e) { threwConflict = e instanceof ClaimConflictError; }"
+        "fs.writeFileSync(paymentsPath, originalPayments, 'utf8');"
+        f"const freshGraph = BundleGraph.load({bundle_json}, {{ workspaceRoot: {root_json} }});"
+        f"const plan = TriStateClaimCorrector.plan(freshGraph, {{ claim: {claim_json},"
+        " replacement: 'Webhooks retry every 60 seconds.', canonicalPath: 'knowledge/domains/payments.md' });"
+        "const applied = TriStateClaimCorrector.apply(plan, { dryRun: false });"
+        "process.stdout.write(JSON.stringify({ lint, threwConflict, applied }) + '\\n');"
+    )
+    proc = subprocess.run(
+        [NODE_BIN, "--input-type=module", "-e", js],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    )
+    out = json.loads(proc.stdout.strip().splitlines()[-1])
+    assert out["lint"]["wanted_concepts"]
+    assert out["lint"]["duplicate_candidates"]
+    assert out["threwConflict"] is True
+    assert len(out["applied"]["written_files"]) == 2
+    assert "60 seconds" in (bundle / "knowledge" / "domains" / "payments.md").read_text(encoding="utf-8")
+
+
+@pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
+def test_workspace_sync_bundle_migrator_and_closeout(tmp_path: Path) -> None:
+    """Verify WorkspaceSync commit-message closeout, WorkspaceBundleMigrator, and SpecCloseout archive."""
+    assert NODE_BIN is not None
+    git_kw: dict[str, Any] = {"cwd": tmp_path, "check": True, "capture_output": True, "text": True, "encoding": "utf-8"}
+    subprocess.run(["git", "init"], **git_kw)
+    subprocess.run(["git", "config", "user.email", "dev@example.com"], **git_kw)
+    subprocess.run(["git", "config", "user.name", "Dev User"], **git_kw)
+    subprocess.run(["git", "config", "commit.gpgsign", "false"], **git_kw)
+
+    bundle = tmp_path / ".agents" / "bundles"
+    spec_dir = bundle / "specs" / "demo-flow"
+    (spec_dir / "tasks").mkdir(parents=True)
+    setup_payload = {
+        "setup_status": "complete",
+        "bundle_root": ".agents/bundles",
+        "workflow_preferences": {"ignore_policy": "shared"},
+    }
+    (tmp_path / ".agents" / "setup-state.json").write_text(json.dumps(setup_payload), encoding="utf-8")
+    (bundle / "index.md").write_text("---\nokf_version: '0.2'\n---\n\n# Root\n", encoding="utf-8")
+    (spec_dir / "spec.md").write_text(
+        "---\ntype: Spec\nflow_id: demo-flow\ntitle: Demo Flow\nstate: active\nhas_chapters: false\n---\n\n"
+        "- [ ] t01 — Implement handler (tasks/t01-handler.md)\n",
+        encoding="utf-8",
+    )
+    (spec_dir / "tasks" / "t01-handler.md").write_text(
+        "---\ntype: Task\nid: demo-flow:t01\ntitle: Implement handler\nstate: in_progress\n"
+        "claimed_by: coordinator:1\nclaimed_at: 2020-01-01T00:00:00Z\nfiles: [app.py]\ntests: []\n"
+        "---\n\n## Objective & Scope Boundary\nHandler.\n## Verification\npytest\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "app.py").write_text("x = 1\n", encoding="utf-8")
+    subprocess.run(["git", "add", "-A"], **git_kw)
+    subprocess.run(["git", "commit", "-m", "feat(demo-flow:t01): add app handler"], **git_kw)
+
+    sync_uri = (REPO_ROOT / "sidecars" / "studio" / "spec" / "workspace-sync.mjs").as_uri()
+    mig_uri = (REPO_ROOT / "sidecars" / "studio" / "spec" / "bundle-migrator.mjs").as_uri()
+    close_uri = (REPO_ROOT / "sidecars" / "studio" / "spec" / "spec-closeout.mjs").as_uri()
+    js = (
+        f"import {{ WorkspaceSync }} from {json.dumps(sync_uri)};"
+        f"import {{ WorkspaceBundleMigrator }} from {json.dumps(mig_uri)};"
+        f"import {{ SpecCloseout }} from {json.dumps(close_uri)};"
+        f"const ws = {json.dumps(str(tmp_path))};"
+        "const syncRes = await new WorkspaceSync(ws).run({ flowId: 'demo-flow', local: true });"
+        "const audit = new WorkspaceBundleMigrator(ws).audit();"
+        "const closeRes = new SpecCloseout(ws).run('demo-flow', { apply: true, keep: true });"
+        "process.stdout.write(JSON.stringify({ syncRes, audit, closeRes }) + '\\n');"
+    )
+    proc = subprocess.run(
+        [NODE_BIN, "--input-type=module", "-e", js],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    )
+    out = json.loads(proc.stdout.strip().splitlines()[-1])
+    assert out["syncRes"]["closed_tasks"][0]["task_id"] == "demo-flow:t01"
+    assert out["closeRes"]["ok"] is True
+    assert out["closeRes"]["verified"]["by"].startswith("human:")
+    assert (bundle / "log.md").is_file()
+    assert (bundle / "specs" / "index.md").is_file()

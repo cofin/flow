@@ -8,6 +8,7 @@
 
 import crypto from "node:crypto";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -15,6 +16,124 @@ import { uriToWorkspacePath } from "../core/fs-io.mjs";
 import { DynamicModelCatalog } from "../models/inventory.mjs";
 
 const LS_SERVICE_PREFIX = "/exa.language_server_pb.LanguageServerService/";
+
+/**
+ * Discovers live Google Antigravity Language Server daemons under daemon registry directories
+ * when `ANTIGRAVITY_LS_ADDRESS` is not configured in the environment.
+ */
+export class LanguageServerDaemonLocator {
+  static candidateRoots(env = process.env) {
+    const home = env.HOME || env.USERPROFILE || os.homedir();
+    const roots = [];
+    const seen = new Set();
+    const pushRoot = (dirPath) => {
+      const clean = String(dirPath || "").trim();
+      if (!clean || seen.has(clean)) return;
+      seen.add(clean);
+      roots.push(clean);
+    };
+    pushRoot(env.ANTIGRAVITY_APP_DATA_DIR);
+    pushRoot(env.FLOW_APP_DATA_DIR);
+    const geminiDir = path.join(home, ".gemini");
+    if (fs.existsSync(geminiDir)) {
+      try {
+        for (const entry of fs.readdirSync(geminiDir, { withFileTypes: true })) {
+          if (entry.isDirectory() || entry.isSymbolicLink()) pushRoot(path.join(geminiDir, entry.name));
+        }
+      } catch {
+        // Ignore unreadable daemon directories inside restricted sandboxes.
+      }
+    }
+    return roots;
+  }
+
+  static isDiscoveryDisabled(env = process.env) {
+    if (String(env?.FLOW_DISABLE_DAEMON_DISCOVERY || "").trim() === "1") return true;
+    return (
+      Boolean(env) &&
+      Object.prototype.hasOwnProperty.call(env, "ANTIGRAVITY_LS_ADDRESS") &&
+      String(env.ANTIGRAVITY_LS_ADDRESS ?? "").trim() === ""
+    );
+  }
+
+  static readCandidates(env = process.env) {
+    if (LanguageServerDaemonLocator.isDiscoveryDisabled(env)) return [];
+    const candidates = [];
+    const seenFiles = new Set();
+    for (const root of LanguageServerDaemonLocator.candidateRoots(env)) {
+      const daemonDir = path.join(root, "daemon");
+      if (!fs.existsSync(daemonDir)) continue;
+      let files = [];
+      try {
+        files = fs.readdirSync(daemonDir).filter((name) => name.endsWith(".json")).sort();
+      } catch {
+        continue;
+      }
+      for (const fileName of files) {
+        const filePath = path.join(daemonDir, fileName);
+        if (seenFiles.has(filePath)) continue;
+        seenFiles.add(filePath);
+        try {
+          const stat = fs.statSync(filePath);
+          const raw = JSON.parse(fs.readFileSync(filePath, "utf8"));
+          if (!raw || typeof raw !== "object" || Array.isArray(raw)) continue;
+          const token = String(raw.csrfToken ?? raw.csrf_token ?? "").trim();
+          const pidRaw = Number(raw.pid ?? raw.processId ?? 0);
+          const pid = Number.isFinite(pidRaw) && pidRaw > 0 ? pidRaw : null;
+          let address = typeof raw.address === "string" && raw.address.trim() ? raw.address.trim() : "";
+          if (!address) {
+            const portRaw = Number(raw.httpPort ?? raw.port ?? raw.httpsPort ?? 0);
+            if (Number.isFinite(portRaw) && portRaw > 0) {
+              const scheme = raw.httpPort || !raw.httpsPort ? "http" : "https";
+              address = `${scheme}://127.0.0.1:${portRaw}`;
+            }
+          }
+          if (!address || !token) continue;
+          if (!/^https?:\/\//i.test(address)) address = `http://${address}`;
+          if (pid !== null) {
+            try {
+              process.kill(pid, 0);
+            } catch (err) {
+              if (err && err.code === "ESRCH") continue;
+            }
+          }
+          const priority = fileName.startsWith("ls_") ? 2 : fileName.startsWith("hub_") ? 1 : 0;
+          candidates.push({ address: address.replace(/\/+$/, ""), token, pid, sourceFile: filePath, priority, mtimeMs: stat.mtimeMs || 0 });
+        } catch {
+          // Ignore malformed or concurrently rotated daemon files.
+        }
+      }
+    }
+    return candidates.sort((a, b) => b.priority - a.priority || b.mtimeMs - a.mtimeMs);
+  }
+
+  static async discover({ env = process.env, fetchImpl = globalThis.fetch, probe = true, timeoutMs = 400 } = {}) {
+    const explicitAddress = String(env.ANTIGRAVITY_LS_ADDRESS || "").trim();
+    const explicitToken = String(env.ANTIGRAVITY_CSRF_TOKEN || "").trim();
+    if (explicitAddress) {
+      const normalized = /^https?:\/\//i.test(explicitAddress) ? explicitAddress : `http://${explicitAddress}`;
+      return { address: normalized.replace(/\/+$/, ""), token: explicitToken, source: "env" };
+    }
+    if (LanguageServerDaemonLocator.isDiscoveryDisabled(env)) return null;
+    const candidates = LanguageServerDaemonLocator.readCandidates(env);
+    if (candidates.length === 0) return null;
+    if (!probe || typeof fetchImpl !== "function") return { ...candidates[0], source: "daemon_file" };
+    for (const candidate of candidates) {
+      try {
+        const res = await fetchImpl(`${candidate.address}${LS_SERVICE_PREFIX}ListProjects`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Connect-Protocol-Version": "1", "x-codeium-csrf-token": candidate.token },
+          body: "{}",
+          signal: AbortSignal.timeout(timeoutMs),
+        });
+        if (res.status < 500) return { ...candidate, source: "daemon_probe" };
+      } catch {
+        // Try next daemon entry.
+      }
+    }
+    return null;
+  }
+}
 
 /**
  * Extract all folder URIs from an Antigravity project object including worktree environments.
@@ -68,20 +187,36 @@ export class AntigravityBridge {
    */
   constructor(env = process.env) {
     this.env = env;
+    this._daemonCache = { at: 0, value: null };
   }
 
   get baseUrl() {
     const raw = this.env.ANTIGRAVITY_LS_ADDRESS || "";
-    if (!raw) return null;
-    return raw.startsWith("http") ? raw.replace(/\/+$/, "") : `http://${raw.replace(/\/+$/, "")}`;
+    if (raw) return raw.startsWith("http") ? raw.replace(/\/+$/, "") : `http://${raw.replace(/\/+$/, "")}`;
+    return this._daemonCache.value?.address || null;
   }
 
   get csrfToken() {
-    return this.env.ANTIGRAVITY_CSRF_TOKEN || "";
+    return this.env.ANTIGRAVITY_CSRF_TOKEN || this._daemonCache.value?.token || "";
   }
 
   get available() {
-    return Boolean(this.baseUrl);
+    return Boolean(this.env.ANTIGRAVITY_LS_ADDRESS || this._daemonCache.value || LanguageServerDaemonLocator.readCandidates(this.env).length > 0);
+  }
+
+  async resolveConnection({ refresh = false } = {}) {
+    if (this.env.ANTIGRAVITY_LS_ADDRESS) {
+      const raw = String(this.env.ANTIGRAVITY_LS_ADDRESS).trim();
+      const address = (raw.startsWith("http") ? raw : `http://${raw}`).replace(/\/+$/, "");
+      return { address, token: this.env.ANTIGRAVITY_CSRF_TOKEN || "", source: "env" };
+    }
+    const now = Date.now();
+    if (!refresh && this._daemonCache.at > 0 && now - this._daemonCache.at < 10_000) {
+      return this._daemonCache.value;
+    }
+    const discovered = await LanguageServerDaemonLocator.discover({ env: this.env });
+    this._daemonCache = { at: Date.now(), value: discovered };
+    return discovered;
   }
 
   /**
@@ -91,26 +226,29 @@ export class AntigravityBridge {
    * @param {Record<string, any>} [body]
    */
   async call(method, body = {}) {
-    if (!this.baseUrl) {
-      return { ok: false, error: "ANTIGRAVITY_LS_ADDRESS is not configured in this environment." };
+    const conn = await this.resolveConnection();
+    if (!conn?.address) {
+      return { ok: false, error: "Antigravity LanguageServer is not running or configured." };
     }
     const headers = {
       "Content-Type": "application/json",
       "Connect-Protocol-Version": "1",
-      ...(this.csrfToken ? { "x-codeium-csrf-token": this.csrfToken } : {}),
+      ...(conn.token ? { "x-codeium-csrf-token": conn.token } : {}),
     };
     try {
-      const resp = await fetch(`${this.baseUrl}${LS_SERVICE_PREFIX}${method}`, {
+      const resp = await fetch(`${conn.address}${LS_SERVICE_PREFIX}${method}`, {
         method: "POST",
         headers,
         body: JSON.stringify(body),
       });
       const text = await resp.text();
       if (!resp.ok) {
+        if (conn.source !== "env") this._daemonCache.at = 0;
         return { ok: false, status: resp.status, error: text.slice(0, 400) || `HTTP ${resp.status}` };
       }
       return { ok: true, value: text ? JSON.parse(text) : {} };
     } catch (err) {
+      if (conn.source !== "env") this._daemonCache.at = 0;
       return { ok: false, error: err instanceof Error ? err.message : String(err) };
     }
   }
@@ -368,6 +506,95 @@ export class AntigravityBridge {
 
   async stopConversation(cascadeId) {
     return this.call("ForceStopCascadeTree", { cascadeId });
+  }
+
+  /**
+   * List active/recent conversations filtered optionally by workspace or status (`flow agent list`).
+   *
+   * @param {{ workspace?: string | null, status?: string, includeSubagents?: boolean, limit?: number }} [options]
+   */
+  async listConversations({ workspace = null, status = "all", includeSubagents = false, limit = 30 } = {}) {
+    const res = await this.call("GetAllCascadeTrajectories", { excludeSubtrajectories: !includeSubagents });
+    if (!res.ok) return { ok: false, ls_connected: false, conversations: [], error: res.error };
+    const rawMap = res.value?.trajectorySummaries || res.value?.trajectory_summaries || {};
+    const targetLower = workspace ? path.resolve(workspace).toLowerCase() : null;
+    const statusFilter = ["running", "idle", "all"].includes(String(status || "").toLowerCase()) ? String(status).toLowerCase() : "all";
+    const items = [];
+    for (const [convId, raw] of Object.entries(rawMap)) {
+      const wsList = Array.isArray(raw?.workspaces)
+        ? raw.workspaces.map((w) => uriToWorkspacePath(w?.workspaceFolderAbsoluteUri || w?.workspaceFolderUri || w?.folderUri || w)).filter(Boolean)
+        : [];
+      if (targetLower && !wsList.some((w) => w.toLowerCase() === targetLower || w.toLowerCase().startsWith(`${targetLower}/`))) {
+        continue;
+      }
+      const rawStatus = String(raw?.status || "").toUpperCase();
+      const runStatus = rawStatus.includes("RUNNING") ? "running" : "idle";
+      if (statusFilter === "running" && runStatus !== "running") continue;
+      if (statusFilter === "idle" && runStatus !== "idle") continue;
+      items.push({
+        conversation_id: convId,
+        title: raw?.summary || raw?.annotations?.title || convId.slice(0, 8),
+        status: runStatus,
+        raw_status: raw?.status || null,
+        workspaces: wsList,
+        killed: Boolean(raw?.killed),
+        last_modified_at: raw?.lastModifiedTime || null,
+      });
+    }
+    items.sort((a, b) => String(b.last_modified_at || "").localeCompare(String(a.last_modified_at || "")));
+    return { ok: true, ls_connected: true, total: items.length, conversations: items.slice(0, Math.max(1, limit)) };
+  }
+
+  /**
+   * Inspect one conversation's trajectory summary and recent RPC steps (`flow agent inspect`).
+   *
+   * @param {string} conversationId
+   * @param {{ steps?: number }} [options]
+   */
+  async inspectConversation(conversationId, { steps = 8 } = {}) {
+    const convId = String(conversationId || "").trim();
+    if (!convId || /[/\\]|\.\./.test(convId)) throw new Error(`Invalid conversation ID: ${conversationId}`);
+    const [trajRes, stepsRes] = await Promise.all([
+      this.call("GetAllCascadeTrajectories", { excludeSubtrajectories: false }),
+      this.call("GetCascadeTrajectorySteps", { cascadeId: convId }),
+    ]);
+    const rawMap = trajRes.ok ? trajRes.value?.trajectorySummaries || trajRes.value?.trajectory_summaries || {} : {};
+    const summary = rawMap[convId] || null;
+    const rpcSteps = stepsRes.ok && Array.isArray(stepsRes.value?.steps) ? stepsRes.value.steps : [];
+    return {
+      ok: Boolean(trajRes.ok || summary),
+      ls_connected: Boolean(trajRes.ok),
+      conversation_id: convId,
+      found: Boolean(summary),
+      summary: summary ? { title: summary.summary || summary.annotations?.title || null, status: summary.status || null } : null,
+      steps: rpcSteps.slice(-Math.max(1, steps)).map((s, idx) => ({
+        step_index: typeof s?.stepIndex === "number" ? s.stepIndex : idx,
+        type: s?.type || null,
+        status: s?.status || null,
+      })),
+    };
+  }
+
+  /**
+   * Send a follow-up message to an existing conversation (`flow agent send`).
+   *
+   * @param {{ conversationId: string, prompt: string, blocking?: boolean }} params
+   */
+  async sendMessage({ conversationId, prompt, blocking = false } = {}) {
+    const convId = String(conversationId || "").trim();
+    if (!convId || /[/\\]|\.\./.test(convId)) throw new Error(`Invalid conversation ID: ${conversationId}`);
+    if (!String(prompt || "").trim()) throw new Error("prompt must be non-empty.");
+    const sendRes = await this.call("SendUserCascadeMessage", {
+      cascadeId: convId,
+      items: [{ text: String(prompt) }],
+      blocking: Boolean(blocking),
+    });
+    return {
+      ok: Boolean(sendRes.ok),
+      conversation_id: convId,
+      prompt_sent: Boolean(sendRes.ok),
+      ...(sendRes.ok ? {} : { error: sendRes.error || "SendUserCascadeMessage failed" }),
+    };
   }
 
   async #collectProjects(getProjRes, listProjRes) {

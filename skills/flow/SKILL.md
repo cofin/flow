@@ -9,7 +9,7 @@ description: "Use when a repository has .agents, when the user asks for Flow lif
 
 ## Trigger
 
-Use Flow when `.agents/` exists (in the workspace or linked primary Git worktree), spec bundles live under `.agents/bundles/specs/`, or the user requests a Flow action. Flow is a skill and subagent workflow, not a shell executable; never run `flow` as a shell command.
+Use Flow when `.agents/` exists (in the workspace or linked primary Git worktree), spec bundles live under `.agents/bundles/specs/`, or the user requests a Flow action. Pair interactive `/flow:*` skills with the `flow` CLI (`bin/flow.mjs`, or install to `~/.local/bin/flow` via `flow install-cli`) for sync, multi-branch spec discovery, review notes, setup alignment, and catalog linting.
 
 ## Workflow
 
@@ -29,7 +29,7 @@ The router owns no disk mutations directly; it resolves the target lifecycle ski
 - Load only the selected lifecycle skill and its reference procedure.
 - Keep root specifications (`specs/<flow_id>/spec.md`), chapter catalogs (`chapters/index.md`), chapter specs (`chapters/<ch_id>/spec.md`), and task worksheets (`tasks/<id>-<slug>.md`) synchronized in place in present tense ([`references/state.md`](references/state.md)), validating OKF writes with `/flow:validate`.
 - Scale process and models proportionally ([`orchestration.md`](references/orchestration.md), [`skills-subagents-and-mcp-limits.md`](../multi-harness-plugins/references/skills-subagents-and-mcp-limits.md)). Call shipped workflows (`flow-scout`, `flow-spec-planning`, `flow-chapter-pipeline`, `flow-dual-review`) with `type_name="self"` on Google Antigravity.
-- Keep planning and spec review on the `strong` model role and warn when `planning_quality: degraded`. Run tasks with briefs, let `flow-cli.mjs` sync state between steps, run one full check at closeout, and never mark chapters or tasks `deferred` without `deferred_by: "user"`.
+- Keep planning and spec review on the `strong` model role and warn when `planning_quality: degraded`. Run tasks with briefs, let `flow sync` (or `flow spec sync`) update state between steps, run one full check at closeout, and never mark chapters or tasks `deferred` without `deferred_by: "user"`.
 - In linked `git worktree` checkouts, reuse the symlinked `.venv` via `uv run --no-sync`. Edit worktree `.agents/` when `ignore_policy` is `shared`, and edit the primary checkout's `.agents/` when `local-only`.
 - Preserve Git history and tag immutability. Never push or open remote PRs without explicit user instruction.
 

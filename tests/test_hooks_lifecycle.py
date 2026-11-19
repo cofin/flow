@@ -948,3 +948,80 @@ def test_stop_check_worker_detection_and_system_message_only_transcript(
         assert out.get("decision") == "deny" or out.get("blocked") is True or "reason" in out, f"[{case_id}] {out}"
     else:
         assert out == {}, f"[{case_id}] expected worker bypass, got {out}"
+
+
+def test_hooks_activity_overlay_and_dirty_sha_relaxation(tmp_path: Path) -> None:
+    """Verify activity tracking across telemetry, invocation, and stop-check hooks."""
+    git_kw: dict[str, Any] = {"cwd": tmp_path, "check": True, "capture_output": True, "text": True, "encoding": "utf-8"}
+    subprocess.run(["git", "init"], **git_kw)
+    subprocess.run(["git", "config", "user.email", "t@example.com"], **git_kw)
+    subprocess.run(["git", "config", "user.name", "Test"], **git_kw)
+    subprocess.run(["git", "config", "commit.gpgsign", "false"], **git_kw)
+
+    spec_dir = tmp_path / ".agents" / "bundles" / "specs" / "live-flow"
+    (spec_dir / "tasks").mkdir(parents=True)
+    (tmp_path / ".agents" / "setup-state.json").write_text(
+        json.dumps({"setup_status": "complete", "bundle_root": ".agents/bundles"}),
+        encoding="utf-8",
+    )
+    (spec_dir / "spec.md").write_text(
+        "---\ntype: Spec\nflow_id: live-flow\ntitle: Live Flow\nstate: completed\nhas_chapters: false\n"
+        "last_reviewed_commit: null\n---\n\n- [x] t01 — App (tasks/t01-app.md)\n",
+        encoding="utf-8",
+    )
+    (spec_dir / "tasks" / "t01-app.md").write_text(
+        "---\ntype: Task\nid: live-flow:t01\ntitle: App\nstate: completed\ncommit: null\n"
+        "files: [src/mod.py]\ntests: []\n---\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "mod.py").write_text("x = 1\n", encoding="utf-8")
+    subprocess.run(["git", "add", "-A"], **git_kw)
+    subprocess.run(["git", "commit", "-m", "seed"], **git_kw)
+
+    (tmp_path / "src" / "mod.py").write_text("x = 2\n", encoding="utf-8")
+    rt_dir = tmp_path / "rt"
+    cfg_dir = tmp_path / "cfg"
+    extra_env = {"FLOW_RUNTIME_DIR": str(rt_dir), "FLOW_CONFIG_DIR": str(cfg_dir), "FLOW_STOP_CHECK": "enforce"}
+
+    stop_out = _run_hook(
+        STOP_CHECK_SH,
+        "agy",
+        {"conversationId": "conv-dirty", "workspacePaths": [str(tmp_path)]},
+        extra_env=extra_env,
+    )
+    assert stop_out == {}
+
+    (spec_dir / "spec.md").write_text(
+        "---\ntype: Spec\nflow_id: live-flow\ntitle: Live Flow\nstate: active\nhas_chapters: false\n"
+        "---\n\n- [ ] t01 — App (tasks/t01-app.md)\n",
+        encoding="utf-8",
+    )
+    (spec_dir / "tasks" / "t01-app.md").write_text(
+        "---\ntype: Task\nid: live-flow:t01\ntitle: App\nstate: pending\nfiles: [src/mod.py]\ntests: []\n---\n",
+        encoding="utf-8",
+    )
+    _run_hook(
+        POST_TOOL_TELEMETRY_SH,
+        "agy",
+        {
+            "workspacePaths": [str(tmp_path)],
+            "conversationId": "conv-live-1",
+            "toolCall": {"name": "edit_file"},
+            "Path": str(tmp_path / "src" / "mod.py"),
+        },
+        extra_env=extra_env,
+    )
+    act_files = list(rt_dir.glob("*/activity/conv-live-1.json"))
+    assert len(act_files) == 1
+    act_data = json.loads(act_files[0].read_text(encoding="utf-8"))
+    assert "live-flow" in act_data["flows"]
+
+    _run_hook(
+        POST_INVOCATION_SH,
+        "agy",
+        {"workspacePaths": [str(tmp_path)], "conversationId": "conv-live-1"},
+        extra_env=extra_env,
+    )
+    act_after = json.loads(act_files[0].read_text(encoding="utf-8"))
+    assert act_after["active"] is False

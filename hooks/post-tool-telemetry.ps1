@@ -134,4 +134,17 @@ $payload = [ordered]@{
 }
 
 ($payload | ConvertTo-Json -Compress) | Set-Content -LiteralPath $StateFile -Encoding UTF8
+
+if (-not [string]::IsNullOrEmpty($PFile) -and -not [string]::IsNullOrEmpty($PConv)) {
+    $specsCheckDir = Join-Path $EffectiveRoot "$BundleRel/specs"
+    $flowCliBin = Join-Path (Split-Path -Parent $PSScriptRoot) "bin/flow.mjs"
+    if ((Test-Path -LiteralPath $specsCheckDir -PathType Container) -and (Test-Path -LiteralPath $flowCliBin -PathType Leaf) -and (Get-Command node -ErrorAction SilentlyContinue)) {
+        try {
+            $actArgs = @($flowCliBin, "spec", "activity", "--ws", $ProjectDir, "--conv", $PConv, "--parent-conv", $PParent, "--file", $PFile, "--tool", $(if ($PTool) { $PTool } else { "edit_file" }), "--json")
+            if ($Role -eq "flow-subagent") { $actArgs += "--worker" }
+            & node @actArgs 2>$null | Out-Null
+        } catch {}
+    }
+}
+
 [Console]::Out.WriteLine('{}')

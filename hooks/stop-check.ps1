@@ -103,6 +103,10 @@ if ($IsLeafSubagent) {
         if (Test-Path -LiteralPath $leaseFile -PathType Leaf) {
             Remove-Item -LiteralPath $leaseFile -Force -ErrorAction SilentlyContinue
         }
+        $actFile = Join-Path (Join-Path $rtPaths.RuntimeWsDir "activity") "$SafeConv.json"
+        if (Test-Path -LiteralPath $actFile -PathType Leaf) {
+            Remove-Item -LiteralPath $actFile -Force -ErrorAction SilentlyContinue
+        }
     }
     Emit-Allow
 }
@@ -181,16 +185,41 @@ if (-not (Test-Path -LiteralPath $SpecsDir -PathType Container)) {
 }
 
 $HasGit = $false
+$GitDirtyFiles = @()
 $GitCmd = Get-Command git -ErrorAction SilentlyContinue
 if ($null -ne $GitCmd) {
     try {
         $null = & git -C $ProjectDir rev-parse --is-inside-work-tree 2>$null
         if ($LASTEXITCODE -eq 0) {
             $HasGit = $true
+            $rawDirty = @(& git -C $ProjectDir status --porcelain 2>$null)
+            foreach ($dl in $rawDirty) {
+                if ($dl.Length -gt 3) {
+                    $p = $dl.Substring(3).Trim().Trim('"')
+                    if ($p.Contains(" -> ")) { $p = ($p -split " -> ")[-1].Trim().Trim('"') }
+                    $GitDirtyFiles += ($p -replace '\\', '/').TrimStart('./')
+                }
+            }
         }
     } catch {
         $HasGit = $false
     }
+}
+
+function Test-HasDirtyDeclaredFiles([System.Collections.Generic.List[string]]$OwnedPaths) {
+    if (-not $HasGit -or $GitDirtyFiles.Count -eq 0 -or $null -eq $OwnedPaths -or $OwnedPaths.Count -eq 0) {
+        return $false
+    }
+    foreach ($dirty in $GitDirtyFiles) {
+        foreach ($op in $OwnedPaths) {
+            $cleanOp = ($op -replace '\\', '/').TrimStart('./')
+            if (-not $cleanOp) { continue }
+            if ($dirty -eq $cleanOp -or $dirty.StartsWith("$cleanOp/") -or $cleanOp.StartsWith("$dirty/")) {
+                return $true
+            }
+        }
+    }
+    return $false
 }
 
 $Violations = New-Object System.Collections.Generic.List[string]
@@ -318,7 +347,7 @@ function Test-LivingDocHygiene([string]$FilePath, [string]$RelLabel, [bool]$IsIn
 }
 
 function Test-TasksAgainstSpec([string]$OwnerSpec, [string]$TasksDir, [string]$ScopeLabel) {
-    $res = @{ Total = 0; Done = 0; Shas = (New-Object System.Collections.Generic.List[string]) }
+    $res = @{ Total = 0; Done = 0; Shas = (New-Object System.Collections.Generic.List[string]); DirtyRelaxed = $false }
     if (-not (Test-Path -LiteralPath $TasksDir -PathType Container)) {
         return $res
     }
@@ -353,13 +382,17 @@ function Test-TasksAgainstSpec([string]$OwnerSpec, [string]$TasksDir, [string]$S
             '^(completed|closed)$' {
                 $expMark = "x"
                 $res.Done++
+                $ownedPaths = Get-OwnedPaths $tLines
                 if ([string]::IsNullOrEmpty($tCommit) -or $tCommit -eq "null" -or $tCommit -eq "~") {
-                    $Violations.Add("$ScopeLabel/$($tf.Name): state is $tState but commit SHA is missing")
+                    if (Test-HasDirtyDeclaredFiles $ownedPaths) {
+                        $res.DirtyRelaxed = $true
+                    } else {
+                        $Violations.Add("$ScopeLabel/$($tf.Name): state is $tState but commit SHA is missing")
+                    }
                 } elseif ($tCommit -notmatch '^[0-9a-fA-F]{7,40}$') {
                     $Violations.Add("$ScopeLabel/$($tf.Name): invalid hex commit SHA '$tCommit'")
                 } else {
                     $res.Shas.Add($tCommit)
-                    $ownedPaths = Get-OwnedPaths $tLines
                     if ($ShaTracking -ne "off" -and $HasGit -and $ownedPaths.Count -gt 0) {
                         $null = & git -C $ProjectDir cat-file -e "$tCommit^{commit}" 2>$null
                         if ($LASTEXITCODE -eq 0) {
@@ -489,9 +522,11 @@ function Test-PatchInHistory([string]$NeedleSha, [string]$HaystackRev) {
     return $false
 }
 
-function Test-ReviewStamp([string]$RevSha, [System.Collections.Generic.List[string]]$TaskShas, [string]$Label) {
+function Test-ReviewStamp([string]$RevSha, [System.Collections.Generic.List[string]]$TaskShas, [string]$Label, [bool]$DirtyRelaxed = $false) {
     if ([string]::IsNullOrEmpty($RevSha) -or $RevSha -eq "null" -or ($RevSha -notmatch '^[0-9a-fA-F]{7,40}$')) {
-        $Violations.Add("${Label}: missing hex last_reviewed_commit (sync spec docs and run chapter review before stopping)")
+        if (-not $DirtyRelaxed) {
+            $Violations.Add("${Label}: missing hex last_reviewed_commit (sync spec docs and run chapter review before stopping)")
+        }
         return
     }
     if ($ShaTracking -eq "off") { return }
@@ -642,7 +677,7 @@ foreach ($fDir in $FlowDirs) {
             }
 
             if ($needReview) {
-                Test-ReviewStamp $cRevSha $taskCheck.Shas "specs/$($fDir.Name)/chapters/$chId"
+                Test-ReviewStamp $cRevSha $taskCheck.Shas "specs/$($fDir.Name)/chapters/$chId" ([bool]$taskCheck.DirtyRelaxed)
                 if ((-not $IsLeafSubagent) -and $cState -eq "completed") {
                     $escapedId = [regex]::Escape($chId)
                     if (-not [regex]::IsMatch($rootRaw, "(?m)^\s*-\s*\[[xX]\].*$escapedId")) {
@@ -672,9 +707,9 @@ foreach ($fDir in $FlowDirs) {
             if ($taskCheck.Total -eq 0 -or $taskCheck.Done -lt $taskCheck.Total) {
                 $Violations.Add("specs/$($fDir.Name)/spec.md: single-chapter flow cannot be marked completed while $($taskCheck.Total - $taskCheck.Done) of $($taskCheck.Total) task(s) remain incomplete (or 0 tasks exist)")
             }
-            Test-ReviewStamp $rRevSha $taskCheck.Shas "specs/$($fDir.Name)/spec.md"
+            Test-ReviewStamp $rRevSha $taskCheck.Shas "specs/$($fDir.Name)/spec.md" ([bool]$taskCheck.DirtyRelaxed)
         } elseif ((-not $IsLeafSubagent) -and $rState -eq "active" -and $taskCheck.Total -gt 0 -and $taskCheck.Done -eq $taskCheck.Total) {
-            Test-ReviewStamp $rRevSha $taskCheck.Shas "specs/$($fDir.Name)/spec.md"
+            Test-ReviewStamp $rRevSha $taskCheck.Shas "specs/$($fDir.Name)/spec.md" ([bool]$taskCheck.DirtyRelaxed)
         }
     }
 }

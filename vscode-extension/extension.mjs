@@ -523,6 +523,13 @@ export async function activateWithVscode(context, vscode) {
       await vscode.commands.executeCommand("flow.openStudio");
     }),
 
+    vscode.commands.registerCommand("flow.studioHome", async () => {
+      await vscode.commands.executeCommand("flow.openStudio");
+      if (activePanel?.webview) {
+        await activePanel.webview.postMessage({ type: "navigateHome" });
+      }
+    }),
+
     vscode.commands.registerCommand("flow.searchCatalog", async () => {
       const query = await vscode.window.showInputBox({ prompt: "Search local Flow Knowledge Catalog (Hybrid BM25 + Vector)" });
       if (!query || !activeApiService) return;
