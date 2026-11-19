@@ -362,7 +362,14 @@ export class TriStateClaimCorrector {
     const skipped = [];
 
     for (const note of notes) {
-      const rawText = note.absPath ? readTextSafe(note.absPath) : note.body;
+      let rawText = note.body;
+      if (note.absPath) {
+        try {
+          rawText = fs.readFileSync(note.absPath, "utf8");
+        } catch {
+          rawText = null;
+        }
+      }
       if (rawText === null) continue;
       const role = TriStateClaimCorrector.classify(note, canonicalNote.path);
       const normalizedText = String(rawText).replace(/\r\n/g, "\n");

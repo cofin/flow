@@ -1303,7 +1303,7 @@ def test_out_of_tree_feedback_store_sibling_discovery_and_replies(
     ws = _seed_studio_workspace(tmp_path)
     _init_git_repo(ws)
     (ws / "assets").mkdir(parents=True, exist_ok=True)
-    (ws / "assets" / "sample.txt").write_text("asset payload\n", encoding="utf-8")
+    (ws / "assets" / "sample.txt").write_text("asset payload\n", encoding="utf-8", newline="\n")
     subprocess.run(["git", "add", "-A"], cwd=ws, check=True, capture_output=True)
     subprocess.run(["git", "commit", "-m", "initial"], cwd=ws, check=True, capture_output=True)
 
