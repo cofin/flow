@@ -292,6 +292,7 @@ ALLOWED_TOP_LEVEL_ENTRIES: frozenset[str] = frozenset(
         "README.md",
         "agents",
         "assets",
+        "bin",
         "dist",
         "hooks",
         "hooks.json",
@@ -508,6 +509,9 @@ def validate_manifests(repo_root: Path = REPO_ROOT) -> list[str]:
                 views = sidecar_cfg.get("ui_config", {}).get("views", [])
                 if not isinstance(views, list) or not views:
                     errors.append("sidecars/studio/sidecar.json: ui_config.views must be a non-empty list")
+                sandbox_cfg = sidecar_cfg.get("sandbox")
+                if not isinstance(sandbox_cfg, dict) or sandbox_cfg.get("disable_sandbox") is not True:
+                    errors.append("sidecars/studio/sidecar.json: sandbox.disable_sandbox must be true")
             except json.JSONDecodeError as exc:
                 errors.append(f"sidecars/studio/sidecar.json: invalid JSON ({exc})")
         if not (sidecar_dir / "main.mjs").is_file():
@@ -1064,6 +1068,7 @@ def validate_content_hygiene(repo_root: Path = REPO_ROOT) -> list[str]:
                 extra_terms.append(term.lower())
 
     scan_dirs = (
+        "bin",
         "skills",
         "agents",
         "rules",
@@ -1922,6 +1927,56 @@ def _validate_user_deferral(rel: str, fm: dict[str, Any], state_val: str) -> lis
     return errors
 
 
+def _git_dirty_paths(git_root: Path | None) -> set[str]:
+    """Return relative paths with uncommitted working-tree or staged modifications."""
+    if git_root is None:
+        return set()
+    git_bin = shutil.which("git")
+    if git_bin is None:
+        return set()
+    proc = subprocess.run(
+        [git_bin, "-C", str(git_root), "status", "--porcelain"],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+    if proc.returncode != 0:
+        return set()
+    dirty: set[str] = set()
+    for line in proc.stdout.splitlines():
+        if len(line) <= 3:
+            continue
+        raw = line[3:].strip().strip('"')
+        if " -> " in raw:
+            raw = raw.split(" -> ")[-1].strip().strip('"')
+        clean = raw.replace("\\", "/").lstrip("./")
+        if clean:
+            dirty.add(clean)
+    return dirty
+
+
+def _has_dirty_declared_files(dirty_paths: set[str], fm: dict[str, Any]) -> bool:
+    """Return True when any declared ``files`` or ``tests`` path is uncommitted in Git."""
+    if not dirty_paths:
+        return False
+    owned: list[str] = []
+    for key in ("files", "tests"):
+        raw = fm.get(key)
+        if isinstance(raw, list):
+            owned.extend(str(item) for item in raw)
+        elif isinstance(raw, str) and raw.strip():
+            owned.append(raw.strip())
+    for item in owned:
+        clean = item.split("::", 1)[0].split("#", 1)[0].strip().lstrip("./")
+        if not clean:
+            continue
+        for dirty in dirty_paths:
+            if dirty == clean or dirty.startswith(f"{clean}/") or clean.startswith(f"{dirty}/"):
+                return True
+    return False
+
+
 def _record_uncommitted_or_error(
     errors: list[str],
     warnings_out: list[str] | None,
@@ -2001,7 +2056,7 @@ def _validate_flow_spec_directory(
         return errors
 
     tasks_dir = flow_dir / "tasks"
-    task_errors, task_total, open_task_ids = _validate_tasks_for_owner_spec(
+    task_errors, task_total, open_task_ids, dirty_relaxed = _validate_tasks_for_owner_spec(
         bundle_dir,
         f"{rel_flow}/spec.md",
         root_body,
@@ -2024,7 +2079,7 @@ def _validate_flow_spec_directory(
                 errors,
                 warnings_out,
                 f"{rel_flow}/spec.md: state is 'completed' without valid hex last_reviewed_commit",
-                allow_uncommitted=allow_uncommitted,
+                allow_uncommitted=allow_uncommitted or dirty_relaxed,
             )
     return errors
 
@@ -2110,7 +2165,7 @@ def _validate_multi_chapter_flow(
         ch_state = str(ch_fm.get("state", "")).strip()
         ch_rev = str(ch_fm.get("last_reviewed_commit") or "").strip()
         ch_plan_commit = str(ch_fm.get("plan_commit") or default_plan_commit).strip()
-        task_errors, task_total, open_tasks = _validate_tasks_for_owner_spec(
+        task_errors, task_total, open_tasks, ch_dirty_relaxed = _validate_tasks_for_owner_spec(
             bundle_dir,
             f"{rel_ch}/spec.md",
             ch_body,
@@ -2136,7 +2191,7 @@ def _validate_multi_chapter_flow(
                     errors,
                     warnings_out,
                     f"{rel_ch}/spec.md: state is 'completed' without valid hex last_reviewed_commit",
-                    allow_uncommitted=allow_uncommitted,
+                    allow_uncommitted=allow_uncommitted or ch_dirty_relaxed,
                 )
             if not re.search(rf"^[ \t]*-[ \t]*\[[xX]\].*{re.escape(ch_id)}", root_unfenced, re.MULTILINE):
                 errors.append(f"{rel_flow}/spec.md: completed chapter {ch_id!r} must be marked [x] in checklist")
@@ -2220,12 +2275,14 @@ def _validate_tasks_for_owner_spec(
     all_flow_task_ids: set[str] | None = None,
     allow_uncommitted: bool = False,
     warnings_out: list[str] | None = None,
-) -> tuple[list[str], int, list[str]]:
+) -> tuple[list[str], int, list[str], bool]:
     """Verify chapter/spec task checklists, dependency targets, and Git file-ownership proofs."""
     errors: list[str] = []
     open_tasks: list[str] = []
+    dirty_relaxed_any = False
+    dirty_paths = _git_dirty_paths(git_root) if sha_tracking != "off" else set()
     if not tasks_dir.is_dir():
-        return errors, 0, open_tasks
+        return errors, 0, open_tasks, dirty_relaxed_any
 
     task_files = sorted(p for p in tasks_dir.glob("*.md") if p.name != "index.md")
     local_refs: set[str] = set(all_flow_task_ids or ())
@@ -2270,11 +2327,14 @@ def _validate_tasks_for_owner_spec(
         expected_mark = _expected_checklist_marker(t_state)
         if t_state in ("completed", "closed"):
             if not _HEX_SHA_PATTERN.match(t_commit):
+                has_dirty = _has_dirty_declared_files(dirty_paths, tfm)
+                if has_dirty:
+                    dirty_relaxed_any = True
                 _record_uncommitted_or_error(
                     errors,
                     warnings_out,
                     f"{rel_tf}: state is {t_state!r} without valid hex commit SHA",
-                    allow_uncommitted=allow_uncommitted,
+                    allow_uncommitted=allow_uncommitted or has_dirty,
                 )
             elif git_root is not None and sha_tracking != "off":
                 errors.extend(
@@ -2309,7 +2369,7 @@ def _validate_tasks_for_owner_spec(
                             f"{owner_rel}: task {tf.name!r} commit {t_commit!r} mismatches checklist SHA {c_sha!r}"
                         )
 
-    return errors, len(task_files), open_tasks
+    return errors, len(task_files), open_tasks, dirty_relaxed_any
 
 
 def _read_sha_tracking_mode(project_root: Path) -> str:

@@ -539,12 +539,15 @@ export class SpecEngine {
     const comments = this.feedback.list(normalizedRel);
     return {
       relPath: normalizedRel,
+      rel_path: normalizedRel,
       title: doc.text("title") || headings[0]?.text || path.basename(target, ".md"),
       frontmatter: doc.data,
       frontmatterEndLine: doc.frontmatterEndLine,
+      body_start_line: doc.bodyLine,
       truthBlock: extractTruthBlock(doc.body),
       headings,
       raw,
+      markdown: doc.body,
       lines: allLines.map((text, idx) => ({ lineNumber: idx + 1, text })),
       comments,
       flowId: doc.text("flow_id") || this.feedback.inferFlowId(normalizedRel),
@@ -915,7 +918,7 @@ export class SpecEngine {
   }
 
   /**
-   * Build the chapter + task dependency DAG and compute disjoint parallel lanes.
+   * Build the chapter + task dependency DAG and compute parallel lanes on separate files.
    *
    * @param {string} flowId
    */
@@ -924,19 +927,29 @@ export class SpecEngine {
     const openComments = this.feedback
       .listForFlow(spec.flow_id)
       .filter((c) => c.state === "open" && c.commentKind !== "approval");
+    return SpecEngine.buildDagFromSpec(spec, openComments);
+  }
 
-    const chIds = spec.chapters.map((c) => c.chapter_id);
-    const chDepsMap = new Map(spec.chapters.map((c) => [c.chapter_id, c.depends_on_chapters]));
+  /**
+   * Build a DAG structure from any parsed `spec` object (disk, Git branch ref, or remote repo).
+   *
+   * @param {Record<string, any>} spec
+   * @param {any[]} [openComments]
+   */
+  static buildDagFromSpec(spec, openComments = []) {
+    const chList = Array.isArray(spec.chapters) ? spec.chapters : [];
+    const chIds = chList.map((c) => c.chapter_id);
+    const chDepsMap = new Map(chList.map((c) => [c.chapter_id, c.depends_on_chapters || []]));
     const chLayers = computeTopologicalLayers(chIds, chDepsMap);
-    const closedCh = new Set(spec.chapters.filter((c) => isClosedState(c.state)).map((c) => c.chapter_id));
+    const closedCh = new Set(chList.filter((c) => isClosedState(c.state)).map((c) => c.chapter_id));
 
-    const allTasks = spec.has_chapters ? spec.chapters.flatMap((c) => c.tasks) : spec.tasks;
+    const allTasks = spec.has_chapters ? chList.flatMap((c) => c.tasks || []) : spec.tasks || [];
     const taskDepsMap = new Map();
     const resolvedEdges = new Map();
     for (const t of allTasks) {
       const deps = [];
       const edgeSrcs = [];
-      for (const rawDep of t.depends_on) {
+      for (const rawDep of t.depends_on || []) {
         const src = resolveTaskDependency(t, rawDep, allTasks, spec.flow_id);
         if (src && !deps.includes(src.id)) {
           deps.push(src.id);
@@ -968,7 +981,7 @@ export class SpecEngine {
       const lanes = [];
       for (const t of bucket.tasks) {
         const writePaths = Array.from(
-          new Set(t.files.map((p) => String(p || "").split("::")[0].trim().replace(/^\.\//, "")).filter(Boolean)),
+          new Set((t.files || []).map((p) => String(p || "").split("::")[0].trim().replace(/^\.\//, "")).filter(Boolean)),
         );
         for (const p of writePaths) {
           const prev = owners.get(p);
@@ -997,8 +1010,8 @@ export class SpecEngine {
       Boolean(c.taskId && (!c.chapterId || !t.chapter_id || c.chapterId === t.chapter_id) && (c.taskId === t.id || c.taskId === t.short_id || c.taskId === t.stem));
 
     const edges = [];
-    for (const c of spec.chapters) {
-      for (const dep of c.depends_on_chapters) {
+    for (const c of chList) {
+      for (const dep of c.depends_on_chapters || []) {
         edges.push({ id: `ch:${dep}->${c.chapter_id}`, kind: "chapter", source: dep, target: c.chapter_id, unsatisfied: !closedCh.has(dep) });
       }
     }
@@ -1013,23 +1026,23 @@ export class SpecEngine {
       flow_id: spec.flow_id,
       title: spec.title,
       state: spec.state,
-      has_chapters: spec.has_chapters,
+      has_chapters: Boolean(spec.has_chapters),
       plan_revision: spec.plan_revision ?? 1,
-      current_chapter: spec.current_chapter,
-      current_task: spec.current_task,
-      chapters: spec.chapters.map((c) => ({
+      current_chapter: spec.current_chapter || null,
+      current_task: spec.current_task || null,
+      chapters: chList.map((c) => ({
         id: c.chapter_id,
         chapter_id: c.chapter_id,
         title: c.title,
         state: c.state,
-        planning_status: c.planning_status,
+        planning_status: c.planning_status || "complete",
         replan_trigger: c.replan_trigger || null,
-        depends_on_chapters: [...c.depends_on_chapters],
+        depends_on_chapters: [...(c.depends_on_chapters || [])],
         layer: chLayers.get(c.chapter_id) ?? 0,
         rel_path: c.rel_path,
-        open_comment_count: openComments.filter((cm) => cm.chapterId === c.chapter_id || c.tasks.some((t) => commentMatchesTask(cm, t))).length,
+        open_comment_count: openComments.filter((cm) => cm.chapterId === c.chapter_id || (c.tasks || []).some((t) => commentMatchesTask(cm, t))).length,
         task_counts: c.task_counts,
-        task_ids: c.tasks.map((t) => t.id),
+        task_ids: (c.tasks || []).map((t) => t.id),
       })),
       tasks: allTasks.map((t) => ({
         id: t.id,
@@ -1039,9 +1052,9 @@ export class SpecEngine {
         title: t.title,
         state: t.state,
         claimed_by: t.claimed_by,
-        depends_on: [...t.depends_on],
-        files: [...t.files],
-        tests: [...t.tests],
+        depends_on: [...(t.depends_on || [])],
+        files: [...(t.files || [])],
+        tests: [...(t.tests || [])],
         lock_scopes: [...(t.lock_scopes || [])],
         estimated_loc: t.estimated_loc ?? null,
         rel_path: t.rel_path,

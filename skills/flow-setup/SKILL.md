@@ -16,7 +16,7 @@ Use for `/flow:setup`. Follow [`../flow/references/setup.md`](../flow/references
 
 1. **Environment Detection, Brownfield Alignment, & Toolchain Discovery**:
    - Inspect `.agents/setup-state.json` and `.agents/bundles/index.md`. If `.agents/` already exists, offer **Align & Sync (Recommended)**, **Full Re-Setup**, or **Exit**.
-   - Inventory legacy layouts (`.beads/`, `.agents/specs/`, `.agents/tracks/`, `.agents/transactions/`, flat `knowledge/patterns.md`, un-promoted `bundles/research/`). Ensure subdirectory `index.md` files and `log.md` have no YAML frontmatter or standalone `---` body rules. Inspect fragmented specs via `node <plugin_root>/sidecars/studio/flow-cli.mjs spec status` and migrate active work after user confirmation.
+   - Inventory legacy layouts (`.beads/`, `.agents/specs/`, `.agents/tracks/`, `.agents/transactions/`, flat `knowledge/patterns.md`, un-promoted `bundles/research/`). Ensure subdirectory `index.md` files and `log.md` have no YAML frontmatter or standalone `---` body rules. Inspect fragmented specs via `flow setup audit` (or `flow status --json`) and migrate active work with `flow setup apply --migrate-specs` after user confirmation.
    - Probe installed host binaries (`uv`, `python3`, `cargo`, `go`, `bun`, `pnpm`, `npm`, `make`, `just`, `pwsh`, `powershell`) alongside repository manifests. Fan out parallel read-only `@researcher` workers (`type_name="self"` with `agents/researcher.md` on Google Antigravity; `model="inherit"`).
 2. **Scaffold Core Context Chapters & OKF v0.2 Bundle (`.agents/bundles/`)**:
    - Initialize `.agents/bundles/index.md` (`okf_version: "0.2"`) and frontmatter-free `.agents/bundles/log.md`, `product/index.md`, `knowledge/index.md`, `research/index.md`, and `specs/index.md`.

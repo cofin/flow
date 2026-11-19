@@ -187,6 +187,19 @@ export class FrontmatterDocument {
 
   /**
    * @param {string} key
+   * @returns {boolean | null}
+   */
+  boolean(key) {
+    const v = this.data?.[key];
+    if (typeof v === "boolean") return v;
+    const raw = String(v ?? "").trim().toLowerCase();
+    if (raw === "true") return true;
+    if (raw === "false") return false;
+    return null;
+  }
+
+  /**
+   * @param {string} key
    * @returns {number | null}
    */
   integer(key) {
@@ -336,7 +349,60 @@ export function extractTruthBlock(body) {
 }
 
 /**
- * Extract Markdown headings outside fenced code blocks.
+ * Extract the first H1 heading text outside fenced code blocks.
+ *
+ * @param {string} body
+ * @returns {string}
+ */
+export function extractH1(body) {
+  const headings = extractHeadings(body, { minLevel: 1, maxLevel: 1 });
+  return headings[0]?.text || "";
+}
+
+/**
+ * Return true if `body` contains a standalone horizontal rule outside code fences.
+ *
+ * @param {string} body
+ * @returns {boolean}
+ */
+export function hasBodyHorizontalRule(body) {
+  let inFence = false;
+  for (const rawLine of String(body || "").replace(/\r\n/g, "\n").split("\n")) {
+    if (/^\s*(?:```|~~~)/.test(rawLine)) {
+      inFence = !inFence;
+      continue;
+    }
+    if (inFence) continue;
+    if (/^\s*(?:-{3,}|\*{3,}|_{3,})\s*$/.test(rawLine)) return true;
+  }
+  return false;
+}
+
+/**
+ * Strip standalone horizontal rules (`---`) outside code fences from bundle Markdown bodies.
+ *
+ * @param {string} body
+ * @returns {string}
+ */
+export function stripBodyHorizontalRules(body) {
+  const out = [];
+  let inFence = false;
+  for (const rawLine of String(body || "").replace(/\r\n/g, "\n").split("\n")) {
+    if (/^\s*(?:```|~~~)/.test(rawLine)) {
+      inFence = !inFence;
+      out.push(rawLine);
+      continue;
+    }
+    if (!inFence && /^\s*(?:-{3,}|\*{3,}|_{3,})\s*$/.test(rawLine)) {
+      continue;
+    }
+    out.push(rawLine);
+  }
+  return out.join("\n").replace(/\n{3,}/g, "\n\n");
+}
+
+/**
+ * Extract canonical headings outside fenced code blocks.
  *
  * @param {string} body
  * @param {{ minLevel?: number, maxLevel?: number, lineOffset?: number }} [options]

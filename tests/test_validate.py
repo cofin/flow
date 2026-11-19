@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 import json
 import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -600,7 +601,7 @@ def test_validate_okf_bundle_checks_dangling_deps_and_duplicate_task_ids(tmp_pat
     ch1_tasks.mkdir(parents=True)
     ch2_tasks.mkdir(parents=True)
 
-    (bundle / "index.md").write_text("---\nokf_version: '0.2'\n---\n\n# Root\n", encoding="utf-8")
+    (bundle / "index.md").write_text("---\nokf_version: '0.2'\nbundle: dirty-repo\n---\n\n# Root\n", encoding="utf-8")
 
     (spec_dir / "spec.md").write_text(
         "---\n"
@@ -939,3 +940,110 @@ def test_prose_linter_multiline_comments_fences_yaml_and_nested_json(tmp_path: P
     assert len(json_errors) == 2
     assert any("frontier" in err for err in json_errors)
     assert any("slice" in err for err in json_errors)
+
+
+@pytest.mark.parametrize(
+    ("sandbox_cfg", "expect_sandbox_error"),
+    (
+        ({"disable_sandbox": True}, False),
+        ({"disable_sandbox": False}, True),
+    ),
+)
+def test_validate_sidecar_sandbox_and_dirty_file_sha_relaxation(
+    tmp_path: Path,
+    sandbox_cfg: dict[str, bool],
+    expect_sandbox_error: bool,
+) -> None:
+    """Verify validate_manifests checks disable_sandbox and validate_okf_bundle relaxes missing SHAs for dirty files."""
+    (tmp_path / "pyproject.toml").write_text('[project]\nname = "flow"\nversion = "0.1.0"\n', encoding="utf-8")
+    for src_rel in ("package.json", "sidecars/studio/main.mjs"):
+        dst = tmp_path / src_rel
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(REPO_ROOT / src_rel, dst)
+    sidecar_dst = tmp_path / "sidecars" / "studio" / "sidecar.json"
+    sidecar_cfg = json.loads((REPO_ROOT / "sidecars" / "studio" / "sidecar.json").read_text(encoding="utf-8"))
+    sidecar_cfg["sandbox"] = sandbox_cfg
+    sidecar_dst.write_text(json.dumps(sidecar_cfg), encoding="utf-8")
+
+    manifest_errors = validate_manifests(tmp_path)
+    has_sandbox_err = any("disable_sandbox" in e for e in manifest_errors)
+    assert has_sandbox_err is expect_sandbox_error
+
+    repo = tmp_path / "dirty-repo"
+    bundle = repo / ".agents" / "bundles"
+    spec_dir = bundle / "specs" / "dirty-flow"
+    (spec_dir / "tasks").mkdir(parents=True)
+    (repo / ".agents" / "setup-state.json").write_text(
+        json.dumps({"setup_status": "complete", "bundle_root": ".agents/bundles"}),
+        encoding="utf-8",
+    )
+    (bundle / "index.md").write_text("---\nokf_version: '0.2'\nbundle: dirty-repo\n---\n\n# Root\n", encoding="utf-8")
+    (spec_dir / "spec.md").write_text(
+        "---\n"
+        "type: Spec\n"
+        "flow_id: dirty-flow\n"
+        "title: Dirty Flow\n"
+        "description: Relax SHA when owned files are uncommitted.\n"
+        "status: stable\n"
+        "state: completed\n"
+        "last_reviewed_commit: null\n"
+        "sources:\n"
+        "  - id: s1\n"
+        "    resource: src/app.py\n"
+        "    title: App\n"
+        "tags: [test]\n"
+        "---\n\n"
+        "<!-- truth: start -->\n- App works[^s1].\n<!-- truth: end -->\n\n"
+        "## 1. Specification, Context & Provenance\n\nApp[^s1].\n\n"
+        "## 2. Requirements, Concrete Contracts & Architecture\n\nContracts.\n\n"
+        "## 3. Documentation & OKF Knowledge Plan\n\n[0/0 files documented]\n\n"
+        "## 4. Requirement-to-Task Traceability Matrix\n\nMatrix.\n\n"
+        "## 5. Implementation Plan\n\n- [x] t01 — Done (tasks/t01-done.md)\n\n"
+        "## 6. Current State & Remaining Plan Snapshot\n\nDone.\n\n"
+        "[^s1]: src/app.py\n",
+        encoding="utf-8",
+    )
+    (spec_dir / "tasks" / "t01-done.md").write_text(
+        "---\n"
+        "type: Task\n"
+        "id: dirty-flow:t01\n"
+        "title: Done\n"
+        "description: Done task\n"
+        "status: stable\n"
+        "state: completed\n"
+        "priority: P1\n"
+        "worksheet_format: compact\n"
+        "verification_strategy: behavior_tdd\n"
+        "depends_on: []\n"
+        "files: [src/app.py]\n"
+        "tests: []\n"
+        "read_set: [src/app.py]\n"
+        "commit: null\n"
+        "sources:\n"
+        "  - id: s1\n"
+        "    resource: src/app.py\n"
+        "    title: App\n"
+        "tags: [test]\n"
+        "---\n\n"
+        "## Objective & Scope Boundary\nApp.\n\n"
+        "## Bounded Read Manifest\n- src/app.py\n\n"
+        "## Contracts & Edge Cases\nContracts.\n\n"
+        "## Test Matrix\nTests.\n\n"
+        "## Verification\npytest\n\n"
+        "## Acceptance Criteria\nDone.\n\n"
+        "[^s1]: src/app.py\n",
+        encoding="utf-8",
+    )
+    (repo / "src").mkdir()
+    (repo / "src" / "app.py").write_text("v = 1\n", encoding="utf-8")
+    subprocess.run(["git", "init"], cwd=repo, check=True, capture_output=True)
+    subprocess.run(["git", "config", "user.email", "t@example.com"], cwd=repo, check=True, capture_output=True)
+    subprocess.run(["git", "config", "user.name", "T"], cwd=repo, check=True, capture_output=True)
+    subprocess.run(["git", "config", "commit.gpgsign", "false"], cwd=repo, check=True, capture_output=True)
+    subprocess.run(["git", "add", "-A"], cwd=repo, check=True, capture_output=True)
+    subprocess.run(["git", "commit", "-m", "seed"], cwd=repo, check=True, capture_output=True)
+
+    assert len(validate_okf_bundle(bundle, project_root=repo)) >= 2
+
+    (repo / "src" / "app.py").write_text("v = 2\n", encoding="utf-8")
+    assert validate_okf_bundle(bundle, project_root=repo) == []

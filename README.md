@@ -57,8 +57,8 @@ Flow separates planning and review from isolated task execution:
 
 Flow includes **Flow Studio** ([`studio.md`](skills/flow/references/studio.md)) and cross-harness orchestration ([`orchestration.md`](skills/flow/references/orchestration.md)). It runs across **Google Antigravity** (`sidecars/studio/` + `sidecars/studio/mcp-server.mjs`), **Claude Code** (`mods/claude-flow/`), **Codex CLI** (`CodexAppServerBridge`), **VS Code & Cursor** (`vscode-extension/`), and **OpenCode V2** (`.opencode/plugins/flow.js`):
 
-- **Studio Home, Step Tasks, & Feedback**: Switch pinned repositories via Studio Home, inspect planned parallel steps in Studio, and collect per-author feedback (`specs/<flow_id>/feedback/<author_slug>.json`) sent straight to `/flow:revise`.
-- **Dynamic Model Routing**: Evaluates live model inventories across all six harnesses (`sidecars/studio/flow-cli.mjs models`), keeps planning and verification on `strong` models, and displays metrics in the **Model Routing** view.
+- **Studio Home, Multi-Branch Specs, & Review**: Switch pinned or remote repositories from Studio Home and browse specs across branches. Record out-of-tree feedback under `<git-common-dir>/spec-feedback/<flow_id>/<author_slug>.json`, publish spec PRs (`flow spec pr`), and send notes straight to `/flow:revise`.
+- **Dynamic Model Routing & `flow` CLI**: Evaluate live model inventories across all six harnesses (`flow models`) while keeping planning and verification on `strong` models. Install the unified CLI with `flow install-cli` for sync, branch specs, bundle linting, and agent helpers.
 - **Federated Knowledge Catalog & Python Runner Auto-Detection**: Searches local and sibling workspaces (`sidecars/studio/knowledge/catalog.mjs` BM25 + graph links alongside `flow-catalog` DuckDB RRF) and manages workspace permission allowlists. Dispatches tasks in `direct-workspace`, `worktree-isolated`, or `read-only` mode (including loopback A2A `/.well-known/agent-card.json` + `POST /a2a`).
 
 ## Install

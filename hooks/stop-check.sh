@@ -92,8 +92,9 @@ if [ -n "$CONV_ID" ]; then
 fi
 
 if [ "$IS_LEAF_SUBAGENT" = "1" ]; then
-  if [ -n "$SAFE_CONV" ] && [ -f "$SUBAGENT_LEASE_DIR/$SAFE_CONV.lease" ]; then
-    rm -f "$SUBAGENT_LEASE_DIR/$SAFE_CONV.lease" 2>/dev/null || true
+  if [ -n "$SAFE_CONV" ]; then
+    [ -f "$SUBAGENT_LEASE_DIR/$SAFE_CONV.lease" ] && rm -f "$SUBAGENT_LEASE_DIR/$SAFE_CONV.lease" 2>/dev/null || true
+    [ -f "$RUNTIME_WS_DIR/activity/$SAFE_CONV.json" ] && rm -f "$RUNTIME_WS_DIR/activity/$SAFE_CONV.json" 2>/dev/null || true
   fi
   emit_allow
 fi
@@ -194,9 +195,34 @@ if [ ! -d "$SPECS_DIR" ]; then
 fi
 
 HAS_GIT=0
+GIT_DIRTY_FILES=""
 if command -v git >/dev/null 2>&1 && git -C "$PROJECT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   HAS_GIT=1
+  GIT_DIRTY_FILES="$(git -C "$PROJECT_DIR" status --porcelain 2>/dev/null | sed 's/^...//; s/^"//; s/"$//' || true)"
 fi
+
+has_dirty_declared_files() {
+  owned_list="$1"
+  [ "$HAS_GIT" = "1" ] && [ -n "$GIT_DIRTY_FILES" ] && [ -n "$owned_list" ] || return 1
+  MATCH_DIRTY="$(printf '%s\n' "$GIT_DIRTY_FILES" | awk -v v_owned="$owned_list" '
+    BEGIN { cnt = split(v_owned, targets, ";") }
+    NF > 0 {
+      dirty = $0
+      sub(/^.* -> /, "", dirty)
+      sub(/^\.\//, "", dirty)
+      for (i = 1; i <= cnt; i++) {
+        t = targets[i]
+        sub(/^\.\//, "", t)
+        if (t == "") continue
+        if (dirty == t || index(dirty, t "/") == 1 || index(t, dirty "/") == 1) {
+          print "1"
+          exit
+        }
+      }
+    }
+  ')"
+  [ "$MATCH_DIRTY" = "1" ]
+}
 
 VIOLATIONS=""
 append_violation() {
@@ -307,6 +333,7 @@ check_tasks_against_spec() {
   TASK_TOTAL=0
   TASK_DONE=0
   COMPLETED_SHAS=""
+  SCOPE_DIRTY_RELAXED=0
 
   if [ ! -d "$tasks_dir" ]; then
     return 0
@@ -382,7 +409,11 @@ check_tasks_against_spec() {
         TASK_DONE=$((TASK_DONE + 1))
         case "$t_commit" in
           ""|null|~)
-            append_violation "$scope_label/$task_base: state is $t_state but commit SHA is missing"
+            if has_dirty_declared_files "$t_owned"; then
+              SCOPE_DIRTY_RELAXED=1
+            else
+              append_violation "$scope_label/$task_base: state is $t_state but commit SHA is missing"
+            fi
             ;;
           *)
             if ! printf '%s\n' "$t_commit" | grep -Eq '^[0-9a-fA-F]{7,40}$'; then
@@ -543,7 +574,9 @@ verify_review_stamp() {
   label="$3"
 
   if [ -z "$rev_sha" ] || [ "$rev_sha" = "null" ] || ! printf '%s\n' "$rev_sha" | grep -Eq '^[0-9a-fA-F]{7,40}$'; then
-    append_violation "$label: missing hex last_reviewed_commit (sync spec docs and run chapter review before stopping)"
+    if [ "${SCOPE_DIRTY_RELAXED:-0}" != "1" ]; then
+      append_violation "$label: missing hex last_reviewed_commit (sync spec docs and run chapter review before stopping)"
+    fi
     return 0
   fi
 

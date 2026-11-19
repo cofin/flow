@@ -22,6 +22,7 @@ import {
 } from "./core/fs-io.mjs";
 import { extractTruthBlock, parseFrontmatter } from "./core/frontmatter.mjs";
 import { resolveWorktreeContext } from "./core/worktree.mjs";
+import { SpecActivity } from "./spec/spec-activity.mjs";
 import { SpecFeedbackStore } from "./spec/feedback.mjs";
 import { SpecEngine } from "./spec/spec-engine.mjs";
 import { WorkspaceRegistry } from "./workspaces.mjs";
@@ -102,6 +103,7 @@ export class BundleSnapshotBuilder {
       worktree.mainWorktree && !fs.existsSync(path.join(root, ".venv")) ? worktree.mainWorktree : root,
     );
     const liveState = readStudioLiveState(agentsBaseRoot, { agentsDir });
+    const liveOverlay = SpecActivity.overlay(workspaceRoot, { env: engine.env });
     const feedbackStore = engine.feedback;
     const commentCounts = feedbackStore.countByRelPath();
 
@@ -145,6 +147,11 @@ export class BundleSnapshotBuilder {
         currentChapter: spec.current_chapter,
         lastReviewedCommit: spec.last_reviewed_commit,
         relPath: spec.rel_path,
+        onCurrentBranch: true,
+        gitRef: null,
+        branchName: null,
+        prNumber: null,
+        worktreePath: null,
         unresolvedComments: commentCounts[spec.rel_path] || 0,
         chapters,
         tasks: directTasks,
@@ -180,6 +187,13 @@ export class BundleSnapshotBuilder {
     }
 
     const activeSpec = specs.find((s) => s.state === "active" || s.state === "in_progress") || specs[0] || null;
+    const liveFlows = {};
+    for (const [fid, flowLive] of Object.entries(liveOverlay.flows || {})) {
+      liveFlows[fid] = {
+        ...flowLive,
+        activeCount: Array.isArray(flowLive.active_leases) ? flowLive.active_leases.length : 0,
+      };
+    }
     return {
       generatedAt: new Date().toISOString(),
       workspaceId,
@@ -191,6 +205,8 @@ export class BundleSnapshotBuilder {
       setupState,
       python: pythonInfo,
       liveState,
+      live: liveFlows,
+      liveEtag: liveOverlay.live_etag,
       activeFlowId: activeSpec?.flowId || null,
       specs,
       knowledge,

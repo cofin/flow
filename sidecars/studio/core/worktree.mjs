@@ -9,6 +9,10 @@ import path from "node:path";
 
 import { isExistingDir, readJsonSafe, writeTextAtomic } from "./fs-io.mjs";
 
+export const DEFAULT_SPEC_BRANCH = "flow-specs";
+export const DEFAULT_FEEDBACK_STORE_DIR = "spec-feedback";
+export const FRONTMATTER_FREE_NAMES = new Set(["index.md", "log.md", "learnings.md", "planner-notes.md"]);
+
 export const LINKED_ENV_ARTIFACTS = Object.freeze([
   ".venv",
   "node_modules",
@@ -133,6 +137,21 @@ export function resolveWorktreeContext(workspaceRoot) {
     localSetup?.bundle_root || mainSetup?.bundle_root || ".agents/bundles",
   ).trim() || ".agents/bundles";
 
+  const prefs = {
+    ...(mainSetup?.workflow_preferences && typeof mainSetup.workflow_preferences === "object"
+      ? mainSetup.workflow_preferences
+      : {}),
+    ...(localSetup?.workflow_preferences && typeof localSetup.workflow_preferences === "object"
+      ? localSetup.workflow_preferences
+      : {}),
+  };
+
+  const rootDir = String(localSetup?.root_directory || mainSetup?.root_directory || ".agents").trim() || ".agents";
+  const specBranch = String(prefs.spec_branch || localSetup?.spec_branch || DEFAULT_SPEC_BRANCH).trim() || DEFAULT_SPEC_BRANCH;
+  const feedbackStoreDir =
+    String(prefs.feedback_store_dir || localSetup?.feedback_store_dir || DEFAULT_FEEDBACK_STORE_DIR).trim() ||
+    DEFAULT_FEEDBACK_STORE_DIR;
+
   return {
     projectDir: root,
     isLinkedWorktree: Boolean(mainWorktree),
@@ -140,8 +159,75 @@ export function resolveWorktreeContext(workspaceRoot) {
     ignorePolicy,
     effectiveAgentsRoot,
     effectiveRoot: effectiveAgentsRoot,
+    rootDirectory: rootDir,
     bundleRel,
+    specBranch,
+    feedbackStoreDir,
+    setupState: localSetup || mainSetup || {},
   };
+}
+
+/**
+ * Resolve normalized setup-state configuration for `workspaceRoot`.
+ *
+ * @param {string} workspaceRoot
+ */
+export function readSetupConfig(workspaceRoot) {
+  const ctx = resolveWorktreeContext(workspaceRoot);
+  const setup = ctx.setupState || {};
+  const prefs = setup.workflow_preferences && typeof setup.workflow_preferences === "object" ? setup.workflow_preferences : {};
+  const isPlugin = fs.existsSync(path.join(ctx.effectiveRoot, "plugin.json"));
+  const ignorePolicy = isPlugin ? "local-only" : ctx.ignorePolicy;
+  return {
+    effective_root: ctx.effectiveRoot,
+    workspace_root: ctx.projectDir,
+    is_linked_worktree: ctx.isLinkedWorktree,
+    main_worktree: ctx.mainWorktree,
+    root_directory: ctx.rootDirectory,
+    bundle_root: ctx.bundleRel,
+    okf_version: String(setup.okf_version || "0.2"),
+    ignore_policy: ignorePolicy,
+    chapter_check: prefs.chapter_gate === "full" ? "full" : "targeted",
+    stop_check: String(setup.stop_gate ?? prefs.stop_gate ?? "enforce").trim().toLowerCase(),
+    sha_tracking: String(setup.sha_tracking ?? prefs.sha_tracking ?? "strict").trim().toLowerCase(),
+    spec_branch: ctx.specBranch,
+    feedback_store_dir: ctx.feedbackStoreDir,
+    workflow_preferences: prefs,
+  };
+}
+
+/**
+ * Return `targetRel` resolved strictly within `rootDir`, or `null` if it escapes `rootDir`.
+ *
+ * @param {string} rootDir
+ * @param {string} targetRel
+ * @returns {string | null}
+ */
+export function containedPath(rootDir, targetRel) {
+  const base = path.resolve(rootDir);
+  const candidate = path.resolve(base, String(targetRel || ""));
+  const rel = path.relative(base, candidate);
+  if (rel.startsWith("..") || path.isAbsolute(rel)) return null;
+  return candidate;
+}
+
+/**
+ * Discover canonical and legacy spec root directories on disk for `effectiveRoot`.
+ *
+ * @param {string} effectiveRoot
+ * @returns {Array<{ rel: string, root: string, kind: string, canonical: boolean }>}
+ */
+export function discoverSpecRoots(effectiveRoot) {
+  const root = path.resolve(effectiveRoot);
+  const candidates = [
+    { rel: ".agents/bundles/specs", kind: "okf_bundle", canonical: true },
+    { rel: "_agents/bundles/specs", kind: "okf_bundle", canonical: true },
+    { rel: ".agents/specs", kind: "legacy_agents_specs", canonical: false },
+    { rel: ".agents/tracks", kind: "legacy_tracks", canonical: false },
+    { rel: ".flow/specs", kind: "legacy_flow_specs", canonical: false },
+    { rel: "specs", kind: "legacy_root_specs", canonical: false },
+  ];
+  return candidates.map((c) => ({ ...c, root: path.join(root, c.rel) }));
 }
 
 /**

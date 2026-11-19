@@ -334,6 +334,10 @@ if ($IsSubagent) {
         } else {
             $BaseMsg = "$BaseMsg Flow Studio UI: npx --yes --package github:cofin/flow flow-studio."
         }
+        if (-not (Get-Command flow -ErrorAction SilentlyContinue)) {
+            $CliScript = Join-Path (Split-Path -Parent $PSScriptRoot) "bin/flow.mjs"
+            $BaseMsg = "$BaseMsg CLI not on PATH: run node `"$CliScript`" install-cli."
+        }
     } else {
         $BaseMsg = "Flow plugin loaded (no .agents/ bundle in this workspace; run /flow:setup to initialize)."
     }

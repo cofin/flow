@@ -9,8 +9,12 @@
   const rootEl = document.getElementById("studio-root");
   const drawerEl = document.getElementById("new-spec-drawer");
   const attentionDrawerEl = document.getElementById("attention-drawer");
+  const commentModalEl = document.getElementById("comment-modal");
+  const lightboxEl = document.getElementById("media-lightbox");
   const backdropEl = document.getElementById("drawer-backdrop");
   const toastRegion = document.getElementById("toast-region");
+  /** @type {HTMLElement | null} */
+  let floatGutterEl = null;
 
   const urlParams = new URLSearchParams(window.location.search);
   const forcedTheme = urlParams.get("theme");
@@ -58,8 +62,13 @@
   }
 
   syncHostTheme();
-  window.addEventListener("message", (event) => {
+  window.addEventListener("message", async (event) => {
     if (event.data?.type === "theme-change") queueMicrotask(syncHostTheme);
+    if (event.data?.type === "navigateHome") {
+      state.tab = "home";
+      await refreshPortfolio();
+      render();
+    }
   });
   if (typeof MutationObserver === "function" && document.body) {
     new MutationObserver(syncHostTheme).observe(document.body, {
@@ -72,19 +81,28 @@
     tab: urlParams.get("tab") || "roadmap",
     specSubView: "document",
     workspacePath: "",
+    remoteRepo: "",
     workspaces: [],
     pinnedWorkspaces: [],
     activeWorkspacePaths: [],
     snapshot: null,
     lastSnapshotEtag: null,
+    lastLiveEtag: null,
     portfolio: null,
+    branchFilter: "current",
     selectedDocRelPath: null,
+    selectedDocGitRef: null,
     currentDoc: null,
     specDag: null,
     specReviewSummary: null,
     activeCommentLine: null,
+    activeCommentRange: null,
     activeCommentKind: "feedback",
+    commentFilter: "all",
+    editingCommentId: null,
+    replyingCommentId: null,
     revisePrompt: "",
+    setupAudit: null,
     catalogQuery: "",
     catalogMode: "hybrid",
     catalogHits: [],
@@ -146,6 +164,23 @@
     backdropEl?.classList.add("hidden");
     drawerEl?.classList.add("hidden");
     attentionDrawerEl?.classList.add("hidden");
+    commentModalEl?.classList.add("hidden");
+    lightboxEl?.classList.add("hidden");
+    if (floatGutterEl) floatGutterEl.classList.add("hidden");
+  }
+
+  function hasOpenDetailsIn(container) {
+    if (!container) return false;
+    return Boolean(container.querySelector("details.action-menu[open]"));
+  }
+
+  function isOverlayOpen() {
+    return (
+      (commentModalEl && !commentModalEl.classList.contains("hidden")) ||
+      (lightboxEl && !lightboxEl.classList.contains("hidden")) ||
+      (drawerEl && !drawerEl.classList.contains("hidden")) ||
+      (attentionDrawerEl && !attentionDrawerEl.classList.contains("hidden"))
+    );
   }
 
   function buildContextRequestPayload(urisOrPaths = []) {
@@ -188,31 +223,40 @@
   }
 
   async function refreshSnapshot(options = {}) {
-    if (!state.workspacePath) return;
+    if (!state.workspacePath && !state.remoteRepo) return;
     const snap = await host.api("/api/bundle-snapshot", {
-      workspacePath: state.workspacePath,
-      registerWorkspace: true,
+      ...(state.workspacePath ? { workspacePath: state.workspacePath } : {}),
+      ...(state.remoteRepo ? { remoteRepo: state.remoteRepo } : {}),
+      registerWorkspace: Boolean(state.workspacePath && !state.remoteRepo),
     });
     const etagChanged = snap.contentEtag && snap.contentEtag !== state.lastSnapshotEtag;
+    const liveChanged = snap.liveEtag !== undefined && snap.liveEtag !== state.lastLiveEtag;
     state.snapshot = snap;
     state.lastSnapshotEtag = snap.contentEtag || null;
+    state.lastLiveEtag = snap.liveEtag || null;
     if (state.workspacePath && !state.workspaces.includes(state.workspacePath)) {
       state.workspaces = [state.workspacePath, ...state.workspaces];
     }
     if (!state.selectedDocRelPath && snap.specs.length > 0) {
       state.selectedDocRelPath = snap.specs[0].relPath;
+      state.selectedDocGitRef = snap.specs[0].gitRef || null;
     }
-    if (options.force || etagChanged) {
-      if (state.tab === "home") await refreshPortfolio();
-      else if (state.tab === "review" && state.selectedDocRelPath) await loadDocument(state.selectedDocRelPath);
-      else if (state.tab === "catalog") await refreshCatalog();
-      else if (state.tab === "activity") await refreshActivity();
+    if (options.force || etagChanged || liveChanged) {
+      if (state.tab === "home" && (options.force || etagChanged)) await refreshPortfolio();
+      else if (state.tab === "review" && state.selectedDocRelPath && (options.force || etagChanged)) {
+        await loadDocument(state.selectedDocRelPath, state.selectedDocGitRef);
+      } else if (state.tab === "catalog" && (options.force || etagChanged)) await refreshCatalog();
+      else if (state.tab === "activity" && (options.force || etagChanged)) await refreshActivity();
       try {
-        state.activitySnapshot = await host.api("/api/activity", { workspacePath: state.workspacePath });
+        if (state.workspacePath && !state.remoteRepo) {
+          state.activitySnapshot = await host.api("/api/activity", { workspacePath: state.workspacePath });
+        }
       } catch {
         // Non-fatal background activity check.
       }
-      render();
+      if (!isOverlayOpen() && !hasOpenDetailsIn(rootEl)) {
+        render();
+      }
     }
   }
 
@@ -224,11 +268,14 @@
     }
   }
 
-  async function loadDocument(relPath) {
+  async function loadDocument(relPath, gitRef = state.selectedDocGitRef) {
     state.selectedDocRelPath = relPath;
+    state.selectedDocGitRef = gitRef || null;
     state.currentDoc = await host.api("/api/spec-document", {
       workspacePath: state.workspacePath,
       relPath,
+      ...(gitRef ? { gitRef } : {}),
+      ...(state.remoteRepo ? { repoLocator: state.remoteRepo } : {}),
     });
     const flowId = activeSpecFlowId();
     const [commentRes, dagRes, reviewRes] = await Promise.all([
@@ -237,14 +284,32 @@
         workspacePath: state.workspacePath,
         relPath,
         flowId,
+        ...(state.remoteRepo ? { repoLocator: state.remoteRepo } : {}),
       }),
       flowId
-        ? host.api("/api/spec-dag", { workspacePath: state.workspacePath, flowId }).catch(() => null)
+        ? host
+            .api("/api/spec-dag", {
+              workspacePath: state.workspacePath,
+              flowId,
+              ...(gitRef ? { gitRef } : {}),
+              ...(state.remoteRepo ? { repoLocator: state.remoteRepo } : {}),
+            })
+            .catch(() => null)
         : Promise.resolve(null),
       flowId
-        ? host.api("/api/spec-review", { workspacePath: state.workspacePath, flowId }).catch(() => null)
+        ? host
+            .api("/api/spec-review", {
+              workspacePath: state.workspacePath,
+              flowId,
+              ...(gitRef ? { gitRef } : {}),
+              ...(state.remoteRepo ? { repoLocator: state.remoteRepo } : {}),
+            })
+            .catch(() => null)
         : Promise.resolve(null),
     ]);
+    if (Array.isArray(commentRes.comments) && state.currentDoc) {
+      state.currentDoc.comments = commentRes.comments;
+    }
     state.revisePrompt = commentRes.revisePrompt || "";
     state.specDag = dagRes;
     state.specReviewSummary = reviewRes;
@@ -416,6 +481,19 @@
       el(
         "div",
         { className: "brand-row" },
+        el(
+          "button",
+          {
+            className: `home-nav-btn ${state.tab === "home" ? "active" : ""}`,
+            title: "Studio Home",
+            onClick: async () => {
+              state.tab = "home";
+              await refreshPortfolio();
+              render();
+            },
+          },
+          "⌂ Home"
+        ),
         el("img", { src: logoSrc, className: "brand-logo", alt: "Flow" }),
         el(
           "div",
@@ -424,7 +502,9 @@
             "div",
             { className: "brand-title" },
             el("span", {}, "Flow"),
-            el("span", { className: "brand-badge" }, "Studio")
+            el("span", { className: "brand-badge" }, "Studio"),
+            state.remoteRepo ? el("span", { className: "pill pill-warn" }, `Remote: ${state.remoteRepo}`) : null,
+            snap?.currentBranch ? el("span", { className: "pill mono" }, snap.currentBranch) : null
           ),
           el("div", { className: "subtle-meta" }, snap?.workspaceRoot || "Multi-Harness Spec & OKF Workspace")
         )
@@ -450,6 +530,24 @@
             },
           },
           isPinned ? "★ Pinned" : "☆ Pin"
+        ),
+        el(
+          "button",
+          {
+            className: "btn btn-quiet",
+            title: "Sync checklists, stale claims, and branch tracking",
+            onClick: async () => {
+              try {
+                const syncRes = await host.api("/api/sync", { workspacePath: state.workspacePath });
+                const changed = (syncRes.specs || []).reduce((acc, s) => acc + (s.updated_files?.length || 0), 0);
+                showToast(changed > 0 ? `Synced ${changed} spec file(s).` : "All spec checklists already in sync.");
+                await refreshSnapshot({ force: true });
+              } catch (err) {
+                showToast(err instanceof Error ? err.message : "Sync failed");
+              }
+            },
+          },
+          "Sync"
         ),
         el("button", { className: "btn btn-quiet", onClick: () => refreshSnapshot({ force: true }) }, "Refresh"),
         el("button", { className: "btn btn-primary", onClick: () => openNewSpecDrawer() }, "+ New Spec")
@@ -587,6 +685,117 @@
       );
     }
 
+    const remoteRepoInput = el("input", {
+      type: "text",
+      className: "text-input",
+      placeholder: "Open Remote Repo (e.g. owner/repo or https://github.com/owner/repo)...",
+      value: state.remoteRepo || "",
+    });
+
+    const remoteCard = el(
+      "section",
+      { className: "card" },
+      el(
+        "div",
+        { className: "card-header" },
+        el(
+          "div",
+          {},
+          el("h3", { className: "card-title" }, "Remote Repository Specs & Workspace Bundle Setup"),
+          el("p", { className: "card-desc" }, "Read specs from any remote repository or audit & migrate the active workspace bundle.")
+        )
+      ),
+      el(
+        "div",
+        { className: "search-bar", style: "margin-top:12px" },
+        remoteRepoInput,
+        el(
+          "button",
+          {
+            className: "btn btn-primary",
+            onClick: async () => {
+              const target = remoteRepoInput.value.trim();
+              if (!target) {
+                state.remoteRepo = "";
+                await refreshSnapshot({ force: true });
+                return;
+              }
+              try {
+                state.remoteRepo = target;
+                state.tab = "roadmap";
+                await refreshSnapshot({ force: true });
+                showToast(`Loaded remote specs from ${target}`);
+              } catch (err) {
+                state.remoteRepo = "";
+                showToast(err instanceof Error ? err.message : "Failed to load remote repository");
+              }
+            },
+          },
+          "Open Remote Repo"
+        ),
+        state.remoteRepo
+          ? el(
+              "button",
+              {
+                className: "btn btn-quiet",
+                onClick: async () => {
+                  state.remoteRepo = "";
+                  await refreshSnapshot({ force: true });
+                },
+              },
+              "Return to Local"
+            )
+          : null,
+        el(
+          "button",
+          {
+            className: "btn",
+            onClick: async () => {
+              try {
+                const audit = await host.api("/api/workspace-setup", {
+                  workspacePath: state.workspacePath,
+                  action: "audit",
+                });
+                state.setupAudit = audit;
+                render();
+              } catch (err) {
+                showToast(err instanceof Error ? err.message : "Bundle audit failed");
+              }
+            },
+          },
+          "Audit Bundle Setup"
+        ),
+        el(
+          "button",
+          {
+            className: "btn",
+            onClick: async () => {
+              try {
+                const res = await host.api("/api/workspace-setup", {
+                  workspacePath: state.workspacePath,
+                  action: "apply",
+                  migrateSpecs: true,
+                });
+                state.setupAudit = res.audit || null;
+                showToast(`Aligned bundle (${(res.actions || []).length} update(s)).`);
+                await refreshSnapshot({ force: true });
+              } catch (err) {
+                showToast(err instanceof Error ? err.message : "Bundle migration failed");
+              }
+            },
+          },
+          "Align & Migrate Bundle"
+        )
+      ),
+      state.setupAudit
+        ? el(
+            "div",
+            { className: "truth-callout" },
+            `Bundle: ${state.setupAudit.bundle_root} · Policy: ${state.setupAudit.ignore_policy} · Legacy paths: ${(state.setupAudit.legacy_paths || []).length} · Unaligned specs: ${(state.setupAudit.unaligned_specs || []).length}`
+          )
+        : null
+    );
+
     return el(
       "div",
       {},
@@ -598,6 +807,7 @@
         el("div", { className: "search-bar", style: "margin-top:12px" }, omnibarInput),
         pinBar
       ),
+      remoteCard,
       grid
     );
   }
@@ -754,12 +964,69 @@
     return container;
   }
 
+  function renderNowStrip(snap) {
+    const live = snap?.live || {};
+    const entries = Object.entries(live);
+    const items = [];
+    for (const [flowId, info] of entries) {
+      if ((info.activeCount || 0) > 0 || (info.active_tasks || []).length > 0 || info.run_phase) {
+        const phaseTxt = info.run_phase?.phase ? `phase=${info.run_phase.phase}` : "";
+        const tasksTxt = (info.active_tasks || []).map((t) => t.task_id).join(", ");
+        const leasesTxt = info.activeCount ? `${info.activeCount} worker${info.activeCount === 1 ? "" : "s"}` : "";
+        const meta = [leasesTxt, phaseTxt, tasksTxt].filter(Boolean).join(" · ");
+        items.push(el("span", { className: "pill pill-warn" }, `${flowId}${meta ? `: ${meta}` : ""}`));
+      }
+    }
+    if (items.length === 0) return null;
+    return el(
+      "div",
+      { className: "now-strip" },
+      el("strong", {}, "Now"),
+      el("div", { className: "now-strip-items" }, ...items)
+    );
+  }
+
   function renderRoadmapView() {
     const snap = state.snapshot;
     if (!snap) return el("div", { className: "subtle-meta" }, "Loading workspace...");
-    const wrap = el("div", {}, renderQuickPlanCard(false));
+    const wrap = el("div", {});
+    const nowStrip = renderNowStrip(snap);
+    if (nowStrip) wrap.appendChild(nowStrip);
+    wrap.appendChild(renderQuickPlanCard(false));
 
-    if (snap.specs.length === 0) {
+    const otherSpecs = Array.isArray(snap.otherBranchSpecs) ? snap.otherBranchSpecs : [];
+    const branchBar = el(
+      "div",
+      { className: "search-bar", style: "margin-bottom:14px" },
+      el(
+        "div",
+        { className: "segmented" },
+        ...[
+          { id: "current", label: `Current branch (${snap.specs.length})` },
+          { id: "all", label: `All branches (${snap.specs.length + otherSpecs.length})` },
+        ].map((opt) =>
+          el(
+            "button",
+            {
+              className: state.branchFilter === opt.id ? "active" : "",
+              onClick: () => {
+                state.branchFilter = opt.id;
+                render();
+              },
+            },
+            opt.label
+          )
+        )
+      ),
+      snap.currentBranch
+        ? el("span", { className: "subtle-meta mono" }, `Branch: ${snap.currentBranch}`)
+        : null
+    );
+    wrap.appendChild(branchBar);
+
+    const visibleSpecs = state.branchFilter === "all" ? [...snap.specs, ...otherSpecs] : snap.specs;
+
+    if (visibleSpecs.length === 0) {
       wrap.appendChild(
         el(
           "div",
@@ -785,8 +1052,104 @@
       return wrap;
     }
 
-    for (const spec of snap.specs) {
+    for (const spec of visibleSpecs) {
+      const flowId = spec.flowId || spec.flow_id;
       const pct = spec.totalTasks > 0 ? Math.round((spec.completedTasks / spec.totalTasks) * 100) : 0;
+      const isRemoteBranchSpec = spec.onCurrentBranch === false || spec.on_current_branch === false;
+      const branchBadge = spec.branchName || spec.branch_name || spec.gitRef || spec.git_ref;
+      const prNum = spec.prNumber || spec.pr_number;
+      const specActionsMenu = el(
+        "details",
+        { className: "action-menu" },
+        el("summary", { className: "btn btn-quiet" }, "⋯ Branch"),
+        el(
+          "div",
+          { className: "action-menu-list" },
+          !isRemoteBranchSpec && !state.remoteRepo
+            ? el(
+                "button",
+                {
+                  className: "btn btn-quiet",
+                  style: "justify-content:flex-start",
+                  onClick: async () => {
+                    try {
+                      const prRes = await host.api("/api/spec-pr", {
+                        workspacePath: state.workspacePath,
+                        flowId,
+                        push: true,
+                      });
+                      showToast(prRes.pr_url ? `Opened Spec PR: ${prRes.pr_url}` : `Committed spec on branch ${prRes.branch || flowId}`);
+                      await refreshSnapshot({ force: true });
+                    } catch (err) {
+                      showToast(err instanceof Error ? err.message : "Failed to publish Spec PR");
+                    }
+                  },
+                },
+                "Publish Spec PR"
+              )
+            : null,
+          !isRemoteBranchSpec && !state.remoteRepo
+            ? el(
+                "button",
+                {
+                  className: "btn btn-quiet",
+                  style: "justify-content:flex-start",
+                  onClick: async () => {
+                    try {
+                      const shareRes = await host.api("/api/spec-share-branch", {
+                        workspacePath: state.workspacePath,
+                        flowId,
+                        push: false,
+                      });
+                      showToast(`Updated ${shareRes.branch || "flow-specs"} branch (${shareRes.synced_files?.length || 0} files)`);
+                    } catch (err) {
+                      showToast(err instanceof Error ? err.message : "Failed to share on flow-specs");
+                    }
+                  },
+                },
+                "Share on flow-specs"
+              )
+            : null,
+          isRemoteBranchSpec && !state.remoteRepo
+            ? el(
+                "button",
+                {
+                  className: "btn btn-quiet",
+                  style: "justify-content:flex-start",
+                  onClick: async () => {
+                    try {
+                      const pullRes = await host.api("/api/spec-pull", {
+                        workspacePath: state.workspacePath,
+                        flowId,
+                        fromRef: spec.gitRef || spec.git_ref || branchBadge,
+                      });
+                      showToast(`Pulled ${flowId} (${pullRes.copied_files?.length || 0} files)`);
+                      await refreshSnapshot({ force: true });
+                    } catch (err) {
+                      showToast(err instanceof Error ? err.message : "Pull spec failed");
+                    }
+                  },
+                },
+                "Pull Spec"
+              )
+            : null,
+          spec.worktreePath || spec.worktree_path
+            ? el(
+                "button",
+                {
+                  className: "btn btn-quiet",
+                  style: "justify-content:flex-start",
+                  onClick: async () => {
+                    state.workspacePath = spec.worktreePath || spec.worktree_path;
+                    await refreshSnapshot({ force: true });
+                  },
+                },
+                "Open Worktree"
+              )
+            : null
+        )
+      );
+
       const card = el(
         "section",
         { className: "card" },
@@ -796,12 +1159,19 @@
           el(
             "div",
             {},
-            el("h3", { className: "card-title" }, el("span", { className: `status-dot ${spec.state}` }), spec.title),
-            el("p", { className: "card-desc" }, spec.description || spec.flowId)
+            el(
+              "h3",
+              { className: "card-title" },
+              el("span", { className: `status-dot ${spec.state}` }),
+              spec.title || flowId,
+              branchBadge ? el("span", { className: "pill mono", style: "margin-left:8px" }, branchBadge) : null,
+              prNum ? el("span", { className: "pill pill-ok", style: "margin-left:6px" }, `PR #${prNum}`) : null
+            ),
+            el("p", { className: "card-desc" }, spec.description || flowId)
           ),
           el(
             "div",
-            { style: "display:flex;gap:8px;align-items:center" },
+            { style: "display:flex;gap:8px;align-items:center;flex-wrap:wrap" },
             spec.unresolvedComments > 0 ? el("span", { className: "pill pill-warn" }, `${spec.unresolvedComments} review notes`) : null,
             el(
               "button",
@@ -810,7 +1180,7 @@
                 onClick: async () => {
                   state.tab = "review";
                   state.specSubView = "dag";
-                  await loadDocument(spec.relPath);
+                  await loadDocument(spec.relPath, spec.gitRef || spec.git_ref || null);
                   render();
                 },
               },
@@ -823,13 +1193,14 @@
                 onClick: async () => {
                   state.tab = "review";
                   state.specSubView = "document";
-                  await loadDocument(spec.relPath);
+                  await loadDocument(spec.relPath, spec.gitRef || spec.git_ref || null);
                   render();
                 },
               },
               "Read Spec"
             ),
-            spec.recommendedAction
+            specActionsMenu,
+            !isRemoteBranchSpec && spec.recommendedAction
               ? el(
                   "button",
                   {
@@ -1018,17 +1389,700 @@
     );
   }
 
+  function commentUpvoteCount(c) {
+    if (typeof c.upvoteCount === "number") return c.upvoteCount;
+    if (Array.isArray(c.upvoterEmails)) return c.upvoterEmails.length;
+    if (Array.isArray(c.upvotes)) return c.upvotes.length;
+    return 0;
+  }
+
+  function isCommentResolved(c) {
+    return Boolean(c.resolved || c.state === "resolved" || c.state === "addressed");
+  }
+
+  function openMediaLightbox({ src, mimeType = "", title = "" }) {
+    if (!lightboxEl || !backdropEl) return;
+    lightboxEl.textContent = "";
+    lightboxEl.classList.remove("hidden");
+    const isVideo = String(mimeType).startsWith("video/") || /\.(mp4|webm|mov)$/i.test(src || "");
+    const mediaEl = isVideo
+      ? el("video", { src, controls: true, autoplay: true })
+      : el("img", { src, alt: title || "Media preview" });
+    lightboxEl.append(
+      mediaEl,
+      title ? el("div", { className: "subtle-meta", style: "color:#fff" }, title) : null,
+      el("button", { className: "btn", onClick: () => lightboxEl.classList.add("hidden") }, "Close Preview")
+    );
+    lightboxEl.onclick = (ev) => {
+      if (ev.target === lightboxEl) lightboxEl.classList.add("hidden");
+    };
+  }
+
+  function resolveRelativeAssetPath(baseRelPath, assetTarget) {
+    const raw = String(assetTarget || "").trim();
+    if (!raw || /^(https?:|data:|blob:)/i.test(raw)) return null;
+    if (raw.startsWith("/")) return raw.slice(1);
+    const dirParts = String(baseRelPath || "").split("/").slice(0, -1);
+    for (const seg of raw.split("/")) {
+      if (!seg || seg === ".") continue;
+      if (seg === "..") dirParts.pop();
+      else dirParts.push(seg);
+    }
+    return dirParts.join("/");
+  }
+
+  function appendInlineMarkdownNodes(parent, text, { baseRelPath, onOpenMedia }) {
+    const src = String(text || "");
+    const tokenRe = /(!?\[[^\]]*\]\([^)\s]+(?:\s+"[^"]*")?\)|`[^`\n]+`|\*\*[^*]+\*\*|~~[^~]+~~|\*[^*\n]+\*|\[\^[A-Za-z0-9_-]+\])/g;
+    let lastIdx = 0;
+    let match;
+    while ((match = tokenRe.exec(src)) !== null) {
+      if (match.index > lastIdx) {
+        parent.appendChild(document.createTextNode(src.slice(lastIdx, match.index)));
+      }
+      const tok = match[0];
+      if (tok.startsWith("![")) {
+        const mImg = tok.match(/^!\[([^\]]*)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)$/);
+        if (mImg) {
+          const [, alt, href] = mImg;
+          const relAsset = resolveRelativeAssetPath(baseRelPath, href);
+          if (relAsset && !state.remoteRepo) {
+            const imgNode = el("img", { className: "md-media-thumb", alt: alt || relAsset });
+            host
+              .api("/api/workspace-asset", { workspacePath: state.workspacePath, relPath: relAsset })
+              .then((res) => {
+                if (!res?.dataBase64) return;
+                if (String(res.mimeType || "").startsWith("video/")) {
+                  const vid = el("video", {
+                    className: "md-media-thumb",
+                    controls: true,
+                    src: `data:${res.mimeType};base64,${res.dataBase64}`,
+                  });
+                  vid.addEventListener("dblclick", () => onOpenMedia({ src: vid.src, mimeType: res.mimeType, title: alt || relAsset }));
+                  imgNode.replaceWith(vid);
+                } else {
+                  imgNode.src = `data:${res.mimeType || "image/png"};base64,${res.dataBase64}`;
+                  imgNode.addEventListener("click", () => onOpenMedia({ src: imgNode.src, mimeType: res.mimeType, title: alt || relAsset }));
+                }
+              })
+              .catch(() => {
+                imgNode.replaceWith(el("span", { className: "pill" }, `[media unavailable: ${relAsset}]`));
+              });
+            parent.appendChild(imgNode);
+          } else {
+            parent.appendChild(el("span", { className: "pill" }, `Image: ${alt || href}`));
+          }
+        }
+      } else if (tok.startsWith("[^")) {
+        const fnId = tok.slice(2, -1);
+        const sup = el("sup", {}, el("a", { href: `#fn-${fnId}`, className: "mono" }, `[${fnId}]`));
+        parent.appendChild(sup);
+      } else if (tok.startsWith("[")) {
+        const mLink = tok.match(/^\[([^\]]+)\]\(([^)\s]+)(?:\s+"([^"]*)")?\)$/);
+        if (mLink) {
+          const [, label, href] = mLink;
+          if (/^https?:\/\//i.test(href)) {
+            parent.appendChild(el("a", { href, target: "_blank", rel: "noopener noreferrer" }, label));
+          } else {
+            const targetRel = resolveRelativeAssetPath(baseRelPath, href.split("#")[0]);
+            parent.appendChild(
+              el(
+                "button",
+                {
+                  className: "btn btn-quiet",
+                  style: "padding:0 4px;font-size:inherit;display:inline",
+                  title: targetRel || href,
+                  onClick: async () => {
+                    if (targetRel && targetRel.endsWith(".md")) {
+                      await loadDocument(targetRel);
+                      render();
+                    }
+                  },
+                },
+                label
+              )
+            );
+          }
+        }
+      } else if (tok.startsWith("`")) {
+        parent.appendChild(el("code", {}, tok.slice(1, -1)));
+      } else if (tok.startsWith("**")) {
+        const strong = el("strong", {});
+        appendInlineMarkdownNodes(strong, tok.slice(2, -2), { baseRelPath, onOpenMedia });
+        parent.appendChild(strong);
+      } else if (tok.startsWith("~~")) {
+        const del = el("del", {});
+        appendInlineMarkdownNodes(del, tok.slice(2, -2), { baseRelPath, onOpenMedia });
+        parent.appendChild(del);
+      } else if (tok.startsWith("*")) {
+        const em = el("em", {});
+        appendInlineMarkdownNodes(em, tok.slice(1, -1), { baseRelPath, onOpenMedia });
+        parent.appendChild(em);
+      }
+      lastIdx = match.index + tok.length;
+    }
+    if (lastIdx < src.length) {
+      parent.appendChild(document.createTextNode(src.slice(lastIdx)));
+    }
+  }
+
+  function renderMarkdownDom(markdownText, { comments = [], bodyStartLine = 1, baseRelPath = "", onOpenCommentModal, onOpenMedia }) {
+    const rawLines = String(markdownText || "").split(/\r?\n/);
+    const openByLine = new Map();
+    for (const c of comments) {
+      if (isCommentResolved(c)) continue;
+      const lineNum = Number(c.startLine || 1);
+      const arr = openByLine.get(lineNum) || [];
+      arr.push(c);
+      openByLine.set(lineNum, arr);
+    }
+
+    function commentsInRange(startL, endL) {
+      const matched = [];
+      for (const c of comments) {
+        const s = Number(c.startLine || 1);
+        const e = Number(c.endLine || s);
+        if (s <= endL && e >= startL) matched.push(c);
+      }
+      return matched;
+    }
+
+    function wrapBlock(contentNode, startL, endL, quoteText) {
+      const blockComments = commentsInRange(startL, endL);
+      const openCount = blockComments.filter((c) => !isCommentResolved(c)).length;
+      const gutterBtn = el(
+        "button",
+        {
+          className: `md-block-gutter ${openCount > 0 ? "has-notes" : ""}`,
+          title: `Lines ${startL}–${endL} (${blockComments.length} notes)`,
+          onClick: (ev) => {
+            ev.stopPropagation();
+            onOpenCommentModal({ startLine: startL, endLine: endL, quote: quoteText });
+          },
+        },
+        openCount > 0 ? String(openCount) : "+"
+      );
+      return el(
+        "div",
+        {
+          className: "md-block",
+          "data-start-line": String(startL),
+          "data-end-line": String(endL),
+        },
+        gutterBtn,
+        contentNode
+      );
+    }
+
+    const container = el("div", { className: "md-reader" });
+    let i = 0;
+    while (i < rawLines.length) {
+      const line = rawLines[i];
+      if (!line.trim()) {
+        i += 1;
+        continue;
+      }
+      const blockStart = bodyStartLine + i;
+
+      const fenceMatch = line.match(/^\s*(```|~~~)(.*)$/);
+      if (fenceMatch) {
+        const fence = fenceMatch[1];
+        const lang = fenceMatch[2].trim();
+        const codeLines = [];
+        let j = i + 1;
+        while (j < rawLines.length && !new RegExp(`^\\s*${fence}`).test(rawLines[j])) {
+          codeLines.push(rawLines[j]);
+          j += 1;
+        }
+        const blockEnd = bodyStartLine + Math.min(j, rawLines.length - 1);
+        const codeText = codeLines.join("\n");
+        const preEl = el("pre", {}, el("code", { className: lang ? `language-${lang}` : "" }, codeText));
+        const wrapper = lang === "mermaid"
+          ? el("div", {}, el("div", { className: "subtle-meta", style: "margin-bottom:4px" }, "Diagram (`mermaid`)"), preEl)
+          : preEl;
+        container.appendChild(wrapBlock(wrapper, blockStart, blockEnd, codeText.slice(0, 140)));
+        i = j + 1;
+        continue;
+      }
+
+      const hMatch = line.match(/^(#{1,4})\s+(.+?)\s*$/);
+      if (hMatch) {
+        const level = hMatch[1].length;
+        const hEl = el(`h${level}`, { id: `sec-line-${blockStart}` });
+        appendInlineMarkdownNodes(hEl, hMatch[2], { baseRelPath, onOpenMedia });
+        container.appendChild(wrapBlock(hEl, blockStart, blockStart, hMatch[2]));
+        i += 1;
+        continue;
+      }
+
+      if (/^\s*([-*_])\1{2,}\s*$/.test(line)) {
+        container.appendChild(wrapBlock(el("hr", {}), blockStart, blockStart, line));
+        i += 1;
+        continue;
+      }
+
+      if (/^\|.*\|/.test(line.trim()) && i + 1 < rawLines.length && /^\s*\|?[\s:-]+\|/.test(rawLines[i + 1])) {
+        const splitRow = (row) =>
+          row
+            .trim()
+            .replace(/^\|/, "")
+            .replace(/\|$/, "")
+            .split("|")
+            .map((cell) => cell.trim());
+        const headers = splitRow(line);
+        let j = i + 2;
+        const rows = [];
+        while (j < rawLines.length && /^\|/.test(rawLines[j].trim())) {
+          rows.push(splitRow(rawLines[j]));
+          j += 1;
+        }
+        const thead = el("thead", {}, el("tr", {}, ...headers.map((h) => el("th", {}, h))));
+        const tbody = el("tbody", {});
+        for (const row of rows) {
+          const tr = el("tr", {});
+          for (let c = 0; c < headers.length; c += 1) {
+            const td = el("td", {});
+            appendInlineMarkdownNodes(td, row[c] || "", { baseRelPath, onOpenMedia });
+            tr.appendChild(td);
+          }
+          tbody.appendChild(tr);
+        }
+        const tbl = el("div", { className: "md-table-wrap" }, el("table", { className: "md-table" }, thead, tbody));
+        container.appendChild(wrapBlock(tbl, blockStart, bodyStartLine + j - 1, headers.join(" | ")));
+        i = j;
+        continue;
+      }
+
+      if (/^\s*>/.test(line)) {
+        const qLines = [];
+        let j = i;
+        while (j < rawLines.length && /^\s*>/.test(rawLines[j])) {
+          qLines.push(rawLines[j].replace(/^\s*>\s?/, ""));
+          j += 1;
+        }
+        const firstLine = qLines[0] || "";
+        const calloutMatch = firstLine.match(/^\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*(.*)$/i);
+        const kindCls = calloutMatch ? calloutMatch[1].toLowerCase() : "";
+        const calloutEl = el("div", { className: `md-callout ${kindCls}` });
+        if (calloutMatch) {
+          calloutEl.appendChild(el("strong", {}, `${calloutMatch[1]} `));
+          const bodyLines = [calloutMatch[2], ...qLines.slice(1)].filter(Boolean);
+          appendInlineMarkdownNodes(calloutEl, bodyLines.join("\n"), { baseRelPath, onOpenMedia });
+        } else {
+          appendInlineMarkdownNodes(calloutEl, qLines.join("\n"), { baseRelPath, onOpenMedia });
+        }
+        container.appendChild(wrapBlock(calloutEl, blockStart, bodyStartLine + j - 1, qLines[0] || ""));
+        i = j;
+        continue;
+      }
+
+      if (/^\s*(?:[-*+]|\d+\.)\s+/.test(line)) {
+        const ordered = /^\s*\d+\./.test(line);
+        const listEl = el(ordered ? "ol" : "ul", { style: "margin:4px 0;padding-left:20px" });
+        let j = i;
+        while (j < rawLines.length && /^\s*(?:[-*+]|\d+\.)\s+/.test(rawLines[j])) {
+          const itemText = rawLines[j].replace(/^\s*(?:[-*+]|\d+\.)\s+/, "");
+          const taskMatch = itemText.match(/^\[([ xX~!>-])\]\s*(.*)$/);
+          const li = el("li", { style: "margin:3px 0" });
+          if (taskMatch) {
+            const mark = taskMatch[1].toLowerCase();
+            li.appendChild(el("span", { className: "mono", style: "margin-right:6px" }, `[${mark}]`));
+            appendInlineMarkdownNodes(li, taskMatch[2], { baseRelPath, onOpenMedia });
+          } else {
+            appendInlineMarkdownNodes(li, itemText, { baseRelPath, onOpenMedia });
+          }
+          listEl.appendChild(li);
+          j += 1;
+        }
+        container.appendChild(wrapBlock(listEl, blockStart, bodyStartLine + j - 1, rawLines[i]));
+        i = j;
+        continue;
+      }
+
+      const fnDef = line.match(/^\[\^([A-Za-z0-9_-]+)\]:\s*(.+)$/);
+      if (fnDef) {
+        const p = el("div", { className: "subtle-meta mono", id: `fn-${fnDef[1]}` });
+        appendInlineMarkdownNodes(p, `[^${fnDef[1]}]: ${fnDef[2]}`, { baseRelPath, onOpenMedia });
+        container.appendChild(wrapBlock(p, blockStart, blockStart, fnDef[0]));
+        i += 1;
+        continue;
+      }
+
+      const pLines = [];
+      let j = i;
+      while (
+        j < rawLines.length &&
+        rawLines[j].trim() &&
+        !/^(#{1,4}\s|```|~~~|\s*>|\s*(?:[-*+]|\d+\.)\s|\s*([-*_])\1{2,}\s*$|\[\^)/.test(rawLines[j]) &&
+        !/^\|.*\|/.test(rawLines[j].trim())
+      ) {
+        pLines.push(rawLines[j]);
+        j += 1;
+      }
+      const pEl = el("p", { style: "margin:2px 0" });
+      appendInlineMarkdownNodes(pEl, pLines.join(" "), { baseRelPath, onOpenMedia });
+      container.appendChild(wrapBlock(pEl, blockStart, bodyStartLine + j - 1, pLines[0] || ""));
+      i = j;
+    }
+    return container;
+  }
+
+  function ensureFloatGutter() {
+    if (!floatGutterEl) {
+      floatGutterEl = el("button", { className: "md-float-gutter hidden", type: "button" }, "+ Add comment");
+      document.body.appendChild(floatGutterEl);
+    }
+    return floatGutterEl;
+  }
+
+  function attachFloatSelectionGutter(readerEl, onOpenModal) {
+    const gutter = ensureFloatGutter();
+    gutter.classList.add("hidden");
+    readerEl.addEventListener("mouseup", () => {
+      const sel = window.getSelection();
+      const text = sel ? sel.toString().trim() : "";
+      if (!text || sel.rangeCount === 0) {
+        gutter.classList.add("hidden");
+        return;
+      }
+      const range = sel.getRangeAt(0);
+      const startEl = range.startContainer.nodeType === 1 ? range.startContainer : range.startContainer.parentElement;
+      const endEl = range.endContainer.nodeType === 1 ? range.endContainer : range.endContainer.parentElement;
+      const startBlock = startEl?.closest?.("[data-start-line]");
+      const endBlock = endEl?.closest?.("[data-end-line]") || startBlock;
+      if (!startBlock) {
+        gutter.classList.add("hidden");
+        return;
+      }
+      const startLine = Number(startBlock.getAttribute("data-start-line") || 1);
+      const endLine = Number(endBlock?.getAttribute("data-end-line") || startLine);
+      const rect = range.getBoundingClientRect();
+      gutter.style.top = `${Math.max(12, rect.top - 36)}px`;
+      gutter.style.left = `${Math.max(12, Math.min(window.innerWidth - 150, rect.left))}px`;
+      gutter.classList.remove("hidden");
+      gutter.onclick = () => {
+        gutter.classList.add("hidden");
+        onOpenModal({ startLine, endLine, quote: text.slice(0, 220) });
+      };
+    });
+  }
+
+  function openCommentModal({ startLine, endLine, quote = "" }) {
+    if (!commentModalEl || !backdropEl) return;
+    state.activeCommentRange = { startLine, endLine: endLine || startLine, quote };
+    renderCommentModalContents();
+    backdropEl.classList.remove("hidden");
+    commentModalEl.classList.remove("hidden");
+  }
+
+  function renderCommentModalContents() {
+    if (!commentModalEl) return;
+    commentModalEl.textContent = "";
+    const range = state.activeCommentRange || { startLine: 1, endLine: 1, quote: "" };
+    const allComments = state.currentDoc?.comments || [];
+    const matching = allComments.filter((c) => {
+      const cs = Number(c.startLine || 1);
+      const ce = Number(c.endLine || cs);
+      return cs <= range.endLine && ce >= range.startLine;
+    });
+    const listPool = matching.length > 0 ? matching : allComments;
+    const filtered = listPool.filter((c) => {
+      if (state.commentFilter === "open") return !isCommentResolved(c);
+      if (state.commentFilter === "addressed") return isCommentResolved(c);
+      return true;
+    });
+
+    const repliesByParent = new Map();
+    const topLevel = [];
+    for (const c of filtered) {
+      if (c.parentCommentId) {
+        const arr = repliesByParent.get(c.parentCommentId) || [];
+        arr.push(c);
+        repliesByParent.set(c.parentCommentId, arr);
+      } else {
+        topLevel.push(c);
+      }
+    }
+
+    const filterSeg = el(
+      "div",
+      { className: "segmented" },
+      ...[
+        { id: "all", label: `All (${listPool.length})` },
+        { id: "open", label: `Open (${listPool.filter((c) => !isCommentResolved(c)).length})` },
+        { id: "addressed", label: `Addressed (${listPool.filter((c) => isCommentResolved(c)).length})` },
+      ].map((f) =>
+        el(
+          "button",
+          {
+            className: state.commentFilter === f.id ? "active" : "",
+            onClick: () => {
+              state.commentFilter = f.id;
+              renderCommentModalContents();
+            },
+          },
+          f.label
+        )
+      )
+    );
+
+    commentModalEl.append(
+      el(
+        "div",
+        { className: "card-header" },
+        el(
+          "div",
+          {},
+          el("h3", { className: "card-title" }, `Review Notes · Lines ${range.startLine}–${range.endLine}`),
+          el("div", { className: "subtle-meta mono" }, state.selectedDocRelPath || "")
+        ),
+        el("button", { className: "btn btn-quiet", onClick: closeDrawers }, "Close")
+      ),
+      range.quote ? el("div", { className: "comment-quote" }, range.quote) : null,
+      el("div", { className: "search-bar", style: "margin-bottom:4px" }, filterSeg)
+    );
+
+    for (const c of topLevel) {
+      const kindLabel = c.commentKind || "feedback";
+      const resolved = isCommentResolved(c);
+      const thread = el("div", { className: "comment-thread" });
+      thread.appendChild(
+        el(
+          "div",
+          { style: "display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px" },
+          el(
+            "div",
+            { style: "display:flex;gap:6px;align-items:center;flex-wrap:wrap" },
+            el("strong", { style: "font-size:12px" }, `L${c.startLine}`),
+            el("span", { className: `comment-chip ${kindLabel === "change_request" ? "blocker" : ""}` }, kindLabel),
+            resolved ? el("span", { className: "pill pill-ok" }, "addressed") : null,
+            c.ghPrCommentId ? el("span", { className: "pill" }, `PR #${c.ghPrCommentId}`) : null,
+            c.externalSource ? el("span", { className: "pill" }, c.externalSource) : null,
+            c.authorName ? el("span", { className: "subtle-meta" }, c.authorName) : null
+          ),
+          el(
+            "div",
+            { style: "display:flex;gap:4px;align-items:center" },
+            el(
+              "button",
+              {
+                className: "btn btn-quiet",
+                style: "padding:2px 7px;font-size:12px",
+                onClick: async () => {
+                  await host.api("/api/review-comments", {
+                    action: "update",
+                    workspacePath: state.workspacePath,
+                    relPath: state.selectedDocRelPath,
+                    commentId: c.id,
+                    toggleUpvote: true,
+                    repoLocator: state.remoteRepo || undefined,
+                  });
+                  await loadDocument(state.selectedDocRelPath, state.selectedDocGitRef);
+                  renderCommentModalContents();
+                },
+              },
+              `▲ ${commentUpvoteCount(c)}`
+            ),
+            el(
+              "button",
+              {
+                className: "btn btn-quiet",
+                style: "padding:2px 7px;font-size:12px",
+                onClick: () => {
+                  state.editingCommentId = state.editingCommentId === c.id ? null : c.id;
+                  renderCommentModalContents();
+                },
+              },
+              "Edit"
+            ),
+            el(
+              "button",
+              {
+                className: "btn btn-quiet",
+                style: "padding:2px 7px;font-size:12px",
+                onClick: () => {
+                  state.replyingCommentId = state.replyingCommentId === c.id ? null : c.id;
+                  renderCommentModalContents();
+                },
+              },
+              "Reply"
+            ),
+            el(
+              "button",
+              {
+                className: "btn btn-quiet",
+                style: "padding:2px 7px;font-size:12px",
+                onClick: async () => {
+                  await host.api("/api/review-comments", {
+                    action: "update",
+                    workspacePath: state.workspacePath,
+                    relPath: state.selectedDocRelPath,
+                    commentId: c.id,
+                    resolved: !resolved,
+                    repoLocator: state.remoteRepo || undefined,
+                  });
+                  await loadDocument(state.selectedDocRelPath, state.selectedDocGitRef);
+                  renderCommentModalContents();
+                  render();
+                },
+              },
+              resolved ? "Reopen" : "Resolve"
+            )
+          )
+        )
+      );
+
+      if (state.editingCommentId === c.id) {
+        const editTa = el("textarea", { className: "textarea-input", rows: 2, style: "width:100%", value: c.body });
+        editTa.value = c.body;
+        thread.append(
+          editTa,
+          el(
+            "div",
+            { style: "display:flex;gap:6px;justify-content:flex-end;margin-top:6px" },
+            el("button", { className: "btn btn-quiet", onClick: () => { state.editingCommentId = null; renderCommentModalContents(); } }, "Cancel"),
+            el(
+              "button",
+              {
+                className: "btn btn-primary",
+                onClick: async () => {
+                  const nextBody = editTa.value.trim();
+                  if (!nextBody) return;
+                  await host.api("/api/review-comments", {
+                    action: "edit",
+                    workspacePath: state.workspacePath,
+                    relPath: state.selectedDocRelPath,
+                    commentId: c.id,
+                    body: nextBody,
+                    repoLocator: state.remoteRepo || undefined,
+                  });
+                  state.editingCommentId = null;
+                  await loadDocument(state.selectedDocRelPath, state.selectedDocGitRef);
+                  renderCommentModalContents();
+                  render();
+                },
+              },
+              "Save Edit"
+            )
+          )
+        );
+      } else {
+        thread.appendChild(el("div", {}, c.body));
+      }
+
+      for (const rep of repliesByParent.get(c.id) || []) {
+        thread.appendChild(
+          el(
+            "div",
+            { className: "comment-reply" },
+            el("div", { className: "subtle-meta" }, rep.authorName || rep.authorEmail || "Reviewer"),
+            el("div", {}, rep.body)
+          )
+        );
+      }
+
+      if (state.replyingCommentId === c.id) {
+        const repTa = el("textarea", { className: "textarea-input", rows: 2, placeholder: "Write reply...", style: "width:100%;margin-top:8px" });
+        thread.append(
+          repTa,
+          el(
+            "div",
+            { style: "display:flex;gap:6px;justify-content:flex-end;margin-top:6px" },
+            el("button", { className: "btn btn-quiet", onClick: () => { state.replyingCommentId = null; renderCommentModalContents(); } }, "Cancel"),
+            el(
+              "button",
+              {
+                className: "btn btn-primary",
+                onClick: async () => {
+                  const repBody = repTa.value.trim();
+                  if (!repBody) return;
+                  await host.api("/api/review-comments", {
+                    action: "reply",
+                    workspacePath: state.workspacePath,
+                    relPath: state.selectedDocRelPath,
+                    parentCommentId: c.id,
+                    body: repBody,
+                    repoLocator: state.remoteRepo || undefined,
+                  });
+                  state.replyingCommentId = null;
+                  await loadDocument(state.selectedDocRelPath, state.selectedDocGitRef);
+                  renderCommentModalContents();
+                  render();
+                },
+              },
+              "Post Reply"
+            )
+          )
+        );
+      }
+      commentModalEl.appendChild(thread);
+    }
+
+    const kindSel = el(
+      "select",
+      {
+        className: "select-input",
+        onChange: (e) => {
+          state.activeCommentKind = e.target.value;
+        },
+      },
+      ...["feedback", "change_request", "question", "approval"].map((k) =>
+        el("option", { value: k, selected: state.activeCommentKind === k }, k)
+      )
+    );
+    const bodyTa = el("textarea", {
+      className: "textarea-input",
+      rows: 3,
+      placeholder: "Add spec review feedback (Ctrl/Cmd+Enter to save)...",
+      style: "width:100%",
+    });
+    const submitNew = async () => {
+      const body = bodyTa.value.trim();
+      if (!body) return;
+      await host.api("/api/review-comments", {
+        action: "add",
+        workspacePath: state.workspacePath,
+        relPath: state.selectedDocRelPath,
+        startLine: range.startLine,
+        endLine: range.endLine,
+        quote: range.quote,
+        commentKind: kindSel.value,
+        body,
+        gitBranch: state.selectedDocGitRef || state.snapshot?.currentBranch || undefined,
+        repoLocator: state.remoteRepo || undefined,
+      });
+      await loadDocument(state.selectedDocRelPath, state.selectedDocGitRef);
+      renderCommentModalContents();
+      render();
+    };
+    bodyTa.addEventListener("keydown", (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+        e.preventDefault();
+        submitNew();
+      }
+    });
+    commentModalEl.append(
+      el("div", { className: "field-group" }, el("label", { className: "field-label" }, "New Note Kind"), kindSel, bodyTa),
+      el(
+        "div",
+        { style: "display:flex;gap:8px;justify-content:flex-end" },
+        el("button", { className: "btn btn-primary", onClick: submitNew }, "Save Feedback")
+      )
+    );
+  }
+
   function renderSpecReviewView() {
     const snap = state.snapshot;
     const allDocs = [];
-    for (const s of snap?.specs || []) {
-      allDocs.push({ label: `Spec · ${s.title}`, relPath: s.relPath });
+    for (const s of [...(snap?.specs || []), ...(snap?.otherBranchSpecs || [])]) {
+      const suffix = s.onCurrentBranch === false && (s.branchName || s.gitRef) ? ` [${s.branchName || s.gitRef}]` : "";
+      allDocs.push({ label: `Spec · ${s.title}${suffix}`, relPath: s.relPath, gitRef: s.gitRef || null });
       for (const ch of s.chapters || []) {
-        if (ch.relPath) allDocs.push({ label: `  ↳ ${ch.chapterId}`, relPath: ch.relPath });
+        if (ch.relPath) allDocs.push({ label: `  ↳ ${ch.chapterId}${suffix}`, relPath: ch.relPath, gitRef: s.gitRef || null });
       }
     }
     for (const k of snap?.knowledge || []) {
-      allDocs.push({ label: `${k.type} · ${k.title}`, relPath: k.relPath });
+      allDocs.push({ label: `${k.type} · ${k.title}`, relPath: k.relPath, gitRef: null });
     }
 
     const docPicker = el(
@@ -1037,19 +2091,33 @@
         className: "select-input",
         style: "min-width:260px",
         onChange: async (e) => {
-          await loadDocument(e.target.value);
+          const picked = allDocs.find((d) => `${d.relPath}::${d.gitRef || ""}` === e.target.value) || {
+            relPath: e.target.value,
+            gitRef: null,
+          };
+          await loadDocument(picked.relPath, picked.gitRef);
           render();
         },
       },
-      ...allDocs.map((d) => el("option", { value: d.relPath, selected: d.relPath === state.selectedDocRelPath }, d.label))
+      ...allDocs.map((d) =>
+        el(
+          "option",
+          {
+            value: `${d.relPath}::${d.gitRef || ""}`,
+            selected: d.relPath === state.selectedDocRelPath && (d.gitRef || null) === (state.selectedDocGitRef || null),
+          },
+          d.label
+        )
+      )
     );
 
     const subViewToggle = el(
       "div",
       { className: "segmented" },
       ...[
-        { id: "document", label: "Spec" },
-        { id: "dag", label: "Flow Tasks" },
+        { id: "document", label: "Reader" },
+        { id: "source", label: "Source" },
+        { id: "dag", label: "Graph" },
       ].map((v) =>
         el(
           "button",
@@ -1065,12 +2133,12 @@
       )
     );
 
-    const openComments = (state.currentDoc?.comments || []).filter((c) => !c.resolved && c.state !== "resolved");
+    const openComments = (state.currentDoc?.comments || []).filter((c) => !isCommentResolved(c));
     const reviewSummaryBadge = state.specReviewSummary
       ? el(
           "span",
-          { className: `pill ${state.specReviewSummary.status === "open" ? "pill-warn" : "pill-ok"}` },
-          `${state.specReviewSummary.authors?.length || 0} reviewers · ${state.specReviewSummary.open_count || 0} open`
+          { className: `pill ${openComments.length > 0 ? "pill-warn" : "pill-ok"}` },
+          `${state.specReviewSummary.reviewState || "draft"} · ${openComments.length} open`
         )
       : null;
 
@@ -1080,12 +2148,20 @@
       docPicker,
       subViewToggle,
       reviewSummaryBadge,
-      state.selectedDocRelPath
+      el(
+        "button",
+        {
+          className: "btn",
+          onClick: () => openCommentModal({ startLine: 1, endLine: 1, quote: "" }),
+        },
+        `Notes (${(state.currentDoc?.comments || []).length})`
+      ),
+      state.selectedDocRelPath && !state.selectedDocGitRef && !state.remoteRepo
         ? el("button", { className: "btn", onClick: () => host.openFile(state.workspacePath, state.selectedDocRelPath, 1) }, "Open in Editor")
         : null,
-      openComments.length > 0
+      openComments.length > 0 && state.revisePrompt
         ? el("button", { className: "btn btn-primary", onClick: () => runFlowAction(state.revisePrompt, "Revise Specification") }, `Dispatch /flow:revise (${openComments.length})`)
-        : el("span", { className: "subtle-meta" }, "Click any line number to attach feedback.")
+        : null
     );
 
     if (state.specSubView === "dag") {
@@ -1094,6 +2170,40 @@
 
     if (!state.currentDoc) {
       return el("div", {}, toolbar, el("div", { className: "subtle-meta" }, "Select a document to review."));
+    }
+
+    if (state.specSubView === "document") {
+      const outlineBar =
+        (state.currentDoc.headings || []).length > 0
+          ? el(
+              "div",
+              { className: "md-outline-bar" },
+              el("span", { className: "field-label" }, "Sections:"),
+              ...(state.currentDoc.headings || []).slice(0, 12).map((h) =>
+                el(
+                  "button",
+                  {
+                    className: "md-outline-chip",
+                    onClick: () => {
+                      const target = document.getElementById(`sec-line-${h.line}`);
+                      if (target) target.scrollIntoView({ behavior: "smooth", block: "center" });
+                    },
+                  },
+                  h.text
+                )
+              )
+            )
+          : null;
+
+      const readerEl = renderMarkdownDom(state.currentDoc.markdown || state.currentDoc.raw || "", {
+        comments: state.currentDoc.comments || [],
+        bodyStartLine: Number(state.currentDoc.body_start_line || (state.currentDoc.frontmatterEndLine || 0) + 1),
+        baseRelPath: state.selectedDocRelPath || "",
+        onOpenCommentModal: openCommentModal,
+        onOpenMedia: openMediaLightbox,
+      });
+      attachFloatSelectionGutter(readerEl, openCommentModal);
+      return el("div", {}, toolbar, outlineBar, readerEl);
     }
 
     const outline = el(
@@ -1119,7 +2229,7 @@
     const linesBox = el("div", { className: "code-lines" });
     const commentsByLine = new Map();
     for (const c of state.currentDoc.comments || []) {
-      if (c.resolved || c.state === "resolved") continue;
+      if (isCommentResolved(c)) continue;
       const arr = commentsByLine.get(c.endLine) || [];
       arr.push(c);
       commentsByLine.set(c.endLine, arr);
@@ -1147,7 +2257,7 @@
       );
 
       for (const c of commentsByLine.get(ln.lineNumber) || []) {
-        const upvotes = Array.isArray(c.upvotes) ? c.upvotes.length : 0;
+        const upvotes = commentUpvoteCount(c);
         const kindLabel = c.commentKind || c.kind || "feedback";
         linesBox.appendChild(
           el(
@@ -1160,7 +2270,8 @@
                 "div",
                 { style: "display:flex;gap:6px;align-items:center" },
                 el("strong", { style: "font-size:12px" }, `Line ${c.startLine}`),
-                el("span", { className: `comment-chip ${kindLabel === "blocker" ? "blocker" : ""}` }, kindLabel),
+                el("span", { className: `comment-chip ${kindLabel === "change_request" ? "blocker" : ""}` }, kindLabel),
+                c.ghPrCommentId ? el("span", { className: "pill" }, `PR #${c.ghPrCommentId}`) : null,
                 c.authorName ? el("span", { className: "subtle-meta" }, c.authorName) : null
               ),
               el(
@@ -1179,7 +2290,7 @@
                         commentId: c.id,
                         toggleUpvote: true,
                       });
-                      await loadDocument(state.selectedDocRelPath);
+                      await loadDocument(state.selectedDocRelPath, state.selectedDocGitRef);
                       render();
                     },
                   },
@@ -1197,7 +2308,7 @@
                         relPath: state.selectedDocRelPath,
                         commentId: c.id,
                       });
-                      await loadDocument(state.selectedDocRelPath);
+                      await loadDocument(state.selectedDocRelPath, state.selectedDocGitRef);
                       render();
                     },
                   },
@@ -1219,7 +2330,7 @@
               state.activeCommentKind = e.target.value;
             },
           },
-          ...["feedback", "question", "suggestion", "blocker"].map((k) =>
+          ...["feedback", "change_request", "question", "approval"].map((k) =>
             el("option", { value: k, selected: state.activeCommentKind === k }, k)
           )
         );
@@ -1257,7 +2368,7 @@
                       body,
                     });
                     state.activeCommentLine = null;
-                    await loadDocument(state.selectedDocRelPath);
+                    await loadDocument(state.selectedDocRelPath, state.selectedDocGitRef);
                     await refreshSnapshot({ force: true });
                   },
                 },
@@ -1895,4 +3006,10 @@
   });
 
   bootstrap();
+  setInterval(() => {
+    if (document.hidden || isOverlayOpen() || hasOpenDetailsIn(rootEl)) return;
+    const sel = window.getSelection();
+    if (sel && sel.toString().trim()) return;
+    refreshSnapshot({ force: false }).catch(() => {});
+  }, 5000);
 })();

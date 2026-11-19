@@ -76,6 +76,28 @@ effective_mode = str(roster_plan.get("mode", review_mode)) if isinstance(roster_
 suppressions = list(roster_plan.get("suppressions", [])) if isinstance(roster_plan, dict) else []
 suppression_clause = f" Respect verified false-positive suppressions: {suppressions}." if suppressions else ""
 
+feedback_clause = ""
+if spec_path:
+    parts = [p for p in Path(spec_path).parts if p]
+    flow_id_guess = ""
+    if "specs" in parts:
+        idx = parts.index("specs")
+        if idx + 1 < len(parts):
+            flow_id_guess = parts[idx + 1]
+    if flow_id_guess:
+        fb_code, fb_payload, _, _ = run_node_cli(
+            plugin_root,
+            ["spec", "feedback", "--flow", flow_id_guess, "--root", str(Path.cwd())],
+        )
+        if fb_code == 0 and isinstance(fb_payload, dict):
+            open_notes = [c for c in fb_payload.get("comments", []) if isinstance(c, dict) and c.get("state") == "open"]
+            if open_notes:
+                snippets = [
+                    f"[{c.get('commentKind', 'feedback')} L{c.get('startLine', 1)}] {c.get('body', '')}"
+                    for c in open_notes[:10]
+                ]
+                feedback_clause = f" Open spec review notes to verify: {'; '.join(snippets)}."
+
 before_status = git_porcelain()
 phase("Independent Review")
 log(f"Running {effective_mode} review on {git_range}{spec_clause} (preferred_model={preferred_review_model})")
@@ -131,7 +153,7 @@ try:
         ]
     if effective_mode == "single":
         out, model_used = await _run_seat_with_fallback(
-            f"Follow `{code_card}` and `{qual_card}` in strictly read-only mode across `{git_range}`{spec_clause}.{suppression_clause}",
+            f"Follow `{code_card}` and `{qual_card}` in strictly read-only mode across `{git_range}`{spec_clause}.{suppression_clause}{feedback_clause}",
             "Combined Correctness & Quality Review",
             code_reviewer_agent,
             preferred_review_model,
@@ -155,7 +177,7 @@ try:
             out, model_used = await _run_seat_with_fallback(
                 (
                     f"Follow `{seat.get('card') or code_card}` in strictly read-only mode as seat `{seat['id']}` "
-                    f"({seat.get('reason') or seat.get('title', seat['id'])}) across `{git_range}`{spec_clause}.{suppression_clause}"
+                    f"({seat.get('reason') or seat.get('title', seat['id'])}) across `{git_range}`{spec_clause}.{suppression_clause}{feedback_clause}"
                 ),
                 str(seat.get("title") or seat.get("agent") or seat["id"]),
                 seat_agent,
