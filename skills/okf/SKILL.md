@@ -1,6 +1,6 @@
 ---
 name: okf
-description: "Use when creating, editing, validating, or structuring Open Knowledge Format (OKF v0.2) bundle files (.agents/bundles/), YAML frontmatter, Attested Computations, provenance footnotes, or Google Cloud Knowledge Catalog okf-bundle trees."
+description: "Use when creating, editing, validating, or structuring Open Knowledge Format (OKF v0.2) bundle files (.agents/bundles/), YAML frontmatter, Attested Computations, provenance footnotes, or catalog bundle trees. Don't use for drafting user READMEs or PR bodies (use flow-docs) or managing plugin manifests (use multi-harness-plugins)."
 ---
 
 # Open Knowledge Format (OKF v0.2)
@@ -39,7 +39,7 @@ truth_block:
   max_lines: 40
 archive:
   resident_spec_directories: forbidden
-  effect: knowledge_synthesis_log_append_and_completed_spec_removal
+  effect: knowledge_synthesis_log_prepend_and_completed_spec_removal
 ```
 <!-- okf-materialization-contract: end -->
 
@@ -48,7 +48,7 @@ archive:
 ```text
 .agents/bundles/
 ├── index.md                        # Root bundle manifest (okf_version: "0.2" in frontmatter or header)
-├── log.md                          # Append-only lifecycle changelog (newest ISO date first; no frontmatter required)
+├── log.md                          # Lifecycle audit log (newest ISO date first; prepend new entries; no frontmatter)
 ├── product/                        # Product vision, engineering tenets, and tech stack
 │   ├── index.md
 │   ├── product.md
@@ -86,13 +86,13 @@ Every non-reserved `.md` file (`index.md` and `log.md` are reserved) begins with
 
 ```yaml
 ---
-type: Pattern                       # REQUIRED: non-empty concept type (Pattern, Architecture, Domain, Guide, Decision, Research, Spec, Task, Attested Computation, BigQuery Table, etc.)
+type: Pattern                       # Required: non-empty concept type (Pattern, Architecture, Domain, Guide, Decision, Research, Spec, Task, Attested Computation, etc.)
 title: Centralized JSON Serialization
 description: Route all JSON encoding and decoding through msgspec serializer helpers.
-status: stable                      # Document lifecycle ONLY: draft | stable | deprecated (never workflow state)
+status: stable                      # Document lifecycle only: draft | stable | deprecated (never workflow state)
 tags: [serialization, msgspec, json]
 generated:
-  by: flow/0.26.0
+  by: flow/<version>
   at: 2026-11-01T00:00:00Z
 verified:
   - by: agent:flow-learn
@@ -115,13 +115,13 @@ Place a bounded (`<= 40` lines) machine-checkable invariant block at the top of 
 - Never call `json.dumps` or `json.loads` directly in adapter or controller modules.
 <!-- truth: end -->
 
-[^serializer-mod]: `src/core/serialization.py::encode_json` — Canonical msgspec JSON serializer module.
+[^serializer-mod]: `src/core/serialization.py::encode_json` - Canonical msgspec JSON serializer module.
 ```
 
 ## Workflow
 
 1. **Scaffold or Inspect the Bundle Root (`.agents/bundles/` or `catalog.yaml` + `bundle/`)**:
-   - Ensure root `index.md` declares `okf_version: "0.2"` (and `bundle: <repo-slug>` for Flow bundles; `kcmd --format okf` `catalog.yaml` + `bundle/{agents,assets,documents,_links.yaml}` trees may use `catalog.yaml` scope without `bundle:`), and `log.md` records ISO-dated lifecycle events (`setup`, `synthesize`, `verify`, `archive`).
+   - Ensure root `index.md` declares `okf_version: "0.2"` and `bundle: <repo-slug>`. External catalog exports with `catalog.yaml` + `bundle/{agents,assets,documents,_links.yaml}` may use `catalog.yaml` for scope instead of `bundle:`. Record ISO-dated lifecycle events (`setup`, `synthesize`, `verify`, `archive`) in `log.md`.
 2. **Author Evidence-Backed Concept Chapters**:
    - Place each concept in its domain directory (`product/`, `knowledge/{architecture,patterns,domains,testing,gotchas,decisions}/`, `research/`, or `specs/<flow_id>/`) with YAML frontmatter (`type`, `title`, `description`, `status`, `tags`, `generated`, `verified`, `sources`).
    - Add a bounded `<= 40`-line `<!-- truth: start -->` block at the top of the body and cite every `sources[].id` entry via a matching `[^id]` footnote.
@@ -139,6 +139,10 @@ Place a bounded (`<= 40` lines) machine-checkable invariant block at the top of 
 ## Validation
 
 Confirm `/flow:validate` passes on `.agents/bundles/`, every non-reserved `.md` file has `type`, `title`, and `description`, and every `sources[].id` resolves to a `[^id]:` footnote in the document body.
+
+```bash
+flow catalog lint --json
+```
 
 ## Output
 

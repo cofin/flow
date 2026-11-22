@@ -34,7 +34,7 @@ import {
   hasOrderedRequiredHeadings,
   scanWikilinks,
 } from "../core/frontmatter.mjs";
-import { resolveWorktreeContext } from "../core/worktree.mjs";
+import { discoverSpecRoots, resolveWorktreeContext } from "../core/worktree.mjs";
 import { SpecComment, SpecFeedbackStore, resolveAuthorIdentity } from "./feedback.mjs";
 
 const VALID_SLUG_RE = /^[a-z0-9][a-z0-9-]{1,62}$/;
@@ -522,14 +522,61 @@ export class SpecEngine {
   }
 
   /**
-   * Read an arbitrary bundle/workspace Markdown document safely with headings and feedback attached.
+   * Return `true` when `gitRef` refers to the live working tree (`null`, `"HEAD"`,
+   * current branch name, or `refs/heads/<currentBranch>`).
+   *
+   * @param {string | null | undefined} gitRef
+   * @returns {boolean}
+   */
+  isWorkingTreeRef(gitRef) {
+    const cleanRef = typeof gitRef === "string" && gitRef.trim() ? gitRef.trim() : null;
+    if (!cleanRef || cleanRef === "HEAD") return true;
+    try {
+      const branch = execFileSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], {
+        cwd: this.workspace,
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
+      }).trim();
+      if (!branch || branch === "HEAD") return false;
+      return cleanRef === branch || cleanRef === `refs/heads/${branch}`;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Read an arbitrary bundle/workspace Markdown document safely with headings, siblings, and feedback attached.
    *
    * @param {string} relPath
    */
   readDocument(relPath) {
-    const clean = String(relPath || "").replace(/\\/g, "/").trim();
-    const baseRoot = clean.startsWith(".agents/") ? this.effectiveRoot : this.workspace;
-    const target = resolveConfinedPath(baseRoot, clean);
+    let clean = String(relPath || "").replace(/\\/g, "/").trim().replace(/^\/+/, "").replace(/\/+$/, "");
+    if (!clean || clean.includes("\0")) throw new Error(`Invalid relPath: ${relPath}`);
+    if (!clean.toLowerCase().endsWith(".md")) {
+      const leaf = clean.split("/").pop() || "";
+      if (!/\.[a-z0-9]{1,8}$/i.test(leaf)) clean = `${clean}/spec.md`;
+    }
+    let baseRoot = clean.startsWith(".agents/") || clean.startsWith("_agents/") ? this.effectiveRoot : this.workspace;
+    let target = resolveConfinedPath(baseRoot, clean);
+    if (fs.existsSync(target) && fs.statSync(target).isDirectory() && fs.existsSync(path.join(target, "spec.md"))) {
+      target = path.join(target, "spec.md");
+    }
+    if (!fs.existsSync(target) || !fs.statSync(target).isFile()) {
+      const movedMatch = clean.match(
+        /^(?:(?:\.agents|_agents)\/bundles\/specs|(?:\.agents|_agents|\.flow)\/specs|(?:\.agents|_agents)\/tracks|specs)\/([^/]+)\/(.+)$/,
+      );
+      if (movedMatch) {
+        const [, movedFlow, subPath] = movedMatch;
+        for (const rootInfo of discoverSpecRoots(this.effectiveRoot)) {
+          const candidate = path.join(rootInfo.root, movedFlow, ...subPath.split("/"));
+          if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) {
+            target = candidate;
+            baseRoot = this.effectiveRoot;
+            break;
+          }
+        }
+      }
+    }
     const raw = readTextSafe(target);
     if (raw === null) throw new Error(`Markdown document not found: ${relPath}`);
     const doc = FrontmatterDocument.parse(raw);
@@ -537,6 +584,40 @@ export class SpecEngine {
     const headings = extractHeadings(doc.body, { minLevel: 1, maxLevel: 4, lineOffset: doc.frontmatterEndLine });
     const normalizedRel = toPosixRelative(baseRoot, target);
     const comments = this.feedback.list(normalizedRel);
+    const flowId = doc.text("flow_id") || this.feedback.inferFlowId(normalizedRel);
+    const siblings = [];
+    if (flowId) {
+      const flowDir = path.join(this.specsDir, flowId);
+      const pushSibling = (absPath, label, kind) => {
+        if (!fs.existsSync(absPath) || !fs.statSync(absPath).isFile()) return;
+        const r = toPosixRelative(this.effectiveRoot, absPath);
+        siblings.push({ rel_path: r, label, kind, active: r === normalizedRel });
+      };
+      if (isExistingDir(flowDir)) {
+        pushSibling(path.join(flowDir, "spec.md"), "spec.md", "root");
+        pushSibling(path.join(flowDir, "planner-notes.md"), "planner-notes.md", "notes");
+        pushSibling(path.join(flowDir, "chapters", "index.md"), "chapters/index.md", "index");
+        const chDir = path.join(flowDir, "chapters");
+        if (isExistingDir(chDir)) {
+          for (const ent of fs.readdirSync(chDir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+            if (!ent.isDirectory()) continue;
+            pushSibling(path.join(chDir, ent.name, "spec.md"), `${ent.name}/spec.md`, "chapter");
+            const tDir = path.join(chDir, ent.name, "tasks");
+            if (isExistingDir(tDir)) {
+              for (const f of fs.readdirSync(tDir).filter((n) => n.endsWith(".md")).sort()) {
+                pushSibling(path.join(tDir, f), `${ent.name}/${f.replace(/\.md$/, "")}`, "task");
+              }
+            }
+          }
+        }
+        const rootTasks = path.join(flowDir, "tasks");
+        if (isExistingDir(rootTasks)) {
+          for (const f of fs.readdirSync(rootTasks).filter((n) => n.endsWith(".md")).sort()) {
+            pushSibling(path.join(rootTasks, f), f.replace(/\.md$/, ""), "task");
+          }
+        }
+      }
+    }
     return {
       relPath: normalizedRel,
       rel_path: normalizedRel,
@@ -550,7 +631,8 @@ export class SpecEngine {
       markdown: doc.body,
       lines: allLines.map((text, idx) => ({ lineNumber: idx + 1, text })),
       comments,
-      flowId: doc.text("flow_id") || this.feedback.inferFlowId(normalizedRel),
+      siblings,
+      flowId,
     };
   }
 

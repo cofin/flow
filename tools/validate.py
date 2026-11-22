@@ -200,6 +200,7 @@ EXPECTED_SKILLS: frozenset[str] = frozenset(
         "debloat",
         "flow",
         "flow-completion",
+        "flow-dispatch",
         "flow-docs",
         "flow-execution",
         "flow-learn",
@@ -949,6 +950,13 @@ def validate_schema_cards(repo_root: Path = REPO_ROOT) -> list[str]:
                 f"templates/agent/executor-schema-card.md: {len(exec_lines)} lines exceeds "
                 f"{MAX_EXECUTOR_SCHEMA_CARD_LINES}-line cap"
             )
+
+    simplify_card = templates_dir / "simplify-card.md"
+    if simplify_card.is_file():
+        simplify_text = simplify_card.read_text(encoding="utf-8").replace("\r\n", "\n")
+        for req_token in ("equivalent", "behavior_change", "already_minimal", "estimated_net_lines_cut"):
+            if req_token not in simplify_text:
+                errors.append(f"templates/agent/simplify-card.md: missing required token {req_token!r}")
 
     return errors
 

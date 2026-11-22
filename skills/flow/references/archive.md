@@ -24,7 +24,7 @@ Never delete `.agents/bundles/specs/<flow_id>/` before capturing its durable eng
 2. **Run Parallel Domain Synthesis ([`learn.md`](learn.md))**:
    - When updating `>= 2` domains, fan out **1 isolated synthesis subagent per domain** (`type_name="self"` on Google Antigravity) across:
      1. `knowledge/domains/<domain>.md` (domain model, glossary terms, invariants)
-     2. `knowledge/architecture/<area>.md` (subsystem boundaries, deep module interfaces, `5–12` node architecture diagrams)
+     2. `knowledge/architecture/<area>.md` (subsystem boundaries, deep module interfaces, `5-12` node architecture diagrams)
      3. `knowledge/patterns/<topic>.md` (reusable idioms with `path/to/file::Symbol` anchors in `sources:`)
      4. `knowledge/testing/<topic>.md` & `knowledge/workflow.md` (verification recipes, public interface TDD rules)
      5. `knowledge/gotchas/<area>.md` & `knowledge/decisions/adr-NNN-<slug>.md` (edge cases, runtime traps, ADRs)

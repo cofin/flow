@@ -1273,7 +1273,34 @@
     return wrap;
   }
 
-  function renderDagView() {
+  function renderExternalSourcePill(src) {
+    if (!src) return null;
+    if (typeof src === "string") {
+      const clean = src.trim();
+      return clean ? el("span", { className: "pill" }, clean) : null;
+    }
+    if (typeof src !== "object" || Array.isArray(src)) return null;
+    const label = String(src.label || src.kind || "External").trim();
+    const title = String(src.title || src.fileId || "").trim();
+    const text = title && title !== label ? `${label}: ${title}` : label;
+    const rawUrl = typeof src.url === "string" ? src.url.trim() : "";
+    if (/^https?:\/\//i.test(rawUrl)) {
+      return el(
+        "a",
+        {
+          className: "pill pill-link",
+          href: rawUrl,
+          target: "_blank",
+          rel: "noopener noreferrer",
+          title: rawUrl,
+        },
+        text
+      );
+    }
+    return el("span", { className: "pill" }, text);
+  }
+
+  function renderDagView({ compactHeader = false } = {}) {
     const dag = state.specDag;
     if (!dag || !Array.isArray(dag.nodes) || dag.nodes.length === 0) {
       return el("div", { className: "card subtle-meta" }, "No task dependency nodes found for this specification.");
@@ -1371,18 +1398,30 @@
       lanes.appendChild(lane);
     }
 
+    const headerNodes = compactHeader
+      ? [
+          el(
+            "div",
+            { className: "dag-view-header-compact" },
+            el("span", { className: "pill" }, `${dag.nodes.length} tasks · ${(dag.steps || []).length} steps`)
+          ),
+        ]
+      : [
+          el("h3", { className: "card-title" }, `Flow Tasks (${dag.nodes.length})`),
+          el(
+            "p",
+            { className: "card-desc" },
+            `Inline fast-path eligible: ${dag.inline_fast_path_eligible ? "yes" : "no"} · Total steps: ${(dag.steps || []).length}`
+          ),
+        ];
+
     return el(
       "div",
       {},
       el(
         "div",
         { className: "card" },
-        el("h3", { className: "card-title" }, `Flow Tasks (${dag.nodes.length})`),
-        el(
-          "p",
-          { className: "card-desc" },
-          `Inline fast-path eligible: ${dag.inline_fast_path_eligible ? "yes" : "no"} · Total steps: ${(dag.steps || []).length}`
-        ),
+        ...headerNodes,
         el("div", { className: "dag-viewport", style: "margin-top:12px" }, svg),
         lanes
       )
@@ -1857,7 +1896,7 @@
             el("span", { className: `comment-chip ${kindLabel === "change_request" ? "blocker" : ""}` }, kindLabel),
             resolved ? el("span", { className: "pill pill-ok" }, "addressed") : null,
             c.ghPrCommentId ? el("span", { className: "pill" }, `PR #${c.ghPrCommentId}`) : null,
-            c.externalSource ? el("span", { className: "pill" }, c.externalSource) : null,
+            renderExternalSourcePill(c.externalSource),
             c.authorName ? el("span", { className: "subtle-meta" }, c.authorName) : null
           ),
           el(
@@ -2142,30 +2181,98 @@
         )
       : null;
 
+    const actionMenuItems = [];
+    if (state.selectedDocRelPath && !state.selectedDocGitRef && !state.remoteRepo) {
+      actionMenuItems.push(
+        el(
+          "button",
+          {
+            className: "btn btn-quiet action-menu-item",
+            type: "button",
+            onClick: () => host.openFile(state.workspacePath, state.selectedDocRelPath, 1),
+          },
+          "Open in Editor"
+        )
+      );
+    }
+    if (openComments.length > 0 && state.revisePrompt) {
+      actionMenuItems.push(
+        el(
+          "button",
+          {
+            className: "btn btn-quiet action-menu-item",
+            type: "button",
+            onClick: () => runFlowAction(state.revisePrompt, "Revise Specification"),
+          },
+          `Dispatch /flow:revise (${openComments.length})`
+        )
+      );
+    }
+    const overflowMenu =
+      actionMenuItems.length > 0
+        ? el(
+            "details",
+            { className: "action-menu" },
+            el("summary", { className: "btn", title: "Document actions", "aria-label": "Document actions" }, "⋯"),
+            el("div", { className: "action-menu-list" }, ...actionMenuItems)
+          )
+        : null;
+
     const toolbar = el(
       "div",
-      { className: "search-bar" },
-      docPicker,
-      subViewToggle,
-      reviewSummaryBadge,
+      { className: "doc-topbar" },
+      el("div", { className: "doc-topbar-left" }, docPicker, reviewSummaryBadge),
       el(
-        "button",
-        {
-          className: "btn",
-          onClick: () => openCommentModal({ startLine: 1, endLine: 1, quote: "" }),
-        },
-        `Notes (${(state.currentDoc?.comments || []).length})`
-      ),
-      state.selectedDocRelPath && !state.selectedDocGitRef && !state.remoteRepo
-        ? el("button", { className: "btn", onClick: () => host.openFile(state.workspacePath, state.selectedDocRelPath, 1) }, "Open in Editor")
-        : null,
-      openComments.length > 0 && state.revisePrompt
-        ? el("button", { className: "btn btn-primary", onClick: () => runFlowAction(state.revisePrompt, "Revise Specification") }, `Dispatch /flow:revise (${openComments.length})`)
-        : null
+        "div",
+        { className: "doc-topbar-right" },
+        subViewToggle,
+        el(
+          "button",
+          {
+            className: "btn",
+            type: "button",
+            onClick: () => openCommentModal({ startLine: 1, endLine: 1, quote: "" }),
+          },
+          `Notes (${(state.currentDoc?.comments || []).length})`
+        ),
+        overflowMenu
+      )
     );
 
+    const siblings = Array.isArray(state.currentDoc?.siblings) ? state.currentDoc.siblings : [];
+    const siblingsStrip =
+      siblings.length > 1
+        ? el(
+            "div",
+            { className: "doc-meta-strip" },
+            el(
+              "div",
+              { className: "doc-siblings-strip" },
+              ...siblings.map((sib) =>
+                el(
+                  "button",
+                  {
+                    className: `btn doc-sibling-btn ${sib.active ? "btn-primary" : "btn-quiet"}`,
+                    type: "button",
+                    title: sib.rel_path,
+                    onClick: async () => {
+                      await loadDocument(sib.rel_path, state.selectedDocGitRef);
+                      render();
+                    },
+                  },
+                  sib.label
+                )
+              )
+            )
+          )
+        : null;
+
+    const syncWarnBanner = state.specReviewSummary?.syncWarning
+      ? el("div", { className: "md-callout warning", style: "margin-bottom:10px" }, state.specReviewSummary.syncWarning)
+      : null;
+
     if (state.specSubView === "dag") {
-      return el("div", {}, toolbar, renderDagView());
+      return el("div", {}, toolbar, siblingsStrip, syncWarnBanner, renderDagView({ compactHeader: true }));
     }
 
     if (!state.currentDoc) {
@@ -2173,23 +2280,29 @@
     }
 
     if (state.specSubView === "document") {
+      const headings = state.currentDoc.headings || [];
       const outlineBar =
-        (state.currentDoc.headings || []).length > 0
+        headings.length > 0
           ? el(
-              "div",
+              "details",
               { className: "md-outline-bar" },
-              el("span", { className: "field-label" }, "Sections:"),
-              ...(state.currentDoc.headings || []).slice(0, 12).map((h) =>
-                el(
-                  "button",
-                  {
-                    className: "md-outline-chip",
-                    onClick: () => {
-                      const target = document.getElementById(`sec-line-${h.line}`);
-                      if (target) target.scrollIntoView({ behavior: "smooth", block: "center" });
+              el("summary", { className: "md-outline-summary" }, `Sections (${headings.length})`),
+              el(
+                "div",
+                { className: "md-outline-chips" },
+                ...headings.slice(0, 16).map((h) =>
+                  el(
+                    "button",
+                    {
+                      className: "md-outline-chip",
+                      type: "button",
+                      onClick: () => {
+                        const target = document.getElementById(`sec-line-${h.line}`);
+                        if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+                      },
                     },
-                  },
-                  h.text
+                    h.text
+                  )
                 )
               )
             )
@@ -2203,7 +2316,7 @@
         onOpenMedia: openMediaLightbox,
       });
       attachFloatSelectionGutter(readerEl, openCommentModal);
-      return el("div", {}, toolbar, outlineBar, readerEl);
+      return el("div", {}, toolbar, siblingsStrip, syncWarnBanner, outlineBar, readerEl);
     }
 
     const outline = el(
@@ -2272,6 +2385,7 @@
                 el("strong", { style: "font-size:12px" }, `Line ${c.startLine}`),
                 el("span", { className: `comment-chip ${kindLabel === "change_request" ? "blocker" : ""}` }, kindLabel),
                 c.ghPrCommentId ? el("span", { className: "pill" }, `PR #${c.ghPrCommentId}`) : null,
+                renderExternalSourcePill(c.externalSource),
                 c.authorName ? el("span", { className: "subtle-meta" }, c.authorName) : null
               ),
               el(
@@ -2380,7 +2494,7 @@
       }
     }
 
-    return el("div", {}, toolbar, el("div", { className: "reader-layout" }, outline, linesBox));
+    return el("div", {}, toolbar, siblingsStrip, syncWarnBanner, el("div", { className: "reader-layout" }, outline, linesBox));
   }
 
   function renderCatalogView() {

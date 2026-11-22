@@ -81,12 +81,12 @@ tags: [<tag>, <tag>, ...]          # Optional list of strings
 
 #### Field Rules
 
-- **`type` (REQUIRED)**: Short string identifying the kind of concept (`BigQuery Table`, `API Endpoint`, `Metric`, `Playbook`, `Guide`, `Pattern`, `Spec`, `Task`, `Attested Computation`, etc.). Producers use descriptive names; consumers MUST tolerate unknown types.
+- **`type` (required)**: Short string identifying the kind of concept (`BigQuery Table`, `API Endpoint`, `Metric`, `Playbook`, `Guide`, `Pattern`, `Spec`, `Task`, `Attested Computation`, etc.). Producers use descriptive names; consumers must tolerate unknown types.
 - **`title`**: Human-readable display name. Defaults to filename stem if omitted.
 - **`description`**: One-line summary used for search previews and indexes.
 - **`resource`**: Canonical URI identifying the underlying asset (e.g. table URI, URL).
 - **`tags`**: List of lowercase hyphenated strings for cross-cutting categorization.
-- **`status`**: OKF document lifecycle ONLY (`draft`, `stable`, `deprecated`). Never store workflow state in `status:`.
+- **`status`**: OKF document lifecycle only (`draft`, `stable`, `deprecated`). Never store workflow state in `status:`.
 - **`stale_after`**: Full ISO-8601 timestamp with explicit UTC offset (`YYYY-MM-DDTHH:MM:SSZ` or `±HH:MM`; bare `YYYY-MM-DD` dates are invalid for Knowledge Catalog ingestion).
 - **`created_at` / `updated_at`**: ISO-8601 UTC timestamps (`YYYY-MM-DDTHH:MM:SSZ`).
 
@@ -105,23 +105,23 @@ sources:
 usage_window: { from: 2026-06-01, to: 2026-06-30 }
 ```
 
-- `resource`: REQUIRED within each source entry.
+- `resource`: required within each source entry.
 - `id`, `title`, `author`, `usage_count`, `last_modified`: Optional signals.
 
 #### Verification & Trust
 
 ```yaml
 verified:
-  by: human:cody
-  at: 2026-08-11T12:00:00Z
-  method: manual_inspection
+  - by: human:maintainer
+    at: 2026-08-11T12:00:00Z
+    method: manual_inspection
 ```
 
 Trust levels are inferred from signals:
 
 - **Unverified**: No `verified` block.
-- **Machine-confirmed**: `verified.by` is an agent/tool.
-- **Human-reviewed**: `verified.by` is `human:<id>`.
+- **Machine-confirmed**: `verified[].by` is an agent or tool identifier.
+- **Human-reviewed**: `verified[].by` starts with `human:<id>`.
 
 ---
 
@@ -129,9 +129,9 @@ Trust levels are inferred from signals:
 
 Index files provide directory summaries so agents can explore bundles efficiently:
 
-- Root `index.md` MUST declare `okf_version: "0.2"` and `bundle: <slug>`.
-- Subdirectory `index.md` files (`product/index.md`, `knowledge/index.md`, `specs/index.md`, `specs/<flow_id>/chapters/index.md`) and `log.md` MUST omit YAML frontmatter (`# <Title>` followed by `* [Title](link.md) — <summary>`).
-- Concept and reserved Markdown bodies MUST avoid standalone `---` horizontal rules outside fenced code blocks so strict YAML frontmatter splitters never misparse body sections.
+- Root `index.md` must declare `okf_version: "0.2"` and `bundle: <slug>`.
+- Subdirectory `index.md` files (`product/index.md`, `knowledge/index.md`, `specs/index.md`, `specs/<flow_id>/chapters/index.md`) and `log.md` must omit YAML frontmatter (`# <Title>` followed by `* [Title](link.md) — <summary>`).
+- Concept and reserved Markdown bodies must avoid standalone `---` horizontal rules outside fenced code blocks so strict YAML frontmatter splitters never misparse body sections.
 - Lists child concepts with `title`, `description`, `type`, and `tags` and summarizes subdirectories.
 
 ---
@@ -144,7 +144,7 @@ The bundle changelog records updates grouped by ISO-8601 dates (newest first):
 # Changelog
 
 ## 2026-08-15
-- `human:cody`: Added orders table documentation with freshness SLA.
+- `human:maintainer`: Added orders table documentation with freshness SLA.
 - `agent:flow-planner/1.0`: Created implementation plan for user-auth.
 ```
 

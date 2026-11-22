@@ -8,7 +8,6 @@ import { fileURLToPath } from "node:url";
 
 import { Response, SidecarApp } from "sidecar_sdk";
 
-import { LanguageServerDaemonLocator } from "./bridges/antigravity.mjs";
 import { StudioApiService, StudioRequestError } from "./router.mjs";
 
 const STUDIO_DIR = path.dirname(fileURLToPath(import.meta.url));
@@ -148,32 +147,43 @@ app.api(
   "POST",
 );
 
-function scheduleGatewayHealthCheck() {
-  if (!process.env.ANTIGRAVITY_SIDECAR_WEB_PORT) return;
-  const delayMs = Math.max(250, Number(process.env.FLOW_SIDECAR_GATEWAY_CHECK_MS || 2000));
-  const timer = setTimeout(async () => {
-    try {
-      const conn = service.coordinator.resolveConnection() || LanguageServerDaemonLocator.findLatest(process.env);
-      if (!conn?.address || !conn?.csrfToken) return;
-      const baseUrl = /^https?:\/\//i.test(conn.address) ? conn.address : `http://${conn.address}`;
-      const res = await fetch(`${baseUrl.replace(/\/+$/, "")}/exa.language_server_pb.LanguageServerService/GetSidecars`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Codeium-Csrf-Token": conn.csrfToken,
-        },
-        body: "{}",
-        signal: AbortSignal.timeout(2500),
-      });
-      if (!res.ok) {
-        process.stderr.write(`flow-studio: sidecar gateway check returned HTTP ${res.status}\n`);
-      }
-    } catch {
-      // Gateway registration check is best-effort; never interrupt sidecar runtime.
-    }
-  }, delayMs);
-  if (typeof timer.unref === "function") timer.unref();
+let gatewayTimer = null;
+
+function clearGatewayTimer() {
+  if (gatewayTimer) {
+    clearTimeout(gatewayTimer);
+    gatewayTimer = null;
+  }
 }
 
-scheduleGatewayHealthCheck();
-await app.run();
+process.once("SIGINT", clearGatewayTimer);
+process.once("SIGTERM", clearGatewayTimer);
+process.once("exit", clearGatewayTimer);
+
+const server = await app.run();
+
+if (process.env.ANTIGRAVITY_SIDECAR_WEB_PORT) {
+  const rawDelay = Number.parseInt(String(process.env.FLOW_SIDECAR_GATEWAY_CHECK_MS || ""), 10);
+  const delayMs = Number.isFinite(rawDelay) && rawDelay > 0 ? Math.max(250, rawDelay) : 6000;
+  gatewayTimer = setTimeout(async () => {
+    gatewayTimer = null;
+    try {
+      const check = await service.coordinator.verifyGatewayBinding();
+      if (check.shouldRestart) {
+        process.stderr.write(
+          `flow-studio: cold-start baseUrl lacks gateway proxy (attempt ${check.attempts}); exiting cleanly for reload\n`,
+        );
+        clearGatewayTimer();
+        if (typeof app.close === "function") {
+          await app.close();
+        } else if (server && typeof server.close === "function") {
+          await new Promise((resolve) => server.close(() => resolve()));
+        }
+        process.exit(0);
+      }
+    } catch {
+      // Gateway registration check is best-effort; ignore transient LanguageServer failures.
+    }
+  }, delayMs);
+  if (typeof gatewayTimer.unref === "function") gatewayTimer.unref();
+}

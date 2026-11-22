@@ -46,11 +46,11 @@ const HELP_TEXT = `flow — Context-Driven Development CLI
 Usage:
   flow sync [--flow <id>] [--dry-run] [--local] [--sync-branch] [--push] [--json]
   flow status [--flow <id>] [--branches] [--json]
-  flow spec <list|status|dag|init|import|preflight|claim|complete|phase|pull|pr|share|feedback|closeout|release-claim> [...]
+  flow spec <list|status|sync|dag|init|import|preflight|claim|complete|phase|pull|pr|share|feedback|closeout|release-claim> [...]
   flow tasks plan --flow <id> [--chapter <ch>] [--briefs] [--workers <n>] [--json]
   flow setup <audit|apply|migrate|compact> [--migrate-specs] [--compact-specs] [--policy shared|local-only] [--json]
   flow catalog <search|index|drift|status|lint|scan|correct> [...]
-  flow review plan [--range <r>] [--spec <p>] [--mode auto|single|dual|committee] [--json]
+  flow review plan [--range <r>] [--spec <p>] [--mode auto|single|dual|committee|simplify] [--json]
   flow models <inspect|route|materialize> [...]
   flow agent <list|inspect|send|start> [...]
   flow git <validate-pr-body|stack-check|stack-plan|coauthors> [...]

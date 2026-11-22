@@ -20,6 +20,7 @@ report:
 
 ```text
 /flow:review <flow_id> [chapter_id]
+/flow:review simplify <git_range_or_path>
 ```
 
 ## Phase 1: Determine Git Range & Project Lenses
@@ -77,6 +78,14 @@ Where no repo-specific rule applies, evaluate **Deep Module Design** and **Struc
 - **Test & Check Strength**: Flag private-detail tests, mock-only tests, layer-by-layer tests without end-to-end behavior checks, and standalone `test_*remediation*.py` or `test_*audit*.py` files.
 - **Current-State Doc & OKF Hygiene**: Flag `Revision History` / `Changelog` / `Change History` headings, chronological narrative (`"in chapter 1 we..."`), struck-through checklist items (`- [ ] ~~...~~`), standalone `---` body rules, numbered buzzwords, filler prose, and leaked internal ceremony.
 
+### Subtraction-Only Simplify Pass (`/flow:review simplify`)
+
+Run a read-only subtraction pass with [`templates/agent/simplify-card.md`](../../../templates/agent/simplify-card.md) using `flow review plan --mode simplify --json` or `workflows/flow-dual-review/workflow.py` (`review_mode="simplify"` with a 1-to-2-line `goal`). Multi-seat `dual` reviews include a `simplify` reviewer beside `conformance` and `quality`. Auto mode escalates to `dual` at `>= 350` lines or `>= 3` surfaces (`>= 150` lines or `>= 2` surfaces for high-risk diffs).
+
+- **No additions**: Never propose new guards, retries, watchdogs, flags, wrappers, comments, or tests.
+- **Proof required**: Confirm negative claims (`unused`, `single caller`) via an untruncated repo-wide `git grep -n -F '<symbol>'` plus public-export, CLI, config, template, wire-schema, and dynamic-dispatch checks.
+- **Cut classification**: Label zero-behavior-change deletions or inlines `equivalent` and scope-reducing cuts `behavior_change` (requiring explicit owner approval).
+
 ## Phase 4: Decide on Findings & Waivers
 
 Evaluate every finding against the repository code, docs, and `.agents/skills/review-*/references/false-positive-suppressions.md`:
@@ -87,6 +96,8 @@ Evaluate every finding against the repository code, docs, and `.agents/skills/re
   - Reject false positives, suggestions violating `false-positive-suppressions.md`, or out-of-scope creep by citing `path/to/file::Symbol` evidence or the matching `FP-<PREFIX>-NN` rule in the review summary.
 - **`ESCALATE`**:
   - When a finding exposes a genuine requirement trade-off or user-visible behavior choice, pause and present options via [`interaction.md`](interaction.md).
+- **Precedence When `conformance` and `simplify` Disagree**:
+  - Safety checks and explicit requirements win first, static validators keep authority over reviewer judgment, and intentional isolation stays (for example, per-adapter helpers or `.sh` and `.ps1` hooks). Apply `equivalent` cuts only when lint and tests stay green without weaker assertions. Ask the owner before applying any `behavior_change` cut.
 - **Finding-Specific Waiver Rule**:
   - Dispatching `@code-reviewer` and `@quality-reviewer` is mandatory and cannot be waived. If the user waives a specific blocking finding, record `waived_by: user`, `finding_id`, and `reason` in the review summary and `.agents/bundles/log.md`.
 

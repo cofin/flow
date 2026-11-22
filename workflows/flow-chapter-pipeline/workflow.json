@@ -21,7 +21,7 @@
       },
       "review_mode": {
         "type": "string",
-        "enum": ["auto", "dual", "single", "committee"],
+        "enum": ["auto", "dual", "single", "committee", "simplify"],
         "description": "Review mode (default auto via ReviewRoster)."
       },
       "harness": {"type": "string", "description": "Active harness identifier for model routing."},

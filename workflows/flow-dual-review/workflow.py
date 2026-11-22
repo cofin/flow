@@ -13,6 +13,7 @@ if str(_WF_PARENT) not in sys.path:
 
 from flow_common import (
     QUOTA_MARKERS,
+    SIMPLIFY_SCHEMA,
     acquire_runtime_lease,
     git_porcelain,
     release_runtime_lease,
@@ -49,6 +50,7 @@ REVIEW_SCHEMA = {
 git_range = str(args["git_range"])
 spec_path = str(args.get("spec_path", ""))
 review_mode = str(args.get("review_mode", "auto"))
+goal = str(args.get("goal", "")).strip()
 harness = str(args.get("harness") or os.environ.get("FLOW_HARNESS") or "agy")
 author_vendor = str(args.get("author_vendor") or "")
 timeout_seconds = int(args.get("timeout_seconds", 600))
@@ -63,6 +65,7 @@ quality_reviewer_agent = str(args.get("quality_reviewer_agent") or os.environ.ge
 
 code_card = plugin_root / "agents" / "code-reviewer.md"
 qual_card = plugin_root / "agents" / "quality-reviewer.md"
+simplify_card = plugin_root / "templates" / "agent" / "simplify-card.md"
 spec_clause = f" against `{spec_path}`" if spec_path else ""
 quota_state = {"degraded": False}
 
@@ -103,15 +106,36 @@ phase("Independent Review")
 log(f"Running {effective_mode} review on {git_range}{spec_clause} (preferred_model={preferred_review_model})")
 
 
-async def _run_seat_with_fallback(prompt: str, role: str, agent_type: str, chosen_model: str) -> tuple[dict, str]:
+def _resolve_seat_card(seat: dict) -> Path:
+    """Resolve a review seat card path relative to ``plugin_root``."""
+    raw_card = seat.get("card")
+    if raw_card:
+        candidate = Path(str(raw_card))
+        return candidate if candidate.is_absolute() else plugin_root / candidate
+    seat_id = str(seat.get("id") or "")
+    if seat_id == "simplify":
+        return simplify_card
+    if "quality" in seat_id or seat.get("agent") == "quality-reviewer":
+        return qual_card
+    return code_card
+
+
+async def _run_seat_with_fallback(
+    prompt: str,
+    role: str,
+    agent_type: str,
+    chosen_model: str,
+    schema: dict | None = None,
+) -> tuple[dict, str]:
     """Execute one read-only review seat with automatic quota fallback."""
+    active_schema = schema if schema is not None else REVIEW_SCHEMA
     active_model = fallback_model if (quota_state["degraded"] and chosen_model != fallback_model) else chosen_model
     active_agent = "self" if quota_state["degraded"] else agent_type
     try:
         out = await with_budget(
             agent(
                 prompt,
-                schema=REVIEW_SCHEMA,
+                schema=active_schema,
                 role=role,
                 type_name=active_agent,
                 workspace="inherit",
@@ -129,7 +153,7 @@ async def _run_seat_with_fallback(prompt: str, role: str, agent_type: str, chose
             out = await with_budget(
                 agent(
                     prompt,
-                    schema=REVIEW_SCHEMA,
+                    schema=active_schema,
                     role=f"{role} ({fallback_model} fallback)",
                     type_name="self",
                     workspace="inherit",
@@ -142,6 +166,22 @@ async def _run_seat_with_fallback(prompt: str, role: str, agent_type: str, chose
         raise
 
 
+def _build_simplify_prompt(target_ref: str) -> str:
+    """Construct the read-only subtraction prompt without author rationales."""
+    goal_line = (
+        f" Pinned goal: {goal}."
+        if goal
+        else " Pinned goal: infer in 1 to 2 lines from the target before evaluating cuts."
+    )
+    return (
+        f"Follow `{simplify_card}` in strictly read-only mode across `{target_ref}`{spec_clause}."
+        f"{goal_line}{suppression_clause} "
+        "Subtraction only: never propose new guards, retries, watchdogs, flags, wrappers, comments, or tests. "
+        "Prove every negative claim with an untruncated repo-wide `git grep -n -F` check plus export, config, "
+        "wire-schema, and dynamic-dispatch checks. Classify each cut as `equivalent` or `behavior_change`."
+    )
+
+
 reports: list[dict] = []
 _wf_lease = acquire_runtime_lease()
 try:
@@ -151,7 +191,16 @@ try:
             {"id": "code-reviewer", "title": "Correctness & Spec-Sync Review", "card": str(code_card), "model": preferred_review_model},
             {"id": "quality-reviewer", "title": "Quality & Debloat Review", "card": str(qual_card), "model": preferred_review_model},
         ]
-    if effective_mode == "single":
+    if effective_mode == "simplify":
+        out, model_used = await _run_seat_with_fallback(
+            _build_simplify_prompt(git_range),
+            "Subtraction-Only Simplify Review",
+            quality_reviewer_agent,
+            preferred_review_model,
+            schema=SIMPLIFY_SCHEMA,
+        )
+        reports = [{"reviewer": "simplify", "model_used": model_used, **out}]
+    elif effective_mode == "single":
         out, model_used = await _run_seat_with_fallback(
             f"Follow `{code_card}` and `{qual_card}` in strictly read-only mode across `{git_range}`{spec_clause}.{suppression_clause}{feedback_clause}",
             "Combined Correctness & Quality Review",
@@ -169,21 +218,33 @@ try:
                 or (seat.get("model_route") or {}).get("runtime_target")
                 or preferred_review_model
             )
+            seat_id = str(seat.get("id") or "")
+            is_simplify = seat_id == "simplify"
             seat_agent = (
                 quality_reviewer_agent
-                if "quality" in str(seat["id"]) or seat.get("agent") == "quality-reviewer"
+                if is_simplify or "quality" in seat_id or seat.get("agent") == "quality-reviewer"
                 else code_reviewer_agent
             )
+            if is_simplify:
+                out, model_used = await _run_seat_with_fallback(
+                    _build_simplify_prompt(git_range),
+                    str(seat.get("title") or "Subtraction-Only Simplify Review"),
+                    seat_agent,
+                    used_model,
+                    schema=SIMPLIFY_SCHEMA,
+                )
+                return {"reviewer": seat_id, "model_used": model_used, **out}
+            seat_card = _resolve_seat_card(seat)
             out, model_used = await _run_seat_with_fallback(
                 (
-                    f"Follow `{seat.get('card') or code_card}` in strictly read-only mode as seat `{seat['id']}` "
-                    f"({seat.get('reason') or seat.get('title', seat['id'])}) across `{git_range}`{spec_clause}.{suppression_clause}{feedback_clause}"
+                    f"Follow `{seat_card}` in strictly read-only mode as seat `{seat_id}` "
+                    f"({seat.get('reason') or seat.get('title', seat_id)}) across `{git_range}`{spec_clause}.{suppression_clause}{feedback_clause}"
                 ),
-                str(seat.get("title") or seat.get("agent") or seat["id"]),
+                str(seat.get("title") or seat.get("agent") or seat_id),
                 seat_agent,
                 used_model,
             )
-            return {"reviewer": seat["id"], "model_used": model_used, **out}
+            return {"reviewer": seat_id, "model_used": model_used, **out}
 
         raw_reports = await run_parallel_bounded(
             seats,

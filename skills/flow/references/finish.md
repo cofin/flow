@@ -31,9 +31,10 @@ Confirm `[N/N files documented]` in `## 3. Documentation & OKF Knowledge Plan`, 
 ## Phase 3: Mark Completed & Present Options
 
 1. Update `.agents/bundles/specs/<flow_id>/spec.md` frontmatter (`state: completed`, `current_chapter: null`, `current_task: null`, `last_verified_checkpoint: <HEAD_SHA>`, `last_reviewed_commit: <REVIEWED_HEAD_SHA>`, `updated_at`), rewrite `## 6. Current State & Remaining Plan Snapshot` (`Remaining Plan: none`), prepend a `finish` entry to `.agents/bundles/log.md`, and commit metadata if updated.
-2. Present completion options via [`interaction.md`](interaction.md):
+2. **One-Pass Closeout ("finish and sync")**: When the user asks to finish and sync, complete the closeout loop directly. Run [`learn.md`](learn.md) into `.agents/bundles/knowledge/**`, then run `flow sync` and `flow spec closeout <flow_id> --apply`. Pass `--keep` to preserve the spec directory when requested. This prepends the `archive` entry to `.agents/bundles/log.md`, updates `specs/index.md`, and removes `.agents/bundles/specs/<flow_id>/`.
+3. Otherwise present completion options via [`interaction.md`](interaction.md):
    1. `archive` — **Archive flow now on current branch (Recommended)**: Run [`archive.md`](archive.md) (`/flow:archive <flow_id>`) on this branch to capture durable learnings into `.agents/bundles/knowledge/**` and `.agents/skills/**` and remove the completed spec directory.
    2. `pr` — **Archive and open/update Pull Request**: Run `/flow:archive <flow_id>`, push the branch (with user confirmation), and open or update the PR per [`../../flow-docs/references/prs-commits-and-changelogs.md`](../../flow-docs/references/prs-commits-and-changelogs.md) (`<type>(<scope>): <concise summary>`, `## Summary` and `## Key Changes` only, no internal review ceremony or `## Verification` block).
    3. `merge` — **Merge back to base branch locally and archive**: Run `/flow:archive <flow_id>`, merge into the local base branch (`main`/`master`), re-run verification on the merged branch, and clean up the feature branch or worktree.
    4. `discard` — **Discard work**: Require explicit typed `"discard"` confirmation from the user before resetting or removing branch or worktree state.
-3. **Git Worktree Cleanup**: If the flow ran inside an isolated `git worktree`, offer to remove the worktree after branch merge or PR push.
+4. **Git Worktree Cleanup**: If the flow ran inside an isolated `git worktree`, offer to remove the worktree after branch merge or PR push.

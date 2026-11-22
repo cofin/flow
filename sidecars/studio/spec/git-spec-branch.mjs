@@ -283,13 +283,33 @@ export class AgentsBranchSync {
     return ensureSingleTrailingNewline(`${heading}\n${body}`);
   }
 
-  static rebuildSpecsIndex(specsDir, { dryRun = false } = {}) {
+  static rebuildSpecsIndex(specsDir, { dryRun = false, force = false } = {}) {
     if (!specsDir || !fs.existsSync(specsDir) || !fs.statSync(specsDir).isDirectory()) return false;
     const indexPath = path.join(specsDir, "index.md");
     const entries = fs
       .readdirSync(specsDir, { withFileTypes: true })
       .filter((d) => d.isDirectory() && fs.existsSync(path.join(specsDir, d.name, "spec.md")))
       .sort((a, b) => a.name.localeCompare(b.name));
+    const prevText = fs.existsSync(indexPath) ? fs.readFileSync(indexPath, "utf8") : "";
+    if (!force && prevText.trim().length > 0) {
+      const linkedDirs = new Set();
+      let inFence = false;
+      for (const line of prevText.split(/\r?\n/)) {
+        if (/^\s*(?:```|~~~)/.test(line)) {
+          inFence = !inFence;
+          continue;
+        }
+        if (inFence) continue;
+        for (const match of line.matchAll(/\]\(\s*(?:\.\/)?([^/\s)#]+)\/spec\.md(?:#[^)]*)?\s*\)/gi)) {
+          const dirName = match[1].trim();
+          if (dirName && dirName !== "." && dirName !== "..") linkedDirs.add(dirName);
+        }
+      }
+      const diskDirs = new Set(entries.map((d) => d.name));
+      const hasStaleLinks = [...linkedDirs].some((name) => !diskDirs.has(name));
+      const hasAllDiskDirs = [...diskDirs].every((name) => linkedDirs.has(name));
+      if (!hasStaleLinks && hasAllDiskDirs) return false;
+    }
     const rows = [];
     for (const dir of entries) {
       const specPath = path.join(specsDir, dir.name, "spec.md");
@@ -301,7 +321,6 @@ export class AgentsBranchSync {
     const nextText = ensureSingleTrailingNewline(
       rows.length > 0 ? `# Specifications\n\n${rows.join("\n")}` : "# Specifications",
     );
-    const prevText = fs.existsSync(indexPath) ? fs.readFileSync(indexPath, "utf8") : "";
     if (nextText !== prevText) {
       if (!dryRun) writeTextAtomic(indexPath, nextText);
       return true;
@@ -1124,6 +1143,32 @@ export class GitBranchSpecScanner {
     const taskId = doc.text("id") || (taskMatch ? taskMatch[1].split("-")[0] : null);
     const title = doc.text("title") || extractH1(doc.body) || path.posix.basename(resolvedRel);
     const comments = flowId ? this.feedback.list(resolvedRel) : [];
+    const siblings = [];
+    if (flowId && rootMatch) {
+      const prefix = `${rootMatch.specRoot}/${flowId}`;
+      const lsRes = this.git.readGit(["ls-tree", "-r", "--name-only", cleanRef, "--", prefix]);
+      const paths = lsRes.ok ? lsRes.stdout.split(/\r?\n/).map((l) => l.trim()).filter(Boolean) : [];
+      const pushSib = (p, label, kind) => {
+        if (!paths.includes(p)) return;
+        siblings.push({ rel_path: p, label, kind, active: p === resolvedRel });
+      };
+      pushSib(`${prefix}/spec.md`, "spec.md", "root");
+      pushSib(`${prefix}/planner-notes.md`, "planner-notes.md", "notes");
+      pushSib(`${prefix}/chapters/index.md`, "chapters/index.md", "index");
+      for (const p of paths.filter((item) => item.endsWith(".md")).sort()) {
+        if (p === `${prefix}/spec.md` || p === `${prefix}/planner-notes.md` || p === `${prefix}/chapters/index.md`) {
+          continue;
+        }
+        const sub = p.slice(prefix.length + 1);
+        if (sub.startsWith("chapters/") && sub.endsWith("/spec.md")) {
+          pushSib(p, sub.replace(/^chapters\//, ""), "chapter");
+        } else if (sub.includes("/tasks/")) {
+          pushSib(p, sub.replace(/^chapters\//, "").replace(/\/tasks\//, "/").replace(/\.md$/, ""), "task");
+        } else if (sub.startsWith("tasks/")) {
+          pushSib(p, sub.replace(/^tasks\//, "").replace(/\.md$/, ""), "task");
+        }
+      }
+    }
 
     return {
       ok: true,
@@ -1142,6 +1187,7 @@ export class GitBranchSpecScanner {
       raw,
       lines: raw.split(/\r?\n/).map((text, idx) => ({ lineNumber: idx + 1, text })),
       body_start_line: doc.bodyLine,
+      siblings,
       comments,
     };
   }

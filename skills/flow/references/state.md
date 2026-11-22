@@ -76,7 +76,7 @@ plan_commit: 8775d6c
 last_verified_checkpoint: 4f91c2a
 last_reviewed_chapter: ch01-token-signer
 last_reviewed_commit: 4f91c2a
-generated: { by: flow/0.28.1, at: 2026-11-12T00:00:00Z }
+generated: { by: flow/<version>, at: 2026-11-12T00:00:00Z }
 verified: [{ by: agent:code-reviewer, at: 2026-11-12T01:00:00Z, commit: 4f91c2a }]
 sources:
   - id: auth-entry
@@ -146,5 +146,5 @@ tags: [feature, auth, tdd]
 ## State Mutations & Commit Sequencing
 
 1. **Plan & Validate**: Write specs, task worksheets, and `chapters/<ch_id>/planner-notes.md`, run `/flow:validate` (`exit 0`), pass independent review, and stamp `status: stable` plus `plan_commit: <HEAD_SHA>`.
-2. **Run Parallel Steps & CLI Sync**: Build task briefs with `flow tasks plan --briefs --json`, run up to `4` workers per step editing separate files, and sync checklists between steps with `flow sync` (or `flow spec sync`). Also track per-author out-of-tree review notes under `<git-common-dir>/spec-feedback/<flow_id>/<author_slug>.json` (merging sibling stores on read) and optional orphan collaboration snapshots on `flow-specs`.
+2. **Run Parallel Steps & CLI Sync**: Build task briefs with `flow tasks plan --flow <flow_id> --briefs --json`, run up to `4` workers per step editing separate files, and sync checklists between steps with `flow sync` (or `flow spec sync`). Also track per-author out-of-tree review notes under `<git-common-dir>/spec-feedback/<flow_id>/<author_slug>.json` (merging sibling stores on read) and optional orphan collaboration snapshots on `flow-specs`.
 3. **Commit Code First**: Validate at closeout, commit owned `files:`/`tests:` first to obtain `<CODE_SHA>`, and stamp `commit: <CODE_SHA>`, `[x] [<CODE_SHA>]`, and present-tense Markdown/OKF updates in the pre-review sync commit (never `git commit --amend`) before stamping `last_reviewed_commit`.

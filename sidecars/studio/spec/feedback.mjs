@@ -787,7 +787,14 @@ export class SpecFeedbackStore {
     for (const c of unresolved) {
       const range = c.lineAnchor || (c.startLine === c.endLine ? `L${c.startLine}` : `L${c.startLine}-L${c.endLine}`);
       const loc = c.relPath ? `${c.relPath}:${range}` : range;
-      const extTag = c.externalSource?.label ? ` [${c.externalSource.label}]` : c.ghPrCommentId ? ` [PR comment]` : "";
+      let extTag = "";
+      if (c.externalSource && typeof c.externalSource === "object") {
+        const extLabel = c.externalSource.label || "External Asset";
+        const extTitle = c.externalSource.title || c.externalSource.fileId || extLabel;
+        extTag = c.externalSource.url ? ` [${extLabel}: ${extTitle}](${c.externalSource.url})` : ` [${extLabel}]`;
+      } else if (c.ghPrCommentId) {
+        extTag = " [PR comment]";
+      }
       lines.push(`- **${loc}** [${c.commentKind}]${extTag} (${c.authorName || c.authorEmail}): ${c.body}`);
       if (c.quote) lines.push(`  > ${c.quote.replace(/\n/g, " ")}`);
     }

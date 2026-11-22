@@ -1,9 +1,11 @@
 ---
 name: flow-docs
-description: Use when writing or auditing technical documentation, READMEs, user guides, architecture docs, agent instructions (AGENTS.md, SKILL.md, OKF chapters), pull requests, commit messages, or changelogs.
+description: "Use when writing or auditing technical documentation, READMEs, user guides, design docs, agent instructions, pull requests, commit messages, or changelogs. Don't use for planning implementation specs (use flow-planning) or syncing task state against Git (use flow-learn)."
 ---
 
 # Documentation, Agent Instructions, & Pull Requests
+
+<!-- lifecycle-ownership: owner=flow-docs; operations=docs,pr -->
 
 Write clear, accurate technical documentation, user guides, agent instruction files (`AGENTS.md`, `SKILL.md`, OKF knowledge chapters), commit messages, changelogs, and pull requests.
 
@@ -24,7 +26,8 @@ Write clear, accurate technical documentation, user guides, agent instruction fi
   - Never use promotional adjectives (`seamless`, `robust`, `comprehensive`, `pivotal`, `delve`, `leverage`, `blazingly fast`), decorative adverbs (`seamlessly`, `effortlessly`, `obviously`), negative parallelisms (`"not just X, but Y"`), or formulaic transitions (`"Moreover"`, `"Furthermore"`).
   - Never use artificial numbered buzzword labels or inflated metaphors (`"engineering lawbooks"`, `"causal waterfall"`, `"zero-tolerance"`). Name components and headings semantically so counts never break when items change.
   - Never leave stale history (`"Added in v2"`, `"Previously we used X"`) inside current-state documentation or specs. History belongs in `CHANGELOG.md` and `.agents/bundles/log.md`.
-- **Never leak internal workflow ceremony or private paths.** Keep PRs, commits, changelogs, tests, and docs free of finding counts, task IDs (`ORA-001`, `test_task_1_2_*`), workflow internals, `## Verification` command logs, `## Merge Danger` blocks, ASCII trees, or local paths.
+- **Never leak internal workflow ceremony or private paths.** Keep PRs, commits, changelogs, tests, and docs free of finding counts, task IDs (`PROJ-123`, `test_task_1_2_*`), workflow internals, `## Verification` command logs, `## Merge Danger` blocks, ASCII trees, or local paths.
+- **Keep reader-facing design docs prospective and concise.** Omit commit SHAs, UUIDs, hash codes, source line numbers, private helper names, and mechanical inventory counts from PRDs and design docs. Keep documentation tables at 5 columns or fewer, one value per cell, without horizontal rules (`---`) inside bundle bodies. Move traceability matrices into `.agents/bundles/knowledge/` or a companion index.
 
 ## Reference Guides
 
@@ -52,7 +55,7 @@ Write clear, accurate technical documentation, user guides, agent instruction fi
 
 ## Guardrails
 
-- **Conceptual Diagrams Only in `docs/`**: Keep Mermaid diagrams in user-facing `docs/` and `README.md` conceptual (`4–6` nodes focused on the user mental model). Place detailed module/implementation diagrams in `.agents/bundles/knowledge/architecture/`.
+- **Conceptual Diagrams Only in `docs/`**: Keep Mermaid diagrams in user-facing `docs/` and `README.md` conceptual (`4-6` nodes focused on the user mental model). Place detailed module/implementation diagrams in `.agents/bundles/knowledge/architecture/`.
 - **Single Source of Truth**: Link to canonical rules rather than duplicating them across files.
 - **Calm, Matter-of-Fact Tone**: Never use exclamation marks (`!`) or dismissive language in documentation, PR bodies, or code reviews.
 
@@ -65,3 +68,7 @@ Write clear, accurate technical documentation, user guides, agent instruction fi
 ## Example
 
 Invoke `/flow:docs write` to document a module with `[4/4 files documented]` coverage tracking, `/flow:docs validate` to audit `.agents/bundles/` and `docs/` for stale symbols or prose bloat, or `/flow:docs pr` when preparing a pull request in `/flow:finish`.
+
+```bash
+flow git validate-pr-body --title "feat(auth): add PKCE exchange" --from pr.md
+```

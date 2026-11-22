@@ -105,9 +105,24 @@ export class SpecCloseout {
     const logPath = path.join(this.engine.bundleDir, "log.md");
     const dateStr = new Date().toISOString().slice(0, 10);
     const entry = `- ${dateStr} **archive**: \`${flowId}\` — ${title} (verified at \`${headSha}\`)`;
-    const cur = readTextSafe(logPath) || "# Bundle Log\n";
-    if (cur.includes(entry)) return;
-    const next = cur.endsWith("\n") ? `${cur}${entry}\n` : `${cur}\n${entry}\n`;
+    const raw = readTextSafe(logPath);
+    if (raw && raw.includes(entry)) return;
+    if (!raw || !raw.trim()) {
+      writeTextAtomic(logPath, `# Bundle Log\n\n${entry}\n`);
+      return;
+    }
+    const lines = raw.replace(/\r\n/g, "\n").split("\n");
+    const headingIdx = lines.findIndex((line) => /^#\s+/.test(line.trim()));
+    if (headingIdx === -1) {
+      const rest = raw.trimEnd();
+      writeTextAtomic(logPath, `# Bundle Log\n\n${entry}\n${rest ? `${rest}\n` : ""}`);
+      return;
+    }
+    const before = lines.slice(0, headingIdx + 1).join("\n");
+    const afterLines = lines.slice(headingIdx + 1);
+    while (afterLines.length > 0 && afterLines[0].trim() === "") afterLines.shift();
+    const after = afterLines.join("\n").trimEnd();
+    const next = after ? `${before}\n\n${entry}\n${after}\n` : `${before}\n\n${entry}\n`;
     writeTextAtomic(logPath, next);
   }
 }

@@ -1447,10 +1447,35 @@ def test_multi_branch_spec_scanner_puller_orphan_and_index_free_writer(tmp_path:
     scan_out = json.loads(scan_proc.stdout.strip().splitlines()[-1])
     assert any(s["flow_id"] == "branch-feature" and s["on_current_branch"] is False for s in scan_out["list"])
     assert scan_out["doc"]["title"] == "Feature Side"
+    assert len(scan_out["doc"].get("siblings", [])) >= 1
     assert (ws / ".agents" / "bundles" / "specs" / "branch-feature" / "spec.md").is_file()
     assert len(scan_out["pulled"]["written_files"]) >= 2
     assert scan_out["shared"]["branch"] == "flow-specs"
     assert len(scan_out["shared"]["synced_specs"]) >= 1
+
+    router_uri = (REPO_ROOT / "sidecars" / "studio" / "router.mjs").as_uri()
+    js_dag = (
+        f"import {{ StudioApiService }} from {json.dumps(router_uri)};"
+        f"const ws = {json.dumps(str(ws))};"
+        "const svc = new StudioApiService({ env: { ...process.env, ANTIGRAVITY_LS_ADDRESS: '' } });"
+        "const dag = await svc.handleApi('/api/spec-dag', {"
+        " workspacePath: ws, flowId: 'branch-feature', gitRef: 'feat/side-spec' });"
+        "svc.close();"
+        "process.stdout.write(JSON.stringify(dag) + '\\n');"
+    )
+    dag_proc = subprocess.run(
+        [NODE_BIN, "--input-type=module", "-e", js_dag],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    )
+    dag_out = json.loads(dag_proc.stdout.strip().splitlines()[-1])
+    assert dag_out["ok"] is True
+    assert dag_out["flow_id"] == "branch-feature"
+    assert "dag" not in dag_out
+    assert isinstance(dag_out.get("tasks"), list) and len(dag_out["tasks"]) == 1
+    assert dag_out["steps"] == []
 
 
 @pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
@@ -1498,3 +1523,306 @@ def test_studio_cache_store_sqlite_and_json_fallback(tmp_path: Path, case_id: st
     assert out["computeCount"] == 1
     if force_json == "1":
         assert out["diag"]["backend"] == "json"
+
+
+@pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
+@pytest.mark.parametrize(
+    ("base_url", "web_port", "expected"),
+    (
+        ("http://127.0.0.1:8888", 8888, False),
+        ("http://localhost:8888", 8888, False),
+        ("http://[::1]:8888", 8888, False),
+        ("https://studio.example.com:8888", 8888, True),
+        ("https://studio.example.com:443/sidecar", 8888, False),
+        ("https://b0123456722b80123456789abcdef01.proxy.example.com", 8888, True),
+        ("https://b0123456700500123456789abcdef01.proxy.example.com", 8888, False),
+        ("not-a-url", 8888, False),
+    ),
+)
+def test_antigravity_bridge_unproxied_remote_url_detection(
+    base_url: str,
+    web_port: int,
+    expected: bool,
+) -> None:
+    """Verify AntigravityBridge.isUnproxiedRemoteSidecarUrl distinguishes loopback, bare-port, and proxied URLs."""
+    assert NODE_BIN is not None
+    bridge_uri = (REPO_ROOT / "sidecars" / "studio" / "bridges" / "antigravity.mjs").as_uri()
+    js = (
+        f"import {{ AntigravityBridge }} from {json.dumps(bridge_uri)};"
+        f"const res = AntigravityBridge.isUnproxiedRemoteSidecarUrl({json.dumps(base_url)}, {web_port});"
+        "process.stdout.write(JSON.stringify({ res }) + '\\n');"
+    )
+    proc = subprocess.run(
+        [NODE_BIN, "--input-type=module", "-e", js],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    )
+    assert json.loads(proc.stdout.strip().splitlines()[-1])["res"] is expected
+
+
+@pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
+def test_antigravity_bridge_verify_gateway_binding_and_model_filtering(tmp_path: Path) -> None:
+    """Verify bounded gateway restart persistence and model picker filtering on AntigravityBridge."""
+    assert NODE_BIN is not None
+    state_dir = tmp_path / "state"
+    bridge_uri = (REPO_ROOT / "sidecars" / "studio" / "bridges" / "antigravity.mjs").as_uri()
+    js = (
+        f"import {{ AntigravityBridge }} from {json.dumps(bridge_uri)};"
+        "const b = new AntigravityBridge({"
+        "  ANTIGRAVITY_LS_ADDRESS: 'http://127.0.0.1:49999',"
+        "  ANTIGRAVITY_SIDECAR_WEB_PORT: '8888',"
+        "});"
+        "let currentBaseUrl = 'https://remote.example.com:8888';"
+        "b.call = async (method) => {"
+        "  if (method === 'GetSidecars') {"
+        "    return { ok: true, value: { sidecars: [{ webPort: 8888, baseUrl: currentBaseUrl }] } };"
+        "  }"
+        "  if (method === 'GetCascadeModelConfigData') return {"
+        "    ok: true, value: { clientModelConfigs: [{ modelId: 'm-pro', label: 'Pro Model',"
+        "      modelOrAlias: { alias: 'pro-alias' }, quotaInfo: { remainingFraction: 0.75 } }] }"
+        "  };"
+        "  if (method === 'GetAvailableModels') return {"
+        "    ok: true, value: { models: {"
+        "      'tab_complete': { model: 'tab_complete', displayName: 'Tab Complete' },"
+        "      'extra-hidden': { model: 'extra-hidden', displayName: 'Hidden Non-Picker' },"
+        "      'custom-local': { model: 'custom-local', displayName: 'Custom Model', isCustom: true }"
+        "    } }"
+        "  };"
+        "  return { ok: true, value: {} };"
+        "};"
+        f"const opts = {{ stateDir: {json.dumps(str(state_dir))}, maxAttempts: 2, nowMs: 1000 }};"
+        "const r1 = await b.verifyGatewayBinding(opts);"
+        "const r2 = await b.verifyGatewayBinding({ ...opts, nowMs: 2000 });"
+        "const r3 = await b.verifyGatewayBinding({ ...opts, nowMs: 3000 });"
+        "currentBaseUrl = 'https://proxy.example.com/sidecar/flow';"
+        "const r4 = await b.verifyGatewayBinding({ ...opts, nowMs: 4000 });"
+        "const mq = await b.getModelsAndQuota();"
+        "b.call = async (method) => {"
+        "  if (method === 'GetAvailableModels') return {"
+        "    ok: true, value: { deprecatedModelIds: ['old-model'], models: {"
+        "      'old-model': { model: 'old-model', displayName: 'Old' },"
+        "      'off-model': { model: 'off-model', disabled: true },"
+        "      'tab_inline': { model: 'tab_inline', displayName: 'Tab Inline' },"
+        "      'main-image': { model: 'main-image', displayName: 'Image Gen' },"
+        "      'model-chat': { model: 'model-chat', displayName: 'Chat Model' }"
+        "    } }"
+        "  };"
+        "  return { ok: true, value: {} };"
+        "};"
+        "const mqRaw = await b.getModelsAndQuota();"
+        "process.stdout.write(JSON.stringify({ r1, r2, r3, r4, mq, mqRaw }) + '\\n');"
+    )
+    proc = subprocess.run(
+        [NODE_BIN, "--input-type=module", "-e", js],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    )
+    out = json.loads(proc.stdout.strip().splitlines()[-1])
+    assert out["r1"] == {"ok": False, "unproxied": True, "shouldRestart": True, "attempts": 1}
+    assert out["r2"] == {"ok": False, "unproxied": True, "shouldRestart": True, "attempts": 2}
+    assert out["r3"] == {"ok": False, "unproxied": True, "shouldRestart": False, "attempts": 2}
+    assert out["r4"] == {"ok": True, "unproxied": False, "shouldRestart": False, "attempts": 0}
+    recheck_data = json.loads((state_dir / "gateway-recheck.json").read_text(encoding="utf-8"))
+    assert recheck_data["attempts"] == 0
+    picker_ids = sorted(m["model"] for m in out["mq"]["models"])
+    assert picker_ids == ["custom-local", "pro-alias"]
+    assert [m["model"] for m in out["mqRaw"]["models"]] == ["model-chat"]
+
+
+@pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
+def test_spec_engine_working_tree_ref_read_document_and_router_fallbacks(tmp_path: Path) -> None:
+    """Verify SpecEngine.isWorkingTreeRef, readDocument normalization/siblings, and router fallbacks."""
+    assert NODE_BIN is not None
+    ws = _seed_studio_workspace(tmp_path)
+    _init_git_repo(ws)
+    subprocess.run(["git", "add", "-A"], cwd=ws, check=True, capture_output=True)
+    subprocess.run(["git", "commit", "-m", "initial"], cwd=ws, check=True, capture_output=True)
+
+    uncommitted_dir = ws / ".agents" / "bundles" / "specs" / "local-draft"
+    uncommitted_dir.mkdir(parents=True)
+    (uncommitted_dir / "spec.md").write_text(
+        "---\ntype: Spec\nflow_id: local-draft\ntitle: Local Draft\nstate: draft\n---\n\n# Local Draft\n\nLive edit.\n",
+        encoding="utf-8",
+    )
+
+    branch_name = subprocess.run(
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+        cwd=ws,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    ).stdout.strip()
+
+    engine_uri = (REPO_ROOT / "sidecars" / "studio" / "spec" / "spec-engine.mjs").as_uri()
+    router_uri = (REPO_ROOT / "sidecars" / "studio" / "router.mjs").as_uri()
+    js = (
+        f"import {{ SpecEngine }} from {json.dumps(engine_uri)};"
+        f"import {{ StudioApiService }} from {json.dumps(router_uri)};"
+        f"const ws = {json.dumps(str(ws))};"
+        "const eng = new SpecEngine({ workspacePath: ws });"
+        f"const refs = {{"
+        "  nil: eng.isWorkingTreeRef(null),"
+        "  head: eng.isWorkingTreeRef('HEAD'),"
+        f"  cur: eng.isWorkingTreeRef({json.dumps(branch_name)}),"
+        f"  full: eng.isWorkingTreeRef({json.dumps(f'refs/heads/{branch_name}')}),"
+        "  other: eng.isWorkingTreeRef('feat/missing-branch')"
+        "};"
+        "const dirDoc = eng.readDocument('.agents/bundles/specs/idempotent-webhooks');"
+        "const movedDoc = eng.readDocument('specs/idempotent-webhooks/spec.md');"
+        "const svc = new StudioApiService({ env: { ...process.env, ANTIGRAVITY_LS_ADDRESS: '' } });"
+        "const draftViaHead = await svc.handleApi('/api/spec-document', {"
+        "  workspacePath: ws, relPath: '.agents/bundles/specs/local-draft/spec.md', gitRef: 'HEAD'"
+        "});"
+        "const fallbackReview = await svc.handleApi('/api/spec-review', {"
+        "  workspacePath: ws, flowId: 'idempotent-webhooks', gitRef: 'refs/heads/nonexistent-branch'"
+        "});"
+        "svc.close();"
+        "process.stdout.write(JSON.stringify({ refs, dirDoc, movedDoc, draftViaHead, fallbackReview }) + '\\n');"
+    )
+    proc = subprocess.run(
+        [NODE_BIN, "--input-type=module", "-e", js],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    )
+    out = json.loads(proc.stdout.strip().splitlines()[-1])
+    assert out["refs"] == {"nil": True, "head": True, "cur": True, "full": True, "other": False}
+    assert out["dirDoc"]["relPath"] == ".agents/bundles/specs/idempotent-webhooks/spec.md"
+    assert len(out["dirDoc"]["siblings"]) >= 2
+    assert out["movedDoc"]["relPath"] == ".agents/bundles/specs/idempotent-webhooks/spec.md"
+    assert out["draftViaHead"]["title"] == "Local Draft"
+    assert out["fallbackReview"]["ok"] is True
+    assert out["fallbackReview"]["source"] == "local"
+    assert out["fallbackReview"]["syncWarning"]
+
+
+@pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
+def test_bundle_graph_no_export_marker_and_ambiguous_links(tmp_path: Path) -> None:
+    """Verify BundleGraph ignores .kc-no-export subtrees and reports ambiguous bare-stem wikilinks."""
+    assert NODE_BIN is not None
+    bundle = tmp_path / ".agents" / "bundles"
+    (bundle / "knowledge" / "a").mkdir(parents=True)
+    (bundle / "knowledge" / "b").mkdir(parents=True)
+    (bundle / "knowledge" / "private").mkdir(parents=True)
+    (bundle / "knowledge" / "private" / ".kc-no-export").write_text("", encoding="utf-8")
+    (bundle / "knowledge" / "private" / "secret.md").write_text("# Private\n", encoding="utf-8")
+    (bundle / "knowledge" / "a" / "shared.md").write_text("---\ntitle: Shared A\n---\n# Shared A\n", encoding="utf-8")
+    (bundle / "knowledge" / "b" / "shared.md").write_text("---\ntitle: Shared B\n---\n# Shared B\n", encoding="utf-8")
+    (bundle / "index.md").write_text("Link to [[shared]] and [[knowledge/a/shared]].\n", encoding="utf-8")
+
+    graph_uri = (REPO_ROOT / "sidecars" / "studio" / "knowledge" / "bundle-graph.mjs").as_uri()
+    js = (
+        f"import {{ BundleGraph, BundleGraphLinter }} from {json.dumps(graph_uri)};"
+        f"const g = BundleGraph.load({json.dumps(str(bundle))}, {{ workspaceRoot: {json.dumps(str(tmp_path))} }});"
+        "const lint = BundleGraphLinter.lint(g);"
+        "process.stdout.write(JSON.stringify({ paths: g.notes.map((n) => n.path).sort(), lint }) + '\\n');"
+    )
+    proc = subprocess.run(
+        [NODE_BIN, "--input-type=module", "-e", js],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    )
+    out = json.loads(proc.stdout.strip().splitlines()[-1])
+    assert "knowledge/private/secret.md" not in out["paths"]
+    assert len(out["lint"]["ambiguous_links"]) == 1
+    assert out["lint"]["ambiguous_links"][0]["target"] == "shared"
+    assert len(out["lint"]["ambiguous_links"][0]["candidates"]) == 2
+
+    (bundle / ".kc-no-export").write_text("", encoding="utf-8")
+    proc_root = subprocess.run(
+        [NODE_BIN, "--input-type=module", "-e", js],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    )
+    assert json.loads(proc_root.stdout.strip().splitlines()[-1])["paths"] == []
+
+
+@pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
+def test_rebuild_specs_index_preserves_curated_links_and_feedback_prompt_links(tmp_path: Path) -> None:
+    """Verify fence-aware specs/index.md preservation and externalSource Markdown links in buildRevisePrompt."""
+    assert NODE_BIN is not None
+    specs_dir = tmp_path / ".agents" / "bundles" / "specs"
+    (specs_dir / "alpha").mkdir(parents=True)
+    (specs_dir / "alpha" / "spec.md").write_text(
+        "---\ntype: Spec\nflow_id: alpha\ntitle: Alpha Spec\nstate: active\n---\n\n# Alpha\n",
+        encoding="utf-8",
+    )
+    curated = (
+        "# Team Specs\n\nCustom curated intro.\n\n"
+        "- [Alpha](alpha/spec.md)\n\n"
+        "```markdown\n- [Example Stale](fake-ignored/spec.md)\n```\n"
+    )
+    index_path = specs_dir / "index.md"
+    index_path.write_text(curated, encoding="utf-8")
+
+    branch_uri = (REPO_ROOT / "sidecars" / "studio" / "spec" / "git-spec-branch.mjs").as_uri()
+    fb_uri = (REPO_ROOT / "sidecars" / "studio" / "spec" / "feedback.mjs").as_uri()
+    js = (
+        f"import {{ AgentsBranchSync }} from {json.dumps(branch_uri)};"
+        f"import {{ SpecFeedbackStore }} from {json.dumps(fb_uri)};"
+        f"const dir = {json.dumps(str(specs_dir))};"
+        "const changedCurated = AgentsBranchSync.rebuildSpecsIndex(dir, { dryRun: false });"
+        f"const store = new SpecFeedbackStore({json.dumps(str(tmp_path))});"
+        "const prompt = store.buildRevisePrompt('alpha', 'alpha', [{"
+        "  id: 'c1', flowId: 'alpha', relPath: '.agents/bundles/specs/alpha/spec.md',"
+        "  startLine: 3, endLine: 3, commentKind: 'feedback', state: 'open',"
+        "  authorName: 'Reviewer', body: 'Check architecture slide.',"
+        "  externalSource: { label: 'Doc', title: 'RFC 42', url: 'https://example.com/rfc-42' }"
+        "}]);"
+        "process.stdout.write(JSON.stringify({ changedCurated, prompt }) + '\\n');"
+    )
+    proc = subprocess.run(
+        [NODE_BIN, "--input-type=module", "-e", js],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    )
+    out = json.loads(proc.stdout.strip().splitlines()[-1])
+    assert out["changedCurated"] is False
+    assert index_path.read_text(encoding="utf-8") == curated
+    assert "[Doc: RFC 42](https://example.com/rfc-42)" in out["prompt"]
+
+    (specs_dir / "beta").mkdir(parents=True)
+    (specs_dir / "beta" / "spec.md").write_text(
+        "---\ntype: Spec\nflow_id: beta\ntitle: Beta Spec\nstate: planned\n---\n\n# Beta\n",
+        encoding="utf-8",
+    )
+    js_rebuild = (
+        f"import {{ AgentsBranchSync }} from {json.dumps(branch_uri)};"
+        f"const changed = AgentsBranchSync.rebuildSpecsIndex({json.dumps(str(specs_dir))}, {{ dryRun: false }});"
+        "process.stdout.write(JSON.stringify({ changed }) + '\\n');"
+    )
+    proc_rebuild = subprocess.run(
+        [NODE_BIN, "--input-type=module", "-e", js_rebuild],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    )
+    assert json.loads(proc_rebuild.stdout.strip().splitlines()[-1])["changed"] is True
+    rebuilt_text = index_path.read_text(encoding="utf-8")
+    assert "alpha/spec.md" in rebuilt_text
+    assert "beta/spec.md" in rebuilt_text
+
+
+def test_studio_web_app_renders_external_source_pills_and_compact_reader_chrome() -> None:
+    """Verify Flow Studio web app safely renders externalSource pill links and reader toolbar controls."""
+    app_src = (REPO_ROOT / "sidecars" / "studio" / "web" / "app.js").read_text(encoding="utf-8")
+    assert "function renderExternalSourcePill(src)" in app_src
+    assert app_src.count("renderExternalSourcePill(c.externalSource)") == 2
+    assert "doc-topbar" in app_src
+    assert "doc-siblings-strip" in app_src
+    assert "md-outline-bar" in app_src
+    assert "dag-view-header-compact" in app_src
+    assert 'c.externalSource ? el("span"' not in app_src

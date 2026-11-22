@@ -1,6 +1,6 @@
-# Flow Learn (`/flow:learn`, `refresh`, `sync`, `docs`)
+# Flow Learn (`/flow:learn`, `refresh`, `sync`)
 
-`/flow:learn [scope]` aligns the codebase, Git history, `.agents/bundles/knowledge/**`, `.agents/bundles/product/**`, active or completed `.agents/bundles/specs/**`, user docs (`docs/`), and `.agents/skills/` plus `.agents/agents/`.
+`/flow:learn [scope]` aligns the codebase, Git history, `.agents/bundles/knowledge/**`, `.agents/bundles/product/**`, active or completed `.agents/bundles/specs/**`, and `.agents/skills/` plus `.agents/agents/`. (For user-facing docs, READMEs, or PR bodies, route to [`flow-docs`](../../flow-docs/SKILL.md).)
 
 It combines four operations into one workflow that can run **at any point**:
 
@@ -14,7 +14,7 @@ It combines four operations into one workflow that can run **at any point**:
 1. **Worktree Resolution & Spec/Task Sync (`refresh` + `sync`)**:
    - Inspect `<hook_context>`, `git status --short -b`, and `git log --oneline -n 20`.
    - In linked `git worktree` checkouts, verify `.venv` and `node_modules` symlinks (`uv run --no-sync`) and confirm `shared` (worktree `.agents/`) vs. `local-only` (`$MAIN_WORKTREE/.agents/`) routing.
-   - When sandbox isolation blocks writes to `$MAIN_WORKTREE/.agents/`, use `/flow:learn sync --from-main` (seed `.agents/` from primary) or `/flow:learn sync --to-main` (merge new `specs/<flow_id>/` and index/log entries back without overwriting).
+   - When sandbox isolation blocks writes to `$MAIN_WORKTREE/.agents/`, run `flow worktree sync-from-main` (seed `.agents/` from primary) or `flow worktree sync-to-main` (merge new `specs/<flow_id>/` and index/log entries back without overwriting).
    - Compare every `.agents/bundles/specs/<flow_id>/spec.md`, `chapters/index.md`, `chapters/<ch_id>/spec.md`, and `tasks/*.md` against Git history and the working tree:
      - **Committed elsewhere, task still open**: If a commit in `HEAD` history implements the task or cites its ID while `state` is `pending`/`open`/`in_progress`, set `state: completed` and `commit: <sha>`.
      - **Task closed, commit missing**: If a `completed`/`closed` task points to a SHA absent from `HEAD` history, flag the conflict in the status summary instead of guessing.
@@ -37,7 +37,7 @@ It combines four operations into one workflow that can run **at any point**:
 1. **Fan Out Updates Across Domain Subagents**:
    - When updating `>= 2` knowledge domains, dispatch **1 isolated synthesis subagent per domain** (`type_name="self"` on Antigravity) so each chapter gets thorough present-tense updates:
      - **Domain Model & Invariants (`knowledge/domains/<domain>.md`)**: Sharpen fuzzy or overloaded nouns so code, tests, and specs share one clear term per concept, and document entity lifecycles and invariants.
-     - **Architecture & Deep Modules (`knowledge/architecture/<area>.md`)**: Document deep modules, public interfaces, ports/adapters, dependency categories, and `5–12` node architecture diagrams.
+     - **Architecture & Deep Modules (`knowledge/architecture/<area>.md`)**: Document deep modules, public interfaces, ports/adapters, dependency categories, and `5-12` node architecture diagrams.
      - **Idiomatic Patterns & Anti-Patterns (`knowledge/patterns/<topic>.md`)**: Document reusable patterns anchored to `path/to/file::Symbol`, paired with anti-patterns and `Reason:` notes.
      - **Verification & Testing (`knowledge/testing/<topic>.md` & `knowledge/workflow.md`)**: Document canonical test file mappings, local test doubles vs. external boundary mocks, real-code test rules, and fast inner-loop commands.
      - **Operational Gotchas & ADRs (`knowledge/gotchas/<area>.md` & `knowledge/decisions/adr-NNN-<slug>.md`)**: Document non-obvious footguns and apply the **ADR Filter** (*hard to reverse + surprising without context + genuine trade-off*).

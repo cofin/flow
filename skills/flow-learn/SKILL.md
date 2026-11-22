@@ -1,21 +1,21 @@
 ---
 name: flow-learn
-description: "Use when catching up across machines or harnesses (/flow:refresh), syncing spec checklists (/flow:sync), auditing codebase or spec drift, sharpening domain glossaries and ADRs, or updating OKF v0.2 knowledge and .agents/skills/ (/flow:learn)."
+description: "Use when catching up across machines or harnesses, syncing spec checklists against Git, auditing drift, sharpening domain glossaries and ADRs, or updating OKF v0.2 knowledge and .agents/skills/. Don't use for planning new specs (use flow-planning) or public README/PR drafting (use flow-docs)."
 disable-model-invocation: true
 ---
 
 # Flow Learn
 
-<!-- lifecycle-ownership: owner=flow-learn; operations=learn,refresh,sync,docs -->
+<!-- lifecycle-ownership: owner=flow-learn; operations=learn,refresh,sync -->
 
 ## Trigger
 
-Use for `/flow:learn [scope]` (and aliases `refresh`, `sync`, `docs`). Can run at any point in a project's lifecycle—when switching machines or harnesses, mid-flow, post-flow, or standalone. Follow [`../flow/references/learn.md`](../flow/references/learn.md).
+Use for `/flow:learn [scope]` (and aliases `refresh`, `sync`). Can run at any point in a project's lifecycle—when switching machines or harnesses, mid-flow, post-flow, or standalone. Follow [`../flow/references/learn.md`](../flow/references/learn.md). When asked to **"finish and sync"** a reviewed flow, run the full closeout and archive pass via [`../flow-completion/SKILL.md`](../flow-completion/SKILL.md). For user-facing guides, READMEs, or PR bodies, route to [`../flow-docs/SKILL.md`](../flow-docs/SKILL.md).
 
 ## Workflow
 
 1. **Cross-Machine Catch-Up & Drift Audit (`refresh` + `sync`)**:
-   - **Linked Git Worktree & Environment Check (`sync --from-main` / `sync --to-main`)**: Inside a linked `git worktree`, verify `.venv` / `node_modules` symlinks (`uv run --no-sync`). Confirm `shared` (worktree `.agents/`) vs. `local-only` (primary checkout `.agents/`, or `--from-main` / `--to-main`) routing, and flag untracked worktree `.agents/` files.
+   - **Linked Git Worktree & Environment Check**: Inside a linked `git worktree`, verify `.venv` / `node_modules` symlinks (`uv run --no-sync`). Confirm `shared` (worktree `.agents/`) vs. `local-only` (primary checkout `.agents/`, using `flow worktree sync-from-main` / `flow worktree sync-to-main`) routing, and flag untracked worktree `.agents/` files.
    - **Spec, Chapter, & Task Sync (`sync` / `refresh`)**:
      - Compare `tasks/*.md` frontmatter (`state`, `commit`, `claimed_by`), `chapters/<ch_id>/spec.md`, `chapters/index.md`, and root `specs/<flow_id>/spec.md` (`chapters:`, `current_chapter`, checklists, `## 6. Current State & Remaining Plan Snapshot`) against live `git log` and working-tree state.
      - Mark tasks whose commits landed on another machine `state: completed` with their verified Git `commit` SHA. Release stale `in_progress` claims and rewrite `chapters/index.md`, chapter `spec.md`, and root `spec.md` in place in present tense.
@@ -37,9 +37,16 @@ Use for `/flow:learn [scope]` (and aliases `refresh`, `sync`, `docs`). Can run a
 
 ## Guardrails
 
-- Never overwrite uncommitted user code changes or developer-owned content inside `<!-- project-customization: start -->` blocks.
-- Rewrite updated knowledge chapters in place in present tense; never append chronological revision logs inside concept documents.
-- Every knowledge claim must cite a verified repository path (`path/to/file::Symbol`) or primary source in `sources:`.
+- Preserve uncommitted user edits and content inside `<!-- project-customization: start -->` blocks so automated sync never drops local work.
+- Rewrite updated knowledge chapters in place in present tense because chronological logs inside concept docs confuse isolated readers.
+- Anchor every knowledge claim to a verified repository path (`path/to/file::Symbol`) or primary source in `sources:` so readers can audit freshness directly.
+
+## Example
+
+```bash
+flow sync --dry-run --json
+flow status --branches
+```
 
 ## Output
 

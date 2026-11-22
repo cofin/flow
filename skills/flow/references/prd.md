@@ -17,7 +17,7 @@ Use [`interaction.md`](interaction.md), [`state.md`](state.md), and [`../../../t
 ### Phase 2: Open Decisions & Pre-Draft Check
 
 1. Skip questioning for already-clear areas.
-2. Ask `1` question at unresolved dependent architectural forks, and batch `2–3` independent leaf questions once on settled choices ([`interaction.md`](interaction.md)), putting `<Label> (Recommended)` first.
+2. Ask `1` question at unresolved dependent architectural forks, and batch `2-3` independent leaf questions once on settled choices ([`interaction.md`](interaction.md)), putting `<Label> (Recommended)` first.
 3. Settle interface selection and alternatives, shared types and edge cases, public interface tests, fast (`< 60s`) lint/test checkpoints, `docs/**` and OKF targets, and `ch01..chNN` chapters (including any `empirical_dependent` triggers) before drafting.
 4. Keep no artificial caps on task count, `read_set`, or `estimated_loc`, and allow `compact` worksheets for straightforward tasks.
 

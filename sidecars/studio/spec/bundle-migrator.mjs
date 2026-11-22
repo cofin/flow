@@ -21,6 +21,7 @@ import {
   FRONTMATTER_FREE_NAMES,
   readSetupConfig,
 } from "../core/worktree.mjs";
+import { AgentsBranchSync } from "./git-spec-branch.mjs";
 import { SpecEngine } from "./spec-engine.mjs";
 
 /**
@@ -347,6 +348,13 @@ export class WorkspaceBundleMigrator {
           actions.push(`compacted_spec:${frag.flow_id}`);
         }
       }
+    }
+
+    if (fs.existsSync(canonicalSpecsDir) && AgentsBranchSync.rebuildSpecsIndex(canonicalSpecsDir, { dryRun })) {
+      if (!updatedFiles.includes(".agents/bundles/specs/index.md")) {
+        updatedFiles.push(".agents/bundles/specs/index.md");
+      }
+      actions.push("synced_specs_index");
     }
 
     return {

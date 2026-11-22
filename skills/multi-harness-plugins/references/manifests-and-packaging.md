@@ -39,7 +39,7 @@ Package multi-harness agent plugins from a single repository root without duplic
 
 ### 1. Google Antigravity (`plugin.json` at Root)
 
-Antigravity's plugin validator checks `plugin.json` against a strict key allowlist (`$schema`, `name`, `displayName`, `version`, `description`, `contextFileName`, `excludeTools`, `skills`, `agents`, `rules`, `mcpServers`, `apps`). Do not add non-standard keys (`author`, `license`, `hooks`, `commands`) to root `plugin.json`.
+Antigravity's plugin validator checks `plugin.json` against a strict key allowlist (`$schema`, `name`, `displayName`, `version`, `description`, `contextFileName`, `excludeTools`, `keywords`, `license`, `logo`, `skills`, `agents`, `rules`, `mcpServers`, `apps`, `suggestedPrompts`). Do not add non-standard keys (`author`, `hooks`, `commands`) to root `plugin.json`.
 
 ```json
 {

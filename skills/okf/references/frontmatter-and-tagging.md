@@ -130,7 +130,7 @@ last_reviewed_chapter: ch01-token-signer
 last_reviewed_commit: 4f91c2a
 created_at: 2026-11-06T00:00:00Z
 updated_at: 2026-11-06T01:00:00Z
-generated: { by: flow/0.26.0, at: 2026-11-06T00:00:00Z }
+generated: { by: flow/<version>, at: 2026-11-06T00:00:00Z }
 verified:
   - by: agent:code-reviewer
     at: 2026-11-06T01:00:00Z
@@ -222,7 +222,7 @@ so `state:` answers "what is current" and tags answer "what kind of work".
 
 | Field | Purpose | Permitted Values |
 | --- | --- | --- |
-| **`state`** | Flow task or plan workflow state | Spec: `planned`, `active`, `completed`<br>Task: `open`, `in_progress`, `closed`, `blocked`, `skipped` |
+| **`state`** | Flow task or plan workflow state | Spec: `draft`, `planned`, `active`, `paused`, `completed`<br>Task: `pending`, `open`, `in_progress`, `completed`, `closed`, `blocked`, `deferred`, `skipped` |
 | **`status`** | OKF document lifecycle only | `draft`, `stable`, `deprecated` |
 
-**NEVER** put workflow state values in `status:`.
+Never put workflow state values in `status:`.

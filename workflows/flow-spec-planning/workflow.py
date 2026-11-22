@@ -87,6 +87,7 @@ workers = max(1, min(12, int(args.get("workers") or 4)))
 
 schema_card_path = plugin_root / "templates" / "agent" / "plan-schema-card.md"
 reviewer_card_path = plugin_root / "templates" / "agent" / "spec-reviewer-prompt.md"
+simplify_card_path = plugin_root / "templates" / "agent" / "simplify-card.md"
 validator_script = plugin_root / "tools" / "validate.py"
 flow_dir = bundle_root / "specs" / flow_id
 chapters_dir = flow_dir / "chapters"
@@ -518,9 +519,10 @@ try:
 
         if review_mode == "single":
             rev_prompt = (
-                f"Follow `{reviewer_card_path}` and `{schema_card_path}` in strictly read-only mode (never pass "
-                f"BypassSandbox=true). Audit root `{flow_dir / 'spec.md'}`, `{chapters_dir / 'index.md'}`, and all "
-                f"chapters {[c['id'] for c in chapters]} under `{chapters_dir}` in a single combined pass."
+                f"Follow `{reviewer_card_path}` and `{schema_card_path}` (plus the subtraction lens in `{simplify_card_path}`) "
+                f"in strictly read-only mode (never pass BypassSandbox=true). Audit root `{flow_dir / 'spec.md'}`, "
+                f"`{chapters_dir / 'index.md'}`, and all chapters {[c['id'] for c in chapters]} under `{chapters_dir}` "
+                "in a single combined pass, flagging unearned chapters, wrappers, or speculative flags that can be cut or merged."
             )
             review_reports.append(await _run_spec_reviewer("combined", rev_prompt))
         else:
@@ -530,8 +532,9 @@ try:
                 lambda target: _run_spec_reviewer(
                     target,
                     (
-                        f"Follow `{reviewer_card_path}` and `{schema_card_path}` in strictly read-only mode. "
-                        f"Review `{flow_dir / 'spec.md'}` and scope `{target}` under `{chapters_dir}`."
+                        f"Follow `{reviewer_card_path}` and `{schema_card_path}` (plus `{simplify_card_path}`) "
+                        f"in strictly read-only mode. Review `{flow_dir / 'spec.md'}` and scope `{target}` under "
+                        f"`{chapters_dir}`, flagging unearned chapters, wrappers, or speculative flags that can be cut or merged."
                     ),
                 ),
                 parallel_fn=parallel,

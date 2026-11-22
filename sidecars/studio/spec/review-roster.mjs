@@ -28,7 +28,7 @@ export class ReviewRoster {
    * @param {{
    *   range?: string,
    *   specPath?: string | null,
-   *   mode?: "auto" | "single" | "dual" | "committee",
+   *   mode?: "auto" | "single" | "dual" | "committee" | "simplify",
    *   harness?: string,
    *   authorVendor?: string | null,
    *   router?: any,
@@ -97,15 +97,21 @@ export class ReviewRoster {
 
     const reviewers = [];
     if (mode === "committee") {
-      for (const [seat, agentName, desc] of [
-        ["architecture", "code-reviewer", "Long-term architectural boundaries and public interfaces"],
-        ["correctness", "quality-reviewer", "Failure modes, test strength, and edge cases"],
-        ["operations", "quality-reviewer", "Simplicity, runtime ergonomics, and reversible maintenance"],
+      for (const [seat, agentName, cardPath, desc] of [
+        ["architecture", "code-reviewer", "agents/code-reviewer.md", "Long-term architectural boundaries and public interfaces"],
+        ["correctness", "quality-reviewer", "agents/quality-reviewer.md", "Failure modes, test strength, and edge cases"],
+        [
+          "operations",
+          "quality-reviewer",
+          "agents/quality-reviewer.md",
+          "Simplicity, runtime ergonomics, and whether any layer, flag, or abstraction can be deleted or deferred while meeting the goal",
+        ],
       ]) {
         const r = routeFor("committee", "high");
         reviewers.push({
           id: `committee-${seat}`,
           agent: agentName,
+          card: cardPath,
           role: r.role,
           model: r.model,
           effort: r.effort,
@@ -115,12 +121,28 @@ export class ReviewRoster {
           reason: desc,
         });
       }
+    } else if (mode === "simplify") {
+      const simpRoute = routeFor("code_review");
+      reviewers.push({
+        id: "simplify",
+        agent: "quality-reviewer",
+        card: "templates/agent/simplify-card.md",
+        title: "Subtraction-Only Simplify Review",
+        role: simpRoute.role,
+        model: simpRoute.model,
+        effort: simpRoute.effort,
+        paths: diffInfo.files,
+        ...(resolvedSpecRel ? { spec_path: resolvedSpecRel } : {}),
+        suppressions,
+        reason: "Subtraction-only pass checking unearned layers, pass-through wrappers, and safe cuts",
+      });
     } else if (isSmallSingleSurface) {
       const combinedAgent = resolvedSpecRel || isHighRisk ? "code-reviewer" : "quality-reviewer";
       const r = routeFor("code_review");
       reviewers.push({
         id: "combined",
         agent: combinedAgent,
+        card: combinedAgent === "code-reviewer" ? "agents/code-reviewer.md" : "agents/quality-reviewer.md",
         role: r.role,
         model: r.model,
         effort: r.effort,
@@ -136,6 +158,8 @@ export class ReviewRoster {
       reviewers.push({
         id: "conformance",
         agent: "code-reviewer",
+        card: "agents/code-reviewer.md",
+        title: "Correctness & Spec-Sync Review",
         role: confRoute.role,
         model: confRoute.model,
         effort: confRoute.effort,
@@ -147,12 +171,27 @@ export class ReviewRoster {
       reviewers.push({
         id: "quality",
         agent: "quality-reviewer",
+        card: "agents/quality-reviewer.md",
+        title: "Quality & Debloat Review",
         role: qualRoute.role,
         model: qualRoute.model,
         effort: qualRoute.effort,
         paths: diffInfo.files,
         suppressions,
         reason: "Dead code, prose hygiene, and public-interface test strength",
+      });
+      reviewers.push({
+        id: "simplify",
+        agent: "quality-reviewer",
+        card: "templates/agent/simplify-card.md",
+        title: "Subtraction-Only Simplify Review",
+        role: qualRoute.role,
+        model: qualRoute.model,
+        effort: qualRoute.effort,
+        paths: diffInfo.files,
+        ...(resolvedSpecRel ? { spec_path: resolvedSpecRel } : {}),
+        suppressions,
+        reason: "Subtraction-only pass checking unearned layers, pass-through wrappers, and safe cuts",
       });
       for (const lens of repoLenses) {
         const lr = routeFor("code_review", lens.matched_high_risk || specDegraded ? "high" : "normal");
@@ -179,7 +218,7 @@ export class ReviewRoster {
     return {
       range,
       workspace: root,
-      mode: isSmallSingleSurface ? "single" : mode === "committee" ? "committee" : "dual",
+      mode: isSmallSingleSurface ? "single" : mode === "committee" ? "committee" : mode === "simplify" ? "simplify" : "dual",
       spec_path: resolvedSpecRel,
       escalation_reasons: escalationReasons,
       suppressions,

@@ -1,6 +1,6 @@
 ---
 name: flow-setup
-description: "Use when initializing or aligning Flow in a repository, migrating legacy .agents/ layouts, scaffolding OKF v0.2 knowledge bundles, or generating baseline and domain .agents/skills/ and .agents/agents/."
+description: "Use when initializing or aligning Flow in a repository, migrating legacy .agents/ layouts, or scaffolding OKF v0.2 bundles and project skills. Don't use for feature planning (use flow-planning), task execution, or routine knowledge refreshes (use flow-learn)."
 disable-model-invocation: true
 ---
 
@@ -32,9 +32,16 @@ Use for `/flow:setup`. Follow [`../flow/references/setup.md`](../flow/references
 
 ## Guardrails
 
-- Never copy Flow's global plugin skills (`flow`, `flow-*`, `okf`, `debloat`, `multi-harness-plugins`) into `.agents/skills/`.
-- Every materialized knowledge chapter must cite real repository paths (`path/to/file::Symbol`) in `sources:` and `[^id]` footnotes.
-- Preserve existing custom content inside `<!-- project-customization: start -->` and `<!-- truth: start -->` blocks during alignment.
+- Never copy Flow's global plugin skills (`flow`, `flow-*`, `okf`, `debloat`, `multi-harness-plugins`) into `.agents/skills/`, so repositories stay on one version without stale duplicates.
+- Cite real repository paths (`path/to/file::Symbol`) in `sources:` and `[^id]` footnotes for every knowledge chapter so claims remain checkable against code.
+- Preserve existing developer content inside `<!-- project-customization: start -->` and `<!-- truth: start -->` blocks during alignment so re-running setup never drops team rules.
+
+## Example
+
+```bash
+flow setup audit --json
+flow setup apply --migrate-specs --policy shared
+```
 
 ## Output
 
