@@ -1,6 +1,6 @@
 ---
 name: flow-execution
-description: "Use when executing a single Flow chapter's task worksheets in isolated subagent turns with pre-review Markdown sync (/flow:implement) or reporting chapter and task status (/flow:status)."
+description: "Use when implementing an approved Flow chapter's task worksheets or reporting live spec and branch status. Don't use for drafting or revising specs (use flow-planning), initializing bundles (use flow-setup), or final review and closeout (use flow-completion)."
 disable-model-invocation: true
 ---
 
@@ -21,7 +21,7 @@ Use for `implement` ([`../flow/references/implement.md`](../flow/references/impl
    - Run preflight (`dependencies_closed`, `worksheet_complete` for `full` or `compact` worksheets, `verification_strategy_declared`, `plan_identity_matches`, `target_symbols_exist`). On mismatch, mark the task `state: blocked` (`[!]`) without editing production files and route to `/flow:revise`.
 2. **Model Routing & Parallel Steps (`1..N` Tasks)**:
    - Execute one active chapter per `/flow:implement` run by default, or consecutive ready non-`empirical_dependent` chapters when `--all` is passed. See [`../flow/references/orchestration.md`](../flow/references/orchestration.md) for `strong`/`standard`/`fast`/`light` model routing.
-   - **Task Plans & Briefs (`flow tasks plan --briefs --json`)**: Group ready tasks on separate files into steps (`workers` up to `4`, `<= 250` LOC and `<= 3` files per task with compact briefs):
+   - **Task Plans & Briefs (`flow tasks plan --flow <flow_id> --briefs --json`)**: Group ready tasks on separate files into steps (`workers` up to `4`, `<= 250` LOC and `<= 3` files per task with compact briefs):
      - **Google Antigravity (`small_swarm`)**: When `>= 2` ready tasks touch separate files and worker quota allows, spawn `1..3` writer workers (`workspace: "share"`, tagged `[Flow Swarm Worker]`, no `.agents/bundles/` edits) and `1` independent verifier (`workspace: "inherit"`). Cherry-pick commits in task order, run `flow sync` between steps, verify `chapter_base_commit..HEAD`, and kill workers.
      - **Claude Code, Codex CLI, Cursor, & OpenCode V2 (`parallel_tasks`)**: Dispatch up to `4` isolated parallel `@executor` subagents over separate files (isolated worktrees or separate paths) and merge before closing.
    - **Workflow Fallback (`flow-chapter-pipeline`)**: Run `run_workflow(ScriptPath="<plugin_root>/workflows/flow-chapter-pipeline/workflow.py", Args={...})` for parallel or sequential execution with `flow sync` between steps.
@@ -33,12 +33,19 @@ Use for `implement` ([`../flow/references/implement.md`](../flow/references/impl
 
 ## Guardrails
 
-- Execute one active chapter per `/flow:implement` run by default (or consecutive ready chapters with `--all`, closing out each chapter). Never skip remaining chapters or child specs to mark root `spec.md` or a PRD `completed`.
-- Keep each worker inside its brief and `read_set`, test the real module under test without mocking it, and stop without editing production files if preflight fails.
-- Never mark any task or chapter `deferred` or `skipped` unless the user explicitly chose deferral (`deferred_by: "user"` and non-empty `deferred_reason`).
-- Never use `git commit --amend` to back-fill a task `commit:` SHA. Commit code and tests first (`<CODE_SHA>`) and record `<CODE_SHA>` in the pre-review sync commit.
-- Run the `< 60s` chapter check once per chapter, and reserve slow (`> 60s`) full repository test suites for `/flow:finish` or CI.
-- Sync present-tense Markdown and pass chapter code and doc review before stopping. Never create or mutate Git tags or push without explicit user instruction.
+- Execute one active chapter per run by default (or consecutive ready chapters with `--all`). Never skip remaining chapters or child specs so partial work cannot pose as done.
+- Keep each worker inside its brief and `read_set`, test the real module without mocking it, and stop if preflight fails so changes stay isolated and reviewable.
+- Never mark a task or chapter `deferred` or `skipped` without explicit user confirmation (`deferred_by: "user"` and non-empty `deferred_reason`).
+- Never use `git commit --amend` to back-fill a task `commit:` SHA because amending changes the hash referenced by worksheets. Commit code and tests first (`<CODE_SHA>`), then record `<CODE_SHA>` in the sync commit.
+- Run the `< 60s` chapter check once per chapter so iteration stays quick. Reserve slow (`> 60s`) full repository suites for `/flow:finish` or CI.
+- Sync present-tense Markdown and pass chapter review before stopping so the Stop hook verifies a clean state. Never push or mutate Git tags without explicit instruction.
+
+## Example
+
+```bash
+flow tasks plan --flow <flow_id> --briefs --json
+flow sync --flow <flow_id>
+```
 
 ## Output
 

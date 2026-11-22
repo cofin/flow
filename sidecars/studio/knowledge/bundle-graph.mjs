@@ -145,7 +145,9 @@ export class BundleGraph {
     const absWs = workspaceRoot ? path.resolve(workspaceRoot) : path.resolve(absBundle, "../..");
     const targetFiles = Array.isArray(files)
       ? files.map((f) => path.resolve(f))
-      : walkFiles(absBundle, { extensions: [".md"], maxDepth: 6 });
+      : fs.existsSync(path.join(absBundle, ".kc-no-export"))
+        ? []
+        : walkFiles(absBundle, { extensions: [".md"], maxDepth: 6, skipMarkerFiles: [".kc-no-export"] });
 
     const notes = [];
     for (const absPath of targetFiles) {
@@ -184,10 +186,27 @@ export class BundleGraph {
     }
 
     const byName = new Map();
+    const stemCounts = new Map();
+    const ambiguousKeys = new Map();
     for (const note of notes) {
-      for (const key of [note.name, normalizePosix(note.path).replace(/\.md$/i, ""), note.title, ...note.aliases]) {
-        const norm = String(key || "").trim().toLowerCase();
-        if (norm && !byName.has(norm)) byName.set(norm, note);
+      const relKey = normalizePosix(note.path).replace(/\.md$/i, "").trim().toLowerCase();
+      if (relKey) byName.set(relKey, note);
+      for (const bare of [note.name, note.title, ...note.aliases]) {
+        const norm = String(bare || "").trim().toLowerCase();
+        if (!norm || norm === relKey) continue;
+        const hits = stemCounts.get(norm) || [];
+        if (!hits.includes(note)) hits.push(note);
+        stemCounts.set(norm, hits);
+      }
+    }
+    for (const [norm, hits] of stemCounts.entries()) {
+      if (hits.length === 1 && !byName.has(norm)) {
+        byName.set(norm, hits[0]);
+      } else if (hits.length > 1) {
+        ambiguousKeys.set(
+          norm,
+          hits.map((h) => h.path).sort(),
+        );
       }
     }
 
@@ -195,11 +214,15 @@ export class BundleGraph {
       for (const link of note.outLinks) {
         const clean = unwrapNoteTarget(link.target).toLowerCase();
         const hit = byName.get(clean) || null;
-        if (hit) link.resolved = hit.path;
+        if (hit) {
+          link.resolved = hit.path;
+        } else if (ambiguousKeys.has(clean)) {
+          link.ambiguousCandidates = ambiguousKeys.get(clean);
+        }
       }
     }
 
-    const graph = { bundleDir: absBundle, workspaceRoot: absWs, notes, byName };
+    const graph = { bundleDir: absBundle, workspaceRoot: absWs, notes, byName, ambiguousKeys };
     GRAPH_META.set(graph, { filesProvided: Array.isArray(files) });
     return graph;
   }
@@ -215,11 +238,20 @@ export class BundleGraphLinter {
     const byPath = new Map(notes.map((n) => [n.path, n]));
 
     const wantedCounts = new Map();
+    const ambiguous_links = [];
     for (const note of notes) {
       for (const link of note.outLinks || []) {
         if (link.resolved) continue;
         const target = unwrapNoteTarget(link.target);
         if (!target) continue;
+        if (Array.isArray(link.ambiguousCandidates) && link.ambiguousCandidates.length > 1) {
+          ambiguous_links.push({
+            path: note.path,
+            target,
+            candidates: link.ambiguousCandidates,
+          });
+          continue;
+        }
         const k = target.toLowerCase();
         const prev = wantedCounts.get(k) || { target, count: 0, referencedFrom: [] };
         prev.count += 1;
@@ -315,7 +347,7 @@ export class BundleGraphLinter {
     }
 
     void byName;
-    return { wanted_concepts, unlinked_mentions, stale_syntheses, duplicate_candidates };
+    return { wanted_concepts, ambiguous_links, unlinked_mentions, stale_syntheses, duplicate_candidates };
   }
 }
 

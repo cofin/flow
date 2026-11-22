@@ -1,6 +1,6 @@
 ---
 name: multi-harness-plugins
-description: Use when creating, structuring, or validating multi-harness plugins or project-local .agents/ skills, subagents, hooks, rules, and MCP configs across Google Antigravity, Claude Code, Codex CLI, Cursor, OpenCode, and VS Code.
+description: "Use when creating, structuring, or validating multi-harness plugins or project-local .agents/ skills, subagents, hooks, rules, and MCP configs across Antigravity, Claude Code, Codex CLI, Cursor, OpenCode, and VS Code. Don't use for application feature code or OKF knowledge bundle authoring (use okf)."
 ---
 
 # Multi-Harness Plugins & Project-Local `.agents/` Architecture
@@ -26,7 +26,7 @@ How each harness discovers project-local instructions, skills, subagents, hooks,
    - **Extension-Wide Plugin (Plugin Repository Root)**: Used when packaging reusable skills, subagents, hooks, rules, and MCP servers as an installable plugin across all six harnesses.
 2. **Author Progressive-Disclosure Skills**:
    - Keep every `SKILL.md` concise (`<= 200` lines and strictly `< 24,000` bytes so Google Antigravity never truncates the bottom of the file).
-   - Start `description` with `Use when ...` (`<= 500` characters) and avoid vague prefixes (`Auto-activate`, `Produces`, `Expert knowledge`, `Comprehensive`).
+   - Start `description` with `Use when ...` (`<= 500` characters), include an explicit negative trigger (`Don't use for ...`) to avoid co-trigger overlap, and omit executable paths, flag syntax, or vague prefixes (`Auto-activate`, `Comprehensive`, `Produces`, `Expert knowledge`).
    - Put detailed schemas, checklists, and examples in `references/*.md` files linked from `SKILL.md`.
 3. **Author Compatible Subagents**:
    - Format Markdown subagents (`agents/<name>.md` or `.agents/agents/<name>.md`) with `name`, `description`, `model: inherit`, `mainAgent: false`, `subagent: true`, `commandExecutionPolicy`, `skills: [...]`, and `readonly: true` + YAML list `disallowedTools` for read-only reviewers.
@@ -60,3 +60,17 @@ How each harness discovers project-local instructions, skills, subagents, hooks,
 ## Example
 
 Invoke this skill when scaffolding project-local skills, subagents, hooks, or MCP configs under `.agents/` during `/flow:setup` or `/flow:learn`, or when authoring an extension-wide multi-harness plugin.
+
+```yaml
+---
+name: my-domain-skill
+description: "Use when working with <domain> configs or troubleshooting <symptom>. Don't use for unrelated tasks (use <other-skill>)."
+---
+```
+
+Inspect active harness detection and local bundle setup after edits:
+
+```bash
+flow harness detect --json
+flow setup audit --json
+```

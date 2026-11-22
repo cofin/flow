@@ -23,7 +23,7 @@ exploratory_spike:
 otherwise: direct_file_reads_for_one_or_two_files_in_single_module
 ```
 
-1. **Small Direct Reads (`<= 2` Files in One Module)**: Read source files directly in the coordinator only when the question stays inside `1–2` files in one module.
+1. **Small Direct Reads (`<= 2` Files in One Module)**: Read source files directly in the coordinator only when the question stays inside `1-2` files in one module.
 2. **Parallel Subsystem Summaries (`> 2` Files or `>= 2` Modules)**:
    - Keep the coordinator under `< 25k` exploration tokens by dispatching parallel read-only `@researcher` workers (`1` per subsystem).
    - Each worker returns the subsystem summary schema from [`../../../agents/researcher.md`](../../../agents/researcher.md): `symbols` (`path/to/file::Symbol`), `exact_signatures`, `seams_and_dependency_categories`, `canonical_tests_and_fixtures`, `edge_cases_and_gotchas`, `affected_docs_and_okf_chapters`, and `open_design_forks`.
@@ -78,7 +78,7 @@ state: open                     # open | promoted
 promoted_to: null               # <flow_id> once adopted by a spec
 tags: [research, <domain>]
 generated:
-  by: flow/0.26.0
+  by: flow/<version>
   at: 2026-11-01T00:00:00Z
 verified:
   - by: agent:researcher

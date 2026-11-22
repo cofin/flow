@@ -4,15 +4,7 @@ Standards for authoring low-token agent instructions (`AGENTS.md`, `.agents/skil
 
 ## Project-Local Discovery Matrix (`.agents/` & Repo Configs)
 
-How each harness discovers project-local instructions, skills, subagents, hooks, and MCP servers inside a repository:
-
-| Surface | Google Antigravity (`agy`) | Claude Code (`claude`) | Codex CLI (`codex`) | Cursor (`cursor`) | OpenCode V2 (`opencode`) | VS Code / Copilot (`code`) |
-| --- | --- | --- | --- | --- | --- | --- |
-| **Instructions** | `AGENTS.md`, `GEMINI.md`, `.agents/rules/*.md` | `AGENTS.md` (native; suppressed if `CLAUDE.md` exists without `@AGENTS.md`) | `AGENTS.md` (`AGENTS.override.md` wins; trusted projects) | `AGENTS.md`, `.cursor/rules/*.mdc` or `*.md` | `AGENTS.md` (walked from `cwd` to root; no `CLAUDE.md` fallback) | `AGENTS.md` (`chat.useAgentsMdFile: true`) |
-| **Project Skills** | `.agents/skills/<name>/SKILL.md` | `.claude/skills/<name>/SKILL.md` (or symlinked to `.agents/skills/`) | `.agents/skills/<name>/SKILL.md` | `.agents/skills/`, `.cursor/skills/`, `.claude/skills/` | `.agents/skills/`, `.opencode/skills/`, `.claude/skills/` | `.agents/skills/`, `.github/skills/` |
-| **Project Subagents** | `.agents/agents/<name>.md` (`agents/*/agent.md`) | `.claude/agents/<name>.md` | `.codex/agents/<name>.toml` (recursive in trusted projects) | `.cursor/agents/*.md`, `.claude/agents/*.md`, `.codex/agents/` | `.opencode/agents/*.md` | `.github/agents/*.agent.md`, `.claude/agents/*.md` |
-| **Project Hooks** | `.agents/hooks.json` (flat lifecycle array; nested tool matcher) | `.claude/settings.json` / `.claude/settings.local.json` (nested matchers) | `.codex/hooks.json` or `[hooks]` in `.codex/config.toml` | `.cursor/hooks.json` (`version: 1`, camelCase events) | `.opencode/plugins/*.{ts,js}` | `.claude/settings.json`, `.github/hooks/*.json` |
-| **Project MCP Config** | `.agents/mcp_config.json` | `.mcp.json` (`mcpServers` at repo root) | `.mcp.json` or `[mcp_servers.<name>]` in `.codex/config.toml` | `.cursor/mcp.json` (`mcpServers`; `${workspaceFolder}`) | `opencode.json` (`mcp.servers.<name>`) | `.vscode/mcp.json` (`servers` object) |
+See the canonical cross-harness discovery table (`AGENTS.md`, skills, subagents, hooks, and MCP config paths) in [`multi-harness-plugins`](../../multi-harness-plugins/SKILL.md#project-local-discovery-matrix-agents--repo-local-configs).
 
 ### Universal Project Rules
 

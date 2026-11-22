@@ -14,6 +14,7 @@ if str(_WF_PARENT) not in sys.path:
 
 from flow_common import (
     QUOTA_MARKERS,
+    SIMPLIFY_SCHEMA,
     WorkerPool,
     acquire_runtime_lease,
     release_runtime_lease,
@@ -142,8 +143,14 @@ async def _run_exec_turn(prompt: str, role: str, model_override: str | None = No
         raise
 
 
-async def _run_review_turn(prompt: str, role: str, model_override: str | None = None) -> dict:
+async def _run_review_turn(
+    prompt: str,
+    role: str,
+    model_override: str | None = None,
+    schema: dict | None = None,
+) -> dict:
     """Execute one read-only review turn with automatic quota fallback."""
+    active_schema = schema if schema is not None else REVIEW_SCHEMA
     chosen = model_override or preferred_rev_model
     active_model = fallback_model if (quota_state["degraded"] and chosen != fallback_model) else chosen
     active_agent = "self" if quota_state["degraded"] else reviewer_agent
@@ -151,7 +158,7 @@ async def _run_review_turn(prompt: str, role: str, model_override: str | None = 
         out = await with_budget(
             agent(
                 prompt,
-                schema=REVIEW_SCHEMA,
+                schema=active_schema,
                 role=role,
                 type_name=active_agent,
                 workspace="inherit",
@@ -169,7 +176,7 @@ async def _run_review_turn(prompt: str, role: str, model_override: str | None = 
             out = await with_budget(
                 agent(
                     prompt,
-                    schema=REVIEW_SCHEMA,
+                    schema=active_schema,
                     role=f"{role} ({fallback_model} fallback)",
                     type_name="self",
                     workspace="inherit",
@@ -359,21 +366,38 @@ try:
 
             async def _run_seat(seat: dict) -> dict:
                 """Run one independent review seat and return its structured report."""
-                seat_card = seat.get("card") or (
-                    str(qual_rev_card) if seat.get("id") == "quality-reviewer" else str(code_rev_card)
-                )
+                seat_id = str(seat.get("id") or "")
+                raw_card = seat.get("card")
+                if raw_card:
+                    card_path = Path(str(raw_card))
+                    seat_card = str(card_path if card_path.is_absolute() else plugin_root / card_path)
+                elif seat_id == "simplify":
+                    seat_card = str(plugin_root / "templates" / "agent" / "simplify-card.md")
+                elif "quality" in seat_id or seat.get("agent") == "quality-reviewer":
+                    seat_card = str(qual_rev_card)
+                else:
+                    seat_card = str(code_rev_card)
                 seat_model = str(
                     args.get("reviewer_model")
                     or seat.get("model")
                     or (seat.get("model_route") or {}).get("runtime_target")
                     or preferred_rev_model
                 )
-                out = await _run_review_turn(
-                    f"Follow `{seat_card}` in read-only mode as `{seat['id']}` ({seat.get('reason') or seat.get('title', seat['id'])}) across `{git_range}` for `{target_spec}`.",
-                    str(seat.get("title") or seat.get("agent") or seat["id"]),
-                    seat_model,
+                is_simplify = seat_id == "simplify"
+                seat_prompt = (
+                    f"Follow `{seat_card}` in read-only mode across `{git_range}` for `{target_spec}`. "
+                    "Subtraction only: never propose additions. Prove negative claims with `git grep -n -F` "
+                    "and classify each cut as `equivalent` or `behavior_change`."
+                    if is_simplify
+                    else f"Follow `{seat_card}` in read-only mode as `{seat_id}` ({seat.get('reason') or seat.get('title', seat_id)}) across `{git_range}` for `{target_spec}`."
                 )
-                return {"reviewer": seat["id"], **out}
+                out = await _run_review_turn(
+                    seat_prompt,
+                    str(seat.get("title") or seat.get("agent") or seat_id),
+                    seat_model,
+                    schema=SIMPLIFY_SCHEMA if is_simplify else None,
+                )
+                return {"reviewer": seat_id, **out}
 
             raw_reviews = await run_parallel_bounded(
                 seats,

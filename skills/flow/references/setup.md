@@ -13,7 +13,7 @@ Initialize or align a repository for Spec-Driven Development with Flow's core co
      - `exit` — **Exit**: Keep current setup unchanged.
 2. **Brownfield Alignment & Legacy Migration (`align`)**:
    - Inventory existing `.agents/` files in one read-only pass before proposing writes:
-     - **Legacy Spec Migration**: Detect legacy `.agents/specs/`, `.agents/tracks/`, `tracks.md`, `metadata.json`, or older sibling PRD child specs (`parent_prd: <prd_id>`). Run `flow setup audit` and `flow setup apply --migrate-specs` to migrate active specs into `.agents/bundles/specs/<flow_id>/spec.md`, inspect steps via `flow tasks plan --briefs --json`, and sync task states, `depends_on` edges, user deferrals, and commit SHAs.
+     - **Legacy Spec Migration**: Detect legacy `.agents/specs/`, `.agents/tracks/`, `tracks.md`, `metadata.json`, or older sibling PRD child specs (`parent_prd: <prd_id>`). Run `flow setup audit` and `flow setup apply --migrate-specs` to migrate active specs into `.agents/bundles/specs/<flow_id>/spec.md`, inspect steps via `flow tasks plan --flow <flow_id> --briefs --json`, and sync task states, `depends_on` edges, user deferrals, and commit SHAs.
      - **Legacy Trackers & Journals**: Detect obsolete `.beads/`, `.agents/beads.json`, `.agents/transactions/`, or `.git/hooks/pre-commit` tracker hooks. Present exact paths and confirm before removing them.
      - **OKF v0.2 Hygiene & Knowledge Tree**: Strip YAML frontmatter from subdirectory `index.md` files (`product/index.md`, `knowledge/index.md`, `knowledge/<ns>/index.md`, `research/index.md`, `specs/index.md`, `chapters/index.md`) and `log.md`. Remove standalone `---` body rules and split flat `knowledge/patterns.md` into `knowledge/patterns/<topic>.md` while keeping nested directories and relative links.
      - **Research Reorganization**: Sync `.agents/bundles/research/` (un-promoted research only) per [`research.md`](research.md):
@@ -39,7 +39,7 @@ Create the OKF v0.2 bundle layout (only root `index.md` carries `okf_version: "0
 ```text
 .agents/bundles/
 ├── index.md                        # Root manifest (okf_version: "0.2")
-├── log.md                          # Frontmatter-free append-only ISO-dated changelog
+├── log.md                          # Frontmatter-free ISO-dated lifecycle log (prepend new entries)
 ├── product/
 │   ├── index.md                    # Frontmatter-free catalog
 │   ├── product.md                  # Vision, users, and core capabilities (<= 40-line <!-- truth: start --> block)
@@ -75,9 +75,9 @@ Follow [`../../multi-harness-plugins/SKILL.md`](../../multi-harness-plugins/SKIL
    - **Deep Modules & Interfaces (`knowledge/architecture/` & domain skills)**: Document each subsystem's **Module**, **Interface**, **Implementation**, and **Adapter** boundaries, classifying dependencies into (1) *In-process*, (2) local test double, (3) *Remote-owned (Ports & Adapters)*, and (4) *External boundary (Mock)*.
    - **Domain Glossary & ADRs (`knowledge/domains/` & `knowledge/decisions/`)**: Define shared domain terms across tests, specs, and code, and apply the ADR filter (*hard to reverse + surprising without context + genuine trade-off*).
    - **Public Interface TDD & Bug Diagnosis (`knowledge/testing/`)**: Map source modules to canonical test files (`tests/<module>/test_<unit>.*`), test through public interfaces without mocking real code, reject mock-only tests, and record the fast failing test command.
-   - **First-Time Reader Prose & Docs (`product/product-guidelines.md`)**: Require standalone clarity, file checklist `[k/N files documented]` coverage, conceptual (`4–6` node) diagrams in `docs/`, and `<type>(<scope>): <summary>` PR/commit conventions.
+   - **First-Time Reader Prose & Docs (`product/product-guidelines.md`)**: Require standalone clarity, file checklist `[k/N files documented]` coverage, conceptual (`4-6` node) diagrams in `docs/`, and `<type>(<scope>): <summary>` PR/commit conventions.
 2. **Generate Stack-Specific Domain Skills (`.agents/skills/<domain>/`)**:
-   - For each discovered technical domain (`1–6` domains matching the repo's real stack):
+   - For each discovered technical domain (`1-6` domains matching the repo's real stack):
      - `SKILL.md` (`<= 200` lines, `< 24,000` bytes) with YAML frontmatter (`name`, `description`), a `<= 40`-line `<!-- truth: start -->` truth block, and links to `references/*.md`.
      - `references/*.md` with concrete `path/to/file::Symbol` patterns, module interfaces, anti-patterns, and verification commands.
 3. **Generate Domain Review Skills (`.agents/skills/review-<domain>/`)**:

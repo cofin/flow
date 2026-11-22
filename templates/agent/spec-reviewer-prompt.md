@@ -20,7 +20,8 @@ Inspect **only on-disk repository paths**, never chat history or oral rationale.
    - If `planning_quality: degraded` is set on any spec, is `planning_degraded_reason` explicit, and did the fallback planner miss any edge cases?
 2. **Architecture, Module Interfaces, and Full Scope**:
    - Does the design solve the root problem, reuse existing modules, hide complexity behind small public interfaces, and compare viable alternatives?
-   - Did the planner compress distinct behaviors into a vague task, omit edge cases, split one feature into tiny chapters, or skip doc deliverables?
+   - Did the planner compress distinct behaviors into a vague task, omit edge cases, split one feature into tiny chapters, add speculative flags or wrappers, or skip doc deliverables?
+   - For any subtraction claim (`unused`, `single caller`, or unearned layer), require repo-wide `git grep -n -F` proof plus export, config, and dynamic-dispatch checks, and distinguish zero-behavior-change (`equivalent`) cuts from `behavior_change` cuts (`simplify-card.md`).
    - Chapters should stay sized to the feature, with no artificial caps on task count, `read_set`, `files`, or `estimated_loc`.
 3. **Worksheet Depth, Format, and Fast Checks**:
    - Does `spec.md` define concrete public types and schemas, exact signatures, a caller-to-collaborator integration map, and an edge-case and failure-mode table verified against `path/to/file::Symbol`?

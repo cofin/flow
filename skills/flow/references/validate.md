@@ -15,7 +15,7 @@ Validate `.agents/bundles/`, `.agents/skills/`, `.agents/agents/`, and single-ch
 - Every non-reserved `.md` file under `.agents/bundles/` begins with YAML frontmatter containing non-empty `type:`, `title:`, and `description:`.
 - Document maturity uses `status: draft | stable | deprecated`; workflow execution state uses `state:`.
 - When `planning_quality` is set on `spec.md`, it is `standard` or `degraded` (and `degraded` requires a non-empty `planning_degraded_reason`).
-- `tags:` holds `1–8` lowercase hyphenated tags free of state or status words.
+- `tags:` holds `1-8` lowercase hyphenated tags free of state or status words.
 - Every `product/**`, `knowledge/**`, and `spec.md` file contains a `<= 40`-line `<!-- truth: start --> ... <!-- truth: end -->` truth block.
 - Knowledge chapters (`knowledge/**`) and specs (`spec.md`) carry `sources: [{ id, resource, title }]` with matching `[^id]:` body footnotes whose local paths exist on disk.
 - Bundle Markdown bodies (outside fenced code blocks) contain zero standalone `---` horizontal rules, zero `Revision History` / `Changelog` / `Change History` headings, and zero struck-through checklist remnants (`- [ ] ~~...~~`).
@@ -43,7 +43,7 @@ Validate `.agents/bundles/`, `.agents/skills/`, `.agents/agents/`, and single-ch
 
 ### 5. Brownfield Migration & Layout Check
 
-- No legacy `.agents/specs/`, `.agents/tracks/`, `.agents/transactions/`, or copied global Flow lifecycle skills (`flow`, `flow-setup`, `flow-planning`, `flow-execution`, `flow-learn`, `flow-completion`, `flow-docs`, `okf`, `debloat`, `multi-harness-plugins`) exist inside `.agents/skills/`.
+- No legacy `.agents/specs/`, `.agents/tracks/`, `.agents/transactions/`, or copied global Flow lifecycle skills (`flow`, `flow-setup`, `flow-planning`, `flow-execution`, `flow-dispatch`, `flow-learn`, `flow-completion`, `flow-docs`, `okf`, `debloat`, `multi-harness-plugins`) exist inside `.agents/skills/`.
 
 ### 6. Commit Proof & Interactive Auto-Fix
 

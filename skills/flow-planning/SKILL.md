@@ -1,6 +1,6 @@
 ---
 name: flow-planning
-description: "Use when writing Master PRDs (/flow:prd), authoring feature and chapter specifications and task worksheets (/flow:spec, alias /flow:plan), revising plans in present tense (/flow:revise, /flow:refine), or running primary-source research and prototypes (/flow:research, /flow:task)."
+description: "Use when writing Master PRDs, authoring feature or chapter specifications and task worksheets, revising plans in present tense, or running primary-source research. Don't use for writing production code (use flow-execution), initializing .agents/ (use flow-setup), or final review (use flow-completion)."
 disable-model-invocation: true
 ---
 
@@ -14,13 +14,12 @@ Use for `prd` ([`../flow/references/prd.md`](../flow/references/prd.md)), `spec`
 
 ## Planning Sizes & Full Scope
 
-Scale planning and worksheet format to the size of the change while planning the whole scope. Every requirement, edge case, and documentation or OKF target maps to a concrete task:
+Scale planning ceremony (`Small`, `Medium`, `Large`) to match the change without trimming requirements, edge cases, or documentation targets.
+See the full sizing table (`Trigger`, `Research`, `Layout`, `Worksheet`, `Planners`, `Review`) in [`spec.md`](../flow/references/spec.md#planning-sizes-small--medium--large):
 
-| Size | Trigger | Research | Layout & Worksheet | Planners | Spec Review |
-| --- | --- | --- | --- | --- | --- |
-| **Small / Single-Chapter** | One cohesive deliverable (no intermediate checkpoint needed) | Coordinator direct read (`<= 8` files) or `flow-scout` | Single-chapter `spec.md` + `compact` worksheets (`full` for complex interfaces; [`plan-schema-card.md`](../../templates/agent/plan-schema-card.md)) | Coordinator directly (`0` subagents) | `1` combined reviewer (`1` round) |
-| **Medium** | `2..4` genuine stages, parallel subsystems, or `empirical_dependent` checks | Direct read (`<= 8` files) or `flow-scout` | Root `spec.md` + `chapters/index.md` + `2..4` chapters (`compact` or `full` worksheets) | `flow-spec-planning` (`per_chapter` parallel for `>= 2` chapters) | `1` combined reviewer (`2nd` round only on adopted `Critical`/`Important` findings) |
-| **Large** | `> 4` chapters or `/flow:prd` | `flow-scout` parallel summaries | Root `spec.md` + `chapters/index.md` + `ch01..chNN` (`compact` or `full` worksheets, no cap) | `flow-spec-planning` (`per_chapter` parallel) | Per-chapter + cross-chapter reviewers |
+- **Small / Single-Chapter**: Cohesive change with `spec.md` (`has_chapters: false`), `compact` worksheets by default, planned directly in the coordinator.
+- **Medium (`2..4` chapters)**: Genuine stages, parallel subsystems, or `empirical_dependent` boundaries; planned in parallel with `flow-spec-planning` and `1` combined reviewer.
+- **Large (`> 4` chapters or `/flow:prd`)**: Full chaptered spec with no chapter cap; per-chapter and cross-chapter independent reviewers.
 
 ## Workflow
 
@@ -28,7 +27,7 @@ Scale planning and worksheet format to the size of the change while planning the
    - Read `.agents/bundles/index.md`, applicable `knowledge/**` chapters, and `.agents/skills/index.md`. In `local-only` git worktrees, read from the primary checkout's `.agents/`.
    - For `<= 8` files across `<= 2` modules, read source files directly in the coordinator. For larger surfaces, invoke `workflows/flow-scout/workflow.py` on Google Antigravity or parallel `@researcher` subagents ([`orchestration.md`](../flow/references/orchestration.md)).
 2. **Resolve Open Decisions Only**:
-   - Skip questioning for areas already settled by the prompt and repository code. Ask `1` question at unresolved dependent forks and batch `2–3` independent questions into one round ([`../flow/references/interaction.md`](../flow/references/interaction.md)), placing `<Label> (Recommended)` first.
+   - Skip questioning for areas already settled by the prompt and repository code. Ask `1` question at unresolved dependent forks and batch `2-3` independent questions into one round ([`../flow/references/interaction.md`](../flow/references/interaction.md)), placing `<Label> (Recommended)` first.
    - Make module interfaces, contracts, public-interface tests, fast (`< 60s`) lint/test checkpoints, `docs/**` + OKF targets, and chapter breakdown concrete before drafting.
 3. **Author OKF v0.2 Specs, Planner Notes, & Validation**:
    - **Single-Chapter (`has_chapters: false`)**: Author `specs/<flow_id>/spec.md` and `specs/<flow_id>/tasks/tNN-*.md` (`worksheet_format: compact` by default; `full` for complex public contracts) directly in the coordinator and run `/flow:validate`.
@@ -41,8 +40,15 @@ Scale planning and worksheet format to the size of the change while planning the
 
 ## Guardrails
 
-- **No Production Code During Planning**: Modify files only under `.agents/bundles/` (or untracked `.agents/scratch/<slug>/` spikes).
-- **Plan the Whole Scope & Keep Checkpoints Fast**: Never truncate scope or impose artificial caps on task count, `read_set`, `files`, or `estimated_loc`. Allow `compact` worksheets for any size, omit standalone `---` rules and `Revision History` sections from bundle bodies, and keep chapter checkpoints under `60s`.
+- **No Production Code During Planning**: Modify files only under `.agents/bundles/` (or untracked `.agents/scratch/<slug>/` spikes) so user plan review covers intent before repository mutations.
+- **Plan the Whole Scope & Keep Checkpoints Fast**: Never truncate scope or impose artificial caps on task count, `read_set`, `files`, or `estimated_loc`. Allow `compact` worksheets for any size, omit standalone `---` rules and `Revision History` sections from bundle bodies so YAML frontmatter parsers stay unambiguous, and keep chapter checkpoints under `60s`.
+
+## Example
+
+```bash
+flow models route --task-kind planning --json
+flow spec preflight <flow_id> --json
+```
 
 ## Output
 

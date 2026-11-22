@@ -28,6 +28,58 @@ QUOTA_MARKERS: tuple[str, ...] = (
     "exhausted",
 )
 
+SIMPLIFY_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "required": [
+        "target",
+        "goal_preserved",
+        "verdict",
+        "estimated_net_lines_cut",
+        "suppressed",
+        "cuts",
+        "kept",
+    ],
+    "properties": {
+        "target": {"type": "string"},
+        "goal_preserved": {"type": "string"},
+        "verdict": {"type": "string", "enum": ["cuts_found", "already_minimal"]},
+        "estimated_net_lines_cut": {"type": "integer"},
+        "suppressed": {"type": "array", "items": {"type": "string"}},
+        "cuts": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": [
+                    "id",
+                    "category",
+                    "action",
+                    "location",
+                    "estimated_net_lines",
+                    "proof",
+                    "why_unearned",
+                    "cost_of_cut",
+                    "replacement",
+                ],
+                "properties": {
+                    "id": {"type": "string"},
+                    "category": {"type": "string", "enum": ["equivalent", "behavior_change"]},
+                    "action": {
+                        "type": "string",
+                        "enum": ["delete", "inline", "merge", "replace_with_primitive", "flatten"],
+                    },
+                    "location": {"type": "string"},
+                    "estimated_net_lines": {"type": "integer"},
+                    "proof": {"type": "string"},
+                    "why_unearned": {"type": "string"},
+                    "cost_of_cut": {"type": "string"},
+                    "replacement": {"type": "string"},
+                },
+            },
+        },
+        "kept": {"type": "array", "items": {"type": "string"}},
+    },
+}
+
 
 def resolve_plugin_root(explicit_root: str | None = None, *, marker: str = "sidecars/studio/flow-cli.mjs") -> Path:
     """Resolve the Flow plugin installation root containing ``marker``."""

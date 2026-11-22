@@ -21,7 +21,7 @@ When documenting a module, package, or subsystem, never guess from filenames or 
 2. **Build the File Checklist**: List all target paths and maintain a running progress counter (`[3/12 files documented]`). Account for every file, including configuration, defaults, and entry points.
 3. **Read Source First**: Read each file completely and extract its purpose, public interface, dependencies, key invariants, and failure modes.
 4. **Scale Depth to Complexity**:
-   - **Small utility or function (`~10–30` lines)**:
+   - **Small utility or function (`~10-30` lines)**:
      - **Purpose**: One sentence stating what it does and why.
      - **Public Interface**: Signature, parameter types, and return value.
      - **Usage Example**: Minimal copy-pasteable call and expected output.
@@ -40,12 +40,12 @@ When documenting a module, package, or subsystem, never guess from filenames or 
 
 ## Progressive Guide & Tutorial Structure
 
-Keep user-facing guides focused on **one concept per page** (`~80–200` Markdown lines) and structure each guide in four parts:
+Keep user-facing guides focused on **one concept per page** (`~80-200` Markdown lines) and structure each guide in four parts:
 
 1. **Runnable Example First**: Lead with a complete, working code or CLI example rather than multi-paragraph background theory.
 2. **Expected Output**: Show the exact terminal output, return value, or state transition produced by the example.
-3. **Focused Walkthrough**: Explain the load-bearing lines and why they work in `3–5` short paragraphs. Never restate obvious language syntax (`// increments counter by 1`).
-4. **Next Steps / Related Links**: Close with `2–3` links to adjacent guides, architecture chapters, or reference pages.
+3. **Focused Walkthrough**: Explain the load-bearing lines and why they work in `3-5` short paragraphs. Never restate obvious language syntax (`// increments counter by 1`).
+4. **Next Steps / Related Links**: Close with `2-3` links to adjacent guides, architecture chapters, or reference pages.
 
 ## Plain-Language Prose Rules
 
@@ -55,12 +55,12 @@ Keep user-facing guides focused on **one concept per page** (`~80–200` Markdow
 | **Pair rules with a one-line `Reason:`** | *"You must never mock internal classes because it is bad practice."* | *"Test through the module's public interface without mocking internal collaborators. Reason: internal mocks break during behavior-preserving refactors."* |
 | **Semantic headings over numbered buzzwords** | *"## The Layered Validation Hierarchy"* | *"## Validation Checks"* |
 | **Current state over revision history** | *"In v1.2 we polled the database, then in v1.4 we used webhooks, and now we consume from the event stream."* | *"Workers consume order events from the Redis stream group using `XREADGROUP`."* |
-| **Positive framing over negation** | *"Don't put implementation diagrams in `docs/`, don't use more than 6 nodes, and don't include private helpers."* | *"Keep diagrams in `docs/` conceptual (`4–6` nodes showing the user mental model), and place detailed module diagrams in `.agents/bundles/knowledge/architecture/`."* |
+| **Positive framing over negation** | *"Don't put implementation diagrams in `docs/`, don't use more than 6 nodes, and don't include private helpers."* | *"Keep diagrams in `docs/` conceptual (`4-6` nodes showing the user mental model), and place detailed module diagrams in `.agents/bundles/knowledge/architecture/`."* |
 
 ## Diagrams & Code Examples
 
 - **Conceptual vs. Architectural Diagrams**:
-  - In `README.md` and user-facing `docs/`, keep Mermaid diagrams high-level and conceptual (`4–6` nodes illustrating the user mental model without internal helper classes).
+  - In `README.md` and user-facing `docs/`, keep Mermaid diagrams high-level and conceptual (`4-6` nodes illustrating the user mental model without internal helper classes).
   - In `.agents/bundles/knowledge/architecture/`, include concrete module boundaries, interfaces, adapters, and dataflow edges anchored to `path/to/file::Symbol`.
   - Quote Mermaid node labels that contain parentheses, brackets, or colons (`id["Parser (POSIX sh)"]`).
 - **Verified Code Snippets**:
@@ -74,3 +74,5 @@ When auditing repository documentation (`README.md`, `docs/**`, `.agents/bundles
 2. **Codebase Currency**: Every cited file path, CLI flag, make target, and `path/to/file::Symbol` exists in the current working tree.
 3. **Link Integrity**: Every relative Markdown link resolves to an existing file and heading on disk.
 4. **Prose Hygiene**: Zero AI puffery, numbered buzzwords, stale revision history, or leaked internal workflow ceremony.
+5. **Prospective Voice & Table Width**: Reader-facing PRDs and design docs omit commit SHAs, UUIDs, hash codes, source line numbers, private helper names, and mechanical inventory counts. Keep tables at 5 columns or fewer, one value per cell, sorted by priority, with no standalone `---` horizontal rules in `.agents/bundles/` doc bodies.
+6. **Subtraction Pass for Long Docs**: Before shipping a long design doc, spec, or skill, apply [`templates/agent/simplify-card.md`](../../../templates/agent/simplify-card.md) to drop redundant tables, restated rules, or dense copy.

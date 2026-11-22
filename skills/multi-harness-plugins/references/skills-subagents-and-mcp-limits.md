@@ -9,7 +9,7 @@ Author skills, subagents, local `.agents/` directories, and MCP configurations f
 - **Native `.agents/skills/<name>/SKILL.md` Discovery**:
   Google Antigravity (`agy`), Codex CLI (`codex`), Cursor (`cursor`), OpenCode V2 (`opencode`), and VS Code (`code`) all natively discover project-local skills in `.agents/skills/<name>/SKILL.md`.
 - **Claude Code Compatibility**:
-  Claude Code discovers project-local skills from `.claude/skills/<name>/SKILL.md`. If a project uses Claude Code alongside `.agents/skills/`, either symlink `.claude/skills` $\rightarrow$ `../.agents/skills` or load the `.agents/skills/index.md` catalog at `SessionStart`.
+  Claude Code discovers project-local skills from `.claude/skills/<name>/SKILL.md`. If a project uses Claude Code alongside `.agents/skills/`, either symlink `.claude/skills` &rarr; `../.agents/skills` or load the `.agents/skills/index.md` catalog at `SessionStart`.
 - **Recommended Project-Local Skill Layout**:
 
   ```text
@@ -79,7 +79,7 @@ model: inherit
 mainAgent: false
 subagent: true
 readonly: true
-commandExecutionPolicy: off
+commandExecutionPolicy: sandbox
 skills:
   - api
   - review-api

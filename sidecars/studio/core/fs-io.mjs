@@ -129,21 +129,28 @@ export function safeStat(targetPath) {
  * Recursively walk regular files inside `dir` in sorted POSIX order.
  *
  * @param {string} dir
- * @param {{ extensions?: string[] | null, maxDepth?: number, excludeDirs?: Set<string> }} [options]
+ * @param {{ extensions?: string[] | null, maxDepth?: number, excludeDirs?: Set<string>, skipMarkerFiles?: string[] }} [options]
  * @returns {string[]}
  */
 export function walkFiles(
   dir,
-  { extensions = null, maxDepth = 12, excludeDirs = new Set(["node_modules", ".git", ".venv", "__pycache__"]) } = {},
+  {
+    extensions = null,
+    maxDepth = 12,
+    excludeDirs = new Set(["node_modules", ".git", ".venv", "__pycache__"]),
+    skipMarkerFiles = [],
+  } = {},
 ) {
   if (!isExistingDir(dir)) return [];
   const extSet = Array.isArray(extensions) && extensions.length > 0
     ? new Set(extensions.map((e) => String(e).toLowerCase()))
     : null;
+  const markers = Array.isArray(skipMarkerFiles) ? skipMarkerFiles.filter(Boolean) : [];
   /** @type {string[]} */
   const out = [];
   const walk = (curDir, depth) => {
     if (depth > maxDepth) return;
+    if (markers.some((marker) => fs.existsSync(path.join(curDir, marker)))) return;
     let entries;
     try {
       entries = fs.readdirSync(curDir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name));

@@ -12,7 +12,7 @@ import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
-import { uriToWorkspacePath } from "../core/fs-io.mjs";
+import { readJsonSafe, StudioStateStore, uriToWorkspacePath, writeJsonAtomic } from "../core/fs-io.mjs";
 import { DynamicModelCatalog } from "../models/inventory.mjs";
 
 const LS_SERVICE_PREFIX = "/exa.language_server_pb.LanguageServerService/";
@@ -282,15 +282,24 @@ export class AntigravityBridge {
       if (!entry.model) return;
       const prev = modelsByEnum.get(entry.model);
       if (prev) {
-        if (!prev.quota_remaining && entry.quota_remaining !== null) prev.quota_remaining = entry.quota_remaining;
+        if (prev.quota_remaining === null && entry.quota_remaining !== null) prev.quota_remaining = entry.quota_remaining;
         if (entry.deprecated) prev.deprecated = true;
+        if (entry.is_custom) prev.is_custom = true;
+        if (!prev.tag && entry.tag) prev.tag = entry.tag;
         return;
       }
-      modelsByEnum.set(entry.model, entry);
+      modelsByEnum.set(entry.model, { ...entry, is_custom: Boolean(entry.is_custom) });
     };
 
-    for (const c of Array.isArray(cfgPayload?.clientModelConfigs) ? cfgPayload.clientModelConfigs : []) {
-      const mEnum = String(c?.modelOrAlias?.model || "").trim();
+    const isUtilityModel = (mId, mEnum, info) => {
+      const fields = [mId, mEnum, info?.displayName, info?.label].map((v) => String(v || "").trim()).filter(Boolean);
+      return fields.some((value) => /^(?:tab_|lsp-slot)/i.test(value) || /[-_]compaction\b|[-_]image\b/i.test(value));
+    };
+    const isCustomEntry = (obj) => obj?.isCustom === true || obj?.custom === true;
+
+    const clientConfigs = Array.isArray(cfgPayload?.clientModelConfigs) ? cfgPayload.clientModelConfigs : [];
+    for (const c of clientConfigs) {
+      const mEnum = String(c?.modelOrAlias?.model || c?.modelOrAlias?.alias || "").trim();
       if (!mEnum) continue;
       const frac = c?.quotaInfo?.remainingFraction;
       pushModel({
@@ -300,15 +309,22 @@ export class AntigravityBridge {
         displayName: c?.label || mEnum,
         label: c?.label || mEnum,
         tag: c?.tagTitle || "",
+        is_custom: isCustomEntry(c),
         disabled: Boolean(c?.disabled),
         deprecated: deprecatedSet.has(String(c?.modelId || "")),
         quota_remaining: Number.isFinite(Number(frac)) ? Number(frac) : null,
       });
     }
 
+    const hasPickerConfigs = clientConfigs.length > 0;
     for (const [mId, info] of Object.entries(rawModels)) {
       if (!info || typeof info !== "object") continue;
       const mEnum = String(info.model || mId).trim();
+      const isCustom = isCustomEntry(info);
+      if (hasPickerConfigs && !isCustom) continue;
+      if (deprecatedSet.has(mId) || info.disabled === true || (!isCustom && isUtilityModel(mId, mEnum, info))) {
+        continue;
+      }
       const frac = info?.quotaInfo?.remainingFraction;
       pushModel({
         id: mId,
@@ -317,6 +333,7 @@ export class AntigravityBridge {
         displayName: info.displayName || info.label || mId,
         label: info.displayName || info.label || mId,
         tag: info.tagTitle || "",
+        is_custom: isCustom,
         disabled: Boolean(info.disabled),
         deprecated: deprecatedSet.has(mId),
         quota_remaining: Number.isFinite(Number(frac)) ? Number(frac) : null,
@@ -595,6 +612,111 @@ export class AntigravityBridge {
       prompt_sent: Boolean(sendRes.ok),
       ...(sendRes.ok ? {} : { error: sendRes.error || "SendUserCascadeMessage failed" }),
     };
+  }
+
+  /**
+   * Detect whether a sidecar `baseUrl` points to a non-loopback host exposing an
+   * unproxied loopback `webPort` directly.
+   *
+   * @param {string} baseUrl
+   * @param {number | string} webPort
+   * @returns {boolean}
+   */
+  static isUnproxiedRemoteSidecarUrl(baseUrl, webPort) {
+    const portNum = Number(webPort);
+    if (!baseUrl || !Number.isInteger(portNum) || portNum <= 0 || portNum > 65535) {
+      return false;
+    }
+    let parsed;
+    try {
+      parsed = new URL(String(baseUrl).trim());
+    } catch {
+      return false;
+    }
+    const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+    if (!host || host === "localhost" || host === "127.0.0.1" || host === "::1") {
+      return false;
+    }
+    if (parsed.port && Number.parseInt(parsed.port, 10) === portNum) {
+      return true;
+    }
+    const firstLabel = host.split(".")[0] || "";
+    const encodedMatch = firstLabel.match(/^b(?:[0-9a-f]{8}|[0-9a-f]{32})([0-9a-f]{4})[0-9a-f]{18}$/i);
+    if (encodedMatch) {
+      return Number.parseInt(encodedMatch[1], 16) === portNum;
+    }
+    return false;
+  }
+
+  /**
+   * Verify whether the registered sidecar `baseUrl` requires a bounded cold-start reload.
+   *
+   * @param {{ stateDir?: string | null, nowMs?: number, maxAttempts?: number, windowMs?: number }} [options]
+   * @returns {Promise<{ ok: boolean, unproxied: boolean, shouldRestart: boolean, attempts: number }>}
+   */
+  async verifyGatewayBinding({ stateDir = null, nowMs = Date.now(), maxAttempts = 2, windowMs = 600_000 } = {}) {
+    const webPort = Number.parseInt(String(this.env.ANTIGRAVITY_SIDECAR_WEB_PORT || ""), 10);
+    if (!Number.isInteger(webPort) || webPort <= 0) {
+      return { ok: true, unproxied: false, shouldRestart: false, attempts: 0 };
+    }
+    const execDirRaw =
+      typeof this.env.ANTIGRAVITY_EXECUTABLE_DATA_DIR === "string"
+        ? this.env.ANTIGRAVITY_EXECUTABLE_DATA_DIR.trim()
+        : "";
+    const resolvedStateDir = stateDir
+      ? path.resolve(stateDir)
+      : execDirRaw
+        ? path.resolve(execDirRaw)
+        : StudioStateStore.resolveConfigDir(this.env);
+    const stateFile = path.join(resolvedStateDir, "gateway-recheck.json");
+
+    const res = await this.call("GetSidecars", {});
+    const sidecars = res?.ok && Array.isArray(res.value?.sidecars) ? res.value.sidecars : null;
+    if (!sidecars) {
+      return { ok: true, unproxied: false, shouldRestart: false, attempts: 0 };
+    }
+    const entry =
+      sidecars.find((s) => Number(s?.webPort ?? s?.web_port ?? 0) === webPort) ||
+      sidecars.find((s) => String(s?.sidecarId ?? s?.id ?? "").endsWith("/studio"));
+    if (!entry) {
+      return { ok: true, unproxied: false, shouldRestart: false, attempts: 0 };
+    }
+
+    const baseUrl = String(entry.baseUrl ?? entry.base_url ?? "");
+    const unproxied = AntigravityBridge.isUnproxiedRemoteSidecarUrl(baseUrl, webPort);
+    const prev = readJsonSafe(stateFile);
+
+    if (!unproxied) {
+      if (prev && Number(prev.attempts || 0) > 0) {
+        try {
+          writeJsonAtomic(stateFile, { attempts: 0, windowStartMs: nowMs, updatedAtMs: nowMs });
+        } catch {
+          // Ignore read-only data directory cleanup errors.
+        }
+      }
+      return { ok: true, unproxied: false, shouldRestart: false, attempts: 0 };
+    }
+
+    const prevStart = Number(prev?.windowStartMs || 0);
+    const inWindow = prevStart > 0 && nowMs - prevStart < windowMs;
+    const prevAttempts = inWindow ? Number(prev?.attempts || 0) : 0;
+    if (prevAttempts >= maxAttempts) {
+      return { ok: false, unproxied: true, shouldRestart: false, attempts: prevAttempts };
+    }
+
+    const nextAttempts = prevAttempts + 1;
+    const windowStartMs = inWindow ? prevStart : nowMs;
+    try {
+      fs.mkdirSync(resolvedStateDir, { recursive: true });
+      writeJsonAtomic(stateFile, {
+        attempts: nextAttempts,
+        windowStartMs,
+        updatedAtMs: nowMs,
+      });
+    } catch {
+      // Allow a clean single recovery exit even when the state path is read-only.
+    }
+    return { ok: false, unproxied: true, shouldRestart: true, attempts: nextAttempts };
   }
 
   async #collectProjects(getProjRes, listProjRes) {

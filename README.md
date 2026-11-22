@@ -138,9 +138,10 @@ npx --yes --package github:cofin/flow flow-studio-vscode --target vscode
 | `/flow:research <topic>` | [`flow-planning`](skills/flow-planning/SKILL.md) | [`research.md`](skills/flow/references/research.md) | Primary-source research & time-boxed `.agents/scratch/` spikes (alias: `task`) |
 | `/flow:implement [flow_id]` | [`flow-execution`](skills/flow-execution/SKILL.md) | [`implement.md`](skills/flow/references/implement.md) | Execute active chapter (`1..N` tasks, or `--all` chapters) with public-interface TDD, doc/OKF sync, and review |
 | `/flow:status` | [`flow-execution`](skills/flow-execution/SKILL.md) | [`status.md`](skills/flow/references/status.md) | Inspect active flows, chapter progress, remaining plan, and ready tasks |
+| `/flow:dispatch` | [`flow-dispatch`](skills/flow-dispatch/SKILL.md) | [`orchestration.md`](skills/flow/references/orchestration.md) | Route models and worker briefs, dispatch cross-harness runs, and coordinate peer conversations |
 | `/flow:learn [scope]` | [`flow-learn`](skills/flow-learn/SKILL.md) | [`learn.md`](skills/flow/references/learn.md) | Anytime catch-up (`refresh`), sync, `OKF v0.2` knowledge update, and skill sync |
 | `/flow:docs [mode]` | [`flow-docs`](skills/flow-docs/SKILL.md) | [`prose-and-documentation.md`](skills/flow-docs/references/prose-and-documentation.md) | Tool-agnostic user/developer docs, [`agent-context.md`](skills/flow-docs/references/agent-context.md), changelogs, and clean PRs |
-| `/flow:review [flow_id]` | [`flow-completion`](skills/flow-completion/SKILL.md) | [`review.md`](skills/flow/references/review.md) | Independent spec, Markdown-sync, standards, and debloat quality review |
+| `/flow:review [flow_id]` | [`flow-completion`](skills/flow-completion/SKILL.md) | [`review.md`](skills/flow/references/review.md) | Independent spec, Markdown-sync, standards, debloat, and subtraction-only `simplify` review |
 | `/flow:finish [flow_id]` | [`flow-completion`](skills/flow-completion/SKILL.md) | [`finish.md`](skills/flow/references/finish.md) | Verify release checks, chapter review stamps, ADR filter, and mark flow `completed` |
 | `/flow:archive [flow_id]` | [`flow-completion`](skills/flow-completion/SKILL.md) | [`archive.md`](skills/flow/references/archive.md) | Capture completed flow into `.agents/bundles/knowledge/**` and remove spec dir |
 | `/flow:cleanup` | [`flow-completion`](skills/flow-completion/SKILL.md) | [`cleanup.md`](skills/flow/references/cleanup.md) | Groundskeeping: sync specs, archive completed flows, and debloat touched files |
@@ -162,7 +163,7 @@ npx --yes --package github:cofin/flow flow-studio-vscode --target vscode
 │   └── <domain>-specialist.md
 └── bundles/
     ├── index.md                                  # Root OKF v0.2 manifest
-    ├── log.md                                    # Append-only ISO-dated changelog
+    ├── log.md                                    # ISO-dated lifecycle log (prepend new entries)
     ├── product/{index,product,product-guidelines,tech-stack}.md
     ├── knowledge/
     │   ├── index.md

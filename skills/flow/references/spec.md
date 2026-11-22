@@ -37,7 +37,7 @@ Choose the layout from estimated production LOC and impacted modules:
 2. **Compare Interface Alternatives**: Compare 2–3 distinct interface shapes on **depth**, **locality**, and **adapter count** (*one adapter = hypothetical interface; two concrete callers/adapters = real interface*).
 3. **Walk Unresolved Open Decisions Only**:
    - Skip questions already settled by the prompt and codebase.
-   - Ask `1` question at unresolved dependent forks, and batch `2–3` independent leaf questions once ([`interaction.md`](interaction.md)), putting `<Label> (Recommended)` first across interface choice, contracts, public interface tests, `< 60s` lint/test checkpoints, `docs/**` + OKF targets, and chapters.
+   - Ask `1` question at unresolved dependent forks, and batch `2-3` independent leaf questions once ([`interaction.md`](interaction.md)), putting `<Label> (Recommended)` first across interface choice, contracts, public interface tests, `< 60s` lint/test checkpoints, `docs/**` + OKF targets, and chapters.
 
 ## Phase 3: Author Specs, Worksheets & Validation
 

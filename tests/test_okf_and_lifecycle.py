@@ -22,6 +22,7 @@ from tools.validate import (
     validate_okf_bundle,
 )
 from workflows.flow_common import (
+    SIMPLIFY_SCHEMA,
     WorkerPool,
     resolve_workspace_commands,
     run_parallel_bounded,
@@ -1121,6 +1122,7 @@ def test_flow_spec_planning_workflow_quota_fallback_and_disk_idle_recovery(tmp_p
 
     ns: dict[str, Any] = {
         "__builtins__": __builtins__,
+        "__file__": str(script_path),
         "args": {
             "flow_id": "mini-flow",
             "chapters": [{"id": "ch01-core", "brief": "Implement core slice", "read_files": ["src/auth/tokens.py"]}],
@@ -1446,6 +1448,16 @@ def test_flow_chapter_pipeline_workflow_executes_bounded_batches_and_lease(tmp_p
                 "verification_evidence": "pytest 1 passed",
             }
         rev_models.append(model)
+        if schema == SIMPLIFY_SCHEMA:
+            return {
+                "target": "HEAD~1..HEAD",
+                "goal_preserved": "Execute bounded chapter batch.",
+                "verdict": "already_minimal",
+                "estimated_net_lines_cut": 0,
+                "suppressed": [],
+                "cuts": [],
+                "kept": ["src/app.py: core handler"],
+            }
         return {"verdict": "PASS", "findings": []}
 
     async def fake_with_budget(coro: Any, **_kwargs: Any) -> Any:
@@ -1456,6 +1468,7 @@ def test_flow_chapter_pipeline_workflow_executes_bounded_batches_and_lease(tmp_p
 
     ns: dict[str, Any] = {
         "__builtins__": __builtins__,
+        "__file__": str(script_path),
         "args": {
             "flow_id": "auth-refactor",
             "chapter_id": "ch02-middleware",
@@ -1488,7 +1501,8 @@ def test_flow_chapter_pipeline_workflow_executes_bounded_batches_and_lease(tmp_p
     assert len(summary["executions"][0]["tasks"]) == 5
     assert len(summary["executions"][1]["tasks"]) == 2
     assert exec_models == ["flash", "flash"]
-    assert rev_models == ["flash", "flash"]
+    assert rev_models == ["flash", "flash", "flash"]
+    assert [r["reviewer"] for r in summary["reviews"]] == ["conformance", "quality", "simplify"]
     assert list((tmp_path / "runtime").rglob("*.lease")) == []
 
 
@@ -1726,6 +1740,16 @@ def test_flow_dual_review_and_spec_planning_crash_isolation_and_quota_fallback(
             raise RuntimeError("HTTP 429 rate_limit exhausted")
         if "quality" in low_role or "debloat" in low_role:
             raise RuntimeError("quality reviewer internal crash")
+        if schema == SIMPLIFY_SCHEMA:
+            return {
+                "target": "HEAD~1..HEAD",
+                "goal_preserved": "Verify review quota fallback.",
+                "verdict": "already_minimal",
+                "estimated_net_lines_cut": 0,
+                "suppressed": [],
+                "cuts": [],
+                "kept": ["workflows/flow-dual-review/workflow.py"],
+            }
         return {"verdict": "PASS", "findings": []}
 
     async def fake_with_budget(coro: Any, **_kwargs: Any) -> Any:
@@ -1762,9 +1786,16 @@ def test_flow_dual_review_and_spec_planning_crash_isolation_and_quota_fallback(
     asyncio.run(_drive_rev())
     rev_out = json.loads(rev_printed[-1])
     assert rev_out["quota_degraded"] is True
-    assert len(rev_out["reports"]) == 2
-    assert any(r["verdict"] == "PASS" and r["model_used"] == "flash" for r in rev_out["reports"])
-    assert any(r["verdict"] == "NEEDS_WORK" and r["findings"] for r in rev_out["reports"])
+    assert len(rev_out["reports"]) == 3
+    assert {r["reviewer"] for r in rev_out["reports"]} == {"conformance", "quality", "simplify"}
+    assert any(
+        r["reviewer"] == "conformance" and r["verdict"] == "PASS" and r["model_used"] == "flash"
+        for r in rev_out["reports"]
+    )
+    assert any(
+        r["reviewer"] == "quality" and r["verdict"] == "NEEDS_WORK" and r["findings"] for r in rev_out["reports"]
+    )
+    assert any(r["reviewer"] == "simplify" and r["verdict"] == "already_minimal" for r in rev_out["reports"])
 
     plan_script = REPO_ROOT / "workflows" / "flow-spec-planning" / "workflow.py"
     plan_tree = ast.parse(plan_script.read_text(encoding="utf-8"), str(plan_script))
@@ -1940,3 +1971,199 @@ def test_workspace_sync_bundle_migrator_and_closeout(tmp_path: Path) -> None:
     assert out["closeRes"]["verified"]["by"].startswith("human:")
     assert (bundle / "log.md").is_file()
     assert (bundle / "specs" / "index.md").is_file()
+
+
+@pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
+@pytest.mark.parametrize(
+    ("mode", "expected_ids", "expected_mode"),
+    (
+        ("simplify", ["simplify"], "simplify"),
+        ("dual", ["conformance", "quality", "simplify"], "dual"),
+        ("committee", ["committee-architecture", "committee-correctness", "committee-operations"], "committee"),
+        ("single", ["combined"], "single"),
+    ),
+)
+def test_review_roster_modes_and_cards(
+    tmp_path: Path,
+    mode: str,
+    expected_ids: list[str],
+    expected_mode: str,
+) -> None:
+    """Verify ReviewRoster.plan returns explicit cards and subtraction seats across all review modes."""
+    assert NODE_BIN is not None
+    roster_uri = (REPO_ROOT / "sidecars" / "studio" / "spec" / "review-roster.mjs").as_uri()
+    js = (
+        f"import {{ ReviewRoster }} from {json.dumps(roster_uri)};"
+        f"const plan = ReviewRoster.plan({json.dumps(str(tmp_path))}, {{ mode: {json.dumps(mode)} }});"
+        "process.stdout.write(JSON.stringify(plan) + '\\n');"
+    )
+    proc = subprocess.run(
+        [NODE_BIN, "--input-type=module", "-e", js],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    )
+    plan = json.loads(proc.stdout.strip().splitlines()[-1])
+    assert plan["mode"] == expected_mode
+    assert [r["id"] for r in plan["reviewers"]] == expected_ids
+    assert all(r.get("card") for r in plan["reviewers"])
+    if mode in ("simplify", "dual"):
+        simplify_seat = next(r for r in plan["reviewers"] if r["id"] == "simplify")
+        assert simplify_seat["card"] == "templates/agent/simplify-card.md"
+    if mode == "committee":
+        ops_seat = next(r for r in plan["reviewers"] if r["id"] == "committee-operations")
+        assert "deleted or deferred" in ops_seat["reason"]
+
+    if mode == "simplify":
+        cli_plan = _run_flow_cli("review", "plan", "--mode", "simplify", "--root", str(tmp_path))
+        assert cli_plan["mode"] == "simplify"
+        assert [r["id"] for r in cli_plan["reviewers"]] == ["simplify"]
+
+
+@pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
+def test_flow_dual_review_standalone_simplify_mode(tmp_path: Path, monkeypatch: Any) -> None:
+    """Verify flow-dual-review runs standalone subtraction-only simplify reviews with SIMPLIFY_SCHEMA."""
+    monkeypatch.setenv("FLOW_RUNTIME_DIR", str(tmp_path / "rt"))
+    ws = _seed_valid_multichapter_bundle(tmp_path).parent.parent
+    monkeypatch.chdir(ws)
+
+    rev_script = REPO_ROOT / "workflows" / "flow-dual-review" / "workflow.py"
+    rev_tree = ast.parse(rev_script.read_text(encoding="utf-8"), str(rev_script))
+    rev_code = compile(rev_tree, str(rev_script), "exec", flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
+    printed: list[str] = []
+    captured: list[tuple[str, dict[str, Any], str]] = []
+
+    async def fake_agent(
+        prompt: str,
+        *,
+        schema: dict[str, Any],
+        role: str = "",
+        type_name: str = "self",
+        workspace: str = "inherit",
+        model: str = "inherit",
+    ) -> dict[str, Any]:
+        captured.append((prompt, schema, role))
+        return {
+            "target": "HEAD~1..HEAD",
+            "goal_preserved": "Keep webhook retry semantics without extra wrapper layer.",
+            "verdict": "cuts_found",
+            "estimated_net_lines_cut": 18,
+            "suppressed": [],
+            "cuts": [
+                {
+                    "id": "CUT-1",
+                    "category": "equivalent",
+                    "action": "inline",
+                    "location": "src/retry.py:12-29",
+                    "estimated_net_lines": 18,
+                    "proof": "git grep -n -F RetryWrapper returned 1 call site.",
+                    "why_unearned": "Single-caller pass-through wrapper adds no state or boundary.",
+                    "cost_of_cut": "None.",
+                    "replacement": "Call backoff() directly.",
+                }
+            ],
+            "kept": ["src/webhook.py: signature verification"],
+        }
+
+    async def fake_with_budget(coro: Any, **_kwargs: Any) -> Any:
+        return await coro
+
+    async def fake_parallel(items: list[Any], fn: Callable[[Any], Any]) -> list[Any]:
+        return list(await asyncio.gather(*(fn(item) for item in items)))
+
+    ns: dict[str, Any] = {
+        "__builtins__": __builtins__,
+        "__file__": str(rev_script),
+        "args": {
+            "git_range": "HEAD~1..HEAD",
+            "review_mode": "simplify",
+            "goal": "Keep webhook retry semantics without extra wrapper layer.",
+            "reviewer_model": "flash",
+            "plugin_root": str(REPO_ROOT),
+        },
+        "agent": fake_agent,
+        "with_budget": fake_with_budget,
+        "parallel": fake_parallel,
+        "phase": lambda _n: None,
+        "log": lambda _m: None,
+        "tokens_used": lambda: 42,
+        "print": lambda t: printed.append(str(t)),
+    }
+
+    async def _drive() -> None:
+        coro = eval(rev_code, ns, ns)
+        if asyncio.iscoroutine(coro):
+            await coro
+
+    asyncio.run(_drive())
+    out = json.loads(printed[-1])
+    assert out["review_mode"] == "simplify"
+    assert out["git_status_unchanged"] is True
+    assert len(captured) == 1
+    prompt_text, schema_arg, role_arg = captured[0]
+    assert schema_arg == SIMPLIFY_SCHEMA
+    assert "simplify-card.md" in prompt_text
+    assert "Keep webhook retry semantics without extra wrapper layer." in prompt_text
+    assert "git grep -n -F" in prompt_text
+    assert "Simplify" in role_arg
+    assert out["reports"][0]["verdict"] == "cuts_found"
+    assert out["reports"][0]["estimated_net_lines_cut"] == 18
+
+
+@pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
+def test_spec_closeout_prepends_archive_entry_after_heading(tmp_path: Path) -> None:
+    """Verify SpecCloseout prepends newest archive log entry right under the Bundle Log heading."""
+    assert NODE_BIN is not None
+    git_kw: dict[str, Any] = {"cwd": tmp_path, "check": True, "capture_output": True, "text": True, "encoding": "utf-8"}
+    subprocess.run(["git", "init"], **git_kw)
+    subprocess.run(["git", "config", "user.email", "dev@example.com"], **git_kw)
+    subprocess.run(["git", "config", "user.name", "Dev User"], **git_kw)
+    subprocess.run(["git", "config", "commit.gpgsign", "false"], **git_kw)
+
+    bundle = tmp_path / ".agents" / "bundles"
+    spec_dir = bundle / "specs" / "alpha-done"
+    (spec_dir / "tasks").mkdir(parents=True)
+    (tmp_path / ".agents" / "setup-state.json").write_text(
+        json.dumps({"setup_status": "complete", "bundle_root": ".agents/bundles"}),
+        encoding="utf-8",
+    )
+    (bundle / "index.md").write_text("---\nokf_version: '0.2'\n---\n\n# Root\n", encoding="utf-8")
+    (bundle / "log.md").write_text(
+        "# Bundle Log\n\n- 2026-01-01 **archive**: `older-flow` — Older entry (verified at `abc1234`)\n",
+        encoding="utf-8",
+    )
+    (spec_dir / "spec.md").write_text(
+        "---\ntype: Spec\nflow_id: alpha-done\ntitle: Alpha Done\nstate: completed\nhas_chapters: false\n---\n\n"
+        "- [x] t01 — Done\n",
+        encoding="utf-8",
+    )
+    subprocess.run(["git", "add", "-A"], **git_kw)
+    subprocess.run(["git", "commit", "-m", "seed alpha-done"], **git_kw)
+
+    close_uri = (REPO_ROOT / "sidecars" / "studio" / "spec" / "spec-closeout.mjs").as_uri()
+    js = (
+        f"import {{ SpecCloseout }} from {json.dumps(close_uri)};"
+        f"const res = new SpecCloseout({json.dumps(str(tmp_path))}).run('alpha-done', {{ apply: true, keep: true }});"
+        "process.stdout.write(JSON.stringify(res) + '\\n');"
+    )
+    proc = subprocess.run(
+        [NODE_BIN, "--input-type=module", "-e", js],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    )
+    assert json.loads(proc.stdout.strip().splitlines()[-1])["ok"] is True
+    log_text = (bundle / "log.md").read_text(encoding="utf-8")
+    alpha_pos = log_text.index("`alpha-done`")
+    older_pos = log_text.index("`older-flow`")
+    heading_pos = log_text.index("# Bundle Log")
+    assert heading_pos < alpha_pos < older_pos
+
+
+def test_flow_spec_planning_references_simplify_card() -> None:
+    """Verify flow-spec-planning passes templates/agent/simplify-card.md into independent spec review."""
+    source = (REPO_ROOT / "workflows" / "flow-spec-planning" / "workflow.py").read_text(encoding="utf-8")
+    assert "simplify-card.md" in source
+    assert "simplify_card_path" in source

@@ -73,7 +73,7 @@ When diagnosing a hard bug, test failure, or performance regression, run these s
    - Watch the command fail on the reported symptom.
    - Strip inputs, callers, config, and steps one at a time, re-running after each cut until removing any remaining element makes the test pass.
 3. **List Ranked Falsifiable Hypotheses**:
-   - State `3–5` ranked hypotheses, each with a falsifiable prediction:
+   - State `3-5` ranked hypotheses, each with a falsifiable prediction:
      > *"If `<X>` is the cause, then `<changing Y>` will make the symptom disappear or `<changing Z>` will make it worse."*
    - Record the hypotheses and root-cause notes with a timestamp under `## Notes & Discoveries` in `tasks/<id>-<slug>.md`.
 4. **Targeted Single-Variable Probes**:

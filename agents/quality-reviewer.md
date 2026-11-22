@@ -28,6 +28,8 @@ Never edit files, browse unrelated plugin reference files, pass `BypassSandbox: 
 1. **Policy Loading**: Load `.agents/skills/debloat/SKILL.md` (`consumer_skill`), packaged `skills/debloat/SKILL.md` (`packaged_skill`), or inline rules (`inline_fallback`).
 2. **Deep-Module Deletion Check and Code Organization**:
    - Flag shallow pass-through wrappers, 1:1 hypothetical interfaces, standalone private `_...` helpers that belong on their domain class, unnecessary function-scoped imports, inline `#` comments in Python, and leftover compatibility shims.
+   - Prove negative claims (`unused` or `single caller`) with an untruncated repo-wide `git grep -n -F '<symbol>'` plus public-export (`__all__`), CLI, config, template, wire-schema, and dynamic-dispatch checks before recommending deletion.
+   - When assigned a subtraction-only `simplify` pass, read `templates/agent/simplify-card.md`, avoid proposing new error guards, retries, watchdogs, flags, wrappers, comments, or tests, and classify each candidate cut as `equivalent` (zero behavior change) or `behavior_change` (requires owner approval).
 3. **Test and Check Strength**:
    - Honor `.agents/skills/review-*/references/false-positive-suppressions.md`.
    - Flag private-detail tests, mock-only tests, unparameterized `for`-loop test iterations, slow full-suite commands placed inside fast chapter checks, and standalone `test_*remediation*.py` or `test_*audit*.py` files.

@@ -1047,3 +1047,32 @@ def test_validate_sidecar_sandbox_and_dirty_file_sha_relaxation(
 
     (repo / "src" / "app.py").write_text("v = 2\n", encoding="utf-8")
     assert validate_okf_bundle(bundle, project_root=repo) == []
+
+
+def test_validate_schema_cards_checks_simplify_card_tokens(tmp_path: Path) -> None:
+    """Verify validate_schema_cards checks required contract tokens inside templates/agent/simplify-card.md."""
+    templates_dir = tmp_path / "templates" / "agent"
+    refs_dir = tmp_path / "skills" / "flow" / "references"
+    templates_dir.mkdir(parents=True)
+    refs_dir.mkdir(parents=True)
+    shutil.copy2(REPO_ROOT / "skills" / "flow" / "references" / "state.md", refs_dir / "state.md")
+    shutil.copy2(REPO_ROOT / "templates" / "agent" / "plan-schema-card.md", templates_dir / "plan-schema-card.md")
+    shutil.copy2(
+        REPO_ROOT / "templates" / "agent" / "executor-schema-card.md",
+        templates_dir / "executor-schema-card.md",
+    )
+    (templates_dir / "simplify-card.md").write_text("# Simplify\n\nIncomplete card.\n", encoding="utf-8")
+
+    errors = validate_schema_cards(tmp_path)
+    assert any("templates/agent/simplify-card.md: missing required token 'equivalent'" in err for err in errors)
+    assert any("templates/agent/simplify-card.md: missing required token 'already_minimal'" in err for err in errors)
+
+
+@pytest.mark.parametrize("skill_name", EXPECTED_SKILLS)
+def test_shipped_skills_include_negative_trigger_and_example_fence(skill_name: str) -> None:
+    """Verify every shipped SKILL.md contains explicit negative routing guidance and a fenced example."""
+    skill_text = (REPO_ROOT / "skills" / skill_name / "SKILL.md").read_text(encoding="utf-8")
+    assert skill_text.startswith("---\n"), f"{skill_name}: missing frontmatter"
+    frontmatter = skill_text.split("---\n", 2)[1]
+    assert "Don't use for" in frontmatter, f"{skill_name}: description missing explicit negative trigger clause"
+    assert "```" in skill_text, f"{skill_name}: missing fenced runnable example block"

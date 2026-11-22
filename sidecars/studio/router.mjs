@@ -292,15 +292,28 @@ export class StudioApiService {
         const client = new RemoteRepoSpecClient(String(data.repoLocator), { workspacePath: ws, env: this.env });
         return client.readDocument(String(data.relPath), { gitRef: data.gitRef || null });
       }
-      if (data.gitRef) {
+      const engine = new SpecEngine({ workspacePath: ws, env: this.env });
+      const cleanRef = data.gitRef ? String(data.gitRef).trim() : null;
+      if (cleanRef && !engine.isWorkingTreeRef(cleanRef)) {
         const doc = await new GitBranchSpecScanner(ws, { env: this.env }).readDocumentFromRef(
           String(data.relPath),
-          String(data.gitRef),
+          cleanRef,
         );
-        if (!doc) throw new StudioRequestError(`Document '${data.relPath}' not found at ref '${data.gitRef}'`);
+        if (!doc) throw new StudioRequestError(`Document '${data.relPath}' not found at ref '${cleanRef}'`);
         return doc;
       }
-      return new SpecEngine({ workspacePath: ws, env: this.env }).readDocument(String(data.relPath));
+      try {
+        return engine.readDocument(String(data.relPath));
+      } catch (diskErr) {
+        if (cleanRef) {
+          const doc = await new GitBranchSpecScanner(ws, { env: this.env }).readDocumentFromRef(
+            String(data.relPath),
+            cleanRef,
+          );
+          if (doc) return doc;
+        }
+        throw diskErr;
+      }
     }
 
     if (routePath === "/api/spec-dag") {
@@ -311,15 +324,17 @@ export class StudioApiService {
         const review = await client.getSpecReview(String(data.flowId), { gitRef: data.gitRef || null });
         return { ...review.dag, steps: [], inline_fast_path_eligible: false };
       }
-      if (data.gitRef) {
-        const dag = await new GitBranchSpecScanner(ws, { env: this.env }).buildDagFromRef(
-          String(data.flowId),
-          String(data.gitRef),
-        );
-        if (!dag) throw new StudioRequestError(`Spec '${data.flowId}' not found at ref '${data.gitRef}'`);
-        return { ...dag, steps: [], inline_fast_path_eligible: false };
-      }
       const engine = new SpecEngine({ workspacePath: ws, env: this.env });
+      const cleanRef = data.gitRef ? String(data.gitRef).trim() : null;
+      if (cleanRef && !engine.isWorkingTreeRef(cleanRef)) {
+        const refResult = await new GitBranchSpecScanner(ws, { env: this.env }).buildDagFromRef(
+          String(data.flowId),
+          cleanRef,
+        );
+        const unwrappedDag = refResult?.dag || refResult;
+        if (!unwrappedDag) throw new StudioRequestError(`Spec '${data.flowId}' not found at ref '${cleanRef}'`);
+        return { ...unwrappedDag, steps: [], inline_fast_path_eligible: false };
+      }
       const dag = engine.buildDag(String(data.flowId));
       const plan = new TaskPlanner(ws).plan({ flowId: String(data.flowId), chapterId: data.chapterId || null });
       return { ...dag, steps: plan.steps, inline_fast_path_eligible: plan.inline_fast_path_eligible };
@@ -328,40 +343,73 @@ export class StudioApiService {
     if (routePath === "/api/spec-review") {
       const ws = this.resolveWorkspace(data);
       if (!data.flowId) throw new StudioRequestError("flowId is required");
+      const engine = new SpecEngine({ workspacePath: ws, env: this.env });
+      let localSnapshot = null;
+      try {
+        localSnapshot = engine.getSpecReview(String(data.flowId));
+      } catch {
+        localSnapshot = null;
+      }
       if (data.repoLocator) {
-        const client = new RemoteRepoSpecClient(String(data.repoLocator), { workspacePath: ws, env: this.env });
-        return client.getSpecReview(String(data.flowId), { gitRef: data.gitRef || null });
-      }
-      if (data.gitRef) {
-        const scanner = new GitBranchSpecScanner(ws, { env: this.env });
-        const dag = await scanner.buildDagFromRef(String(data.flowId), String(data.gitRef));
-        const specDoc = await scanner.readDocumentFromRef(
-          `.agents/bundles/specs/${String(data.flowId)}/spec.md`,
-          String(data.gitRef),
-        );
-        if (!dag || !specDoc) {
-          throw new StudioRequestError(`Spec '${data.flowId}' not found at ref '${data.gitRef}'`);
+        try {
+          const client = new RemoteRepoSpecClient(String(data.repoLocator), { workspacePath: ws, env: this.env });
+          return await client.getSpecReview(String(data.flowId), { gitRef: data.gitRef || null });
+        } catch (err) {
+          if (localSnapshot) {
+            return {
+              ...localSnapshot,
+              ok: true,
+              source: "local",
+              syncWarning: err instanceof Error ? err.message : "Remote review sync unavailable; showing local review.",
+            };
+          }
+          throw err;
         }
-        const comments = new SpecFeedbackStore(ws, { env: this.env }).listForFlow(String(data.flowId), {
-          extraComments: specDoc.comments || [],
-        });
-        return {
-          ok: true,
-          flowId: String(data.flowId),
-          title: specDoc.title,
-          planRevision: Number(specDoc.frontmatter?.plan_revision || 1),
-          reviewState: "in_review",
-          specMarkdown: specDoc.raw,
-          dag,
-          comments,
-          revisePromptMarkdown: new SpecFeedbackStore(ws, { env: this.env }).buildRevisePrompt(
-            String(data.flowId),
-            String(data.flowId),
-            comments,
-          ),
-        };
       }
-      return new SpecEngine({ workspacePath: ws, env: this.env }).getSpecReview(String(data.flowId));
+      const cleanRef = data.gitRef ? String(data.gitRef).trim() : null;
+      if (cleanRef && !engine.isWorkingTreeRef(cleanRef)) {
+        try {
+          const scanner = new GitBranchSpecScanner(ws, { env: this.env });
+          const refResult = await scanner.buildDagFromRef(String(data.flowId), cleanRef);
+          const dag = refResult?.dag || refResult;
+          const specDoc = await scanner.readDocumentFromRef(
+            `.agents/bundles/specs/${String(data.flowId)}/spec.md`,
+            cleanRef,
+          );
+          if (!dag || !specDoc) {
+            throw new StudioRequestError(`Spec '${data.flowId}' not found at ref '${cleanRef}'`);
+          }
+          const comments = new SpecFeedbackStore(ws, { env: this.env }).listForFlow(String(data.flowId), {
+            extraComments: specDoc.comments || [],
+          });
+          return {
+            ok: true,
+            flowId: String(data.flowId),
+            title: specDoc.title,
+            planRevision: Number(specDoc.frontmatter?.plan_revision || 1),
+            reviewState: "in_review",
+            specMarkdown: specDoc.raw,
+            dag,
+            comments,
+            revisePromptMarkdown: new SpecFeedbackStore(ws, { env: this.env }).buildRevisePrompt(
+              String(data.flowId),
+              String(data.flowId),
+              comments,
+            ),
+          };
+        } catch (err) {
+          if (localSnapshot) {
+            return {
+              ...localSnapshot,
+              ok: true,
+              source: "local",
+              syncWarning: err instanceof Error ? err.message : "Branch review read failed; showing local review.",
+            };
+          }
+          throw err;
+        }
+      }
+      return localSnapshot || engine.getSpecReview(String(data.flowId));
     }
 
     if (routePath === "/api/review-comments") {

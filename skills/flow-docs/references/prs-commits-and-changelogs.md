@@ -42,7 +42,7 @@ Add OAuth2 PKCE token exchange to `AuthService`, enforce state-parameter expirat
 - **No `## Verification` section** or pasted terminal test outputs.
 - **No `## Merge Danger`, `**Door:**`, `**Blast Radius:**`, or ASCII diff-sketch file/call trees.**
 - **No multi-PR stack navigation tables.**
-- **No internal audit or workflow ceremony** (finding counts, severity tallies, task IDs like `TASK-1.2` or `ORA-001`, `[ai-review-remediation:...]`, or subagent mechanics).
+- **No internal audit or workflow ceremony** (finding counts, severity tallies, task IDs like `TASK-1.2` or `PROJ-123`, `[ai-review-remediation:...]`, or subagent mechanics).
 - **No internal product/CLI names, local workstation paths, or customer names.**
 
 ## Git Commits & Branch Discipline
@@ -68,3 +68,4 @@ Add OAuth2 PKCE token exchange to `AuthService`, enforce state-parameter expirat
   - Post line-anchored inline PR review comments with GitHub `suggestion` blocks targeting exact `path` and `line`/`start_line` in the diff rather than a single monolithic comment.
   - When replying to multiple review comments on your own PR, reply to each comment individually (linking to the comment and listing the exact files/changes made) rather than posting a single consolidated reply.
   - Keep all review comments calm, constructive, and matter-of-fact (no `!`).
+  - When proposing simplifications on a teammate's PR, share only verified `equivalent` deletion or inline `suggestion` blocks as opt-in questions. Never propose silent `behavior_change` cuts.
