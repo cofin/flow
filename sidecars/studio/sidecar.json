@@ -1,0 +1,26 @@
+{
+  "command": "node",
+  "args": ["main.mjs"],
+  "restart_policy": "always",
+  "display_name": "Flow Studio",
+  "description": "Live Flow Studio dashboard for OKF specs, chapters, review notes, and bundle search.",
+  "has_web_ui": true,
+  "sandbox": {
+    "disable_sandbox": true
+  },
+  "ui_config": {
+    "display_name": "Flow Studio",
+    "views": [
+      {
+        "path": "/",
+        "entrypoint": "SIDECAR_UI_ENTRYPOINT_AUX_PANE",
+        "title": "Flow Companion"
+      },
+      {
+        "path": "/dashboard",
+        "entrypoint": "SIDECAR_UI_ENTRYPOINT_SIDEBAR",
+        "title": "Flow Studio"
+      }
+    ]
+  }
+}

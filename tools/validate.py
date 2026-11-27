@@ -539,8 +539,16 @@ def validate_manifests(repo_root: Path = REPO_ROOT) -> list[str]:
             errors.append("Missing sidecars/studio/mcp-server.mjs")
         if not (sidecar_dir / "web" / "mcp-ext-apps.bundle.js").is_file():
             errors.append("Missing sidecars/studio/web/mcp-ext-apps.bundle.js")
-        if (sidecar_dir / "sidecar.json").exists():
-            errors.append("Legacy sidecars/studio/sidecar.json should not coexist with MCP App registration")
+        sidecar_manifest = sidecar_dir / "sidecar.json"
+        if sidecar_manifest.is_file():
+            try:
+                sc_data = json.loads(sidecar_manifest.read_text(encoding="utf-8"))
+                if not isinstance(sc_data, dict) or not sc_data.get("command"):
+                    errors.append("sidecars/studio/sidecar.json: missing required 'command'")
+            except json.JSONDecodeError as exc:
+                errors.append(f"sidecars/studio/sidecar.json: invalid JSON ({exc})")
+            if not (sidecar_dir / "main.mjs").is_file():
+                errors.append("Missing sidecars/studio/main.mjs for sidecars/studio/sidecar.json")
         css_candidate = sidecar_dir / "web" / "styles.css"
         if not css_candidate.is_file():
             css_candidate = sidecar_dir / "styles.css"

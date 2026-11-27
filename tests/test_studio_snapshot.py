@@ -327,8 +327,7 @@ process.stdout.write(JSON.stringify({{
     assert "flow_studio_api" not in out["cliToolNames"]
     assert "_meta" not in out["cliStudioTool"]
 
-    entrypoints = out["studioTool"]["_meta"]["com.google.antigravity/ui"]["entrypoints"]
-    assert {ep["type"] for ep in entrypoints} == {"aux_pane", "global"}
+    assert "com.google.antigravity/ui" not in out["studioTool"]["_meta"]
     assert out["studioTool"]["_meta"]["ui"]["resourceUri"] == "ui://flow/studio.html"
     assert out["statusTool"]["_meta"]["ui"]["resourceUri"] == "ui://flow/status-card.html"
     assert out["apiTool"]["_meta"]["ui"]["visibility"] == ["app"]
@@ -348,6 +347,78 @@ process.stdout.write(JSON.stringify({{
     assert len(json.dumps(out["launchRes"]).encode("utf-8")) < 1024 * 1024
     assert out["snapRepo"] == "payments-service"
     assert out["badRouteError"]["code"] == -32602
+
+
+@pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
+def test_sidecar_host_bridge_uses_get_reads_and_bounded_workspace_timeout() -> None:
+    """Verify Antigravity sidecar mode uses GET for read routes and bounds getWorkspaceUris() in Sidebar views."""
+    assert NODE_BIN is not None
+    sidecar_json = json.loads((REPO_ROOT / "sidecars" / "studio" / "sidecar.json").read_text(encoding="utf-8"))
+    assert sidecar_json["has_web_ui"] is True
+    view_entrypoints = {v["entrypoint"] for v in sidecar_json["ui_config"]["views"]}
+    assert view_entrypoints == {"SIDECAR_UI_ENTRYPOINT_AUX_PANE", "SIDECAR_UI_ENTRYPOINT_SIDEBAR"}
+
+    bridge_path_json = json.dumps(str(REPO_ROOT / "sidecars" / "studio" / "web" / "host-bridge.js"))
+    probe_js = f"""
+import fs from "node:fs";
+import vm from "node:vm";
+
+const bridgeSrc = fs.readFileSync({bridge_path_json}, "utf8");
+const calls = [];
+const sandbox = {{
+  URL,
+  URLSearchParams,
+  setTimeout,
+  clearTimeout,
+  queueMicrotask,
+  encodeURIComponent,
+  fetch: async (url, init = {{}}) => {{
+    calls.push({{ url: String(url), method: init.method || "GET", headers: init.headers || {{}} }});
+    return {{ ok: true, status: 200, async json() {{ return {{ ok: true }}; }} }};
+  }},
+  window: {{
+    location: {{ pathname: "/dashboard", search: "" }},
+    sidecar: {{
+      conversationId: "",
+      getWorkspaceUris: () => new Promise(() => {{}}),
+      onWorkspaceChange: () => () => {{}},
+      fetch: async (url, init = {{}}) => {{
+        calls.push({{ viaSidecarFetch: true, url: String(url), method: init.method || "GET" }});
+        return {{ ok: true, status: 200, async json() {{ return {{ ok: true }}; }} }};
+      }},
+      ui: {{ toggleAuxPane: () => {{}} }},
+    }},
+  }},
+}};
+sandbox.globalThis = sandbox;
+vm.runInNewContext(bridgeSrc, sandbox);
+const host = sandbox.window.flowHost;
+const t0 = Date.now();
+const uris = await host.getInitialWorkspaceUris(60);
+const elapsed = Date.now() - t0;
+await host.api("/api/studio-context", {{ workspacePath: "/tmp/demo" }});
+await host.api("/api/review-comments", {{ action: "list", workspacePath: "/tmp/demo" }});
+await host.api("/api/pin-workspace", {{ workspacePath: "/tmp/demo", pinned: true }});
+process.stdout.write(JSON.stringify({{
+  kind: host.kind,
+  isCompanionView: host.isCompanionView,
+  uris,
+  elapsed,
+  calls,
+}}) + "\\n");
+"""
+    proc = subprocess.run([NODE_BIN, "--input-type=module", "-e", probe_js], capture_output=True, text=True, check=True)
+    out = json.loads(proc.stdout.strip().splitlines()[-1])
+    assert out["kind"] == "antigravity"
+    assert out["isCompanionView"] is False
+    assert out["uris"] == []
+    assert out["elapsed"] < 1000
+    assert out["calls"][0]["method"] == "GET"
+    assert out["calls"][0]["url"].startswith("/api/studio-context?payload=")
+    assert out["calls"][1]["method"] == "GET"
+    assert out["calls"][1]["url"].startswith("/api/review-comments?payload=")
+    assert out["calls"][2]["method"] == "POST"
+    assert out["calls"][2]["viaSidecarFetch"] is True
 
 
 @pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
