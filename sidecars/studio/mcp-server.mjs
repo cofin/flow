@@ -95,12 +95,6 @@ const BASE_FLOW_MCP_TOOLS = Object.freeze([
     },
     _meta: {
       ui: { resourceUri: STUDIO_UI_URI },
-      "com.google.antigravity/ui": {
-        entrypoints: [
-          { type: "aux_pane", title: "Flow Studio" },
-          { type: "global", title: "Flow Studio" },
-        ],
-      },
     },
   },
   {
@@ -316,7 +310,7 @@ export function buildStudioMcpAppHtml() {
     "  </style>",
     "</head>",
     "<body>",
-    '  <div id="studio-root" class="studio-shell"></div>',
+    '  <div id="studio-root" class="studio-shell"><div class="subtle-meta" style="padding:24px">Loading Flow Studio…</div></div>',
     '  <div id="drawer-backdrop" class="drawer-backdrop hidden"></div>',
     '  <aside id="new-spec-drawer" class="drawer hidden" aria-label="Create Specification"></aside>',
     '  <aside id="attention-drawer" class="drawer hidden" aria-label="Attention Queue"></aside>',

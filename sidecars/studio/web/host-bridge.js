@@ -2,17 +2,44 @@
  * Multi-host runtime bridge for Flow Studio.
  *
  * Adapts API requests, agent prompt dispatch, context attachment, file opening, and live events across:
- *   1. Google Antigravity MCP App (`window.__FLOW_MCP_APP__` + `@modelcontextprotocol/ext-apps`)
- *   2. VS Code / Cursor Webview (`acquireVsCodeApi()`)
- *   3. Standalone Loopback Server (`npx --yes --package github:cofin/flow flow-studio` HTTP + SSE)
+ *   1. VS Code / Cursor Webview (`acquireVsCodeApi()`)
+ *   2. Google Antigravity MCP App (`window.__FLOW_MCP_APP__` + `@modelcontextprotocol/ext-apps`)
+ *   3. Google Antigravity Sidecar (`window.sidecar` + `/preload.js`, Desktop App & Antigravity Web Hub)
+ *   4. Standalone Loopback Server (`npx --yes --package github:cofin/flow flow-studio` HTTP + SSE)
  */
 (function initFlowHostBridge() {
   const vscodeApi = typeof window.acquireVsCodeApi === "function" ? window.acquireVsCodeApi() : null;
   const mcpSdk = window.__FLOW_MCP_APP__ && window.__MCP_EXT_APPS__ ? window.__MCP_EXT_APPS__ : null;
   const isMcpApp = Boolean(mcpSdk && !vscodeApi && !window.__FLOW_STANDALONE__);
-  const hostKind = vscodeApi ? "vscode" : isMcpApp ? "mcp-app" : "standalone";
+  const isSidecar = Boolean(window.sidecar && !vscodeApi && !isMcpApp && !window.__FLOW_STANDALONE__);
+  const hostKind = vscodeApi ? "vscode" : isMcpApp ? "mcp-app" : isSidecar ? "antigravity" : "standalone";
+
+  const READ_API_ROUTES = new Set([
+    "/api/studio-context",
+    "/api/bundle-snapshot",
+    "/api/portfolio-snapshot",
+    "/api/spec-document",
+    "/api/spec-dag",
+    "/api/spec-review",
+    "/api/review-comments",
+    "/api/spec-branches",
+    "/api/remote-repo-specs",
+    "/api/catalog-search",
+    "/api/catalog-provenance",
+    "/api/catalog-entry",
+    "/api/catalog-drift",
+    "/api/catalog-status",
+    "/api/models-and-quota",
+    "/api/review-plan",
+    "/api/trajectories",
+    "/api/activity",
+    "/api/permissions",
+    "/api/harnesses",
+    "/api/harness-runs",
+  ]);
 
   const urlParams = new URLSearchParams(window.location.search);
+  const urlToken = urlParams.get("token") || "";
   let reqSeq = 1;
   /** @type {Map<number, { resolve: Function, reject: Function }>} */
   const pendingVsCode = new Map();
@@ -29,9 +56,9 @@
       : [];
 
   const capabilities = {
-    canSendMessage: Boolean(vscodeApi),
+    canSendMessage: Boolean(vscodeApi || isSidecar),
     canUpdateContext: false,
-    canOpenFile: Boolean(vscodeApi),
+    canOpenFile: Boolean(vscodeApi || (isSidecar && typeof window.sidecar?.ui?.toggleAuxPane === "function")),
     canOpenExternal: !vscodeApi,
   };
 
@@ -78,7 +105,7 @@
   }
 
   if (isMcpApp) {
-    mcpApp = new mcpSdk.App({ name: "Flow Studio", version: "0.33.0" }, {});
+    mcpApp = new mcpSdk.App({ name: "Flow Studio", version: "0.34.0" }, {});
     mcpApp.ontoolinput = () => {};
     mcpApp.ontoolresult = (result) => {
       const payload = result?.structuredContent ?? null;
@@ -154,6 +181,15 @@
     });
   }
 
+  function isReadApiRequest(routePath, payload) {
+    if (!READ_API_ROUTES.has(routePath)) return false;
+    if (routePath === "/api/review-comments") {
+      const action = String(payload?.action || "list").toLowerCase();
+      return action === "list";
+    }
+    return true;
+  }
+
   if (vscodeApi) {
     window.addEventListener("message", (event) => {
       const msg = event.data;
@@ -181,6 +217,7 @@
     });
   } else if (
     !isMcpApp &&
+    !isSidecar &&
     urlParams.get("sse") !== "0" &&
     typeof window.EventSource === "function"
   ) {
@@ -199,6 +236,17 @@
     }
   }
 
+  if (isSidecar && typeof window.sidecar?.onWorkspaceChange === "function") {
+    window.sidecar.onWorkspaceChange((uris) => {
+      if (Array.isArray(uris)) {
+        activeWorkspaceUris = uris.filter(Boolean).map(String);
+      }
+      for (const fn of listeners) {
+        fn({ type: "workspace.changed", uris: activeWorkspaceUris });
+      }
+    });
+  }
+
   /**
    * Call a Studio backend JSON route.
    *
@@ -207,7 +255,11 @@
    */
   async function api(routePath, payload = {}) {
     const enrichedPayload = { ...payload };
-    const convId = enrichedPayload.conversationId || urlParams.get("conversationId") || "";
+    const convId =
+      enrichedPayload.conversationId ||
+      window.sidecar?.conversationId ||
+      urlParams.get("conversationId") ||
+      "";
     if (convId && !enrichedPayload.conversationId) {
       enrichedPayload.conversationId = convId;
     }
@@ -250,6 +302,41 @@
         }
         return {};
       });
+    }
+
+    if (isSidecar) {
+      if (isReadApiRequest(routePath, enrichedPayload)) {
+        const serialized = JSON.stringify(enrichedPayload);
+        const encoded = encodeURIComponent(serialized);
+        const getUrl = `${routePath}?payload=${encoded}`;
+        if (getUrl.length < 7500) {
+          const resp = await fetch(getUrl, { method: "GET" });
+          const data = await resp.json().catch(() => ({}));
+          if (!resp.ok) {
+            throw new Error(data.error || `Request failed (${resp.status})`);
+          }
+          return data;
+        }
+      }
+
+      /** @type {Record<string, string>} */
+      const headers = { "Content-Type": "application/json" };
+      const sidecarToken = window.sidecar?.token || window.sidecar?.uiToken || urlToken;
+      if (sidecarToken) {
+        headers["X-Sidecar-Token"] = sidecarToken;
+      }
+      const fetchFn =
+        typeof window.sidecar?.fetch === "function" ? window.sidecar.fetch.bind(window.sidecar) : fetch;
+      const resp = await fetchFn(routePath, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(enrichedPayload),
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) {
+        throw new Error(data.error || `Request failed (${resp.status})`);
+      }
+      return data;
     }
 
     const resp = await fetch(routePath, {
@@ -330,6 +417,41 @@
       };
     }
 
+    if (isSidecar) {
+      const matchesActiveChat =
+        activeWorkspaceUris.length === 0 || isWorkspaceMatchingActiveChat(options.workspacePath);
+      if (
+        window.sidecar?.conversationId &&
+        typeof window.sidecar?.agent?.sendMessage === "function" &&
+        !options.startNew &&
+        matchesActiveChat
+      ) {
+        try {
+          await window.sidecar.agent.sendMessage(message, window.sidecar.conversationId);
+          return { sent: true, mode: "active-conversation" };
+        } catch {
+          // Fall through to workspace conversation / clipboard fallback if token auth is unavailable.
+        }
+      }
+      const res = await api("/api/start-workspace-conversation", {
+        workspacePath: options.workspacePath,
+        message,
+        title: options.title || message.slice(0, 60),
+      }).catch(() => ({ workspace_bound: false }));
+      if (res?.workspace_bound && res?.conversation_id) {
+        if (typeof window.sidecar?.ui?.toggleConversation === "function") {
+          window.sidecar.ui.toggleConversation(res.conversation_id);
+        }
+        return { sent: true, mode: "workspace-cascade", conversationId: res.conversation_id };
+      }
+      await copyText(message);
+      return {
+        sent: false,
+        copied: true,
+        reason: res?.error || "Copied command to clipboard.",
+      };
+    }
+
     await copyText(message);
     return { sent: false, copied: true, mode: "clipboard" };
   }
@@ -376,6 +498,13 @@
         return false;
       }
     }
+    if (isSidecar && typeof window.sidecar?.ui?.toggleAuxPane === "function") {
+      window.sidecar.ui.toggleAuxPane({
+        tabType: "fileView",
+        uri: `file://${absPath}`,
+      });
+      return true;
+    }
     return false;
   }
 
@@ -390,6 +519,13 @@
         ? `?workspace=${encodeURIComponent(workspacePath.trim())}`
         : "";
     if (isMcpApp) {
+      return;
+    }
+    if (isSidecar && typeof window.sidecar?.ui?.toggleAuxPane === "function") {
+      window.sidecar.ui.toggleAuxPane({
+        tabType: "sidecarView",
+        uri: `sidecar://flow/studio/dashboard${wsQuery}`,
+      });
       return;
     }
     window.location.href = `/dashboard${wsQuery}`;
@@ -414,11 +550,13 @@
   }
 
   /**
-   * Resolve initial workspace URIs from URL parameters, MCP App tool result, or VS Code globals.
+   * Resolve initial workspace URIs from URL parameters, Antigravity sidecar, MCP App tool result,
+   * or VS Code globals, using a bounded timeout so Sidebar views never hang before a chat opens.
    *
+   * @param {number} [timeoutMs]
    * @returns {Promise<string[]>}
    */
-  async function getInitialWorkspaceUris() {
+  async function getInitialWorkspaceUris(timeoutMs = 350) {
     if (isMcpApp) {
       await mcpReadyPromise;
     }
@@ -430,6 +568,20 @@
     if (explicitWs.trim()) {
       return [explicitWs.trim()];
     }
+    if (isSidecar && typeof window.sidecar?.getWorkspaceUris === "function") {
+      try {
+        const result = await Promise.race([
+          Promise.resolve(window.sidecar.getWorkspaceUris()),
+          new Promise((resolve) => setTimeout(() => resolve(null), timeoutMs)),
+        ]);
+        if (Array.isArray(result) && result.length > 0) {
+          activeWorkspaceUris = result.filter(Boolean).map(String);
+          return activeWorkspaceUris;
+        }
+      } catch {
+        // Ignore host workspace lookup failure and fall back to backend context.
+      }
+    }
     if (activeWorkspaceUris.length > 0) {
       return activeWorkspaceUris;
     }
@@ -439,16 +591,20 @@
   /**
    * Resolve the primary initial workspace URI or path.
    *
+   * @param {number} [timeoutMs]
    * @returns {Promise<string | null>}
    */
-  async function getInitialWorkspaceUri() {
-    const uris = await getInitialWorkspaceUris();
+  async function getInitialWorkspaceUri(timeoutMs = 350) {
+    const uris = await getInitialWorkspaceUris(timeoutMs);
     return uris.length > 0 ? uris[0] : null;
   }
 
   window.flowHost = {
     kind: hostKind,
-    isCompanionView: false,
+    isCompanionView:
+      window.location.pathname === "/" &&
+      urlParams.get("view") !== "dashboard" &&
+      hostKind === "antigravity",
     capabilities,
     api,
     dispatchPrompt,

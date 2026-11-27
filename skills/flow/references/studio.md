@@ -4,9 +4,9 @@ Flow Studio is a companion UI and editor integration for managing specs, chapter
 
 ## Host Surfaces
 
-1. **Google Antigravity MCP App (`mcp_config.json` + `sidecars/studio/mcp-server.mjs`)**:
-   - **Side Panel & Full Page (`flow_studio`, `ui://flow/studio.html`)**: Self-contained single-file MCP App (`@modelcontextprotocol/ext-apps`) exposed in Antigravity App and Antigravity Web via `com.google.antigravity/ui` (`aux_pane` and `global` entrypoints) with zero local ports or cookies. Adapts live to host light/dark theme tokens, attaches spec context/notes to the user's next prompt (`updateModelContext`), and opens workspace files in the side panel (`com.google.antigravity/toggle-aux-pane`).
-   - **Inline Status Card (`flow_status`, `ui://flow/status-card.html`)**: Compact inline chat card showing active specs, verified task progress, and next ready task; falls back to plain-text JSON on `agy` CLI and non-UI MCP clients.
+1. **Google Antigravity Sidecar & MCP App (`sidecars/studio/sidecar.json` + `mcp_config.json`)**:
+   - **Side Panel & Full Page (`sidecar.json` + `main.mjs`)**: Serves Flow Companion (`AUX_PANE`) and Flow Studio (`SIDEBAR`) in both Antigravity App and Antigravity Web (`hub`). Uses `GET` read routes so Hub proxy iframes never hit token `401` errors, with bounded workspace discovery so sidebar views never hang.
+   - **Inline MCP App & Agent Tools (`mcp_config.json` + `mcp-server.mjs`)**: Exposes `flow_status` (`ui://flow/status-card.html`), `flow_studio` (`ui://flow/studio.html`), `flow_preflight`, `flow_tasks`, `flow_sync`, `flow_spec_feedback`, and `flow_spec_pr` over stdio, falling back to plain-text JSON on `agy` CLI.
 2. **Standalone Loopback Server (`npx --yes --package github:cofin/flow flow-studio` / `make studio`)**:
    - Binds to `127.0.0.1` (`--port 0` dynamic port or `$FLOW_STUDIO_PORT`) with Server-Sent Events (`/api/events`) for **Claude Code**, **Codex CLI**, **OpenCode V2**, or browser tabs alongside any terminal harness.
 3. **VS Code & Cursor Extension (`vscode-extension/`)**:

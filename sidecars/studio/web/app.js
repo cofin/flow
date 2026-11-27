@@ -141,6 +141,7 @@
     modelsQuota: null,
     activitySnapshot: null,
     permissionsReport: null,
+    bootstrapError: null,
     shellMounted: false,
     slots: { topbar: null, tabs: null, main: null },
   };
@@ -229,6 +230,7 @@
   }
 
   async function bootstrap() {
+    state.bootstrapError = null;
     try {
       const initialUris =
         typeof host.getInitialWorkspaceUris === "function"
@@ -242,7 +244,9 @@
       state.harnesses = ctx.harnesses || [];
       await refreshSnapshot({ force: true });
     } catch (err) {
-      showToast(err instanceof Error ? err.message : "Failed to load Studio context");
+      const msg = err instanceof Error ? err.message : "Failed to load Studio context";
+      state.bootstrapError = msg;
+      showToast(msg);
       render();
     } finally {
       if (typeof host.signalReady === "function") host.signalReady();
@@ -1015,7 +1019,18 @@
 
   function renderRoadmapView() {
     const snap = state.snapshot;
-    if (!snap) return el("div", { className: "subtle-meta" }, "Loading workspace...");
+    if (!snap) {
+      if (state.bootstrapError) {
+        return el(
+          "div",
+          { className: "card" },
+          el("h3", { className: "card-title" }, "Unable to load Flow Studio"),
+          el("p", { className: "card-desc" }, state.bootstrapError),
+          el("button", { className: "btn btn-primary", style: "margin-top:12px", onClick: () => bootstrap() }, "Retry")
+        );
+      }
+      return el("div", { className: "subtle-meta" }, "Loading workspace...");
+    }
     const wrap = el("div", {});
     const nowStrip = renderNowStrip(snap);
     if (nowStrip) wrap.appendChild(nowStrip);

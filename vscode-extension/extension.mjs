@@ -769,7 +769,6 @@ export async function activateWithVscode(context, vscode) {
       },
     );
     activePanel = panel;
-    panel.webview.html = buildWebviewHtml(vscode, panel.webview, resolveWorkspaceRoot(vscode));
     panel.onDidDispose(() => {
       activePanel = null;
       webviewReady = false;
@@ -834,6 +833,7 @@ export async function activateWithVscode(context, vscode) {
         await vscode.window.showTextDocument(doc);
       }
     });
+    panel.webview.html = buildWebviewHtml(vscode, panel.webview, resolveWorkspaceRoot(vscode));
     return panel;
   };
 
