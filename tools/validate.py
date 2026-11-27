@@ -270,10 +270,12 @@ ALLOWED_ANTIGRAVITY_PLUGIN_KEYS: frozenset[str] = frozenset(
 ALLOWED_TOP_LEVEL_ENTRIES: frozenset[str] = frozenset(
     {
         ".agents",
+        ".claude",
         ".claude-plugin",
         ".codex",
         ".codex-plugin",
         ".cursor-plugin",
+        ".gemini",
         ".git",
         ".gitattributes",
         ".github",
@@ -286,6 +288,7 @@ ALLOWED_TOP_LEVEL_ENTRIES: frozenset[str] = frozenset(
         ".python-version",
         ".ruff_cache",
         ".venv",
+        ".vscode",
         "CHANGELOG.md",
         "CONTRIBUTING.md",
         "LICENSE",
@@ -297,6 +300,7 @@ ALLOWED_TOP_LEVEL_ENTRIES: frozenset[str] = frozenset(
         "dist",
         "hooks",
         "hooks.json",
+        "mcp_config.json",
         "mods",
         "package.json",
         "plugin.json",
@@ -497,26 +501,46 @@ def validate_manifests(repo_root: Path = REPO_ROOT) -> list[str]:
             except json.JSONDecodeError as exc:
                 errors.append(f"vscode-extension/package.json: invalid JSON ({exc})")
 
+    mcp_config_path = repo_root / "mcp_config.json"
+    if mcp_config_path.is_file():
+        try:
+            mcp_cfg = json.loads(mcp_config_path.read_text(encoding="utf-8"))
+            servers = mcp_cfg.get("mcpServers")
+            if not isinstance(servers, dict) or not servers:
+                errors.append("mcp_config.json: mcpServers must be a non-empty object")
+            else:
+                for server_name, server_spec in servers.items():
+                    if len(str(server_name)) > 12:
+                        errors.append(f"mcp_config.json: server key {server_name!r} exceeds 12 characters")
+                    if not isinstance(server_spec, dict):
+                        errors.append(f"mcp_config.json: server {server_name!r} must be an object")
+                        continue
+                    cmd = str(server_spec.get("command", ""))
+                    if not cmd or "/" in cmd or "\\" in cmd or "${" in cmd:
+                        errors.append(
+                            f"mcp_config.json: server {server_name!r} command {cmd!r} must be a bare executable name"
+                        )
+                    args = server_spec.get("args", [])
+                    if isinstance(args, list):
+                        for raw_arg in args:
+                            arg_str = str(raw_arg)
+                            if arg_str.startswith("${PLUGIN_ROOT}/"):
+                                rel_target = arg_str.removeprefix("${PLUGIN_ROOT}/")
+                                if not (repo_root / rel_target).is_file():
+                                    errors.append(
+                                        f"mcp_config.json: server {server_name!r} arg target {rel_target!r} not found"
+                                    )
+        except json.JSONDecodeError as exc:
+            errors.append(f"mcp_config.json: invalid JSON ({exc})")
+
     sidecar_dir = repo_root / "sidecars" / "studio"
     if sidecar_dir.is_dir():
-        sidecar_json_path = sidecar_dir / "sidecar.json"
-        if not sidecar_json_path.is_file():
-            errors.append("Missing sidecars/studio/sidecar.json")
-        else:
-            try:
-                sidecar_cfg = json.loads(sidecar_json_path.read_text(encoding="utf-8"))
-                if sidecar_cfg.get("has_web_ui") is not True:
-                    errors.append("sidecars/studio/sidecar.json: has_web_ui must be true")
-                views = sidecar_cfg.get("ui_config", {}).get("views", [])
-                if not isinstance(views, list) or not views:
-                    errors.append("sidecars/studio/sidecar.json: ui_config.views must be a non-empty list")
-                sandbox_cfg = sidecar_cfg.get("sandbox")
-                if not isinstance(sandbox_cfg, dict) or sandbox_cfg.get("disable_sandbox") is not True:
-                    errors.append("sidecars/studio/sidecar.json: sandbox.disable_sandbox must be true")
-            except json.JSONDecodeError as exc:
-                errors.append(f"sidecars/studio/sidecar.json: invalid JSON ({exc})")
-        if not (sidecar_dir / "main.mjs").is_file():
-            errors.append("Missing sidecars/studio/main.mjs")
+        if not (sidecar_dir / "mcp-server.mjs").is_file():
+            errors.append("Missing sidecars/studio/mcp-server.mjs")
+        if not (sidecar_dir / "web" / "mcp-ext-apps.bundle.js").is_file():
+            errors.append("Missing sidecars/studio/web/mcp-ext-apps.bundle.js")
+        if (sidecar_dir / "sidecar.json").exists():
+            errors.append("Legacy sidecars/studio/sidecar.json should not coexist with MCP App registration")
         css_candidate = sidecar_dir / "web" / "styles.css"
         if not css_candidate.is_file():
             css_candidate = sidecar_dir / "styles.css"

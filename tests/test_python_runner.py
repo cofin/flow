@@ -15,15 +15,21 @@ from tools.validate import REPO_ROOT
 NODE_BIN = shutil.which("node")
 
 
-def _detect_via_node(workspace_dir: Path, plugin_root: Path | None = None) -> dict[str, Any]:
-    """Invoke sidecars/studio/python-runner.mjs to inspect ``workspace_dir`` and return parsed JSON."""
+def _detect_via_node(
+    workspace_dir: Path,
+    plugin_root: Path | None = None,
+    *,
+    enable_duckdb: bool = False,
+) -> dict[str, Any]:
+    """Invoke sidecars/studio/bridges/python.mjs to inspect ``workspace_dir`` and return parsed JSON."""
     assert NODE_BIN is not None
     runner_module = (REPO_ROOT / "sidecars" / "studio" / "bridges" / "python.mjs").as_uri()
     plug = str(plugin_root or REPO_ROOT)
+    opts_js = "{ enableDuckDb: true }" if enable_duckdb else "{}"
     script = (
         f"import {{ detectWorkspacePython, resolveCatalogWorkerCommand }} from {json.dumps(runner_module)};"
         f"const info = detectWorkspacePython({json.dumps(str(workspace_dir))});"
-        f"const worker = resolveCatalogWorkerCommand({json.dumps(plug)}, {json.dumps(str(workspace_dir))});"
+        f"const worker = resolveCatalogWorkerCommand({json.dumps(plug)}, {json.dumps(str(workspace_dir))}, {opts_js});"
         "process.stdout.write(JSON.stringify({ info, worker }));"
     )
     proc = subprocess.run(
@@ -96,10 +102,14 @@ def test_workspace_python_detector_identifies_managers_and_entrypoints(
 
 
 @pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
-def test_resolve_catalog_worker_prefers_local_plugin_venv_without_pypi(tmp_path: Path) -> None:
-    """Verify catalog worker resolution uses local plugin .venv/bin/flow-catalog without PyPI assumptions."""
-    result = _detect_via_node(tmp_path, plugin_root=REPO_ROOT)
-    worker = result["worker"]
+def test_resolve_catalog_worker_defaults_to_node_bm25_and_supports_opt_in_duckdb(tmp_path: Path) -> None:
+    """Verify catalog worker defaults to pure-Node BM25 and uses local plugin venv when DuckDB is opted in."""
+    default_res = _detect_via_node(tmp_path, plugin_root=REPO_ROOT, enable_duckdb=False)
+    assert default_res["worker"]["strategy"] == "node-bm25-default"
+    assert default_res["worker"]["command"] is None
+
+    opt_in_res = _detect_via_node(tmp_path, plugin_root=REPO_ROOT, enable_duckdb=True)
+    worker = opt_in_res["worker"]
     assert worker["strategy"] in ("plugin-venv", "uv-project-group")
     joined = " ".join(worker["args"])
     assert "flow[catalog]" not in joined

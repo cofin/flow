@@ -2,7 +2,7 @@
 /**
  * Zero-dependency installer for the Flow Studio VS Code / Cursor / Windsurf / Positron extension.
  *
- * Packages `vscode-extension/` together with the shared `sidecars/studio/` runtime and
+ * Packages `vscode-extension/` together with the full recursive `sidecars/studio/` runtime and
  * installs a self-contained extension bundle (`cofin.flow-studio-<version>`) directly into
  * the target editor's extensions directory (or links the checkout when `--link` is passed).
  */
@@ -16,13 +16,13 @@ const EXT_SRC_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(EXT_SRC_DIR, "..");
 const STUDIO_SRC_DIR = path.join(REPO_ROOT, "sidecars", "studio");
 
-const EDITOR_EXTENSION_DIRS = Object.freeze({
-  vscode: path.join(os.homedir(), ".vscode", "extensions"),
-  "vscode-insiders": path.join(os.homedir(), ".vscode-insiders", "extensions"),
-  cursor: path.join(os.homedir(), ".cursor", "extensions"),
-  windsurf: path.join(os.homedir(), ".windsurf", "extensions"),
-  positron: path.join(os.homedir(), ".positron", "extensions"),
-});
+const EXCLUDED_STUDIO_ENTRIES = new Set([
+  ".DS_Store",
+  "__pycache__",
+  "main.mjs",
+  "sidecar.json",
+  "mcp-ext-apps.bundle.js",
+]);
 
 /**
  * Parse CLI flags for the Flow Studio extension installer.
@@ -34,6 +34,7 @@ export function parseArgs(argv) {
   let customExtensionsDir = "";
   let link = false;
   let ifNeeded = false;
+  let updateOnly = false;
   let quiet = false;
   let help = false;
 
@@ -53,13 +54,15 @@ export function parseArgs(argv) {
       link = true;
     } else if (arg === "--if-needed") {
       ifNeeded = true;
+    } else if (arg === "--update-only") {
+      updateOnly = true;
     } else if (arg === "--quiet" || arg === "-q") {
       quiet = true;
     } else if (arg === "--help" || arg === "-h") {
       help = true;
     }
   }
-  return { target, customExtensionsDir, link, ifNeeded, quiet, help };
+  return { target, customExtensionsDir, link, ifNeeded, updateOnly, quiet, help };
 }
 
 export const USAGE = `Usage: flow-studio-vscode [options]
@@ -70,17 +73,14 @@ Options:
   --target <name>          auto (default), all, vscode, vscode-insiders, cursor, windsurf, positron
   --extensions-dir <path>  Install into an explicit extensions directory
   --link, -l               Symlink this checkout instead of copying a bundle
-  --if-needed              Skip editors that already have the current version
+  --if-needed              Skip editors that already have a valid current bundle
+  --update-only            Only update editors where cofin.flow-studio is already installed
   --quiet, -q              Suppress output
   --help, -h               Show this help
 `;
 
 /**
  * Report whether this module is the process entry point.
- *
- * npm and npx launch bins through a `node_modules/.bin/<name>` symlink. Node resolves that
- * symlink for `import.meta.url` but keeps it in `process.argv[1]`, so both sides are
- * compared by real path.
  *
  * @param {string | undefined} [argv1]
  * @returns {boolean}
@@ -118,7 +118,7 @@ export function resolveTargetExtensionDirs(options = {}) {
     const selected = candidates[target];
     if (!selected) {
       throw new Error(
-        `Unknown --target '${target}'. Expected one of: auto, all, ${Object.keys(candidates).join(", ")}`
+        `Unknown --target '${target}'. Expected one of: auto, all, ${Object.keys(candidates).join(", ")}`,
       );
     }
     return [{ editor: target, extensionsDir: selected }];
@@ -137,15 +137,20 @@ export function resolveTargetExtensionDirs(options = {}) {
   return detected;
 }
 
-/**
- * Register or update the extension entry in `<extensionsDir>/extensions.json` and remove stale `.obsolete` entries.
- *
- * @param {string} extensionsDir
- * @param {string} extensionId
- * @param {string} version
- * @param {string} bundleFolderName
- * @param {string} destDir
- */
+function isExtensionRegistered(extensionsDir, extensionId) {
+  const manifestPath = path.join(extensionsDir, "extensions.json");
+  if (!fs.existsSync(manifestPath)) return false;
+  try {
+    const parsed = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+    return (
+      Array.isArray(parsed) &&
+      parsed.some((item) => String(item?.identifier?.id || "").toLowerCase() === extensionId.toLowerCase())
+    );
+  } catch {
+    return false;
+  }
+}
+
 function registerInExtensionsJson(extensionsDir, extensionId, version, bundleFolderName, destDir) {
   const manifestPath = path.join(extensionsDir, "extensions.json");
   let entries = [];
@@ -177,7 +182,7 @@ function registerInExtensionsJson(extensionsDir, extensionId, version, bundleFol
     },
   };
   const filtered = entries.filter(
-    (item) => String(item?.identifier?.id || "").toLowerCase() !== extensionId.toLowerCase()
+    (item) => String(item?.identifier?.id || "").toLowerCase() !== extensionId.toLowerCase(),
   );
   filtered.push(entry);
   fs.writeFileSync(manifestPath, JSON.stringify(filtered), "utf8");
@@ -199,22 +204,22 @@ function registerInExtensionsJson(extensionsDir, extensionId, version, bundleFol
         }
       }
     } catch {
-      // Ignore malformed .obsolete file
+      // Ignore malformed .obsolete file.
     }
   }
 }
 
-/**
- * Return true if `destDir` is already installed and registered in `extensions.json`.
- *
- * @param {string} extensionsDir
- * @param {string} extensionId
- * @param {string} version
- * @param {string} destDir
- */
 function isExtensionUpToDate(extensionsDir, extensionId, version, destDir) {
-  if (!fs.existsSync(path.join(destDir, "package.json"))) return false;
-  if (!fs.existsSync(path.join(destDir, "extension.mjs"))) return false;
+  const requiredFiles = [
+    path.join(destDir, "package.json"),
+    path.join(destDir, "extension.cjs"),
+    path.join(destDir, "extension.mjs"),
+    path.join(destDir, "sidecars", "studio", "router.mjs"),
+    path.join(destDir, "sidecars", "studio", "bridges", "python.mjs"),
+    path.join(destDir, "sidecars", "studio", "spec", "feedback.mjs"),
+    path.join(destDir, "sidecars", "studio", "web", "app.js"),
+  ];
+  if (requiredFiles.some((f) => !fs.existsSync(f))) return false;
   const manifestPath = path.join(extensionsDir, "extensions.json");
   if (!fs.existsSync(manifestPath)) return false;
   try {
@@ -223,7 +228,7 @@ function isExtensionUpToDate(extensionsDir, extensionId, version, destDir) {
     return parsed.some(
       (item) =>
         String(item?.identifier?.id || "").toLowerCase() === extensionId.toLowerCase() &&
-        String(item?.version || "") === version
+        String(item?.version || "") === version,
     );
   } catch {
     return false;
@@ -233,14 +238,14 @@ function isExtensionUpToDate(extensionsDir, extensionId, version, destDir) {
 /**
  * Install Flow Studio into the resolved editor extension directories.
  *
- * @param {{ target?: string, customExtensionsDir?: string, link?: boolean, homeDir?: string, ifNeeded?: boolean, quiet?: boolean }} [options]
+ * @param {{ target?: string, customExtensionsDir?: string, link?: boolean, homeDir?: string, ifNeeded?: boolean, updateOnly?: boolean, quiet?: boolean }} [options]
  */
 export function installFlowStudioExtension(options = {}) {
   const pkgPath = path.join(EXT_SRC_DIR, "package.json");
   const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
   const publisher = String(pkg.publisher || "cofin");
   const name = String(pkg.name || "flow-studio");
-  const version = String(pkg.version || "0.28.0");
+  const version = String(pkg.version || "0.33.0");
   const extensionId = `${publisher}.${name}`;
   const bundleFolderName = `${extensionId}-${version}`;
 
@@ -248,6 +253,10 @@ export function installFlowStudioExtension(options = {}) {
   const installed = [];
 
   for (const { editor, extensionsDir } of targets) {
+    if (options.updateOnly && !isExtensionRegistered(extensionsDir, extensionId)) {
+      continue;
+    }
+
     fs.mkdirSync(extensionsDir, { recursive: true });
     const destDir = path.join(extensionsDir, bundleFolderName);
 
@@ -272,7 +281,7 @@ export function installFlowStudioExtension(options = {}) {
     }
 
     fs.mkdirSync(destDir, { recursive: true });
-    for (const fileName of ["package.json", "logo.svg", "icon.png", "README.md"]) {
+    for (const fileName of ["package.json", "extension.cjs", "logo.svg", "icon.png", "README.md"]) {
       const srcFile = path.join(EXT_SRC_DIR, fileName);
       if (fs.existsSync(srcFile)) {
         fs.copyFileSync(srcFile, path.join(destDir, fileName));
@@ -284,12 +293,10 @@ export function installFlowStudioExtension(options = {}) {
     fs.writeFileSync(path.join(destDir, "extension.mjs"), bundledExtJs, "utf8");
 
     const destStudioDir = path.join(destDir, "sidecars", "studio");
-    fs.mkdirSync(destStudioDir, { recursive: true });
-    for (const entry of fs.readdirSync(STUDIO_SRC_DIR, { withFileTypes: true })) {
-      if (entry.isFile()) {
-        fs.copyFileSync(path.join(STUDIO_SRC_DIR, entry.name), path.join(destStudioDir, entry.name));
-      }
-    }
+    fs.cpSync(STUDIO_SRC_DIR, destStudioDir, {
+      recursive: true,
+      filter: (srcPath) => !EXCLUDED_STUDIO_ENTRIES.has(path.basename(srcPath)),
+    });
 
     registerInExtensionsJson(extensionsDir, extensionId, version, bundleFolderName, destDir);
     installed.push({ editor, mode: "bundle", path: destDir });
@@ -312,11 +319,11 @@ if (isDirectInvocation()) {
   if (!opts.quiet) {
     for (const item of result.installed) {
       process.stdout.write(
-        `[flow-studio] Installed ${result.extensionId}@${result.version} (${item.mode}) for ${item.editor}: ${item.path}\n`
+        `[flow-studio] Installed ${result.extensionId}@${result.version} (${item.mode}) for ${item.editor}: ${item.path}\n`,
       );
     }
     if (result.installed.length === 0) {
-      process.stdout.write("[flow-studio] No VS Code-compatible editor detected; pass --target or --extensions-dir.\n");
+      process.stdout.write("[flow-studio] No VS Code-compatible editor updated; pass --target or --extensions-dir.\n");
     }
   }
 }

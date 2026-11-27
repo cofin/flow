@@ -188,7 +188,7 @@ if ($IsSubagent) {
                 $PluginRoot = Split-Path -Parent $PSScriptRoot
                 $InstallerPath = Join-Path $PluginRoot "vscode-extension/install.mjs"
                 if ((Test-Path -LiteralPath $InstallerPath -PathType Leaf) -and (Get-Command node -ErrorAction SilentlyContinue)) {
-                    & node $InstallerPath --if-needed --quiet 2>$null | Out-Null
+                    & node $InstallerPath --if-needed --update-only --quiet 2>$null | Out-Null
                 }
             }
         }
@@ -330,7 +330,7 @@ if ($IsSubagent) {
             $BaseMsg = "$BaseMsg Pending chapter review/Markdown sync: $PendingSync."
         }
         if ($Harness -match '^(agy|antigravity)$') {
-            $BaseMsg = "$BaseMsg Flow Studio UI: [Open Flow Studio](sidecar://flow/studio/dashboard)."
+            $BaseMsg = "$BaseMsg Flow Studio UI: call flow_studio MCP tool (or open Flow Studio in Plugins)."
         } else {
             $BaseMsg = "$BaseMsg Flow Studio UI: npx --yes --package github:cofin/flow flow-studio."
         }

@@ -217,12 +217,20 @@ function canImportCatalogDeps(command, prefixArgs, cwd) {
   return probe.status === 0;
 }
 
-export function resolveCatalogWorkerCommand(pluginRoot, workspaceDir) {
+export function resolveCatalogWorkerCommand(pluginRoot, workspaceDir, options = {}) {
   const resolvedPluginRoot = path.resolve(pluginRoot);
   const resolvedWorkspace = workspaceDir ? path.resolve(workspaceDir) : resolvedPluginRoot;
+  const env = options.env || process.env;
 
-  if (process.env.FLOW_DISABLE_DUCKDB === "1") {
+  if (env.FLOW_DISABLE_DUCKDB === "1") {
     return { strategy: "disabled", command: null, args: [], cwd: resolvedWorkspace, env: {} };
+  }
+
+  const explicitlyEnabled =
+    options.enableDuckDb === true ||
+    String(env.FLOW_ENABLE_DUCKDB || "").trim() === "1";
+  if (!explicitlyEnabled) {
+    return { strategy: "node-bm25-default", command: null, args: [], cwd: resolvedWorkspace, env: {} };
   }
 
   const pluginVenvCatalog = resolveVenvExecutable(path.join(resolvedPluginRoot, ".venv"), "flow-catalog");

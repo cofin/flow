@@ -80,6 +80,7 @@ export class StudioApiService {
     this.catalog = new CatalogBridge({
       pluginRoot: this.pluginRoot,
       workspaceRoot: this.defaultWorkspace,
+      env: this.env,
       dbPath: this.env.FLOW_CATALOG_DB,
       embedder: this.env.FLOW_CATALOG_EMBEDDER,
     });

@@ -18,7 +18,7 @@
   <p>
     <a href="#architecture--lifecycle">Architecture &amp; Lifecycle</a>
     &middot;
-    <a href="#flow-studio--local-knowledge-catalog">Flow Studio</a>
+    <a href="#flow-studio--extensions">Flow Studio</a>
     &middot;
     <a href="#install">Install</a>
     &middot;
@@ -53,13 +53,13 @@ Flow separates planning and review from isolated task execution:
 5. **Complete (`/flow:review`, `/flow:finish`, `/flow:archive`, `/flow:cleanup`, `/flow:revert`, `/flow:validate`)**:
    - Runs independent code review covering spec conformance, repository standards, deep-module design, and debloat. Verifies release checks on the current branch, captures durable learnings into `.agents/bundles/knowledge/**` + `.agents/bundles/log.md`, and removes completed spec directories.
 
-## Flow Studio & Local Knowledge Catalog
+## Flow Studio & Extensions
 
-Flow includes **Flow Studio** ([`studio.md`](skills/flow/references/studio.md)) and cross-harness orchestration ([`orchestration.md`](skills/flow/references/orchestration.md)). It runs across **Google Antigravity** (`sidecars/studio/` + `sidecars/studio/mcp-server.mjs`), **Claude Code** (`mods/claude-flow/`), **Codex CLI** (`CodexAppServerBridge`), **VS Code & Cursor** (`vscode-extension/`), and **OpenCode V2** (`.opencode/plugins/flow.js`):
+Flow includes **Flow Studio** ([`studio.md`](skills/flow/references/studio.md)) and cross-harness orchestration ([`orchestration.md`](skills/flow/references/orchestration.md)). It runs across **Google Antigravity** (`mcp_config.json` + `sidecars/studio/mcp-server.mjs` MCP App), **Claude Code** (`mods/claude-flow/`), **Codex CLI** (`CodexAppServerBridge`), **VS Code & Cursor** (`vscode-extension/`), and **OpenCode V2** (`.opencode/plugins/flow.js`):
 
-- **Studio Home, Multi-Branch Specs, & Review**: Switch pinned or remote repositories from Studio Home and browse specs across branches. Record out-of-tree feedback under `<git-common-dir>/spec-feedback/<flow_id>/<author_slug>.json`, publish spec PRs (`flow spec pr`), and send notes straight to `/flow:revise`.
-- **Dynamic Model Routing & `flow` CLI**: Evaluate live model inventories across all six harnesses (`flow models`) while keeping planning and verification on `strong` models. Install the unified CLI with `flow install-cli` for sync, branch specs, bundle linting, and agent helpers.
-- **Federated Knowledge Catalog & Python Runner Auto-Detection**: Searches local and sibling workspaces (`sidecars/studio/knowledge/catalog.mjs` BM25 + graph links alongside `flow-catalog` DuckDB RRF) and manages workspace permission allowlists. Dispatches tasks in `direct-workspace`, `worktree-isolated`, or `read-only` mode (including loopback A2A `/.well-known/agent-card.json` + `POST /a2a`).
+- **Antigravity MCP App & Standalone Studio**: Serves Flow Studio (`flow_studio` side panel and full-page sidebar) plus an inline status card (`flow_status`) as self-contained `ui://` MCP Apps over stdio. Also ships a standalone loopback server (`npx --yes --package github:cofin/flow flow-studio`).
+- **Editor-Native VS Code / Cursor Extension**: Adds inline spec review comments (`CommentController`) in `spec.md` gutters synced to `<git-common-dir>/spec-feedback/` and `/flow:revise`. Includes an active-flow status bar, Specs & Tasks explorer, CodeLenses, and an optional Studio webview.
+- **Instant Pure-Node Bundle Search (Opt-In DuckDB)**: Searches local and sibling `.agents/bundles/` workspaces with zero-Python BM25 and graph lint (`flow catalog search|lint|drift`). Optional DuckDB + `EmbeddingGemma` semantic indexing (`tools/catalog/`) stays strictly opt-in (`FLOW_ENABLE_DUCKDB=1` or `uv sync --group catalog && uv run flow-catalog`).
 
 ## Install
 
@@ -96,7 +96,7 @@ Then run `/plugins` inside a Codex session to enable `flow`, or update with `cod
 ### Cursor
 
 1. **Agent Plugin (`.cursor-plugin/plugin.json`)**: Install Flow as a Cursor plugin (`https://github.com/cofin/flow`) so skills, subagents, and lifecycle hooks (`hooks/hooks-cursor.json`) load automatically.
-2. **Flow Studio Extension (`vscode-extension/`)**: Installed automatically into `~/.cursor/extensions` on your first session (`hooks/session-start.{sh,ps1}`), or run directly from GitHub without cloning the repository:
+2. **Flow Studio Extension (`vscode-extension/`)**: Install directly from GitHub without cloning the repository (existing installs are kept in sync on `SessionStart` via `--update-only`):
 
 ```bash
 npx --yes --package github:cofin/flow flow-studio-vscode --target cursor
