@@ -30,7 +30,7 @@ export class WorkspaceSync {
 
   static studioLink(flowId, title = "") {
     const label = String(title || flowId).replace(/[[\]]/g, "");
-    return `[Spec: ${label}](sidecar://flow/studio/?flow=${encodeURIComponent(flowId)})`;
+    return `[Spec: ${label}](.agents/bundles/specs/${flowId}/spec.md)`;
   }
 
   static finalize(report) {

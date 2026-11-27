@@ -69,6 +69,31 @@
       await refreshPortfolio();
       render();
     }
+    if (event.data?.type === "openNewSpec") {
+      openNewSpecDrawer(String(event.data.initialGoal || ""));
+    }
+    if (event.data?.type === "navigateTo") {
+      if (event.data.workspacePath && event.data.workspacePath !== state.workspacePath) {
+        state.workspacePath = String(event.data.workspacePath);
+        await refreshSnapshot({ force: true });
+      }
+      if (event.data.tab) {
+        state.tab = String(event.data.tab);
+      }
+      const targetRel =
+        event.data.relPath ||
+        (event.data.flowId ? `.agents/bundles/specs/${event.data.flowId}/spec.md` : null);
+      if (targetRel) {
+        state.tab = event.data.tab || "review";
+        state.specSubView = event.data.subView || "document";
+        try {
+          await loadDocument(targetRel);
+        } catch {
+          // Keep current view if target document is unavailable.
+        }
+      }
+      render();
+    }
   });
   if (typeof MutationObserver === "function" && document.body) {
     new MutationObserver(syncHostTheme).observe(document.body, {
@@ -104,7 +129,7 @@
     revisePrompt: "",
     setupAudit: null,
     catalogQuery: "",
-    catalogMode: "hybrid",
+    catalogMode: "bm25",
     catalogHits: [],
     catalogStatus: null,
     driftReport: null,
@@ -219,6 +244,8 @@
     } catch (err) {
       showToast(err instanceof Error ? err.message : "Failed to load Studio context");
       render();
+    } finally {
+      if (typeof host.signalReady === "function") host.signalReady();
     }
   }
 
@@ -560,7 +587,7 @@
       { id: "home", label: "Studio Home" },
       { id: "roadmap", label: "Roadmap" },
       { id: "review", label: "Spec & Review" },
-      { id: "catalog", label: "Knowledge Catalog" },
+      { id: "catalog", label: "Bundle Notes" },
       { id: "activity", label: "Activity & Hooks" },
     ];
     return el(
@@ -905,7 +932,7 @@
         attentionCount > 0
           ? el("button", { className: "attention-pill", onClick: () => openAttentionDrawer() }, `${attentionCount} needs you`)
           : null,
-        el("button", { className: "btn", onClick: () => host.openStudioPanel() }, "Open Full Studio")
+        el("button", { className: "btn", onClick: () => host.openFullStudio(state.workspacePath) }, "Open Full Studio")
       )
     );
 
@@ -2195,6 +2222,26 @@
         )
       );
     }
+    if (host.capabilities?.canUpdateContext && state.selectedDocRelPath) {
+      actionMenuItems.push(
+        el(
+          "button",
+          {
+            className: "btn btn-quiet action-menu-item",
+            type: "button",
+            onClick: async () => {
+              const ctxText =
+                openComments.length > 0 && state.revisePrompt
+                  ? state.revisePrompt
+                  : `Review spec ${state.selectedDocRelPath} in ${state.workspacePath}`;
+              const res = await host.attachContext(ctxText);
+              showToast(res.attached ? "Attached to next prompt." : "Copied context to clipboard.");
+            },
+          },
+          openComments.length > 0 ? `Attach Notes to Prompt (${openComments.length})` : "Attach Spec to Prompt"
+        )
+      );
+    }
     if (openComments.length > 0 && state.revisePrompt) {
       actionMenuItems.push(
         el(
@@ -2512,15 +2559,22 @@
       },
     });
 
+    const duckdbActive = Boolean(state.catalogStatus?.fts_enabled || state.catalogStatus?.vss_enabled);
+    const modeOptions = duckdbActive
+      ? [
+          { id: "bm25", label: "BM25" },
+          { id: "hybrid", label: "Hybrid" },
+          { id: "semantic", label: "Semantic" },
+          { id: "federated", label: "All Workspaces" },
+        ]
+      : [
+          { id: "bm25", label: "Local" },
+          { id: "federated", label: "All Workspaces" },
+        ];
     const modeSegmented = el(
       "div",
       { className: "segmented" },
-      ...[
-        { id: "hybrid", label: "Hybrid" },
-        { id: "bm25", label: "BM25" },
-        { id: "semantic", label: "Semantic" },
-        { id: "federated", label: "Federated" },
-      ].map((m) =>
+      ...modeOptions.map((m) =>
         el(
           "button",
           {
@@ -2553,19 +2607,21 @@
         },
         "Search"
       ),
-      el(
-        "button",
-        {
-          className: "btn",
-          onClick: async () => {
-            await host.api("/api/catalog-index", { workspacePath: state.workspacePath });
-            await refreshCatalog();
-            showToast("Synchronized knowledge catalog index from Markdown bundles.");
-            render();
-          },
-        },
-        "Re-index Catalog"
-      ),
+      duckdbActive
+        ? el(
+            "button",
+            {
+              className: "btn",
+              onClick: async () => {
+                await host.api("/api/catalog-index", { workspacePath: state.workspacePath });
+                await refreshCatalog();
+                showToast("Synchronized bundle index from Markdown files.");
+                render();
+              },
+            },
+            "Re-index"
+          )
+        : null,
       el(
         "button",
         {
@@ -2584,7 +2640,7 @@
       ? el(
           "div",
           { className: "subtle-meta", style: "margin-bottom:14px" },
-          `Knowledge Catalog · ${state.catalogStatus.entry_count ?? 0} entries · Mode: ${state.catalogMode}`
+          `Bundle Notes · ${state.catalogStatus.entry_count ?? 0} entries · Mode: ${state.catalogMode}`
         )
       : null;
 
@@ -3118,6 +3174,36 @@
       }
     }
   });
+
+  if (typeof host.onToolResult === "function") {
+    host.onToolResult(async (payload) => {
+      if (!payload || typeof payload !== "object") return;
+      if (payload.workspace && payload.workspace !== state.workspacePath) {
+        state.workspacePath = String(payload.workspace);
+      }
+      if (payload.studioContext?.workspaces) {
+        state.workspaces = payload.studioContext.workspaces;
+        state.pinnedWorkspaces = payload.studioContext.pinnedWorkspaces || state.pinnedWorkspaces;
+        state.harnesses = payload.studioContext.harnesses || state.harnesses;
+      }
+      if (payload.initialTab) {
+        state.tab = String(payload.initialTab);
+      }
+      await refreshSnapshot({ force: true });
+      const targetRel =
+        payload.initialRelPath ||
+        (payload.initialFlowId ? `.agents/bundles/specs/${payload.initialFlowId}/spec.md` : null);
+      if (targetRel) {
+        state.tab = payload.initialTab || "review";
+        try {
+          await loadDocument(targetRel);
+        } catch {
+          // Ignore unavailable initial spec document.
+        }
+        render();
+      }
+    });
+  }
 
   bootstrap();
   setInterval(() => {

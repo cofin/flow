@@ -228,71 +228,126 @@ def test_standalone_studio_server_snapshot_review_and_spec_creation(tmp_path: Pa
 
 
 @pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
-def test_antigravity_sidecar_main_mounts_pages_and_apis_via_stub_sdk(tmp_path: Path) -> None:
-    """Verify main.mjs registers `/` and `/dashboard` pages and API routes with `sidecar_sdk`."""
+def test_antigravity_mcp_app_server_capabilities_resources_and_api_bridge(tmp_path: Path) -> None:
+    """Verify mcp-server.mjs negotiates MCP App capabilities, bundles CSP-safe HTML, and bridges StudioApiService."""
     assert NODE_BIN is not None
     ws = _seed_studio_workspace(tmp_path)
-    stub_sdk = tmp_path / "stub_sidecar_sdk.mjs"
-    loader_js = tmp_path / "register_loader.mjs"
+    mcp_uri = (REPO_ROOT / "sidecars" / "studio" / "mcp-server.mjs").as_uri()
 
-    stub_sdk.write_text(
-        "export class Response {\n"
-        "  constructor(body, init = {}) {\n"
-        "    this.body = body;\n"
-        "    this.status = init.status || 200;\n"
-        "    this.contentType = init.contentType || 'text/plain';\n"
-        "    this.headers = init.headers || {};\n"
-        "  }\n"
-        "}\n"
-        "export class SidecarApp {\n"
-        "  constructor() { this.pages = new Map(); this.apis = new Map(); }\n"
-        "  page(p, fn) { this.pages.set(p, fn); }\n"
-        "  api(p, fn, method = 'POST') { this.apis.set(`${method}:${p}`, fn); }\n"
-        "  async run() {\n"
-        "    const home = await this.pages.get('/')();\n"
-        "    const dash = await this.pages.get('/dashboard')();\n"
-        "    const snap = await this.apis.get('POST:/api/bundle-snapshot')({ workspacePath: process.env.TEST_WS });\n"
-        "    process.stdout.write(JSON.stringify({\n"
-        "      hasHome: home.status === 200 && home.body.includes('/preload.js'),\n"
-        "      hasDash: dash.status === 200,\n"
-        "      snapStatus: snap.status,\n"
-        "      snapRepo: JSON.parse(snap.body).repoName,\n"
-        "      registeredApis: Array.from(this.apis.keys()).sort()\n"
-        "    }) + '\\n');\n"
-        "  }\n"
-        "}\n",
-        encoding="utf-8",
-    )
-    loader_js.write_text(
-        "import { register } from 'node:module';\n"
-        f"const stubUrl = {json.dumps(stub_sdk.as_uri())};\n"
-        "const hookSrc = `export async function resolve(specifier, context, nextResolve) {\n"
-        "  if (specifier === 'sidecar_sdk') return { shortCircuit: true, url: ${JSON.stringify(stubUrl)} };\n"
-        "  return nextResolve(specifier, context);\n"
-        "}`;\n"
-        "register('data:text/javascript,' + encodeURIComponent(hookSrc));\n",
-        encoding="utf-8",
-    )
+    probe_js = f"""
+import {{ createMcpSession }} from {json.dumps(mcp_uri)};
 
+const ws = process.argv[1];
+const uiSession = createMcpSession({{ defaultWorkspace: ws }});
+const cliSession = createMcpSession({{ defaultWorkspace: ws }});
+
+const uiInit = await uiSession.handle({{
+  jsonrpc: "2.0",
+  id: 1,
+  method: "initialize",
+  params: {{
+    capabilities: {{
+      extensions: {{
+        "io.modelcontextprotocol/ui": {{}},
+        "com.google.antigravity/ui": {{ entrypoints: ["aux_pane", "global"] }},
+      }},
+    }},
+  }},
+}});
+const uiTools = await uiSession.handle({{ jsonrpc: "2.0", id: 2, method: "tools/list" }});
+const uiResources = await uiSession.handle({{ jsonrpc: "2.0", id: 3, method: "resources/list" }});
+const studioHtml = await uiSession.handle({{
+  jsonrpc: "2.0",
+  id: 4,
+  method: "resources/read",
+  params: {{ uri: "ui://flow/studio.html" }},
+}});
+const statusCardHtml = await uiSession.handle({{
+  jsonrpc: "2.0",
+  id: 5,
+  method: "resources/read",
+  params: {{ uri: "ui://flow/status-card.html" }},
+}});
+const launchRes = await uiSession.handle({{
+  jsonrpc: "2.0",
+  id: 6,
+  method: "tools/call",
+  params: {{ name: "flow_studio", arguments: {{}} }},
+}});
+const snapRes = await uiSession.handle({{
+  jsonrpc: "2.0",
+  id: 7,
+  method: "tools/call",
+  params: {{
+    name: "flow_studio_api",
+    arguments: {{ route: "/api/bundle-snapshot", payload: {{ workspacePath: ws }} }},
+  }},
+}});
+const badRouteRes = await uiSession.handle({{
+  jsonrpc: "2.0",
+  id: 8,
+  method: "tools/call",
+  params: {{ name: "flow_studio_api", arguments: {{ route: "/api/does-not-exist", payload: {{}} }} }},
+}});
+
+await cliSession.handle({{ jsonrpc: "2.0", id: 1, method: "initialize", params: {{ capabilities: {{}} }} }});
+const cliTools = await cliSession.handle({{ jsonrpc: "2.0", id: 2, method: "tools/list" }});
+
+uiSession.close();
+cliSession.close();
+
+process.stdout.write(JSON.stringify({{
+  uiCaps: uiInit.result.capabilities,
+  uiToolNames: uiTools.result.tools.map((t) => t.name),
+  studioTool: uiTools.result.tools.find((t) => t.name === "flow_studio"),
+  statusTool: uiTools.result.tools.find((t) => t.name === "flow_status"),
+  apiTool: uiTools.result.tools.find((t) => t.name === "flow_studio_api"),
+  cliToolNames: cliTools.result.tools.map((t) => t.name),
+  cliStudioTool: cliTools.result.tools.find((t) => t.name === "flow_studio"),
+  resourceUris: uiResources.result.resources.map((r) => r.uri),
+  studioContent: studioHtml.result.contents[0],
+  statusCardContent: statusCardHtml.result.contents[0],
+  launchRes: launchRes.result,
+  snapRepo: snapRes.result.structuredContent.repoName,
+  badRouteError: badRouteRes.error,
+}}) + "\\n");
+"""
     run_res = subprocess.run(
-        [NODE_BIN, "--import", loader_js.as_uri(), str(REPO_ROOT / "sidecars" / "studio" / "main.mjs")],
-        env={
-            **os.environ,
-            "TEST_WS": str(ws),
-            "FLOW_CATALOG_DB": str(tmp_path / "stub.duckdb"),
-            "FLOW_WORKSPACES_CONFIG": str(tmp_path / "ws.json"),
-        },
+        [NODE_BIN, "--input-type=module", "-e", probe_js, str(ws)],
+        env={**os.environ, "FLOW_WORKSPACES_CONFIG": str(tmp_path / "ws.json")},
         capture_output=True,
         text=True,
         check=True,
     )
     out = json.loads(run_res.stdout.strip().splitlines()[-1])
-    assert out["hasHome"] is True
-    assert out["hasDash"] is True
-    assert out["snapStatus"] == 200
+
+    assert "io.modelcontextprotocol/ui" in out["uiCaps"]["extensions"]
+    assert "flow_studio" in out["uiToolNames"]
+    assert "flow_studio_api" in out["uiToolNames"]
+    assert "flow_studio_api" not in out["cliToolNames"]
+    assert "_meta" not in out["cliStudioTool"]
+
+    entrypoints = out["studioTool"]["_meta"]["com.google.antigravity/ui"]["entrypoints"]
+    assert {ep["type"] for ep in entrypoints} == {"aux_pane", "global"}
+    assert out["studioTool"]["_meta"]["ui"]["resourceUri"] == "ui://flow/studio.html"
+    assert out["statusTool"]["_meta"]["ui"]["resourceUri"] == "ui://flow/status-card.html"
+    assert out["apiTool"]["_meta"]["ui"]["visibility"] == ["app"]
+
+    html_text = out["studioContent"]["text"]
+    assert out["studioContent"]["mimeType"] == "text/html;profile=mcp-app"
+    assert len(html_text.encode("utf-8")) < 10 * 1024 * 1024
+    assert "<script src=" not in html_text
+    assert '<link rel="stylesheet"' not in html_text
+    assert "__MCP_EXT_APPS__" in html_text
+    assert "__FLOW_MCP_APP__" in html_text
+
+    card_text = out["statusCardContent"]["text"]
+    assert out["statusCardContent"]["mimeType"] == "text/html;profile=mcp-app"
+    assert "<script src=" not in card_text
+
+    assert len(json.dumps(out["launchRes"]).encode("utf-8")) < 1024 * 1024
     assert out["snapRepo"] == "payments-service"
-    assert "POST:/api/start-workspace-conversation" in out["registeredApis"]
-    assert "POST:/api/harness-dispatch" in out["registeredApis"]
+    assert out["badRouteError"]["code"] == -32602
 
 
 @pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
@@ -395,116 +450,126 @@ service.close();
 
 
 @pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
-def test_host_bridge_awaits_async_workspace_uris_and_dispatches_to_selected_workspace(tmp_path: Path) -> None:
-    """Verify host-bridge.js awaits async getWorkspaceUris() and routes planning to the selected workspace."""
+def test_host_bridge_mcp_app_concurrency_queue_dispatch_context_and_open_file(tmp_path: Path) -> None:
+    """Verify host-bridge.js MCP App driver throttles tool calls, sends messages, attaches context, and opens files."""
     assert NODE_BIN is not None
     ws_active = tmp_path / "active-repo"
-    ws_other = tmp_path / "other-repo"
     ws_active.mkdir()
-    ws_other.mkdir()
 
     probe_js = """
 import fs from "node:fs";
 import vm from "node:vm";
-import { pathToFileURL } from "node:url";
 
 const bridgePath = process.argv[1];
 const wsActive = process.argv[2];
-const wsOther = process.argv[3];
-const activeUri = pathToFileURL(wsActive).href;
-const otherUri = pathToFileURL(wsOther).href;
 
-let workspaceChangeCallback = null;
-const sentToActiveChat = [];
-const apiCalls = [];
-const toggledConversations = [];
+let inflight = 0;
+let peakInflight = 0;
+const serverCalls = [];
+const sentMessages = [];
+const attachedContexts = [];
+const openedFiles = [];
+const appliedThemes = [];
 
+class MockMcpApp {
+  constructor() {
+    this.ontoolinput = null;
+    this.ontoolresult = null;
+    this.onhostcontextchanged = null;
+  }
+  async connect() {}
+  getHostCapabilities() {
+    return { serverTools: {}, message: {}, updateModelContext: {}, openLinks: {} };
+  }
+  getHostContext() {
+    return { theme: "dark", styles: { variables: { "--color-background-primary": "#111" } } };
+  }
+  async callServerTool({ name, arguments: args }) {
+    inflight += 1;
+    peakInflight = Math.max(peakInflight, inflight);
+    serverCalls.push({ name, route: args.route });
+    await new Promise((r) => setTimeout(r, 15));
+    inflight -= 1;
+    return { content: [{ type: "text", text: "ok" }], structuredContent: { route: args.route, ok: true } };
+  }
+  async sendMessage(msg) {
+    sentMessages.push(msg);
+  }
+  async updateModelContext(ctx) {
+    attachedContexts.push(ctx);
+  }
+}
+
+let mockAppInstance = null;
+const docAttrs = {};
 const sandboxWindow = {
-  location: { pathname: "/", search: "" },
-  navigator: { clipboard: { writeText: async () => {} } },
-  sidecar: {
-    conversationId: "conv-active-1",
-    getWorkspaceUris: async () => {
-      await new Promise((r) => setTimeout(r, 25));
-      return [activeUri];
-    },
-    onWorkspaceChange: (cb) => {
-      workspaceChangeCallback = cb;
-      return () => {};
-    },
-    fetch: async (routePath, init) => {
-      const body = JSON.parse(init.body || "{}");
-      apiCalls.push({ routePath, body });
-      if (routePath === "/api/start-workspace-conversation") {
-        return {
-          ok: true,
-          status: 200,
-          json: async () => ({
-            conversation_id: "conv-other-2",
-            workspace_bound: true,
-            workspace: body.workspacePath,
-            prompt_sent: true,
-          }),
-        };
+  __FLOW_MCP_APP__: true,
+  __MCP_EXT_APPS__: {
+    App: class extends MockMcpApp {
+      constructor(...a) {
+        super(...a);
+        mockAppInstance = this;
       }
-      return { ok: true, status: 200, json: async () => ({ ok: true }) };
     },
-    agent: {
-      sendMessage: async (msg, convId) => {
-        sentToActiveChat.push({ msg, convId });
-      },
-    },
-    ui: {
-      toggleConversation: (convId) => {
-        toggledConversations.push(convId);
-      },
-      toggleAuxPane: () => {},
+    applyDocumentTheme: (t) => appliedThemes.push(t),
+    applyHostStyleVariables: () => {},
+    toggleAuxPaneFile: async (_app, uri) => {
+      openedFiles.push(uri);
+      return { isError: false };
     },
   },
+  document: {
+    documentElement: {
+      setAttribute: (k, v) => { docAttrs[k] = v; },
+    },
+  },
+  location: { pathname: "/", search: "" },
+  navigator: { clipboard: { writeText: async () => {} } },
+  URL,
+  URLSearchParams,
+  setTimeout,
+  clearTimeout,
+  queueMicrotask,
 };
 sandboxWindow.window = sandboxWindow;
-sandboxWindow.fetch = sandboxWindow.sidecar.fetch;
-sandboxWindow.URL = URL;
-sandboxWindow.URLSearchParams = URLSearchParams;
-sandboxWindow.setTimeout = setTimeout;
-sandboxWindow.clearTimeout = clearTimeout;
 
 const code = fs.readFileSync(bridgePath, "utf8");
 vm.runInNewContext(code, sandboxWindow);
 
 const host = sandboxWindow.flowHost;
-const events = [];
-host.onEvent((evt) => events.push(evt));
+const toolResults = [];
+host.onToolResult((p) => toolResults.push(p));
+mockAppInstance.ontoolresult({ structuredContent: { workspace: wsActive, initialTab: "review" } });
 
-const initialUri = await host.getInitialWorkspaceUri();
-const dispatchActive = await host.dispatchPrompt({
-  workspacePath: wsActive,
-  message: "/flow:spec active-feature",
-  title: "Spec Active",
-});
-const dispatchOther = await host.dispatchPrompt({
-  workspacePath: wsOther,
-  message: "/flow:spec other-feature",
-  title: "Spec Other",
-});
+const parallelResults = await Promise.all([
+  host.api("/api/studio-context", {}),
+  host.api("/api/bundle-snapshot", { workspacePath: wsActive }),
+  host.api("/api/activity", { workspacePath: wsActive }),
+  host.api("/api/harnesses", { workspacePath: wsActive }),
+  host.api("/api/permissions", { workspacePath: wsActive }),
+  host.api("/api/catalog-status", { workspacePath: wsActive }),
+]);
 
-workspaceChangeCallback([otherUri, "file:///C:/Users/dev/win-repo"]);
-const dispatchWin = await host.dispatchPrompt({
-  workspacePath: "c:\\\\Users\\\\dev\\\\win-repo",
-  message: "/flow:spec win-feature",
-  title: "Spec Win",
-});
+const dispatchRes = await host.dispatchPrompt({ workspacePath: wsActive, message: "/flow:spec demo" });
+const newConvRes = await host.dispatchPrompt({ workspacePath: wsActive, message: "/flow:review demo", startNew: true });
+const ctxRes = await host.attachContext("Open notes for demo");
+const opened = await host.openFile(wsActive, ".agents/bundles/specs/demo/spec.md");
 
 process.stdout.write(JSON.stringify({
-  initialUri,
-  activeUrisAfterChange: host.getActiveWorkspaceUris(),
-  events,
-  dispatchActive,
-  dispatchOther,
-  dispatchWin,
-  sentToActiveChat,
-  apiCalls,
-  toggledConversations,
+  kind: host.kind,
+  peakInflight,
+  parallelCount: parallelResults.length,
+  serverCallsCount: serverCalls.length,
+  dispatchRes,
+  newConvRes,
+  sentMessages,
+  ctxRes,
+  attachedContexts,
+  opened,
+  openedFiles,
+  appliedThemes,
+  docAttrs,
+  toolResults,
 }) + "\\n");
 """
     proc = subprocess.run(
@@ -515,25 +580,24 @@ process.stdout.write(JSON.stringify({
             probe_js,
             str(REPO_ROOT / "sidecars" / "studio" / "web" / "host-bridge.js"),
             str(ws_active),
-            str(ws_other),
         ],
         capture_output=True,
         text=True,
         check=True,
     )
     out = json.loads(proc.stdout.strip().splitlines()[-1])
-    assert out["initialUri"] == ws_active.as_uri()
-    assert out["dispatchActive"]["mode"] == "active-conversation"
-    assert out["dispatchWin"]["mode"] == "active-conversation"
-    assert len(out["sentToActiveChat"]) == 2
-    assert out["sentToActiveChat"][0] == {"msg": "/flow:spec active-feature", "convId": "conv-active-1"}
-    assert out["sentToActiveChat"][1] == {"msg": "/flow:spec win-feature", "convId": "conv-active-1"}
-    assert out["dispatchOther"]["mode"] == "workspace-cascade"
-    assert out["dispatchOther"]["conversationId"] == "conv-other-2"
-    assert out["toggledConversations"] == ["conv-other-2"]
-    assert out["activeUrisAfterChange"] == [ws_other.as_uri(), "file:///C:/Users/dev/win-repo"]
-    assert out["events"][0]["type"] == "workspace.changed"
-    assert out["events"][0]["uris"] == [ws_other.as_uri(), "file:///C:/Users/dev/win-repo"]
+    assert out["kind"] == "mcp-app"
+    assert out["peakInflight"] <= 3
+    assert out["parallelCount"] == 6
+    assert out["serverCallsCount"] == 6
+    assert out["dispatchRes"]["mode"] == "mcp-message"
+    assert out["newConvRes"]["mode"] == "new-conversation"
+    assert out["sentMessages"][1]["_meta"]["com.google.antigravity/message"]["target"] == "new"
+    assert out["ctxRes"]["attached"] is True
+    assert out["opened"] is True
+    assert out["openedFiles"][0].endswith("/.agents/bundles/specs/demo/spec.md")
+    assert out["appliedThemes"] == ["dark"]
+    assert out["toolResults"][0]["workspace"] == str(ws_active)
 
 
 @pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
@@ -1526,59 +1590,17 @@ def test_studio_cache_store_sqlite_and_json_fallback(tmp_path: Path, case_id: st
 
 
 @pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
-@pytest.mark.parametrize(
-    ("base_url", "web_port", "expected"),
-    (
-        ("http://127.0.0.1:8888", 8888, False),
-        ("http://localhost:8888", 8888, False),
-        ("http://[::1]:8888", 8888, False),
-        ("https://studio.example.com:8888", 8888, True),
-        ("https://studio.example.com:443/sidecar", 8888, False),
-        ("https://b0123456722b80123456789abcdef01.proxy.example.com", 8888, True),
-        ("https://b0123456700500123456789abcdef01.proxy.example.com", 8888, False),
-        ("not-a-url", 8888, False),
-    ),
-)
-def test_antigravity_bridge_unproxied_remote_url_detection(
-    base_url: str,
-    web_port: int,
-    expected: bool,
-) -> None:
-    """Verify AntigravityBridge.isUnproxiedRemoteSidecarUrl distinguishes loopback, bare-port, and proxied URLs."""
+def test_antigravity_bridge_model_filtering_and_catalog_opt_in_default(tmp_path: Path) -> None:
+    """Verify AntigravityBridge model picker filtering and CatalogBridge pure-Node BM25 default."""
     assert NODE_BIN is not None
+    ws = _seed_studio_workspace(tmp_path)
     bridge_uri = (REPO_ROOT / "sidecars" / "studio" / "bridges" / "antigravity.mjs").as_uri()
+    catalog_uri = (REPO_ROOT / "sidecars" / "studio" / "knowledge" / "catalog.mjs").as_uri()
     js = (
         f"import {{ AntigravityBridge }} from {json.dumps(bridge_uri)};"
-        f"const res = AntigravityBridge.isUnproxiedRemoteSidecarUrl({json.dumps(base_url)}, {web_port});"
-        "process.stdout.write(JSON.stringify({ res }) + '\\n');"
-    )
-    proc = subprocess.run(
-        [NODE_BIN, "--input-type=module", "-e", js],
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        check=True,
-    )
-    assert json.loads(proc.stdout.strip().splitlines()[-1])["res"] is expected
-
-
-@pytest.mark.skipif(NODE_BIN is None, reason="node binary required")
-def test_antigravity_bridge_verify_gateway_binding_and_model_filtering(tmp_path: Path) -> None:
-    """Verify bounded gateway restart persistence and model picker filtering on AntigravityBridge."""
-    assert NODE_BIN is not None
-    state_dir = tmp_path / "state"
-    bridge_uri = (REPO_ROOT / "sidecars" / "studio" / "bridges" / "antigravity.mjs").as_uri()
-    js = (
-        f"import {{ AntigravityBridge }} from {json.dumps(bridge_uri)};"
-        "const b = new AntigravityBridge({"
-        "  ANTIGRAVITY_LS_ADDRESS: 'http://127.0.0.1:49999',"
-        "  ANTIGRAVITY_SIDECAR_WEB_PORT: '8888',"
-        "});"
-        "let currentBaseUrl = 'https://remote.example.com:8888';"
+        f"import {{ CatalogBridge }} from {json.dumps(catalog_uri)};"
+        "const b = new AntigravityBridge({ ANTIGRAVITY_LS_ADDRESS: 'http://127.0.0.1:49999' });"
         "b.call = async (method) => {"
-        "  if (method === 'GetSidecars') {"
-        "    return { ok: true, value: { sidecars: [{ webPort: 8888, baseUrl: currentBaseUrl }] } };"
-        "  }"
         "  if (method === 'GetCascadeModelConfigData') return {"
         "    ok: true, value: { clientModelConfigs: [{ modelId: 'm-pro', label: 'Pro Model',"
         "      modelOrAlias: { alias: 'pro-alias' }, quotaInfo: { remainingFraction: 0.75 } }] }"
@@ -1592,12 +1614,6 @@ def test_antigravity_bridge_verify_gateway_binding_and_model_filtering(tmp_path:
         "  };"
         "  return { ok: true, value: {} };"
         "};"
-        f"const opts = {{ stateDir: {json.dumps(str(state_dir))}, maxAttempts: 2, nowMs: 1000 }};"
-        "const r1 = await b.verifyGatewayBinding(opts);"
-        "const r2 = await b.verifyGatewayBinding({ ...opts, nowMs: 2000 });"
-        "const r3 = await b.verifyGatewayBinding({ ...opts, nowMs: 3000 });"
-        "currentBaseUrl = 'https://proxy.example.com/sidecar/flow';"
-        "const r4 = await b.verifyGatewayBinding({ ...opts, nowMs: 4000 });"
         "const mq = await b.getModelsAndQuota();"
         "b.call = async (method) => {"
         "  if (method === 'GetAvailableModels') return {"
@@ -1612,7 +1628,11 @@ def test_antigravity_bridge_verify_gateway_binding_and_model_filtering(tmp_path:
         "  return { ok: true, value: {} };"
         "};"
         "const mqRaw = await b.getModelsAndQuota();"
-        "process.stdout.write(JSON.stringify({ r1, r2, r3, r4, mq, mqRaw }) + '\\n');"
+        f"const cat = new CatalogBridge({{ workspaceRoot: {json.dumps(str(ws))}, env: {{}} }});"
+        f"await cat.index([{json.dumps(str(ws))}]);"
+        "const catStatus = await cat.status();"
+        "cat.close();"
+        "process.stdout.write(JSON.stringify({ mq, mqRaw, catStatus }) + '\\n');"
     )
     proc = subprocess.run(
         [NODE_BIN, "--input-type=module", "-e", js],
@@ -1622,15 +1642,12 @@ def test_antigravity_bridge_verify_gateway_binding_and_model_filtering(tmp_path:
         check=True,
     )
     out = json.loads(proc.stdout.strip().splitlines()[-1])
-    assert out["r1"] == {"ok": False, "unproxied": True, "shouldRestart": True, "attempts": 1}
-    assert out["r2"] == {"ok": False, "unproxied": True, "shouldRestart": True, "attempts": 2}
-    assert out["r3"] == {"ok": False, "unproxied": True, "shouldRestart": False, "attempts": 2}
-    assert out["r4"] == {"ok": True, "unproxied": False, "shouldRestart": False, "attempts": 0}
-    recheck_data = json.loads((state_dir / "gateway-recheck.json").read_text(encoding="utf-8"))
-    assert recheck_data["attempts"] == 0
     picker_ids = sorted(m["model"] for m in out["mq"]["models"])
     assert picker_ids == ["custom-local", "pro-alias"]
     assert [m["model"] for m in out["mqRaw"]["models"]] == ["model-chat"]
+    assert out["catStatus"]["strategy"] == "node-bm25"
+    assert out["catStatus"]["fts_enabled"] is False
+    assert out["catStatus"]["vss_enabled"] is False
 
 
 @pytest.mark.skipif(NODE_BIN is None, reason="node binary required")

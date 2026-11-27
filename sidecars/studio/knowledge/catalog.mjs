@@ -343,14 +343,18 @@ export class CatalogBridge {
   constructor(options = {}) {
     this.pluginRoot = path.resolve(options.pluginRoot || DEFAULT_PLUGIN_ROOT);
     this.workspaceRoot = path.resolve(options.workspaceRoot || process.cwd());
-    this.dbPath = options.dbPath || process.env.FLOW_CATALOG_DB || null;
-    this.embedder = options.embedder || process.env.FLOW_CATALOG_EMBEDDER || null;
+    this.env = options.env || process.env;
+    this.dbPath = options.dbPath || this.env.FLOW_CATALOG_DB || null;
+    this.embedder = options.embedder || this.env.FLOW_CATALOG_EMBEDDER || null;
+    this.enableDuckDb =
+      options.enableDuckDb === true ||
+      String(this.env.FLOW_ENABLE_DUCKDB || "").trim() === "1";
     this.fallback = new NodeBm25FallbackCatalog();
     this.child = null;
     this.nextId = 1;
     this.pending = new Map();
-    this.workerStrategy = "uninitialized";
-    this.useFallbackOnly = false;
+    this.useFallbackOnly = !this.enableDuckDb;
+    this.workerStrategy = this.enableDuckDb ? "uninitialized" : "node-bm25";
   }
 
   async index(workspaceRoots) {
@@ -419,7 +423,10 @@ export class CatalogBridge {
 
   async #ensureWorker() {
     if (this.child) return;
-    const spec = resolveCatalogWorkerCommand(this.pluginRoot, this.workspaceRoot);
+    const spec = resolveCatalogWorkerCommand(this.pluginRoot, this.workspaceRoot, {
+      enableDuckDb: this.enableDuckDb,
+      env: this.env,
+    });
     this.workerStrategy = spec.strategy;
     if (!spec.command) {
       this.useFallbackOnly = true;

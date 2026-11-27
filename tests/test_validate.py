@@ -566,8 +566,9 @@ def test_validate_hooks_checks_sidecar_css_balance(tmp_path: Path) -> None:
     (tmp_path / "pyproject.toml").write_text('[project]\nname = "flow"\nversion = "0.1.0"\n', encoding="utf-8")
     for src_rel in (
         "package.json",
-        "sidecars/studio/sidecar.json",
-        "sidecars/studio/main.mjs",
+        "mcp_config.json",
+        "sidecars/studio/mcp-server.mjs",
+        "sidecars/studio/web/mcp-ext-apps.bundle.js",
     ):
         dst = tmp_path / src_rel
         dst.parent.mkdir(parents=True, exist_ok=True)
@@ -943,31 +944,40 @@ def test_prose_linter_multiline_comments_fences_yaml_and_nested_json(tmp_path: P
 
 
 @pytest.mark.parametrize(
-    ("sandbox_cfg", "expect_sandbox_error"),
+    ("command_value", "expect_cmd_error"),
     (
-        ({"disable_sandbox": True}, False),
-        ({"disable_sandbox": False}, True),
+        ("node", False),
+        ("/usr/bin/node", True),
     ),
 )
-def test_validate_sidecar_sandbox_and_dirty_file_sha_relaxation(
+def test_validate_mcp_config_and_dirty_file_sha_relaxation(
     tmp_path: Path,
-    sandbox_cfg: dict[str, bool],
-    expect_sandbox_error: bool,
+    command_value: str,
+    expect_cmd_error: bool,
 ) -> None:
-    """Verify validate_manifests checks disable_sandbox and validate_okf_bundle relaxes missing SHAs for dirty files."""
+    """Verify validate_manifests checks mcp_config.json bare commands and validate_okf_bundle relaxes dirty SHAs."""
     (tmp_path / "pyproject.toml").write_text('[project]\nname = "flow"\nversion = "0.1.0"\n', encoding="utf-8")
-    for src_rel in ("package.json", "sidecars/studio/main.mjs"):
+    for src_rel in (
+        "package.json",
+        "sidecars/studio/mcp-server.mjs",
+        "sidecars/studio/web/mcp-ext-apps.bundle.js",
+    ):
         dst = tmp_path / src_rel
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(REPO_ROOT / src_rel, dst)
-    sidecar_dst = tmp_path / "sidecars" / "studio" / "sidecar.json"
-    sidecar_cfg = json.loads((REPO_ROOT / "sidecars" / "studio" / "sidecar.json").read_text(encoding="utf-8"))
-    sidecar_cfg["sandbox"] = sandbox_cfg
-    sidecar_dst.write_text(json.dumps(sidecar_cfg), encoding="utf-8")
+    mcp_cfg = {
+        "mcpServers": {
+            "studio": {
+                "command": command_value,
+                "args": ["${PLUGIN_ROOT}/sidecars/studio/mcp-server.mjs"],
+            }
+        }
+    }
+    (tmp_path / "mcp_config.json").write_text(json.dumps(mcp_cfg), encoding="utf-8")
 
     manifest_errors = validate_manifests(tmp_path)
-    has_sandbox_err = any("disable_sandbox" in e for e in manifest_errors)
-    assert has_sandbox_err is expect_sandbox_error
+    has_cmd_err = any("bare executable name" in e for e in manifest_errors)
+    assert has_cmd_err is expect_cmd_error
 
     repo = tmp_path / "dirty-repo"
     bundle = repo / ".agents" / "bundles"

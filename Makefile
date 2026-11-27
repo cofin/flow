@@ -88,7 +88,7 @@ clean:                                              ## Cleanup temporary build a
 .PHONY: lint
 lint:                                               ## Check Markdown, Python, and JavaScript sources without changing them
 	@npx --yes markdownlint-cli2 $(MARKDOWN_GLOBS)
-	@for f in bin/*.mjs sidecars/studio/*.mjs sidecars/studio/*/*.mjs sidecars/studio/web/*.js .opencode/plugins/flow.js mods/claude-flow/hooks/*.mjs vscode-extension/*.mjs; do [ -f "$$f" ] && node --check "$$f"; done
+	@for f in bin/*.mjs sidecars/studio/*.mjs sidecars/studio/*/*.mjs sidecars/studio/web/app.js sidecars/studio/web/host-bridge.js .opencode/plugins/flow.js mods/claude-flow/hooks/*.mjs vscode-extension/*.mjs vscode-extension/*.cjs; do [ -f "$$f" ] && node --check "$$f"; done
 	@uv run ruff check tools/ tests/ workflows/flow_common/
 	@uv run ruff format --check tools/ tests/ workflows/flow_common/
 	@uv run mypy tools/ tests/
@@ -126,6 +126,10 @@ studio:                                             ## Launch standalone Flow St
 .PHONY: install-vscode
 install-vscode:                                     ## Install Flow Studio extension into VS Code / Cursor / Windsurf
 	@node ./vscode-extension/install.mjs
+
+.PHONY: build-mcp-sdk
+build-mcp-sdk:                                      ## Rebuild bundled @modelcontextprotocol/ext-apps browser SDK
+	@node ./tools/scripts/build-mcp-app-sdk.mjs
 
 .PHONY: catalog-index
 catalog-index:                                      ## Index active workspace into local DuckDB Knowledge Catalog

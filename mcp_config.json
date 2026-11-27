@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "studio": {
+      "command": "node",
+      "args": ["${PLUGIN_ROOT}/sidecars/studio/mcp-server.mjs"]
+    }
+  }
+}

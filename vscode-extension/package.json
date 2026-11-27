@@ -1,8 +1,8 @@
 {
   "name": "flow-studio",
   "displayName": "Flow Studio",
-  "description": "Multi-harness Spec-Driven Development Studio, line-anchored spec review, and local DuckDB + EmbeddingGemma Knowledge Catalog for VS Code, Cursor, Claude Code, Codex CLI, OpenCode, and Google Antigravity.",
-  "version": "0.33.0",
+  "description": "Editor-native Spec-Driven Development for VS Code, Cursor, Windsurf, and Positron: inline spec review comments synced to /flow:revise, active-flow status bar, Specs & Tasks sidebar, CodeLenses, and optional Studio dashboard.",
+  "version": "0.34.0",
   "publisher": "cofin",
   "license": "Apache-2.0",
   "icon": "icon.png",
@@ -10,8 +10,7 @@
     "color": "#202235",
     "theme": "dark"
   },
-  "type": "module",
-  "main": "./extension.mjs",
+  "main": "./extension.cjs",
   "engines": {
     "vscode": "^1.93.0"
   },
@@ -23,16 +22,18 @@
     "workspaceContains:.agents/setup-state.json",
     "workspaceContains:.agents/bundles/index.md",
     "onView:flowSpecsTree",
-    "onView:flowCatalogTree",
     "onCommand:flow.openStudio",
-    "onCommand:flow.newSpec"
+    "onCommand:flow.newSpec",
+    "onCommand:flow.syncSpecs",
+    "onCommand:flow.searchDocs",
+    "onCommand:flow.quickActions"
   ],
   "contributes": {
     "viewsContainers": {
       "activitybar": [
         {
           "id": "flowStudio",
-          "title": "Flow Studio",
+          "title": "Flow",
           "icon": "logo.svg"
         }
       ]
@@ -41,11 +42,7 @@
       "flowStudio": [
         {
           "id": "flowSpecsTree",
-          "name": "Specs & Chapters"
-        },
-        {
-          "id": "flowCatalogTree",
-          "name": "Knowledge Catalog"
+          "name": "Specs & Tasks"
         }
       ]
     },
@@ -53,7 +50,8 @@
       {
         "command": "flow.openStudio",
         "title": "Flow: Open Studio",
-        "category": "Flow"
+        "category": "Flow",
+        "icon": "$(layout-panel)"
       },
       {
         "command": "flow.studioHome",
@@ -63,17 +61,32 @@
       {
         "command": "flow.newSpec",
         "title": "Flow: New Spec / PRD",
-        "category": "Flow"
+        "category": "Flow",
+        "icon": "$(add)"
       },
       {
-        "command": "flow.searchCatalog",
-        "title": "Flow: Search Knowledge Catalog",
-        "category": "Flow"
+        "command": "flow.syncSpecs",
+        "title": "Flow: Sync Spec Checklists",
+        "category": "Flow",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "flow.reviseSpec",
+        "title": "Flow: Send Review Notes to /flow:revise",
+        "category": "Flow",
+        "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "flow.searchDocs",
+        "title": "Flow: Search Bundle Notes & Specs",
+        "category": "Flow",
+        "icon": "$(search)"
       },
       {
         "command": "flow.dispatchTask",
         "title": "Flow: Dispatch Prompt to Harness",
-        "category": "Flow"
+        "category": "Flow",
+        "icon": "$(play)"
       },
       {
         "command": "flow.runEntrypoint",
@@ -84,8 +97,95 @@
         "command": "flow.selectTargetHarness",
         "title": "Flow: Select Default Target Harness",
         "category": "Flow"
+      },
+      {
+        "command": "flow.quickActions",
+        "title": "Flow: Quick Actions",
+        "category": "Flow"
+      },
+      {
+        "command": "flow.addSpecComment",
+        "title": "Add Review Note",
+        "category": "Flow"
+      },
+      {
+        "command": "flow.replySpecComment",
+        "title": "Reply",
+        "category": "Flow"
+      },
+      {
+        "command": "flow.resolveSpecComment",
+        "title": "Resolve Note",
+        "category": "Flow",
+        "icon": "$(check)"
+      },
+      {
+        "command": "flow.reopenSpecComment",
+        "title": "Reopen Note",
+        "category": "Flow",
+        "icon": "$(issues)"
       }
     ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "flow.syncSpecs",
+          "when": "view == flowSpecsTree",
+          "group": "navigation@1"
+        },
+        {
+          "command": "flow.newSpec",
+          "when": "view == flowSpecsTree",
+          "group": "navigation@2"
+        },
+        {
+          "command": "flow.openStudio",
+          "when": "view == flowSpecsTree",
+          "group": "navigation@3"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "flow.openStudio",
+          "when": "view == flowSpecsTree && viewItem == flowSpec",
+          "group": "inline@1"
+        },
+        {
+          "command": "flow.dispatchTask",
+          "when": "view == flowSpecsTree && (viewItem == flowSpec || viewItem == flowChapter)",
+          "group": "inline@2"
+        }
+      ],
+      "comments/commentThread/context": [
+        {
+          "command": "flow.addSpecComment",
+          "when": "commentController == flowSpecReview && commentThreadIsEmpty",
+          "group": "inline"
+        },
+        {
+          "command": "flow.replySpecComment",
+          "when": "commentController == flowSpecReview && !commentThreadIsEmpty",
+          "group": "inline"
+        }
+      ],
+      "comments/commentThread/title": [
+        {
+          "command": "flow.resolveSpecComment",
+          "when": "commentController == flowSpecReview && commentThread == flowReviewOpen",
+          "group": "inline@1"
+        },
+        {
+          "command": "flow.reopenSpecComment",
+          "when": "commentController == flowSpecReview && commentThread == flowReviewResolved",
+          "group": "inline@1"
+        },
+        {
+          "command": "flow.reviseSpec",
+          "when": "commentController == flowSpecReview",
+          "group": "inline@2"
+        }
+      ]
+    },
     "configuration": {
       "title": "Flow Studio",
       "properties": {
@@ -111,11 +211,6 @@
           ],
           "default": "direct-workspace",
           "description": "Execution mode when dispatching Flow tasks to external CLI harnesses."
-        },
-        "flow.catalogDbPath": {
-          "type": "string",
-          "default": "",
-          "description": "Optional custom path for the derived local DuckDB Knowledge Catalog file."
         }
       }
     }

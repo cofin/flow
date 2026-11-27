@@ -101,15 +101,13 @@ record_recent_workspace() {
     if [ -n "$plugin_root" ] && [ -f "$plugin_root/vscode-extension/install.mjs" ] && command -v node >/dev/null 2>&1; then
       needs_ext_sync=0
       for ed_dir in "${HOME:-}/.vscode" "${HOME:-}/.vscode-insiders" "${HOME:-}/.cursor" "${HOME:-}/.windsurf" "${HOME:-}/.positron"; do
-        if [ -d "$ed_dir" ]; then
-          if [ ! -f "$ed_dir/extensions/extensions.json" ] || ! grep -q "cofin.flow-studio" "$ed_dir/extensions/extensions.json" 2>/dev/null; then
-            needs_ext_sync=1
-            break
-          fi
+        if [ -f "$ed_dir/extensions/extensions.json" ] && grep -q "cofin.flow-studio" "$ed_dir/extensions/extensions.json" 2>/dev/null; then
+          needs_ext_sync=1
+          break
         fi
       done
       if [ "$needs_ext_sync" -eq 1 ]; then
-        node "$plugin_root/vscode-extension/install.mjs" --if-needed --quiet >/dev/null 2>&1 || true
+        node "$plugin_root/vscode-extension/install.mjs" --if-needed --update-only --quiet >/dev/null 2>&1 || true
       fi
     fi
   fi
@@ -318,7 +316,7 @@ else
       BASE_MSG="$BASE_MSG Pending chapter review/Markdown sync: $PENDING_SYNC."
     fi
     if [ "$HARNESS" = "agy" ] || [ "$HARNESS" = "antigravity" ]; then
-      BASE_MSG="$BASE_MSG Flow Studio UI: [Open Flow Studio](sidecar://flow/studio/dashboard)."
+      BASE_MSG="$BASE_MSG Flow Studio UI: call flow_studio MCP tool (or open Flow Studio in Plugins)."
     else
       BASE_MSG="$BASE_MSG Flow Studio UI: npx --yes --package github:cofin/flow flow-studio."
     fi
